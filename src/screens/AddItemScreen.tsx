@@ -229,7 +229,7 @@ export default function AddItemScreen() {
 
   return (
     <>
-    <div className="min-h-screen bg-pt-bg pb-28">
+    <div className="flex flex-col min-h-full bg-pt-bg">
       {/* Header */}
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
         <button
@@ -467,8 +467,8 @@ export default function AddItemScreen() {
         )}
       </div>
 
-      {/* Sticky save button */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
+      {/* Save button — sticky to bottom of scroll container, sits above BottomNav */}
+      <div className="sticky bottom-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border mt-auto">
         <button
           onClick={() => !locationId ? setShowNoLocationWarning(true) : handleSave()}
           disabled={!canSave}
