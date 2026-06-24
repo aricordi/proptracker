@@ -43,8 +43,9 @@ export default function HealthScreen() {
   const noTags     = useMemo(() => items.filter(i => i.tags.length === 0), [items])
   const noPhoto    = useMemo(() => items.filter(i => !i.photoUrl), [items])
   const noLocation = useMemo(() => items.filter(i => !i.locationId), [items])
+  const damaged    = useMemo(() => items.filter(i => i.status === 'damaged'), [items])
 
-  const totalIssues = noTags.length + noPhoto.length + noLocation.length
+  const totalIssues = noTags.length + noPhoto.length + noLocation.length + damaged.length
 
   function handleExport() {
     const header = ['name','type','status','location','bin','tags','character','description','cost','whereToRebuy','photoUrl','createdAt']
@@ -145,6 +146,14 @@ export default function HealthScreen() {
               onTap={id => navigate(`/item/${id}/edit`)}
             />
           )}
+          {damaged.length > 0 && (
+            <FixitGroup
+              title={`Damaged — ${damaged.length} item${damaged.length !== 1 ? 's' : ''}`}
+              items={damaged}
+              onTap={id => navigate(`/item/${id}`)}
+              titleClassName="text-red-400"
+            />
+          )}
         </div>
 
         {/* AI usage */}
@@ -186,15 +195,16 @@ interface FixitGroupProps {
   title: string
   items: Item[]
   onTap: (id: string) => void
+  titleClassName?: string
 }
 
-function FixitGroup({ title, items, onTap }: FixitGroupProps) {
+function FixitGroup({ title, items, onTap, titleClassName }: FixitGroupProps) {
   const [expanded, setExpanded] = useState(false)
   const shown = expanded ? items : items.slice(0, 3)
 
   return (
     <div>
-      <p className="text-pt-text text-sm font-medium mb-1.5">{title}</p>
+      <p className={`text-sm font-medium mb-1.5 ${titleClassName ?? 'text-pt-text'}`}>{title}</p>
       <div className="space-y-1">
         {shown.map(item => (
           <button

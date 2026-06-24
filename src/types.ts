@@ -1,5 +1,5 @@
 export type ItemType = 'prop' | 'costume' | 'set-dressing' | 'gear';
-export type ItemStatus = 'available' | 'used' | 'damaged' | 'checked-out';
+export type ItemStatus = 'available' | 'damaged' | 'checked-out';
 
 export interface CheckedOutInfo {
   label: string;

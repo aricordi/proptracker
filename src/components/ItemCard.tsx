@@ -5,14 +5,12 @@ const STATUS_STYLES: Record<string, string> = {
   available:      'bg-green-500/20 text-green-400',
   'checked-out':  'bg-amber-500/20 text-amber-400',
   damaged:        'bg-red-500/20 text-red-400',
-  used:           'bg-stone-500/20 text-stone-400',
 }
 
 const STATUS_LABELS: Record<string, string> = {
   available:     'Available',
   'checked-out': 'Out',
   damaged:       'Damaged',
-  used:          'Used',
 }
 
 interface Props {

@@ -15,14 +15,12 @@ const STATUS_STYLES: Record<string, string> = {
   available:      'bg-green-500/20 text-green-400',
   'checked-out':  'bg-amber-500/20 text-amber-400',
   damaged:        'bg-red-500/20 text-red-400',
-  used:           'bg-stone-500/20 text-stone-400',
 }
 
 const STATUS_LABELS: Record<string, string> = {
   available:     'Available',
   'checked-out': 'Checked Out',
   damaged:       'Damaged',
-  used:          'Used',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -224,26 +222,20 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {/* Status quick-change (not shown if checked out — managed via checkout screen) */}
+        {/* Status toggle — not shown if checked out (managed via checkout screen) */}
         {item.status !== 'checked-out' && (
-          <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Mark as</p>
-            <div className="flex gap-2 flex-wrap">
-              {(['available', 'used', 'damaged'] as ItemStatus[]).map(s => (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  disabled={statusChanging}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors active:opacity-80 disabled:opacity-50 ${
-                    item.status === s
-                      ? 'bg-pt-accent text-stone-900'
-                      : 'bg-pt-surface border border-pt-border text-pt-muted'
-                  }`}
-                >
-                  {STATUS_LABELS[s]}
-                </button>
-              ))}
-            </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleStatusChange(item.status === 'damaged' ? 'available' : 'damaged')}
+              disabled={statusChanging}
+              className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors active:opacity-80 disabled:opacity-50 ${
+                item.status === 'damaged'
+                  ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                  : 'bg-pt-surface border-pt-border text-pt-muted'
+              }`}
+            >
+              {item.status === 'damaged' ? 'Mark as available' : 'Mark as damaged'}
+            </button>
           </div>
         )}
 
