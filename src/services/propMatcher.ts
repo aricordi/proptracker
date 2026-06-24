@@ -64,17 +64,25 @@ export async function matchProp(
 
 // Run matching for all physical props in a checklist, using cached embeddings
 // where available. Returns an updated props array with match data filled in.
+// onProgress fires before each prop is embedded so the UI can show a progress bar.
 export async function matchAllPhysicalProps(
   props: VideoChecklistProp[],
   inventoryItems: Item[],
+  onProgress?: (current: number, total: number, propName: string) => void,
 ): Promise<VideoChecklistProp[]> {
   const updated = [...props]
+
+  const needsMatch = updated.filter(p => p.type === 'physical' && !(p.propEmbedding && p.matchStatus))
+  const total = needsMatch.length
+  let matched = 0
 
   for (let i = 0; i < updated.length; i++) {
     const prop = updated[i]
     if (prop.type !== 'physical') continue
-    // Skip if already matched and embedding cached (re-open scenario)
     if (prop.propEmbedding && prop.matchStatus) continue
+
+    onProgress?.(matched, total, prop.name)
+    matched++
 
     const result = await matchProp(prop, inventoryItems, prop.propEmbedding ?? undefined)
     updated[i] = {

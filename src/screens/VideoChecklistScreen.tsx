@@ -46,6 +46,8 @@ export default function VideoChecklistScreen() {
   const [checklist, setChecklist] = useState<VideoChecklist | null>(null)
   const [loading, setLoading]     = useState(true)
   const [building, setBuilding]   = useState(false)
+  const [buildStep, setBuildStep]           = useState('')
+  const [buildProgress, setBuildProgress]   = useState(0)
   const [buildError, setBuildError]         = useState<string | null>(null)
   const [resyncing, setResyncing]           = useState(false)
   const [resyncSummary, setResyncSummary]   = useState<{ addedCount: number; removedCount: number } | null>(null)
@@ -72,13 +74,18 @@ export default function VideoChecklistScreen() {
     if (!folderId) return
     setBuilding(true)
     setBuildError(null)
+    setBuildStep('Reading manifest from Drive…')
+    setBuildProgress(5)
 
     try {
       const raw = await readPropManifest(token, folderId)
       if (!raw) {
-        setBuildError("No prop manifest found in this folder yet — generate one in Cowork first.")
+        setBuildError('no-manifest')
         return
       }
+
+      setBuildStep('Parsing props…')
+      setBuildProgress(15)
 
       const parsed = parseManifest(raw)
       if ('type' in parsed) {
@@ -88,8 +95,25 @@ export default function VideoChecklistScreen() {
 
       setParseWarnings(parsed.parseWarnings)
 
-      // Run matching for physical props
-      const matchedProps = await matchAllPhysicalProps(parsed.props, items)
+      const physicalCount = parsed.props.filter(p => p.type === 'physical').length
+      setBuildStep(physicalCount > 0
+        ? `Matching ${physicalCount} prop${physicalCount !== 1 ? 's' : ''} to your inventory…`
+        : 'Building checklist…'
+      )
+      setBuildProgress(20)
+
+      // Run matching for physical props, updating progress bar per-prop
+      const matchedProps = await matchAllPhysicalProps(
+        parsed.props,
+        items,
+        (current, total, propName) => {
+          setBuildStep(`Matching: ${propName}`)
+          setBuildProgress(20 + Math.round((current / total) * 70))
+        },
+      )
+
+      setBuildStep('Saving checklist…')
+      setBuildProgress(95)
 
       const now = new Date().toISOString()
 
@@ -212,10 +236,9 @@ export default function VideoChecklistScreen() {
         <Header title={folderName} onBack={() => navigate('/videos')} />
         <div className="p-6 space-y-4 text-center mt-10">
           {building ? (
-            <>
-              <LoadingSpinner />
-              <p className="text-pt-muted text-sm">Reading manifest & matching props…</p>
-            </>
+            <BuildProgress step={buildStep} progress={buildProgress} />
+          ) : buildError === 'no-manifest' ? (
+            <NoManifestMessage onRetry={getDriveToken() ? () => buildChecklist(getDriveToken()!) : undefined} />
           ) : buildError ? (
             <>
               <p className="text-amber-400 text-sm bg-amber-400/10 rounded-xl px-4 py-3">{buildError}</p>
@@ -790,10 +813,65 @@ function NewBadge() {
   )
 }
 
-function LoadingSpinner() {
+function BuildProgress({ step, progress }: { step: string; progress: number }) {
   return (
-    <div className="flex justify-center">
-      <div className="w-8 h-8 border-2 border-pt-border border-t-pt-accent rounded-full animate-spin" />
+    <div className="space-y-4 pt-4 px-2">
+      <div className="w-full bg-pt-border rounded-full h-1 overflow-hidden">
+        <div
+          className="h-full bg-pt-accent rounded-full transition-[width] duration-500 ease-out"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+      <p className="text-pt-muted text-sm text-center leading-relaxed min-h-[1.25rem] transition-opacity">
+        {step}
+      </p>
+    </div>
+  )
+}
+
+function NoManifestMessage({ onRetry }: { onRetry?: () => void }) {
+  const [showFormat, setShowFormat] = useState(false)
+  return (
+    <div className="space-y-3 text-left">
+      <p className="text-amber-400 text-sm bg-amber-400/10 rounded-xl px-4 py-3">
+        No <code className="font-mono text-xs bg-amber-400/20 px-1 py-0.5 rounded">prop-manifest.txt</code> found in this Drive folder.
+      </p>
+      <p className="text-pt-muted text-sm">
+        Create a file named <span className="font-mono text-xs text-pt-text bg-pt-surface px-1.5 py-0.5 rounded">prop-manifest.txt</span> inside this video's folder in Drive, then tap retry.
+      </p>
+      <button
+        onClick={() => setShowFormat(v => !v)}
+        className="text-pt-accent text-xs font-medium flex items-center gap-1 active:opacity-70"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`w-3.5 h-3.5 transition-transform ${showFormat ? 'rotate-90' : ''}`}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
+        </svg>
+        View expected format
+      </button>
+      {showFormat && (
+        <pre className="text-xs text-pt-muted bg-pt-surface border border-pt-border rounded-xl px-3 py-3 overflow-x-auto leading-relaxed whitespace-pre">{`version: 1
+title: My Video Title
+
+prop: Red microphone
+  type: physical
+  qty: 1
+  scene: Opening monologue
+
+prop: Floating logo
+  type: ai
+  scene: Intro sequence
+  physical_output: true
+
+prop: Giant cardboard sword
+  type: handmade
+  qty: 2
+  notes: Needs to look medieval`}</pre>
+      )}
+      {onRetry && (
+        <button onClick={onRetry} className="text-pt-accent text-sm font-medium active:opacity-70">
+          Retry
+        </button>
+      )}
     </div>
   )
 }
