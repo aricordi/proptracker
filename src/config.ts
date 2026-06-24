@@ -28,6 +28,6 @@ export const TAG_SIMILARITY_THRESHOLD = 3;
 // To add a third user later, add their UID in all three places.
 // ─────────────────────────────────────────────────────────────
 export const AUTHORIZED_UIDS: string[] = [
-  // 'PASTE_YOUR_UID_HERE',
+  'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
   // 'PASTE_KEANU_UID_HERE',
 ];

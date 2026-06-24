@@ -10,7 +10,7 @@ service cloud.firestore {
     // ─────────────────────────────────────────────────────────────
     function isAuthorized() {
       return request.auth != null && request.auth.uid in [
-        // 'PASTE_YOUR_UID_HERE',
+        'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
         // 'PASTE_KEANU_UID_HERE',
       ];
     }
