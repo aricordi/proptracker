@@ -29,7 +29,7 @@ export const TAG_SIMILARITY_THRESHOLD = 3;
 // ─────────────────────────────────────────────────────────────
 export const AUTHORIZED_UIDS: string[] = [
   'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
-  // 'PASTE_KEANU_UID_HERE',
+  'Rg8qfcH0o1U8MxpSaNUWCIn29e73',  // keanu
 ];
 
 // ─────────────────────────────────────────────────────────────
