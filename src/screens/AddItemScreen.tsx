@@ -1,16 +1,16 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
-import { getDocs, collection } from 'firebase/firestore'
+import { getDocs, getDoc, collection, doc } from 'firebase/firestore'
 import { auth, storage, db } from '../firebase'
-import { addItem } from '../services/items'
-import { getOrCreateTag, incrementTagUsage } from '../services/tags'
+import { addItem, updateItem } from '../services/items'
+import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useTags } from '../hooks/useTags'
 import PhotoPicker from '../components/PhotoPicker'
 import TagInput from '../components/TagInput'
-import type { ItemType } from '../types'
+import type { Item, ItemType } from '../types'
 
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
   { value: 'prop', label: 'Prop' },
@@ -22,6 +22,9 @@ const ITEM_TYPES: { value: ItemType; label: string }[] = [
 export default function AddItemScreen() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { id: editId } = useParams<{ id: string }>()
+  const isEditMode = !!editId
+
   const locations = useLocations()
   const bins = useBins()
   const tags = useTags()
@@ -45,6 +48,49 @@ export default function AddItemScreen() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // For edit mode: original tag IDs to compute delta on save
+  const [originalTagIds, setOriginalTagIds] = useState<string[]>([])
+  const [loadingItem, setLoadingItem] = useState(isEditMode)
+  const [editItem, setEditItem] = useState<Item | null>(null)
+  const tagsInitialized = useRef(false)
+
+  // Load existing item when in edit mode
+  useEffect(() => {
+    if (!editId) return
+    getDoc(doc(db, 'items', editId)).then(d => {
+      if (!d.exists()) { setLoadingItem(false); return }
+      const data = { id: d.id, ...d.data() } as Item
+      setEditItem(data)
+      setOriginalTagIds(data.tags)
+      setName(data.name)
+      setItemType(data.itemType)
+      setLocationId(data.locationId ?? '')
+      setBinId(data.binId ?? '')
+      setCharacter(data.character ?? '')
+      setDescription(data.description ?? '')
+      setCost(data.cost != null ? String(data.cost) : '')
+      setWhereToRebuy(data.whereToRebuy ?? '')
+      if (data.photoUrl) {
+        setPhotoPreview(data.photoUrl)
+        setPhotoUrl(data.photoUrl)
+      }
+      if (data.description || data.cost != null || data.whereToRebuy) setShowMore(true)
+      setLoadingItem(false)
+    }).catch(() => setLoadingItem(false))
+  }, [editId])
+
+  // Convert tag IDs → labels once both editItem and tags are ready
+  useEffect(() => {
+    if (!editItem || tagsInitialized.current) return
+    if (tags.length === 0 && editItem.tags.length > 0) return
+    tagsInitialized.current = true
+    setTagLabels(
+      editItem.tags
+        .map(tagId => tags.find(t => t.id === tagId)?.label)
+        .filter((l): l is string => !!l)
+    )
+  }, [editItem, tags])
 
   // Load unique character values from existing items for autocomplete
   useEffect(() => {
@@ -87,24 +133,46 @@ export default function AddItemScreen() {
     setSaving(true)
     setError(null)
     try {
-      const tagIds = await Promise.all(tagLabels.map(l => getOrCreateTag(l, tags)))
-      await Promise.all(tagIds.map(id => incrementTagUsage(id)))
+      const newTagIds = await Promise.all(tagLabels.map(l => getOrCreateTag(l, tags)))
 
-      await addItem({
-        name: trimmedName,
-        photoUrl: photoUrl ?? undefined,
-        description: description.trim() || undefined,
-        tags: tagIds,
-        character: character.trim() || undefined,
-        itemType,
-        locationId: locationId || undefined,
-        binId: binId || undefined,
-        status: 'available',
-        whereToRebuy: whereToRebuy.trim() || undefined,
-        cost: cost ? parseFloat(cost) : undefined,
-        embedding: undefined,
-      })
-      navigate('/')
+      if (isEditMode && editId) {
+        const addedIds   = newTagIds.filter(id => !originalTagIds.includes(id))
+        const removedIds = originalTagIds.filter(id => !newTagIds.includes(id))
+        await Promise.all([
+          ...addedIds.map(id => incrementTagUsage(id)),
+          ...removedIds.map(id => decrementTagUsage(id)),
+        ])
+        await updateItem(editId, {
+          name: trimmedName,
+          photoUrl: photoUrl ?? undefined,
+          description: description.trim() || undefined,
+          tags: newTagIds,
+          character: character.trim() || undefined,
+          itemType,
+          locationId: locationId || undefined,
+          binId: binId || undefined,
+          whereToRebuy: whereToRebuy.trim() || undefined,
+          cost: cost ? parseFloat(cost) : undefined,
+        })
+        navigate(`/item/${editId}`, { replace: true })
+      } else {
+        await Promise.all(newTagIds.map(id => incrementTagUsage(id)))
+        await addItem({
+          name: trimmedName,
+          photoUrl: photoUrl ?? undefined,
+          description: description.trim() || undefined,
+          tags: newTagIds,
+          character: character.trim() || undefined,
+          itemType,
+          locationId: locationId || undefined,
+          binId: binId || undefined,
+          status: 'available',
+          whereToRebuy: whereToRebuy.trim() || undefined,
+          cost: cost ? parseFloat(cost) : undefined,
+          embedding: undefined,
+        })
+        navigate('/')
+      }
     } catch {
       setError('Save failed — check your connection and try again.')
     } finally {
@@ -118,6 +186,14 @@ export default function AddItemScreen() {
 
   const canSave = !!name.trim() && !saving && uploadProgress === null
 
+  if (loadingItem) {
+    return (
+      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
+        <p className="text-pt-muted text-sm">Loading…</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-pt-bg pb-28">
       {/* Header */}
@@ -128,7 +204,9 @@ export default function AddItemScreen() {
         >
           Cancel
         </button>
-        <h1 className="font-display text-lg text-pt-text">Add Item</h1>
+        <h1 className="font-display text-lg text-pt-text">
+          {isEditMode ? 'Edit Item' : 'Add Item'}
+        </h1>
         <div className="w-14" />
       </div>
 
@@ -145,7 +223,7 @@ export default function AddItemScreen() {
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="What is it? *"
-          autoFocus
+          autoFocus={!isEditMode}
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3.5 text-pt-text text-lg placeholder-pt-muted focus:outline-none focus:border-pt-accent"
         />
 
@@ -300,7 +378,7 @@ export default function AddItemScreen() {
             ? 'Saving…'
             : uploadProgress !== null
               ? `Uploading photo… ${Math.round(uploadProgress)}%`
-              : 'Save Item'}
+              : isEditMode ? 'Save Changes' : 'Save Item'}
         </button>
       </div>
     </div>

@@ -9,6 +9,7 @@ import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 import HomeScreen from './screens/HomeScreen'
 import AddItemScreen from './screens/AddItemScreen'
+import ItemDetailScreen from './screens/ItemDetailScreen'
 import BinsScreen from './screens/BinsScreen'
 import BinQrScreen from './screens/BinQrScreen'
 import LocationsScreen from './screens/LocationsScreen'
@@ -54,8 +55,10 @@ export default function App() {
 
   return (
     <Routes>
-      {/* QR scan route: outside the shell so it gets full screen */}
+      {/* Full-screen routes outside the shell */}
       <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
+      <Route path="/item/:id" element={<ItemDetailScreen />} />
+      <Route path="/item/:id/edit" element={<AddItemScreen />} />
 
       <Route element={<ShellLayout />}>
         <Route path="/" element={<HomeScreen />} />
