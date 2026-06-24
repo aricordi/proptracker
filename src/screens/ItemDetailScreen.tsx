@@ -173,7 +173,7 @@ export default function ItemDetailScreen() {
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags</p>
             <div className="flex flex-wrap gap-1.5">
               {item.tags.map(tagId => tagById[tagId] && (
-                <span key={tagId} className="text-sm bg-pt-border text-pt-muted px-3 py-1 rounded-full">
+                <span key={tagId} className="text-sm bg-violet-500/20 text-violet-300 px-3 py-1 rounded-full">
                   {tagById[tagId].label}
                 </span>
               ))}
@@ -188,11 +188,11 @@ export default function ItemDetailScreen() {
             <div className="flex flex-wrap gap-1.5">
               {item.characters && item.characters.length > 0
                 ? item.characters.map(id => (
-                    <span key={id} className="text-sm bg-pt-border text-pt-muted px-3 py-1 rounded-full">
+                    <span key={id} className="text-sm bg-sky-500/20 text-sky-300 px-3 py-1 rounded-full">
                       {characterById[id]?.label ?? id}
                     </span>
                   ))
-                : <span className="text-sm bg-pt-border text-pt-muted px-3 py-1 rounded-full">{item.character}</span>
+                : <span className="text-sm bg-sky-500/20 text-sky-300 px-3 py-1 rounded-full">{item.character}</span>
               }
             </div>
           </div>
