@@ -14,12 +14,17 @@ export default function TagInput({ value, onChange, suggestions }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const filtered = useMemo(() => {
-    if (!input.trim()) return []
+    if (!input.trim()) {
+      return [...suggestions]
+        .sort((a, b) => b.usageCount - a.usageCount)
+        .filter(t => !value.some(v => normalizeTag(v) === t.normalizedKey))
+        .slice(0, 8)
+    }
     const q = input.toLowerCase()
     return suggestions
       .filter(t => t.label.toLowerCase().includes(q) || t.normalizedKey.includes(normalizeTag(q)))
       .slice(0, 6)
-  }, [input, suggestions])
+  }, [input, suggestions, value])
 
   function addTag(raw: string) {
     const label = raw.trim().replace(/,$/, '')

@@ -55,11 +55,16 @@ export async function analyzeItemPhoto(file: File): Promise<PhotoAnalysis> {
             {
               text: `This item belongs to a prop/costume/set-dressing inventory for a YouTube horror-mystery channel.
 Return a JSON object with exactly two fields:
-- "tags": array of 4–7 lowercase hyphenated inventory tags (material, colour, style, category)
+- "tags": array of 4–8 lowercase hyphenated inventory tags that will help find this item later.
+  Cover what it IS (e.g. candelabra, hooded-cloak, spell-book, dagger, lantern, potion-bottle),
+  visual look (colour, material, condition — e.g. black, wooden, distressed, aged, fake-blood),
+  aesthetic (gothic, occult, victorian, vintage, rustic, modern), and
+  how it is used (hero-prop, wearable, handheld, background, set-dressing).
+  Prefer specific concrete nouns. Skip vague or obvious tags.
 - "description": one sentence (max 20 words) describing what this item looks like
 
 Output ONLY the JSON — no markdown, no explanation.
-Example: {"tags":["black-cloak","hooded","full-length","fabric"],"description":"A full-length hooded black fabric cloak with a front clasp."}`,
+Example: {"tags":["hooded-cloak","full-length","black","fabric","gothic","wearable"],"description":"A full-length hooded black fabric cloak with a front clasp."}`,
             },
             { inlineData: { mimeType: 'image/jpeg', data: base64 } },
           ],
