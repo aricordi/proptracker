@@ -53,21 +53,13 @@ export async function analyzeItemPhoto(file: File): Promise<PhotoAnalysis> {
         contents: [{
           parts: [
             {
-              text: `This item belongs to a prop/costume/set-dressing inventory for a YouTube horror-mystery channel.
+              text: `This item is in a prop and costume inventory for a YouTube channel.
 Return a JSON object with exactly two fields:
-- "tags": array of 5–8 lowercase hyphenated tags that help a director find this item when planning a scene.
-  Build the tags in this priority order:
-  1. What the item IS — one clear noun tag (e.g. microphone, trench-coat, spell-book, candlestick, evidence-bag)
-  2. What SCENE or SET it belongs in (e.g. interrogation-room, haunted-attic, crime-scene, occult-ritual, seance, detective-office, gothic-library)
-  3. GENRE or THEME it suggests (e.g. detective-noir, supernatural, folk-horror, gothic, mystery, thriller, psychological-horror)
-  4. MOOD or TONE it carries (e.g. ominous, eerie, tense, unsettling, sinister, atmospheric, menacing, melancholic)
-  5. ERA or AESTHETIC style (e.g. modern, vintage, victorian, 1920s, industrial, rustic)
-  6. How it is USED in a scene (e.g. hero-prop, wearable, handheld, background, set-dressing)
-  Skip colour and material unless they are thematically significant (e.g. blood-red, tarnished).
+- "tags": array of 5–8 lowercase single-word or hyphenated tags that describe this item naturally — the kind of words someone would type when searching for it. Include: what the item is, what it is used for or associated with, obvious descriptors like colour or style. Keep tags simple and practical.
 - "description": one sentence (max 20 words) describing what this item looks like
 
 Output ONLY the JSON — no markdown, no explanation.
-Example: {"tags":["hooded-cloak","occult-ritual","gothic","ominous","wearable","hero-prop"],"description":"A full-length hooded black fabric cloak with a front clasp."}`,
+Example: {"tags":["microphone","sound","handheld","singing","music","black","vocals"],"description":"A black handheld dynamic microphone with a metal grille."}`,
             },
             { inlineData: { mimeType: 'image/jpeg', data: base64 } },
           ],
