@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useLocation, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from '../firebase'
@@ -157,13 +157,18 @@ export default function VideoChecklistScreen() {
     }
   }, [folderId, items, checklist, folderName])
 
-  // Auto-build if no saved checklist and owner has Drive token
+  // Auto-build fires at most once per mount. Using a ref so a failed build
+  // (no manifest, bad token, etc.) doesn't loop — the user retries manually.
+  const hasAutoBuild = useRef(false)
   useEffect(() => {
-    if (!loading && !checklist && isOwner && !building) {
+    if (!loading && !checklist && isOwner && !hasAutoBuild.current) {
       const token = getDriveToken()
-      if (token) buildChecklist(token)
+      if (token) {
+        hasAutoBuild.current = true
+        buildChecklist(token)
+      }
     }
-  }, [loading, checklist, isOwner, building])
+  }, [loading, checklist, isOwner])
 
   // ─── Re-sync ────────────────────────────────────────────────────────────────
 
