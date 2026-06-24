@@ -165,6 +165,7 @@ export default function HomeScreen() {
             key={item.id}
             item={item}
             tagById={tagById}
+            characterById={characterById}
             locationById={locationById}
             binById={binById}
           />
@@ -183,6 +184,7 @@ export default function HomeScreen() {
                 key={item.id}
                 item={item}
                 tagById={tagById}
+                characterById={characterById}
                 locationById={locationById}
                 binById={binById}
               />

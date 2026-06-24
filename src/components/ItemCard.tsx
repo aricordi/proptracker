@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import type { Item, Tag, Location, Bin } from '../types'
+import type { Item, Tag, Character, Location, Bin } from '../types'
 
 const STATUS_STYLES: Record<string, string> = {
   available:      'bg-green-500/20 text-green-400',
@@ -18,11 +18,12 @@ const STATUS_LABELS: Record<string, string> = {
 interface Props {
   item: Item
   tagById: Record<string, Tag>
+  characterById: Record<string, Character>
   locationById: Record<string, Location>
   binById: Record<string, Bin>
 }
 
-export default function ItemCard({ item, tagById, locationById, binById }: Props) {
+export default function ItemCard({ item, tagById, characterById, locationById, binById }: Props) {
   const navigate = useNavigate()
   const location = item.locationId ? locationById[item.locationId] : null
   const bin = item.binId ? binById[item.binId] : null
@@ -57,7 +58,7 @@ export default function ItemCard({ item, tagById, locationById, binById }: Props
           <p className="text-pt-muted text-xs truncate mb-1">{locationPath}</p>
         )}
 
-        {item.tags.length > 0 && (
+        {(item.tags.length > 0 || (item.characters ?? []).length > 0) && (
           <div className="flex flex-wrap gap-1">
             {item.tags.slice(0, 3).map(id => tagById[id] && (
               <span key={id} className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
@@ -67,6 +68,11 @@ export default function ItemCard({ item, tagById, locationById, binById }: Props
             {item.tags.length > 3 && (
               <span className="text-xs text-violet-400">+{item.tags.length - 3}</span>
             )}
+            {(item.characters ?? []).slice(0, 2).map(id => (
+              <span key={id} className="text-xs bg-sky-500/20 text-sky-300 px-2 py-0.5 rounded-full">
+                {characterById[id]?.label ?? id}
+              </span>
+            ))}
           </div>
         )}
       </div>
