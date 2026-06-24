@@ -173,8 +173,9 @@ export default function AddItemScreen() {
         })
         navigate('/')
       }
-    } catch {
-      setError('Save failed — check your connection and try again.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(`Save failed: ${msg}`)
     } finally {
       setSaving(false)
     }
