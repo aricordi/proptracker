@@ -3,7 +3,7 @@ import { db } from '../firebase'
 
 const API_KEY  = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const TAGGING_MODEL   = 'gemini-1.5-flash-latest'
+const TAGGING_MODEL   = 'gemini-2.5-flash-lite'
 const EMBEDDING_MODEL = 'text-embedding-004'
 
 export interface PhotoAnalysis {
