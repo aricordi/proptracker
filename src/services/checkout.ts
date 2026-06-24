@@ -28,10 +28,11 @@ export async function createCheckout(label: string, itemIds: string[]) {
   ))
 }
 
-export async function returnCheckout(checkout: ActiveCheckout) {
+// Returns a subset of items. Deletes the checkout when the last item is returned.
+export async function returnItems(checkout: ActiveCheckout, itemIdsToReturn: string[]) {
   const now = new Date().toISOString()
   const uid = auth.currentUser!.uid
-  await Promise.all(checkout.itemIds.map(id =>
+  await Promise.all(itemIdsToReturn.map(id =>
     updateDoc(doc(db, 'items', id), {
       status: 'available',
       checkedOutInfo: deleteField(),
@@ -39,5 +40,14 @@ export async function returnCheckout(checkout: ActiveCheckout) {
       updatedBy: uid,
     })
   ))
-  await deleteDoc(doc(col, checkout.id))
+  const remaining = checkout.itemIds.filter(id => !itemIdsToReturn.includes(id))
+  if (remaining.length === 0) {
+    await deleteDoc(doc(col, checkout.id))
+  } else {
+    await updateDoc(doc(col, checkout.id), { itemIds: remaining })
+  }
+}
+
+export async function returnCheckout(checkout: ActiveCheckout) {
+  return returnItems(checkout, checkout.itemIds)
 }

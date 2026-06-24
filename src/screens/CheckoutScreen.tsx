@@ -3,9 +3,11 @@ import { useItems } from '../hooks/useItems'
 import { useCheckouts } from '../hooks/useCheckouts'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
-import { createCheckout, returnCheckout } from '../services/checkout'
+import { createCheckout, returnItems } from '../services/checkout'
 import BottomSheet from '../components/BottomSheet'
 import type { ActiveCheckout } from '../types'
+
+type ReturnConfirm = { checkout: ActiveCheckout; mode: 'all' | 'selected' }
 
 export default function CheckoutScreen() {
   const items     = useItems()
@@ -13,29 +15,42 @@ export default function CheckoutScreen() {
   const locations = useLocations()
   const bins      = useBins()
 
-  const [showNewSheet, setShowNewSheet]   = useState(false)
-  const [label, setLabel]                 = useState('')
-  const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set())
-  const [saving, setSaving]               = useState(false)
-  const [saveError, setSaveError]         = useState<string | null>(null)
+  // New checkout sheet
+  const [showNewSheet, setShowNewSheet] = useState(false)
+  const [label, setLabel]               = useState('')
+  const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set())
+  const [saving, setSaving]             = useState(false)
+  const [saveError, setSaveError]       = useState<string | null>(null)
 
-  const [returningId, setReturningId]     = useState<string | null>(null)
+  // Per-checkout item selection for partial returns
+  const [checkedByCheckout, setCheckedByCheckout] = useState<Record<string, Set<string>>>({})
+
+  // Return confirmation
+  const [returnConfirm, setReturnConfirm] = useState<ReturnConfirm | null>(null)
   const [returning, setReturning]         = useState(false)
 
-  const itemById      = useMemo(() => Object.fromEntries(items.map(i => [i.id, i])), [items])
-  const locationById  = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
-  const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
+  const itemById     = useMemo(() => Object.fromEntries(items.map(i => [i.id, i])), [items])
+  const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
+  const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
   const checkoutCandidates = useMemo(
     () => items.filter(i => i.status !== 'checked-out').sort((a, b) => a.name.localeCompare(b.name)),
     [items],
   )
 
-  function toggleItem(id: string) {
+  function toggleNewItem(id: string) {
     setSelectedIds(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
       return next
+    })
+  }
+
+  function toggleCheckedItem(checkoutId: string, itemId: string) {
+    setCheckedByCheckout(prev => {
+      const set = new Set(prev[checkoutId] ?? [])
+      set.has(itemId) ? set.delete(itemId) : set.add(itemId)
+      return { ...prev, [checkoutId]: set }
     })
   }
 
@@ -60,13 +75,24 @@ export default function CheckoutScreen() {
     }
   }
 
-  async function handleReturn(checkout: ActiveCheckout) {
+  async function handleReturn() {
+    if (!returnConfirm) return
+    const { checkout, mode } = returnConfirm
+    const idsToReturn = mode === 'all'
+      ? checkout.itemIds
+      : Array.from(checkedByCheckout[checkout.id] ?? [])
+    if (idsToReturn.length === 0) return
     setReturning(true)
     try {
-      await returnCheckout(checkout)
-      setReturningId(null)
+      await returnItems(checkout, idsToReturn)
+      setCheckedByCheckout(prev => {
+        const next = { ...prev }
+        delete next[checkout.id]
+        return next
+      })
+      setReturnConfirm(null)
     } catch {
-      // silent — items will stay checked-out on error
+      // silent — items stay checked-out on error
     } finally {
       setReturning(false)
     }
@@ -94,14 +120,15 @@ export default function CheckoutScreen() {
           <div className="text-center mt-16">
             <p className="text-pt-muted text-sm leading-relaxed">
               Nothing is checked out right now.<br />
-              Tap <strong className="text-pt-text">New Checkout</strong> to log items leaving the storage.
+              Tap <strong className="text-pt-text">New</strong> to log items leaving storage.
             </p>
           </div>
         )}
 
         {checkouts.map(checkout => {
           const checkoutItems = checkout.itemIds.map(id => itemById[id]).filter(Boolean)
-          const isConfirming  = returningId === checkout.id
+          const checked       = checkedByCheckout[checkout.id] ?? new Set<string>()
+          const checkedCount  = checked.size
 
           return (
             <div key={checkout.id} className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
@@ -119,15 +146,32 @@ export default function CheckoutScreen() {
                 </span>
               </div>
 
-              {/* Item list */}
+              {/* Item list — tap to select for partial return */}
               {checkoutItems.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {checkoutItems.map(item => {
-                    const loc  = item.locationId ? locationById[item.locationId] : null
-                    const bin  = item.binId ? binById[item.binId] : null
-                    const path = [loc?.name, bin?.label].filter(Boolean).join(' › ')
+                    const loc       = item.locationId ? locationById[item.locationId] : null
+                    const bin       = item.binId ? binById[item.binId] : null
+                    const path      = [loc?.name, bin?.label].filter(Boolean).join(' › ')
+                    const isChecked = checked.has(item.id)
                     return (
-                      <div key={item.id} className="flex items-center gap-2.5">
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => toggleCheckedItem(checkout.id, item.id)}
+                        className={`w-full flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors active:opacity-70 ${
+                          isChecked ? 'bg-green-500/10' : ''
+                        }`}
+                      >
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isChecked ? 'bg-green-500 border-green-500' : 'border-pt-border'
+                        }`}>
+                          {isChecked && (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-3 h-3 text-white">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                          )}
+                        </div>
                         <div className="w-8 h-8 rounded-lg bg-pt-border overflow-hidden shrink-0 flex items-center justify-center">
                           {item.photoUrl
                             ? <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
@@ -137,49 +181,75 @@ export default function CheckoutScreen() {
                           }
                         </div>
                         <div className="min-w-0">
-                          <p className="text-pt-text text-sm leading-tight truncate">{item.name}</p>
+                          <p className={`text-sm leading-tight truncate ${isChecked ? 'text-green-400' : 'text-pt-text'}`}>
+                            {item.name}
+                          </p>
                           {path && <p className="text-pt-muted text-xs truncate">{path}</p>}
                         </div>
-                      </div>
+                      </button>
                     )
                   })}
                 </div>
               )}
 
-              {/* Return button / confirm */}
-              {!isConfirming ? (
+              {/* Return buttons */}
+              <div className="space-y-2">
+                {checkedCount > 0 && (
+                  <button
+                    onClick={() => setReturnConfirm({ checkout, mode: 'selected' })}
+                    className="w-full py-2.5 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium active:opacity-70"
+                  >
+                    Return {checkedCount} selected item{checkedCount !== 1 ? 's' : ''}
+                  </button>
+                )}
                 <button
-                  onClick={() => setReturningId(checkout.id)}
+                  onClick={() => setReturnConfirm({ checkout, mode: 'all' })}
                   className="w-full py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm active:opacity-70"
                 >
                   Return All
                 </button>
-              ) : (
-                <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 space-y-2.5">
-                  <p className="text-pt-text text-sm font-medium">
-                    Mark all {checkoutItems.length} item{checkoutItems.length !== 1 ? 's' : ''} as returned?
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setReturningId(null)}
-                      className="flex-1 py-2 rounded-xl border border-pt-border text-pt-muted text-sm active:opacity-70"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={() => handleReturn(checkout)}
-                      disabled={returning}
-                      className="flex-1 py-2 rounded-xl bg-green-500/20 text-green-400 text-sm font-medium active:opacity-70 disabled:opacity-40"
-                    >
-                      {returning ? 'Returning…' : 'Yes, Return'}
-                    </button>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
           )
         })}
       </div>
+
+      {/* Return confirmation overlay */}
+      {returnConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !returning && setReturnConfirm(null)} />
+          <div className="relative w-full bg-pt-surface rounded-t-2xl p-6 space-y-4">
+            <p className="text-pt-text font-semibold">
+              {returnConfirm.mode === 'all'
+                ? `Return all ${returnConfirm.checkout.itemIds.length} item${returnConfirm.checkout.itemIds.length !== 1 ? 's' : ''}?`
+                : `Return ${(checkedByCheckout[returnConfirm.checkout.id]?.size ?? 0)} selected item${(checkedByCheckout[returnConfirm.checkout.id]?.size ?? 0) !== 1 ? 's' : ''}?`
+              }
+            </p>
+            <p className="text-pt-muted text-sm">
+              {returnConfirm.mode === 'all'
+                ? 'All items will be marked as available.'
+                : 'Selected items will be marked as available. The rest stay checked out.'
+              }
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setReturnConfirm(null)}
+                disabled={returning}
+                className="flex-1 py-3.5 rounded-2xl border border-pt-border text-pt-muted font-medium active:opacity-70 disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReturn}
+                disabled={returning}
+                className="flex-1 py-3.5 rounded-2xl bg-green-500/20 text-green-400 font-semibold active:opacity-70 disabled:opacity-40"
+              >
+                {returning ? 'Returning…' : 'Yes, Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Checkout sheet */}
       <BottomSheet open={showNewSheet} onClose={() => setShowNewSheet(false)} title="New Checkout">
@@ -207,28 +277,25 @@ export default function CheckoutScreen() {
                   const loc     = item.locationId ? locationById[item.locationId] : null
                   const bin     = item.binId ? binById[item.binId] : null
                   const path    = [loc?.name, bin?.label].filter(Boolean).join(' › ')
-                  const checked = selectedIds.has(item.id)
+                  const chk     = selectedIds.has(item.id)
                   return (
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => toggleItem(item.id)}
+                      onClick={() => toggleNewItem(item.id)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
-                        checked ? 'bg-pt-accent/10 border border-pt-accent/30' : 'bg-pt-bg border border-transparent'
+                        chk ? 'bg-pt-accent/10 border border-pt-accent/30' : 'bg-pt-bg border border-transparent'
                       }`}
                     >
-                      {/* Checkbox */}
                       <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        checked ? 'bg-pt-accent border-pt-accent' : 'border-pt-border'
+                        chk ? 'bg-pt-accent border-pt-accent' : 'border-pt-border'
                       }`}>
-                        {checked && (
+                        {chk && (
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} className="w-3 h-3 text-stone-900">
                             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                           </svg>
                         )}
                       </div>
-
-                      {/* Thumbnail */}
                       <div className="w-9 h-9 rounded-lg bg-pt-border overflow-hidden shrink-0 flex items-center justify-center">
                         {item.photoUrl
                           ? <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
@@ -237,8 +304,6 @@ export default function CheckoutScreen() {
                             </svg>
                         }
                       </div>
-
-                      {/* Info */}
                       <div className="min-w-0">
                         <p className="text-pt-text text-sm leading-tight truncate">{item.name}</p>
                         {path && <p className="text-pt-muted text-xs truncate">{path}</p>}
