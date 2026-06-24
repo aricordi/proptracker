@@ -6,6 +6,11 @@ const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const TAGGING_MODEL   = 'gemini-2.0-flash-lite'
 const EMBEDDING_MODEL = 'text-embedding-004'
 
+export interface PhotoAnalysis {
+  tags: string[]
+  description: string | null
+}
+
 // Resize to ≤1024px and return base64 JPEG — keeps Gemini request small
 function resizeToBase64(file: File, maxPx = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -34,39 +39,52 @@ function trackUsage(field: 'taggingCalls' | 'embeddingCalls') {
     .catch(() => {})
 }
 
-export async function suggestTagsFromImage(file: File): Promise<string[]> {
-  if (!API_KEY) return []
-  try {
-    const base64 = await resizeToBase64(file)
-    const res = await fetch(
-      `${BASE_URL}/models/${TAGGING_MODEL}:generateContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                text: 'This item belongs to a prop/costume inventory for a YouTube horror-mystery channel. Suggest 4–7 short inventory tags. Output ONLY a JSON array of lowercase hyphenated strings, nothing else. Example: ["black-cloak","wool","full-length","costume"]',
-              },
-              { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-            ],
-          }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 120 },
-        }),
-      },
-    )
-    if (!res.ok) return []
-    const json = await res.json()
-    const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-    const match = text.match(/\[[\s\S]*?\]/)
-    if (!match) return []
-    const tags = JSON.parse(match[0]) as unknown[]
-    trackUsage('taggingCalls')
-    return tags.filter((t): t is string => typeof t === 'string').slice(0, 8)
-  } catch {
-    return []
+// Returns tags + description from a single Gemini call. Throws on failure so
+// the caller can show an error and offer a retry.
+export async function analyzeItemPhoto(file: File): Promise<PhotoAnalysis> {
+  if (!API_KEY) throw new Error('No API key configured')
+  const base64 = await resizeToBase64(file)
+  const res = await fetch(
+    `${BASE_URL}/models/${TAGGING_MODEL}:generateContent?key=${API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            {
+              text: `This item belongs to a prop/costume/set-dressing inventory for a YouTube horror-mystery channel.
+Return a JSON object with exactly two fields:
+- "tags": array of 4–7 lowercase hyphenated inventory tags (material, colour, style, category)
+- "description": one sentence (max 20 words) describing what this item looks like
+
+Output ONLY the JSON — no markdown, no explanation.
+Example: {"tags":["black-cloak","hooded","full-length","fabric"],"description":"A full-length hooded black fabric cloak with a front clasp."}`,
+            },
+            { inlineData: { mimeType: 'image/jpeg', data: base64 } },
+          ],
+        }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 200 },
+      }),
+    },
+  )
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Gemini ${res.status}: ${body.slice(0, 120)}`)
   }
+  const json = await res.json()
+  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  // Strip any markdown fences Gemini might add
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+  const match = clean.match(/\{[\s\S]*\}/)
+  if (!match) throw new Error(`Unexpected response: ${clean.slice(0, 80)}`)
+  const parsed = JSON.parse(match[0]) as Record<string, unknown>
+  const tags = Array.isArray(parsed.tags)
+    ? (parsed.tags as unknown[]).filter((t): t is string => typeof t === 'string').slice(0, 8)
+    : []
+  const description = typeof parsed.description === 'string' ? parsed.description : null
+  trackUsage('taggingCalls')
+  return { tags, description }
 }
 
 export async function generateEmbedding(text: string): Promise<number[] | null> {

@@ -5,7 +5,8 @@ import { getDocs, getDoc, collection, doc } from 'firebase/firestore'
 import { auth, storage, db } from '../firebase'
 import { addItem, updateItem } from '../services/items'
 import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
-import { suggestTagsFromImage, generateEmbedding } from '../services/ai'
+import { analyzeItemPhoto, generateEmbedding } from '../services/ai'
+import type { PhotoAnalysis } from '../services/ai'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useTags } from '../hooks/useTags'
@@ -50,8 +51,10 @@ export default function AddItemScreen() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [suggestedTags, setSuggestedTags]   = useState<string[]>([])
-  const [taggingLoading, setTaggingLoading] = useState(false)
+  const [aiResult, setAiResult]     = useState<PhotoAnalysis | null>(null)
+  const [aiLoading, setAiLoading]   = useState(false)
+  const [aiError, setAiError]       = useState<string | null>(null)
+  const lastFileRef                 = useRef<File | null>(null)
 
   // For edit mode: original tag IDs to compute delta on save
   const [originalTagIds, setOriginalTagIds] = useState<string[]>([])
@@ -110,12 +113,26 @@ export default function AddItemScreen() {
 
   const filteredBins = bins.filter(b => b.locationId === locationId)
 
+  function runAnalysis(file: File) {
+    lastFileRef.current = file
+    setAiResult(null)
+    setAiError(null)
+    setAiLoading(true)
+    analyzeItemPhoto(file)
+      .then(result => {
+        setAiResult(result)
+        // Auto-expand More Details if a description was suggested and field is empty
+        if (result.description) setShowMore(true)
+      })
+      .catch(err => setAiError(err instanceof Error ? err.message : 'Analysis failed'))
+      .finally(() => setAiLoading(false))
+  }
+
   function handleFileSelected(file: File) {
     const preview = URL.createObjectURL(file)
     setPhotoPreview(preview)
     setPhotoUrl(null)
     setUploadProgress(0)
-    setSuggestedTags([])
 
     const uid = auth.currentUser?.uid ?? 'unknown'
     const fileRef = storageRef(storage, `items/${uid}/${Date.now()}_${file.name}`)
@@ -131,11 +148,7 @@ export default function AddItemScreen() {
       }),
     )
 
-    // AI tag suggestions — non-blocking, degrades silently if API unavailable
-    setTaggingLoading(true)
-    suggestTagsFromImage(file)
-      .then(tags => setSuggestedTags(tags))
-      .finally(() => setTaggingLoading(false))
+    runAnalysis(file)
   }
 
   async function handleSave() {
@@ -237,6 +250,72 @@ export default function AddItemScreen() {
           onFileSelected={handleFileSelected}
         />
 
+        {/* AI analysis card — visible as soon as photo is picked */}
+        {photoPreview && (aiLoading || aiResult || aiError) && (
+          <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+            {aiLoading && (
+              <div className="flex items-center gap-2 text-pt-muted text-sm">
+                <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+                Analyzing photo…
+              </div>
+            )}
+
+            {aiError && !aiLoading && (
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-pt-muted text-xs">Analysis unavailable — {aiError.slice(0, 60)}</p>
+                <button
+                  type="button"
+                  onClick={() => lastFileRef.current && runAnalysis(lastFileRef.current)}
+                  className="text-pt-accent text-xs shrink-0 active:opacity-70"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {aiResult && !aiLoading && (
+              <>
+                {/* Tag chips */}
+                {aiResult.tags.filter(t => !tagLabels.includes(t)).length > 0 && (
+                  <div>
+                    <p className="text-pt-muted text-xs mb-2">
+                      <span className="text-pt-accent">✦</span> Tap to add tags
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {aiResult.tags.filter(t => !tagLabels.includes(t)).map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => setTagLabels(prev => [...prev, tag])}
+                          className="flex items-center gap-1 bg-pt-accent/10 border border-pt-accent/30 text-pt-accent text-sm px-2.5 py-1 rounded-full active:opacity-70"
+                        >
+                          + {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Description suggestion */}
+                {aiResult.description && !description && (
+                  <button
+                    type="button"
+                    onClick={() => setDescription(aiResult.description!)}
+                    className="w-full text-left bg-pt-accent/5 border border-pt-accent/20 rounded-xl px-3 py-2.5 active:opacity-70"
+                  >
+                    <p className="text-pt-muted text-xs mb-1">
+                      <span className="text-pt-accent">✦</span> Tap to use description
+                    </p>
+                    <p className="text-pt-text text-sm">{aiResult.description}</p>
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Name */}
         <input
           value={name}
@@ -304,34 +383,6 @@ export default function AddItemScreen() {
           <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags</p>
           <TagInput value={tagLabels} onChange={setTagLabels} suggestions={tags} />
 
-          {/* AI tag suggestions */}
-          {taggingLoading && (
-            <p className="text-pt-muted text-xs mt-2 flex items-center gap-1.5">
-              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" d="M12 3v3m0 12v3M3 12h3m12 0h3" />
-              </svg>
-              Analyzing photo…
-            </p>
-          )}
-          {!taggingLoading && suggestedTags.filter(t => !tagLabels.includes(t)).length > 0 && (
-            <div className="mt-2">
-              <p className="text-pt-muted text-xs mb-1.5">
-                <span className="text-pt-accent">✦</span> Suggested
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {suggestedTags.filter(t => !tagLabels.includes(t)).map(tag => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => setTagLabels(prev => [...prev, tag])}
-                    className="flex items-center gap-1 bg-pt-accent/10 border border-pt-accent/30 text-pt-accent text-sm px-2.5 py-0.5 rounded-full active:opacity-70"
-                  >
-                    + {tag}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Character */}
