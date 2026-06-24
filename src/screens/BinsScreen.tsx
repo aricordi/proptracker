@@ -69,21 +69,72 @@ export default function BinsScreen() {
     }
   }
 
+  function buildQrCanvas(label: string, qrDataUrl: string, url: string): Promise<HTMLCanvasElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const QR      = 300
+        const PAD     = 24
+        const canvas  = document.createElement('canvas')
+        canvas.width  = QR + PAD * 2
+        canvas.height = QR + PAD * 2 + 48 + 32  // label above, url below
+        const ctx = canvas.getContext('2d')!
+
+        // white background
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+        // bin label
+        ctx.fillStyle = '#111111'
+        ctx.font = 'bold 20px system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(label, canvas.width / 2, PAD + 20)
+
+        // QR code
+        ctx.drawImage(img, PAD, PAD + 48, QR, QR)
+
+        // url
+        ctx.fillStyle = '#666666'
+        ctx.font = '10px monospace'
+        ctx.fillText(url, canvas.width / 2, PAD + 48 + QR + 20)
+
+        resolve(canvas)
+      }
+      img.onerror = reject
+      img.src = qrDataUrl
+    })
+  }
+
+  async function handleSaveImage(bin: Bin) {
+    if (!qrDataUrl) return
+    const url = `${window.location.origin}/bin/${bin.qrSlug}`
+    try {
+      const canvas = await buildQrCanvas(bin.label, qrDataUrl, url)
+      const a = document.createElement('a')
+      a.href = canvas.toDataURL('image/png')
+      a.download = `${bin.label}-qr.png`
+      a.click()
+    } catch { /* silent */ }
+  }
+
   async function handlePrint(bin: Bin) {
     const url = `${window.location.origin}/bin/${bin.qrSlug}`
     try {
       const dataUrl = await QRCode.toDataURL(url, { width: 400, margin: 2 })
-      const win = window.open('', '_blank', 'width=600,height=700')
+      const win = window.open('', '_blank', 'width=500,height=600')
       if (!win) return
       win.document.write(`<!DOCTYPE html>
         <html><head>
           <title>QR – ${bin.label}</title>
           <style>
-            body{display:flex;flex-direction:column;align-items:center;justify-content:center;
-                 min-height:100vh;margin:0;font-family:sans-serif;}
-            h2{margin-bottom:20px;font-size:24px;}
-            img{max-width:300px;display:block;}
-            p{margin-top:12px;font-size:11px;color:#666;word-break:break-all;text-align:center;max-width:300px;}
+            @page { size: 100mm 130mm; margin: 6mm; }
+            html, body { height: auto; margin: 0; padding: 0; }
+            body { display: flex; flex-direction: column; align-items: center;
+                   padding: 8px; font-family: sans-serif; }
+            h2 { margin: 0 0 12px; font-size: 20px; text-align: center; }
+            img { width: 260px; height: 260px; display: block; }
+            p { margin: 10px 0 0; font-size: 9px; color: #666;
+                word-break: break-all; text-align: center; max-width: 260px; }
           </style>
         </head><body>
           <h2>${bin.label}</h2>
@@ -92,9 +143,7 @@ export default function BinsScreen() {
           <script>window.onload=()=>window.print()<\/script>
         </body></html>`)
       win.document.close()
-    } catch {
-      // fall through silently
-    }
+    } catch { /* silent */ }
   }
 
   async function handleSave() {
@@ -320,13 +369,7 @@ export default function BinsScreen() {
 
             <div className="flex gap-3 w-full">
               <button
-                onClick={() => {
-                  if (!qrDataUrl) return
-                  const a = document.createElement('a')
-                  a.href = qrDataUrl
-                  a.download = `${qrBin.label}-qr.png`
-                  a.click()
-                }}
+                onClick={() => handleSaveImage(qrBin)}
                 disabled={!qrDataUrl}
                 className="flex-1 py-3.5 rounded-xl border border-pt-border text-pt-muted font-medium text-sm active:opacity-70 disabled:opacity-40"
               >
