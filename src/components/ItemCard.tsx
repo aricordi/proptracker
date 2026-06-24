@@ -60,12 +60,12 @@ export default function ItemCard({ item, tagById, locationById, binById }: Props
         {item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {item.tags.slice(0, 3).map(id => tagById[id] && (
-              <span key={id} className="text-xs bg-stone-600/60 text-stone-300 px-2 py-0.5 rounded-full">
+              <span key={id} className="text-xs bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">
                 {tagById[id].label}
               </span>
             ))}
             {item.tags.length > 3 && (
-              <span className="text-xs text-stone-400">+{item.tags.length - 3}</span>
+              <span className="text-xs text-violet-400">+{item.tags.length - 3}</span>
             )}
           </div>
         )}
