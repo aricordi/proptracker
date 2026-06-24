@@ -323,7 +323,6 @@ export default function AddItemScreen() {
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="What is it? *"
-          autoFocus={!isEditMode}
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3.5 text-pt-text text-lg placeholder-pt-muted focus:outline-none focus:border-pt-accent"
         />
 

@@ -59,10 +59,10 @@ export default function App() {
       <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
       <Route path="/item/:id" element={<ItemDetailScreen />} />
       <Route path="/item/:id/edit" element={<AddItemScreen />} />
+      <Route path="/add" element={<AddItemScreen />} />
 
       <Route element={<ShellLayout />}>
         <Route path="/" element={<HomeScreen />} />
-        <Route path="/add" element={<AddItemScreen />} />
         <Route path="/bins" element={<BinsScreen />} />
         <Route path="/locations" element={<LocationsScreen />} />
         <Route path="/checkout" element={<CheckoutScreen />} />
