@@ -169,7 +169,6 @@ export default function AddItemScreen() {
           status: 'available',
           whereToRebuy: whereToRebuy.trim() || undefined,
           cost: cost ? parseFloat(cost) : undefined,
-          embedding: undefined,
         })
         navigate('/')
       }

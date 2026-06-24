@@ -18,6 +18,7 @@ export const auth = getAuth(app);
 
 // Offline persistence: items load from cache when there's no network
 export const db = initializeFirestore(app, {
+  ignoreUndefinedProperties: true,
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
   }),
