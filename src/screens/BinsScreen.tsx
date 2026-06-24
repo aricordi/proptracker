@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { useBins } from '../hooks/useBins'
 import { useLocations } from '../hooks/useLocations'
@@ -9,6 +10,7 @@ import type { Bin, Location } from '../types'
 type SheetMode = { mode: 'add' } | { mode: 'edit'; bin: Bin }
 
 export default function BinsScreen() {
+  const navigate = useNavigate()
   const bins = useBins()
   const locations = useLocations()
 
@@ -147,19 +149,35 @@ export default function BinsScreen() {
     <div className="p-4 pt-safe">
       <div className="flex items-center justify-between mb-5">
         <h1 className="font-display text-2xl text-pt-text">Bins</h1>
-        <button
-          onClick={openAdd}
-          disabled={locations.length === 0}
-          className="bg-pt-accent text-stone-900 px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80 disabled:opacity-40"
-        >
-          + Add
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate('/locations')}
+            className="text-pt-muted text-sm px-3 py-2 rounded-xl border border-pt-border active:opacity-70"
+          >
+            Locations
+          </button>
+          <button
+            onClick={openAdd}
+            disabled={locations.length === 0}
+            className="bg-pt-accent text-stone-900 px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80 disabled:opacity-40"
+          >
+            + Add
+          </button>
+        </div>
       </div>
 
       {locations.length === 0 && (
-        <p className="text-pt-muted text-sm text-center mt-16 leading-relaxed">
-          Add a location first, then create bins inside it.
-        </p>
+        <div className="text-center mt-16 space-y-3">
+          <p className="text-pt-muted text-sm leading-relaxed">
+            You need at least one location before you can add bins.
+          </p>
+          <button
+            onClick={() => navigate('/locations')}
+            className="bg-pt-accent text-stone-900 px-5 py-2.5 rounded-xl font-semibold text-sm active:opacity-80"
+          >
+            Add a Location
+          </button>
+        </div>
       )}
 
       {locations.length > 0 && bins.length === 0 && (
