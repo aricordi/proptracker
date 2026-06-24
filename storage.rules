@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Must match the UIDs in firestore.rules
+    function isAuthorized() {
+      return request.auth != null && request.auth.uid in [
+        // 'PASTE_YOUR_UID_HERE',
+        // 'PASTE_KEANU_UID_HERE',
+      ];
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if isAuthorized();
+    }
+  }
+}

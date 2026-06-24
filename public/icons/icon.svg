@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#1C1917"/>
+
+  <!-- Bin body -->
+  <rect x="88" y="212" width="336" height="220" rx="16" fill="#44403C"/>
+
+  <!-- Bin lid -->
+  <rect x="72" y="164" width="368" height="68" rx="12" fill="#57534E"/>
+
+  <!-- Handle arch -->
+  <path d="M196 164 C196 108 316 108 316 164"
+        fill="none" stroke="#F59E0B" stroke-width="18" stroke-linecap="round"/>
+
+  <!-- Label area -->
+  <rect x="120" y="252" width="272" height="140" rx="8" fill="#292524"/>
+
+  <!-- Amber accent bar at top of label -->
+  <rect x="120" y="252" width="272" height="10" rx="5" fill="#F59E0B"/>
+
+  <!-- Inventory lines -->
+  <rect x="144" y="284" width="96"  height="10" rx="5" fill="#78716C"/>
+  <rect x="252" y="284" width="64"  height="10" rx="5" fill="#F59E0B" opacity="0.7"/>
+
+  <rect x="144" y="308" width="136" height="10" rx="5" fill="#78716C"/>
+  <rect x="292" y="308" width="44"  height="10" rx="5" fill="#78716C" opacity="0.4"/>
+
+  <rect x="144" y="332" width="76"  height="10" rx="5" fill="#78716C"/>
+  <rect x="232" y="332" width="88"  height="10" rx="5" fill="#F59E0B" opacity="0.4"/>
+</svg>

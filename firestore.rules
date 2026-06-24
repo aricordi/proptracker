@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // AUTHORIZED USER UIDS
+    // After first sign-in, copy each user's UID from the
+    // "Not authorized yet" screen and add it to this list.
+    // To add a third user later, just add their UID here.
+    // ─────────────────────────────────────────────────────────────
+    function isAuthorized() {
+      return request.auth != null && request.auth.uid in [
+        // 'PASTE_YOUR_UID_HERE',
+        // 'PASTE_KEANU_UID_HERE',
+      ];
+    }
+
+    match /{document=**} {
+      allow read, write: if isAuthorized();
+    }
+  }
+}
