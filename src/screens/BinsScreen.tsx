@@ -73,22 +73,26 @@ export default function BinsScreen() {
     return new Promise((resolve, reject) => {
       const img = new Image()
       img.onload = () => {
+        const SCALE   = 3          // 3× for crisp retina output
         const QR      = 300
         const PAD     = 24
+        const lw      = QR + PAD * 2                  // logical width
+        const lh      = QR + PAD * 2 + 48 + 32        // logical height
         const canvas  = document.createElement('canvas')
-        canvas.width  = QR + PAD * 2
-        canvas.height = QR + PAD * 2 + 48 + 32  // label above, url below
+        canvas.width  = lw * SCALE
+        canvas.height = lh * SCALE
         const ctx = canvas.getContext('2d')!
+        ctx.scale(SCALE, SCALE)
 
         // white background
         ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.fillRect(0, 0, lw, lh)
 
         // bin label
         ctx.fillStyle = '#111111'
         ctx.font = 'bold 20px system-ui, sans-serif'
         ctx.textAlign = 'center'
-        ctx.fillText(label, canvas.width / 2, PAD + 20)
+        ctx.fillText(label, lw / 2, PAD + 20)
 
         // QR code
         ctx.drawImage(img, PAD, PAD + 48, QR, QR)
@@ -96,7 +100,7 @@ export default function BinsScreen() {
         // url
         ctx.fillStyle = '#666666'
         ctx.font = '10px monospace'
-        ctx.fillText(url, canvas.width / 2, PAD + 48 + QR + 20)
+        ctx.fillText(url, lw / 2, PAD + 48 + QR + 20)
 
         resolve(canvas)
       }
@@ -105,15 +109,34 @@ export default function BinsScreen() {
     })
   }
 
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
   async function handleSaveImage(bin: Bin) {
     if (!qrDataUrl) return
     const url = `${window.location.origin}/bin/${bin.qrSlug}`
     try {
-      const canvas = await buildQrCanvas(bin.label, qrDataUrl, url)
-      const a = document.createElement('a')
-      a.href = canvas.toDataURL('image/png')
-      a.download = `${bin.label}-qr.png`
-      a.click()
+      const canvas  = await buildQrCanvas(bin.label, qrDataUrl, url)
+      const dataUrl = canvas.toDataURL('image/png')
+      if (isIOS) {
+        // iOS blocks <a download> — open in a new tab so the user can long-press → Save to Photos
+        const w = window.open('', '_blank')
+        if (w) {
+          w.document.write(`<html><head><title>${bin.label} QR</title></head>
+            <body style="margin:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:20px;font-family:sans-serif">
+              <img src="${dataUrl}" style="max-width:100%;border-radius:8px">
+              <p style="color:#aaa;margin-top:16px;font-size:14px;text-align:center">
+                Long-press the image, then choose<br><strong style="color:#fff">Save to Photos</strong>
+              </p>
+            </body></html>`)
+          w.document.close()
+        }
+      } else {
+        const a = document.createElement('a')
+        a.href = dataUrl
+        a.download = `${bin.label}-qr.png`
+        a.click()
+      }
     } catch { /* silent */ }
   }
 
