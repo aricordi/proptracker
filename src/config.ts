@@ -40,12 +40,6 @@ export const AUTHORIZED_UIDS: string[] = [
 export const OWNER_UID = 'JOPK1T2MkaS2BVbyS2huPzXpPWk1';
 
 // ─────────────────────────────────────────────────────────────
-// VIDEO PIPELINE — Google Drive folder name that contains the
-// per-video subfolders.
-// ─────────────────────────────────────────────────────────────
-export const VIDEO_PIPELINE_FOLDER_NAME = 'video pipeline';
-
-// ─────────────────────────────────────────────────────────────
 // PROP MATCHING THRESHOLDS
 // Cosine similarity thresholds for matching manifest props
 // against inventory embeddings. Tune these if matches feel

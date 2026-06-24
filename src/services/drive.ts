@@ -1,77 +1,51 @@
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
 import { auth } from '../firebase'
 import type { DriveFolderMeta } from '../types'
-import { VIDEO_PIPELINE_FOLDER_NAME } from '../config'
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly'
 const DRIVE_API   = 'https://www.googleapis.com/drive/v3'
 
-// Module-level token store — persists for the lifetime of the page session.
-// Token expires in ~1 hour; the UI shows a "Reconnect Drive" button on 401.
+// Module-level token — persists for the page session (~1 hour before expiry).
+// UI shows a "Reconnect Drive" button when this is null or a 401 is returned.
 let _accessToken: string | null = null
 
-export function getDriveToken(): string | null {
-  return _accessToken
-}
+export function getDriveToken(): string | null { return _accessToken }
+export function clearDriveToken() { _accessToken = null }
 
-export function clearDriveToken() {
-  _accessToken = null
-}
-
-// Triggers a Google popup to request Drive read-only access.
-// Returns the access token on success, throws on cancellation or error.
 export async function requestDriveAccess(): Promise<string> {
   const provider = new GoogleAuthProvider()
   provider.addScope(DRIVE_SCOPE)
-  // Force the consent screen so the user explicitly approves Drive access.
-  // On subsequent calls this is a fast popup that closes itself if already granted.
   provider.setCustomParameters({ prompt: 'consent' })
-  const result   = await signInWithPopup(auth, provider)
-  const cred     = GoogleAuthProvider.credentialFromResult(result)
-  const token    = cred?.accessToken
+  const result = await signInWithPopup(auth, provider)
+  const cred   = GoogleAuthProvider.credentialFromResult(result)
+  const token  = cred?.accessToken
   if (!token) throw new Error('No access token returned from Google')
   _accessToken = token
   return token
 }
 
-// ─── Drive REST helpers ──────────────────────────────────────────────────────
+export class DriveAuthError extends Error {}
 
 async function driveGet(path: string, token: string): Promise<Response> {
   const res = await fetch(`${DRIVE_API}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (res.status === 401) {
-    _accessToken = null   // token expired — let UI show reconnect
+    _accessToken = null
     throw new DriveAuthError('Drive token expired')
   }
   return res
 }
 
-export class DriveAuthError extends Error {}
-
-// Find the "video pipeline" top-level folder in the owner's Drive.
-// Returns its Drive folder ID, or null if not found.
-async function findVideoPipelineFolder(token: string): Promise<string | null> {
+// List immediate subfolders of any Drive folder by ID.
+// Pass 'root' for My Drive top-level folders.
+// Used for both the pipeline folder picker and listing video project folders.
+export async function listFoldersIn(token: string, parentId: string): Promise<DriveFolderMeta[]> {
   const q = encodeURIComponent(
-    `name='${VIDEO_PIPELINE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
   )
-  const res  = await driveGet(`/files?q=${q}&fields=files(id,name)&pageSize=5`, token)
-  if (!res.ok) return null
-  const json = await res.json() as { files?: { id: string; name: string }[] }
-  return json.files?.[0]?.id ?? null
-}
-
-// List immediate subfolders of the video pipeline folder.
-// These represent individual video projects.
-export async function listVideoFolders(token: string): Promise<DriveFolderMeta[]> {
-  const pipelineId = await findVideoPipelineFolder(token)
-  if (!pipelineId) throw new Error(`Folder "${VIDEO_PIPELINE_FOLDER_NAME}" not found in your Drive`)
-
-  const q = encodeURIComponent(
-    `'${pipelineId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
-  )
-  const res  = await driveGet(
-    `/files?q=${q}&orderBy=name desc&fields=files(id,name,modifiedTime)&pageSize=100`,
+  const res = await driveGet(
+    `/files?q=${q}&orderBy=name&fields=files(id,name,modifiedTime)&pageSize=200`,
     token,
   )
   if (!res.ok) throw new Error(`Drive API error: ${res.status}`)
@@ -80,8 +54,8 @@ export async function listVideoFolders(token: string): Promise<DriveFolderMeta[]
 }
 
 // Read the content of prop-manifest.txt inside a video folder.
-// Returns null if the file doesn't exist (caller should show friendly message).
-// Throws DriveAuthError if token expired.
+// Returns null if the file doesn't exist (caller shows a friendly message).
+// Throws DriveAuthError if the token has expired.
 export async function readPropManifest(token: string, videoFolderId: string): Promise<string | null> {
   const q = encodeURIComponent(
     `'${videoFolderId}' in parents and name='prop-manifest.txt' and trashed=false`
