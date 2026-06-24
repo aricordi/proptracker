@@ -5,6 +5,7 @@ import { getDocs, getDoc, collection, doc } from 'firebase/firestore'
 import { auth, storage, db } from '../firebase'
 import { addItem, updateItem } from '../services/items'
 import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
+import { suggestTagsFromImage, generateEmbedding } from '../services/ai'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useTags } from '../hooks/useTags'
@@ -48,6 +49,9 @@ export default function AddItemScreen() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const [suggestedTags, setSuggestedTags]   = useState<string[]>([])
+  const [taggingLoading, setTaggingLoading] = useState(false)
 
   // For edit mode: original tag IDs to compute delta on save
   const [originalTagIds, setOriginalTagIds] = useState<string[]>([])
@@ -111,6 +115,7 @@ export default function AddItemScreen() {
     setPhotoPreview(preview)
     setPhotoUrl(null)
     setUploadProgress(0)
+    setSuggestedTags([])
 
     const uid = auth.currentUser?.uid ?? 'unknown'
     const fileRef = storageRef(storage, `items/${uid}/${Date.now()}_${file.name}`)
@@ -125,6 +130,12 @@ export default function AddItemScreen() {
         setUploadProgress(null)
       }),
     )
+
+    // AI tag suggestions — non-blocking, degrades silently if API unavailable
+    setTaggingLoading(true)
+    suggestTagsFromImage(file)
+      .then(tags => setSuggestedTags(tags))
+      .finally(() => setTaggingLoading(false))
   }
 
   async function handleSave() {
@@ -133,7 +144,13 @@ export default function AddItemScreen() {
     setSaving(true)
     setError(null)
     try {
-      const newTagIds = await Promise.all(tagLabels.map(l => getOrCreateTag(l, tags)))
+      const embeddingText = [trimmedName, description, tagLabels.join(' '), character]
+        .filter(Boolean).join(' ')
+
+      const [newTagIds, embedding] = await Promise.all([
+        Promise.all(tagLabels.map(l => getOrCreateTag(l, tags))),
+        generateEmbedding(embeddingText),
+      ])
 
       if (isEditMode && editId) {
         const addedIds   = newTagIds.filter(id => !originalTagIds.includes(id))
@@ -153,6 +170,7 @@ export default function AddItemScreen() {
           binId: binId || undefined,
           whereToRebuy: whereToRebuy.trim() || undefined,
           cost: cost ? parseFloat(cost) : undefined,
+          ...(embedding ? { embedding } : {}),
         })
         navigate(`/item/${editId}`, { replace: true })
       } else {
@@ -169,6 +187,7 @@ export default function AddItemScreen() {
           status: 'available',
           whereToRebuy: whereToRebuy.trim() || undefined,
           cost: cost ? parseFloat(cost) : undefined,
+          ...(embedding ? { embedding } : {}),
         })
         navigate('/')
       }
@@ -284,6 +303,35 @@ export default function AddItemScreen() {
         <div>
           <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags</p>
           <TagInput value={tagLabels} onChange={setTagLabels} suggestions={tags} />
+
+          {/* AI tag suggestions */}
+          {taggingLoading && (
+            <p className="text-pt-muted text-xs mt-2 flex items-center gap-1.5">
+              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" d="M12 3v3m0 12v3M3 12h3m12 0h3" />
+              </svg>
+              Analyzing photo…
+            </p>
+          )}
+          {!taggingLoading && suggestedTags.filter(t => !tagLabels.includes(t)).length > 0 && (
+            <div className="mt-2">
+              <p className="text-pt-muted text-xs mb-1.5">
+                <span className="text-pt-accent">✦</span> Suggested
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {suggestedTags.filter(t => !tagLabels.includes(t)).map(tag => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setTagLabels(prev => [...prev, tag])}
+                    className="flex items-center gap-1 bg-pt-accent/10 border border-pt-accent/30 text-pt-accent text-sm px-2.5 py-0.5 rounded-full active:opacity-70"
+                  >
+                    + {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Character */}

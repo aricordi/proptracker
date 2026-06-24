@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useItems } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import ItemCard from '../components/ItemCard'
+import { generateEmbedding, cosineSimilarity } from '../services/ai'
 import type { ItemType } from '../types'
 
 const TYPE_FILTERS: { value: ItemType | null; label: string }[] = [
@@ -22,12 +23,23 @@ export default function HomeScreen() {
 
   const [query, setQuery]           = useState('')
   const [typeFilter, setTypeFilter] = useState<ItemType | null>(null)
+  const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null)
+
+  const q = query.trim().toLowerCase()
+
+  // Debounce: generate query embedding 700ms after typing stops
+  useEffect(() => {
+    if (!q || q.length < 3) { setQueryEmbedding(null); return }
+    let cancelled = false
+    const timer = setTimeout(() => {
+      generateEmbedding(q).then(emb => { if (!cancelled) setQueryEmbedding(emb) })
+    }, 700)
+    return () => { clearTimeout(timer); cancelled = true }
+  }, [q])
 
   const tagById      = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
   const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
   const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
-
-  const q = query.trim().toLowerCase()
 
   const matched = useMemo(() => {
     let list = typeFilter ? items.filter(i => i.itemType === typeFilter) : items
@@ -40,19 +52,32 @@ export default function HomeScreen() {
     })
   }, [items, q, typeFilter, tagById])
 
-  // Tag-overlap similarity: items not in results that share the most tags
   const similar = useMemo(() => {
     if (!q || matched.length === 0) return []
-    const matchedIds   = new Set(matched.map(i => i.id))
-    const matchedTags  = new Set(matched.flatMap(i => i.tags))
-    return items
-      .filter(i => !matchedIds.has(i.id))
+    const matchedIds = new Set(matched.map(i => i.id))
+    const candidates = items.filter(i => !matchedIds.has(i.id))
+
+    // Semantic similarity when we have embeddings for both query and candidates
+    if (queryEmbedding) {
+      const semantic = candidates
+        .filter(i => i.embedding?.length)
+        .map(i => ({ item: i, score: cosineSimilarity(queryEmbedding, i.embedding!) }))
+        .filter(({ score }) => score > 0.6)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map(({ item }) => item)
+      if (semantic.length > 0) return semantic
+    }
+
+    // Fall back to tag-overlap
+    const matchedTags = new Set(matched.flatMap(i => i.tags))
+    return candidates
       .map(i => ({ item: i, overlap: i.tags.filter(t => matchedTags.has(t)).length }))
       .filter(({ overlap }) => overlap > 0)
       .sort((a, b) => b.overlap - a.overlap)
       .slice(0, 5)
       .map(({ item }) => item)
-  }, [items, matched, q])
+  }, [items, matched, q, queryEmbedding])
 
   const showEmpty  = items.length === 0
   const showNoHits = !showEmpty && q && matched.length === 0
