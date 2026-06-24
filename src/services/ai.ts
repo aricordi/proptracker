@@ -69,7 +69,11 @@ Example: {"tags":["hooded-cloak","full-length","black","fabric","gothic","wearab
             { inlineData: { mimeType: 'image/jpeg', data: base64 } },
           ],
         }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
+        generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1024,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
       }),
     },
   )
