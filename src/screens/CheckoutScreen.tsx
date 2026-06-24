@@ -75,9 +75,18 @@ export default function CheckoutScreen() {
   const canCreate = !!label.trim() && selectedIds.size > 0 && !saving
 
   return (
-    <div className="min-h-full bg-pt-bg pb-28">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+    <div className="min-h-full bg-pt-bg pb-6">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border flex items-center justify-between">
         <h1 className="font-display text-2xl text-pt-accent py-2">Checkout</h1>
+        <button
+          onClick={openNewSheet}
+          className="flex items-center gap-1.5 bg-pt-accent text-stone-900 text-sm font-semibold px-3 py-1.5 rounded-full active:opacity-80"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          New
+        </button>
       </div>
 
       <div className="p-4 space-y-3">
@@ -170,16 +179,6 @@ export default function CheckoutScreen() {
             </div>
           )
         })}
-      </div>
-
-      {/* New Checkout button */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
-        <button
-          onClick={openNewSheet}
-          className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg active:opacity-80"
-        >
-          New Checkout
-        </button>
       </div>
 
       {/* New Checkout sheet */}
