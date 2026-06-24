@@ -12,21 +12,21 @@ const nav = [
     ),
   },
   {
+    to: '/checkout',
+    label: 'Checkout',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+        <path d="M20.2 6 3 11l9 2 2 9 2.6-9.2Z" />
+      </svg>
+    ),
+  },
+  {
     to: '/add',
     label: 'Add',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
         <circle cx="12" cy="12" r="10" />
         <path d="M12 8v8M8 12h8" />
-      </svg>
-    ),
-  },
-  {
-    to: '/checkout',
-    label: 'Checkout',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <path d="M20.2 6 3 11l9 2 2 9 2.6-9.2Z" />
       </svg>
     ),
   },
