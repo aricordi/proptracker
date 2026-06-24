@@ -52,15 +52,15 @@ export default function BinQrScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-pt-muted text-sm active:text-pt-text py-2"
+          className="flex items-center gap-1.5 text-pt-text text-base font-medium active:text-pt-muted py-2"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Back
         </button>
         <div className="text-right">
-          <p className="font-display text-lg text-pt-accent leading-tight">{bin.label}</p>
+          <p className="font-display text-xl text-pt-accent leading-tight">{bin.label}</p>
           {location && <p className="text-pt-muted text-xs">{location.name}</p>}
         </div>
       </div>

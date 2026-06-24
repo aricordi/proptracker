@@ -250,11 +250,11 @@ export default function AddItemScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
         <button
           onClick={() => navigate(-1)}
-          className="text-pt-muted text-sm active:text-pt-text py-1"
+          className="text-pt-text text-base font-medium active:text-pt-muted py-1"
         >
           Cancel
         </button>
-        <h1 className="font-display text-lg text-pt-text">
+        <h1 className="font-display text-xl text-pt-text">
           {isEditMode ? 'Edit Item' : 'Add Item'}
         </h1>
         <div className="w-14" />
