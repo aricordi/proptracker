@@ -10,6 +10,7 @@ import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 import HomeScreen from './screens/HomeScreen'
 import AddItemScreen from './screens/AddItemScreen'
 import BinsScreen from './screens/BinsScreen'
+import BinQrScreen from './screens/BinQrScreen'
 import LocationsScreen from './screens/LocationsScreen'
 import CheckoutScreen from './screens/CheckoutScreen'
 import HealthScreen from './screens/HealthScreen'
@@ -41,10 +42,7 @@ export default function App() {
     )
   }
 
-  // While UIDs haven't been added yet (initial setup), let the first
-  // signed-in user through so they can see their UID on the screen.
-  const isAuthorized =
-    AUTHORIZED_UIDS.length === 0 || AUTHORIZED_UIDS.includes(user.uid)
+  const isAuthorized = AUTHORIZED_UIDS.includes(user.uid)
 
   if (!isAuthorized) {
     return (
@@ -56,6 +54,9 @@ export default function App() {
 
   return (
     <Routes>
+      {/* QR scan route: outside the shell so it gets full screen */}
+      <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
+
       <Route element={<ShellLayout />}>
         <Route path="/" element={<HomeScreen />} />
         <Route path="/add" element={<AddItemScreen />} />
