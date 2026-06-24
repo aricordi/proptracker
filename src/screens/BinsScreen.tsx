@@ -198,15 +198,27 @@ export default function BinsScreen() {
                   key={bin.id}
                   className="flex items-center bg-pt-surface border border-pt-border rounded-2xl overflow-hidden"
                 >
+                  {/* Tap to view bin contents */}
                   <button
-                    onClick={() => openEdit(bin)}
+                    onClick={() => navigate(`/bin/${bin.qrSlug}`)}
                     className="flex-1 text-left px-4 py-4 active:opacity-75"
                   >
                     <span className="font-medium text-pt-text">{bin.label}</span>
                   </button>
+                  {/* Edit bin */}
+                  <button
+                    onClick={() => openEdit(bin)}
+                    className="px-3 py-4 text-pt-muted active:text-pt-accent"
+                    aria-label="Edit bin"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                    </svg>
+                  </button>
+                  {/* QR code */}
                   <button
                     onClick={() => openQr(bin)}
-                    className="px-4 py-4 text-pt-muted active:text-pt-accent"
+                    className="px-3 py-4 text-pt-muted active:text-pt-accent"
                     aria-label="Show QR code"
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5">
@@ -306,12 +318,28 @@ export default function BinsScreen() {
               {window.location.origin}/bin/{qrBin.qrSlug}
             </p>
 
-            <button
-              onClick={() => handlePrint(qrBin)}
-              className="w-full bg-pt-accent text-stone-900 py-3.5 rounded-xl font-semibold active:opacity-80"
-            >
-              Print QR code
-            </button>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => {
+                  if (!qrDataUrl) return
+                  const a = document.createElement('a')
+                  a.href = qrDataUrl
+                  a.download = `${qrBin.label}-qr.png`
+                  a.click()
+                }}
+                disabled={!qrDataUrl}
+                className="flex-1 py-3.5 rounded-xl border border-pt-border text-pt-muted font-medium text-sm active:opacity-70 disabled:opacity-40"
+              >
+                Save Image
+              </button>
+              <button
+                onClick={() => handlePrint(qrBin)}
+                disabled={!qrDataUrl}
+                className="flex-1 py-3.5 rounded-xl bg-pt-accent text-stone-900 font-semibold text-sm active:opacity-80 disabled:opacity-40"
+              >
+                Print
+              </button>
+            </div>
 
             <p className="text-pt-muted text-xs text-center">
               Stick the printout on the physical bin. When scanned, it opens the app directly to this bin.
