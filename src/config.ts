@@ -31,3 +31,25 @@ export const AUTHORIZED_UIDS: string[] = [
   'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
   // 'PASTE_KEANU_UID_HERE',
 ];
+
+// ─────────────────────────────────────────────────────────────
+// OWNER UID — used to gate Drive-dependent features (video
+// pipeline, prop manifest reading) to the owner only.
+// Keanu can see saved checklists but cannot re-read from Drive.
+// ─────────────────────────────────────────────────────────────
+export const OWNER_UID = 'JOPK1T2MkaS2BVbyS2huPzXpPWk1';
+
+// ─────────────────────────────────────────────────────────────
+// VIDEO PIPELINE — Google Drive folder name that contains the
+// per-video subfolders.
+// ─────────────────────────────────────────────────────────────
+export const VIDEO_PIPELINE_FOLDER_NAME = 'video pipeline';
+
+// ─────────────────────────────────────────────────────────────
+// PROP MATCHING THRESHOLDS
+// Cosine similarity thresholds for matching manifest props
+// against inventory embeddings. Tune these if matches feel
+// too loose or too strict.
+// ─────────────────────────────────────────────────────────────
+export const PROP_MATCH_CONFIDENT_THRESHOLD = 0.75; // auto-matched, shown to confirm
+export const PROP_MATCH_POSSIBLE_THRESHOLD  = 0.55; // shown as "is this the same thing?"

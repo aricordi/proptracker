@@ -15,6 +15,9 @@ import BinQrScreen from './screens/BinQrScreen'
 import LocationsScreen from './screens/LocationsScreen'
 import CheckoutScreen from './screens/CheckoutScreen'
 import HealthScreen from './screens/HealthScreen'
+import VideosScreen from './screens/VideosScreen'
+import VideoChecklistScreen from './screens/VideoChecklistScreen'
+import ShoppingListScreen from './screens/ShoppingListScreen'
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -59,6 +62,8 @@ export default function App() {
       <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
       <Route path="/item/:id" element={<ItemDetailScreen />} />
       <Route path="/item/:id/edit" element={<AddItemScreen />} />
+      <Route path="/videos/:folderId" element={<VideoChecklistScreen />} />
+      <Route path="/shopping" element={<ShoppingListScreen />} />
 
       <Route element={<ShellLayout />}>
         <Route path="/" element={<HomeScreen />} />
@@ -67,6 +72,7 @@ export default function App() {
         <Route path="/locations" element={<LocationsScreen />} />
         <Route path="/checkout" element={<CheckoutScreen />} />
         <Route path="/health" element={<HealthScreen />} />
+        <Route path="/videos" element={<VideosScreen />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

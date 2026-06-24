@@ -170,7 +170,24 @@ export default function HealthScreen() {
               <p className="text-pt-muted text-xs">Embeddings</p>
               <p className="text-pt-muted text-xs opacity-60">free tier</p>
             </div>
+            <div className="bg-pt-bg rounded-xl px-3 py-2">
+              <p className="text-pt-text font-semibold text-lg">{aiUsage?.shoppingCalls ?? 0}</p>
+              <p className="text-pt-muted text-xs">Shopping suggestions</p>
+              <p className="text-pt-muted text-xs opacity-60">on-demand only</p>
+            </div>
           </div>
+        </div>
+
+        {/* Bins (moved from nav) */}
+        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+          <p className="text-pt-muted text-xs uppercase tracking-wider">Storage</p>
+          <p className="text-pt-muted text-sm">Manage bins, locations, and QR codes for storage containers.</p>
+          <button
+            onClick={() => navigate('/bins')}
+            className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70"
+          >
+            Manage Bins & Locations
+          </button>
         </div>
 
         {/* Export */}

@@ -116,6 +116,41 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
   }
 }
 
+// One small text call to suggest where to buy a prop.
+// Only called when the user explicitly taps "Where to get it?" — never automatic.
+export async function generateShoppingSuggestion(propName: string): Promise<string | null> {
+  if (!API_KEY) return null
+  try {
+    const res = await fetch(
+      `${BASE_URL}/models/${TAGGING_MODEL}:generateContent?key=${API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Where is the cheapest and fastest place to buy or find a "${propName}" for a low-budget YouTube video production in Canada? Give a one-sentence answer naming 1-2 specific stores or websites. Be practical and concise.`,
+            }],
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 80, thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      },
+    )
+    if (!res.ok) return null
+    const json = await res.json()
+    const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+    const suggestion = text.trim()
+    if (!suggestion) return null
+    // Track as shoppingCalls in ai_usage
+    const month = new Date().toISOString().slice(0, 7)
+    setDoc(doc(db, 'ai_usage', month), { month, shoppingCalls: increment(1) }, { merge: true })
+      .catch(() => {})
+    return suggestion
+  } catch {
+    return null
+  }
+}
+
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length || a.length === 0) return 0
   let dot = 0, magA = 0, magB = 0

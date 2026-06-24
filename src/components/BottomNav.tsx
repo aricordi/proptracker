@@ -31,14 +31,13 @@ const nav = [
     ),
   },
   {
-    to: '/bins',
-    label: 'Bins',
+    to: '/videos',
+    label: 'Videos',
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-        <rect x="2" y="7" width="20" height="14" rx="2" />
-        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-        <line x1="12" y1="12" x2="12" y2="16" />
-        <line x1="10" y1="14" x2="14" y2="14" />
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="m10 8 6 4-6 4V8Z" />
+        <path d="M8 21h8M12 17v4" />
       </svg>
     ),
   },
