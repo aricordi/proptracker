@@ -14,19 +14,21 @@
 
   body {
     height: 100%;
-    background-color: #1C1917;
+    /* pt-surface: fills the bottom safe-area strip behind the nav bar in webapp mode */
+    background-color: #292524;
     color: #E7E5E4;
     -webkit-tap-highlight-color: transparent;
   }
 
   #root {
     height: 100%;
+    background-color: #1C1917; /* pt-bg for the actual content area */
   }
 }
 
 @layer utilities {
   .pb-safe {
-    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+    padding-bottom: max(env(safe-area-inset-bottom), 6px);
   }
   .pt-safe {
     padding-top: env(safe-area-inset-top);
