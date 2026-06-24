@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
-import { getDocs, getDoc, collection, doc } from 'firebase/firestore'
+import { getDoc, doc } from 'firebase/firestore'
 import { auth, storage, db } from '../firebase'
 import { addItem, updateItem } from '../services/items'
 import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
+import { getOrCreateCharacter, incrementCharacterUsage, decrementCharacterUsage } from '../services/characters'
 import { analyzeItemPhoto, generateEmbedding } from '../services/ai'
 import type { PhotoAnalysis } from '../services/ai'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useTags } from '../hooks/useTags'
+import { useCharacters } from '../hooks/useCharacters'
 import PhotoPicker from '../components/PhotoPicker'
 import TagInput from '../components/TagInput'
+import CharacterInput from '../components/CharacterInput'
 import type { Item, ItemType } from '../types'
 
 const ITEM_TYPES: { value: ItemType; label: string }[] = [
@@ -27,9 +30,10 @@ export default function AddItemScreen() {
   const { id: editId } = useParams<{ id: string }>()
   const isEditMode = !!editId
 
-  const locations = useLocations()
-  const bins = useBins()
-  const tags = useTags()
+  const locations   = useLocations()
+  const bins        = useBins()
+  const tags        = useTags()
+  const characters  = useCharacters()
 
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
@@ -40,9 +44,7 @@ export default function AddItemScreen() {
   const [locationId, setLocationId] = useState(searchParams.get('locationId') ?? '')
   const [binId, setBinId] = useState(searchParams.get('binId') ?? '')
   const [tagLabels, setTagLabels] = useState<string[]>([])
-  const [character, setCharacter] = useState('')
-  const [showCharSuggestions, setShowCharSuggestions] = useState(false)
-  const [characterOptions, setCharacterOptions] = useState<string[]>([])
+  const [characterLabels, setCharacterLabels] = useState<string[]>([])
   const [description, setDescription] = useState('')
   const [cost, setCost] = useState('')
   const [whereToRebuy, setWhereToRebuy] = useState('')
@@ -57,11 +59,13 @@ export default function AddItemScreen() {
   const [aiError, setAiError]       = useState<string | null>(null)
   const lastFileRef                 = useRef<File | null>(null)
 
-  // For edit mode: original tag IDs to compute delta on save
+  // For edit mode: original IDs to compute delta on save
   const [originalTagIds, setOriginalTagIds] = useState<string[]>([])
+  const [originalCharacterIds, setOriginalCharacterIds] = useState<string[]>([])
   const [loadingItem, setLoadingItem] = useState(isEditMode)
   const [editItem, setEditItem] = useState<Item | null>(null)
   const tagsInitialized = useRef(false)
+  const charsInitialized = useRef(false)
 
   // Load existing item when in edit mode
   useEffect(() => {
@@ -71,11 +75,11 @@ export default function AddItemScreen() {
       const data = { id: d.id, ...d.data() } as Item
       setEditItem(data)
       setOriginalTagIds(data.tags)
+      setOriginalCharacterIds(data.characters ?? [])
       setName(data.name)
       setItemType(data.itemType)
       setLocationId(data.locationId ?? '')
       setBinId(data.binId ?? '')
-      setCharacter(data.character ?? '')
       setDescription(data.description ?? '')
       setCost(data.cost != null ? String(data.cost) : '')
       setWhereToRebuy(data.whereToRebuy ?? '')
@@ -100,17 +104,25 @@ export default function AddItemScreen() {
     )
   }, [editItem, tags])
 
-  // Load unique character values from existing items for autocomplete
+  // Convert character IDs → labels once both editItem and characters are ready
+  // Falls back to legacy single-string character field for old items
   useEffect(() => {
-    getDocs(collection(db, 'items')).then(snap => {
-      const chars = new Set<string>()
-      snap.docs.forEach(d => {
-        const c = d.data().character as string | undefined
-        if (c) chars.add(c)
-      })
-      setCharacterOptions(Array.from(chars).sort())
-    }).catch(() => {})
-  }, [])
+    if (!editItem || charsInitialized.current) return
+    if (editItem.characters && editItem.characters.length > 0) {
+      if (characters.length === 0) return
+      charsInitialized.current = true
+      setCharacterLabels(
+        editItem.characters
+          .map(id => characters.find(c => c.id === id)?.label)
+          .filter((l): l is string => !!l)
+      )
+    } else if (editItem.character) {
+      charsInitialized.current = true
+      setCharacterLabels([editItem.character])
+    } else {
+      charsInitialized.current = true
+    }
+  }, [editItem, characters])
 
   const filteredBins = bins.filter(b => b.locationId === locationId)
 
@@ -158,27 +170,32 @@ export default function AddItemScreen() {
     setSaving(true)
     setError(null)
     try {
-      const embeddingText = [trimmedName, description, tagLabels.join(' '), character]
+      const embeddingText = [trimmedName, description, tagLabels.join(' '), characterLabels.join(' ')]
         .filter(Boolean).join(' ')
 
-      const [newTagIds, embedding] = await Promise.all([
+      const [newTagIds, newCharacterIds, embedding] = await Promise.all([
         Promise.all(tagLabels.map(l => getOrCreateTag(l, tags))),
+        Promise.all(characterLabels.map(l => getOrCreateCharacter(l, characters))),
         generateEmbedding(embeddingText),
       ])
 
       if (isEditMode && editId) {
-        const addedIds   = newTagIds.filter(id => !originalTagIds.includes(id))
-        const removedIds = originalTagIds.filter(id => !newTagIds.includes(id))
+        const addedTagIds      = newTagIds.filter(id => !originalTagIds.includes(id))
+        const removedTagIds    = originalTagIds.filter(id => !newTagIds.includes(id))
+        const addedCharIds     = newCharacterIds.filter(id => !originalCharacterIds.includes(id))
+        const removedCharIds   = originalCharacterIds.filter(id => !newCharacterIds.includes(id))
         await Promise.all([
-          ...addedIds.map(id => incrementTagUsage(id)),
-          ...removedIds.map(id => decrementTagUsage(id)),
+          ...addedTagIds.map(id => incrementTagUsage(id)),
+          ...removedTagIds.map(id => decrementTagUsage(id)),
+          ...addedCharIds.map(id => incrementCharacterUsage(id)),
+          ...removedCharIds.map(id => decrementCharacterUsage(id)),
         ])
         await updateItem(editId, {
           name: trimmedName,
           photoUrl: photoUrl ?? undefined,
           description: description.trim() || undefined,
           tags: newTagIds,
-          character: character.trim() || undefined,
+          characters: newCharacterIds,
           itemType,
           locationId: locationId || undefined,
           binId: binId || undefined,
@@ -188,13 +205,16 @@ export default function AddItemScreen() {
         })
         navigate(`/item/${editId}`, { replace: true })
       } else {
-        await Promise.all(newTagIds.map(id => incrementTagUsage(id)))
+        await Promise.all([
+          ...newTagIds.map(id => incrementTagUsage(id)),
+          ...newCharacterIds.map(id => incrementCharacterUsage(id)),
+        ])
         await addItem({
           name: trimmedName,
           photoUrl: photoUrl ?? undefined,
           description: description.trim() || undefined,
           tags: newTagIds,
-          character: character.trim() || undefined,
+          characters: newCharacterIds,
           itemType,
           locationId: locationId || undefined,
           binId: binId || undefined,
@@ -212,10 +232,6 @@ export default function AddItemScreen() {
       setSaving(false)
     }
   }
-
-  const charSuggestions = characterOptions.filter(c =>
-    character && c.toLowerCase().includes(character.toLowerCase())
-  )
 
   const canSave = !!name.trim() && !saving && uploadProgress === null
 
@@ -387,30 +403,9 @@ export default function AddItemScreen() {
         </div>
 
         {/* Character */}
-        <div className="relative">
+        <div>
           <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character (optional)</p>
-          <input
-            value={character}
-            onChange={e => { setCharacter(e.target.value); setShowCharSuggestions(true) }}
-            onFocus={() => setShowCharSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowCharSuggestions(false), 150)}
-            placeholder="e.g. Wednesday Addams"
-            className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent"
-          />
-          {showCharSuggestions && charSuggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-pt-surface border border-pt-border rounded-xl overflow-hidden z-20 shadow-xl">
-              {charSuggestions.slice(0, 5).map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onMouseDown={() => { setCharacter(c); setShowCharSuggestions(false) }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-pt-text active:bg-pt-border"
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
-          )}
+          <CharacterInput value={characterLabels} onChange={setCharacterLabels} suggestions={characters} />
         </div>
 
         {/* More details toggle */}

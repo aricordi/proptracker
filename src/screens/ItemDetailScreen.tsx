@@ -5,6 +5,7 @@ import { db } from '../firebase'
 import { updateItem, deleteItem } from '../services/items'
 import { decrementTagUsage } from '../services/tags'
 import { useTags } from '../hooks/useTags'
+import { useCharacters } from '../hooks/useCharacters'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import type { Item, ItemStatus } from '../types'
@@ -33,9 +34,10 @@ const TYPE_LABELS: Record<string, string> = {
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const tags = useTags()
-  const locations = useLocations()
-  const bins = useBins()
+  const tags       = useTags()
+  const characters = useCharacters()
+  const locations  = useLocations()
+  const bins       = useBins()
 
   const [item, setItem] = useState<Item | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,9 +53,10 @@ export default function ItemDetailScreen() {
     }).catch(() => setLoading(false))
   }, [id])
 
-  const tagById      = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
-  const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
-  const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
+  const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
+  const characterById = useMemo(() => Object.fromEntries(characters.map(c => [c.id, c])), [characters])
+  const locationById  = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
+  const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
   if (loading) {
     return (
@@ -175,11 +178,20 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {/* Character */}
-        {item.character && (
+        {/* Characters */}
+        {((item.characters && item.characters.length > 0) || item.character) && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Character</p>
-            <p className="text-pt-text">{item.character}</p>
+            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character</p>
+            <div className="flex flex-wrap gap-1.5">
+              {item.characters && item.characters.length > 0
+                ? item.characters.map(id => (
+                    <span key={id} className="text-sm bg-pt-border text-pt-muted px-3 py-1 rounded-full">
+                      {characterById[id]?.label ?? id}
+                    </span>
+                  ))
+                : <span className="text-sm bg-pt-border text-pt-muted px-3 py-1 rounded-full">{item.character}</span>
+              }
+            </div>
           </div>
         )}
 

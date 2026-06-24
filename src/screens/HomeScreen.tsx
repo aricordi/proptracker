@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useItems } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
+import { useCharacters } from '../hooks/useCharacters'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import ItemCard from '../components/ItemCard'
@@ -16,10 +17,11 @@ const TYPE_FILTERS: { value: ItemType | null; label: string }[] = [
 ]
 
 export default function HomeScreen() {
-  const items     = useItems()
-  const tags      = useTags()
-  const locations = useLocations()
-  const bins      = useBins()
+  const items      = useItems()
+  const tags       = useTags()
+  const characters = useCharacters()
+  const locations  = useLocations()
+  const bins       = useBins()
 
   const [query, setQuery]           = useState('')
   const [typeFilter, setTypeFilter] = useState<ItemType | null>(null)
@@ -37,16 +39,18 @@ export default function HomeScreen() {
     return () => { clearTimeout(timer); cancelled = true }
   }, [q])
 
-  const tagById      = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
-  const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
-  const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
+  const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
+  const characterById = useMemo(() => Object.fromEntries(characters.map(c => [c.id, c])), [characters])
+  const locationById  = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
+  const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
   const matched = useMemo(() => {
     let list = typeFilter ? items.filter(i => i.itemType === typeFilter) : items
     if (!q) return list
     return list.filter(item => {
-      const tagLabels = item.tags.map(id => tagById[id]?.label ?? '').join(' ')
-      const haystack = [item.name, tagLabels, item.character, item.description]
+      const tagLabels  = item.tags.map(id => tagById[id]?.label ?? '').join(' ')
+      const charLabels = (item.characters ?? []).map(id => characterById[id]?.label ?? '').join(' ')
+      const haystack = [item.name, tagLabels, charLabels, item.character, item.description]
         .filter(Boolean).join(' ').toLowerCase()
       return haystack.includes(q)
     })

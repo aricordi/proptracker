@@ -12,7 +12,8 @@ export interface Item {
   photoUrl?: string;
   description?: string;
   tags: string[];           // tag IDs from the master tag list
-  character?: string;       // fictional character, e.g. "Wednesday Addams"
+  characters?: string[];    // character IDs from the master character list
+  character?: string;       // legacy single-string field (migrated on edit)
   itemType: ItemType;
   locationId?: string;
   binId?: string;
@@ -31,6 +32,13 @@ export interface Tag {
   id: string;
   label: string;            // canonical display form, e.g. "body-parts"
   normalizedKey: string;    // lowercased + singularized, for dedup
+  usageCount: number;
+}
+
+export interface Character {
+  id: string;
+  label: string;
+  normalizedKey: string;    // lowercased, for dedup (no pluralize — proper names)
   usageCount: number;
 }
 

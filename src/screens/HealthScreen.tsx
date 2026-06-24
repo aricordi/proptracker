@@ -4,16 +4,18 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useItems } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
+import { useCharacters } from '../hooks/useCharacters'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import type { AiUsageRecord, Item } from '../types'
 
 export default function HealthScreen() {
   const navigate  = useNavigate()
-  const items     = useItems()
-  const tags      = useTags()
-  const locations = useLocations()
-  const bins      = useBins()
+  const items      = useItems()
+  const tags       = useTags()
+  const characters = useCharacters()
+  const locations  = useLocations()
+  const bins       = useBins()
 
   const [aiUsage, setAiUsage] = useState<AiUsageRecord | null>(null)
 
@@ -24,7 +26,8 @@ export default function HealthScreen() {
       .catch(() => {})
   }, [])
 
-  const tagById      = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
+  const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
+  const characterById = useMemo(() => Object.fromEntries(characters.map(c => [c.id, c])), [characters])
   const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
   const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
@@ -52,7 +55,7 @@ export default function HealthScreen() {
       item.locationId ? (locationById[item.locationId]?.name ?? '') : '',
       item.binId ? (binById[item.binId]?.label ?? '') : '',
       item.tags.map(id => tagById[id]?.label ?? id).join('; '),
-      item.character ?? '',
+      (item.characters ?? []).map(id => characterById[id]?.label ?? id).join('; ') || (item.character ?? ''),
       item.description ?? '',
       item.cost != null ? String(item.cost) : '',
       item.whereToRebuy ?? '',
