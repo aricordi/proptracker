@@ -50,6 +50,7 @@ export default function AddItemScreen() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showNoLocationWarning, setShowNoLocationWarning] = useState(false)
 
   const [aiResult, setAiResult]     = useState<PhotoAnalysis | null>(null)
   const [aiLoading, setAiLoading]   = useState(false)
@@ -227,6 +228,7 @@ export default function AddItemScreen() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-pt-bg pb-28">
       {/* Header */}
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
@@ -469,7 +471,7 @@ export default function AddItemScreen() {
       {/* Sticky save button */}
       <div className="fixed bottom-0 left-0 right-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
         <button
-          onClick={handleSave}
+          onClick={() => !locationId ? setShowNoLocationWarning(true) : handleSave()}
           disabled={!canSave}
           className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80"
         >
@@ -481,5 +483,33 @@ export default function AddItemScreen() {
         </button>
       </div>
     </div>
+
+    {/* No-location warning overlay */}
+    {showNoLocationWarning && (
+      <div className="fixed inset-0 z-50 flex items-end">
+        <div className="absolute inset-0 bg-black/50" onClick={() => setShowNoLocationWarning(false)} />
+        <div className="relative w-full bg-pt-surface rounded-t-2xl p-6 space-y-4">
+          <h3 className="font-display text-xl text-pt-text">No location set</h3>
+          <p className="text-pt-muted text-sm leading-relaxed">
+            This item won't be linked to any storage location. You can assign one later by editing the item.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowNoLocationWarning(false)}
+              className="flex-1 py-3.5 rounded-2xl border border-pt-border text-pt-muted font-medium active:opacity-70"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={() => { setShowNoLocationWarning(false); handleSave() }}
+              className="flex-1 py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold active:opacity-80"
+            >
+              Save Anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
