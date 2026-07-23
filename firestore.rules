@@ -12,7 +12,7 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid in [
         'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
         'Rg8qfcH0o1U8MxpSaNUWCIn29e73',  // keanu
-        '7SNO3xpypJa6sI7p38DTJ1LXVl72', // keanu (alt sign-in)
+        '7SNO3xpypJa6sI7p38DTJ1LXVl72', // friend #3
       ];
     }
 
