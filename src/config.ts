@@ -4,7 +4,7 @@
 // ============================================================
 
 // Gemini AI models — free tier only. Never change to Pro models.
-export const GEMINI_TAGGING_MODEL = 'gemini-2.0-flash-lite';
+export const GEMINI_TAGGING_MODEL = 'gemini-3.5-flash-lite';
 export const GEMINI_EMBEDDING_MODEL = 'text-embedding-004';
 
 // Items checked out longer than this many days appear as

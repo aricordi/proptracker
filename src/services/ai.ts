@@ -3,7 +3,7 @@ import { db } from '../firebase'
 
 const API_KEY  = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const TAGGING_MODEL   = 'gemini-2.5-flash'
+const TAGGING_MODEL   = 'gemini-3.5-flash-lite'
 const EMBEDDING_MODEL = 'text-embedding-004'
 
 export interface PhotoAnalysis {
@@ -66,8 +66,10 @@ Example: {"tags":["microphone","sound","handheld","singing","music","black","voc
         }],
         generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 1024,
-            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 2048,
+            // Gemini 3.x can't fully disable thinking — 'minimal' is the closest equivalent
+            // to the old thinkingBudget: 0. Token ceiling raised to leave headroom.
+            thinkingConfig: { thinkingLevel: 'minimal' },
           },
       }),
     },
@@ -132,7 +134,7 @@ export async function generateShoppingSuggestion(propName: string): Promise<stri
               text: `Where is the cheapest and fastest place to buy or find a "${propName}" for a low-budget YouTube video production in Canada? Give a one-sentence answer naming 1-2 specific stores or websites. Be practical and concise.`,
             }],
           }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 80, thinkingConfig: { thinkingBudget: 0 } },
+          generationConfig: { temperature: 0.3, maxOutputTokens: 200, thinkingConfig: { thinkingLevel: 'minimal' } },
         }),
       },
     )
