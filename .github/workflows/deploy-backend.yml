@@ -1,0 +1,53 @@
+# "Deploy backend" button: publishes the server functions, Firestore security
+# rules + indexes, and Storage rules to the LIVE Firebase project.
+# It never runs on its own — only when someone clicks "Run workflow" on GitHub
+# (Actions tab → Deploy backend), and only after every test passes.
+#
+# Does NOT change the live website itself (hosting); that's a separate step.
+#
+# Needs the GitHub secret FIREBASE_DEPLOY_SERVICE_ACCOUNT (JSON key of the
+# github-deploy service account) and the GEMINI_API_KEY secret to already
+# exist in Google Cloud Secret Manager.
+name: Deploy backend
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The Firebase emulator (used by the tests) needs Java.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix functions
+
+      - name: Run all tests first (nothing is deployed if any fail)
+        run: npm test
+
+      - name: Sign in to Google Cloud as the deploy account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Deploy server functions, security rules and indexes
+        run: npx firebase deploy --only functions,firestore,storage --project proptracker-9732e --non-interactive

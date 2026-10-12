@@ -135,6 +135,15 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
   branch and, once the secrets exist, publishes to the `preview` channel.
 
+### Deploying
+- Preview (hosting only): automatic on every push to a non-main branch →
+  https://proptracker-9732e--preview-9kd7p2pf.web.app (uses the REAL database).
+  GitHub secrets: FIREBASE_SERVICE_ACCOUNT (github-preview account) + 6 VITE_FIREBASE_*.
+- Backend (functions + Firestore rules/indexes + Storage rules): manual button,
+  GitHub → Actions → "Deploy backend" → Run workflow (`.github/workflows/deploy-backend.yml`).
+  Uses secret FIREBASE_DEPLOY_SERVICE_ACCOUNT (github-deploy account). Gemini key lives in
+  Google Cloud Secret Manager as GEMINI_API_KEY (never in GitHub). Always ask the owner first.
+
 ### Go-live checklist (each step needs the owner's OK)
 1. Owner adds GitHub secrets (deploy service account + VITE_FIREBASE_* values).
 2. Set the Gemini secret: `firebase functions:secrets:set GEMINI_API_KEY`.
