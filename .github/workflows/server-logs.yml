@@ -1,0 +1,34 @@
+# "Read server logs" button: prints the recent server-function logs so problems
+# can be diagnosed. Read-only — it changes nothing. Run it from GitHub →
+# Actions → "Read server logs" → Run workflow.
+name: Read server logs
+
+on:
+  workflow_dispatch:
+    inputs:
+      lines:
+        description: How many log lines to show
+        default: '300'
+
+jobs:
+  logs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Sign in to Google Cloud as the deploy account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Show recent server logs
+        run: npx firebase functions:log --project proptracker-9732e -n "${{ inputs.lines }}"
