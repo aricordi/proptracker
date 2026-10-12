@@ -1,25 +1,54 @@
-// Reservations: the only way props get booked. Creators can't write
-// reservations directly (the database rules forbid it), so every booking goes
-// through these checks.
+// Reservations: the only way props get booked, packed, collected and returned.
+// Creators can't write reservations directly (the database rules forbid it),
+// so every step goes through these checks and is logged in `history`.
+//
+// Journey:  requested → preparing → packed → collected → return_pending → returned
+//           (or declined / cancelled before collection)
 //
 // Double-booking protection: each prop has one item_bookings/{itemId} record
 // listing its active holds. Creating a reservation reads and rewrites those
 // records inside a transaction, so if two people race for the last unit,
 // Firestore makes one of them retry, and the retry sees the unit is gone.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import type { Transaction, DocumentReference, DocumentSnapshot } from 'firebase-admin/firestore'
+import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, type Caller } from './auth.js'
 import {
   checkDates, freeForRange, todayInStudio, earliestStart,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
 } from './booking.js'
 
-export type ReservationStatus = 'requested' | 'declined' | 'cancelled' | 'returned'
-const ACTIVE: ReservationStatus[] = ['requested']
+export type ReservationStatus =
+  | 'requested' | 'preparing' | 'packed' | 'collected' | 'return_pending' | 'returned'
+  | 'declined' | 'cancelled'
 
-export interface ReservationLine { itemId: string; itemName: string; qty: number; photo?: string }
+// Statuses in which the props are still tied up.
+const HOLDING: ReservationStatus[] = ['requested', 'preparing', 'packed', 'collected', 'return_pending']
+const BEFORE_PACKED: ReservationStatus[] = ['requested', 'preparing']
 
-interface HistoryEntry { status: ReservationStatus; at: string; by: string; reason?: string }
+export interface PickState { state: 'picked' | 'unavailable'; reason?: string; by: string; at: string }
+export interface CheckInResult { result: 'ok' | 'damaged' | 'missing'; missingQty?: number; note?: string; by: string; at: string }
+
+export interface ReservationLine {
+  itemId: string; itemName: string; qty: number; photo?: string
+  pick?: PickState
+  checkIn?: CheckInResult
+}
+
+export interface BuildLine {
+  id: string; description: string; qty: number; refPhoto?: string
+  state: 'todo' | 'done' | 'unavailable'; reason?: string
+  addedItemId?: string
+}
+
+interface HistoryEntry { status: ReservationStatus; at: string; by: string; reason?: string; event?: string }
+
+const STATUS_WORDS: Record<ReservationStatus, string> = {
+  requested: 'requested', preparing: 'being prepared', packed: 'packed and ready for pickup',
+  collected: 'collected', return_pending: 'returned and being checked', returned: 'returned',
+  declined: 'declined', cancelled: 'cancelled',
+}
+
+// ─── Small helpers ───────────────────────────────────────────────────────────
 
 async function loadSettings(): Promise<BookingSettings> {
   const snap = await db.doc('app_settings/booking').get()
@@ -39,8 +68,23 @@ const DATE_MESSAGES: Record<DateProblem, string> = {
   'too-soon':         'Props must be requested further ahead.',
 }
 
+function text(v: unknown, max: number) {
+  return typeof v === 'string' ? v.trim().slice(0, max) : ''
+}
+
+// Photos must be files uploaded to this project's storage.
+function cleanPhotos(raw: unknown, { min, max }: { min: number; max: number }): string[] {
+  const list = Array.isArray(raw) ? raw : []
+  const ok = list.filter((u): u is string => typeof u === 'string' && u.length < 2000 && (
+    u.startsWith('https://firebasestorage.googleapis.com/') || u.startsWith('http://127.0.0.1:9199/')))
+  if (ok.length !== list.length) throw new HttpsError('invalid-argument', 'A photo link is not valid.')
+  if (ok.length < min) throw new HttpsError('invalid-argument', min === 1 ? 'Take at least one photo.' : `Take at least ${min} photos.`)
+  return ok.slice(0, max)
+}
+
 function cleanLines(raw: unknown): { itemId: string; qty: number }[] {
-  if (!Array.isArray(raw) || raw.length === 0) throw new HttpsError('invalid-argument', 'Add at least one prop.')
+  if (raw == null) return []
+  if (!Array.isArray(raw)) throw new HttpsError('invalid-argument', 'Prop list is not valid.')
   if (raw.length > 100) throw new HttpsError('invalid-argument', 'Too many props in one reservation (max 100).')
   const merged = new Map<string, number>()
   for (const l of raw) {
@@ -54,17 +98,74 @@ function cleanLines(raw: unknown): { itemId: string; qty: number }[] {
   return [...merged].map(([itemId, qty]) => ({ itemId, qty }))
 }
 
+function cleanBuilds(raw: unknown): BuildLine[] {
+  if (raw == null) return []
+  if (!Array.isArray(raw) || raw.length > 30) throw new HttpsError('invalid-argument', 'Build requests are not valid.')
+  return raw.map((b, i) => {
+    const description = text(b?.description, 500)
+    const qty = b?.qty
+    if (!description || !Number.isInteger(qty) || qty < 1 || qty > 1000) {
+      throw new HttpsError('invalid-argument', 'Each build request needs a description and a quantity.')
+    }
+    const photos = b?.refPhoto ? cleanPhotos([b.refPhoto], { min: 1, max: 1 }) : []
+    return { id: `b${i + 1}`, description, qty, state: 'todo' as const, ...(photos[0] ? { refPhoto: photos[0] } : {}) }
+  })
+}
+
 const bookingsRef = (itemId: string) => db.doc(`item_bookings/${itemId}`)
 const entriesOf = (snap: DocumentSnapshot): BookingEntry[] => (snap.get('entries') as BookingEntry[] | undefined) ?? []
 
-// ─── Create ──────────────────────────────────────────────────────────────────
+// Status-change emails are queued here; a sender plugs in once an email
+// service is chosen. 'arts-team' means every active arts user plus the owner.
+function queueEmail(tx: Transaction, to: string, subject: string, body: string, reservationId: string) {
+  tx.set(db.collection('outbox').doc(), {
+    to, subject, body, reservationId, createdAt: new Date().toISOString(), sent: false,
+  })
+}
+
+function creatorUpdate(tx: Transaction, res: DocumentData, id: string, status: ReservationStatus, extra = '') {
+  queueEmail(tx, res.creatorEmail, `"${res.title}" is ${STATUS_WORDS[status]}`,
+    `Your booking "${res.title}" (${res.startDate} to ${res.endDate}) is now ${STATUS_WORDS[status]}.${extra ? `\n\n${extra}` : ''}`, id)
+}
+
+// Load a reservation inside a transaction and check the caller may act on it.
+async function loadForUpdate(tx: Transaction, id: unknown) {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9]{1,64}$/.test(id)) throw new HttpsError('invalid-argument', 'Missing reservation')
+  const ref = db.doc(`reservations/${id}`)
+  const snap = await tx.get(ref)
+  if (!snap.exists) throw new HttpsError('not-found', 'Reservation not found')
+  return { ref, id, res: snap.data()! }
+}
+
+function requireStatus(res: DocumentData, allowed: ReservationStatus[]) {
+  if (!allowed.includes(res.status)) {
+    throw new HttpsError('failed-precondition', `This booking is ${STATUS_WORDS[res.status as ReservationStatus] ?? res.status}, so that can't be done now.`)
+  }
+}
+
+function historyWith(res: DocumentData, entry: HistoryEntry) {
+  return [...(res.history ?? []), entry]
+}
+
+// Remove this reservation's holds from the given props.
+async function releaseHolds(tx: Transaction, reservationId: string, itemIds: string[]) {
+  if (!itemIds.length) return
+  const snaps = await tx.getAll(...itemIds.map(bookingsRef))
+  return () => itemIds.forEach((itemId, i) => {
+    tx.set(bookingsRef(itemId), { entries: entriesOf(snaps[i]).filter(e => e.reservationId !== reservationId) })
+  })
+}
+
+// ─── 1. Create ───────────────────────────────────────────────────────────────
 
 export const createReservation = onCall(async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
-  const { title, startDate, endDate, notes } = req.data ?? {}
-  const cleanTitle = typeof title === 'string' ? title.trim().slice(0, 120) : ''
-  if (!cleanTitle) throw new HttpsError('invalid-argument', 'Give the shoot a name.')
+  const { startDate, endDate } = req.data ?? {}
+  const title = text(req.data?.title, 120)
+  if (!title) throw new HttpsError('invalid-argument', 'Give the shoot a name.')
   const lines = cleanLines(req.data?.lines)
+  const builds = cleanBuilds(req.data?.builds)
+  if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Add at least one prop.')
 
   const settings = await loadSettings()
   const today = todayInStudio()
@@ -80,8 +181,9 @@ export const createReservation = onCall(async req => {
   const now = new Date().toISOString()
 
   await db.runTransaction(async tx => {
-    const itemRefs = lines.map(l => db.doc(`items/${l.itemId}`))
-    const snaps = await tx.getAll(...itemRefs, ...lines.map(l => bookingsRef(l.itemId)))
+    const snaps = lines.length
+      ? await tx.getAll(...lines.map(l => db.doc(`items/${l.itemId}`)), ...lines.map(l => bookingsRef(l.itemId)))
+      : []
     const itemSnaps = snaps.slice(0, lines.length)
     const bookingSnaps = snaps.slice(lines.length)
 
@@ -102,7 +204,7 @@ export const createReservation = onCall(async req => {
       }
       const quantity = Number.isInteger(item.get('quantity')) && item.get('quantity') >= 1 ? item.get('quantity') as number : 1
       const free = freeForRange(
-        { quantity, legacyCheckedOut: item.get('status') === 'checked-out' },
+        { quantity, missingQty: Number(item.get('missingQty') ?? 0), legacyCheckedOut: item.get('status') === 'checked-out' },
         entriesOf(bookingSnaps[i]), startDate, endDate, today, settings.bufferDays,
       )
       if (free < line.qty) {
@@ -119,13 +221,14 @@ export const createReservation = onCall(async req => {
     }
 
     tx.set(resRef, {
-      title: cleanTitle,
-      notes: typeof notes === 'string' ? notes.trim().slice(0, 2000) : '',
+      title,
+      notes: text(req.data?.notes, 2000),
       creatorEmail: caller.email,
       creatorName: caller.name,
       startDate, endDate,
       status: 'requested',
       lines: saved,
+      builds,
       itemIds: saved.map(l => l.itemId),
       createdAt: now,
       updatedAt: now,
@@ -135,57 +238,269 @@ export const createReservation = onCall(async req => {
       const entry: BookingEntry = { reservationId: resRef.id, start: startDate, end: endDate, qty: line.qty }
       tx.set(bookingsRef(line.itemId), { entries: [...entriesOf(bookingSnaps[i]), entry] })
     })
+    queueEmail(tx, 'arts-team', `New request: "${title}" (${startDate})`,
+      `${caller.name} requested ${saved.length} prop(s)${builds.length ? ` and ${builds.length} build(s)` : ''} for ${startDate} to ${endDate}.`, resRef.id)
   })
 
   return { id: resRef.id }
 })
 
-// ─── Ending a reservation (cancel / decline / returned) ─────────────────────
+// ─── 2. Cancel / decline (before pickup) ─────────────────────────────────────
 
-async function endReservation(
-  caller: Caller, id: unknown, to: ReservationStatus, check: (res: FirebaseFirestore.DocumentData) => void, reason?: string,
-) {
-  if (typeof id !== 'string' || !id) throw new HttpsError('invalid-argument', 'Missing reservation')
-  const ref = db.doc(`reservations/${id}`) as DocumentReference
-  await db.runTransaction(async (tx: Transaction) => {
-    const snap = await tx.get(ref)
-    if (!snap.exists) throw new HttpsError('not-found', 'Reservation not found')
-    const res = snap.data()!
-    if (!ACTIVE.includes(res.status)) throw new HttpsError('failed-precondition', `This reservation is already ${res.status}.`)
-    check(res)
-    const itemIds: string[] = res.itemIds ?? []
-    const bookingSnaps = itemIds.length ? await tx.getAll(...itemIds.map(bookingsRef)) : []
+async function endEarly(caller: Caller, id: unknown, to: 'cancelled' | 'declined', reason: string | undefined,
+  check: (res: DocumentData) => void) {
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, id)
+    requireStatus(r.res, ['requested', 'preparing', 'packed'])
+    check(r.res)
+    const apply = await releaseHolds(tx, r.id, r.res.itemIds ?? [])
     const now = new Date().toISOString()
-    tx.update(ref, {
-      status: to,
-      updatedAt: now,
+    apply?.()
+    tx.update(r.ref, {
+      status: to, updatedAt: now,
       ...(reason ? { statusReason: reason } : {}),
-      history: [...(res.history ?? []), { status: to, at: now, by: caller.email, ...(reason ? { reason } : {}) }],
+      history: historyWith(r.res, { status: to, at: now, by: caller.email, ...(reason ? { reason } : {}) }),
     })
-    // Release the holds so the props become bookable again.
-    itemIds.forEach((itemId, i) => {
-      tx.set(bookingsRef(itemId), { entries: entriesOf(bookingSnaps[i]).filter(e => e.reservationId !== id) })
-    })
+    if (to === 'declined') creatorUpdate(tx, r.res, r.id, 'declined', `Reason: ${reason}`)
+    else if (caller.email === r.res.creatorEmail) queueEmail(tx, 'arts-team', `Cancelled: "${r.res.title}"`, `${caller.name} cancelled their booking.`, r.id)
   })
   return { ok: true }
 }
 
 export const cancelReservation = onCall(async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
-  return endReservation(caller, req.data?.id, 'cancelled', res => {
+  return endEarly(caller, req.data?.id, 'cancelled', undefined, res => {
     if (!caller.isStaff && res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your reservation')
   })
 })
 
 export const declineReservation = onCall(async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
-  const reason = typeof req.data?.reason === 'string' ? req.data.reason.trim().slice(0, 500) : ''
+  const reason = text(req.data?.reason, 500)
   if (!reason) throw new HttpsError('invalid-argument', 'Tell the creator why it was declined.')
-  return endReservation(caller, req.data?.id, 'declined', () => {}, reason)
+  return endEarly(caller, req.data?.id, 'declined', reason, () => {})
 })
 
-// Phase 3 placeholder for the full return check-in (Phase 5): frees the props.
-export const markReservationReturned = onCall(async req => {
+// ─── 3. Picking (arts) ───────────────────────────────────────────────────────
+
+// Tick a prop as picked (or untick it), or mark it not available with a reason.
+// "Not available" is final for this booking: its hold is released straight away.
+export const setLinePick = onCall(async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
-  return endReservation(caller, req.data?.id, 'returned', () => {})
+  const { itemId, state } = req.data ?? {}
+  const reason = text(req.data?.reason, 300)
+  if (!['picked', 'todo', 'unavailable'].includes(state)) throw new HttpsError('invalid-argument', 'Unknown pick state')
+  if (state === 'unavailable' && !reason) throw new HttpsError('invalid-argument', 'Say why it isn\'t available.')
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    requireStatus(r.res, BEFORE_PACKED)
+    const lines = (r.res.lines ?? []) as ReservationLine[]
+    const idx = lines.findIndex(l => l.itemId === itemId)
+    if (idx < 0) throw new HttpsError('not-found', 'That prop is not in this booking')
+    if (lines[idx].pick?.state === 'unavailable') throw new HttpsError('failed-precondition', 'Already marked not available.')
+
+    const apply = state === 'unavailable' ? await releaseHolds(tx, r.id, [itemId]) : undefined
+    const now = new Date().toISOString()
+    const next = [...lines]
+    if (state === 'todo') { const { pick: _drop, ...rest } = next[idx]; next[idx] = rest }
+    else next[idx] = { ...next[idx], pick: { state, by: caller.email, at: now, ...(reason ? { reason } : {}) } }
+
+    apply?.()
+    const starting = r.res.status === 'requested'
+    tx.update(r.ref, {
+      lines: next,
+      updatedAt: now,
+      ...(starting ? { status: 'preparing', history: historyWith(r.res, { status: 'preparing', at: now, by: caller.email }) } : {}),
+    })
+    if (starting) creatorUpdate(tx, r.res, r.id, 'preparing')
+    if (state === 'unavailable') {
+      creatorUpdate(tx, r.res, r.id, starting ? 'preparing' : r.res.status,
+        `"${lines[idx].itemName}" isn't available: ${reason}`)
+    }
+  })
+  return { ok: true }
+})
+
+export const setBuildState = onCall(async req => {
+  const caller = await requireRole(req, ['owner', 'arts'])
+  const { buildId, state } = req.data ?? {}
+  const reason = text(req.data?.reason, 300)
+  if (!['todo', 'done', 'unavailable'].includes(state)) throw new HttpsError('invalid-argument', 'Unknown build state')
+  if (state === 'unavailable' && !reason) throw new HttpsError('invalid-argument', 'Say why it can\'t be made.')
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    requireStatus(r.res, BEFORE_PACKED)
+    const builds = (r.res.builds ?? []) as BuildLine[]
+    const idx = builds.findIndex(b => b.id === buildId)
+    if (idx < 0) throw new HttpsError('not-found', 'That build request is not in this booking')
+    const now = new Date().toISOString()
+    const next = [...builds]
+    const { reason: _old, ...rest } = next[idx]
+    next[idx] = { ...rest, state, ...(state === 'unavailable' ? { reason } : {}) }
+    const starting = r.res.status === 'requested'
+    tx.update(r.ref, {
+      builds: next, updatedAt: now,
+      ...(starting ? { status: 'preparing', history: historyWith(r.res, { status: 'preparing', at: now, by: caller.email }) } : {}),
+    })
+    if (starting) creatorUpdate(tx, r.res, r.id, 'preparing')
+    if (state === 'unavailable') creatorUpdate(tx, r.res, r.id, starting ? 'preparing' : r.res.status,
+      `"${builds[idx].description}" can't be made: ${reason}`)
+  })
+  return { ok: true }
+})
+
+// Everything is picked (or marked not available), photographed, and ready.
+export const markPacked = onCall(async req => {
+  const caller = await requireRole(req, ['owner', 'arts'])
+  const photos = cleanPhotos(req.data?.photos, { min: 1, max: 20 })
+  const note = text(req.data?.note, 1000)
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    requireStatus(r.res, BEFORE_PACKED)
+    const lines = (r.res.lines ?? []) as ReservationLine[]
+    const builds = (r.res.builds ?? []) as BuildLine[]
+    const unresolved = lines.filter(l => !l.pick).length + builds.filter(b => b.state === 'todo').length
+    if (unresolved) throw new HttpsError('failed-precondition', `${unresolved} item(s) still need to be picked or marked not available.`)
+    const going = lines.filter(l => l.pick?.state === 'picked').length + builds.filter(b => b.state === 'done').length
+    if (!going) throw new HttpsError('failed-precondition', 'Nothing in this booking is available. Decline it instead.')
+
+    const now = new Date().toISOString()
+    tx.update(r.ref, {
+      status: 'packed', packPhotos: photos, ...(note ? { packNote: note } : {}),
+      packedAt: now, packedBy: caller.email, updatedAt: now,
+      history: historyWith(r.res, { status: 'packed', at: now, by: caller.email }),
+    })
+    creatorUpdate(tx, r.res, r.id, 'packed', note ? `Note from the arts department: ${note}` : '')
+  })
+  return { ok: true }
+})
+
+// ─── 4. Pickup (creator signs off) ───────────────────────────────────────────
+
+export const confirmPickup = onCall(async req => {
+  const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  const allReceived = req.data?.allReceived === true
+  const issue = text(req.data?.issue, 1000)
+  if (!allReceived && !issue) throw new HttpsError('invalid-argument', 'Say what is missing or wrong.')
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    // The point is the creator's own confirmation, so only they can sign.
+    if (r.res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Only the person who booked can confirm pickup.')
+    requireStatus(r.res, ['packed'])
+    const now = new Date().toISOString()
+    tx.update(r.ref, {
+      status: 'collected',
+      pickup: { at: now, by: caller.email, allReceived, ...(issue ? { issue } : {}) },
+      updatedAt: now,
+      history: historyWith(r.res, { status: 'collected', at: now, by: caller.email, ...(issue ? { reason: `Reported at pickup: ${issue}` } : {}) }),
+    })
+    if (issue) queueEmail(tx, 'arts-team', `Pickup issue: "${r.res.title}"`, `${caller.name} reported at pickup: ${issue}`, r.id)
+  })
+  return { ok: true }
+})
+
+// ─── 5. Return (creator photographs what they left) ──────────────────────────
+
+export const startReturn = onCall(async req => {
+  const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  const photos = cleanPhotos(req.data?.photos, { min: 1, max: 20 })
+  const note = text(req.data?.note, 1000)
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    if (r.res.creatorEmail !== caller.email && !caller.isStaff) throw new HttpsError('permission-denied', 'Not your booking')
+    requireStatus(r.res, ['collected'])
+    const now = new Date().toISOString()
+    tx.update(r.ref, {
+      status: 'return_pending',
+      returnInfo: { at: now, by: caller.email, photos, ...(note ? { note } : {}), byStaff: r.res.creatorEmail !== caller.email },
+      updatedAt: now,
+      history: historyWith(r.res, { status: 'return_pending', at: now, by: caller.email }),
+    })
+    queueEmail(tx, 'arts-team', `Returned: "${r.res.title}"`, `${r.res.creatorName}'s props are back and need checking in.${note ? ` Note: ${note}` : ''}`, r.id)
+  })
+  return { ok: true }
+})
+
+// ─── 6. Check-in (arts confirms each prop's condition) ───────────────────────
+
+export const checkIn = onCall(async req => {
+  const caller = await requireRole(req, ['owner', 'arts'])
+  const photos = cleanPhotos(req.data?.photos ?? [], { min: 0, max: 20 })
+  const results = Array.isArray(req.data?.lines) ? req.data.lines : []
+  const buildChoices = Array.isArray(req.data?.builds) ? req.data.builds : []
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    // Normally after the creator's return photo; staff can also check in a
+    // booking that was dropped off without using the app (flagged).
+    requireStatus(r.res, ['return_pending', 'collected'])
+    const lines = (r.res.lines ?? []) as ReservationLine[]
+    const builds = (r.res.builds ?? []) as BuildLine[]
+    const now = new Date().toISOString()
+
+    const nextLines = lines.map(l => {
+      if (l.pick?.state !== 'picked') return l
+      const given = results.find((x: { itemId?: string }) => x?.itemId === l.itemId)
+      if (!given || !['ok', 'damaged', 'missing'].includes(given.result)) {
+        throw new HttpsError('invalid-argument', `Check in "${l.itemName}" (fine, damaged or missing).`)
+      }
+      const missingQty = given.result === 'missing'
+        ? Math.min(l.qty, Math.max(1, Number.isInteger(given.missingQty) ? given.missingQty : l.qty))
+        : undefined
+      const note = text(given.note, 500)
+      if (given.result !== 'ok' && !note) throw new HttpsError('invalid-argument', `Add a note for "${l.itemName}".`)
+      return { ...l, checkIn: { result: given.result, by: caller.email, at: now, ...(missingQty ? { missingQty } : {}), ...(note ? { note } : {}) } }
+    })
+
+    const apply = await releaseHolds(tx, r.id, r.res.itemIds ?? [])
+
+    // Writes start here (all reads are done).
+    apply?.()
+    for (const l of nextLines) {
+      if (!l.checkIn || l.checkIn.result === 'ok') continue
+      const ref = db.doc(`items/${l.itemId}`)
+      if (l.checkIn.result === 'damaged') {
+        tx.set(ref, { condition: 'damaged', updatedAt: now, updatedBy: caller.email }, { merge: true })
+      } else {
+        tx.set(ref, { missingQty: FieldValue.increment(l.checkIn.missingQty ?? 1), updatedAt: now, updatedBy: caller.email }, { merge: true })
+      }
+    }
+
+    const nextBuilds = builds.map(b => {
+      const choice = buildChoices.find((x: { buildId?: string }) => x?.buildId === b.id)
+      if (b.state !== 'done' || choice?.addToInventory !== true) return b
+      const itemRef = db.collection('items').doc()
+      // No photo yet on purpose: the pack photo shows the whole booking, not this
+      // prop. It appears on the Health fix-it list so someone photographs it.
+      tx.set(itemRef, {
+        name: b.description.slice(0, 120), description: `Built for "${r.res.title}"`,
+        categoryId: 'prop', quantity: b.qty, condition: 'good', tags: [], photos: [],
+        status: 'available', archived: false,
+        createdAt: now, updatedAt: now, createdBy: caller.email, updatedBy: caller.email,
+      })
+      return { ...b, addedItemId: itemRef.id }
+    })
+
+    const problems = nextLines.filter(l => l.checkIn && l.checkIn.result !== 'ok')
+    tx.update(r.ref, {
+      status: 'returned',
+      lines: nextLines,
+      builds: nextBuilds,
+      ...(photos.length ? { checkInPhotos: photos } : {}),
+      checkedInAt: now, checkedInBy: caller.email,
+      ...(r.res.status === 'collected' ? { returnedWithoutCreatorPhoto: true } : {}),
+      updatedAt: now,
+      history: historyWith(r.res, { status: 'returned', at: now, by: caller.email,
+        ...(problems.length ? { reason: problems.map(l => `${l.itemName}: ${l.checkIn!.result}`).join('; ') } : {}) }),
+    })
+    creatorUpdate(tx, r.res, r.id, 'returned', problems.length
+      ? `The arts department noted: ${problems.map(l => `${l.itemName} ${l.checkIn!.result} (${l.checkIn!.note})`).join('; ')}`
+      : 'Everything was checked in fine. Thank you!')
+  })
+  return { ok: true }
 })

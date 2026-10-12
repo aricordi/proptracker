@@ -120,11 +120,6 @@ describe('ending a reservation frees the props', () => {
     expect(res.statusReason).toBe('Needed for reshoot')
     expect(res.history.map((h: { status: string }) => h.status)).toEqual(['requested', 'declined'])
   })
-  it('marking returned frees the prop', async () => {
-    const { result } = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }])
-    expect((await call('markReservationReturned', { id: result.id }, ARTS)).ok).toBe(true)
-    expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }])).ok).toBe(true)
-  })
   it('an ended reservation cannot be ended twice', async () => {
     const { result } = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }])
     await call('cancelReservation', { id: result.id }, ALEX)

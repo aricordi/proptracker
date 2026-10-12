@@ -62,6 +62,10 @@ describe('props not yet marked returned', () => {
     expect(holdUntil(overdue, TODAY, 1)).toBe('9999-12-31')
     expect(freeForRange({ quantity: 1 }, [overdue], '2026-11-20', '2026-11-21', TODAY, 1)).toBe(0)
   })
+  it('units reported missing are not bookable until found', () => {
+    expect(freeForRange({ quantity: 10, missingQty: 3 }, [], '2026-11-01', '2026-11-01', TODAY, 1)).toBe(7)
+    expect(freeForRange({ quantity: 1, missingQty: 1 }, [], '2026-11-01', '2026-11-01', TODAY, 1)).toBe(0)
+  })
   it('props from the old Checkout screen are unavailable until returned there', () => {
     expect(freeForRange({ quantity: 5, legacyCheckedOut: true }, [], '2026-11-01', '2026-11-01', TODAY, 1)).toBe(0)
   })

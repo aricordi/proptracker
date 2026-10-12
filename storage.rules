@@ -29,6 +29,31 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    function isImage() {
+      return request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    function bookedBy(resId) {
+      return firestore.get(/databases/(default)/documents/reservations/$(resId)).data.creatorEmail == myEmail();
+    }
+
+    // Proof photos for a booking: what was packed, how it came back.
+    match /reservation-photos/{resId}/{kind}/{file} {
+      allow read: if isStaff() || (isMember() && bookedBy(resId));
+      // resource == null: only brand-new files, so existing proof can't be overwritten.
+      allow create: if resource == null && isImage() && (
+        (kind in ['pack', 'checkin'] && isStaff())
+        || (kind == 'return' && (isStaff() || (isMember() && bookedBy(resId)))));
+      allow update, delete: if false;
+    }
+
+    // Reference photos creators attach to build-to-order requests.
+    match /request-photos/{email}/{file} {
+      allow read: if isMember();
+      allow create: if resource == null && isImage() && isMember() && myEmail() == email;
+      allow update, delete: if false;
+    }
+
     match /{allPaths=**} {
       allow read: if isOwner();
     }

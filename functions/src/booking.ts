@@ -60,6 +60,8 @@ export function holdUntil(entry: BookingEntry, today: string, bufferDays: number
 
 export interface ItemStock {
   quantity: number
+  // Units reported missing at a return check-in; not bookable until found.
+  missingQty?: number
   // Props checked out with the old Checkout screen: tied up until returned there.
   legacyCheckedOut?: boolean
 }
@@ -76,10 +78,11 @@ export function freeForRange(
   stock: ItemStock, entries: BookingEntry[], start: string, end: string, today: string, bufferDays: number,
 ): number {
   if (stock.legacyCheckedOut) return 0
+  const usable = Math.max(0, stock.quantity - (stock.missingQty ?? 0))
   // The new booking also needs its own turnaround days after `end`.
-  let free = stock.quantity
+  let free = usable
   for (const day of eachDay(start, addDays(end, bufferDays))) {
-    free = Math.min(free, stock.quantity - bookedOn(day, entries, today, bufferDays))
+    free = Math.min(free, usable - bookedOn(day, entries, today, bufferDays))
     if (free <= 0) return 0
   }
   return Math.max(0, free)
