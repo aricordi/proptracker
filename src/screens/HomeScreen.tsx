@@ -5,7 +5,13 @@ import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import { useSession } from '../auth'
-import ItemCard from '../components/ItemCard'
+import { useNavigate } from 'react-router-dom'
+import ItemCard, { type Badge } from '../components/ItemCard'
+import DateRangePicker from '../components/DateRangePicker'
+import { useBookings, useBookingSettings } from '../hooks/useBookings'
+import { useCart } from '../cart'
+import { freeForRange, todayInStudio, earliestStart } from '../../functions/src/booking'
+import { formatDay, formatRange } from '../lib/dates'
 import { searchSimilar } from '../services/ai'
 import { matchesQuery, availabilityOf, byName, type Availability } from '../lib/search'
 import { SIMILAR_MIN_SCORE } from '../config'
@@ -15,7 +21,7 @@ type AvailabilityFilter = Availability | 'all' | 'archived'
 
 const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnly?: boolean }[] = [
   { value: 'all',         label: 'Any status' },
-  { value: 'available',   label: 'Available now' },
+  { value: 'available',   label: 'Available' },
   { value: 'checked-out', label: 'Checked out' },
   { value: 'damaged',     label: 'Damaged' },
   { value: 'archived',    label: 'Archived', staffOnly: true },
@@ -28,6 +34,20 @@ export default function HomeScreen() {
   const locations  = useLocations()
   const bins       = useBins()
   const categories = useCategories()
+  const bookings   = useBookings()
+  const settings   = useBookingSettings()
+  const cart       = useCart()
+  const navigate   = useNavigate()
+  const [showDates, setShowDates] = useState(false)
+  const today = todayInStudio()
+  const minStart = earliestStart(today, settings, isStaff)
+  const dates = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
+
+  // With shoot dates picked, "free" means free for those dates (incl. turnaround).
+  const freeFor = (i: Item) => dates
+    ? freeForRange({ quantity: i.quantity, legacyCheckedOut: i.status === 'checked-out' },
+        bookings[i.id] ?? [], dates.start, dates.end, today, settings.bufferDays)
+    : null
 
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
@@ -63,10 +83,14 @@ export default function HomeScreen() {
     () => allItems
       .filter(i =>
         (availability === 'archived' ? i.archived : !i.archived)
-        && (availability === 'all' || availability === 'archived' || availabilityOf(i) === availability)
+        && (availability === 'all' || availability === 'archived' || (
+          dates && availability === 'available'
+            ? (freeFor(i) ?? 0) > 0 && i.condition !== 'damaged'
+            : availabilityOf(i) === availability))
         && (!categoryFilter || i.categoryId === categoryFilter))
       .sort(byName),
-    [allItems, availability, categoryFilter],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, settings.bufferDays],
   )
 
   const matched = useMemo(
@@ -88,6 +112,19 @@ export default function HomeScreen() {
       .filter(Boolean).join(' › ')
     return where || category
   }
+
+  function badgeFor(item: Item): Badge | undefined {
+    if (!dates || item.archived) return undefined
+    if (item.condition === 'damaged') return { label: 'Damaged', style: 'bg-red-500/90 text-white' }
+    const free = freeFor(item) ?? 0
+    if (free === 0) return { label: 'Booked', style: 'bg-stone-900/90 text-red-300' }
+    if (item.quantity > 1) return { label: `${free} of ${item.quantity} free`, style: 'bg-green-500/90 text-stone-900' }
+    return { label: 'Free', style: 'bg-green-500/90 text-stone-900' }
+  }
+
+  const card = (item: Item) => (
+    <ItemCard key={item.id} item={item} subtitle={subtitle(item)} badge={badgeFor(item)} inCart={cart.lines[item.id]} />
+  )
 
   const filtersActive = !!categoryFilter || availability !== 'all'
   const nothingAtAll = allItems.length === 0
@@ -160,6 +197,33 @@ export default function HomeScreen() {
             )}
           </span>
         </div>
+
+        {/* Shoot dates */}
+        {showDates || !dates ? (
+          showDates ? (
+            <div className="mt-3 space-y-2">
+              <DateRangePicker start={cart.start} end={cart.end} min={minStart}
+                onChange={(s, e) => cart.setDates(s, e)}
+                leadTimeNote={!isStaff && settings.leadTimeDays > 0
+                  ? `Props must be booked ${settings.leadTimeDays} day${settings.leadTimeDays > 1 ? 's' : ''} ahead. Earliest: ${formatDay(minStart)}.`
+                  : undefined} />
+              <button onClick={() => setShowDates(false)} className="w-full py-2 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold">
+                {dates ? 'Show what’s free' : 'Done'}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setShowDates(true)}
+              className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-pt-accent/60 text-pt-accent text-sm font-medium active:opacity-70">
+              📅 Pick your shoot dates to see what’s free
+            </button>
+          )
+        ) : (
+          <button onClick={() => setShowDates(true)}
+            className="mt-3 w-full flex items-center justify-between py-2 px-3 rounded-xl bg-pt-accent/10 border border-pt-accent/40 text-sm active:opacity-70">
+            <span className="text-pt-text">📅 {formatRange(dates.start, dates.end)}</span>
+            <span className="text-pt-accent text-xs">Change</span>
+          </button>
+        )}
       </div>
 
       <div className="p-4">
@@ -183,7 +247,7 @@ export default function HomeScreen() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          {matched.map(item => <ItemCard key={item.id} item={item} subtitle={subtitle(item)} />)}
+          {matched.map(card)}
         </div>
 
         {similar.length > 0 && (
@@ -194,13 +258,24 @@ export default function HomeScreen() {
               <div className="flex-1 h-px bg-pt-border" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {similar.map(item => <ItemCard key={item.id} item={item} subtitle={subtitle(item)} />)}
+              {similar.map(card)}
             </div>
           </>
         )}
 
-        <div className="h-4" />
+        <div className={cart.count > 0 ? 'h-20' : 'h-4'} />
       </div>
+
+      {/* Reservation being built */}
+      {cart.count > 0 && (
+        <div className="sticky bottom-3 px-4">
+          <button onClick={() => navigate('/reserve')}
+            className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-3.5 shadow-lg font-semibold active:opacity-90">
+            <span>Your reservation · {cart.count} prop{cart.count !== 1 ? 's' : ''}</span>
+            <span>Review →</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

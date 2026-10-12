@@ -31,15 +31,19 @@ function badge(item: Item) {
   return { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
 }
 
+export interface Badge { label: string; style: string }
+
 interface Props {
   item: Item
   subtitle?: string     // e.g. category, or bin for staff
+  badge?: Badge         // overrides the status badge (e.g. "3 free" for chosen dates)
+  inCart?: number       // quantity already in the reservation being built
 }
 
 // One tile in the 2-across search grid: big photo, name, status.
-export default function ItemCard({ item, subtitle }: Props) {
+export default function ItemCard({ item, subtitle, badge: override, inCart }: Props) {
   const navigate = useNavigate()
-  const { label, style } = badge(item)
+  const { label, style } = override ?? badge(item)
 
   return (
     <button
@@ -52,6 +56,11 @@ export default function ItemCard({ item, subtitle }: Props) {
           : <CameraIcon className="w-10 h-10 text-pt-muted" />
         }
         <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>
+        {!!inCart && (
+          <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
+            ✓ {item.quantity > 1 ? inCart : 'Added'}
+          </span>
+        )}
         {item.quantity > 1 && (
           <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-1.5 py-0.5 rounded-md">
             ×{item.quantity}

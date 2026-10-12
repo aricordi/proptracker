@@ -22,6 +22,11 @@ import UsersScreen from './screens/UsersScreen'
 import CategoriesScreen from './screens/CategoriesScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
+import ReserveScreen from './screens/ReserveScreen'
+import ReservationsScreen from './screens/ReservationsScreen'
+import ReservationDetailScreen from './screens/ReservationDetailScreen'
+import BookingRulesScreen from './screens/BookingRulesScreen'
+import { CartProvider } from './cart'
 
 function Loading() {
   return (
@@ -96,15 +101,20 @@ export default function App() {
 
   return (
     <SessionContext.Provider value={session}>
+    <CartProvider>
       <Routes>
         {/* Full-screen routes outside the shell */}
         <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
         <Route path="/item/:id" element={<ItemDetailScreen />} />
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
+        <Route path="/reserve" element={<ReserveScreen />} />
+        <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
 
         <Route element={<ShellLayout />}>
           <Route path="/" element={<HomeScreen />} />
           <Route path="/account" element={<AccountScreen />} />
+          <Route path="/reservations" element={<ReservationsScreen />} />
+          <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
           <Route path="/bins" element={<StaffOnly><BinsScreen /></StaffOnly>} />
           <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
@@ -116,6 +126,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </CartProvider>
     </SessionContext.Provider>
   )
 }

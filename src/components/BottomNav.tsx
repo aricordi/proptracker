@@ -8,9 +8,10 @@ const searchIcon = (
   </svg>
 )
 
-const checkoutIcon = (
+const reservationsIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-    <path d="M20.2 6 3 11l9 2 2 9 2.6-9.2Z" />
+    <rect x="3" y="4" width="18" height="18" rx="2" />
+    <path d="M16 2v4M8 2v4M3 10h18M8 15l2.5 2.5L16 12" />
   </svg>
 )
 
@@ -36,14 +37,15 @@ const accountIcon = (
 
 const staffNav = [
   { to: '/',         label: 'Search',   icon: searchIcon },
-  { to: '/checkout', label: 'Checkout', icon: checkoutIcon },
+  { to: '/reservations', label: 'Bookings', icon: reservationsIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
   { to: '/admin',    label: 'Admin',    icon: adminIcon },
 ]
 
 const creatorNav = [
-  { to: '/',        label: 'Search',  icon: searchIcon },
-  { to: '/account', label: 'Account', icon: accountIcon },
+  { to: '/',             label: 'Search',   icon: searchIcon },
+  { to: '/reservations', label: 'Bookings', icon: reservationsIcon },
+  { to: '/account',      label: 'Account',  icon: accountIcon },
 ]
 
 export default function BottomNav() {

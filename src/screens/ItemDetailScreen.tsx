@@ -10,6 +10,8 @@ import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import ImageLightbox from '../components/ImageLightbox'
+import ReservePanel from '../components/ReservePanel'
+import { useBookings } from '../hooks/useBookings'
 import { CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
 import type { Item, Condition } from '../types'
 
@@ -22,6 +24,7 @@ export default function ItemDetailScreen() {
   const locations  = useLocations()
   const bins       = useBins()
   const categories = useCategories()
+  const bookings   = useBookings()
 
   const [item, setItem] = useState<Item | null>(null)
   const [loading, setLoading] = useState(true)
@@ -201,6 +204,8 @@ export default function ItemDetailScreen() {
             </p>
           </div>
         )}
+
+        {!item.archived && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
 
         {/* Location */}
         {locationPath && (

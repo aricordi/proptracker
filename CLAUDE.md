@@ -40,8 +40,8 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 ## Project status
 
-Phases 1 and 2 are built and tested locally. NOTHING IS DEPLOYED YET.
-The owner decided to deploy after Phase 2; next step is the go-live checklist below.
+Phases 1, 2 and 3 are built and tested locally. NOTHING IS DEPLOYED YET.
+The owner is adding the GitHub secrets, then we run the go-live checklist below.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
@@ -78,8 +78,34 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
   `health/dismissed`), empty bins/areas, unused tags, AI usage, CSV export.
 - High-value warning at $500+ (`HIGH_VALUE_THRESHOLD`).
 
+### Phase 3 (Availability and reservations)
+- Booking rules in `functions/src/booking.ts`, shared by server and app
+  (the app imports it via `../../functions/src/booking`). Dates are 'YYYY-MM-DD'
+  in America/Toronto.
+- Settings in `app_settings/booking`: `leadTimeDays` (default 3; arts/owner skip it)
+  and `bufferDays` (turnaround, default 1). Editable at Admin → Booking rules (arts + owner).
+- A unit is tied up from shoot start to end + buffer. If the end date passes and the
+  reservation isn't marked returned, the hold stays open-ended (owner's choice:
+  props come back only when someone marks them returned). Props on the old
+  quick-checkout screen (`status: 'checked-out'`) are unavailable until returned there.
+- Creators can't reserve damaged props; archived props can't be reserved at all.
+- `reservations/{id}`: title, notes, creatorEmail/Name, startDate/endDate, status
+  (`requested` | `declined` | `cancelled` | `returned`), lines[{itemId, itemName, qty, photo}],
+  itemIds, history[]. Written ONLY by server functions.
+- `item_bookings/{itemId}.entries[]`: active holds (no names). Server functions update
+  these inside transactions, which is what prevents double-booking (tested with races).
+- Server functions: `createReservation`, `cancelReservation` (own or staff),
+  `declineReservation` (staff, reason required), `markReservationReturned` (staff;
+  placeholder until Phase 5's return check).
+- App: shoot-date picker on Search (cards show Free / "3 of 10 free" / Booked),
+  availability calendar + "Add to reservation" on prop pages, cart (kept on the phone),
+  `/reserve` review + submit, Bookings tab (`/reservations`, creators see own, staff see all),
+  booking detail with cancel/decline/mark returned + history.
+- Old quick Checkout moved to Admin menu until Phase 4 replaces it.
+- Needs the composite index in `firestore.indexes.json` (reservations: creatorEmail + startDate).
+
 ### Testing
-- `npm test`: 61 tests in the emulator (rules, server functions, search/health logic).
+- `npm test`: 98 tests in the emulator (rules, server functions incl. double-booking races, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -88,7 +114,7 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
 ### Go-live checklist (each step needs the owner's OK)
 1. Owner adds GitHub secrets (deploy service account + VITE_FIREBASE_* values).
 2. Set the Gemini secret: `firebase functions:secrets:set GEMINI_API_KEY`.
-3. Deploy server functions, Firestore rules + vector index, Storage rules
+3. Deploy server functions, Firestore rules + indexes, Storage rules
    (these are live-wide; the old site keeps working for the owner).
 4. Owner opens the preview, tests, then runs "Rebuild smart search" on Health.
 5. Deploy hosting to live.
@@ -96,5 +122,6 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
    (they make every phone download extra data).
 
 ### Next
-- Phase 3: availability calendar + reservations (date ranges, quantities,
-  lead time, no double-booking).
+- Phase 4: arts department queue (statuses Requested → Being built/sourced →
+  Packed and ready → Collected → Returned), bin locations per line, built-to-order
+  request lines, email notifications (ask owner which email service first).
