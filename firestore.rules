@@ -3,21 +3,119 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ─────────────────────────────────────────────────────────────
-    // AUTHORIZED USER UIDS
-    // After first sign-in, copy each user's UID from the
-    // "Not authorized yet" screen and add it to this list.
-    // To add a third user later, just add their UID here.
+    // ROLES
+    //   owner   — full admin (the hard-coded email below, plus anyone
+    //             the owner gives the 'owner' role)
+    //   arts    — arts department: manages inventory, invites creators
+    //   creator — searches and views props
+    // A person's role lives in /users/{their email, lowercased}.
+    // Keep OWNER_EMAIL in sync with src/config.ts and storage.rules.
     // ─────────────────────────────────────────────────────────────
-    function isAuthorized() {
-      return request.auth != null && request.auth.uid in [
-        'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
-        'Rg8qfcH0o1U8MxpSaNUWCIn29e73',  // keanu
-        '7SNO3xpypJa6sI7p38DTJ1LXVl72', // friend #3
-      ];
+    function ownerEmail() { return 'alexisricordi@gmail.com'; }
+
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function profilePath() { return /databases/$(database)/documents/users/$(myEmail()); }
+    function hasActiveProfile() {
+      return exists(profilePath()) && get(profilePath()).data.active == true;
+    }
+    function role() {
+      return !signedIn() ? 'none'
+        : myEmail() == ownerEmail() ? 'owner'
+        : hasActiveProfile() ? get(profilePath()).data.role
+        : 'none';
+    }
+    function isOwner()  { return role() == 'owner'; }
+    function isStaff()  { return role() in ['owner', 'arts']; }
+    function isMember() { return role() in ['owner', 'arts', 'creator']; }
+
+    // ─── Users ──────────────────────────────────────────────────
+    function validUser(email) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'name', 'role', 'active', 'invitedBy', 'invitedAt', 'updatedAt', 'updatedBy'])
+        && d.email == email
+        && email == email.lower()
+        && d.role in ['owner', 'arts', 'creator']
+        && d.active is bool;
     }
 
+    match /users/{email} {
+      allow read: if isStaff() || (signedIn() && myEmail() == email);
+      allow create: if validUser(email)
+        && (isOwner() || (isStaff() && request.resource.data.role == 'creator'));
+      allow update: if validUser(email)
+        && (isOwner()
+            || (isStaff() && resource.data.role == 'creator' && request.resource.data.role == 'creator'));
+      allow delete: if false; // deactivate instead, so history stays intact
+    }
+
+    // ─── Inventory ──────────────────────────────────────────────
+    function validItem() {
+      let d = request.resource.data;
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 200
+        && d.get('quantity', 1) is int && d.get('quantity', 1) >= 1 && d.get('quantity', 1) <= 100000
+        && d.get('condition', 'good') in ['good', 'fair', 'damaged']
+        && (d.get('replacementCost', 0) is number && d.get('replacementCost', 0) >= 0)
+        && d.get('photos', []) is list && d.get('photos', []).size() <= 20
+        && d.get('archived', false) is bool;
+    }
+
+    match /items/{id} {
+      allow read: if isMember();
+      allow create, update: if isStaff() && validItem();
+      allow delete: if false; // archive instead
+    }
+
+    match /categories/{id} {
+      allow read: if isMember();
+      allow create, update: if isStaff()
+        && request.resource.data.label is string
+        && request.resource.data.label.size() > 0;
+      allow delete: if false; // hide instead
+    }
+
+    match /tags/{id} {
+      allow read: if isMember();
+      allow write: if isStaff();
+    }
+
+    match /bins/{id} {
+      allow read: if isMember();
+      allow write: if isStaff();
+    }
+
+    match /locations/{id} {
+      allow read: if isMember();
+      allow write: if isStaff();
+    }
+
+    // Characters are an arts-department-only field for now.
+    match /characters/{id} {
+      allow read, write: if isStaff();
+    }
+
+    // Current simple checkout system — replaced by reservations in Phase 3.
+    match /checkouts/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /ai_usage/{month} {
+      allow read, write: if isStaff();
+    }
+
+    match /app_settings/{id} {
+      allow read: if isMember();
+      allow write: if isOwner();
+    }
+
+    // Anything not listed above (e.g. old video_checklists data) is
+    // kept as-is and readable only by the owner.
     match /{document=**} {
-      allow read, write: if isAuthorized();
+      allow read: if isOwner();
     }
   }
 }

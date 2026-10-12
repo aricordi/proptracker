@@ -2,17 +2,35 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Must match the UIDs in firestore.rules
-    function isAuthorized() {
-      return request.auth != null && request.auth.uid in [
-        'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
-        'Rg8qfcH0o1U8MxpSaNUWCIn29e73',  // keanu
-        '7SNO3xpypJa6sI7p38DTJ1LXVl72', // friend #3
-      ];
+    // Roles come from the same /users collection as firestore.rules.
+    // Keep the owner email in sync with firestore.rules and src/config.ts.
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
+    }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function profilePath() { return /databases/(default)/documents/users/$(myEmail()); }
+    function isOwner() { return signedIn() && myEmail() == 'alexisricordi@gmail.com'; }
+    function hasRole(roles) {
+      return signedIn()
+        && firestore.exists(profilePath())
+        && firestore.get(profilePath()).data.active == true
+        && firestore.get(profilePath()).data.role in roles;
+    }
+    function isMember() { return isOwner() || hasRole(['owner', 'arts', 'creator']); }
+    function isStaff()  { return isOwner() || hasRole(['owner', 'arts']); }
+
+    match /items/{allPaths=**} {
+      allow read: if isMember();
+      allow create, update: if isStaff()
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if false;
     }
 
     match /{allPaths=**} {
-      allow read, write: if isAuthorized();
+      allow read: if isOwner();
     }
   }
 }
