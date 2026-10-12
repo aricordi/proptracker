@@ -170,11 +170,6 @@ export default function HealthScreen() {
               <p className="text-pt-muted text-xs">Embeddings</p>
               <p className="text-pt-muted text-xs opacity-60">free tier</p>
             </div>
-            <div className="bg-pt-bg rounded-xl px-3 py-2">
-              <p className="text-pt-text font-semibold text-lg">{aiUsage?.shoppingCalls ?? 0}</p>
-              <p className="text-pt-muted text-xs">Shopping suggestions</p>
-              <p className="text-pt-muted text-xs opacity-60">on-demand only</p>
-            </div>
           </div>
         </div>
 

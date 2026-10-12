@@ -32,19 +32,3 @@ export const AUTHORIZED_UIDS: string[] = [
   'Rg8qfcH0o1U8MxpSaNUWCIn29e73',  // keanu
   '7SNO3xpypJa6sI7p38DTJ1LXVl72', // friend #3 — rename this comment once you know their name
 ];
-
-// ─────────────────────────────────────────────────────────────
-// OWNER UID — used to gate Drive-dependent features (video
-// pipeline, prop manifest reading) to the owner only.
-// Keanu can see saved checklists but cannot re-read from Drive.
-// ─────────────────────────────────────────────────────────────
-export const OWNER_UID = 'JOPK1T2MkaS2BVbyS2huPzXpPWk1';
-
-// ─────────────────────────────────────────────────────────────
-// PROP MATCHING THRESHOLDS
-// Cosine similarity thresholds for matching manifest props
-// against inventory embeddings. Tune these if matches feel
-// too loose or too strict.
-// ─────────────────────────────────────────────────────────────
-export const PROP_MATCH_CONFIDENT_THRESHOLD = 0.75; // auto-matched, shown to confirm
-export const PROP_MATCH_POSSIBLE_THRESHOLD  = 0.55; // shown as "is this the same thing?"
