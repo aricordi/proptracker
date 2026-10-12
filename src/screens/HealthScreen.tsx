@@ -7,11 +7,16 @@ import { useTags } from '../hooks/useTags'
 import { useCharacters } from '../hooks/useCharacters'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
+import { useCategories } from '../hooks/useCategories'
+import { useSession } from '../auth'
 import type { AiUsageRecord, Item } from '../types'
 
 export default function HealthScreen() {
   const navigate  = useNavigate()
-  const items      = useItems()
+  const allItems   = useItems()
+  const items      = useMemo(() => allItems.filter(i => !i.archived), [allItems])
+  const categories = useCategories()
+  const { isOwner } = useSession()
   const tags       = useTags()
   const characters = useCharacters()
   const locations  = useLocations()
@@ -31,36 +36,41 @@ export default function HealthScreen() {
   const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
   const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
-  const typeCounts = useMemo(() => ({
-    prop:            items.filter(i => i.itemType === 'prop').length,
-    costume:         items.filter(i => i.itemType === 'costume').length,
-    'set-dressing':  items.filter(i => i.itemType === 'set-dressing').length,
-    gear:            items.filter(i => i.itemType === 'gear').length,
-  }), [items])
+  const categoryById = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories])
+  const categoryCounts = useMemo(() => {
+    const c: Record<string, number> = {}
+    for (const i of items) c[i.categoryId] = (c[i.categoryId] ?? 0) + 1
+    return c
+  }, [items])
+  const totalUnits = useMemo(() => items.reduce((n, i) => n + i.quantity, 0), [items])
 
   const checkedOutCount = useMemo(() => items.filter(i => i.status === 'checked-out').length, [items])
 
   const noTags     = useMemo(() => items.filter(i => i.tags.length === 0), [items])
   const noPhoto    = useMemo(() => items.filter(i => !i.photoUrl), [items])
   const noLocation = useMemo(() => items.filter(i => !i.locationId), [items])
-  const damaged    = useMemo(() => items.filter(i => i.status === 'damaged'), [items])
+  const damaged    = useMemo(() => items.filter(i => i.condition === 'damaged'), [items])
 
   const totalIssues = noTags.length + noPhoto.length + noLocation.length + damaged.length
 
   function handleExport() {
-    const header = ['name','type','status','location','bin','tags','character','description','cost','whereToRebuy','photoUrl','createdAt']
-    const rows = items.map(item => [
+    const header = ['name','category','quantity','condition','status','location','bin','tags','character','description','notes','replacementCost','whereToRebuy','photos','archived','createdAt']
+    const rows = allItems.map(item => [
       item.name,
-      item.itemType,
+      categoryById[item.categoryId]?.label ?? item.categoryId,
+      item.quantity,
+      item.condition,
       item.status,
       item.locationId ? (locationById[item.locationId]?.name ?? '') : '',
       item.binId ? (binById[item.binId]?.label ?? '') : '',
       item.tags.map(id => tagById[id]?.label ?? id).join('; '),
       (item.characters ?? []).map(id => characterById[id]?.label ?? id).join('; ') || (item.character ?? ''),
       item.description ?? '',
-      item.cost != null ? String(item.cost) : '',
+      item.notes ?? '',
+      item.replacementCost != null ? String(item.replacementCost) : '',
       item.whereToRebuy ?? '',
-      item.photoUrl ?? '',
+      item.photos.join(' '),
+      item.archived ? 'yes' : '',
       item.createdAt,
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
 
@@ -79,7 +89,7 @@ export default function HealthScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-2xl text-pt-accent py-2">Health</h1>
+        <h1 className="font-display text-2xl text-pt-accent py-2">Admin</h1>
       </div>
 
       <div className="p-4 space-y-4">
@@ -89,18 +99,16 @@ export default function HealthScreen() {
           <p className="text-pt-muted text-xs uppercase tracking-wider">Inventory</p>
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold text-pt-text">{items.length}</span>
-            <span className="text-pt-muted text-sm">items total</span>
+            <span className="text-pt-muted text-sm">props</span>
+            {totalUnits !== items.length && (
+              <span className="text-pt-muted text-sm">· {totalUnits} units counting quantities</span>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {([
-              ['prop',          'Props'],
-              ['costume',       'Costumes'],
-              ['set-dressing',  'Set Dressing'],
-              ['gear',          'Gear'],
-            ] as const).map(([key, label]) => (
-              <div key={key} className="bg-pt-bg rounded-xl px-3 py-2">
-                <p className="text-pt-text font-semibold text-lg">{typeCounts[key]}</p>
-                <p className="text-pt-muted text-xs">{label}</p>
+            {categories.filter(c => c.active || categoryCounts[c.id]).map(c => (
+              <div key={c.id} className="bg-pt-bg rounded-xl px-3 py-2">
+                <p className="text-pt-text font-semibold text-lg">{categoryCounts[c.id] ?? 0}</p>
+                <p className="text-pt-muted text-xs">{c.label}</p>
               </div>
             ))}
           </div>
@@ -173,6 +181,29 @@ export default function HealthScreen() {
           </div>
         </div>
 
+        {/* People + categories */}
+        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+          <p className="text-pt-muted text-xs uppercase tracking-wider">Setup</p>
+          <button
+            onClick={() => navigate('/users')}
+            className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70"
+          >
+            {isOwner ? 'People & access' : 'Invite creators'}
+          </button>
+          <button
+            onClick={() => navigate('/categories')}
+            className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70"
+          >
+            Categories
+          </button>
+          <button
+            onClick={() => navigate('/account')}
+            className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70"
+          >
+            My account & sign out
+          </button>
+        </div>
+
         {/* Bins (moved from nav) */}
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
           <p className="text-pt-muted text-xs uppercase tracking-wider">Storage</p>
@@ -191,10 +222,10 @@ export default function HealthScreen() {
           <p className="text-pt-muted text-sm">Full inventory as a CSV spreadsheet — name, type, location, tags, cost, and more.</p>
           <button
             onClick={handleExport}
-            disabled={items.length === 0}
+            disabled={allItems.length === 0}
             className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold text-sm active:opacity-80 disabled:opacity-40"
           >
-            Download CSV ({items.length} item{items.length !== 1 ? 's' : ''})
+            Download CSV ({allItems.length} item{allItems.length !== 1 ? 's' : ''})
           </button>
         </div>
 

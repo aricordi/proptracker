@@ -34,7 +34,7 @@ export default function CheckoutScreen() {
   const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
   const checkoutCandidates = useMemo(
-    () => items.filter(i => i.status !== 'checked-out').sort((a, b) => a.name.localeCompare(b.name)),
+    () => items.filter(i => i.status !== 'checked-out' && !i.archived).sort((a, b) => a.name.localeCompare(b.name)),
     [items],
   )
 

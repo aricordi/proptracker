@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
-import { getDoc, doc } from 'firebase/firestore'
-import { auth, storage, db } from '../firebase'
-import { addItem, updateItem } from '../services/items'
+import { deleteField } from 'firebase/firestore'
+import { auth, storage } from '../firebase'
+import { addItem, updateItem, getItem } from '../services/items'
 import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
 import { getOrCreateCharacter, incrementCharacterUsage, decrementCharacterUsage } from '../services/characters'
 import { analyzeItemPhoto, generateEmbedding } from '../services/ai'
@@ -12,17 +12,12 @@ import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useTags } from '../hooks/useTags'
 import { useCharacters } from '../hooks/useCharacters'
-import PhotoPicker from '../components/PhotoPicker'
+import { useCategories } from '../hooks/useCategories'
+import PhotoPicker, { type PhotoSlot } from '../components/PhotoPicker'
+import { CONDITION_LABELS } from '../components/ItemCard'
 import TagInput from '../components/TagInput'
 import CharacterInput from '../components/CharacterInput'
-import type { Item, ItemType } from '../types'
-
-const ITEM_TYPES: { value: ItemType; label: string }[] = [
-  { value: 'prop', label: 'Prop' },
-  { value: 'costume', label: 'Costume' },
-  { value: 'set-dressing', label: 'Set Dressing' },
-  { value: 'gear', label: 'Gear' },
-]
+import type { Item, Condition } from '../types'
 
 export default function AddItemScreen() {
   const navigate = useNavigate()
@@ -34,19 +29,21 @@ export default function AddItemScreen() {
   const bins        = useBins()
   const tags        = useTags()
   const characters  = useCharacters()
+  const categories  = useCategories()
 
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [photos, setPhotos] = useState<PhotoSlot[]>([])
 
   const [name, setName] = useState('')
-  const [itemType, setItemType] = useState<ItemType>('prop')
+  const [categoryId, setCategoryId] = useState(searchParams.get('categoryId') ?? 'prop')
+  const [quantity, setQuantity] = useState('1')
+  const [condition, setCondition] = useState<Condition>('good')
+  const [notes, setNotes] = useState('')
   const [locationId, setLocationId] = useState(searchParams.get('locationId') ?? '')
   const [binId, setBinId] = useState(searchParams.get('binId') ?? '')
   const [tagLabels, setTagLabels] = useState<string[]>([])
   const [characterLabels, setCharacterLabels] = useState<string[]>([])
   const [description, setDescription] = useState('')
-  const [cost, setCost] = useState('')
+  const [replacementCost, setReplacementCost] = useState('')
   const [whereToRebuy, setWhereToRebuy] = useState('')
   const [showMore, setShowMore] = useState(false)
 
@@ -70,24 +67,23 @@ export default function AddItemScreen() {
   // Load existing item when in edit mode
   useEffect(() => {
     if (!editId) return
-    getDoc(doc(db, 'items', editId)).then(d => {
-      if (!d.exists()) { setLoadingItem(false); return }
-      const data = { id: d.id, ...d.data() } as Item
+    getItem(editId).then(data => {
+      if (!data) { setLoadingItem(false); return }
       setEditItem(data)
       setOriginalTagIds(data.tags)
       setOriginalCharacterIds(data.characters ?? [])
       setName(data.name)
-      setItemType(data.itemType)
+      setCategoryId(data.categoryId)
+      setQuantity(String(data.quantity))
+      setCondition(data.condition)
+      setNotes(data.notes ?? '')
       setLocationId(data.locationId ?? '')
       setBinId(data.binId ?? '')
       setDescription(data.description ?? '')
-      setCost(data.cost != null ? String(data.cost) : '')
+      setReplacementCost(data.replacementCost != null ? String(data.replacementCost) : '')
       setWhereToRebuy(data.whereToRebuy ?? '')
-      if (data.photoUrl) {
-        setPhotoPreview(data.photoUrl)
-        setPhotoUrl(data.photoUrl)
-      }
-      if (data.description || data.cost != null || data.whereToRebuy) setShowMore(true)
+      setPhotos(data.photos.map(url => ({ key: url, preview: url, url, progress: null })))
+      if (data.description || data.notes || data.whereToRebuy) setShowMore(true)
       setLoadingItem(false)
     }).catch(() => setLoadingItem(false))
   }, [editId])
@@ -141,27 +137,33 @@ export default function AddItemScreen() {
       .finally(() => setAiLoading(false))
   }
 
-  function handleFileSelected(file: File) {
-    const preview = URL.createObjectURL(file)
-    setPhotoPreview(preview)
-    setPhotoUrl(null)
-    setUploadProgress(0)
-
+  function handleFilesSelected(files: File[]) {
     const uid = auth.currentUser?.uid ?? 'unknown'
-    const fileRef = storageRef(storage, `items/${uid}/${Date.now()}_${file.name}`)
-    const task = uploadBytesResumable(fileRef, file)
+    // Ask the AI about the first photo only, and only if we haven't already.
+    if (!aiResult && !aiLoading && photos.length === 0) runAnalysis(files[0])
 
-    task.on(
-      'state_changed',
-      snap => setUploadProgress((snap.bytesTransferred / snap.totalBytes) * 100),
-      () => { setUploadProgress(null) },
-      () => getDownloadURL(task.snapshot.ref).then(url => {
-        setPhotoUrl(url)
-        setUploadProgress(null)
-      }),
-    )
+    for (const file of files) {
+      const key = `${Date.now()}_${Math.random().toString(36).slice(2)}`
+      setPhotos(prev => [...prev, { key, preview: URL.createObjectURL(file), url: null, progress: 0 }])
+      const patch = (p: Partial<PhotoSlot>) =>
+        setPhotos(prev => prev.map(x => x.key === key ? { ...x, ...p } : x))
 
-    runAnalysis(file)
+      const task = uploadBytesResumable(storageRef(storage, `items/${uid}/${key}_${file.name}`), file)
+      task.on(
+        'state_changed',
+        snap => patch({ progress: (snap.bytesTransferred / snap.totalBytes) * 100 }),
+        () => patch({ failed: true, progress: null }),
+        () => getDownloadURL(task.snapshot.ref).then(url => patch({ url, progress: null })),
+      )
+    }
+  }
+
+  function removePhoto(key: string) {
+    setPhotos(prev => prev.filter(p => p.key !== key))
+  }
+
+  function makeCover(key: string) {
+    setPhotos(prev => [...prev.filter(p => p.key === key), ...prev.filter(p => p.key !== key)])
   }
 
   async function handleSave() {
@@ -179,6 +181,27 @@ export default function AddItemScreen() {
         generateEmbedding(embeddingText),
       ])
 
+      const photoUrls = photos.map(p => p.url).filter((u): u is string => !!u)
+      const qty = Math.max(1, Math.floor(Number(quantity) || 1))
+      const costValue = replacementCost.trim() === '' ? undefined : Math.max(0, parseFloat(replacementCost))
+      const common = {
+        name: trimmedName,
+        photos: photoUrls,
+        photoUrl: photoUrls[0],
+        description: description.trim() || undefined,
+        notes: notes.trim() || undefined,
+        tags: newTagIds,
+        characters: newCharacterIds,
+        categoryId,
+        quantity: qty,
+        condition,
+        locationId: locationId || undefined,
+        binId: binId || undefined,
+        whereToRebuy: whereToRebuy.trim() || undefined,
+        replacementCost: Number.isFinite(costValue) ? costValue : undefined,
+        ...(embedding ? { embedding } : {}),
+      }
+
       if (isEditMode && editId) {
         const addedTagIds      = newTagIds.filter(id => !originalTagIds.includes(id))
         const removedTagIds    = originalTagIds.filter(id => !newTagIds.includes(id))
@@ -190,39 +213,28 @@ export default function AddItemScreen() {
           ...addedCharIds.map(id => incrementCharacterUsage(id)),
           ...removedCharIds.map(id => decrementCharacterUsage(id)),
         ])
+        // A blank field here should clear the stored value, so send explicit deletes.
         await updateItem(editId, {
-          name: trimmedName,
-          photoUrl: photoUrl ?? undefined,
-          description: description.trim() || undefined,
-          tags: newTagIds,
-          characters: newCharacterIds,
-          itemType,
-          locationId: locationId || undefined,
-          binId: binId || undefined,
-          whereToRebuy: whereToRebuy.trim() || undefined,
-          cost: cost ? parseFloat(cost) : undefined,
-          ...(embedding ? { embedding } : {}),
-        })
+          ...common,
+          // Older records stored "damaged" as a status; condition replaces it.
+          status: editItem?.status ?? 'available',
+          photoUrl: common.photoUrl ?? deleteField(),
+          description: common.description ?? deleteField(),
+          notes: common.notes ?? deleteField(),
+          locationId: common.locationId ?? deleteField(),
+          binId: common.binId ?? deleteField(),
+          whereToRebuy: common.whereToRebuy ?? deleteField(),
+          replacementCost: common.replacementCost ?? deleteField(),
+          // Clearing the cost also clears the legacy field it used to be read from.
+          ...(common.replacementCost === undefined ? { cost: deleteField() } : {}),
+        } as unknown as Partial<Item>)
         navigate(`/item/${editId}`, { replace: true })
       } else {
         await Promise.all([
           ...newTagIds.map(id => incrementTagUsage(id)),
           ...newCharacterIds.map(id => incrementCharacterUsage(id)),
         ])
-        await addItem({
-          name: trimmedName,
-          photoUrl: photoUrl ?? undefined,
-          description: description.trim() || undefined,
-          tags: newTagIds,
-          characters: newCharacterIds,
-          itemType,
-          locationId: locationId || undefined,
-          binId: binId || undefined,
-          status: 'available',
-          whereToRebuy: whereToRebuy.trim() || undefined,
-          cost: cost ? parseFloat(cost) : undefined,
-          ...(embedding ? { embedding } : {}),
-        })
+        await addItem({ ...common, status: 'available', archived: false })
         navigate('/')
       }
     } catch (err) {
@@ -233,7 +245,9 @@ export default function AddItemScreen() {
     }
   }
 
-  const canSave = !!name.trim() && !saving && uploadProgress === null
+  const uploading = photos.some(p => p.url === null && !p.failed)
+  const failedUploads = photos.some(p => p.failed)
+  const canSave = !!name.trim() && !saving && !uploading && !failedUploads
 
   if (loadingItem) {
     return (
@@ -263,13 +277,17 @@ export default function AddItemScreen() {
       <div className="p-4 space-y-5">
         {/* Photo */}
         <PhotoPicker
-          previewUrl={photoPreview}
-          uploadProgress={uploadProgress}
-          onFileSelected={handleFileSelected}
+          photos={photos}
+          onAdd={handleFilesSelected}
+          onRemove={removePhoto}
+          onMakeCover={makeCover}
         />
+        {failedUploads && (
+          <p className="text-red-400 text-sm">A photo didn't upload. Remove it (×) and try adding it again.</p>
+        )}
 
         {/* AI analysis card — visible as soon as photo is picked */}
-        {photoPreview && (aiLoading || aiResult || aiError) && (
+        {photos.length > 0 && (aiLoading || aiResult || aiError) && (
           <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
             {aiLoading && (
               <div className="flex items-center gap-2 text-pt-muted text-sm">
@@ -342,22 +360,72 @@ export default function AddItemScreen() {
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3.5 text-pt-text text-lg placeholder-pt-muted focus:outline-none focus:border-pt-accent"
         />
 
-        {/* Item type */}
+        {/* Category */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Type</p>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Category</p>
           <div className="flex gap-2 flex-wrap">
-            {ITEM_TYPES.map(({ value, label }) => (
+            {categories.filter(c => c.active || c.id === categoryId).map(c => (
               <button
-                key={value}
+                key={c.id}
                 type="button"
-                onClick={() => setItemType(value)}
+                onClick={() => setCategoryId(c.id)}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors active:opacity-80 ${
-                  itemType === value
+                  categoryId === c.id
                     ? 'bg-pt-accent text-stone-900'
                     : 'bg-pt-surface border border-pt-border text-pt-muted'
                 }`}
               >
-                {label}
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Quantity + replacement cost */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Quantity</p>
+            <input
+              value={quantity}
+              onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={() => setQuantity(q => String(Math.max(1, Number(q) || 1)))}
+              inputMode="numeric"
+              className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text focus:outline-none focus:border-pt-accent"
+            />
+            <p className="text-pt-muted text-xs mt-1">1 = one-of-a-kind</p>
+          </div>
+          <div>
+            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Replacement cost</p>
+            <input
+              value={replacementCost}
+              onChange={e => setReplacementCost(e.target.value)}
+              placeholder="$0.00"
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent"
+            />
+            <p className="text-pt-muted text-xs mt-1">Per unit, in CAD</p>
+          </div>
+        </div>
+
+        {/* Condition */}
+        <div>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Condition</p>
+          <div className="flex gap-2">
+            {(['good', 'fair', 'damaged'] as Condition[]).map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCondition(c)}
+                className={`flex-1 py-2 rounded-full text-sm font-medium transition-colors active:opacity-80 ${
+                  condition === c
+                    ? 'bg-pt-accent text-stone-900'
+                    : 'bg-pt-surface border border-pt-border text-pt-muted'
+                }`}
+              >
+                {CONDITION_LABELS[c]}
               </button>
             ))}
           </div>
@@ -365,7 +433,7 @@ export default function AddItemScreen() {
 
         {/* Location */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Location</p>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Storage area</p>
           <select
             value={locationId}
             onChange={e => { setLocationId(e.target.value); setBinId('') }}
@@ -404,7 +472,7 @@ export default function AddItemScreen() {
 
         {/* Character */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character (optional)</p>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character (optional, arts dept only)</p>
           <CharacterInput value={characterLabels} onChange={setCharacterLabels} suggestions={characters} />
         </div>
 
@@ -417,32 +485,29 @@ export default function AddItemScreen() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`w-4 h-4 transition-transform ${showMore ? 'rotate-180' : ''}`}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
           </svg>
-          {showMore ? 'Hide extra details' : 'Add notes, cost, where to rebuy'}
+          {showMore ? 'Hide extra details' : 'Add description, notes, where to rebuy'}
         </button>
 
         {showMore && (
           <div className="space-y-4">
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Notes / Description</p>
+              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Description</p>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="Details, condition, searchable notes…"
-                rows={3}
+                placeholder="What it looks like (the AI can suggest this)"
+                rows={2}
                 className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none"
               />
             </div>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Cost (optional)</p>
-              <input
-                value={cost}
-                onChange={e => setCost(e.target.value)}
-                placeholder="0.00"
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent"
+              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Notes</p>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Handling instructions, missing parts, sizes…"
+                rows={3}
+                className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none"
               />
             </div>
             <div>
@@ -471,8 +536,8 @@ export default function AddItemScreen() {
         >
           {saving
             ? 'Saving…'
-            : uploadProgress !== null
-              ? `Uploading photo… ${Math.round(uploadProgress)}%`
+            : uploading
+              ? 'Uploading photos…'
               : isEditMode ? 'Save Changes' : 'Save Item'}
         </button>
       </div>

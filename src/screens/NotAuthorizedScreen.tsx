@@ -9,27 +9,21 @@ export default function NotAuthorizedScreen({ user }: Props) {
   return (
     <div className="min-h-screen bg-pt-bg flex flex-col items-center justify-center p-8 text-center pt-safe">
       <div className="text-5xl mb-4">🔒</div>
-      <h1 className="font-display text-2xl text-pt-text mb-2">Not authorized yet</h1>
-      <p className="text-pt-muted text-sm mb-6">
-        You're signed in as <span className="text-pt-text">{user.email}</span>,
-        but this account hasn't been added to the app yet.
+      <h1 className="font-display text-2xl text-pt-text mb-2">You're not on the list yet</h1>
+      <p className="text-pt-muted text-sm mb-6 max-w-sm">
+        You're signed in as <span className="text-pt-text break-all">{user.email}</span>,
+        but this email hasn't been invited to PropTracker, or its access was turned off.
       </p>
-
-      <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 mb-4 text-left w-full max-w-sm">
-        <p className="text-pt-muted text-xs mb-2 uppercase tracking-wider">Your User ID — copy this:</p>
-        <p className="font-mono text-pt-accent text-sm break-all select-all">{user.uid}</p>
-      </div>
-
-      <p className="text-pt-muted text-xs mb-8 max-w-xs">
-        Paste this UID into <code className="bg-pt-surface px-1.5 py-0.5 rounded text-pt-text">src/config.ts</code> and
-        both rules files, then redeploy. See the README for step-by-step instructions.
+      <p className="text-pt-muted text-sm mb-8 max-w-sm">
+        Ask someone in the arts department to invite this exact email address,
+        then sign in again.
       </p>
 
       <button
         onClick={() => signOut(auth)}
-        className="text-pt-muted text-sm underline active:text-pt-text"
+        className="bg-pt-surface border border-pt-border text-pt-text px-5 py-3 rounded-2xl text-sm font-medium active:opacity-70"
       >
-        Sign out
+        Sign out and try another account
       </button>
     </div>
   )

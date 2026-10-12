@@ -1,31 +1,63 @@
 export type ItemType = 'prop' | 'costume' | 'set-dressing' | 'gear';
+// 'damaged' is a legacy status from before condition was its own field;
+// items are normalized on read so the app only ever sees available/checked-out.
 export type ItemStatus = 'available' | 'damaged' | 'checked-out';
+export type Condition = 'good' | 'fair' | 'damaged';
 
 export interface CheckedOutInfo {
   label: string;
   checkedOutAt: string; // ISO date string
 }
 
+// The shape the app works with. Older records in the database may be missing
+// the newer fields; services/items.ts fills sensible defaults when reading.
 export interface Item {
   id: string;
   name: string;
-  photoUrl?: string;
-  description?: string;
+  photos: string[];         // photo URLs, first one is the cover
+  photoUrl?: string;        // legacy single photo — kept in sync with photos[0]
+  description?: string;     // short "what it looks like" line (AI can suggest)
+  notes?: string;           // free-form notes from the arts department
   tags: string[];           // tag IDs from the master tag list
-  characters?: string[];    // character IDs from the master character list
+  characters?: string[];    // character IDs (arts department only)
   character?: string;       // legacy single-string field (migrated on edit)
-  itemType: ItemType;
+  categoryId: string;       // ID in the categories collection
+  itemType?: ItemType;      // legacy — old records used this as the category
+  quantity: number;         // how many identical units exist (1 = one-of-a-kind)
+  condition: Condition;
   locationId?: string;
   binId?: string;
   status: ItemStatus;
   checkedOutInfo?: CheckedOutInfo;
+  replacementCost?: number; // what it would cost to replace one unit
+  cost?: number;            // legacy — read as replacementCost when that is missing
   whereToRebuy?: string;    // e.g. "Dollarama" or "Amazon: search 'fake eyeballs'"
-  cost?: number;
+  archived: boolean;        // archived props are hidden, never deleted
   embedding?: number[];     // semantic fingerprint, generated once on save
   createdAt: string;
   updatedAt: string;
   createdBy: string;
   updatedBy: string;
+}
+
+export interface Category {
+  id: string;
+  label: string;
+  order: number;
+  active: boolean;          // hidden categories stay on old props but can't be picked
+}
+
+export type Role = 'owner' | 'arts' | 'creator';
+
+export interface AppUser {
+  email: string;            // lowercase; also the document ID
+  name?: string;
+  role: Role;
+  active: boolean;
+  invitedBy?: string;
+  invitedAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface Tag {

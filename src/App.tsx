@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './firebase'
-import { AUTHORIZED_UIDS } from './config'
+import { OWNER_EMAIL } from './config'
+import { SessionContext, makeSession, useSession, type Session } from './auth'
+import { subscribeToUser, normalizeEmail } from './services/users'
+import { ensureDefaultCategories } from './services/categories'
 
 import ShellLayout from './components/ShellLayout'
 import LoginScreen from './screens/LoginScreen'
@@ -15,25 +18,64 @@ import BinQrScreen from './screens/BinQrScreen'
 import LocationsScreen from './screens/LocationsScreen'
 import CheckoutScreen from './screens/CheckoutScreen'
 import HealthScreen from './screens/HealthScreen'
+import UsersScreen from './screens/UsersScreen'
+import CategoriesScreen from './screens/CategoriesScreen'
+import AccountScreen from './screens/AccountScreen'
+
+function Loading() {
+  return (
+    <div className="min-h-screen bg-pt-bg flex items-center justify-center">
+      <div className="text-pt-muted text-sm">Loading…</div>
+    </div>
+  )
+}
+
+// Arts department + owner only. Creators who follow a link here go back to search.
+function StaffOnly({ children }: { children: ReactNode }) {
+  const { isStaff } = useSession()
+  return isStaff ? <>{children}</> : <Navigate to="/" replace />
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [session, setSession] = useState<Session | null>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  useEffect(() => onAuthStateChanged(auth, u => {
+    setUser(u)
+    setAuthLoading(false)
+  }), [])
+
+  // Look up the signed-in person's role. Live, so deactivating someone
+  // signs them out of the app straight away.
+  useEffect(() => {
+    setSession(null)
+    if (!user?.email || !user.emailVerified) return
+    const email = normalizeEmail(user.email)
+    setProfileLoading(true)
+
+    if (email === OWNER_EMAIL) {
+      setSession(makeSession(user, { email, role: 'owner', active: true, name: user.displayName ?? undefined }))
+      setProfileLoading(false)
+      return
+    }
+
+    return subscribeToUser(
+      email,
+      profile => {
+        setSession(profile?.active ? makeSession(user, profile) : null)
+        setProfileLoading(false)
+      },
+      () => { setSession(null); setProfileLoading(false) },
+    )
+  }, [user])
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
-      setUser(u)
-      setLoading(false)
-    })
-  }, [])
+    if (session?.isStaff) ensureDefaultCategories().catch(() => {})
+  }, [session?.isStaff])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
-        <div className="text-pt-muted text-sm">Loading…</div>
-      </div>
-    )
-  }
+  if (authLoading || profileLoading) return <Loading />
 
   if (!user) {
     return (
@@ -43,9 +85,7 @@ export default function App() {
     )
   }
 
-  const isAuthorized = AUTHORIZED_UIDS.includes(user.uid)
-
-  if (!isAuthorized) {
+  if (!session) {
     return (
       <Routes>
         <Route path="*" element={<NotAuthorizedScreen user={user} />} />
@@ -54,21 +94,26 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      {/* Full-screen routes outside the shell */}
-      <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
-      <Route path="/item/:id" element={<ItemDetailScreen />} />
-      <Route path="/item/:id/edit" element={<AddItemScreen />} />
+    <SessionContext.Provider value={session}>
+      <Routes>
+        {/* Full-screen routes outside the shell */}
+        <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
+        <Route path="/item/:id" element={<ItemDetailScreen />} />
+        <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
 
-      <Route element={<ShellLayout />}>
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/add" element={<AddItemScreen />} />
-        <Route path="/bins" element={<BinsScreen />} />
-        <Route path="/locations" element={<LocationsScreen />} />
-        <Route path="/checkout" element={<CheckoutScreen />} />
-        <Route path="/health" element={<HealthScreen />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route element={<ShellLayout />}>
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/account" element={<AccountScreen />} />
+          <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
+          <Route path="/bins" element={<StaffOnly><BinsScreen /></StaffOnly>} />
+          <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
+          <Route path="/checkout" element={<StaffOnly><CheckoutScreen /></StaffOnly>} />
+          <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
+          <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
+          <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </SessionContext.Provider>
   )
 }

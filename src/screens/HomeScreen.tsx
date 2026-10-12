@@ -6,25 +6,25 @@ import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import ItemCard from '../components/ItemCard'
 import { generateEmbedding, cosineSimilarity } from '../services/ai'
-import type { ItemType } from '../types'
-
-const TYPE_FILTERS: { value: ItemType | null; label: string }[] = [
-  { value: null,           label: 'All' },
-  { value: 'prop',         label: 'Props' },
-  { value: 'costume',      label: 'Costumes' },
-  { value: 'set-dressing', label: 'Set Dressing' },
-  { value: 'gear',         label: 'Gear' },
-]
+import { useCategories } from '../hooks/useCategories'
+import { useSession } from '../auth'
 
 export default function HomeScreen() {
-  const items      = useItems()
+  const { isStaff } = useSession()
+  const allItems   = useItems()
+  const categories = useCategories()
+  const [showArchived, setShowArchived] = useState(false)
+  const items = useMemo(
+    () => allItems.filter(i => showArchived ? i.archived : !i.archived),
+    [allItems, showArchived],
+  )
   const tags       = useTags()
   const characters = useCharacters()
   const locations  = useLocations()
   const bins       = useBins()
 
   const [query, setQuery]           = useState('')
-  const [typeFilter, setTypeFilter] = useState<ItemType | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null)
 
   const q = query.trim().toLowerCase()
@@ -45,16 +45,18 @@ export default function HomeScreen() {
   const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
 
   const matched = useMemo(() => {
-    let list = typeFilter ? items.filter(i => i.itemType === typeFilter) : items
+    let list = categoryFilter ? items.filter(i => i.categoryId === categoryFilter) : items
     if (!q) return list
     return list.filter(item => {
       const tagLabels  = item.tags.map(id => tagById[id]?.label ?? '').join(' ')
-      const charLabels = (item.characters ?? []).map(id => characterById[id]?.label ?? '').join(' ')
-      const haystack = [item.name, tagLabels, charLabels, item.character, item.description]
+      const charLabels = isStaff
+        ? [(item.characters ?? []).map(id => characterById[id]?.label ?? '').join(' '), item.character].join(' ')
+        : ''
+      const haystack = [item.name, tagLabels, charLabels, item.description, item.notes]
         .filter(Boolean).join(' ').toLowerCase()
       return haystack.includes(q)
     })
-  }, [items, q, typeFilter, tagById])
+  }, [items, q, categoryFilter, tagById, characterById, isStaff])
 
   const similar = useMemo(() => {
     if (!q || matched.length === 0) return []
@@ -113,14 +115,14 @@ export default function HomeScreen() {
           )}
         </div>
 
-        {/* Type filter chips */}
+        {/* Category filter chips */}
         <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
-          {TYPE_FILTERS.map(({ value, label }) => (
+          {[{ value: null as string | null, label: 'All' }, ...categories.filter(c => c.active).map(c => ({ value: c.id as string | null, label: c.label }))].map(({ value, label }) => (
             <button
               key={label}
-              onClick={() => setTypeFilter(value)}
+              onClick={() => setCategoryFilter(value)}
               className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
-                typeFilter === value
+                categoryFilter === value
                   ? 'bg-pt-accent text-stone-900 font-medium'
                   : 'bg-pt-surface border border-pt-border text-pt-muted'
               }`}
@@ -128,6 +130,16 @@ export default function HomeScreen() {
               {label}
             </button>
           ))}
+          {isStaff && (
+            <button
+              onClick={() => setShowArchived(v => !v)}
+              className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
+                showArchived ? 'bg-pt-text text-stone-900 font-medium' : 'border border-dashed border-pt-border text-pt-muted'
+              }`}
+            >
+              {showArchived ? 'Showing archived' : 'Archived'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -136,8 +148,7 @@ export default function HomeScreen() {
         {showEmpty && (
           <div className="text-center mt-16">
             <p className="text-pt-muted text-sm leading-relaxed">
-              No items yet.<br />
-              Tap <strong className="text-pt-text">+</strong> in the nav to add your first prop.
+              {showArchived ? 'No archived props.' : <>No props yet.{isStaff && <><br />Tap <strong className="text-pt-text">Add</strong> in the nav to add your first prop.</>}</>}
             </p>
           </div>
         )}
@@ -165,7 +176,7 @@ export default function HomeScreen() {
             key={item.id}
             item={item}
             tagById={tagById}
-            characterById={characterById}
+            characterById={isStaff ? characterById : undefined}
             locationById={locationById}
             binById={binById}
           />
@@ -184,7 +195,7 @@ export default function HomeScreen() {
                 key={item.id}
                 item={item}
                 tagById={tagById}
-                characterById={characterById}
+                characterById={isStaff ? characterById : undefined}
                 locationById={locationById}
                 binById={binById}
               />

@@ -21,14 +21,21 @@ export const FREE_TIER_MONTHLY_EMBEDDING_CALLS = 45000;
 export const TAG_SIMILARITY_THRESHOLD = 3;
 
 // ─────────────────────────────────────────────────────────────
-// AUTHORIZED USER UIDS
-// After first sign-in, the "Not authorized yet" screen shows
-// each person's UID. Paste both UIDs below, then also add them
-// to firestore.rules and storage.rules, and redeploy.
-// To add a third user later, add their UID in all three places.
+// OWNER EMAIL — the full admin. This person can always sign in,
+// even before any users are set up. Everyone else is invited from
+// the Users screen. Keep in sync with firestore.rules and storage.rules.
 // ─────────────────────────────────────────────────────────────
-export const AUTHORIZED_UIDS: string[] = [
-  'JOPK1T2MkaS2BVbyS2huPzXpPWk1', // owner
-  'Rg8qfcH0o1U8MxpSaNUWCIn29e73',  // keanu
-  '7SNO3xpypJa6sI7p38DTJ1LXVl72', // friend #3 — rename this comment once you know their name
+export const OWNER_EMAIL = 'alexisricordi@gmail.com';
+
+// Categories created automatically the first time an admin opens the app.
+// IDs match the old "type" values so existing props land in the right place.
+export const DEFAULT_CATEGORIES = [
+  { id: 'prop',         label: 'Prop' },
+  { id: 'costume',      label: 'Costume' },
+  { id: 'set-dressing', label: 'Set Dressing' },
+  { id: 'gear',         label: 'Gear' },
 ];
+
+// Props whose replacement cost is at or above this (CAD) get a prominent
+// "high-value" warning on their page.
+export const HIGH_VALUE_THRESHOLD = 500;

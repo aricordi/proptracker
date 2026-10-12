@@ -4,12 +4,15 @@ import { getDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { getBinBySlug } from '../services/bins'
 import { useItems } from '../hooks/useItems'
+import { useCategories } from '../hooks/useCategories'
 import type { Bin, Location } from '../types'
 
 export default function BinQrScreen() {
   const { qrSlug } = useParams<{ qrSlug: string }>()
   const navigate = useNavigate()
   const allItems = useItems()
+  const categories = useCategories()
+  const categoryById = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories])
 
   const [bin, setBin]           = useState<Bin | null>(null)
   const [location, setLocation] = useState<Location | null>(null)
@@ -29,7 +32,7 @@ export default function BinQrScreen() {
   }, [qrSlug])
 
   const binItems = useMemo(
-    () => bin ? allItems.filter(i => i.binId === bin.id) : [],
+    () => bin ? allItems.filter(i => i.binId === bin.id && !i.archived) : [],
     [allItems, bin],
   )
 
@@ -98,16 +101,18 @@ export default function BinQrScreen() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-pt-text font-medium text-sm leading-tight truncate">{item.name}</p>
-                  <p className="text-pt-muted text-xs mt-0.5 capitalize">{item.itemType}</p>
+                  <p className="text-pt-muted text-xs mt-0.5">
+                    {categoryById[item.categoryId]?.label ?? item.categoryId}{item.quantity > 1 ? ` · ×${item.quantity}` : ''}
+                  </p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
                   item.status === 'checked-out'
                     ? 'bg-amber-500/20 text-amber-400'
-                    : item.status === 'damaged'
+                    : item.condition === 'damaged'
                     ? 'bg-red-500/20 text-red-400'
                     : 'bg-green-500/20 text-green-400'
                 }`}>
-                  {item.status === 'checked-out' ? 'Out' : item.status}
+                  {item.status === 'checked-out' ? 'Out' : item.condition === 'damaged' ? 'Damaged' : 'Available'}
                 </span>
               </button>
             ))}
