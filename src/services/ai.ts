@@ -1,17 +1,21 @@
-import { doc, setDoc, increment } from 'firebase/firestore'
-import { db } from '../firebase'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase'
 
-const API_KEY  = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const TAGGING_MODEL   = 'gemini-3.5-flash-lite'
-const EMBEDDING_MODEL = 'text-embedding-004'
+// The AI runs on the server (functions/src). These are thin wrappers.
 
 export interface PhotoAnalysis {
+  name: string
+  categoryId: string | null
   tags: string[]
-  description: string | null
+  description: string
 }
 
-// Resize to ≤1024px and return base64 JPEG — keeps Gemini request small
+export interface SimilarResult {
+  id: string
+  score: number   // 0–1, higher = closer in meaning
+}
+
+// Shrink to ≤1024px JPEG before sending — keeps the request small and fast.
 function resizeToBase64(file: File, maxPx = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -33,99 +37,27 @@ function resizeToBase64(file: File, maxPx = 1024): Promise<string> {
   })
 }
 
-function trackUsage(field: 'taggingCalls' | 'embeddingCalls') {
-  const month = new Date().toISOString().slice(0, 7)
-  setDoc(doc(db, 'ai_usage', month), { month, [field]: increment(1) }, { merge: true })
-    .catch(() => {})
-}
+const analyzeCall = httpsCallable<{ imageBase64: string; mimeType: string }, PhotoAnalysis>(functions, 'analyzePropPhoto')
+const similarCall = httpsCallable<{ query: string }, { results: SimilarResult[] }>(functions, 'searchSimilar')
+const rebuildCall = httpsCallable<void, { total: number; updated: number; unchanged: number; failed: number }>(
+  functions, 'rebuildSearchIndex', { timeout: 540_000 })
 
-// Returns tags + description from a single Gemini call. Throws on failure so
-// the caller can show an error and offer a retry.
+// Throws on failure so the add screen can show "Retry".
 export async function analyzeItemPhoto(file: File): Promise<PhotoAnalysis> {
-  if (!API_KEY) throw new Error('No API key configured')
-  const base64 = await resizeToBase64(file)
-  const res = await fetch(
-    `${BASE_URL}/models/${TAGGING_MODEL}:generateContent?key=${API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            {
-              text: `This item is in a prop and costume inventory for a YouTube channel.
-Return a JSON object with exactly two fields:
-- "tags": array of 5–8 lowercase single-word or hyphenated tags that describe this item naturally — the kind of words someone would type when searching for it. Include: what the item is, what it is used for or associated with, obvious descriptors like colour or style. Keep tags simple and practical.
-- "description": one sentence (max 20 words) describing what this item looks like
-
-Output ONLY the JSON — no markdown, no explanation.
-Example: {"tags":["microphone","sound","handheld","singing","music","black","vocals"],"description":"A black handheld dynamic microphone with a metal grille."}`,
-            },
-            { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-          ],
-        }],
-        generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 2048,
-            // Gemini 3.x can't fully disable thinking — 'minimal' is the closest equivalent
-            // to the old thinkingBudget: 0. Token ceiling raised to leave headroom.
-            thinkingConfig: { thinkingLevel: 'minimal' },
-          },
-      }),
-    },
-  )
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 120)}`)
-  }
-  const json = await res.json()
-  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-  // Strip any markdown fences Gemini might add
-  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  const match = clean.match(/\{[\s\S]*\}/)
-  if (!match) throw new Error(`Unexpected response: ${clean.slice(0, 80)}`)
-  const parsed = JSON.parse(match[0]) as Record<string, unknown>
-  const tags = Array.isArray(parsed.tags)
-    ? (parsed.tags as unknown[]).filter((t): t is string => typeof t === 'string').slice(0, 8)
-    : []
-  const description = typeof parsed.description === 'string' ? parsed.description : null
-  trackUsage('taggingCalls')
-  return { tags, description }
+  const imageBase64 = await resizeToBase64(file)
+  const res = await analyzeCall({ imageBase64, mimeType: 'image/jpeg' })
+  return res.data
 }
 
-export async function generateEmbedding(text: string): Promise<number[] | null> {
-  if (!API_KEY || !text.trim()) return null
+// Never throws: if the smart search is unavailable, search still works without it.
+export async function searchSimilar(query: string): Promise<SimilarResult[]> {
   try {
-    const res = await fetch(
-      `${BASE_URL}/models/${EMBEDDING_MODEL}:embedContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: `models/${EMBEDDING_MODEL}`,
-          content: { parts: [{ text }] },
-        }),
-      },
-    )
-    if (!res.ok) return null
-    const json = await res.json()
-    const values = json.embedding?.values as number[] | undefined
-    if (!values?.length) return null
-    trackUsage('embeddingCalls')
-    return values
+    return (await similarCall({ query })).data.results
   } catch {
-    return null
+    return []
   }
 }
 
-export function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length || a.length === 0) return 0
-  let dot = 0, magA = 0, magB = 0
-  for (let i = 0; i < a.length; i++) {
-    dot  += a[i] * b[i]
-    magA += a[i] * a[i]
-    magB += b[i] * b[i]
-  }
-  const denom = Math.sqrt(magA) * Math.sqrt(magB)
-  return denom === 0 ? 0 : dot / denom
+export async function rebuildSearchIndex() {
+  return (await rebuildCall()).data
 }

@@ -1,92 +1,96 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useItems } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
-import { useCharacters } from '../hooks/useCharacters'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
-import ItemCard from '../components/ItemCard'
-import { generateEmbedding, cosineSimilarity } from '../services/ai'
 import { useCategories } from '../hooks/useCategories'
 import { useSession } from '../auth'
+import ItemCard from '../components/ItemCard'
+import { searchSimilar } from '../services/ai'
+import { matchesQuery, availabilityOf, byName, type Availability } from '../lib/search'
+import { SIMILAR_MIN_SCORE } from '../config'
+import type { Item } from '../types'
+
+type AvailabilityFilter = Availability | 'all' | 'archived'
+
+const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnly?: boolean }[] = [
+  { value: 'all',         label: 'Any status' },
+  { value: 'available',   label: 'Available now' },
+  { value: 'checked-out', label: 'Checked out' },
+  { value: 'damaged',     label: 'Damaged' },
+  { value: 'archived',    label: 'Archived', staffOnly: true },
+]
 
 export default function HomeScreen() {
   const { isStaff } = useSession()
   const allItems   = useItems()
-  const categories = useCategories()
-  const [showArchived, setShowArchived] = useState(false)
-  const items = useMemo(
-    () => allItems.filter(i => showArchived ? i.archived : !i.archived),
-    [allItems, showArchived],
-  )
   const tags       = useTags()
-  const characters = useCharacters()
   const locations  = useLocations()
   const bins       = useBins()
+  const categories = useCategories()
 
-  const [query, setQuery]           = useState('')
+  const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [queryEmbedding, setQueryEmbedding] = useState<number[] | null>(null)
+  const [availability, setAvailability] = useState<AvailabilityFilter>('all')
+  const [similarIds, setSimilarIds] = useState<string[]>([])
+  const [similarLoading, setSimilarLoading] = useState(false)
 
-  const q = query.trim().toLowerCase()
+  const q = query.trim()
 
-  // Debounce: generate query embedding 700ms after typing stops
+  // Ask the server for similar-meaning props 600ms after typing stops.
   useEffect(() => {
-    if (!q || q.length < 3) { setQueryEmbedding(null); return }
+    setSimilarIds([])
+    if (q.length < 3) { setSimilarLoading(false); return }
     let cancelled = false
+    setSimilarLoading(true)
     const timer = setTimeout(() => {
-      generateEmbedding(q).then(emb => { if (!cancelled) setQueryEmbedding(emb) })
-    }, 700)
+      searchSimilar(q).then(results => {
+        if (cancelled) return
+        setSimilarIds(results.filter(r => r.score >= SIMILAR_MIN_SCORE).map(r => r.id))
+        setSimilarLoading(false)
+      })
+    }, 600)
     return () => { clearTimeout(timer); cancelled = true }
   }, [q])
 
-  const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
-  const characterById = useMemo(() => Object.fromEntries(characters.map(c => [c.id, c])), [characters])
-  const locationById  = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
-  const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
+  const tagById      = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
+  const locationById = useMemo(() => Object.fromEntries(locations.map(l => [l.id, l])), [locations])
+  const binById      = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
+  const categoryById = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories])
 
-  const matched = useMemo(() => {
-    let list = categoryFilter ? items.filter(i => i.categoryId === categoryFilter) : items
-    if (!q) return list
-    return list.filter(item => {
-      const tagLabels  = item.tags.map(id => tagById[id]?.label ?? '').join(' ')
-      const charLabels = isStaff
-        ? [(item.characters ?? []).map(id => characterById[id]?.label ?? '').join(' '), item.character].join(' ')
-        : ''
-      const haystack = [item.name, tagLabels, charLabels, item.description, item.notes]
-        .filter(Boolean).join(' ').toLowerCase()
-      return haystack.includes(q)
-    })
-  }, [items, q, categoryFilter, tagById, characterById, isStaff])
+  // Filters apply to both exact and similar results.
+  const filtered = useMemo(
+    () => allItems
+      .filter(i =>
+        (availability === 'archived' ? i.archived : !i.archived)
+        && (availability === 'all' || availability === 'archived' || availabilityOf(i) === availability)
+        && (!categoryFilter || i.categoryId === categoryFilter))
+      .sort(byName),
+    [allItems, availability, categoryFilter],
+  )
+
+  const matched = useMemo(
+    () => q ? filtered.filter(i => matchesQuery(i, q, tagById)) : filtered,
+    [filtered, q, tagById],
+  )
 
   const similar = useMemo(() => {
-    if (!q || matched.length === 0) return []
-    const matchedIds = new Set(matched.map(i => i.id))
-    const candidates = items.filter(i => !matchedIds.has(i.id))
+    if (!q) return []
+    const exact = new Set(matched.map(i => i.id))
+    const byId = new Map(filtered.map(i => [i.id, i]))
+    return similarIds.filter(id => !exact.has(id)).map(id => byId.get(id)).filter((i): i is Item => !!i).slice(0, 8)
+  }, [q, matched, filtered, similarIds])
 
-    // Semantic similarity when we have embeddings for both query and candidates
-    if (queryEmbedding) {
-      const semantic = candidates
-        .filter(i => i.embedding?.length)
-        .map(i => ({ item: i, score: cosineSimilarity(queryEmbedding, i.embedding!) }))
-        .filter(({ score }) => score > 0.6)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5)
-        .map(({ item }) => item)
-      if (semantic.length > 0) return semantic
-    }
+  function subtitle(item: Item) {
+    const category = categoryById[item.categoryId]?.label ?? ''
+    if (!isStaff) return category
+    const where = [item.locationId && locationById[item.locationId]?.name, item.binId && binById[item.binId]?.label]
+      .filter(Boolean).join(' › ')
+    return where || category
+  }
 
-    // Fall back to tag-overlap
-    const matchedTags = new Set(matched.flatMap(i => i.tags))
-    return candidates
-      .map(i => ({ item: i, overlap: i.tags.filter(t => matchedTags.has(t)).length }))
-      .filter(({ overlap }) => overlap > 0)
-      .sort((a, b) => b.overlap - a.overlap)
-      .slice(0, 5)
-      .map(({ item }) => item)
-  }, [items, matched, q, queryEmbedding])
-
-  const showEmpty  = items.length === 0
-  const showNoHits = !showEmpty && q && matched.length === 0
+  const filtersActive = !!categoryFilter || availability !== 'all'
+  const nothingAtAll = allItems.length === 0
 
   return (
     <div className="min-h-full bg-pt-bg">
@@ -94,7 +98,6 @@ export default function HomeScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <h1 className="font-display text-2xl text-pt-accent py-2">PropTracker</h1>
 
-        {/* Search bar */}
         <div className="relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -103,11 +106,13 @@ export default function HomeScreen() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search props, costumes, gear…"
+            enterKeyHint="search"
             className="w-full bg-pt-surface border border-pt-border rounded-xl pl-10 pr-10 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
+              aria-label="Clear search"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-pt-muted text-xl leading-none"
             >
               ×
@@ -115,14 +120,14 @@ export default function HomeScreen() {
           )}
         </div>
 
-        {/* Category filter chips */}
+        {/* Category chips */}
         <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
-          {[{ value: null as string | null, label: 'All' }, ...categories.filter(c => c.active).map(c => ({ value: c.id as string | null, label: c.label }))].map(({ value, label }) => (
+          {[{ id: null as string | null, label: 'All' }, ...categories.filter(c => c.active).map(c => ({ id: c.id as string | null, label: c.label }))].map(({ id, label }) => (
             <button
               key={label}
-              onClick={() => setCategoryFilter(value)}
+              onClick={() => setCategoryFilter(id)}
               className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
-                categoryFilter === value
+                categoryFilter === id
                   ? 'bg-pt-accent text-stone-900 font-medium'
                   : 'bg-pt-surface border border-pt-border text-pt-muted'
               }`}
@@ -130,80 +135,70 @@ export default function HomeScreen() {
               {label}
             </button>
           ))}
-          {isStaff && (
-            <button
-              onClick={() => setShowArchived(v => !v)}
-              className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
-                showArchived ? 'bg-pt-text text-stone-900 font-medium' : 'border border-dashed border-pt-border text-pt-muted'
-              }`}
-            >
-              {showArchived ? 'Showing archived' : 'Archived'}
-            </button>
-          )}
+        </div>
+
+        {/* Availability */}
+        <div className="flex items-center justify-between gap-3 mt-2">
+          <select
+            value={availability}
+            onChange={e => setAvailability(e.target.value as AvailabilityFilter)}
+            aria-label="Availability"
+            className={`bg-pt-surface border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none ${
+              availability === 'all' ? 'border-pt-border text-pt-muted' : 'border-pt-accent text-pt-accent'
+            }`}
+          >
+            {AVAILABILITY_OPTIONS.filter(o => isStaff || !o.staffOnly).map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <span className="text-pt-muted text-xs">
+            {matched.length} prop{matched.length !== 1 ? 's' : ''}
+            {filtersActive && (
+              <button onClick={() => { setCategoryFilter(null); setAvailability('all') }} className="ml-2 text-pt-accent">
+                Clear filters
+              </button>
+            )}
+          </span>
         </div>
       </div>
 
-      <div className="p-4 space-y-2">
-        {/* Empty database state */}
-        {showEmpty && (
-          <div className="text-center mt-16">
-            <p className="text-pt-muted text-sm leading-relaxed">
-              {showArchived ? 'No archived props.' : <>No props yet.{isStaff && <><br />Tap <strong className="text-pt-text">Add</strong> in the nav to add your first prop.</>}</>}
-            </p>
-          </div>
-        )}
-
-        {/* No search results */}
-        {showNoHits && (
-          <div className="text-center mt-12">
-            <p className="text-pt-text font-medium mb-1">Nothing found for "{query}"</p>
-            <p className="text-pt-muted text-sm">
-              You probably don't own it yet.
-            </p>
-          </div>
-        )}
-
-        {/* Result count when searching */}
-        {q && matched.length > 0 && (
-          <p className="text-pt-muted text-xs px-1 pb-1">
-            {matched.length} result{matched.length !== 1 ? 's' : ''}
+      <div className="p-4">
+        {nothingAtAll && (
+          <p className="text-center mt-16 text-pt-muted text-sm leading-relaxed">
+            No props yet.
+            {isStaff && <><br />Tap <strong className="text-pt-text">Add</strong> in the bar below to add your first prop.</>}
           </p>
         )}
 
-        {/* Main results */}
-        {matched.map(item => (
-          <ItemCard
-            key={item.id}
-            item={item}
-            tagById={tagById}
-            characterById={isStaff ? characterById : undefined}
-            locationById={locationById}
-            binById={binById}
-          />
-        ))}
+        {!nothingAtAll && matched.length === 0 && (
+          <div className="text-center mt-10 mb-6">
+            <p className="text-pt-text font-medium mb-1">
+              {q ? `No exact matches for "${q}"` : 'Nothing matches these filters'}
+            </p>
+            {q && similarLoading && <p className="text-pt-muted text-sm">Looking for similar props…</p>}
+            {q && !similarLoading && similar.length === 0 && (
+              <p className="text-pt-muted text-sm">Try a different word{isStaff ? '' : ', or ask the arts department'}.</p>
+            )}
+          </div>
+        )}
 
-        {/* Similar items section */}
+        <div className="grid grid-cols-2 gap-3">
+          {matched.map(item => <ItemCard key={item.id} item={item} subtitle={subtitle(item)} />)}
+        </div>
+
         {similar.length > 0 && (
           <>
-            <div className="flex items-center gap-3 py-3">
+            <div className="flex items-center gap-3 py-4">
               <div className="flex-1 h-px bg-pt-border" />
-              <span className="text-pt-muted text-xs whitespace-nowrap">Similar — might work too</span>
+              <span className="text-pt-muted text-xs whitespace-nowrap">Similar, might work too</span>
               <div className="flex-1 h-px bg-pt-border" />
             </div>
-            {similar.map(item => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                tagById={tagById}
-                characterById={isStaff ? characterById : undefined}
-                locationById={locationById}
-                binById={binById}
-              />
-            ))}
+            <div className="grid grid-cols-2 gap-3">
+              {similar.map(item => <ItemCard key={item.id} item={item} subtitle={subtitle(item)} />)}
+            </div>
           </>
         )}
 
-        {/* Spacer at bottom so last card isn't behind nav */}
         <div className="h-4" />
       </div>
     </div>

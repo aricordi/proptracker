@@ -21,6 +21,7 @@ import HealthScreen from './screens/HealthScreen'
 import UsersScreen from './screens/UsersScreen'
 import CategoriesScreen from './screens/CategoriesScreen'
 import AccountScreen from './screens/AccountScreen'
+import AdminScreen from './screens/AdminScreen'
 
 function Loading() {
   return (
@@ -108,6 +109,7 @@ export default function App() {
           <Route path="/bins" element={<StaffOnly><BinsScreen /></StaffOnly>} />
           <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
           <Route path="/checkout" element={<StaffOnly><CheckoutScreen /></StaffOnly>} />
+          <Route path="/admin" element={<StaffOnly><AdminScreen /></StaffOnly>} />
           <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
           <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
           <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />

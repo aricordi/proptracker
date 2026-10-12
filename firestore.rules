@@ -103,8 +103,26 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
-    match /ai_usage/{month} {
+    // Arts-department-only details for a prop (internal notes). Kept in a
+    // separate document so creators can't read them even outside the app.
+    match /item_private/{id} {
       allow read, write: if isStaff();
+    }
+
+    // Health page bookkeeping (e.g. "not a duplicate" decisions).
+    match /health/{id} {
+      allow read, write: if isStaff();
+    }
+
+    // Smart-search fingerprints. Only the server functions touch these.
+    match /item_vectors/{id} {
+      allow read, write: if false;
+    }
+
+    // AI usage counters are written by the server functions only.
+    match /ai_usage/{month} {
+      allow read: if isStaff();
+      allow write: if false;
     }
 
     match /app_settings/{id} {
@@ -112,9 +130,9 @@ service cloud.firestore {
       allow write: if isOwner();
     }
 
-    // Anything not listed above (e.g. old video_checklists data) is
-    // kept as-is and readable only by the owner.
-    match /{document=**} {
+    // Old Videos checklist data, kept as-is and readable only by the owner.
+    // Anything not listed in this file is locked for everyone.
+    match /video_checklists/{id} {
       allow read: if isOwner();
     }
   }

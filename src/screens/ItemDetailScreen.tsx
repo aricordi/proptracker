@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, setItemArchived } from '../services/items'
+import { getItemPrivate } from '../services/itemPrivate'
 import { useSession } from '../auth'
 import { HIGH_VALUE_THRESHOLD } from '../config'
 import { useTags } from '../hooks/useTags'
@@ -29,13 +30,15 @@ export default function ItemDetailScreen() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [photoIndex, setPhotoIndex] = useState(0)
+  const [internalNotes, setInternalNotes] = useState('')
 
   useEffect(() => {
     if (!id) return
     getItem(id)
       .then(setItem)
       .finally(() => setLoading(false))
-  }, [id])
+    if (isStaff) getItemPrivate(id).then(p => setInternalNotes(p.internalNotes ?? '')).catch(() => {})
+  }, [id, isStaff])
 
   const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
   const characterById = useMemo(() => Object.fromEntries(characters.map(c => [c.id, c])), [characters])
@@ -218,6 +221,13 @@ export default function ItemDetailScreen() {
           <div>
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Notes</p>
             <p className="text-pt-text text-sm leading-relaxed whitespace-pre-wrap">{item.notes}</p>
+          </div>
+        )}
+
+        {isStaff && internalNotes && (
+          <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl px-4 py-3">
+            <p className="text-sky-300 text-xs uppercase tracking-wider mb-1">Internal notes · arts dept only</p>
+            <p className="text-pt-text text-sm leading-relaxed whitespace-pre-wrap">{internalNotes}</p>
           </div>
         )}
 

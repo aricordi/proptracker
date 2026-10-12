@@ -38,7 +38,7 @@ const staffNav = [
   { to: '/',         label: 'Search',   icon: searchIcon },
   { to: '/checkout', label: 'Checkout', icon: checkoutIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
-  { to: '/health',   label: 'Admin',    icon: adminIcon },
+  { to: '/admin',    label: 'Admin',    icon: adminIcon },
 ]
 
 const creatorNav = [

@@ -17,7 +17,8 @@ export interface Item {
   photos: string[];         // photo URLs, first one is the cover
   photoUrl?: string;        // legacy single photo — kept in sync with photos[0]
   description?: string;     // short "what it looks like" line (AI can suggest)
-  notes?: string;           // free-form notes from the arts department
+  notes?: string;           // "Notes for creators": visible to everyone
+                            // (internal notes live in item_private/{id}, staff only)
   tags: string[];           // tag IDs from the master tag list
   characters?: string[];    // character IDs (arts department only)
   character?: string;       // legacy single-string field (migrated on edit)
@@ -33,7 +34,7 @@ export interface Item {
   cost?: number;            // legacy — read as replacementCost when that is missing
   whereToRebuy?: string;    // e.g. "Dollarama" or "Amazon: search 'fake eyeballs'"
   archived: boolean;        // archived props are hidden, never deleted
-  embedding?: number[];     // semantic fingerprint, generated once on save
+  embedding?: number[];     // legacy: from a retired AI model, no longer used or written
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -97,6 +98,9 @@ export interface ActiveCheckout {
 export interface AiUsageRecord {
   id: string;
   month: string;            // "YYYY-MM"
-  taggingCalls: number;
-  embeddingCalls: number;
+  photoAnalyses?: number;   // AI filling in a new prop from its photo
+  smartSearches?: number;   // "Similar, might work too" lookups
+  indexUpdates?: number;    // props (re)fingerprinted for smart search
+  taggingCalls?: number;    // legacy counters from before Phase 2
+  embeddingCalls?: number;
 }

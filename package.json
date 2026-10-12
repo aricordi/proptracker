@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "firebase emulators:exec --only firestore,storage --project demo-proptracker \"vitest run\"",
+    "test": "firebase emulators:exec --only auth,functions,firestore,storage --project demo-proptracker \"vitest run\"",
     "test:watch": "vitest",
-    "emulator": "firebase emulators:start --project demo-proptracker",
+    "emulator": "npm --prefix functions run build && firebase emulators:start --project demo-proptracker",
     "seed": "node scripts/seed-emulator.mjs",
-    "dev:emulator": "VITE_USE_EMULATORS=true vite"
+    "dev:emulator": "VITE_USE_EMULATORS=true vite",
+    "pretest": "npm --prefix functions run build"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

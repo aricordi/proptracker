@@ -6,7 +6,9 @@ import { auth, storage } from '../firebase'
 import { addItem, updateItem, getItem } from '../services/items'
 import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
 import { getOrCreateCharacter, incrementCharacterUsage, decrementCharacterUsage } from '../services/characters'
-import { analyzeItemPhoto, generateEmbedding } from '../services/ai'
+import { analyzeItemPhoto } from '../services/ai'
+import { getItemPrivate, setItemPrivate } from '../services/itemPrivate'
+import { normalizeTag } from '../lib/normalizeTag'
 import type { PhotoAnalysis } from '../services/ai'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
@@ -38,6 +40,10 @@ export default function AddItemScreen() {
   const [quantity, setQuantity] = useState('1')
   const [condition, setCondition] = useState<Condition>('good')
   const [notes, setNotes] = useState('')
+  const [internalNotes, setInternalNotes] = useState('')
+  const [originalInternalNotes, setOriginalInternalNotes] = useState('')
+  const [categoryTouched, setCategoryTouched] = useState(false)
+  const [aiFilled, setAiFilled] = useState<Set<'name' | 'category' | 'tags' | 'description'>>(new Set())
   const [locationId, setLocationId] = useState(searchParams.get('locationId') ?? '')
   const [binId, setBinId] = useState(searchParams.get('binId') ?? '')
   const [tagLabels, setTagLabels] = useState<string[]>([])
@@ -84,6 +90,11 @@ export default function AddItemScreen() {
       setWhereToRebuy(data.whereToRebuy ?? '')
       setPhotos(data.photos.map(url => ({ key: url, preview: url, url, progress: null })))
       if (data.description || data.notes || data.whereToRebuy) setShowMore(true)
+      getItemPrivate(data.id).then(p => {
+        setInternalNotes(p.internalNotes ?? '')
+        setOriginalInternalNotes(p.internalNotes ?? '')
+        if (p.internalNotes) setShowMore(true)
+      }).catch(() => {})
       setLoadingItem(false)
     }).catch(() => setLoadingItem(false))
   }, [editId])
@@ -130,17 +141,40 @@ export default function AddItemScreen() {
     analyzeItemPhoto(file)
       .then(result => {
         setAiResult(result)
-        // Auto-expand More Details if a description was suggested and field is empty
-        if (result.description) setShowMore(true)
+        applyAi(result)
       })
       .catch(err => setAiError(err instanceof Error ? err.message : 'Analysis failed'))
       .finally(() => setAiLoading(false))
   }
 
+  // The AI answers a few seconds after the photo is picked; by then the admin
+  // may have typed. Read the latest values from here, not from a stale closure.
+  const latest = useRef({ name, description, tagLabels, categoryTouched })
+  latest.current = { name, description, tagLabels, categoryTouched }
+
+  // Fill in whatever the admin hasn't already typed or picked themselves.
+  function applyAi(result: PhotoAnalysis) {
+    const now = latest.current
+    const filled = new Set<'name' | 'category' | 'tags' | 'description'>()
+    if (result.name && !now.name.trim()) { setName(result.name); filled.add('name') }
+    if (result.categoryId && !now.categoryTouched) { setCategoryId(result.categoryId); filled.add('category') }
+    if (result.description && !now.description.trim()) { setDescription(result.description); filled.add('description'); setShowMore(true) }
+    if (result.tags.length) {
+      // Reuse the existing spelling of a tag ("chairs" → existing "chair") so tags don't multiply.
+      const existing = new Map(tags.map(t => [t.normalizedKey || normalizeTag(t.label), t.label]))
+      const have = new Set(now.tagLabels.map(normalizeTag))
+      const add = result.tags
+        .map(t => existing.get(normalizeTag(t)) ?? t)
+        .filter(t => { const k = normalizeTag(t); if (have.has(k)) return false; have.add(k); return true })
+      if (add.length) { setTagLabels([...now.tagLabels, ...add]); filled.add('tags') }
+    }
+    setAiFilled(filled)
+  }
+
   function handleFilesSelected(files: File[]) {
     const uid = auth.currentUser?.uid ?? 'unknown'
     // Ask the AI about the first photo only, and only if we haven't already.
-    if (!aiResult && !aiLoading && photos.length === 0) runAnalysis(files[0])
+    if (!isEditMode && !aiResult && !aiLoading && photos.length === 0) runAnalysis(files[0])
 
     for (const file of files) {
       const key = `${Date.now()}_${Math.random().toString(36).slice(2)}`
@@ -172,13 +206,9 @@ export default function AddItemScreen() {
     setSaving(true)
     setError(null)
     try {
-      const embeddingText = [trimmedName, description, tagLabels.join(' '), characterLabels.join(' ')]
-        .filter(Boolean).join(' ')
-
-      const [newTagIds, newCharacterIds, embedding] = await Promise.all([
+      const [newTagIds, newCharacterIds] = await Promise.all([
         Promise.all(tagLabels.map(l => getOrCreateTag(l, tags))),
         Promise.all(characterLabels.map(l => getOrCreateCharacter(l, characters))),
-        generateEmbedding(embeddingText),
       ])
 
       const photoUrls = photos.map(p => p.url).filter((u): u is string => !!u)
@@ -199,8 +229,10 @@ export default function AddItemScreen() {
         binId: binId || undefined,
         whereToRebuy: whereToRebuy.trim() || undefined,
         replacementCost: Number.isFinite(costValue) ? costValue : undefined,
-        ...(embedding ? { embedding } : {}),
       }
+      const savePrivate = (id: string) => internalNotes.trim() !== originalInternalNotes.trim()
+        ? setItemPrivate(id, { internalNotes: internalNotes.trim() })
+        : Promise.resolve()
 
       if (isEditMode && editId) {
         const addedTagIds      = newTagIds.filter(id => !originalTagIds.includes(id))
@@ -228,13 +260,15 @@ export default function AddItemScreen() {
           // Clearing the cost also clears the legacy field it used to be read from.
           ...(common.replacementCost === undefined ? { cost: deleteField() } : {}),
         } as unknown as Partial<Item>)
+        await savePrivate(editId)
         navigate(`/item/${editId}`, { replace: true })
       } else {
         await Promise.all([
           ...newTagIds.map(id => incrementTagUsage(id)),
           ...newCharacterIds.map(id => incrementCharacterUsage(id)),
         ])
-        await addItem({ ...common, status: 'available', archived: false })
+        const ref = await addItem({ ...common, status: 'available', archived: false })
+        await savePrivate(ref.id)
         navigate('/')
       }
     } catch (err) {
@@ -312,42 +346,12 @@ export default function AddItemScreen() {
             )}
 
             {aiResult && !aiLoading && (
-              <>
-                {/* Tag chips */}
-                {aiResult.tags.filter(t => !tagLabels.includes(t)).length > 0 && (
-                  <div>
-                    <p className="text-pt-muted text-xs mb-2">
-                      <span className="text-pt-accent">✦</span> Tap to add tags
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {aiResult.tags.filter(t => !tagLabels.includes(t)).map(tag => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => setTagLabels(prev => [...prev, tag])}
-                          className="flex items-center gap-1 bg-pt-accent/10 border border-pt-accent/30 text-pt-accent text-sm px-2.5 py-1 rounded-full active:opacity-70"
-                        >
-                          + {tag}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Description suggestion */}
-                {aiResult.description && !description && (
-                  <button
-                    type="button"
-                    onClick={() => setDescription(aiResult.description!)}
-                    className="w-full text-left bg-pt-accent/5 border border-pt-accent/20 rounded-xl px-3 py-2.5 active:opacity-70"
-                  >
-                    <p className="text-pt-muted text-xs mb-1">
-                      <span className="text-pt-accent">✦</span> Tap to use description
-                    </p>
-                    <p className="text-pt-text text-sm">{aiResult.description}</p>
-                  </button>
-                )}
-              </>
+              <p className="text-pt-text text-sm">
+                <span className="text-pt-accent">✦</span>{' '}
+                {aiFilled.size > 0
+                  ? <>AI filled in the fields marked <span className="text-pt-accent">✦</span>. Check them before saving.</>
+                  : 'AI had nothing new to add. Your entries were kept.'}
+              </p>
             )}
           </div>
         )}
@@ -355,20 +359,21 @@ export default function AddItemScreen() {
         {/* Name */}
         <input
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={e => { setName(e.target.value); setAiFilled(f => { const n = new Set(f); n.delete('name'); return n }) }}
           placeholder="What is it? *"
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3.5 text-pt-text text-lg placeholder-pt-muted focus:outline-none focus:border-pt-accent"
         />
+        {aiFilled.has('name') && <p className="-mt-3 text-xs text-pt-muted"><AiMark /> suggested name</p>}
 
         {/* Category */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Category</p>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Category{aiFilled.has('category') && <AiMark />}</p>
           <div className="flex gap-2 flex-wrap">
             {categories.filter(c => c.active || c.id === categoryId).map(c => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setCategoryId(c.id)}
+                onClick={() => { setCategoryId(c.id); setCategoryTouched(true); setAiFilled(f => { const n = new Set(f); n.delete('category'); return n }) }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors active:opacity-80 ${
                   categoryId === c.id
                     ? 'bg-pt-accent text-stone-900'
@@ -465,7 +470,7 @@ export default function AddItemScreen() {
 
         {/* Tags */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags</p>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags{aiFilled.has('tags') && <AiMark />}</p>
           <TagInput value={tagLabels} onChange={setTagLabels} suggestions={tags} />
 
         </div>
@@ -485,13 +490,13 @@ export default function AddItemScreen() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`w-4 h-4 transition-transform ${showMore ? 'rotate-180' : ''}`}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
           </svg>
-          {showMore ? 'Hide extra details' : 'Add description, notes, where to rebuy'}
+          {showMore ? 'Hide extra details' : 'Description, notes, where to rebuy'}
         </button>
 
         {showMore && (
           <div className="space-y-4">
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Description</p>
+              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Description{aiFilled.has('description') && <AiMark />}</p>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
@@ -501,11 +506,21 @@ export default function AddItemScreen() {
               />
             </div>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Notes</p>
+              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Notes for creators</p>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Handling instructions, missing parts, sizes…"
+                placeholder="Everyone sees this: handling, sizes, missing parts…"
+                rows={3}
+                className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none"
+              />
+            </div>
+            <div>
+              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Internal notes (arts dept only)</p>
+              <textarea
+                value={internalNotes}
+                onChange={e => setInternalNotes(e.target.value)}
+                placeholder="Creators never see this: repairs, where it came from…"
                 rows={3}
                 className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none"
               />
@@ -571,4 +586,9 @@ export default function AddItemScreen() {
     )}
     </>
   )
+}
+
+// Small marker beside a field the AI filled in.
+function AiMark() {
+  return <span className="text-pt-accent normal-case tracking-normal ml-1.5">✦ AI</span>
 }

@@ -146,6 +146,33 @@ describe('users and invites', () => {
   })
 })
 
+describe('internal notes and server-only data', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'item_private', 'cop'), { internalNotes: 'Bought at estate sale' })
+      await setDoc(doc(db, 'item_vectors', 'cop'), { textHash: 'x' })
+      await setDoc(doc(db, 'ai_usage', '2026-10'), { photoAnalyses: 1 })
+    })
+  })
+  it('creators cannot read internal notes', async () => {
+    await assertFails(getDoc(doc(as(CREATOR), 'item_private', 'cop')))
+  })
+  it('arts department can read and write internal notes', async () => {
+    await assertSucceeds(getDoc(doc(as(ARTS), 'item_private', 'cop')))
+    await assertSucceeds(setDoc(doc(as(ARTS), 'item_private', 'cop'), { internalNotes: 'Repaired 2026' }))
+  })
+  it('nobody in the app can read or change search fingerprints', async () => {
+    await assertFails(getDoc(doc(as(OWNER), 'item_vectors', 'cop')))
+    await assertFails(setDoc(doc(as(OWNER), 'item_vectors', 'cop'), { textHash: 'y' }))
+  })
+  it('staff can read AI usage but nobody can fake it', async () => {
+    await assertSucceeds(getDoc(doc(as(ARTS), 'ai_usage', '2026-10')))
+    await assertFails(getDoc(doc(as(CREATOR), 'ai_usage', '2026-10')))
+    await assertFails(setDoc(doc(as(OWNER), 'ai_usage', '2026-10'), { photoAnalyses: 0 }))
+  })
+})
+
 describe('everything else', () => {
   it('old Videos data is kept and only the owner can read it', async () => {
     await assertSucceeds(getDoc(doc(as(OWNER), 'video_checklists', 'v1')))
