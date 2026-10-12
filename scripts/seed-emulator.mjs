@@ -1,0 +1,75 @@
+// Fills the LOCAL emulator with sample data for trying the app.
+// Never touches the live database: it only talks to 127.0.0.1 and the
+// "demo-" project, which Firebase guarantees is offline-only.
+//
+// Usage (the emulator must already be running):  node scripts/seed-emulator.mjs
+
+const BASE = 'http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents'
+const HEADERS = { 'Content-Type': 'application/json', Authorization: 'Bearer owner' } // emulator admin bypass
+
+function toValue(v) {
+  if (v === null) return { nullValue: null }
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(toValue) } }
+  if (typeof v === 'boolean') return { booleanValue: v }
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }
+  if (typeof v === 'object') return { mapValue: { fields: toFields(v) } }
+  return { stringValue: String(v) }
+}
+function toFields(obj) {
+  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, toValue(v)]))
+}
+async function put(path, data) {
+  const res = await fetch(`${BASE}/${path}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ fields: toFields(data) }) })
+  if (!res.ok) throw new Error(`${path}: ${res.status} ${await res.text()}`)
+}
+
+const now = new Date().toISOString()
+const meta = { createdAt: now, updatedAt: now, createdBy: 'seed', updatedBy: 'seed' }
+
+const users = [
+  { email: 'arts@example.com', name: 'Sam (Arts)', role: 'arts', active: true },
+  { email: 'creator@example.com', name: 'Riley (Creator)', role: 'creator', active: true },
+  { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false },
+]
+const locations = [{ id: 'loc-main', name: 'Main prop room' }, { id: 'loc-cage', name: 'Costume cage' }]
+const bins = [
+  { id: 'bin-a1', label: 'A1', locationId: 'loc-main', qrSlug: 'bin-a1' },
+  { id: 'bin-a2', label: 'A2', locationId: 'loc-main', qrSlug: 'bin-a2' },
+  { id: 'bin-c1', label: 'Rack C1', locationId: 'loc-cage', qrSlug: 'bin-c1' },
+]
+const tags = [
+  ['t-police', 'police'], ['t-uniform', 'uniform'], ['t-chair', 'chair'], ['t-wood', 'wood'],
+  ['t-horror', 'horror'], ['t-glass', 'glass'], ['t-phone', 'phone'], ['t-vintage', 'vintage'],
+].map(([id, label]) => ({ id, label, normalizedKey: label, usageCount: 1 }))
+const characters = [{ id: 'ch-det', label: 'Detective', normalizedKey: 'detective', usageCount: 1 }]
+
+const items = [
+  // New-style records
+  { id: 'cop', name: 'Police officer costume', categoryId: 'costume', quantity: 1, condition: 'good',
+    replacementCost: 650, tags: ['t-police', 't-uniform'], characters: ['ch-det'], binId: 'bin-c1', locationId: 'loc-cage',
+    notes: 'Size L. Badge is glued on, do not remove.', description: 'Navy blue police uniform with badge and hat.',
+    photos: [], status: 'available', archived: false },
+  { id: 'chairs', name: 'Wooden dining chair', categoryId: 'set-dressing', quantity: 10, condition: 'fair',
+    replacementCost: 45, tags: ['t-chair', 't-wood'], binId: 'bin-a1', locationId: 'loc-main',
+    photos: [], status: 'available', archived: false },
+  { id: 'phone', name: 'Rotary phone', categoryId: 'prop', quantity: 2, condition: 'good',
+    replacementCost: 80, tags: ['t-phone', 't-vintage'], binId: 'bin-a2', locationId: 'loc-main',
+    photos: [], status: 'available', archived: false },
+  { id: 'old-lamp', name: 'Broken lamp (archived)', categoryId: 'set-dressing', quantity: 1, condition: 'damaged',
+    tags: [], photos: [], status: 'available', archived: true },
+  // Old-style records, exactly as the previous version of the app saved them
+  { id: 'legacy-skull', name: 'Fake skull', itemType: 'prop', status: 'damaged', cost: 25,
+    tags: ['t-horror'], binId: 'bin-a2', locationId: 'loc-main', whereToRebuy: 'Spirit Halloween' },
+  { id: 'legacy-bottle', name: 'Breakaway bottle', itemType: 'prop', status: 'checked-out',
+    checkedOutInfo: { label: 'Bar fight shoot', checkedOutAt: now }, tags: ['t-glass'], description: 'Sugar-glass beer bottle.' },
+]
+
+for (const u of users) await put(`users/${u.email}`, { ...u, invitedBy: 'seed', invitedAt: now })
+for (const { id, ...l } of locations) await put(`locations/${id}`, l)
+for (const { id, ...b } of bins) await put(`bins/${id}`, b)
+for (const { id, ...t } of tags) await put(`tags/${id}`, t)
+for (const { id, ...c } of characters) await put(`characters/${id}`, c)
+for (const { id, ...i } of items) await put(`items/${id}`, { ...i, ...meta })
+await put('checkouts/co1', { label: 'Bar fight shoot', startedAt: now, itemIds: ['legacy-bottle'] })
+
+console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)

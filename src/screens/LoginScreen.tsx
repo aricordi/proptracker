@@ -1,5 +1,19 @@
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
-import { auth } from '../firebase'
+import { signInWithPopup, signInWithCredential, GoogleAuthProvider } from 'firebase/auth'
+import { auth, USING_EMULATORS } from '../firebase'
+
+// Emulator only: one-tap sign-in as a pretend Google account, so each role
+// can be tried without real accounts. Never shown on the live site.
+const TEST_ACCOUNTS = [
+  { email: 'alexisricordi@gmail.com', label: 'Owner' },
+  { email: 'arts@example.com',        label: 'Arts department' },
+  { email: 'creator@example.com',     label: 'Creator' },
+  { email: 'stranger@example.com',    label: 'Not invited' },
+]
+
+function testSignIn(email: string) {
+  const fakeIdToken = JSON.stringify({ sub: email, email, email_verified: true, name: email.split('@')[0] })
+  return signInWithCredential(auth, GoogleAuthProvider.credential(fakeIdToken))
+}
 
 export default function LoginScreen() {
   const handleSignIn = async () => {
@@ -30,6 +44,18 @@ export default function LoginScreen() {
         </svg>
         Sign in with Google
       </button>
+
+      {USING_EMULATORS && (
+        <div className="mt-10 w-full max-w-xs space-y-2">
+          <p className="text-pt-muted text-xs text-center uppercase tracking-wider">Test mode: sign in as</p>
+          {TEST_ACCOUNTS.map(a => (
+            <button key={a.email} onClick={() => testSignIn(a.email)}
+              className="w-full bg-pt-surface border border-pt-border text-pt-text py-2.5 rounded-xl text-sm active:opacity-70">
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

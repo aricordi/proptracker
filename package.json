@@ -8,7 +8,10 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "firebase emulators:exec --only firestore,storage --project demo-proptracker \"vitest run\"",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "emulator": "firebase emulators:start --project demo-proptracker",
+    "seed": "node scripts/seed-emulator.mjs",
+    "dev:emulator": "VITE_USE_EMULATORS=true vite"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

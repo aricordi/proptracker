@@ -40,8 +40,41 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 ## Project status
 
-- Step 0 (audit) done; no app code changed. Waiting for the owner to approve the
-  plan before Phase 1.
-- Known issue found in audit: the AI model the app uses for "similar" search
-  and prop matching (`text-embedding-004`) was shut down by Google in Jan 2026,
-  so those features have been failing silently.
+### Phase 1 (Foundation): built and tested locally, NOT yet deployed
+Waiting on the owner to approve deploying security rules + a preview channel.
+
+What exists now:
+- Three roles stored in Firestore `users/{lowercase email}` with `role` and `active`:
+  - owner: full admin. `alexisricordi@gmail.com` is hard-coded as owner in
+    `src/config.ts`, `firestore.rules`, `storage.rules`, so it can never be locked out.
+  - arts: manages inventory (props, categories, bins, storage areas, tags,
+    characters, checkouts) and can invite/turn off creators only.
+  - creator: search + prop pages only (read-only).
+- Sign-in: Google sign-in, then the email must be in `users` and active. People
+  screen (`/users`) invites people; no emails are sent yet (Phase 4).
+- Nothing is ever deleted: props are archived (`archived: true`), users are
+  deactivated (`active: false`). Rules block deletes.
+- Prop fields: name, photos[] (first = cover), tags, categoryId, quantity,
+  condition (good/fair/damaged), bin/location, replacementCost, notes,
+  description, archived. Characters are arts-only.
+- Old records are converted on read in `src/services/itemShape.ts` (no data
+  migration was run). Legacy fields (`itemType`, `cost`, `photoUrl`,
+  status "damaged") are kept and still understood.
+- Categories: `categories` collection, editable at `/categories`. Defaults
+  (Prop, Costume, Set Dressing, Gear) are created the first time staff open the app.
+- Videos/Drive checklist feature removed (old `video_checklists` data kept,
+  owner-read-only).
+
+How to test locally (emulator = private offline copy, never touches live data):
+- `npm test`: runs 36 automated tests (security rules + reading old records).
+- `npm run emulator` (terminal 1), `npm run seed` (sample data),
+  `npm run dev:emulator` (terminal 2), then open http://localhost:5173 and use
+  the "Test mode: sign in as" buttons.
+
+Known issues / next up:
+- Before deploying rules live: invite Keanu and friend #3 (old UID-based
+  users) via the People screen, or they lose access.
+- `text-embedding-004` is shut down, so "similar" search returns nothing. Fix in Phase 2.
+- Gemini API key is still in the browser bundle. Move server-side (Phase 2 or 6).
+- Current Checkout screen is the old simple one; replaced in Phase 3.
+- Next: Phase 2 (search, filters, prop pages, auto AI tagging).
