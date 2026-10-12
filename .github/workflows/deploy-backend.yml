@@ -49,5 +49,16 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
 
+      # Delete old function build images after 7 days so they don't slowly add
+      # storage costs. Safe to run every time; fails harmlessly before the
+      # very first functions deploy creates the image storage.
+      - name: Keep function build storage tidy
+        continue-on-error: true
+        run: npx firebase functions:artifacts:setpolicy --location northamerica-northeast1 --days 7 --project proptracker-9732e --force --non-interactive
+
+      # Google's build service occasionally fails a function build for no
+      # reason of ours (especially on a new project), so try once more.
       - name: Deploy server functions, security rules and indexes
-        run: npx firebase deploy --only functions,firestore,storage --project proptracker-9732e --non-interactive
+        run: |
+          deploy() { npx firebase deploy --only functions,firestore,storage --project proptracker-9732e --non-interactive; }
+          deploy || { echo "First attempt failed; waiting 60s and retrying once..."; sleep 60; deploy; }
