@@ -40,41 +40,61 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 ## Project status
 
-### Phase 1 (Foundation): built and tested locally, NOT yet deployed
-Waiting on the owner to approve deploying security rules + a preview channel.
+Phases 1 and 2 are built and tested locally. NOTHING IS DEPLOYED YET.
+The owner decided to deploy after Phase 2; next step is the go-live checklist below.
+The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
-What exists now:
-- Three roles stored in Firestore `users/{lowercase email}` with `role` and `active`:
-  - owner: full admin. `alexisricordi@gmail.com` is hard-coded as owner in
-    `src/config.ts`, `firestore.rules`, `storage.rules`, so it can never be locked out.
-  - arts: manages inventory (props, categories, bins, storage areas, tags,
-    characters, checkouts) and can invite/turn off creators only.
-  - creator: search + prop pages only (read-only).
-- Sign-in: Google sign-in, then the email must be in `users` and active. People
-  screen (`/users`) invites people; no emails are sent yet (Phase 4).
-- Nothing is ever deleted: props are archived (`archived: true`), users are
-  deactivated (`active: false`). Rules block deletes.
-- Prop fields: name, photos[] (first = cover), tags, categoryId, quantity,
-  condition (good/fair/damaged), bin/location, replacementCost, notes,
-  description, archived. Characters are arts-only.
-- Old records are converted on read in `src/services/itemShape.ts` (no data
-  migration was run). Legacy fields (`itemType`, `cost`, `photoUrl`,
-  status "damaged") are kept and still understood.
-- Categories: `categories` collection, editable at `/categories`. Defaults
-  (Prop, Costume, Set Dressing, Gear) are created the first time staff open the app.
-- Videos/Drive checklist feature removed (old `video_checklists` data kept,
-  owner-read-only).
+### Phase 1 (Foundation)
+- Roles in Firestore `users/{lowercase email}` (`role`, `active`):
+  owner (full admin; `alexisricordi@gmail.com` hard-coded in `src/config.ts`,
+  `firestore.rules`, `storage.rules`, `functions/src/index.ts`), arts (inventory
+  + invite creators), creator (search + view only).
+- Invite-only Google sign-in; People screen at `/users`.
+- Nothing is deleted: props are archived, users deactivated. Rules block deletes.
+- Prop fields: name, photos[], tags, categoryId, quantity, condition
+  (good/fair/damaged), bin/location, replacementCost, notes, description, archived.
+- Old records are converted on read (`src/services/itemShape.ts`); legacy fields are kept.
+- Categories editable at `/categories`. Videos feature removed.
 
-How to test locally (emulator = private offline copy, never touches live data):
-- `npm test`: runs 36 automated tests (security rules + reading old records).
-- `npm run emulator` (terminal 1), `npm run seed` (sample data),
-  `npm run dev:emulator` (terminal 2), then open http://localhost:5173 and use
-  the "Test mode: sign in as" buttons.
+### Phase 2 (Search, prop pages, AI)
+- Server functions in `functions/` (region northamerica-northeast1 / Montréal):
+  `analyzePropPhoto` (staff), `searchSimilar` (members), `onItemWritten`
+  (auto-indexes props for smart search), `rebuildSearchIndex` (owner).
+  The Gemini key is a Firebase secret (`GEMINI_API_KEY`); it is no longer in the website.
+  Models live in `functions/src/gemini.ts` (`gemini-3.5-flash-lite`, `gemini-embedding-2` @ 768 dims).
+  In the emulator with no key, functions return fake answers (free, offline).
+- Smart-search fingerprints live in `item_vectors/{id}` (server-only, Firestore vector
+  index in `firestore.indexes.json`). Old per-prop `embedding` arrays are legacy, unused.
+- Search screen: 2-across photo grid, A–Z, Category + Availability filters
+  (staff also get "Archived"), matches name/tags/description/notes, then
+  "Similar, might work too" (cut-off `SIMILAR_MIN_SCORE` in `src/config.ts`;
+  tune after go-live with real props).
+- Add prop: AI fills name, category, tags (reusing existing spellings), description;
+  fields marked ✦ AI; admin reviews.
+- Notes: `notes` = "Notes for creators" (public); internal notes in
+  `item_private/{id}` (staff-only rules).
+- Admin tab = menu (`/admin`). Health page `/health` (owner + arts): fix-it list,
+  inventory counts, look-alike tag merge, possible duplicate props (dismissals in
+  `health/dismissed`), empty bins/areas, unused tags, AI usage, CSV export.
+- High-value warning at $500+ (`HIGH_VALUE_THRESHOLD`).
 
-Known issues / next up:
-- Before deploying rules live: invite Keanu and friend #3 (old UID-based
-  users) via the People screen, or they lose access.
-- `text-embedding-004` is shut down, so "similar" search returns nothing. Fix in Phase 2.
-- Gemini API key is still in the browser bundle. Move server-side (Phase 2 or 6).
-- Current Checkout screen is the old simple one; replaced in Phase 3.
-- Next: Phase 2 (search, filters, prop pages, auto AI tagging).
+### Testing
+- `npm test`: 61 tests in the emulator (rules, server functions, search/health logic).
+- Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
+  open http://localhost:5173 and use the "Test mode: sign in as" buttons.
+- CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
+  branch and, once the secrets exist, publishes to the `preview` channel.
+
+### Go-live checklist (each step needs the owner's OK)
+1. Owner adds GitHub secrets (deploy service account + VITE_FIREBASE_* values).
+2. Set the Gemini secret: `firebase functions:secrets:set GEMINI_API_KEY`.
+3. Deploy server functions, Firestore rules + vector index, Storage rules
+   (these are live-wide; the old site keeps working for the owner).
+4. Owner opens the preview, tests, then runs "Rebuild smart search" on Health.
+5. Deploy hosting to live.
+6. Later, with approval: remove the obsolete `embedding` arrays from props
+   (they make every phone download extra data).
+
+### Next
+- Phase 3: availability calendar + reservations (date ranges, quantities,
+  lead time, no double-booking).
