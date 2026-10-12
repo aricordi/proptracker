@@ -125,9 +125,30 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Booking rules (lead time, turnaround) can be changed by the arts
+    // department; other settings by the owner only.
     match /app_settings/{id} {
       allow read: if isMember();
-      allow write: if isOwner();
+      allow write: if isOwner()
+        || (isStaff() && id == 'booking'
+            && request.resource.data.keys().hasOnly(['leadTimeDays', 'bufferDays', 'updatedAt', 'updatedBy'])
+            && request.resource.data.leadTimeDays is int
+            && request.resource.data.leadTimeDays >= 0 && request.resource.data.leadTimeDays <= 60
+            && request.resource.data.bufferDays is int
+            && request.resource.data.bufferDays >= 0 && request.resource.data.bufferDays <= 30);
+    }
+
+    // Reservations are created and changed only by the server functions,
+    // which enforce availability. Creators see their own; staff see all.
+    match /reservations/{id} {
+      allow read: if isStaff() || (isMember() && resource.data.creatorEmail == myEmail());
+      allow write: if false;
+    }
+
+    // Which dates each prop is booked (no names), so everyone can see availability.
+    match /item_bookings/{itemId} {
+      allow read: if isMember();
+      allow write: if false;
     }
 
     // Old Videos checklist data, kept as-is and readable only by the owner.

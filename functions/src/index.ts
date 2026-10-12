@@ -1,42 +1,15 @@
 // PropTracker server functions. These run on Firebase's servers (Montréal),
 // hold the Gemini key, and check the caller's role before doing anything.
-import { initializeApp } from 'firebase-admin/app'
-import { getFirestore, FieldValue, type DocumentData } from 'firebase-admin/firestore'
-import { onCall, HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
+import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
+import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
-import { setGlobalOptions } from 'firebase-functions/v2'
 import { defineSecret } from 'firebase-functions/params'
 import { analyzePhoto, embedText, hashText } from './gemini.js'
 
-initializeApp()
-const db = getFirestore()
-
-// Keep in sync with src/config.ts, firestore.rules and storage.rules.
-const OWNER_EMAIL = 'alexisricordi@gmail.com'
+import { db, requireRole } from './auth.js'
+export * from './reservations.js'
 
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
-
-setGlobalOptions({ region: 'northamerica-northeast1', maxInstances: 5 })
-
-// ─── Who is calling? ─────────────────────────────────────────────────────────
-
-type Role = 'owner' | 'arts' | 'creator'
-
-async function callerRole(req: CallableRequest): Promise<Role | null> {
-  const token = req.auth?.token
-  if (!token?.email || token.email_verified !== true) return null
-  const email = token.email.toLowerCase()
-  if (email === OWNER_EMAIL) return 'owner'
-  const snap = await db.doc(`users/${email}`).get()
-  const data = snap.data()
-  return snap.exists && data?.active === true ? data.role as Role : null
-}
-
-async function requireRole(req: CallableRequest, allowed: Role[]) {
-  const role = await callerRole(req)
-  if (!role || !allowed.includes(role)) throw new HttpsError('permission-denied', 'Not allowed')
-  return role
-}
 
 function apiKey() {
   // Empty in the local emulator unless a real key is supplied; gemini.ts then uses fake answers.

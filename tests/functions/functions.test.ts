@@ -2,59 +2,12 @@
 // mode (no Gemini key, no cost). Checks both that they work and who may use them.
 import { beforeAll, describe, it, expect } from 'vitest'
 
-const PROJECT = 'demo-proptracker'
-const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`
-const FN = `http://127.0.0.1:5001/${PROJECT}/northamerica-northeast1`
-const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1'
-const ADMIN = { 'Content-Type': 'application/json', Authorization: 'Bearer owner' }
-
-function toValue(v: unknown): unknown {
-  if (Array.isArray(v)) return { arrayValue: { values: v.map(toValue) } }
-  if (typeof v === 'boolean') return { booleanValue: v }
-  if (typeof v === 'number') return { integerValue: String(v) }
-  return { stringValue: String(v) }
-}
-async function put(path: string, data: Record<string, unknown>) {
-  const fields = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, toValue(v)]))
-  const res = await fetch(`${FS}/${path}`, { method: 'PATCH', headers: ADMIN, body: JSON.stringify({ fields }) })
-  if (!res.ok) throw new Error(await res.text())
-}
-async function exists(path: string) {
-  return (await fetch(`${FS}/${path}`, { headers: ADMIN })).ok
-}
-
-// A pretend Google sign-in, as the emulator allows.
-async function tokenFor(email: string) {
-  const res = await fetch(`${AUTH}/accounts:signInWithIdp?key=fake`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      requestUri: 'http://localhost',
-      returnSecureToken: true,
-      postBody: `id_token=${encodeURIComponent(JSON.stringify({ sub: email, email, email_verified: true }))}&providerId=google.com`,
-    }),
-  })
-  return (await res.json()).idToken as string
-}
-
-async function call(name: string, data: unknown, email?: string) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (email) headers.Authorization = `Bearer ${await tokenFor(email)}`
-  const res = await fetch(`${FN}/${name}`, { method: 'POST', headers, body: JSON.stringify({ data }) })
-  const body = await res.json()
-  return { ok: res.ok, result: body.result, error: body.error?.status as string | undefined }
-}
-
-const waitFor = async (check: () => Promise<boolean>, ms = 15000) => {
-  for (const end = Date.now() + ms; Date.now() < end; await new Promise(r => setTimeout(r, 300))) {
-    if (await check()) return true
-  }
-  return false
-}
+import { put, exists, call, waitFor, clearDatabase } from './helpers'
 
 const OWNER = 'alexisricordi@gmail.com', ARTS = 'fn-arts@example.com', CREATOR = 'fn-creator@example.com'
 
 beforeAll(async () => {
-  await fetch(`http://127.0.0.1:8080/emulator/v1/projects/${PROJECT}/databases/(default)/documents`, { method: 'DELETE' })
+  await clearDatabase()
   await put(`users/${ARTS}`, { email: ARTS, role: 'arts', active: true })
   await put(`users/${CREATOR}`, { email: CREATOR, role: 'creator', active: true })
   await put('categories/costume', { label: 'Costume', order: 1, active: true })

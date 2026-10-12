@@ -173,6 +173,39 @@ describe('internal notes and server-only data', () => {
   })
 })
 
+describe('reservations', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'reservations', 'mine'), { creatorEmail: CREATOR, status: 'requested' })
+      await setDoc(doc(db, 'reservations', 'theirs'), { creatorEmail: 'other@example.com', status: 'requested' })
+      await setDoc(doc(db, 'item_bookings', 'cop'), { entries: [] })
+    })
+  })
+  it('creators can read their own reservations only', async () => {
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'reservations', 'mine')))
+    await assertFails(getDoc(doc(as(CREATOR), 'reservations', 'theirs')))
+  })
+  it('staff can read every reservation', async () => {
+    await assertSucceeds(getDoc(doc(as(ARTS), 'reservations', 'theirs')))
+  })
+  it('nobody can write reservations or bookings directly (only the server can)', async () => {
+    await assertFails(setDoc(doc(as(CREATOR), 'reservations', 'new'), { creatorEmail: CREATOR, status: 'requested' }))
+    await assertFails(updateDoc(doc(as(CREATOR), 'reservations', 'mine'), { status: 'cancelled' }))
+    await assertFails(setDoc(doc(as(OWNER), 'item_bookings', 'cop'), { entries: [] }))
+  })
+  it('everyone signed in can see which dates are booked', async () => {
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'item_bookings', 'cop')))
+    await assertFails(getDoc(doc(as(STRANGER), 'item_bookings', 'cop')))
+  })
+  it('arts can change lead time and turnaround, within limits', async () => {
+    await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 0 }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: -1, bufferDays: 0 }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2.5, bufferDays: 0 }))
+    await assertFails(setDoc(doc(as(CREATOR), 'app_settings', 'booking'), { leadTimeDays: 0, bufferDays: 0 }))
+  })
+})
+
 describe('everything else', () => {
   it('old Videos data is kept and only the owner can read it', async () => {
     await assertSucceeds(getDoc(doc(as(OWNER), 'video_checklists', 'v1')))
