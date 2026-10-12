@@ -229,6 +229,19 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
+        {isStaff && !!item.missingQty && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 space-y-2">
+            <p className="text-red-300 text-sm font-medium">
+              {item.quantity > 1 ? `${item.missingQty} of ${item.quantity} reported missing` : 'Reported missing'} at a return check-in.
+              Not bookable until found.
+            </p>
+            <button onClick={() => run({ missingQty: 0 }, () => updateItem(item.id, { missingQty: 0 }))} disabled={busy}
+              className="w-full py-2 rounded-lg bg-green-500/20 text-green-400 text-sm font-medium disabled:opacity-40">
+              Found it: make bookable again
+            </button>
+          </div>
+        )}
+
         {isStaff && internalNotes && (
           <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl px-4 py-3">
             <p className="text-sky-300 text-xs uppercase tracking-wider mb-1">Internal notes · arts dept only</p>

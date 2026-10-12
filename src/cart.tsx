@@ -6,16 +6,21 @@ export interface Cart {
   start: string | null
   end: string | null
   lines: Record<string, number>   // itemId → quantity
+  builds: CartBuild[]             // things the arts department needs to make or find
 }
+
+export interface CartBuild { key: string; description: string; qty: number; refPhoto?: string }
 
 interface CartApi extends Cart {
   setDates: (start: string | null, end: string | null) => void
   setQty: (itemId: string, qty: number) => void   // 0 removes
+  addBuild: (b: Omit<CartBuild, 'key'>) => void
+  removeBuild: (key: string) => void
   clear: () => void
   count: number
 }
 
-const EMPTY: Cart = { start: null, end: null, lines: {} }
+const EMPTY: Cart = { start: null, end: null, lines: {}, builds: [] }
 const KEY = 'proptracker.cart.v1'
 
 function load(): Cart {
@@ -35,7 +40,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const api: CartApi = {
     ...cart,
-    count: Object.keys(cart.lines).length,
+    count: Object.keys(cart.lines).length + cart.builds.length,
     setDates: (start, end) => setCart(c => ({ ...c, start, end: end && start && end < start ? start : end })),
     setQty: (itemId, qty) => setCart(c => {
       const lines = { ...c.lines }
@@ -43,6 +48,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       else delete lines[itemId]
       return { ...c, lines }
     }),
+    addBuild: b => setCart(c => ({ ...c, builds: [...c.builds, { ...b, key: `${Date.now()}` }] })),
+    removeBuild: key => setCart(c => ({ ...c, builds: c.builds.filter(b => b.key !== key) })),
     clear: () => setCart(EMPTY),
   }
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>

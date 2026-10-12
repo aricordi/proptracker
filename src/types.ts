@@ -25,6 +25,7 @@ export interface Item {
   categoryId: string;       // ID in the categories collection
   itemType?: ItemType;      // legacy — old records used this as the category
   quantity: number;         // how many identical units exist (1 = one-of-a-kind)
+  missingQty?: number;      // units reported missing at a return; not bookable until found
   condition: Condition;
   locationId?: string;
   binId?: string;

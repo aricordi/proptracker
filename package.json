@@ -10,7 +10,7 @@
     "test": "firebase emulators:exec --only auth,functions,firestore,storage --project demo-proptracker \"vitest run\"",
     "test:watch": "vitest",
     "emulator": "npm --prefix functions run build && firebase emulators:start --project demo-proptracker",
-    "seed": "node scripts/seed-emulator.mjs",
+    "seed": "node scripts/seed-emulator.mjs --reset",
     "dev:emulator": "VITE_USE_EMULATORS=true vite",
     "pretest": "npm --prefix functions run build"
   },

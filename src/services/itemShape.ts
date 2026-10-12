@@ -21,5 +21,6 @@ export function normalizeItem(id: string, raw: Record<string, any>): Item {
     status: legacyDamaged ? 'available' : (raw.status ?? 'available'),
     replacementCost: raw.replacementCost ?? raw.cost,
     archived: raw.archived === true,
+    missingQty: typeof raw.missingQty === 'number' && raw.missingQty > 0 ? raw.missingQty : 0,
   } as Item
 }

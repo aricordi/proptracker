@@ -69,6 +69,7 @@ export default function HealthScreen() {
     { key: 'location', title: 'No bin or storage area', list: items.filter(i => !i.locationId && !i.binId) },
     { key: 'cost',     title: 'No replacement cost',  list: items.filter(i => i.replacementCost == null) },
     { key: 'damaged',  title: 'Damaged',              list: items.filter(i => i.condition === 'damaged'), danger: true },
+    { key: 'missing',  title: 'Missing after a return', list: items.filter(i => (i.missingQty ?? 0) > 0), danger: true },
   ], [items])
   const fixitTotal = fixit.reduce((n, g) => n + g.list.length, 0)
 
@@ -160,7 +161,7 @@ export default function HealthScreen() {
           {fixitTotal === 0 && <p className="text-pt-muted text-sm">Every prop has a photo, tags, a storage spot and a replacement cost.</p>}
           {fixit.filter(g => g.list.length > 0).map(g => (
             <ItemGroup key={g.key} title={`${g.title}: ${g.list.length}`} items={g.list} danger={g.danger}
-              onTap={id => navigate(g.key === 'damaged' ? `/item/${id}` : `/item/${id}/edit`)} />
+              onTap={id => navigate(g.key === 'damaged' || g.key === 'missing' ? `/item/${id}` : `/item/${id}/edit`)} />
           ))}
         </Card>
 

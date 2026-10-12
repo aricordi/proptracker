@@ -45,7 +45,7 @@ export default function HomeScreen() {
 
   // With shoot dates picked, "free" means free for those dates (incl. turnaround).
   const freeFor = (i: Item) => dates
-    ? freeForRange({ quantity: i.quantity, legacyCheckedOut: i.status === 'checked-out' },
+    ? freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' },
         bookings[i.id] ?? [], dates.start, dates.end, today, settings.bufferDays)
     : null
 
@@ -241,7 +241,12 @@ export default function HomeScreen() {
             </p>
             {q && similarLoading && <p className="text-pt-muted text-sm">Looking for similar props…</p>}
             {q && !similarLoading && similar.length === 0 && (
-              <p className="text-pt-muted text-sm">Try a different word{isStaff ? '' : ', or ask the arts department'}.</p>
+              <p className="text-pt-muted text-sm">Try a different word.</p>
+            )}
+            {q && !similarLoading && (
+              <button onClick={() => navigate('/reserve')} className="mt-3 text-violet-300 text-sm font-medium">
+                🛠️ Don't have it? Ask the arts department to make or find it
+              </button>
             )}
           </div>
         )}

@@ -37,7 +37,7 @@ const accountIcon = (
 
 const staffNav = [
   { to: '/',         label: 'Search',   icon: searchIcon },
-  { to: '/reservations', label: 'Bookings', icon: reservationsIcon },
+  { to: '/reservations', label: 'Queue', icon: reservationsIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
   { to: '/admin',    label: 'Admin',    icon: adminIcon },
 ]

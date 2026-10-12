@@ -20,7 +20,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const legacyOut = item.status === 'checked-out'
   const dates = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
   const free = dates
-    ? freeForRange({ quantity: item.quantity, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, settings.bufferDays)
+    ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, settings.bufferDays)
     : null
   const inCart = cart.lines[item.id] ?? 0
   const [qty, setQty] = useState(Math.max(1, inCart))
@@ -37,7 +37,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   return (
     <div className="space-y-3">
       <p className="text-pt-muted text-xs uppercase tracking-wider">Availability</p>
-      <AvailabilityCalendar quantity={item.quantity} entries={entries} today={today}
+      <AvailabilityCalendar quantity={Math.max(0, item.quantity - (item.missingQty ?? 0))} entries={entries} today={today}
         bufferDays={settings.bufferDays} unavailable={legacyOut} selected={dates} onPick={pick} />
       {note && <p className="text-amber-400 text-xs">{note}</p>}
       {legacyOut && <p className="text-amber-400 text-sm">Out on a quick checkout. Unavailable until the arts team marks it returned.</p>}

@@ -2,7 +2,7 @@
 // Never touches the live database: it only talks to 127.0.0.1 and the
 // "demo-" project, which Firebase guarantees is offline-only.
 //
-// Usage (the emulator must already be running):  node scripts/seed-emulator.mjs
+// Usage (the emulator must already be running):  node scripts/seed-emulator.mjs [--reset]
 
 const BASE = 'http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents'
 const HEADERS = { 'Content-Type': 'application/json', Authorization: 'Bearer owner' } // emulator admin bypass
@@ -21,6 +21,11 @@ function toFields(obj) {
 async function put(path, data) {
   const res = await fetch(`${BASE}/${path}`, { method: 'PATCH', headers: HEADERS, body: JSON.stringify({ fields: toFields(data) }) })
   if (!res.ok) throw new Error(`${path}: ${res.status} ${await res.text()}`)
+}
+
+// --reset wipes the emulator's database first (never the live one), for a clean start.
+if (process.argv.includes('--reset')) {
+  await fetch('http://127.0.0.1:8080/emulator/v1/projects/demo-proptracker/databases/(default)/documents', { method: 'DELETE' })
 }
 
 const now = new Date().toISOString()

@@ -5,9 +5,20 @@ import {
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings,
 } from '../../functions/src/booking'
 
-export type ReservationStatus = 'requested' | 'declined' | 'cancelled' | 'returned'
+export type ReservationStatus =
+  | 'requested' | 'preparing' | 'packed' | 'collected' | 'return_pending' | 'returned'
+  | 'declined' | 'cancelled'
 
-export interface ReservationLine { itemId: string; itemName: string; qty: number; photo?: string }
+export interface ReservationLine {
+  itemId: string; itemName: string; qty: number; photo?: string
+  pick?: { state: 'picked' | 'unavailable'; reason?: string; by: string; at: string }
+  checkIn?: { result: 'ok' | 'damaged' | 'missing'; missingQty?: number; note?: string; by: string; at: string }
+}
+
+export interface BuildLine {
+  id: string; description: string; qty: number; refPhoto?: string
+  state: 'todo' | 'done' | 'unavailable'; reason?: string; addedItemId?: string
+}
 
 export interface Reservation {
   id: string
@@ -20,12 +31,24 @@ export interface Reservation {
   status: ReservationStatus
   statusReason?: string
   lines: ReservationLine[]
+  builds?: BuildLine[]
+  packPhotos?: string[]
+  packNote?: string
+  packedAt?: string
+  packedBy?: string
+  pickup?: { at: string; by: string; allReceived: boolean; issue?: string }
+  returnInfo?: { at: string; by: string; photos: string[]; note?: string; byStaff?: boolean }
+  checkInPhotos?: string[]
+  checkedInAt?: string
+  checkedInBy?: string
+  returnedWithoutCreatorPhoto?: boolean
   createdAt: string
   updatedAt: string
   history: { status: ReservationStatus; at: string; by: string; reason?: string }[]
 }
 
-export const ACTIVE_STATUSES: ReservationStatus[] = ['requested']
+// Statuses in which props are still tied up (mirrors functions/src/reservations.ts).
+export const ACTIVE_STATUSES: ReservationStatus[] = ['requested', 'preparing', 'packed', 'collected', 'return_pending']
 
 export function subscribeToReservations(
   scope: { email: string; all: boolean },
@@ -68,11 +91,24 @@ export function saveBookingSettings(s: BookingSettings) {
 
 export interface Conflict { itemId: string; name: string; requested: number; free: number; reason: string }
 
+export interface NewBuild { description: string; qty: number; refPhoto?: string }
+
 export const createReservation = httpsCallable<
-  { title: string; startDate: string; endDate: string; notes: string; lines: { itemId: string; qty: number }[] },
+  { title: string; startDate: string; endDate: string; notes: string; lines: { itemId: string; qty: number }[]; builds: NewBuild[] },
   { id: string }
 >(functions, 'createReservation')
 
 export const cancelReservation  = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelReservation')
 export const declineReservation = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineReservation')
-export const markReservationReturned = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'markReservationReturned')
+type Ok = { ok: boolean }
+export const setLinePick    = httpsCallable<{ id: string; itemId: string; state: 'picked' | 'todo' | 'unavailable'; reason?: string }, Ok>(functions, 'setLinePick')
+export const setBuildState  = httpsCallable<{ id: string; buildId: string; state: 'todo' | 'done' | 'unavailable'; reason?: string }, Ok>(functions, 'setBuildState')
+export const markPacked     = httpsCallable<{ id: string; photos: string[]; note?: string }, Ok>(functions, 'markPacked')
+export const confirmPickup  = httpsCallable<{ id: string; allReceived: boolean; issue?: string }, Ok>(functions, 'confirmPickup')
+export const startReturn    = httpsCallable<{ id: string; photos: string[]; note?: string }, Ok>(functions, 'startReturn')
+export const checkIn        = httpsCallable<{
+  id: string
+  lines: { itemId: string; result: 'ok' | 'damaged' | 'missing'; missingQty?: number; note?: string }[]
+  builds: { buildId: string; addToInventory: boolean }[]
+  photos: string[]
+}, Ok>(functions, 'checkIn')

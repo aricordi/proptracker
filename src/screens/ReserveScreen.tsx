@@ -6,6 +6,7 @@ import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import DateRangePicker from '../components/DateRangePicker'
+import ProofPhotos from '../components/ProofPhotos'
 import { createReservation, type Conflict } from '../services/reservations'
 import { freeForRange, todayInStudio, earliestStart } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
@@ -13,7 +14,7 @@ import { formatDay } from '../lib/dates'
 export default function ReserveScreen() {
   const navigate = useNavigate()
   const cart = useCart()
-  const { isStaff } = useSession()
+  const { isStaff, profile } = useSession()
   const items = useItems()
   const bookings = useBookings()
   const settings = useBookingSettings()
@@ -32,7 +33,7 @@ export default function ReserveScreen() {
   const lines = Object.entries(cart.lines).map(([itemId, qty]) => {
     const item = itemById.get(itemId)
     const free = item && dates
-      ? freeForRange({ quantity: item.quantity, legacyCheckedOut: item.status === 'checked-out' },
+      ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: item.status === 'checked-out' },
           bookings[itemId] ?? [], dates.start, dates.end, today, settings.bufferDays)
       : null
     const problem = !item ? 'No longer in the inventory'
@@ -45,7 +46,19 @@ export default function ReserveScreen() {
   })
 
   const datesOk = !!dates && dates.start >= minStart
-  const canSubmit = datesOk && title.trim() && lines.length > 0 && lines.every(l => !l.problem) && !busy
+
+  // Build-to-order request form
+  const [showBuild, setShowBuild] = useState(false)
+  const [buildDesc, setBuildDesc] = useState('')
+  const [buildQty, setBuildQty] = useState(1)
+  const [buildPhotos, setBuildPhotos] = useState<string[]>([])
+  const [buildUploading, setBuildUploading] = useState(false)
+  function addBuild() {
+    cart.addBuild({ description: buildDesc.trim(), qty: buildQty, ...(buildPhotos[0] ? { refPhoto: buildPhotos[0] } : {}) })
+    setBuildDesc(''); setBuildQty(1); setBuildPhotos([]); setShowBuild(false)
+  }
+
+  const canSubmit = datesOk && title.trim() && (lines.length > 0 || cart.builds.length > 0) && lines.every(l => !l.problem) && !busy && !buildUploading
 
   async function submit() {
     if (!dates) return
@@ -55,6 +68,7 @@ export default function ReserveScreen() {
         title: title.trim(), notes: notes.trim(),
         startDate: dates.start, endDate: dates.end,
         lines: lines.map(l => ({ itemId: l.itemId, qty: l.qty })),
+        builds: cart.builds.map(({ description, qty, refPhoto }) => ({ description, qty, ...(refPhoto ? { refPhoto } : {}) })),
       })
       cart.clear()
       navigate(`/reservations/${res.data.id}?new=1`, { replace: true })
@@ -93,7 +107,7 @@ export default function ReserveScreen() {
 
         <div>
           <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Props ({lines.length})</p>
-          {lines.length === 0 && (
+          {lines.length === 0 && cart.builds.length === 0 && (
             <div className="text-center py-8">
               <p className="text-pt-muted text-sm mb-3">Nothing added yet.</p>
               <button onClick={() => navigate('/')} className="text-pt-accent text-sm font-medium">Browse props</button>
@@ -122,6 +136,49 @@ export default function ReserveScreen() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Things to build or source */}
+        <div>
+          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">To build or source ({cart.builds.length})</p>
+          <div className="space-y-2">
+            {cart.builds.map(b => (
+              <div key={b.key} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-2.5">
+                <div className="w-14 h-14 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-2xl">
+                  {b.refPhoto ? <img src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-pt-text text-sm">{b.description}</p>
+                  <p className="text-violet-300 text-xs">To build or source · ×{b.qty}</p>
+                </div>
+                <button onClick={() => cart.removeBuild(b.key)} aria-label="Remove" className="text-pt-muted text-2xl px-2">×</button>
+              </div>
+            ))}
+          </div>
+          {showBuild ? (
+            <div className="mt-2 bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-3">
+              <textarea value={buildDesc} onChange={e => setBuildDesc(e.target.value)} rows={2} maxLength={500}
+                placeholder="What do you need? e.g. Half-eaten birthday cake, chocolate" className={`${input} resize-none`} />
+              <div className="flex items-center gap-3">
+                <span className="text-pt-muted text-sm">How many?</span>
+                <button onClick={() => setBuildQty(q => Math.max(1, q - 1))} className="w-9 h-9 rounded-full bg-pt-bg border border-pt-border text-pt-text">−</button>
+                <span className="text-pt-text w-6 text-center">{buildQty}</span>
+                <button onClick={() => setBuildQty(q => Math.min(1000, q + 1))} className="w-9 h-9 rounded-full bg-pt-bg border border-pt-border text-pt-text">+</button>
+              </div>
+              <ProofPhotos folder={`request-photos/${profile.email}`} urls={buildPhotos} onChange={setBuildPhotos}
+                onUploading={setBuildUploading} max={1} label="Reference photo (optional)" hint="A photo or screenshot of what you have in mind." />
+              <div className="flex gap-2">
+                <button onClick={() => setShowBuild(false)} className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm">Cancel</button>
+                <button onClick={addBuild} disabled={!buildDesc.trim() || buildUploading}
+                  className="flex-1 py-2.5 rounded-xl bg-violet-500 text-white text-sm font-semibold disabled:opacity-40">Add request</button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setShowBuild(true)}
+              className="mt-2 w-full py-3 rounded-2xl border border-dashed border-violet-500/60 text-violet-300 text-sm font-medium active:opacity-70">
+              + Request something we don't have
+            </button>
+          )}
         </div>
 
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}

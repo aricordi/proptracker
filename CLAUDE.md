@@ -40,7 +40,7 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 ## Project status
 
-Phases 1, 2 and 3 are built and tested locally. NOTHING IS DEPLOYED YET.
+Phases 1–4 (plus Phase 5's photo returns and check-in) are built and tested locally. NOTHING IS DEPLOYED YET.
 The owner is adding the GitHub secrets, then we run the go-live checklist below.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
@@ -104,8 +104,32 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
 - Old quick Checkout moved to Admin menu until Phase 4 replaces it.
 - Needs the composite index in `firestore.indexes.json` (reservations: creatorEmail + startDate).
 
+### Phase 4 (Pick & pack queue) + Phase 5 returns/check-in
+Owner decisions: pack photo required (≥1 of everything packed); creator signs off pickup on
+their phone (only the creator who booked can); creator return photo required; arts then
+checks in each prop; pickup is always the same place (no pickup-spot field); build requests =
+description + qty + optional reference photo; can't-find props are marked "not available"
+with a reason (rest still goes); built props can be added to inventory at check-in;
+email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends yet).
+- Statuses: requested → preparing ("Being picked" / "Being built or sourced") → packed
+  ("Packed & ready") → collected → return_pending ("Returned, being checked") → returned.
+  Cancel/decline allowed until collected. All holds stay until returned (check-in).
+- Server functions: setLinePick, setBuildState, markPacked, confirmPickup, startReturn,
+  checkIn (+ create/cancel/decline). `markReservationReturned` was removed.
+- Check-in: damaged → prop condition 'damaged'; missing → prop `missingQty` (not bookable
+  until "Found it" on the prop page); built props optionally become new items (no photo,
+  so they show on the Health fix-it list).
+- Storage: `reservation-photos/{resId}/{pack|return|checkin}/` (add-only; visible to that
+  creator + staff), `request-photos/{email}/` (build reference photos).
+- App: staff tab "Queue" (To prepare / Ready / Out / Returns / Done, urgent shoots flagged);
+  booking page shows progress line, picking list grouped by storage area → bin with instant
+  double-tap-safe ticks, pack photos, pickup sign-off, return form, check-in form, history.
+  Creators: "My bookings", "+ New request", build requests on the reservation screen.
+- Not built yet (Phase 5 remainder): overall audit log screen, per-prop and per-creator
+  history pages, late-return flags beyond the "Overdue" badge.
+
 ### Testing
-- `npm test`: 98 tests in the emulator (rules, server functions incl. double-booking races, booking/search/health logic).
+- `npm test`: 121 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -122,6 +146,7 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
    (they make every phone download extra data).
 
 ### Next
-- Phase 4: arts department queue (statuses Requested → Being built/sourced →
-  Packed and ready → Collected → Returned), bin locations per line, built-to-order
-  request lines, email notifications (ask owner which email service first).
+- Go-live (owner adding GitHub secrets).
+- Email: owner to pick a service; then add a sender for the `outbox` collection.
+- Phase 5 remainder: audit log, per-prop/per-creator history, late-return flags.
+- Phase 6: batch import.
