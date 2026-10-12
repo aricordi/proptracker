@@ -84,6 +84,7 @@ export function saveBookingSettings(s: BookingSettings) {
   return setDoc(doc(db, 'app_settings', 'booking'), {
     leadTimeDays: s.leadTimeDays,
     bufferDays: s.bufferDays,
+    maxDays: s.maxDays,
     updatedAt: new Date().toISOString(),
     updatedBy: auth.currentUser?.email ?? 'unknown',
   })

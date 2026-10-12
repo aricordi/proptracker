@@ -202,6 +202,8 @@ describe('reservations', () => {
     await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 0 }))
     await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: -1, bufferDays: 0 }))
     await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2.5, bufferDays: 0 }))
+    await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 3 }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 0 }))
     await assertFails(setDoc(doc(as(CREATOR), 'app_settings', 'booking'), { leadTimeDays: 0, bufferDays: 0 }))
   })
 })

@@ -40,3 +40,8 @@ export async function requireRole(req: CallableRequest, allowed: Role[]): Promis
   if (!caller || !allowed.includes(caller.role)) throw new HttpsError('permission-denied', 'Not allowed')
   return caller
 }
+
+// Options for every function the app calls. "public" only means the app may
+// reach the function at all; each function still checks sign-in and role
+// itself (requireRole). Set explicitly so every deploy re-applies it.
+export const CALLABLE = { invoker: 'public' as const }

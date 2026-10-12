@@ -11,8 +11,8 @@ export default function AdminScreen() {
     { to: '/categories', title: 'Categories',        detail: 'Add, rename, reorder or hide categories' },
     { to: '/booking-rules', title: 'Booking rules',  detail: 'How far ahead props must be booked; turnaround days' },
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
-    { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout. Replaced by the request queue in Phase 4' },
-    { to: '/account',    title: 'My account',        detail: 'Who you are signed in as; sign out' },
+    { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout, kept until everything moves to the Queue' },
+    { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Preview the app as Arts or Creator; sign out' : 'Who you are signed in as; sign out' },
   ]
 
   return (

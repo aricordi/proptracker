@@ -11,7 +11,7 @@
 // Firestore makes one of them retry, and the retry sees the unit is gone.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
-import { db, requireRole, type Caller } from './auth.js'
+import { db, requireRole, CALLABLE, type Caller } from './auth.js'
 import {
   checkDates, freeForRange, todayInStudio, earliestStart,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
@@ -57,13 +57,14 @@ async function loadSettings(): Promise<BookingSettings> {
   return {
     leadTimeDays: num(d.leadTimeDays, DEFAULT_BOOKING_SETTINGS.leadTimeDays),
     bufferDays:   num(d.bufferDays,   DEFAULT_BOOKING_SETTINGS.bufferDays),
+    maxDays:      Math.max(1, num(d.maxDays, DEFAULT_BOOKING_SETTINGS.maxDays)),
   }
 }
 
 const DATE_MESSAGES: Record<DateProblem, string> = {
   'bad-format':       'Pick a start and end date.',
   'end-before-start': 'The end date is before the start date.',
-  'too-long':         'Reservations can be at most 60 days long.',
+  'too-long':         'That booking is too long.',
   'in-past':          'That date has already passed.',
   'too-soon':         'Props must be requested further ahead.',
 }
@@ -158,7 +159,7 @@ async function releaseHolds(tx: Transaction, reservationId: string, itemIds: str
 
 // ─── 1. Create ───────────────────────────────────────────────────────────────
 
-export const createReservation = onCall(async req => {
+export const createReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const { startDate, endDate } = req.data ?? {}
   const title = text(req.data?.title, 120)
@@ -173,7 +174,9 @@ export const createReservation = onCall(async req => {
   if (problem) {
     const extra = problem === 'too-soon'
       ? ` The earliest start date is ${earliestStart(today, settings, false)} (${settings.leadTimeDays} days ahead).`
-      : ''
+      : problem === 'too-long'
+        ? ` Bookings can be at most ${settings.maxDays} day${settings.maxDays === 1 ? '' : 's'}.`
+        : ''
     throw new HttpsError('invalid-argument', DATE_MESSAGES[problem] + extra, { problem })
   }
 
@@ -267,14 +270,14 @@ async function endEarly(caller: Caller, id: unknown, to: 'cancelled' | 'declined
   return { ok: true }
 }
 
-export const cancelReservation = onCall(async req => {
+export const cancelReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   return endEarly(caller, req.data?.id, 'cancelled', undefined, res => {
     if (!caller.isStaff && res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your reservation')
   })
 })
 
-export const declineReservation = onCall(async req => {
+export const declineReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
   const reason = text(req.data?.reason, 500)
   if (!reason) throw new HttpsError('invalid-argument', 'Tell the creator why it was declined.')
@@ -285,7 +288,7 @@ export const declineReservation = onCall(async req => {
 
 // Tick a prop as picked (or untick it), or mark it not available with a reason.
 // "Not available" is final for this booking: its hold is released straight away.
-export const setLinePick = onCall(async req => {
+export const setLinePick = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
   const { itemId, state } = req.data ?? {}
   const reason = text(req.data?.reason, 300)
@@ -322,7 +325,7 @@ export const setLinePick = onCall(async req => {
   return { ok: true }
 })
 
-export const setBuildState = onCall(async req => {
+export const setBuildState = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
   const { buildId, state } = req.data ?? {}
   const reason = text(req.data?.reason, 300)
@@ -352,7 +355,7 @@ export const setBuildState = onCall(async req => {
 })
 
 // Everything is picked (or marked not available), photographed, and ready.
-export const markPacked = onCall(async req => {
+export const markPacked = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
   const photos = cleanPhotos(req.data?.photos, { min: 1, max: 20 })
   const note = text(req.data?.note, 1000)
@@ -380,7 +383,7 @@ export const markPacked = onCall(async req => {
 
 // ─── 4. Pickup (creator signs off) ───────────────────────────────────────────
 
-export const confirmPickup = onCall(async req => {
+export const confirmPickup = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const allReceived = req.data?.allReceived === true
   const issue = text(req.data?.issue, 1000)
@@ -405,7 +408,7 @@ export const confirmPickup = onCall(async req => {
 
 // ─── 5. Return (creator photographs what they left) ──────────────────────────
 
-export const startReturn = onCall(async req => {
+export const startReturn = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const photos = cleanPhotos(req.data?.photos, { min: 1, max: 20 })
   const note = text(req.data?.note, 1000)
@@ -428,7 +431,7 @@ export const startReturn = onCall(async req => {
 
 // ─── 6. Check-in (arts confirms each prop's condition) ───────────────────────
 
-export const checkIn = onCall(async req => {
+export const checkIn = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
   const photos = cleanPhotos(req.data?.photos ?? [], { min: 0, max: 20 })
   const results = Array.isArray(req.data?.lines) ? req.data.lines : []

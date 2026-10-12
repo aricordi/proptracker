@@ -8,7 +8,7 @@ import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import DateRangePicker from '../components/DateRangePicker'
 import ProofPhotos from '../components/ProofPhotos'
 import { createReservation, type Conflict } from '../services/reservations'
-import { freeForRange, todayInStudio, earliestStart } from '../../functions/src/booking'
+import { freeForRange, todayInStudio, earliestStart, daysBetween } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 
 export default function ReserveScreen() {
@@ -45,7 +45,8 @@ export default function ReserveScreen() {
     return { itemId, qty, item, free, problem }
   })
 
-  const datesOk = !!dates && dates.start >= minStart
+  const tooLong = !isStaff && !!dates && daysBetween(dates.start, dates.end) + 1 > settings.maxDays
+  const datesOk = !!dates && dates.start >= minStart && !tooLong
 
   // Build-to-order request form
   const [showBuild, setShowBuild] = useState(false)
@@ -97,7 +98,13 @@ export default function ReserveScreen() {
 
       <div className="p-4 space-y-5">
         <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates}
+          maxDays={isStaff ? undefined : settings.maxDays}
           leadTimeNote={!isStaff && settings.leadTimeDays > 0 ? `Earliest start: ${formatDay(minStart)} (${settings.leadTimeDays} days' notice).` : undefined} />
+        {tooLong && (
+          <p className="text-amber-400 text-sm -mt-3">
+            Bookings can be at most {settings.maxDays} day{settings.maxDays === 1 ? '' : 's'}. Pick a shoot day above.
+          </p>
+        )}
 
         <div className="space-y-3">
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Shoot or video name *" className={input} maxLength={120} />

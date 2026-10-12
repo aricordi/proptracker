@@ -203,6 +203,7 @@ export default function HomeScreen() {
           showDates ? (
             <div className="mt-3 space-y-2">
               <DateRangePicker start={cart.start} end={cart.end} min={minStart}
+                maxDays={isStaff ? undefined : settings.maxDays}
                 onChange={(s, e) => cart.setDates(s, e)}
                 leadTimeNote={!isStaff && settings.leadTimeDays > 0
                   ? `Props must be booked ${settings.leadTimeDays} day${settings.leadTimeDays > 1 ? 's' : ''} ahead. Earliest: ${formatDay(minStart)}.`

@@ -131,7 +131,9 @@ service cloud.firestore {
       allow read: if isMember();
       allow write: if isOwner()
         || (isStaff() && id == 'booking'
-            && request.resource.data.keys().hasOnly(['leadTimeDays', 'bufferDays', 'updatedAt', 'updatedBy'])
+            && request.resource.data.keys().hasOnly(['leadTimeDays', 'bufferDays', 'maxDays', 'updatedAt', 'updatedBy'])
+            && request.resource.data.get('maxDays', 1) is int
+            && request.resource.data.get('maxDays', 1) >= 1 && request.resource.data.get('maxDays', 1) <= 60
             && request.resource.data.leadTimeDays is int
             && request.resource.data.leadTimeDays >= 0 && request.resource.data.leadTimeDays <= 60
             && request.resource.data.bufferDays is int

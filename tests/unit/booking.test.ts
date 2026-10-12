@@ -72,8 +72,9 @@ describe('props not yet marked returned', () => {
 })
 
 describe('reservation dates', () => {
+  const multi = { ...S, maxDays: 7 }
   it('accepts a valid range at least 3 days out', () => {
-    expect(checkDates('2026-10-15', '2026-10-16', TODAY, S, false)).toBeNull()
+    expect(checkDates('2026-10-15', '2026-10-16', TODAY, multi, false)).toBeNull()
   })
   it('rejects requests inside the lead time for creators', () => {
     expect(checkDates('2026-10-14', '2026-10-14', TODAY, S, false)).toBe('too-soon')
@@ -85,6 +86,11 @@ describe('reservation dates', () => {
     expect(checkDates('2026-10-01', '2026-10-02', TODAY, S, true)).toBe('in-past')
     expect(checkDates('2026-10-20', '2026-10-18', TODAY, S, false)).toBe('end-before-start')
     expect(checkDates('Oct 20', '2026-10-21', TODAY, S, false)).toBe('bad-format')
-    expect(checkDates('2026-10-20', '2026-12-31', TODAY, S, false)).toBe('too-long')
+    expect(checkDates('2026-10-20', '2026-12-31', TODAY, multi, false)).toBe('too-long')
+  })
+  it('creators are limited to single-day bookings by default; arts department can book longer', () => {
+    expect(checkDates('2026-10-20', '2026-10-20', TODAY, S, false)).toBeNull()
+    expect(checkDates('2026-10-20', '2026-10-21', TODAY, S, false)).toBe('too-long')
+    expect(checkDates('2026-10-20', '2026-10-25', TODAY, S, true)).toBeNull()
   })
 })

@@ -6,7 +6,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { analyzePhoto, embedText, hashText } from './gemini.js'
 
-import { db, requireRole } from './auth.js'
+import { db, requireRole, CALLABLE } from './auth.js'
 export * from './reservations.js'
 
 const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
@@ -26,7 +26,7 @@ function trackUsage(field: UsageField, n = 1) {
 
 // ─── 1. Fill in a new prop from its photo ───────────────────────────────────
 
-export const analyzePropPhoto = onCall({ secrets: [GEMINI_API_KEY], memory: '512MiB' }, async req => {
+export const analyzePropPhoto = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], memory: '512MiB' }, async req => {
   await requireRole(req, ['owner', 'arts'])
   const { imageBase64, mimeType } = req.data ?? {}
   if (typeof imageBase64 !== 'string' || imageBase64.length > 6_000_000) {
@@ -56,7 +56,7 @@ export const analyzePropPhoto = onCall({ secrets: [GEMINI_API_KEY], memory: '512
 
 // ─── 2. "Similar, might work too" search ────────────────────────────────────
 
-export const searchSimilar = onCall({ secrets: [GEMINI_API_KEY] }, async req => {
+export const searchSimilar = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
   await requireRole(req, ['owner', 'arts', 'creator'])
   const query = typeof req.data?.query === 'string' ? req.data.query.trim().slice(0, 200) : ''
   if (query.length < 3) return { results: [] }
@@ -120,7 +120,7 @@ export const onItemWritten = onDocumentWritten({ document: 'items/{id}', secrets
 
 // Owner-only button on the Health page: (re)build fingerprints for every prop.
 // Safe to run repeatedly; props whose text hasn't changed are skipped for free.
-export const rebuildSearchIndex = onCall({ secrets: [GEMINI_API_KEY], timeoutSeconds: 540 }, async req => {
+export const rebuildSearchIndex = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutSeconds: 540 }, async req => {
   await requireRole(req, ['owner'])
   const items = await db.collection('items').get()
   let updated = 0, unchanged = 0, failed = 0

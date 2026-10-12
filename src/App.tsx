@@ -1,9 +1,11 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, type ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './firebase'
 import { OWNER_EMAIL } from './config'
 import { SessionContext, makeSession, useSession, type Session } from './auth'
+import type { AppUser, Role } from './types'
+import ViewAsBanner from './components/ViewAsBanner'
 import { subscribeToUser, normalizeEmail } from './services/users'
 import { ensureDefaultCategories } from './services/categories'
 
@@ -45,7 +47,19 @@ function StaffOnly({ children }: { children: ReactNode }) {
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [session, setSession] = useState<Session | null>(null)
+  const [profile, setProfile] = useState<AppUser | null>(null)
+  const [viewAs, setViewAsState] = useState<Role | null>(() => {
+    try { return (sessionStorage.getItem('proptracker.viewAs') as Role | null) || null } catch { return null }
+  })
+  const setViewAs = (r: Role | null) => {
+    setViewAsState(r)
+    try { r ? sessionStorage.setItem('proptracker.viewAs', r) : sessionStorage.removeItem('proptracker.viewAs') } catch { /* fine */ }
+  }
+  const session: Session | null = useMemo(
+    () => user && profile ? makeSession(user, profile, viewAs, setViewAs) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, profile, viewAs],
+  )
   const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => onAuthStateChanged(auth, u => {
@@ -56,24 +70,24 @@ export default function App() {
   // Look up the signed-in person's role. Live, so deactivating someone
   // signs them out of the app straight away.
   useEffect(() => {
-    setSession(null)
+    setProfile(null)
     if (!user?.email || !user.emailVerified) return
     const email = normalizeEmail(user.email)
     setProfileLoading(true)
 
     if (email === OWNER_EMAIL) {
-      setSession(makeSession(user, { email, role: 'owner', active: true, name: user.displayName ?? undefined }))
+      setProfile({ email, role: 'owner', active: true, name: user.displayName ?? undefined })
       setProfileLoading(false)
       return
     }
 
     return subscribeToUser(
       email,
-      profile => {
-        setSession(profile?.active ? makeSession(user, profile) : null)
+      p => {
+        setProfile(p?.active ? p : null)
         setProfileLoading(false)
       },
-      () => { setSession(null); setProfileLoading(false) },
+      () => { setProfile(null); setProfileLoading(false) },
     )
   }, [user])
 
@@ -102,6 +116,10 @@ export default function App() {
   return (
     <SessionContext.Provider value={session}>
     <CartProvider>
+    {/* The View-as strip takes its own row; the screens fill the rest. */}
+    <div className="flex flex-col h-full">
+      <ViewAsBanner />
+      <div className={session.viewingAs ? 'flex-1 min-h-0 overflow-y-auto' : 'contents'}>
       <Routes>
         {/* Full-screen routes outside the shell */}
         <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
@@ -126,6 +144,8 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
+    </div>
     </CartProvider>
     </SessionContext.Provider>
   )

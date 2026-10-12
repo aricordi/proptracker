@@ -130,8 +130,20 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 - Not built yet (Phase 5 remainder): overall audit log screen, per-prop and per-creator
   history pages, late-return flags beyond the "Overdue" badge.
 
+### Fixes after first live test (Oct 12)
+- Callable functions were unreachable (HTTP 401): failed first-deploy creates left them without
+  the public invoker. Every onCall now passes `CALLABLE` ({ invoker: 'public' }) from
+  functions/src/auth.ts so each deploy re-applies it. Functions still check sign-in + role.
+- Owner request: bookings max 1 day by default → `maxDays` in app_settings/booking (1–60,
+  editable in Booking rules). Creators limited; arts/owner can book longer. With maxDays 1 the
+  date picker shows a single "Shoot day" field. Date fields now stack (they overlapped on phones).
+- "View as" (Account screen, owner only): preview the app as Arts or Creator. UI-only; the server
+  still treats the owner as owner. Sky-blue strip at top with Exit.
+- `.github/workflows/server-logs.yml`: read-only "Read server logs" button (invoker access,
+  failed requests, function errors) for diagnosing live problems.
+
 ### Testing
-- `npm test`: 121 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 123 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main

@@ -8,9 +8,10 @@ export const STUDIO_TIME_ZONE = 'America/Toronto'
 export interface BookingSettings {
   leadTimeDays: number   // creators must book at least this many days ahead
   bufferDays: number     // days after a shoot before the same unit can go out again
+  maxDays: number        // longest booking a creator can make (1 = single-day shoots only)
 }
 
-export const DEFAULT_BOOKING_SETTINGS: BookingSettings = { leadTimeDays: 3, bufferDays: 1 }
+export const DEFAULT_BOOKING_SETTINGS: BookingSettings = { leadTimeDays: 3, bufferDays: 1, maxDays: 1 }
 
 // One reservation's hold on one prop. Lives in item_bookings/{itemId}.entries
 // while the reservation is active; removed when it's returned, cancelled or declined.
@@ -90,18 +91,21 @@ export function freeForRange(
 
 // ─── Validating a new reservation ────────────────────────────────────────────
 
+// Hard ceiling for anyone, including the arts department.
 export const MAX_RESERVATION_DAYS = 60
 
 export type DateProblem = 'bad-format' | 'end-before-start' | 'too-long' | 'in-past' | 'too-soon'
 
 export function checkDates(
-  start: unknown, end: unknown, today: string, settings: BookingSettings, skipLeadTime: boolean,
+  start: unknown, end: unknown, today: string, settings: BookingSettings, isStaff: boolean,
 ): DateProblem | null {
   if (!isDay(start) || !isDay(end)) return 'bad-format'
   if (end < start) return 'end-before-start'
-  if (daysBetween(start, end) + 1 > MAX_RESERVATION_DAYS) return 'too-long'
+  // Creators are limited to the admin-set maximum; the arts department can go longer.
+  const maxDays = isStaff ? MAX_RESERVATION_DAYS : Math.min(settings.maxDays, MAX_RESERVATION_DAYS)
+  if (daysBetween(start, end) + 1 > maxDays) return 'too-long'
   if (start < today) return 'in-past'
-  if (!skipLeadTime && start < addDays(today, settings.leadTimeDays)) return 'too-soon'
+  if (!isStaff && start < addDays(today, settings.leadTimeDays)) return 'too-soon'
   return null
 }
 

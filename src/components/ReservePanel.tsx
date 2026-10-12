@@ -5,7 +5,7 @@ import { useSession } from '../auth'
 import { useBookingSettings } from '../hooks/useBookings'
 import AvailabilityCalendar from './AvailabilityCalendar'
 import DateRangePicker from './DateRangePicker'
-import { freeForRange, todayInStudio, earliestStart, type BookingEntry } from '../../functions/src/booking'
+import { freeForRange, todayInStudio, earliestStart, daysBetween, type BookingEntry } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
 import type { Item } from '../types'
 
@@ -30,7 +30,10 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   function pick(day: string) {
     if (day < minStart) { setNote(`The earliest you can book is ${formatDay(minStart)}.`); return }
     setNote(null)
-    if (!cart.start || (cart.end && cart.end !== cart.start) || day < cart.start) cart.setDates(day, day)
+    const maxDays = isStaff ? Infinity : settings.maxDays
+    const startNew = !cart.start || (cart.end && cart.end !== cart.start) || day < cart.start
+      || daysBetween(cart.start, day) + 1 > maxDays
+    if (startNew) cart.setDates(day, day)
     else cart.setDates(cart.start, day)
   }
 
@@ -49,7 +52,8 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
       ) : !dates ? (
         <div className="space-y-2">
           <p className="text-pt-text text-sm">Tap your shoot days on the calendar, or pick them here:</p>
-          <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates} compact />
+          <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates} compact
+            maxDays={isStaff ? undefined : settings.maxDays} />
         </div>
       ) : (
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">

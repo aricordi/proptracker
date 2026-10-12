@@ -20,7 +20,7 @@ beforeEach(async () => {
   for (const [email, role] of [[ARTS, 'arts'], [ALEX, 'creator'], [BLAIR, 'creator'], [CASEY, 'creator']]) {
     await put(`users/${email}`, { email, role, active: true, name: email.split('@')[0] })
   }
-  await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1 })
+  await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7 })
   await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
   await put('items/chairs', { name: 'Wooden chair', quantity: 10, condition: 'fair', tags: [] })
   await put('items/skull', { name: 'Fake skull', quantity: 1, condition: 'damaged', tags: [] })
@@ -86,8 +86,16 @@ describe('what can be booked', () => {
     expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
   it('the lead time follows the admin setting', async () => {
-    await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1 })
+    await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7 })
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(0), day(0))).ok).toBe(true)
+  })
+  it('creators are held to the maximum booking length; arts department is not', async () => {
+    await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 1 })
+    const twoDays = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(11))
+    expect(twoDays.error).toBe('INVALID_ARGUMENT')
+    expect(twoDays.message).toContain('at most 1 day')
+    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(10))).ok).toBe(true)
+    expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }], day(10), day(14))).ok).toBe(true)
   })
   it('creators cannot reserve damaged props', async () => {
     const r = await reserve(ALEX, [{ itemId: 'skull', qty: 1 }])
