@@ -8,6 +8,12 @@ export const EMBEDDING_DIMENSIONS = 768
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
 
+// The key goes in a header, not the URL: newer Google keys (starting "AQ.")
+// only work this way, and it keeps the key out of server logs too.
+function keyHeaders(apiKey: string) {
+  return { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey }
+}
+
 // In the local emulator with no real key, return fake-but-stable answers so
 // the app and tests work offline and cost nothing.
 export function isFakeMode(apiKey: string | undefined) {
@@ -43,9 +49,9 @@ Return ONLY a JSON object with exactly these fields:
 - "description": one sentence (max 20 words) describing what it looks like.
 If there is a handwritten or printed card/label in the photo, ignore it when naming the item.`
 
-  const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent?key=${apiKey}`, {
+  const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: keyHeaders(apiKey),
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: image.mimeType, data: image.base64 } }] }],
       generationConfig: {
@@ -81,9 +87,9 @@ export async function embedText(apiKey: string | undefined, text: string, taskTy
   if (isFakeMode(apiKey)) return fakeEmbedding(text)
   if (!apiKey) throw new Error('Gemini API key is not configured')
 
-  const res = await fetch(`${BASE_URL}/models/${EMBEDDING_MODEL}:embedContent?key=${apiKey}`, {
+  const res = await fetch(`${BASE_URL}/models/${EMBEDDING_MODEL}:embedContent`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: keyHeaders(apiKey),
     body: JSON.stringify({
       model: `models/${EMBEDDING_MODEL}`,
       content: { parts: [{ text }] },
