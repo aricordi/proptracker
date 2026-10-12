@@ -40,8 +40,10 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 ## Project status
 
-Phases 1–4 (plus Phase 5's photo returns and check-in) are built and tested locally. NOTHING IS DEPLOYED YET.
-The owner is adding the GitHub secrets, then we run the go-live checklist below.
+Phases 1–4 (plus Phase 5's photo returns and check-in) are built and tested.
+LIVE NOW (Oct 12, 2026): backend — all server functions, new Firestore + Storage rules, indexes.
+NOT live yet: the website itself (hosting). The live site still runs the OLD app; the new app
+is only on the preview link. Owner is testing the preview next.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
@@ -145,14 +147,15 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   Google Cloud Secret Manager as GEMINI_API_KEY (never in GitHub). Always ask the owner first.
 
 ### Go-live checklist (each step needs the owner's OK)
-1. Owner adds GitHub secrets (deploy service account + VITE_FIREBASE_* values).
-2. Set the Gemini secret: `firebase functions:secrets:set GEMINI_API_KEY`.
-3. Deploy server functions, Firestore rules + indexes, Storage rules
-   (these are live-wide; the old site keeps working for the owner).
+1. ✅ GitHub secrets added (8).
+2. ✅ Gemini key stored in Secret Manager (new "AQ." style key; sent via x-goog-api-key header).
+3. ✅ Backend deployed (needed Cloud Billing API enabled; first run had flaky Cloud Build
+   failures, the workflow now retries once and sets a 7-day image cleanup policy).
 4. Owner opens the preview, tests, then runs "Rebuild smart search" on Health.
 5. Deploy hosting to live.
 6. Later, with approval: remove the obsolete `embedding` arrays from props
    (they make every phone download extra data).
+7. After hosting goes live: delete the OLD Gemini key (it was exposed in the old website code).
 
 ### Next
 - Go-live (owner adding GitHub secrets).
