@@ -8,7 +8,7 @@ on:
     inputs:
       lines:
         description: How many log lines to show
-        default: '300'
+        default: '100'
 
 jobs:
   logs:
@@ -30,5 +30,25 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
 
-      - name: Show recent server logs
-        run: npx firebase functions:log --project proptracker-9732e -n "${{ inputs.lines }}"
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Who may call each function (needs allUsers for the app to reach it)
+        continue-on-error: true
+        run: |
+          for f in createreservation rebuildsearchindex analyzepropphoto searchsimilar; do
+            echo "== $f"; gcloud run services get-iam-policy "$f" --region northamerica-northeast1 --project proptracker-9732e --format='value(bindings)' || true
+          done
+
+      - name: Requests to the functions that failed (last 6 hours)
+        continue-on-error: true
+        run: |
+          gcloud logging read 'resource.type="cloud_run_revision" AND httpRequest.status>=400' \
+            --project proptracker-9732e --freshness 6h --limit 40 \
+            --format='table(timestamp, resource.labels.service_name, httpRequest.status, httpRequest.requestMethod)'
+
+      - name: Errors and warnings from inside the functions (last 6 hours)
+        continue-on-error: true
+        run: |
+          gcloud logging read 'resource.type="cloud_run_revision" AND severity>=WARNING AND NOT httpRequest:*' \
+            --project proptracker-9732e --freshness 6h --limit "${{ inputs.lines }}" \
+            --format='value(timestamp, resource.labels.service_name, textPayload, jsonPayload.message)'
