@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 200 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 201 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -366,5 +366,9 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     Existing props: owner button Health → AI usage → "Improve search words" (`improveSearchWords` in
     `functions/src/searchWords.ts`, 12 props/call, photo + details, ~$0.002/prop ≈ $3 for 1,500, counted
     in the import cap; marks `searchWordsAt`; keeps old words). ASK THE OWNER before running it.
+  - DUPLICATES IN DIFFERENT BINS (owner decision Oct 13: NO multi-bin props; the team moves copies onto
+    one shelf). Find duplicates flags pairs whose bins differ (amber box + "In different bins (N)" filter);
+    staff tap the bin they're in now, and `mergeProps` takes optional `binId` (must be one of the two
+    props' bins) → kept prop gets that bin + its storage area. NOT deployed yet.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

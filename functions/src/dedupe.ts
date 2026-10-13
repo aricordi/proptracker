@@ -88,12 +88,17 @@ export const mergeProps = onCall({ ...CALLABLE, timeoutSeconds: 60 }, async req 
   if (!keepId || !removeId || keepId === removeId) throw new HttpsError('invalid-argument', 'Pick two different props.')
   const keepRef = db.doc(`items/${keepId}`), removeRef = db.doc(`items/${removeId}`)
   const removeData = (await removeRef.get()).data()
+  // Copies found in different bins: the team moves them together and says which bin they're in now.
+  const binId = typeof req.data?.binId === 'string' && req.data.binId ? req.data.binId : null
+  const bin = binId ? await db.doc(`bins/${binId}`).get() : null
+  if (bin && !bin.exists) throw new HttpsError('not-found', 'That bin no longer exists.')
   const deleteIt = !!removeData?.importedFrom && !(await everBooked(removeId))
   const now = new Date().toISOString()
 
   await db.runTransaction(async tx => {
     const [keep, remove, holds] = await Promise.all([tx.get(keepRef), tx.get(removeRef), tx.get(db.doc(`item_bookings/${removeId}`))])
     if (!usable(keep.data()) || !usable(remove.data())) throw new HttpsError('failed-precondition', 'One of these props is archived, personal or gone already.')
+    if (binId && binId !== keep.get('binId') && binId !== remove.get('binId')) throw new HttpsError('invalid-argument', 'Pick one of the two bins.')
     if (((holds.get('entries') as unknown[] | undefined) ?? []).length) {
       throw new HttpsError('failed-precondition', `"${remove.get('name')}" is in a current booking. Merge it once that booking is checked back in, or keep the other one instead.`)
     }
@@ -102,6 +107,7 @@ export const mergeProps = onCall({ ...CALLABLE, timeoutSeconds: 60 }, async req 
     tx.update(keepRef, {
       photos: unique, photoUrl: unique[0] ?? FieldValue.delete(),
       ...(copies ? { quantity: FieldValue.increment(Number(remove.get('quantity')) || 1) } : {}),
+      ...(bin ? { binId: bin.id, ...(bin.get('locationId') ? { locationId: bin.get('locationId') } : {}) } : {}),
       updatedAt: now, updatedBy: caller.email,
     })
     if (deleteIt) {

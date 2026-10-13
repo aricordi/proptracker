@@ -92,5 +92,5 @@ export interface DuplicatePair { a: string; b: string; score: number }
 export interface PairVerdict { same: boolean; confidence: 'high' | 'medium' | 'low'; reason: string }
 export const findDuplicates    = httpsCallable<{ min?: number }, { pairs: DuplicatePair[]; checked: number; withoutFingerprint: number }>(functions, 'findDuplicates')
 export const comparePropPhotos = httpsCallable<{ a: string; b: string }, PairVerdict>(functions, 'comparePropPhotos')
-export const mergeProps        = httpsCallable<{ keepId: string; removeId: string; mode: 'copies' | 'angles' }, { keptId: string; removed: 'deleted' | 'archived' }>(functions, 'mergeProps')
+export const mergeProps        = httpsCallable<{ keepId: string; removeId: string; mode: 'copies' | 'angles'; binId?: string }, { keptId: string; removed: 'deleted' | 'archived' }>(functions, 'mergeProps')
 export const mergeBins = httpsCallable<{ keepId: string; removeIds: string[] }, { moved: number; removed: number }>(functions, 'mergeBins')

@@ -83,3 +83,18 @@ describe('merging look-alike bins', () => {
     expect(await exists('bins/b1')).toBe(true)
   })
 })
+
+describe('duplicates in different bins', () => {
+  it('after moving them together, the kept prop gets the chosen bin', async () => {
+    await put('bins/b1', { label: 'B.31', locationId: 'room1', qrSlug: 'b1' })
+    await put('bins/b2', { label: 'C.4', locationId: 'room2', qrSlug: 'b2' })
+    await put('bins/b9', { label: 'Z.9', locationId: 'room9', qrSlug: 'b9' })
+    await put('items/cop1', prop('Police Costume', { binId: 'b1', locationId: 'room1', importedFrom: { driveFileId: 'f1', fileName: 'a.jpg', folder: 'x' } }))
+    await put('items/cop2', prop('Police Costume', { binId: 'b2', locationId: 'room2', importedFrom: { driveFileId: 'f2', fileName: 'b.jpg', folder: 'x' } }))
+
+    expect((await call('mergeProps', { keepId: 'cop1', removeId: 'cop2', mode: 'copies', binId: 'b9' }, ARTS)).error).toBe('INVALID_ARGUMENT')
+    const r = await call('mergeProps', { keepId: 'cop1', removeId: 'cop2', mode: 'copies', binId: 'b2' }, ARTS)
+    expect(r.result.removed).toBe('deleted')
+    expect(await getDoc('items/cop1')).toMatchObject({ quantity: 2, binId: 'b2', locationId: 'room2' })
+  })
+})

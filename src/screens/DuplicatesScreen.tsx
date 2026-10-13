@@ -22,6 +22,7 @@ export default function DuplicatesScreen() {
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [onlySplit, setOnlySplit] = useState(false)
 
   async function scan() {
     setBusy(true); setError(null)
@@ -34,7 +35,10 @@ export default function DuplicatesScreen() {
 
   // Once a prop is merged away, drop every pair that mentions it.
   const done = (gone: string[]) => setPairs(p => (p ?? []).filter(x => !gone.includes(x.a) && !gone.includes(x.b)))
-  const live = (pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b))
+  const all = (pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b))
+  const isSplit = (p: DuplicatePair) => (byId.get(p.a)!.binId ?? '') !== (byId.get(p.b)!.binId ?? '')
+  const splitCount = all.filter(isSplit).length
+  const live = onlySplit ? all.filter(isSplit) : all
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -52,6 +56,14 @@ export default function DuplicatesScreen() {
         </button>
         {info && <p className="text-pt-muted text-xs">{info}</p>}
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
+        {splitCount > 0 && (
+          <div className="flex gap-2">
+            {([[false, `All (${all.length})`], [true, `In different bins (${splitCount})`]] as const).map(([v, label]) => (
+              <button key={label} onClick={() => setOnlySplit(v)}
+                className={`px-3 py-1 rounded-full text-sm ${onlySplit === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
+            ))}
+          </div>
+        )}
         {pairs && live.length === 0 && <p className="text-green-400 text-sm text-center py-4">No likely duplicates. 🎉</p>}
         {live.map(p => (
           <PairCard key={`${p.a}|${p.b}`} pair={p} a={byId.get(p.a)!} b={byId.get(p.b)!} binLabel={binLabel}
@@ -73,6 +85,11 @@ function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const kept = keep === 'a' ? a : b, other = keep === 'a' ? b : a
+  // Different bins: they get moved onto one shelf first, then the team says which bin.
+  const split = (a.binId ?? '') !== (b.binId ?? '')
+  const binChoices = [...new Set([a.binId, b.binId].filter((x): x is string => !!x))]
+  const [bin, setBin] = useState<string | null>(binChoices.length === 1 ? binChoices[0] : null)
+  const needBin = split && binChoices.length > 1 && !bin
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label); setError(null)
@@ -110,13 +127,24 @@ function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
       )}
       {error && <p className="text-red-300 text-xs">{error}</p>}
 
+      {split && binChoices.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 space-y-1.5">
+          <p className="text-amber-200 text-sm">⚠ In different bins: {binLabel(a.binId) ?? 'no bin'} and {binLabel(b.binId) ?? 'no bin'}. Put them together on the shelf, then tap the bin they're in now:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {binChoices.map(id => (
+              <button key={id} onClick={() => setBin(id)}
+                className={`px-3 py-1 rounded-lg text-sm ${bin === id ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg border border-pt-border text-pt-text'}`}>{binLabel(id) ?? 'Unknown bin'}</button>
+            ))}
+          </div>
+        </div>
+      )}
       {canMerge && (
         <div className="grid grid-cols-2 gap-2">
-          <button disabled={!!busy} onClick={() => run('copies', async () => { await mergeProps({ keepId: kept.id, removeId: other.id, mode: 'copies' }); onDone([other.id]) })}
+          <button disabled={!!busy || needBin} onClick={() => run('copies', async () => { await mergeProps({ keepId: kept.id, removeId: other.id, mode: 'copies', ...(bin ? { binId: bin } : {}) }); onDone([other.id]) })}
             className="py-2 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">
             {busy === 'copies' ? 'Merging…' : `Copies: ×${kept.quantity + other.quantity}`}
           </button>
-          <button disabled={!!busy} onClick={() => run('angles', async () => { await mergeProps({ keepId: kept.id, removeId: other.id, mode: 'angles' }); onDone([other.id]) })}
+          <button disabled={!!busy || needBin} onClick={() => run('angles', async () => { await mergeProps({ keepId: kept.id, removeId: other.id, mode: 'angles', ...(bin ? { binId: bin } : {}) }); onDone([other.id]) })}
             className="py-2 rounded-xl border border-pt-accent text-pt-accent text-sm font-medium disabled:opacity-40">
             {busy === 'angles' ? 'Merging…' : `Same one: ×${kept.quantity}`}
           </button>
