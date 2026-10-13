@@ -366,8 +366,11 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
   then GO LIVE (deploy hosting; needs OK), then delete the OLD exposed Gemini key and (with OK)
-  remove legacy `embedding` arrays; (2) DATABASE BACKUPS — in the original spec, NOT done yet
-  (scheduled Firestore export; Cloud Scheduler + bucket, few cents/month; ask first);
+  remove legacy `embedding` arrays; (2) DATABASE BACKUPS — owner picked option A (Oct 13): Google's built-in Firestore backups,
+  button GitHub → Actions → "Set up backups" (`.github/workflows/backups.yml`, safe to re-run): daily
+  (kept 14 days) + weekly Sundays (kept 14 weeks) + point-in-time recovery (7-day undo) + photo bucket
+  soft delete 7 days. Few cents/month. If the deploy account lacks permission → add role
+  "Cloud Datastore Owner" to github-deploy in IAM. NOT RUN YET (needs owner OK);
   (3) email (on hold, see below); (4) optional: "Room" wording + move many bins at once;
   tune SIMILAR_MIN_SCORE with real props.
 - Go-live (owner adding GitHub secrets).

@@ -1,0 +1,82 @@
+# One-time "Set up backups" button (owner decision Oct 13, option A).
+# Turns on Google's built-in Firestore backups for the LIVE database:
+#   - a backup every day, each kept 14 days
+#   - a backup every Sunday, each kept 14 weeks
+#   - point-in-time recovery ("undo" to any minute of the last 7 days)
+# and makes sure deleted photos in Cloud Storage are kept 7 days (soft delete).
+# Safe to run again: it only adds what is missing, then prints the status.
+# Costs a few cents a month (backup storage). Never deletes or changes data.
+
+name: Set up backups
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: proptracker-9732e
+
+jobs:
+  backups:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sign in to Google Cloud as the deploy account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Daily and weekly database backups
+        run: |
+          explain() {
+            echo "::error::Google refused: the deploy account isn't allowed to manage backups."
+            echo "Fix (once): Google Cloud console → IAM → the 'github-deploy' account → add role 'Cloud Datastore Owner', then run this button again."
+            exit 1
+          }
+          # First a harmless look, so a missing permission gives a clear message.
+          gcloud firestore backups schedules list --database='(default)' --project "$PROJECT" >/dev/null 2>err.txt \
+            || { cat err.txt; grep -qi 'permission\|403' err.txt && explain; exit 1; }
+          if gcloud firestore backups schedules list --database='(default)' --project "$PROJECT" --format=json | grep -q '"dailyRecurrence"'; then
+            echo "✔ Daily backups already on"
+          else
+            gcloud firestore backups schedules create --database='(default)' --project "$PROJECT" --recurrence=daily --retention=14d
+            echo "✔ Daily backups turned on (kept 14 days)"
+          fi
+          if gcloud firestore backups schedules list --database='(default)' --project "$PROJECT" --format=json | grep -q '"weeklyRecurrence"'; then
+            echo "✔ Weekly backups already on"
+          else
+            gcloud firestore backups schedules create --database='(default)' --project "$PROJECT" --recurrence=weekly --day-of-week=SUN --retention=14w
+            echo "✔ Weekly backups turned on (Sundays, kept 14 weeks)"
+          fi
+
+      - name: Point-in-time recovery (7-day undo window)
+        run: |
+          state=$(gcloud firestore databases describe --database='(default)' --project "$PROJECT" --format='value(pointInTimeRecoveryEnablement)')
+          if [ "$state" = "POINT_IN_TIME_RECOVERY_ENABLED" ]; then
+            echo "✔ Undo window already on"
+          else
+            gcloud firestore databases update --database='(default)' --project "$PROJECT" --enable-pitr
+            echo "✔ Undo window turned on (any minute of the last 7 days)"
+          fi
+
+      - name: Keep deleted photos for 7 days
+        env:
+          BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+        run: |
+          secs=$(gcloud storage buckets describe "gs://$BUCKET" --format='value(soft_delete_policy.retentionDurationSeconds)' || echo "")
+          if [ -n "$secs" ] && [ "$secs" -ge 604800 ]; then
+            echo "✔ Photo soft delete already on ($((secs / 86400)) days)"
+          else
+            gcloud storage buckets update "gs://$BUCKET" --soft-delete-duration=7d
+            echo "✔ Photo soft delete turned on (7 days)"
+          fi
+
+      - name: Status
+        run: |
+          echo "Backup schedules:"
+          gcloud firestore backups schedules list --database='(default)' --project "$PROJECT"
+          echo; echo "Backups made so far (the first appears within a day):"
+          gcloud firestore backups list --project "$PROJECT" || true
