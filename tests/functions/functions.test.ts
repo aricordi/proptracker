@@ -12,21 +12,29 @@ beforeAll(async () => {
   await put(`users/${CREATOR}`, { email: CREATOR, role: 'creator', active: true })
   await put('categories/costume', { label: 'Costume', order: 1, active: true })
   await put('tags/t1', { label: 'police', normalizedKey: 'police', usageCount: 1 })
-  await put('items/cop', { name: 'Police officer costume', categoryId: 'costume', tags: ['t1'], description: 'Navy uniform with badge' })
-  await put('items/chair', { name: 'Wooden dining chair', categoryId: 'prop', tags: [], description: 'Oak chair' })
-  await put('items/lamp', { name: 'Brass desk lamp', categoryId: 'prop', tags: [], description: 'Green shade' })
+  await put('items/cop', { collection: 'company', name: 'Police officer costume', categoryId: 'costume', tags: ['t1'], description: 'Navy uniform with badge' })
+  await put('items/chair', { collection: 'company', name: 'Wooden dining chair', categoryId: 'prop', tags: [], description: 'Oak chair' })
+  await put('items/lamp', { collection: 'company', name: 'Brass desk lamp', categoryId: 'prop', tags: [], description: 'Green shade' })
   expect(await waitFor(() => exists('item_vectors/lamp'))).toBe(true)
 }, 30000)
 
 describe('smart search', () => {
   it('new and edited props are indexed automatically', async () => {
-    await put('items/phone', { name: 'Rotary telephone', categoryId: 'prop', tags: [] })
+    await put('items/phone', { collection: 'company', name: 'Rotary telephone', categoryId: 'prop', tags: [] })
     expect(await waitFor(() => exists('item_vectors/phone'))).toBe(true)
   })
   it('creators can search and the closest prop comes first', async () => {
     const { ok, result } = await call('searchSimilar', { query: 'police uniform badge' }, CREATOR)
     expect(ok).toBe(true)
     expect(result.results[0].id).toBe('cop')
+  })
+  it("only the owner's searches can turn up their personal props", async () => {
+    await put('items/my-hat', { collection: 'personal', name: 'Police hat', categoryId: 'costume', tags: ['t1'] })
+    expect(await waitFor(() => exists('item_vectors/my-hat'))).toBe(true)
+    const ids = async (who: string) => (await call('searchSimilar', { query: 'police hat' }, who)).result.results.map((r: { id: string }) => r.id)
+    expect(await ids(OWNER)).toContain('my-hat')
+    expect(await ids(CREATOR)).not.toContain('my-hat')
+    expect(await ids(ARTS)).not.toContain('my-hat')
   })
   it('uninvited and signed-out people are refused', async () => {
     expect((await call('searchSimilar', { query: 'police' }, 'stranger@example.com')).error).toBe('PERMISSION_DENIED')

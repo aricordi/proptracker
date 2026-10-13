@@ -20,12 +20,17 @@ import { CONDITION_LABELS } from '../components/ItemCard'
 import TagInput from '../components/TagInput'
 import CharacterInput from '../components/CharacterInput'
 import type { Item, Condition } from '../types'
+import { useSession } from '../auth'
+import { COLLECTION_LABELS, type PropCollection } from '../../functions/src/collections'
 
 export default function AddItemScreen() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { id: editId } = useParams<{ id: string }>()
   const isEditMode = !!editId
+  const { isOwner } = useSession()
+  // New props are Prime Capitol's unless the owner says they're personal.
+  const [collection, setCollection] = useState<PropCollection>('company')
 
   const locations   = useLocations()
   const bins        = useBins()
@@ -82,6 +87,7 @@ export default function AddItemScreen() {
       setCategoryId(data.categoryId)
       setQuantity(String(data.quantity))
       setCondition(data.condition)
+      setCollection(data.collection)
       setNotes(data.notes ?? '')
       setLocationId(data.locationId ?? '')
       setBinId(data.binId ?? '')
@@ -229,6 +235,7 @@ export default function AddItemScreen() {
         binId: binId || undefined,
         whereToRebuy: whereToRebuy.trim() || undefined,
         replacementCost: Number.isFinite(costValue) ? costValue : undefined,
+        collection,
       }
       const savePrivate = (id: string) => internalNotes.trim() !== originalInternalNotes.trim()
         ? setItemPrivate(id, { internalNotes: internalNotes.trim() })
@@ -414,6 +421,22 @@ export default function AddItemScreen() {
             <p className="text-pt-muted text-xs mt-1">Per unit, in CAD</p>
           </div>
         </div>
+
+        {/* Which inventory (owner only; the arts department only adds Prime Capitol props) */}
+        {isOwner && (
+          <div>
+            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Belongs to</p>
+            <div className="flex gap-2">
+              {(['company', 'personal'] as PropCollection[]).map(c => (
+                <button key={c} type="button" onClick={() => setCollection(c)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium border ${collection === c ? 'bg-pt-accent text-stone-900 border-transparent' : 'bg-pt-surface border-pt-border text-pt-muted'}`}>
+                  {COLLECTION_LABELS[c]}
+                </button>
+              ))}
+            </div>
+            {collection === 'personal' && <p className="text-pt-muted text-xs mt-1">Only you will see this prop. Nobody else can find or book it.</p>}
+          </div>
+        )}
 
         {/* Condition */}
         <div>

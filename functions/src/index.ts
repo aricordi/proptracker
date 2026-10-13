@@ -6,6 +6,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { analyzePhoto, embedText, hashText, GEMINI_API_KEY } from './gemini.js'
 
 import { db, requireRole, CALLABLE } from './auth.js'
+import { collectionOf } from './collections.js'
 export * from './reservations.js'
 
 
@@ -55,7 +56,7 @@ export const analyzePropPhoto = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY],
 // ─── 2. "Similar, might work too" search ────────────────────────────────────
 
 export const searchSimilar = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
-  await requireRole(req, ['owner', 'arts', 'creator'])
+  const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const query = typeof req.data?.query === 'string' ? req.data.query.trim().slice(0, 200) : ''
   if (query.length < 3) return { results: [] }
 
@@ -70,8 +71,14 @@ export const searchSimilar = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, 
       distanceResultField: 'distance',
     })
     .get()
+  let docs = snap.docs
+  // Only the owner may see (even the IDs of) their personal props.
+  if (caller.role !== 'owner' && docs.length) {
+    const items = await db.getAll(...docs.map(d => db.doc(`items/${d.id}`)))
+    docs = docs.filter((_, i) => collectionOf(items[i].data()) === 'company')
+  }
   return {
-    results: snap.docs.map(d => ({ id: d.id, score: 1 - Number(d.get('distance') ?? 1) })),
+    results: docs.map(d => ({ id: d.id, score: 1 - Number(d.get('distance') ?? 1) })),
   }
 })
 

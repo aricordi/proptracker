@@ -61,14 +61,27 @@ service cloud.firestore {
         && d.get('condition', 'good') in ['good', 'fair', 'damaged']
         && (d.get('replacementCost', 0) is number && d.get('replacementCost', 0) >= 0)
         && d.get('photos', []) is list && d.get('photos', []).size() <= 20
-        && d.get('archived', false) is bool;
+        && d.get('archived', false) is bool
+        && d.get('collection', 'personal') in ['personal', 'company'];
+    }
+
+    // Which inventory a prop belongs to: 'company' (Prime Capitol, everyone sees it)
+    // or 'personal' (the owner's own; ONLY the owner). No field = personal: every
+    // prop from before this existed was the owner's.
+    function isCompanyProp(d) {
+      return d.get('collection', 'personal') == 'company';
     }
 
     match /items/{id} {
-      allow read: if isMember();
+      allow read: if isOwner() || (isMember() && isCompanyProp(resource.data));
       // updatedBy must be the person making the change: the activity log relies on it.
-      allow create, update: if isStaff() && validItem()
-        && request.resource.data.updatedBy == request.auth.uid;
+      // Only the owner can add, change or move personal props.
+      allow create: if isStaff() && validItem()
+        && request.resource.data.updatedBy == request.auth.uid
+        && (isOwner() || isCompanyProp(request.resource.data));
+      allow update: if isStaff() && validItem()
+        && request.resource.data.updatedBy == request.auth.uid
+        && (isOwner() || (isCompanyProp(resource.data) && isCompanyProp(request.resource.data)));
       allow delete: if false; // archive instead
     }
 
@@ -78,6 +91,11 @@ service cloud.firestore {
     }
     match /import_items/{id} {
       allow read: if isStaff();
+    }
+
+    // Changes to the owner's personal props: owner only.
+    match /activity_personal/{id} {
+      allow read: if isOwner();
     }
 
     // Activity log: written only by the server, read by the arts department.
@@ -124,7 +142,9 @@ service cloud.firestore {
     // Arts-department-only details for a prop (internal notes). Kept in a
     // separate document so creators can't read them even outside the app.
     match /item_private/{id} {
-      allow read, write: if isStaff();
+      allow read, write: if isOwner()
+        || (isStaff() && exists(/databases/$(database)/documents/items/$(id))
+            && isCompanyProp(get(/databases/$(database)/documents/items/$(id)).data));
     }
 
     // Health page bookkeeping (e.g. "not a duplicate" decisions).

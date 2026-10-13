@@ -9,6 +9,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import ItemCard, { type Badge } from '../components/ItemCard'
 import DateRangePicker from '../components/DateRangePicker'
 import LateBanner from '../components/LateBanner'
+import { COLLECTION_LABELS, type PropCollection } from '../../functions/src/collections'
 import { useMyLateBookings } from '../hooks/useLateBookings'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useCart } from '../cart'
@@ -31,7 +32,13 @@ const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnl
 ]
 
 export default function HomeScreen() {
-  const { isStaff } = useSession()
+  const { isStaff, isOwner } = useSession()
+  // Owner only: switch between Prime Capitol's props and your own.
+  const [collection, setCollection] = useState<PropCollection>(() => {
+    try { return localStorage.getItem('pt-collection') === 'personal' ? 'personal' : 'company' } catch { return 'company' }
+  })
+  const pickCollection = (c: PropCollection) => { setCollection(c); try { localStorage.setItem('pt-collection', c) } catch { /* ignore */ } }
+  const shownCollection: PropCollection = isOwner ? collection : 'company'
   const allItems   = useItems()
   const tags       = useTags()
   const locations  = useLocations()
@@ -94,10 +101,11 @@ export default function HomeScreen() {
           dates && availability === 'available'
             ? (freeFor(i) ?? 0) > 0 && i.condition !== 'damaged'
             : availabilityOf(i) === availability))
+        && i.collection === shownCollection
         && (!categoryFilter || i.categoryId === categoryFilter))
       .sort(byName),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, turnaround, settings],
+    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, turnaround, settings, shownCollection],
   )
 
   const matched = useMemo(
@@ -163,6 +171,17 @@ export default function HomeScreen() {
             </button>
           )}
         </div>
+
+        {isOwner && (
+          <div className="flex gap-1 mt-3 p-1 bg-pt-surface border border-pt-border rounded-xl">
+            {(['company', 'personal'] as PropCollection[]).map(c => (
+              <button key={c} onClick={() => pickCollection(c)}
+                className={`flex-1 py-1.5 rounded-lg text-sm font-medium ${shownCollection === c ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>
+                {COLLECTION_LABELS[c]}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Category chips */}
         <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">

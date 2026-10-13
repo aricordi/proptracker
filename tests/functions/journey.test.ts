@@ -31,8 +31,8 @@ beforeEach(async () => {
     await put(`users/${email}`, { email, role, active: true, name: email.split('@')[0] })
   }
   await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
-  await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
-  await put('items/chairs', { name: 'Wooden chair', quantity: 10, condition: 'good', tags: [] })
+  await put('items/cop', { collection: 'company', name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
+  await put('items/chairs', { collection: 'company', name: 'Wooden chair', quantity: 10, condition: 'good', tags: [] })
 })
 
 describe('the happy path', () => {

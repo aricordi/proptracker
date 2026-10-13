@@ -1,3 +1,4 @@
+import type { PropCollection } from '../functions/src/collections'
 export type ItemType = 'prop' | 'costume' | 'set-dressing' | 'gear';
 // 'damaged' is a legacy status from before condition was its own field;
 // items are normalized on read so the app only ever sees available/checked-out.
@@ -35,6 +36,7 @@ export interface Item {
   cost?: number;            // legacy — read as replacementCost when that is missing
   whereToRebuy?: string;    // e.g. "Dollarama" or "Amazon: search 'fake eyeballs'"
   archived: boolean;        // archived props are hidden, never deleted
+  collection: PropCollection; // 'company' = Prime Capitol (everyone); 'personal' = the owner's own (owner only)
   embedding?: number[];     // legacy: from a retired AI model, no longer used or written
   createdAt: string;
   updatedAt: string;

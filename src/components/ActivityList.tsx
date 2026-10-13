@@ -13,7 +13,7 @@ const FIELD_NAMES: Record<string, string> = {
   name: 'Name', quantity: 'Quantity', condition: 'Condition', replacementCost: 'Replacement cost',
   categoryId: 'Category', locationId: 'Storage area', binId: 'Bin', missingQty: 'Missing', archived: 'Archived',
   status: 'Quick checkout', description: 'Description', notes: 'Notes for creators', tags: 'Tags',
-  photos: 'Photos', whereToRebuy: 'Where to rebuy',
+  photos: 'Photos', whereToRebuy: 'Where to rebuy', collection: 'Belongs to',
 }
 
 const BOOKING_WORDS: Record<string, string> = {
@@ -29,8 +29,8 @@ const ICONS: Record<string, string> = {
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })
 
 // The activity log as a list. Used by the Activity screen and the history pages.
-export default function ActivityList({ itemId, creatorEmail, kind, pageSize = 50 }: {
-  itemId?: string; creatorEmail?: string; kind?: 'prop' | 'booking'; pageSize?: number
+export default function ActivityList({ itemId, creatorEmail, kind, personal, pageSize = 50 }: {
+  itemId?: string; creatorEmail?: string; kind?: 'prop' | 'booking'; personal?: boolean; pageSize?: number
 }) {
   const navigate = useNavigate()
   const [max, setMax] = useState(pageSize)
@@ -38,7 +38,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, pageSize = 50
   const [users, setUsers] = useState<AppUser[]>([])
   const categories = useCategories(), bins = useBins(), locations = useLocations(), tags = useTags()
 
-  useEffect(() => subscribeToActivity({ itemId, creatorEmail, kind }, max, setRows), [itemId, creatorEmail, kind, max])
+  useEffect(() => subscribeToActivity({ itemId, creatorEmail, kind, personal }, max, setRows), [itemId, creatorEmail, kind, personal, max])
   useEffect(() => subscribeToUsers(setUsers), [])
 
   const nameOf = useMemo(() => {
@@ -57,6 +57,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, pageSize = 50
     if (field === 'photos') return `${v} photo${v === 1 ? '' : 's'}`
     if (field === 'archived') return v ? 'yes' : 'no'
     if (field === 'status') return v === 'checked-out' ? 'out' : 'in'
+    if (field === 'collection') return v === 'company' ? 'Prime Capitol' : 'Personal'
     return String(v)
   }
 

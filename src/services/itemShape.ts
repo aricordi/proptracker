@@ -1,3 +1,4 @@
+import { collectionOf } from '../../functions/src/collections'
 import type { Item } from '../types'
 
 // Older records predate photos/category/quantity/condition/etc. Fill those in
@@ -21,6 +22,7 @@ export function normalizeItem(id: string, raw: Record<string, any>): Item {
     status: legacyDamaged ? 'available' : (raw.status ?? 'available'),
     replacementCost: raw.replacementCost ?? raw.cost,
     archived: raw.archived === true,
+    collection: collectionOf(raw),
     missingQty: typeof raw.missingQty === 'number' && raw.missingQty > 0 ? raw.missingQty : 0,
   } as Item
 }

@@ -10,6 +10,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { logger } from 'firebase-functions'
 import type { DocumentData } from 'firebase-admin/firestore'
 import { db } from './auth.js'
+import { collectionOf } from './collections.js'
 
 // The prop fields worth recording, with plain names.
 export const TRACKED_FIELDS: Record<string, string> = {
@@ -28,6 +29,7 @@ export const TRACKED_FIELDS: Record<string, string> = {
   tags: 'Tags',
   photos: 'Photos',
   whereToRebuy: 'Where to rebuy',
+  collection: 'Belongs to',
 }
 
 type Value = string | number | boolean | null
@@ -69,7 +71,9 @@ export const logItemChange = onDocumentWritten('items/{id}', async event => {
   const changes = before ? diffItem(before, after) : []
   if (before && !changes.length) return   // e.g. only the search fingerprint changed
   try {
-    await db.doc(`activity/${event.id}`).set({
+    // Changes to the owner's personal props go to a log only the owner can read.
+    const log = collectionOf(after) === 'company' ? 'activity' : 'activity_personal'
+    await db.doc(`${log}/${event.id}`).set({
       at: after.updatedAt ?? new Date().toISOString(),
       by: await whoIs(before ? after.updatedBy : (after.createdBy ?? after.updatedBy)),
       kind: 'prop',

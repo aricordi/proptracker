@@ -18,7 +18,7 @@ export interface Activity {
 }
 
 export function subscribeToActivity(
-  filter: { itemId?: string; creatorEmail?: string; kind?: 'prop' | 'booking' },
+  filter: { itemId?: string; creatorEmail?: string; kind?: 'prop' | 'booking'; personal?: boolean },
   max: number,
   cb: (list: Activity[]) => void,
 ) {
@@ -26,7 +26,8 @@ export function subscribeToActivity(
   if (filter.itemId) where_.push(where('itemIds', 'array-contains', filter.itemId))
   if (filter.creatorEmail) where_.push(where('creatorEmail', '==', filter.creatorEmail))
   if (filter.kind) where_.push(where('kind', '==', filter.kind))
-  return onSnapshot(query(collection(db, 'activity'), ...where_, orderBy('at', 'desc'), limit(max)),
+  // Changes to the owner's personal props are kept in a separate, owner-only log.
+  return onSnapshot(query(collection(db, filter.personal ? 'activity_personal' : 'activity'), ...where_, orderBy('at', 'desc'), limit(max)),
     snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Activity))),
     () => cb([]))
 }

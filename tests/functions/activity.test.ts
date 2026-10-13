@@ -15,8 +15,8 @@ beforeEach(async () => {
 
 describe('prop changes', () => {
   it('records who changed what, from → to', async () => {
-    await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [], updatedBy: ARTS, updatedAt: '2026-10-13T10:00:00Z' })
-    await put('items/cop', { name: 'Cop costume', quantity: 2, condition: 'damaged', tags: [], updatedBy: ARTS, updatedAt: '2026-10-13T11:00:00Z' })
+    await put('items/cop', { collection: 'company', name: 'Cop costume', quantity: 1, condition: 'good', tags: [], updatedBy: ARTS, updatedAt: '2026-10-13T10:00:00Z' })
+    await put('items/cop', { collection: 'company', name: 'Cop costume', quantity: 2, condition: 'damaged', tags: [], updatedBy: ARTS, updatedAt: '2026-10-13T11:00:00Z' })
     // Two records: "added", then "edited" with the two changes.
     const find = async (action: string) => {
       const res = await fetch(`http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents/activity?pageSize=50`, { headers: { Authorization: 'Bearer owner' } })
@@ -35,9 +35,22 @@ describe('prop changes', () => {
   })
 })
 
+describe('personal props', () => {
+  it("changes go to the owner-only log, never the shared one", async () => {
+    await put('items/mine', { name: 'My lamp', quantity: 1, condition: 'good', tags: [], updatedBy: 'alexisricordi@gmail.com', updatedAt: '2026-10-13T10:00:00Z' })
+    const personal = async () => {
+      const res = await fetch(`http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents/activity_personal?pageSize=10`, { headers: { Authorization: 'Bearer owner' } })
+      return (await res.json()).documents ?? []
+    }
+    expect(await waitFor(async () => (await personal()).length > 0)).toBe(true)
+    const shared = await fetch(`http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents/activity?pageSize=10`, { headers: { Authorization: 'Bearer owner' } })
+    expect((await shared.json()).documents ?? []).toHaveLength(0)
+  })
+})
+
 describe('booking steps', () => {
   it('each step of a booking becomes a record, once', async () => {
-    await put('items/chairs', { name: 'Wooden chair', quantity: 10, condition: 'good', tags: [] })
+    await put('items/chairs', { collection: 'company', name: 'Wooden chair', quantity: 10, condition: 'good', tags: [] })
     const r = await call('createReservation', { title: 'Diner', startDate: day(2), endDate: day(2), lines: [{ itemId: 'chairs', qty: 2 }] }, ALEX)
     const id = r.result.id
     expect(await waitFor(async () => !!(await getDoc(`activity/${id}_h0`)))).toBe(true)

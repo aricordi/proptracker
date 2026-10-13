@@ -1,6 +1,6 @@
 import {
   collection, addDoc, updateDoc, getDoc,
-  doc, onSnapshot, query, orderBy,
+  doc, onSnapshot, query, orderBy, where,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import type { Item } from '../types'
@@ -10,9 +10,13 @@ export { normalizeItem }
 
 const col = collection(db, 'items')
 
-export function subscribeToItems(cb: (items: Item[]) => void) {
+// The owner loads every prop; everyone else may only load Prime Capitol's
+// (the security rules refuse anything else, so the query must say so).
+export function subscribeToItems(scope: 'all' | 'company', cb: (items: Item[]) => void) {
   return onSnapshot(
-    query(col, orderBy('updatedAt', 'desc')),
+    scope === 'all'
+      ? query(col, orderBy('updatedAt', 'desc'))
+      : query(col, where('collection', '==', 'company'), orderBy('updatedAt', 'desc')),
     snap => cb(snap.docs.map(d => normalizeItem(d.id, d.data()))),
     () => cb([]),
   )

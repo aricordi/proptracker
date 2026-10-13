@@ -159,7 +159,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 170 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 177 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -228,6 +228,15 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
      history" or "Booked by" on a booking): bookings, late returns (`wasReturnedLate`), damaged/
      missing with current replacement cost and total (`src/lib/history.ts`; records only, no billing).
   PHASE 5 IS COMPLETE except email sending (on hold). Owner to test on the preview.
+- COLLECTIONS (Oct 13, owner decision): the props already in the app are the OWNER'S OWN (at home);
+  imported props are Prime Capitol's. Item field `collection`: 'company' (Prime Capitol, everyone) |
+  'personal' (owner only). MISSING FIELD = PERSONAL (no existing data changed). `functions/src/collections.ts`.
+  Enforced in firestore.rules (items read/create/update, item_private), createReservation (personal =
+  "Unknown prop" for non-owners), searchSimilar (filtered), activity (personal changes →
+  `activity_personal`, owner-only). Non-owners must query items with where('collection','==','company')
+  (index added). App: owner switch Prime Capitol/Personal on Search, "Belongs to" on add/edit
+  (owner only; arts always company), Personal badge, Activity → Personal tab (owner).
+  Imported and built-at-check-in props are 'company'. Seed has one personal prop ("Grandma's brass lamp").
 - Phase 6 (batch import) BUILT Oct 13, NOT deployed. Owner decisions: photos are in Google Drive
   (~70 folders, ~1,500 photos), app pulls them directly; one prop per photo; a sign in each photo
   names the bin, and "x2"/"x3" signs give quantity; unknown bins → suggested new bin (created on

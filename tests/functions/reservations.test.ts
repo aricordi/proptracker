@@ -21,11 +21,11 @@ beforeEach(async () => {
     await put(`users/${email}`, { email, role, active: true, name: email.split('@')[0] })
   }
   await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
-  await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
-  await put('items/chairs', { name: 'Wooden chair', quantity: 10, condition: 'fair', tags: [] })
-  await put('items/skull', { name: 'Fake skull', quantity: 1, condition: 'damaged', tags: [] })
-  await put('items/lamp', { name: 'Old lamp', quantity: 1, condition: 'good', tags: [], archived: true })
-  await put('items/bottle', { name: 'Breakaway bottle', quantity: 3, status: 'checked-out', tags: [] })
+  await put('items/cop', { collection: 'company', name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
+  await put('items/chairs', { collection: 'company', name: 'Wooden chair', quantity: 10, condition: 'fair', tags: [] })
+  await put('items/skull', { collection: 'company', name: 'Fake skull', quantity: 1, condition: 'damaged', tags: [] })
+  await put('items/lamp', { collection: 'company', name: 'Old lamp', quantity: 1, condition: 'good', tags: [], archived: true })
+  await put('items/bottle', { collection: 'company', name: 'Breakaway bottle', quantity: 3, status: 'checked-out', tags: [] })
 })
 
 describe('one-of-a-kind props', () => {
@@ -42,7 +42,7 @@ describe('one-of-a-kind props', () => {
   })
   it('a category with its own turnaround (costumes being washed) uses that instead of the default', async () => {
     await put('categories/costume', { label: 'Costume', active: true, turnaroundDays: 3 })
-    await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [], categoryId: 'costume' })
+    await put('items/cop', { collection: 'company', name: 'Cop costume', quantity: 1, condition: 'good', tags: [], categoryId: 'costume' })
     await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(10))
     expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(13), day(13))).ok).toBe(false)
     expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(14), day(14))).ok).toBe(true)
@@ -129,6 +129,17 @@ describe('what can be booked', () => {
   })
   it('signed-out and uninvited people cannot reserve', async () => {
     expect((await reserve('stranger@example.com', [{ itemId: 'cop', qty: 1 }])).error).toBe('PERMISSION_DENIED')
+  })
+})
+
+describe("the owner's personal props", () => {
+  it('nobody else can book them, or even learn their name', async () => {
+    await put('items/mine', { name: "Grandma's lamp", quantity: 1, condition: 'good', tags: [] })   // no collection = personal
+    const r = await reserve(ALEX, [{ itemId: 'mine', qty: 1 }])
+    expect(r.error).toBe('FAILED_PRECONDITION')
+    expect(r.details.conflicts[0]).toMatchObject({ itemId: 'mine', name: 'Unknown prop', free: 0 })
+    expect((await reserve(ARTS, [{ itemId: 'mine', qty: 1 }])).ok).toBe(false)
+    expect((await reserve(OWNER, [{ itemId: 'mine', qty: 1 }])).ok).toBe(true)
   })
 })
 

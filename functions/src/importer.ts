@@ -274,7 +274,7 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
         const again = await tx.get(ref)
         if (again.get('status') !== 'analyzed') return false   // someone else just approved/skipped it
         tx.set(itemRef, {
-          name, categoryId, quantity, condition: 'good', tags: tagIds,
+          name, categoryId, quantity, condition: 'good', tags: tagIds, collection: 'company',   // Prime Capitol's
           description: str(a.description, 300) || s.description || '', notes: '',
           photos: [imp.photoUrl], photoUrl: imp.photoUrl,
           ...(bin ? { binId: bin.id, locationId: bin.locationId } : {}),

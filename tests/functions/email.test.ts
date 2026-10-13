@@ -21,7 +21,7 @@ beforeEach(async () => {
   }
   await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
   await put('app_settings/email', { enabled: true, host: 'fake', port: 465, user: 'props@example.com', fromName: 'Prop Tracker', fromAddress: 'props@example.com', appUrl: 'https://example.web.app' })
-  await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
+  await put('items/cop', { collection: 'company', name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
 })
 
 describe('sending queued emails', () => {

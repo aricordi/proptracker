@@ -12,6 +12,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, type Caller } from './auth.js'
+import { collectionOf } from './collections.js'
 import {
   checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor, cleanClosedDays, isLate,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
@@ -214,8 +215,10 @@ export const createReservation = onCall(CALLABLE, async req => {
 
     lines.forEach((line, i) => {
       const item = itemSnaps[i]
-      const name = String(item.get('name') ?? 'Unknown prop')
-      if (!item.exists || item.get('archived') === true) {
+      const hidden = collectionOf(item.data()) === 'personal' && caller.role !== 'owner'
+      const name = hidden ? 'Unknown prop' : String(item.get('name') ?? 'Unknown prop')
+      // The owner's personal props don't exist as far as anyone else is concerned.
+      if (!item.exists || item.get('archived') === true || hidden) {
         conflicts.push({ itemId: line.itemId, name, requested: line.qty, free: 0, reason: 'no longer in the inventory' })
         return
       }
@@ -523,7 +526,7 @@ export const checkIn = onCall(CALLABLE, async req => {
       // prop. It appears on the Health fix-it list so someone photographs it.
       tx.set(itemRef, {
         name: b.description.slice(0, 120), description: `Built for "${r.res.title}"`,
-        categoryId: 'prop', quantity: b.qty, condition: 'good', tags: [], photos: [],
+        categoryId: 'prop', quantity: b.qty, condition: 'good', tags: [], photos: [], collection: 'company',
         status: 'available', archived: false,
         createdAt: now, updatedAt: now, createdBy: caller.email, updatedBy: caller.email,
       })

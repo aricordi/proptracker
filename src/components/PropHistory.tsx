@@ -51,7 +51,7 @@ export default function PropHistory({ item }: { item: Item }) {
         ))}
       </div>
 
-      {tab === 'changes' ? <ActivityList itemId={item.id} kind="prop" pageSize={30} /> : list === null ? (
+      {tab === 'changes' ? <ActivityList itemId={item.id} kind="prop" personal={item.collection === 'personal'} pageSize={30} /> : list === null ? (
         <p className="text-pt-muted text-sm">Loading…</p>
       ) : (
         <>

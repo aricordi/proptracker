@@ -22,7 +22,7 @@ function as(email: string, verified = true) {
 }
 const by = (email: string) => ({ updatedBy: uid(email) })
 
-const item = { name: 'Cop costume', quantity: 1, condition: 'good', replacementCost: 250, tags: [], photos: [] }
+const item = { name: 'Cop costume', quantity: 1, condition: 'good', replacementCost: 250, tags: [], photos: [], collection: 'company' }
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({
@@ -110,6 +110,32 @@ describe('inventory', () => {
     await assertFails(getDoc(doc(as(CREATOR), 'import_items', 'f1')))
     await assertFails(setDoc(doc(as(OWNER), 'import_items', 'f1'), { status: 'approved' }))
   })
+  it("the owner's personal props: only the owner can see, add or change them", async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'items', 'mine'), { name: 'My lamp', tags: [] })   // no collection = personal
+      await setDoc(doc(db, 'item_private', 'mine'), { internalNotes: 'from grandma' })
+    })
+    await assertSucceeds(getDoc(doc(as(OWNER), 'items', 'mine')))
+    await assertFails(getDoc(doc(as(ARTS), 'items', 'mine')))
+    await assertFails(getDoc(doc(as(CREATOR), 'items', 'mine')))
+    await assertFails(getDoc(doc(as(ARTS), 'item_private', 'mine')))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'item_private', 'mine')))
+    await assertFails(setDoc(doc(as(ARTS), 'items', 'p2'), { ...item, collection: 'personal', ...by(ARTS) }))
+    await assertFails(setDoc(doc(as(ARTS), 'items', 'p3'), { name: 'No collection', tags: [], ...by(ARTS) }))
+    await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { collection: 'personal', ...by(ARTS) }))
+    await assertSucceeds(setDoc(doc(as(OWNER), 'items', 'p4'), { ...item, collection: 'personal', ...by(OWNER) }))
+    await assertSucceeds(updateDoc(doc(as(OWNER), 'items', 'mine'), { collection: 'company', ...by(OWNER) }))
+    await assertFails(setDoc(doc(as(OWNER), 'items', 'p5'), { ...item, collection: 'secret', ...by(OWNER) }))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'activity_personal', 'x')))
+    await assertFails(getDoc(doc(as(ARTS), 'activity_personal', 'x')))
+  })
+  it('lists of props: everyone else must ask for Prime Capitol props only', async () => {
+    const { collection, query, where, getDocs } = await import('firebase/firestore')
+    await assertFails(getDocs(collection(as(CREATOR), 'items')))
+    await assertSucceeds(getDocs(query(collection(as(CREATOR), 'items'), where('collection', '==', 'company'))))
+    await assertSucceeds(getDocs(collection(as(OWNER), 'items')))
+  })
   it('the activity log is read-only, and only the arts department can see it', async () => {
     await assertSucceeds(getDoc(doc(as(ARTS), 'activity', 'a1')))
     await assertFails(getDoc(doc(as(CREATOR), 'activity', 'a1')))
@@ -128,7 +154,7 @@ describe('inventory', () => {
     await assertFails(setDoc(doc(db, 'items', 'e'), { ...item, replacementCost: -5 }))
   })
   it('accepts old-style props with no new fields', async () => {
-    await assertSucceeds(setDoc(doc(as(ARTS), 'items', 'old'), { name: 'Old prop', tags: [], status: 'available', ...by(ARTS) }))
+    await assertSucceeds(setDoc(doc(as(ARTS), 'items', 'old'), { name: 'Old prop', tags: [], status: 'available', collection: 'company', ...by(ARTS) }))
   })
 })
 

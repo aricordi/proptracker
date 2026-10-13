@@ -74,7 +74,10 @@ for (const { id, ...l } of locations) await put(`locations/${id}`, l)
 for (const { id, ...b } of bins) await put(`bins/${id}`, b)
 for (const { id, ...t } of tags) await put(`tags/${id}`, t)
 for (const { id, ...c } of characters) await put(`characters/${id}`, c)
-for (const { id, ...i } of items) await put(`items/${id}`, { ...i, ...meta })
+// One of the owner's own props (only the owner can see it).
+items.push({ id: 'my-lamp', name: "Grandma's brass lamp", categoryId: 'set-dressing', quantity: 1, condition: 'good',
+  replacementCost: 120, tags: [], photos: [], status: 'available', archived: false, collection: 'personal' })
+for (const { id, ...i } of items) await put(`items/${id}`, { collection: 'company', ...i, ...meta })
 await put('checkouts/co1', { label: 'Bar fight shoot', startedAt: now, itemIds: ['legacy-bottle'] })
 
 console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)

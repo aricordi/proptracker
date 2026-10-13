@@ -40,6 +40,7 @@ export default function ItemDetailScreen() {
     if (!id) return
     getItem(id)
       .then(setItem)
+      .catch(() => setItem(null))   // e.g. someone else's personal prop: treated as not found
       .finally(() => setLoading(false))
     if (isStaff) getItemPrivate(id).then(p => setInternalNotes(p.internalNotes ?? '')).catch(() => {})
   }, [id, isStaff])
@@ -153,6 +154,12 @@ export default function ItemDetailScreen() {
       </div>
 
       <div className="p-4 space-y-5">
+        {item.collection === 'personal' && (
+          <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl px-4 py-3">
+            <p className="text-violet-200 text-sm font-medium">Personal</p>
+            <p className="text-pt-muted text-xs mt-0.5">Your own prop. Only you can see it; Prime Capitol staff and creators can't find or book it.</p>
+          </div>
+        )}
         {item.archived && (
           <div className="bg-pt-surface border border-pt-border rounded-xl px-4 py-3">
             <p className="text-pt-text text-sm font-medium">Archived</p>
