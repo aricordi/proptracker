@@ -40,7 +40,7 @@ async function loadEmailSettings(): Promise<EmailSettings | null> {
     host: oneLine(d.host, 200),
     port: port === 465 || port === 587 ? port : 465,
     user: oneLine(d.user, 200),
-    fromName: oneLine(d.fromName || 'Prop Tracker', 80).replace(/"/g, ''),
+    fromName: oneLine(d.fromName || 'Prime App', 80).replace(/"/g, ''),
     fromAddress: isEmail(d.fromAddress) ? d.fromAddress : isEmail(d.user) ? d.user : '',
     appUrl: typeof d.appUrl === 'string' && /^https:\/\/[^\s]+$/.test(d.appUrl) ? d.appUrl.replace(/\/+$/, '') : '',
   }
@@ -77,7 +77,7 @@ export const sendQueuedEmail = onDocumentCreated({ document: 'outbox/{id}', secr
     await snap.ref.update({ status: 'skipped', note: 'Nobody to send to' })
     return
   }
-  const link = mail.reservationId && settings.appUrl ? `\n\nOpen it in Prop Tracker: ${settings.appUrl}/reservations/${mail.reservationId}` : ''
+  const link = mail.reservationId && settings.appUrl ? `\n\nOpen it in Prime App: ${settings.appUrl}/reservations/${mail.reservationId}` : ''
   const message = {
     from: `"${settings.fromName}" <${settings.fromAddress}>`,
     to,
@@ -113,8 +113,8 @@ export const sendTestEmail = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner'])
   const ref = await db.collection('outbox').add({
     to: caller.email,
-    subject: 'Prop Tracker test email',
-    body: 'If you can read this, Prop Tracker can send emails. 🎬',
+    subject: 'Prime App test email',
+    body: 'If you can read this, Prime App can send emails. 🎬',
     createdAt: new Date().toISOString(),
     sent: false,
   })

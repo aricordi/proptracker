@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'PropTracker',
-        short_name: 'PropTracker',
+        name: 'Prime App',
+        short_name: 'Prime App',
         description: 'Props, gear and bookings for Prime Capitol productions',
         theme_color: '#000000',
         background_color: '#000000',

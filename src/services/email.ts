@@ -26,7 +26,7 @@ export interface OutboxEmail {
 }
 
 export const EMPTY_EMAIL_SETTINGS: EmailSettings = {
-  enabled: false, host: 'smtp.gmail.com', port: 465, user: '', fromName: 'Prop Tracker', fromAddress: '', appUrl: '',
+  enabled: false, host: 'smtp.gmail.com', port: 465, user: '', fromName: 'Prime App', fromAddress: '', appUrl: '',
 }
 
 export function subscribeToEmailSettings(cb: (s: EmailSettings) => void) {

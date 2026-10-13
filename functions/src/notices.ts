@@ -74,7 +74,7 @@ export async function runNotices(now = new Date()) {
       if (!fresh.length) continue
       const list = fresh.map(f => `• ${f.name} ${RISK_TEXT[f.risk]}`).join('\n')
       queue(batch, r.creatorEmail, `Heads up: some props for "${r.title}" might not be ready`,
-        `For your shoot on ${r.startDate}:\n${list}\n\nYour booking still stands. The arts department has been told; if something can't be ready they'll mark it not available. You may want to look for something similar in Prop Tracker.`, d.id)
+        `For your shoot on ${r.startDate}:\n${list}\n\nYour booking still stands. The arts department has been told; if something can't be ready they'll mark it not available. You may want to look for something similar in Prime App.`, d.id)
       queue(batch, 'arts-team', `At risk: "${r.title}" (${r.startDate})`,
         `${r.creatorName}'s booking "${r.title}" on ${r.startDate}:\n${list}\n\nChase it up, or mark it "not available" with a reason so the creator knows.`, d.id)
       batch.update(d.ref, { riskNotified: FieldValue.arrayUnion(...fresh.map(f => f.itemId)) })

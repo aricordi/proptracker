@@ -1,4 +1,4 @@
-# Prop Tracker — notes for Claude
+# Prime App (was Prop Tracker) — notes for Claude
 
 Prop Tracker is a phone-first web app (React + Firebase) for a film production
 team's arts department. It is being extended into a click-and-collect system:
@@ -328,7 +328,9 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   gold accent), iPhone system font for sans + display (Passion One removed; .font-display = 700, -0.02em),
   page titles white (not gold), frosted tab bar, theme colour #000, Search title = eagle + "Props".
   Gear step 1 + add-on extras backend DEPLOYED Oct 13 (run 21, green) with the owner's OK.
-  STILL WAITING: app name ("Prime Capitol" recommended; manifest/title still "PropTracker").
+  APP NAME (owner, Oct 13): "Prime App" — browser tab, home-screen label (manifest name/short_name,
+  apple-mobile-web-app-title), not-invited screen, email sender name/subject/body text. Email server text
+  changes go live with the next backend deploy.
   Tokens live in tailwind.config (pt-*), so the restyle is mostly there + font + shared components.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
