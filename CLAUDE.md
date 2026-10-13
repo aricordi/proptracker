@@ -419,5 +419,10 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     deploy needed for this (app + existing staff rules on `health/*`). findDuplicates returns top 1000
     pairs; if one merge in a group fails (e.g. booked), the ones already merged stay merged. Checked in a
     real browser against the emulator (flag 3 of 5 → other 2 stay grouped; gather → merge ×3 into chosen bin).
+  - Search screen header FOLDS while scrolling down (owner request Oct 13): `src/hooks/useHideOnScroll.ts`
+    (finds the scrolling <main>, sets overflow-anchor:none + 300 ms quiet time, or the browser's scroll
+    nudge makes it flicker); title, collection switch, chips, status, shoot day fold away, the search box
+    stays; a one-line "📅 day · filter · Show filters" appears when something is filtered. Not while the
+    date picker is open.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { useItems } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
 import { useLocations } from '../hooks/useLocations'
@@ -20,6 +20,18 @@ import { searchSimilar } from '../services/ai'
 import { matchesQuery, availabilityOf, byName, type Availability } from '../lib/search'
 import { SIMILAR_MIN_SCORE } from '../config'
 import type { Item } from '../types'
+import { useHideOnScroll } from '../hooks/useHideOnScroll'
+
+// Folds part of the header away (smoothly) and makes it untappable while hidden.
+function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const inner = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (inner.current) (inner.current as HTMLDivElement & { inert: boolean }).inert = !open }, [open])
+  return (
+    <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+      <div ref={inner} className="overflow-hidden min-h-0" aria-hidden={!open}>{children}</div>
+    </div>
+  )
+}
 
 type AvailabilityFilter = Availability | 'all' | 'archived'
 
@@ -142,13 +154,20 @@ export default function HomeScreen() {
   )
 
   const filtersActive = !!categoryFilter || availability !== 'all'
+  // Scrolling down through the photos folds the header away (the search box stays);
+  // scrolling up brings it back. Never while the date picker is open.
+  const { ref: headerRef, hidden: folded, show: unfold } = useHideOnScroll<HTMLDivElement>(!showDates)
+  const activeCategory = categoryFilter ? categories.find(c => c.id === categoryFilter)?.label : null
   const nothingAtAll = allItems.length === 0
 
   return (
     <div className="min-h-full bg-pt-bg">
       {/* Sticky header + search */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-2xl text-pt-accent py-2">PropTracker</h1>
+      <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+        <Collapse open={!folded}>
+          <h1 className="font-display text-2xl text-pt-accent py-2">PropTracker</h1>
+        </Collapse>
+        {folded && <div className="h-3" />}
 
         <div className="relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none">
@@ -172,6 +191,15 @@ export default function HomeScreen() {
           )}
         </div>
 
+        {/* Folded: one tappable line saying what's filtered, so nothing is a surprise. */}
+        {folded && (dates || filtersActive) && (
+          <button onClick={unfold} className="mt-2 w-full text-left text-xs text-pt-muted truncate">
+            {[dates && `📅 ${formatRange(dates.start, dates.end)}`, activeCategory, availability !== 'all' && AVAILABILITY_OPTIONS.find(o => o.value === availability)?.label]
+              .filter(Boolean).join(' · ')} <span className="text-pt-accent">Show filters</span>
+          </button>
+        )}
+
+        <Collapse open={!folded}>
         {isOwner && (
           <div className="flex gap-1 mt-3 p-1 bg-pt-surface border border-pt-border rounded-xl">
             {(['company', 'personal'] as PropCollection[]).map(c => (
@@ -251,6 +279,7 @@ export default function HomeScreen() {
             <span className="text-pt-accent text-xs">Change</span>
           </button>
         )}
+        </Collapse>
       </div>
 
       <div className="p-4">
