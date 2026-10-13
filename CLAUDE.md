@@ -329,8 +329,8 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     photo separately. Approved tab now shows one entry per prop (with all its photos and quantity).
   - DUPLICATE FINDER (owner idea; Admin → Find duplicates, `src/screens/DuplicatesScreen.tsx`,
     `functions/src/dedupe.ts`): `findDuplicates` = free pairwise similarity of existing item_vectors
-    fingerprints (≥0.86, top 300, skips health/dismissed pairs shared with Health); `comparePropPhotos`
-    = optional Gemini photo check (~$0.001, counted in the import cap); `mergeProps` (owner) keeps one,
+    fingerprints (≥0.86, top 1000, skips health/dismissed pairs shared with Health); `comparePropPhotos`
+    = optional Gemini photo check (~$0.001, counted in the import cap); `mergeProps` (owner + arts) keeps one,
     adds photos (+ quantity for copies), deletes the other if imported & never booked else archives it
     (`mergedInto`), re-points import_items so re-imports don't resurrect it. Refuses props in a current booking.
   - Owner's full import started failing after 64 photos. CAUSE: Gemini key was on Google's FREE
@@ -346,7 +346,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     see; staff may only set status applied/dismissed + reply). Staff see open ones on the prop page and
     in Admin → Suggested edits (`SuggestionsScreen`); "Apply changes" edits the prop (normal
     updateItem → Activity log) then marks it applied. Creators see their suggestion's status.
-  - Oct 13 (NOT deployed yet; needs the backend deploy, which also carries the suggestions rules + index):
+  - Oct 13 (DEPLOYED Oct 13):
     creators get a "Wrong name?" link under the prop name (name-only suggestion); ARTS can now merge
     duplicates (`mergeProps` owner+arts; deleting a single imported prop stays owner-only); Find duplicates
     shows each photo's file name. BINS: `functions/src/binNames.ts` (shared with the app) — `binKey`
@@ -357,7 +357,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     props with a "supplies" tag; the AI prompts (add-prop + import) now put "supplies" first for them.
     No re-analysis of already-imported photos (owner: not worth it). ARTS can now delete imported,
     never-booked props too (`deleteImportedProp` owner+arts) so the prop department can clear them.
-  - BETTER SEARCH (owner request Oct 13: "president" should find the Abraham Lincoln mask), NOT deployed yet:
+  - BETTER SEARCH (owner request Oct 13: "president" should find the Abraham Lincoln mask), DEPLOYED Oct 13 (owner ran the top-up):
     hidden item field `searchWords` (AI-written associations: who/what it depicts, roles, themes,
     occasions, eras, synonyms; staff can edit "Extra search words" on add/edit; never shown on the prop
     page). Written by analyzePropPhoto + import (SEARCH_WORDS_RULE in gemini.ts); tags now 6–10 incl.
@@ -369,7 +369,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   - DUPLICATES IN DIFFERENT BINS (owner decision Oct 13: NO multi-bin props; the team moves copies onto
     one shelf). Find duplicates flags pairs whose bins differ (amber box + "In different bins (N)" filter);
     staff tap the bin they're in now, and `mergeProps` takes optional `binId` (must be one of the two
-    props' bins) → kept prop gets that bin + its storage area. NOT deployed yet.
+    props' bins) → kept prop gets that bin + its storage area. DEPLOYED Oct 13 (run 20).
   - Find duplicates (Oct 13, owner feedback): pairs are JOINED INTO GROUPS (A~B, B~C → one card;
     `groupPairs` in `src/lib/duplicates.ts`, any size, chains too) so e.g. 4 copies in 4 bins are decided once.
     "In different bins" tab shows a copyable MOVE LIST for the arts team (`shelfList`; owner: don't
