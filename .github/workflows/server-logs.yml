@@ -32,6 +32,15 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      # Web addresses allowed to use "Sign in with Google" (Authentication → Settings →
+      # Authorized domains). The live site and the preview must both be listed.
+      - name: Web addresses allowed to sign in with Google
+        continue-on-error: true
+        run: |
+          curl -sS -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "x-goog-user-project: proptracker-9732e" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/proptracker-9732e/config" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print("ERROR:", d["error"].get("message")) if "error" in d else [print("  -", x) for x in d.get("authorizedDomains", [])]'
+
       - name: Who may call each function (needs allUsers for the app to reach it)
         continue-on-error: true
         run: |
