@@ -168,6 +168,47 @@ Return ONLY a JSON object with exactly these fields:
   }
 }
 
+// ─── Duplicate check: are these two photos the same prop? ────────────────────
+
+export interface PairVerdict { same: boolean; confidence: 'high' | 'medium' | 'low'; reason: string }
+
+export async function comparePropPhotos(
+  apiKey: string | undefined,
+  a: { name: string; image: { base64: string; mimeType: string } },
+  b: { name: string; image: { base64: string; mimeType: string } },
+): Promise<{ verdict: PairVerdict; costUsd: number }> {
+  if (isFakeMode(apiKey)) {
+    const same = a.name.trim().toLowerCase() === b.name.trim().toLowerCase()
+    return { verdict: { same, confidence: 'medium', reason: same ? 'Test mode: same name.' : 'Test mode: different names.' }, costUsd: 0.001 }
+  }
+  if (!apiKey) throw new Error('Gemini API key is not configured')
+  const prompt = `These two photos are from a film production's prop inventory. Photo 1 is catalogued as "${a.name}", photo 2 as "${b.name}".
+Decide whether they show the SAME KIND of prop (the same design/model, so they are duplicates or identical copies), ignoring background, angle, lighting and any bin/quantity signs.
+Return ONLY JSON: {"same": true|false, "confidence": "high"|"medium"|"low", "reason": "one short sentence"}`
+  const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: keyHeaders(apiKey),
+    body: JSON.stringify({
+      contents: [{ parts: [
+        { text: prompt },
+        { inlineData: { mimeType: a.image.mimeType, data: a.image.base64 } },
+        { inlineData: { mimeType: b.image.mimeType, data: b.image.base64 } },
+      ] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 512, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
+    }),
+  })
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const json = await res.json() as any
+  const usage = json.usageMetadata ?? {}
+  const costUsd = ((usage.promptTokenCount ?? 0) * PRICE_PER_M.in
+    + ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)) * PRICE_PER_M.out) / 1_000_000
+  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const match = text.match(/\{[\s\S]*\}/)
+  const parsed = match ? JSON.parse(match[0]) as Record<string, unknown> : {}
+  const confidence = ['high', 'medium', 'low'].includes(String(parsed.confidence)) ? parsed.confidence as PairVerdict['confidence'] : 'low'
+  return { verdict: { same: parsed.same === true, confidence, reason: String(parsed.reason ?? '').slice(0, 200) }, costUsd }
+}
+
 export type EmbedTask = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'
 
 export async function embedText(apiKey: string | undefined, text: string, taskType: EmbedTask): Promise<number[]> {

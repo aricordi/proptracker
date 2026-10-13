@@ -81,7 +81,7 @@ jobs:
           for svc in analyzepropphoto searchsimilar rebuildsearchindex createreservation cancelreservation \
                      declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin \
                      sendtestemail checknoticesnow \
-                     importinfo startimport processimport approveimports skipimports mergeimports deleteimportedprop undoimport; do
+                     importinfo startimport processimport approveimports skipimports mergeimports deleteimportedprop undoimport findduplicates comparepropphotos mergeprops; do
             gcloud run services add-iam-policy-binding "$svc" --region northamerica-northeast1 \
               --project proptracker-9732e --member=allUsers --role=roles/run.invoker --quiet >/dev/null
             echo "✔ $svc"

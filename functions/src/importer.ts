@@ -22,11 +22,11 @@ import { tagIdsFor } from './tags.js'
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
 
 export const DEFAULT_CAP_USD = 10
-const RESERVE_USD = 0.01          // set aside before each AI call (real cost is ~$0.002)
+export const RESERVE_USD = 0.01          // set aside before each AI call (real cost is ~$0.002)
 const PER_CALL = 8                // photos handled per processImport call, in parallel
 const DRY_RUN_SIZE = 10
 const STALE_MS = 3 * 60_000       // a photo "being worked on" this long is retried
-const BUDGET = () => db.doc('app_settings/import')
+export const BUDGET = () => db.doc('app_settings/import')
 const IMPORTED_AREA = 'imported'  // storage area for bins first seen on import signs
 
 type Status = 'pending' | 'working' | 'analyzed' | 'failed' | 'approved' | 'skipped'
@@ -109,7 +109,7 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
 
 // ─── 2. Analyze a few photos (the Import screen calls this repeatedly) ────────
 
-async function reserveBudget(): Promise<{ ok: boolean; capUsd: number; spentUsd: number }> {
+export async function reserveBudget(): Promise<{ ok: boolean; capUsd: number; spentUsd: number }> {
   return db.runTransaction(async tx => {
     const snap = await tx.get(BUDGET())
     const capUsd = typeof snap.get('capUsd') === 'number' ? snap.get('capUsd') as number : DEFAULT_CAP_USD
@@ -387,7 +387,7 @@ export const skipImports = onCall(CALLABLE, async req => {
 // personal props, never props added by hand, never a prop that was ever booked
 // (its bookings would lose their history). The activity log records each one.
 
-async function everBooked(itemId: string) {
+export async function everBooked(itemId: string) {
   return !(await db.collection('reservations').where('itemIds', 'array-contains', itemId).limit(1).get()).empty
 }
 
