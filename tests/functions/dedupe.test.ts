@@ -98,3 +98,19 @@ describe('duplicates in different bins', () => {
     expect(await getDoc('items/cop1')).toMatchObject({ quantity: 2, binId: 'b2', locationId: 'room2' })
   })
 })
+
+describe('three copies in three bins', () => {
+  it('merging them one by one (the one in the chosen bin first) ends with one prop in that bin', async () => {
+    for (const [id, bin] of [['b1', 'B.31'], ['b2', 'C.4'], ['b3', 'D.2']]) await put(`bins/${id}`, { label: bin, locationId: `room-${id}`, qrSlug: id })
+    const imp = (f: string) => ({ importedFrom: { driveFileId: f, fileName: `${f}.jpg`, folder: 'x' } })
+    await put('items/cop1', prop('Police Costume', { binId: 'b1', ...imp('f1') }))
+    await put('items/cop2', prop('Police Costume', { binId: 'b2', ...imp('f2') }))
+    await put('items/cop3', prop('Police Costume', { binId: 'b3', ...imp('f3') }))
+    // Keep cop1; everything ends up in D.2 (cop3's bin), so cop3 is merged first.
+    expect((await call('mergeProps', { keepId: 'cop1', removeId: 'cop3', mode: 'copies', binId: 'b3' }, ARTS)).error).toBeUndefined()
+    expect((await call('mergeProps', { keepId: 'cop1', removeId: 'cop2', mode: 'copies', binId: 'b3' }, ARTS)).error).toBeUndefined()
+    expect(await getDoc('items/cop1')).toMatchObject({ quantity: 3, binId: 'b3', locationId: 'room-b3' })
+    expect(await exists('items/cop2')).toBe(false)
+    expect(await exists('items/cop3')).toBe(false)
+  })
+})

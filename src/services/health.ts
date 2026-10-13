@@ -23,8 +23,15 @@ export function subscribeToLaterPairs(cb: (keys: Set<string>) => void) {
   return onSnapshot(laterRef, snap => cb(new Set(snap.data()?.duplicatePairs ?? [])), () => cb(new Set()))
 }
 
-export function setPairLater(a: string, b: string, later: boolean) {
-  return setDoc(laterRef, { duplicatePairs: later ? arrayUnion(pairKey(a, b)) : arrayRemove(pairKey(a, b)) }, { merge: true })
+// keys from pairKey(); a whole look-alike group at once.
+export function setPairsLater(keys: string[], later: boolean) {
+  if (!keys.length) return Promise.resolve()
+  return setDoc(laterRef, { duplicatePairs: later ? arrayUnion(...keys) : arrayRemove(...keys) }, { merge: true })
+}
+
+export function dismissDuplicatePairs(keys: string[]) {
+  if (!keys.length) return Promise.resolve()
+  return setDoc(ref, { duplicatePairs: arrayUnion(...keys) }, { merge: true })
 }
 
 // For the spreadsheet export: every prop's internal notes in one read.

@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 201 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 202 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -370,8 +370,12 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     one shelf). Find duplicates flags pairs whose bins differ (amber box + "In different bins (N)" filter);
     staff tap the bin they're in now, and `mergeProps` takes optional `binId` (must be one of the two
     props' bins) → kept prop gets that bin + its storage area. NOT deployed yet.
-  - Find duplicates (Oct 13): photos shown whole (object-contain), tap = full-screen zoom (ImageLightbox),
-    extra photos as thumbnails; "Decide later" sets a pair aside in `health/later` {duplicatePairs}
-    (staff, shared; app-only, no deploy needed); tabs To check / In different bins / Later.
+  - Find duplicates (Oct 13, owner feedback): pairs are JOINED INTO GROUPS (A~B, B~C → one card;
+    `groupPairs` in DuplicatesScreen) so e.g. 3 copies in 3 bins are decided once. Tap photo = keep that
+    one; 🔍 button = full-screen zoom (ImageLightbox); extra photos as thumbnails; "Not the same" leaves
+    one out (its pair with the kept prop is dismissed). Different bins → amber flag + tab "⚠ In different
+    bins"; staff pick the bin they're all in now; the app merges the prop already in that bin first (server
+    only accepts one of the two props' bins), then the rest. "Decide later" stores the group's pair keys
+    in `health/later` {duplicatePairs} (staff, shared); tabs To check / In different bins / Later.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.
