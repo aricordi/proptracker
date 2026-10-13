@@ -47,6 +47,7 @@ export interface Category {
   label: string;
   order: number;
   active: boolean;          // hidden categories stay on old props but can't be picked
+  turnaroundDays?: number;  // days before a prop in this category can go out again (blank = default)
 }
 
 export type Role = 'owner' | 'arts' | 'creator';

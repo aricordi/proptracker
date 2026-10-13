@@ -74,7 +74,10 @@ service cloud.firestore {
       allow read: if isMember();
       allow create, update: if isStaff()
         && request.resource.data.label is string
-        && request.resource.data.label.size() > 0;
+        && request.resource.data.label.size() > 0
+        && request.resource.data.get('turnaroundDays', 0) is int
+        && request.resource.data.get('turnaroundDays', 0) >= 0
+        && request.resource.data.get('turnaroundDays', 0) <= 30;
       allow delete: if false; // hide instead
     }
 

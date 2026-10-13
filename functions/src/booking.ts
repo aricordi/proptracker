@@ -22,6 +22,17 @@ export interface BookingEntry {
   qty: number
 }
 
+// Turnaround for one prop: its category's own setting if it has one (e.g.
+// costumes need washing), otherwise the default from Booking rules.
+export function turnaroundFor(
+  categoryId: string | undefined,
+  categoryTurnaround: Record<string, number | undefined>,
+  defaultDays: number,
+): number {
+  const own = categoryId ? categoryTurnaround[categoryId] : undefined
+  return Number.isInteger(own) && (own as number) >= 0 ? own as number : defaultDays
+}
+
 // ─── Day arithmetic ──────────────────────────────────────────────────────────
 
 export function isDay(s: unknown): s is string {

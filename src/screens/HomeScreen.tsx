@@ -10,6 +10,7 @@ import ItemCard, { type Badge } from '../components/ItemCard'
 import DateRangePicker from '../components/DateRangePicker'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useCart } from '../cart'
+import { useTurnaround } from '../hooks/useTurnaround'
 import { freeForRange, todayInStudio, earliestStart } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
 import { searchSimilar } from '../services/ai'
@@ -37,6 +38,7 @@ export default function HomeScreen() {
   const bookings   = useBookings()
   const settings   = useBookingSettings()
   const cart       = useCart()
+  const turnaround = useTurnaround()
   const navigate   = useNavigate()
   const [showDates, setShowDates] = useState(false)
   const today = todayInStudio()
@@ -46,7 +48,7 @@ export default function HomeScreen() {
   // With shoot dates picked, "free" means free for those dates (incl. turnaround).
   const freeFor = (i: Item) => dates
     ? freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' },
-        bookings[i.id] ?? [], dates.start, dates.end, today, settings.bufferDays)
+        bookings[i.id] ?? [], dates.start, dates.end, today, turnaround(i))
     : null
 
   const [query, setQuery] = useState('')
@@ -90,7 +92,7 @@ export default function HomeScreen() {
         && (!categoryFilter || i.categoryId === categoryFilter))
       .sort(byName),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, settings.bufferDays],
+    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, turnaround],
   )
 
   const matched = useMemo(

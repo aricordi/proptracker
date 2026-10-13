@@ -86,6 +86,9 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
   in America/Toronto.
 - Settings in `app_settings/booking`: `leadTimeDays` (default 3; arts/owner skip it)
   and `bufferDays` (turnaround, default 1). Editable at Admin → Booking rules (arts + owner).
+  Per-category turnaround (e.g. costumes need washing): `categories/{id}.turnaroundDays`
+  (0–30; blank = use the default), set on the same screen; `turnaroundFor()` in booking.ts
+  picks it, used by `createReservation` and the app's availability (`src/hooks/useTurnaround.ts`).
 - A unit is tied up from shoot start to end + buffer. If the end date passes and the
   reservation isn't marked returned, the hold stays open-ended (owner's choice:
   props come back only when someone marks them returned). Props on the old
@@ -151,7 +154,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 123 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 125 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main

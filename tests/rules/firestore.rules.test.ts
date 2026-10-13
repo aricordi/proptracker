@@ -85,6 +85,12 @@ describe('inventory', () => {
     await assertFails(setDoc(doc(db, 'locations', 'x'), { name: 'X' }))
     await assertFails(setDoc(doc(db, 'tags', 'x'), { label: 'X' }))
   })
+  it('arts can set a category turnaround (0–30 whole days); creators cannot', async () => {
+    await assertSucceeds(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: 2 }))
+    await assertFails(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: -1 }))
+    await assertFails(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: 1.5 }))
+    await assertFails(updateDoc(doc(as(CREATOR), 'categories', 'prop'), { turnaroundDays: 0 }))
+  })
   it('creators cannot see characters (arts-only field)', async () => {
     await assertFails(getDoc(doc(as(CREATOR), 'characters', 'c1')))
   })

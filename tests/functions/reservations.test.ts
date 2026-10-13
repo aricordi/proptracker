@@ -40,6 +40,16 @@ describe('one-of-a-kind props', () => {
     expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(12), day(12))).ok).toBe(false)
     expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(13), day(13))).ok).toBe(true)
   })
+  it('a category with its own turnaround (costumes being washed) uses that instead of the default', async () => {
+    await put('categories/costume', { label: 'Costume', active: true, turnaroundDays: 3 })
+    await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [], categoryId: 'costume' })
+    await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(10))
+    expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(13), day(13))).ok).toBe(false)
+    expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(14), day(14))).ok).toBe(true)
+    // Other categories keep the 1-day default.
+    await reserve(ALEX, [{ itemId: 'chairs', qty: 10 }], day(10), day(10))
+    expect((await reserve(BLAIR, [{ itemId: 'chairs', qty: 1 }], day(12), day(12))).ok).toBe(true)
+  })
   it('five people grabbing it at the same instant: exactly one wins', async () => {
     const racers = [ALEX, BLAIR, CASEY, ARTS, OWNER]
     const results = await Promise.all(racers.map(e => reserve(e, [{ itemId: 'cop', qty: 1 }])))

@@ -13,7 +13,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, type Caller } from './auth.js'
 import {
-  checkDates, freeForRange, todayInStudio, earliestStart,
+  checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
 } from './booking.js'
 
@@ -182,6 +182,9 @@ export const createReservation = onCall(CALLABLE, async req => {
 
   const resRef = db.collection('reservations').doc()
   const now = new Date().toISOString()
+  // Per-category turnaround (e.g. costumes need washing).
+  const cats = await db.collection('categories').get()
+  const categoryTurnaround = Object.fromEntries(cats.docs.map(d => [d.id, d.get('turnaroundDays') as number | undefined]))
 
   await db.runTransaction(async tx => {
     const snaps = lines.length
@@ -208,7 +211,8 @@ export const createReservation = onCall(CALLABLE, async req => {
       const quantity = Number.isInteger(item.get('quantity')) && item.get('quantity') >= 1 ? item.get('quantity') as number : 1
       const free = freeForRange(
         { quantity, missingQty: Number(item.get('missingQty') ?? 0), legacyCheckedOut: item.get('status') === 'checked-out' },
-        entriesOf(bookingSnaps[i]), startDate, endDate, today, settings.bufferDays,
+        entriesOf(bookingSnaps[i]), startDate, endDate, today,
+        turnaroundFor(item.get('categoryId') ?? item.get('itemType') ?? 'prop', categoryTurnaround, settings.bufferDays),
       )
       if (free < line.qty) {
         conflicts.push({ itemId: line.itemId, name, requested: line.qty, free, reason: 'not enough free for those dates' })

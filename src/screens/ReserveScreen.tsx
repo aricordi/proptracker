@@ -6,6 +6,7 @@ import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import DateRangePicker from '../components/DateRangePicker'
+import { useTurnaround } from '../hooks/useTurnaround'
 import ProofPhotos from '../components/ProofPhotos'
 import { createReservation, type Conflict } from '../services/reservations'
 import { freeForRange, todayInStudio, earliestStart, daysBetween } from '../../functions/src/booking'
@@ -18,6 +19,7 @@ export default function ReserveScreen() {
   const items = useItems()
   const bookings = useBookings()
   const settings = useBookingSettings()
+  const turnaround = useTurnaround()
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
 
@@ -34,7 +36,7 @@ export default function ReserveScreen() {
     const item = itemById.get(itemId)
     const free = item && dates
       ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: item.status === 'checked-out' },
-          bookings[itemId] ?? [], dates.start, dates.end, today, settings.bufferDays)
+          bookings[itemId] ?? [], dates.start, dates.end, today, turnaround(item))
       : null
     const problem = !item ? 'No longer in the inventory'
       : item.archived ? 'No longer in the inventory'

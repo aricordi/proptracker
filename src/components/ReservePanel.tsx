@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useCart } from '../cart'
 import { useSession } from '../auth'
 import { useBookingSettings } from '../hooks/useBookings'
+import { useTurnaround } from '../hooks/useTurnaround'
 import AvailabilityCalendar from './AvailabilityCalendar'
 import DateRangePicker from './DateRangePicker'
 import { freeForRange, todayInStudio, earliestStart, type BookingEntry } from '../../functions/src/booking'
@@ -15,12 +16,13 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const cart = useCart()
   const { isStaff } = useSession()
   const settings = useBookingSettings()
+  const turnaroundDays = useTurnaround()(item)
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
   const legacyOut = item.status === 'checked-out'
   const dates = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
   const free = dates
-    ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, settings.bufferDays)
+    ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, turnaroundDays)
     : null
   const inCart = cart.lines[item.id] ?? 0
   const [qty, setQty] = useState(Math.max(1, inCart))
@@ -38,7 +40,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
     <div className="space-y-3">
       <p className="text-pt-muted text-xs uppercase tracking-wider">Availability</p>
       <AvailabilityCalendar quantity={Math.max(0, item.quantity - (item.missingQty ?? 0))} entries={entries} today={today}
-        bufferDays={settings.bufferDays} unavailable={legacyOut} selected={dates} onPick={pick} />
+        bufferDays={turnaroundDays} unavailable={legacyOut} selected={dates} onPick={pick} />
       {note && <p className="text-amber-400 text-xs">{note}</p>}
       {legacyOut && <p className="text-amber-400 text-sm">Out on a quick checkout. Unavailable until the arts team marks it returned.</p>}
 
