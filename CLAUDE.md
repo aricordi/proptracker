@@ -312,6 +312,9 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     history). Creator tabs: Props / Gear / Bookings / Account. Equipment tabs: Bookings / Bundles / All gear /
     Account (home = /gear/bookings). Admin: "Book gear", owner "Gear bookings".
   - Seed: 2 bundles (FX3 camera, 600d light) + C-stand extra (4) with piece names.
+  Props category "Gear" (id 'gear') → "Tech props" (owner, Oct 13): default label changed in src/config.ts and
+  ensureDefaultCategories renames the live doc once if its label is still exactly "Gear" (runs when staff open the app).
+  Step 2 backend deploy started Oct 13 with the owner's OK.
   NEXT: step 3 (pickup check by the creator in the 30-min window, return photo, team check-in, late, queue).
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle

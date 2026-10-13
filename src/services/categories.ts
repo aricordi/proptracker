@@ -16,13 +16,17 @@ export function subscribeToCategories(cb: (cats: Category[]) => void) {
   )
 }
 
-// Create any missing default categories. Existing ones are never touched,
-// so renaming or hiding a default category sticks.
+// Create any missing default categories. Existing ones are never touched (apart from
+// the one-time Gear → Tech props rename below), so renaming or hiding a category sticks.
 export async function ensureDefaultCategories() {
   await Promise.all(DEFAULT_CATEGORIES.map(({ id, label }, order) =>
     runTransaction(db, async tx => {
       const ref = doc(col, id)
-      if ((await tx.get(ref)).exists()) return
+      const snap = await tx.get(ref)
+      // One-time rename (owner, Oct 13): the props category "Gear" became "Tech props",
+      // since real gear has its own Gear tab. Only if it still has the old name.
+      if (snap.exists() && id === 'gear' && snap.get('label') === 'Gear') { tx.update(ref, { label }); return }
+      if (snap.exists()) return
       tx.set(ref, { label, order, active: true })
     })
   ))
