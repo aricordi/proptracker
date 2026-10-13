@@ -11,13 +11,12 @@ import { logger } from 'firebase-functions'
 import nodemailer from 'nodemailer'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 
-export const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD')
-
-// Flip to true once SMTP_PASSWORD exists in Secret Manager: deploys fail if a
-// function asks for a secret that doesn't exist. Until then, emails are only
+// Flip to true once SMTP_PASSWORD exists in Secret Manager: a deploy fails if the
+// code even mentions a secret that doesn't exist. Until then, emails are only
 // logged as "skipped" (the local emulator always uses practice sending).
 const SMTP_SECRET_READY = false
-const smtpSecrets = SMTP_SECRET_READY || process.env.FUNCTIONS_EMULATOR === 'true' ? [SMTP_PASSWORD] : []
+const SMTP_PASSWORD = SMTP_SECRET_READY || process.env.FUNCTIONS_EMULATOR === 'true' ? defineSecret('SMTP_PASSWORD') : null
+const smtpSecrets = SMTP_PASSWORD ? [SMTP_PASSWORD] : []
 
 export interface EmailSettings {
   enabled: boolean
@@ -55,8 +54,7 @@ async function recipientsFor(to: string): Promise<string[]> {
 }
 
 function password(): string {
-  if (!smtpSecrets.length) return ''
-  try { return SMTP_PASSWORD.value() } catch { return '' }
+  try { return SMTP_PASSWORD?.value() ?? '' } catch { return '' }
 }
 
 export const sendQueuedEmail = onDocumentCreated({ document: 'outbox/{id}', secrets: smtpSecrets }, async event => {

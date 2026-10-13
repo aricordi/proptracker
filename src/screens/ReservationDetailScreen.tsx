@@ -65,7 +65,11 @@ export default function ReservationDetailScreen() {
           {active && pickup !== res.startDate && (
             <p className="text-amber-300 text-sm mt-0.5">Pick up {formatDay(pickup)}: the prop room is closed on the shoot day.</p>
           )}
-          {isStaff && <p className="text-pt-muted text-sm mt-0.5">Booked by {res.creatorName} · {res.creatorEmail}</p>}
+          {isStaff && (
+            <button onClick={() => navigate(`/people/${encodeURIComponent(res.creatorEmail)}`)} className="text-pt-muted text-sm mt-0.5 text-left">
+              Booked by <span className="text-pt-accent">{res.creatorName}</span> · {res.creatorEmail} ›
+            </button>
+          )}
         </div>
 
         {active || s === 'returned' ? <Journey res={res} /> : null}

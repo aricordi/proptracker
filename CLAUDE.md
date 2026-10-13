@@ -136,8 +136,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   booking page shows progress line, picking list grouped by storage area → bin with instant
   double-tap-safe ticks, pack photos, pickup sign-off, return form, check-in form, history.
   Creators: "My bookings", "+ New request", build requests on the reservation screen.
-- Not built yet (Phase 5 remainder): overall audit log screen, per-prop and per-creator
-  history pages, late-return flags beyond the "Overdue" badge.
+- Phase 5 remainder was built Oct 13 (see "Next" below).
 
 ### Fixes after first live test (Oct 12)
 - Callable functions were unreachable (HTTP 401): failed first-deploy creates left them without
@@ -160,7 +159,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 160 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 164 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -188,6 +187,8 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 
 ### Next
 - Go-live (owner adding GitHub secrets).
+- Deploy gotcha: the deploy fails if the code even DECLARES a secret that doesn't exist, so
+  `defineSecret('SMTP_PASSWORD')` only runs when SMTP_SECRET_READY is true (or in the emulator).
 - Email ON HOLD (Oct 13): no new Gmail possible; Proton needs a domain; Yahoo's app-password button is
   greyed out (owner thinks account must age a few days); iCloud is the fallback. To turn on: owner
   stores SMTP_PASSWORD in Secret Manager → set `SMTP_SECRET_READY = true` in functions/src/email.ts →
@@ -221,6 +222,10 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
      history entry into `{resId}_h{n}` + "not available" marks. Screen: Admin → Activity
      (`src/components/ActivityList.tsx`, reusable with itemId / creatorEmail filters). Indexes for
      activity (kind/itemIds/creatorEmail + at desc) in firestore.indexes.json.
-  4. History pages per prop and per creator; damaged/missing with replacement cost + running
-     total (records only, no billing/settling).
+  4. ✅ History pages (built Oct 13): prop page "Show history" (staff; `src/components/PropHistory.tsx`:
+     "Who had it" from reservations where itemIds contains the prop + "Changes" from activity) and
+     `/people/:email` (staff; `PersonHistoryScreen`, opened from People → person → "Bookings &
+     history" or "Booked by" on a booking): bookings, late returns (`wasReturnedLate`), damaged/
+     missing with current replacement cost and total (`src/lib/history.ts`; records only, no billing).
+  PHASE 5 IS COMPLETE except email sending (on hold). Owner to test on the preview.
 - Phase 6: batch import.

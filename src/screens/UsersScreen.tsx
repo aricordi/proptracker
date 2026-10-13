@@ -179,6 +179,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
   const [role, setRole] = useState<Role>('creator')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => { if (user) { setRole(user.role); setError(null) } }, [user])
 
@@ -195,6 +196,10 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
     <BottomSheet open onClose={onClose} title={user.name || user.email}>
       <div className="space-y-4">
         {user.name && <p className="text-pt-muted text-sm break-all">{user.email}</p>}
+        <button onClick={() => navigate(`/people/${encodeURIComponent(user.email)}`)}
+          className="w-full py-3 rounded-xl bg-pt-bg border border-pt-border text-pt-text font-medium active:opacity-70">
+          Bookings & history ›
+        </button>
         {isOwner && (
           <div>
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Access</p>

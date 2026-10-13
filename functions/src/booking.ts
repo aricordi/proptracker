@@ -205,6 +205,11 @@ export function cleanClosedDays(d: { closedWeekdays?: unknown; closedDates?: unk
   }
 }
 
+// Was a booking brought back late? (Judged by when the creator returned it.)
+export function wasReturnedLate(end: string, returnedAt: string, closed: ClosedDays): boolean {
+  return isLate('collected', end, closed, new Date(returnedAt))
+}
+
 // ─── Upcoming bookings at risk ───────────────────────────────────────────────
 
 // Why a prop in an upcoming booking might not be ready: someone else has it

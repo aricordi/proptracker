@@ -61,6 +61,12 @@ export function subscribeToReservations(
   return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reservation))), () => cb([]))
 }
 
+// Every booking that included one prop, newest first (staff only).
+export function subscribeToItemReservations(itemId: string, cb: (list: Reservation[]) => void) {
+  return onSnapshot(query(collection(db, 'reservations'), where('itemIds', 'array-contains', itemId), orderBy('startDate', 'desc')),
+    snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Reservation))), () => cb([]))
+}
+
 export function subscribeToReservation(id: string, cb: (r: Reservation | null) => void) {
   return onSnapshot(doc(db, 'reservations', id),
     snap => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as Reservation) : null),
