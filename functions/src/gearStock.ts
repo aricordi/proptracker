@@ -2,13 +2,18 @@
 // Staff keep a list of every piece of gear (gear_items, with how many they have)
 // and build bundles from it (gear_bundles). Creators can only book whole bundles.
 // A piece can only be in one bundle at a time, so bundles can never share a battery.
+// The team offers two kinds of thing to creators (nothing else is visible to them):
+//   'bundle' — a case of pieces, booked whole, never split
+//   'extra'  — an add-on of ONE kind of piece (e.g. sandbags); the team sets how many
+//              are offered, creators pick how many they need
 
 export const GEAR_CATEGORIES = ['Camera', 'Lens', 'Lighting', 'Audio', 'Drones', 'Power', 'Grip', 'Monitors', 'Other'] as const
 export type GearCategory = typeof GEAR_CATEGORIES[number]
 
 export interface BundlePiece { itemId: string; qty: number }
 export interface StockItem { id: string; name: string; have: number; archived?: boolean }
-export interface StockBundle { id: string; pieces: BundlePiece[]; archived?: boolean }
+export type OfferKind = 'bundle' | 'extra'
+export interface StockBundle { id: string; pieces: BundlePiece[]; archived?: boolean; kind?: OfferKind }
 
 export const MAX_PIECES = 60   // different kinds of piece in one bundle
 
@@ -41,9 +46,10 @@ export function tidyPieces(pieces: unknown): BundlePiece[] {
 }
 
 // Why a bundle can't be saved, in plain words (empty list = fine).
-export function bundleProblems(pieces: BundlePiece[], items: StockItem[], bundles: StockBundle[], bundleId?: string): string[] {
+export function bundleProblems(pieces: BundlePiece[], items: StockItem[], bundles: StockBundle[], bundleId?: string, kind: OfferKind = 'bundle'): string[] {
   const problems: string[] = []
-  if (!pieces.length) problems.push('Add at least one piece.')
+  if (!pieces.length) problems.push(kind === 'extra' ? 'Pick the piece to offer.' : 'Add at least one piece.')
+  if (kind === 'extra' && pieces.length > 1) problems.push('An add-on extra is one kind of piece. Make a bundle for a set of pieces.')
   if (pieces.length > MAX_PIECES) problems.push(`A bundle can have at most ${MAX_PIECES} different pieces.`)
   const byId = new Map(items.map(i => [i.id, i]))
   const bundled = bundledCounts(bundles, bundleId)

@@ -5,7 +5,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { db, requireRole, CALLABLE } from './auth.js'
 import {
   GEAR_CATEGORIES, tidyPieces, bundleProblems, haveProblem,
-  type StockItem, type StockBundle, type GearCategory,
+  type StockItem, type StockBundle, type GearCategory, type OfferKind,
 } from './gearStock.js'
 
 const GEAR_STAFF = ['owner', 'equipment'] as const
@@ -48,13 +48,15 @@ export const saveGearItem = onCall(CALLABLE, async req => {
   return { id: ref.id }
 })
 
-// Build or edit a bundle. Only pieces that aren't already in another bundle can be used.
+// Build or edit a bundle (or an add-on extra). Only pieces that aren't already in
+// another bundle or extra can be used. Creators only ever see these, never loose pieces.
 export const saveGearBundle = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...GEAR_STAFF])
   const d = req.data ?? {}
   const name = str(d.name, 120)
   if (!name) throw new HttpsError('invalid-argument', 'Give the bundle a name.')
   const pieces = tidyPieces(d.pieces)
+  const kind: OfferKind = d.kind === 'extra' ? 'extra' : 'bundle'
   const now = new Date().toISOString()
 
   const ref = typeof d.id === 'string' && d.id ? db.doc(`gear_bundles/${d.id}`) : db.collection('gear_bundles').doc()
@@ -63,10 +65,11 @@ export const saveGearBundle = onCall(CALLABLE, async req => {
     if (typeof d.id === 'string' && d.id && !snap.exists) throw new HttpsError('not-found', 'That bundle no longer exists.')
     if (snap.get('archived') === true) throw new HttpsError('failed-precondition', 'Bring the bundle back before editing it.')
     // Gear step 2 adds: refuse while the bundle is booked or out.
-    const problems = bundleProblems(pieces, items.docs.map(i => asItem(i.id, i.data())), bundles.docs.map(b => asBundle(b.id, b.data())), ref.id)
+    if (snap.exists && (snap.get('kind') ?? 'bundle') !== kind) throw new HttpsError('failed-precondition', "A bundle can't become an add-on extra (or the other way round). Make a new one instead.")
+    const problems = bundleProblems(pieces, items.docs.map(i => asItem(i.id, i.data())), bundles.docs.map(b => asBundle(b.id, b.data())), ref.id, kind)
     if (problems.length) throw new HttpsError('failed-precondition', problems.join(' '))
     tx.set(ref, {
-      name, category: category(d.category), description: str(d.description, 500), photos: photosOf(d.photos),
+      name, kind, category: category(d.category), description: str(d.description, 500), photos: photosOf(d.photos),
       pieces, archived: false, updatedAt: now, updatedBy: caller.email,
       ...(snap.exists ? {} : { createdAt: now, createdBy: caller.email }),
     }, { merge: true })

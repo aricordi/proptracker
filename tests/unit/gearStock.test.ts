@@ -41,4 +41,9 @@ describe('gear stock', () => {
     expect(haveProblem(items[1], 5, bundles)).toBeNull()
     expect(haveProblem(items[1], 4, bundles)).toMatch(/5 "NP-FZ100 battery" are in bundles/)
   })
+  it('an add-on extra is exactly one kind of piece', () => {
+    expect(bundleProblems([{ itemId: 'bat', qty: 1 }], items, bundles, undefined, 'extra')).toEqual([])
+    expect(bundleProblems([], items, bundles, undefined, 'extra')).toEqual(['Pick the piece to offer.'])
+    expect(bundleProblems([{ itemId: 'bat', qty: 1 }, { itemId: 'cam', qty: 1 }], items, [], undefined, 'extra')[0]).toMatch(/one kind of piece/)
+  })
 })

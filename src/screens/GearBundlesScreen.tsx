@@ -15,7 +15,11 @@ export default function GearBundlesScreen() {
   useEffect(() => subscribeToGearBundles(setBundles), [])
   useEffect(() => subscribeToGearItems(setItems), [])
   const itemName = useMemo(() => new Map(items.map(i => [i.id, i.name])), [items])
-  const list = (bundles ?? []).filter(b => !!b.archived === showArchived)
+  const shown = (bundles ?? []).filter(b => !!b.archived === showArchived)
+  const sections = [
+    { title: 'Bundles', note: 'Booked whole, never split', list: shown.filter(b => (b.kind ?? 'bundle') === 'bundle') },
+    { title: 'Add-on extras', note: 'Creators pick how many', list: shown.filter(b => b.kind === 'extra') },
+  ]
 
   async function bringBack(b: GearBundle) {
     setError(null)
@@ -29,12 +33,18 @@ export default function GearBundlesScreen() {
         <button onClick={() => navigate('/gear/items')} className="text-pt-muted text-sm px-3 py-1.5 rounded-xl border border-pt-border">All gear</button>
       </div>
       <div className="p-4 space-y-3">
-        <button onClick={() => navigate('/gear/bundles/new')} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold">+ Build a bundle</button>
-        <p className="text-pt-muted text-sm">Creators only see bundles and always get the whole thing. Build them from the pieces in All gear.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => navigate('/gear/bundles/new')} className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold">+ Bundle</button>
+          <button onClick={() => navigate('/gear/bundles/new?kind=extra')} className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold">+ Add-on extra</button>
+        </div>
+        <p className="text-pt-muted text-sm">Creators only see what's here, never the loose pieces in All gear.</p>
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
         {bundles === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {bundles && list.length === 0 && <p className="text-pt-muted text-sm text-center py-6">{showArchived ? 'No archived bundles.' : 'No bundles yet.'}</p>}
-        {list.map(b => (
+        {bundles && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">{showArchived ? 'Nothing archived.' : 'Nothing offered to creators yet.'}</p>}
+        {sections.filter(s => s.list.length).map(s => (
+          <div key={s.title} className="space-y-2">
+            <p className="text-pt-muted text-xs uppercase tracking-wider">{s.title} <span className="normal-case tracking-normal">· {s.note}</span></p>
+        {s.list.map(b => (
           <div key={b.id} className="bg-pt-surface border border-pt-border rounded-2xl p-3 flex gap-3">
             <button onClick={() => !b.archived && navigate(`/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">
               <div className="w-16 h-16 rounded-xl bg-pt-bg overflow-hidden shrink-0 flex items-center justify-center text-pt-muted text-xs">
@@ -42,11 +52,17 @@ export default function GearBundlesScreen() {
               </div>
               <div className="min-w-0">
                 <p className="text-pt-text font-medium truncate">{b.name}</p>
-                <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
-                <p className="text-pt-muted text-xs truncate">{b.pieces.slice(0, 3).map(p => `${p.qty}× ${itemName.get(p.itemId) ?? '…'}`).join(', ')}{b.pieces.length > 3 ? '…' : ''}</p>
+                {b.kind === 'extra'
+                  ? <p className="text-pt-muted text-xs">{pieceTotal(b.pieces)} offered</p>
+                  : <>
+                      <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
+                      <p className="text-pt-muted text-xs truncate">{b.pieces.slice(0, 3).map(p => `${p.qty}× ${itemName.get(p.itemId) ?? '…'}`).join(', ')}{b.pieces.length > 3 ? '…' : ''}</p>
+                    </>}
               </div>
             </button>
             {b.archived && <button onClick={() => bringBack(b)} className="text-pt-accent text-sm shrink-0">Bring back</button>}
+          </div>
+        ))}
           </div>
         ))}
         <button onClick={() => setShowArchived(v => !v)} className="text-pt-muted text-sm underline">

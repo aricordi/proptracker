@@ -1,5 +1,6 @@
 import { signInWithPopup, signInWithCredential, GoogleAuthProvider } from 'firebase/auth'
 import { auth, USING_EMULATORS } from '../firebase'
+import BrandMark from '../components/BrandMark'
 
 // Emulator only: one-tap sign-in as a pretend Google account, so each role
 // can be tried without real accounts. Never shown on the live site.
@@ -28,9 +29,9 @@ export default function LoginScreen() {
   return (
     <div className="min-h-screen bg-pt-bg flex flex-col items-center justify-center p-8 pt-safe">
       <div className="mb-10 text-center">
-        <img src="/icons/icon.svg" alt="PropTracker" className="w-24 h-24 mx-auto mb-5 rounded-2xl" />
-        <h1 className="font-display text-5xl text-pt-accent tracking-wide">PropTracker</h1>
-        <p className="text-pt-muted mt-2 text-sm">Attic Studios prop inventory</p>
+        <BrandMark className="w-40 mx-auto mb-8 text-pt-text" />
+        <h1 className="text-3xl font-semibold tracking-tight text-pt-text">Welcome</h1>
+        <p className="text-pt-muted mt-2 text-sm">Props and gear for Prime Capitol shoots</p>
       </div>
 
       <button

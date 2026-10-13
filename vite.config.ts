@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'PropTracker',
         short_name: 'PropTracker',
-        description: 'Prop & costume inventory for Attic Studios productions',
+        description: 'Props, gear and bookings for Prime Capitol productions',
         theme_color: '#1C1917',
         background_color: '#1C1917',
         display: 'standalone',

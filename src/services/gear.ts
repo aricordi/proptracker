@@ -1,10 +1,10 @@
 import { collection, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
-import type { BundlePiece, GearCategory } from '../../functions/src/gearStock'
+import type { BundlePiece, GearCategory, OfferKind } from '../../functions/src/gearStock'
 
 export { GEAR_CATEGORIES, bundledCounts, looseCount, bundleProblems, pieceTotal } from '../../functions/src/gearStock'
-export type { BundlePiece, GearCategory } from '../../functions/src/gearStock'
+export type { BundlePiece, GearCategory, OfferKind } from '../../functions/src/gearStock'
 
 // One kind of gear the company owns ("NP-FZ100 battery", have 6). Gear team only.
 export interface GearItem {
@@ -19,9 +19,11 @@ export interface GearItem {
   archived?: boolean
 }
 
-// What creators book, whole: a case of pieces.
+// What creators see and book: a bundle (a case of pieces, booked whole) or an
+// add-on extra (one kind of piece; the team sets how many are offered).
 export interface GearBundle {
   id: string
+  kind?: OfferKind           // missing = 'bundle'
   name: string
   category: GearCategory
   description?: string

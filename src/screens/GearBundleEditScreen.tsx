@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import ProofPhotos from '../components/ProofPhotos'
 import {
   subscribeToGearItems, subscribeToGearBundles, saveGearBundle, setGearBundleArchived,
   bundledCounts, looseCount, bundleProblems, pieceTotal, GEAR_CATEGORIES,
-  type GearItem, type GearBundle, type GearCategory,
+  type GearItem, type GearBundle, type GearCategory, type OfferKind,
 } from '../services/gear'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
@@ -15,6 +15,9 @@ export default function GearBundleEditScreen() {
   const { id } = useParams()
   const isNew = !id || id === 'new'
   const navigate = useNavigate()
+  const [params] = useSearchParams()
+  const [kind, setKind] = useState<OfferKind>(params.get('kind') === 'extra' ? 'extra' : 'bundle')
+  const isExtra = kind === 'extra'
   const [items, setItems] = useState<GearItem[] | null>(null)
   const [bundles, setBundles] = useState<GearBundle[] | null>(null)
   const [loaded, setLoaded] = useState(isNew)
@@ -35,7 +38,7 @@ export default function GearBundleEditScreen() {
     if (isNew || loaded || !bundles) return
     const b = bundles.find(x => x.id === id)
     if (!b) return
-    setName(b.name); setCategory(b.category); setDescription(b.description ?? ''); setPhotos(b.photos ?? [])
+    setName(b.name); setKind(b.kind ?? 'bundle'); setCategory(b.category); setDescription(b.description ?? ''); setPhotos(b.photos ?? [])
     setPick(Object.fromEntries(b.pieces.map(p => [p.itemId, p.qty])))
     setLoaded(true)
   }, [bundles, id, isNew, loaded])
@@ -46,17 +49,19 @@ export default function GearBundleEditScreen() {
   const freeFor = (i: GearItem) => looseCount({ id: i.id, name: i.name, have: i.have }, others)
   const pieces = Object.entries(pick).filter(([, n]) => n > 0).map(([itemId, qty]) => ({ itemId, qty }))
   const problems = items && bundles ? bundleProblems(pieces, stock.map(i => ({ id: i.id, name: i.name, have: i.have })),
-    bundles.map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived })), isNew ? undefined : id) : []
+    bundles.map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived })), isNew ? undefined : id, kind) : []
   const shown = stock.filter(i => (freeFor(i) > 0 || pick[i.id]) && (!q.trim() || i.name.toLowerCase().includes(q.trim().toLowerCase())))
 
   function step(i: GearItem, d: number) {
-    setPick(p => ({ ...p, [i.id]: Math.max(0, Math.min(freeFor(i), (p[i.id] ?? 0) + d)) }))
+    // An add-on extra is one kind of piece: picking another one replaces it.
+    setPick(p => ({ ...(isExtra ? {} : p), [i.id]: Math.max(0, Math.min(freeFor(i), (isExtra && !p[i.id] ? 0 : p[i.id] ?? 0) + d)) }))
+    if (isExtra && !name.trim() && d > 0) setName(i.name)
   }
 
   async function save() {
     setBusy(true); setError(null)
     try {
-      await saveGearBundle({ id: isNew ? undefined : id, name, category, description, photos, pieces })
+      await saveGearBundle({ id: isNew ? undefined : id, kind, name, category, description, photos, pieces })
       navigate('/gear/bundles', { replace: true })
     } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
@@ -74,32 +79,45 @@ export default function GearBundleEditScreen() {
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-xl text-pt-text">{isNew ? 'Build a bundle' : 'Edit bundle'}</h1>
+        <h1 className="font-display text-xl text-pt-text">{isNew ? (isExtra ? 'Offer an add-on extra' : 'Build a bundle') : (isExtra ? 'Edit add-on extra' : 'Edit bundle')}</h1>
       </div>
       {!loaded ? <p className="text-pt-muted text-sm text-center p-6">Loading…</p> : (
       <div className="p-4 space-y-4">
+        {isNew && (
+          <div className="grid grid-cols-2 gap-1 p-1 bg-pt-surface border border-pt-border rounded-xl">
+            {([['bundle', 'Bundle'], ['extra', 'Add-on extra']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => { setKind(k); setPick({}) }}
+                className={`py-2 rounded-lg text-sm font-medium ${kind === k ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>{l}</button>
+            ))}
+          </div>
+        )}
+        <p className="text-pt-muted text-sm">
+          {isExtra
+            ? 'One kind of piece creators can add to their booking, like sandbags or spare batteries. You choose how many to offer; they pick how many they need.'
+            : 'A case of pieces creators book as a whole. It can never be split.'}
+        </p>
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-3">
-          <label className="block space-y-1"><span className={label}>Bundle name</span>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Sony FX3 Cinema Bundle" className={input} /></label>
+          <label className="block space-y-1"><span className={label}>{isExtra ? 'Name creators see' : 'Bundle name'}</span>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder={isExtra ? 'e.g. Sandbag' : 'e.g. Sony FX3 Cinema Bundle'} className={input} /></label>
           <label className="block space-y-1"><span className={label}>Type</span>
             <select value={category} onChange={e => setCategory(e.target.value as GearCategory)} className={input}>
               {GEAR_CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select></label>
           <label className="block space-y-1"><span className={label}>Description for creators</span>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional: what it's good for" className={input} /></label>
-          <ProofPhotos folder="gear/bundles" urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the case" hint="Creators see this" max={4} />
+          <ProofPhotos folder="gear/bundles" urls={photos} onChange={setPhotos} onUploading={setUploading} label={isExtra ? 'Photo' : 'Photo of the case'} hint="Creators see this" max={4} />
         </div>
 
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-1">
-          <p className={label}>In this bundle ({pieceTotal(pieces)} pieces)</p>
-          {pieces.length === 0 && <p className="text-pt-muted text-sm">Add pieces from the list below.</p>}
+          <p className={label}>{isExtra ? `Offered to creators (${pieceTotal(pieces)})` : `In this bundle (${pieceTotal(pieces)} pieces)`}</p>
+          {pieces.length === 0 && <p className="text-pt-muted text-sm">{isExtra ? 'Pick the piece below and how many to offer.' : 'Add pieces from the list below.'}</p>}
           {pieces.map(p => (
             <p key={p.itemId} className="text-pt-text text-sm"><span className="text-pt-accent font-bold tabular-nums">{p.qty}×</span> {itemName.get(p.itemId) ?? 'Unknown piece'}</p>
           ))}
         </div>
 
         <div className="space-y-2">
-          <p className={label}>Add pieces (only ones not already in another bundle)</p>
+          <p className={label}>{isExtra ? 'Choose the piece (only ones not already in a bundle or extra)' : 'Add pieces (only ones not already in another bundle)'}</p>
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search gear" className={input} />
           {items && stock.length === 0 && <p className="text-pt-muted text-sm">No gear yet. Add pieces in <button onClick={() => navigate('/gear/items')} className="text-pt-accent">All gear</button> first.</p>}
           {GEAR_CATEGORIES.map(cat => {
@@ -134,11 +152,11 @@ export default function GearBundleEditScreen() {
         )}
         <button onClick={save} disabled={busy || uploading || !name.trim() || problems.length > 0}
           className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
-          {busy ? 'Saving…' : isNew ? 'Save bundle' : 'Save changes'}
+          {busy ? 'Saving…' : isNew ? (isExtra ? 'Save add-on extra' : 'Save bundle') : 'Save changes'}
         </button>
         {!isNew && (
           <button onClick={archive} disabled={busy} className="w-full py-2 text-pt-muted text-sm disabled:opacity-40">
-            Archive this bundle (its pieces become free again)
+            {isExtra ? 'Stop offering this extra (its pieces become free again)' : 'Archive this bundle (its pieces become free again)'}
           </button>
         )}
       </div>

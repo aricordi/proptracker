@@ -65,4 +65,18 @@ describe('bundles', () => {
     expect(back.error).toBe('FAILED_PRECONDITION')
     expect(back.message).toMatch(/Can't bring it back/)
   })
+
+  it('add-on extras: one kind of piece, offered in a set number, sharing the same stock', async () => {
+    await put('gear_items/sand', { name: 'Sandbag', category: 'Grip', have: 12, archived: false })
+    const r = await call('saveGearBundle', { kind: 'extra', name: 'Sandbag', category: 'Grip', pieces: [{ itemId: 'sand', qty: 8 }] }, GEAR)
+    expect(await getDoc(`gear_bundles/${r.result.id}`)).toMatchObject({ kind: 'extra', pieces: [{ itemId: 'sand', qty: 8 }] })
+    // Two kinds of piece can't be one extra.
+    const two = await call('saveGearBundle', { kind: 'extra', name: 'Mix', pieces: [{ itemId: 'sand', qty: 1 }, { itemId: 'bat', qty: 1 }] }, GEAR)
+    expect(two.error).toBe('FAILED_PRECONDITION')
+    // Only 4 sandbags are left for bundles now.
+    expect((await call('saveGearBundle', { name: 'Grip bundle', pieces: [{ itemId: 'sand', qty: 5 }] }, GEAR)).error).toBe('FAILED_PRECONDITION')
+    expect((await call('saveGearBundle', { name: 'Grip bundle', pieces: [{ itemId: 'sand', qty: 4 }] }, GEAR)).ok).toBe(true)
+    // An extra can't turn into a bundle.
+    expect((await call('saveGearBundle', { id: r.result.id, kind: 'bundle', name: 'Sandbags', pieces: [{ itemId: 'sand', qty: 8 }] }, GEAR)).error).toBe('FAILED_PRECONDITION')
+  })
 })
