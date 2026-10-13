@@ -25,7 +25,7 @@ export const DEFAULT_CATEGORIES = [
   { id: 'prop',         label: 'Prop' },
   { id: 'costume',      label: 'Costume' },
   { id: 'set-dressing', label: 'Set Dressing' },
-  { id: 'gear',         label: 'Gear' },
+  { id: 'gear',         label: 'Tech props' },   // was "Gear"; real gear now has its own Gear tab
 ];
 
 // Props whose replacement cost is at or above this (CAD) get a prominent

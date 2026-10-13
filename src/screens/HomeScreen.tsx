@@ -177,7 +177,7 @@ export default function HomeScreen() {
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search props, costumes, gear…"
+            placeholder="Search props, costumes, set dressing…"
             enterKeyHint="search"
             className="w-full bg-pt-surface border border-pt-border rounded-xl pl-10 pr-10 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base"
           />
