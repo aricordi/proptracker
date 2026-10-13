@@ -244,6 +244,16 @@ own queue), packages for gear, people (actors/crew/makeup) with availability, an
 props/bookings. Calendar sync may come up with availability — ask the owner.
 
 ### Next
+- Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
+  (told the owner preview + live share ONE database; roles/rules are what protect data). Before inviting:
+  go live (hosting) + DATABASE BACKUPS (ask OK). GEAR SPRINT STARTED: clickable mockup published at
+  https://claude.ai/artifact/2ByduqvsYrCNLd59rTz332 (creator: hours picker, kit cards with free/taken,
+  kit page with pieces, day timeline, next-free + similar kits, extras with counts, one "My shoot" basket
+  with props + gear; equipment team: queue by time, tick-every-piece hand-over/check-in with "missing",
+  Out tab with late, inventory). OPEN QUESTIONS shown with guesses: notice (1 open day?), closed days
+  (same as props?), late (30 min after end?), missing piece (kit bookable with warning?), one basket for
+  props + gear (yes?), hand-over photo (no?), extras by count + hours (yes?), value shown to creators (staff only?).
+  Wait for the owner's answers before building gear.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
   then GO LIVE (deploy hosting; needs OK), then delete the OLD exposed Gemini key and (with OK)
