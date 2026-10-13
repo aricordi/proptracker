@@ -216,6 +216,13 @@ OWNER DECISIONS for the sprint (Oct 13; owner answers the design questions perso
   EVERY PIECE in the case; creators book with an INSTANT HOLD (gear team can decline), like props;
   run by a separate EQUIPMENT TEAM role (sees gear queue + gear inventory, not props); when a kit is
   taken show SIMILAR FREE KITS and WHEN IT'S NEXT FREE (no waitlist).
+- CASTING (answered): separate CASTING TEAM role (casting only). Casting team keeps actors'
+  availability (actors do NOT log in). Booking = creator REQUESTS, casting CONFIRMS (nothing final
+  until confirmed). Creators can BOTH request specific actors by name AND post a ROLE (count, gender,
+  ages, look, notes, call time; e.g. "x20 students 10M/10F 20-30 improv") for casting to fill.
+  Hours = one block per day, CALL TIME → WRAP. Profile: photos/headshots + look, age range, gender,
+  height, skills & notes (+ past shoots), rate & contact (STAFF ONLY). Creators see photos, look,
+  skills, availability (not rates/contact). New people found for a role are ADDED TO THE ROSTER.
 Suggested shape: generalise props into typed "bookable things" with departments (each with its
 own queue), packages for gear, people (actors/crew/makeup) with availability, and a single
 "Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
