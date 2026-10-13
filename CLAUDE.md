@@ -59,6 +59,12 @@ recommended): `signInDomain()` in src/firebase.ts uses the app's own address as 
 addresses (arbcreative, web.app, preview). Owner added https://<each>/__/auth/handler to the OAuth web client's
 Authorized redirect URIs (Oct 13). A NEW address needs both: add it there AND to signInDomain's list + authorized domains.
 On the preview Oct 13 (run 81); owner confirmed iPhone sign-in WORKS on the preview. Not live yet (next live deploy).
+UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
+in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
+(roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
+it only had roles/firebasestorage.serviceAgent. The owner never noticed (isOwner() is checked by email first).
+Fix = owner grants that role in Google Cloud IAM ("Read server logs" now shows this agent's roles). Proof photos
+are now shrunk before upload and show "Not allowed"/"No signal" when one fails.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
