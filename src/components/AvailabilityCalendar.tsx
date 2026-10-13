@@ -67,7 +67,7 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-pt-bg border border-pt-border inline-block" /> Free</span>
         {quantity > 1 && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-amber-500/30 inline-block" /> Some booked</span>}
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-red-500/30 inline-block" /> Booked</span>
-        {selected && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded ring-2 ring-pt-accent inline-block" /> Your dates</span>}
+        {selected && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded ring-2 ring-pt-accent inline-block" /> Your day</span>}
       </div>
       {bufferDays > 0 && <p className="text-pt-muted text-[11px] mt-1">Booked days include {bufferDays} turnaround day{bufferDays > 1 ? 's' : ''} after each shoot.</p>}
     </div>

@@ -5,7 +5,7 @@ import { useSession } from '../auth'
 import { useBookingSettings } from '../hooks/useBookings'
 import AvailabilityCalendar from './AvailabilityCalendar'
 import DateRangePicker from './DateRangePicker'
-import { freeForRange, todayInStudio, earliestStart, daysBetween, type BookingEntry } from '../../functions/src/booking'
+import { freeForRange, todayInStudio, earliestStart, type BookingEntry } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
 import type { Item } from '../types'
 
@@ -30,11 +30,8 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   function pick(day: string) {
     if (day < minStart) { setNote(`The earliest you can book is ${formatDay(minStart)}.`); return }
     setNote(null)
-    const maxDays = isStaff ? Infinity : settings.maxDays
-    const startNew = !cart.start || (cart.end && cart.end !== cart.start) || day < cart.start
-      || daysBetween(cart.start, day) + 1 > maxDays
-    if (startNew) cart.setDates(day, day)
-    else cart.setDates(cart.start, day)
+    // One shoot day per booking: tapping a day picks it.
+    cart.setDates(day, day)
   }
 
   return (
@@ -51,20 +48,20 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
         </p>
       ) : !dates ? (
         <div className="space-y-2">
-          <p className="text-pt-text text-sm">Tap your shoot days on the calendar, or pick them here:</p>
+          <p className="text-pt-text text-sm">Tap your shoot day on the calendar, or pick it here:</p>
           <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates} compact
-            maxDays={isStaff ? undefined : settings.maxDays} />
+            maxDays={1} />
         </div>
       ) : (
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
-            <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change dates</button>
+            <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change day</button>
           </div>
           <p className={`text-sm font-medium ${free ? 'text-green-400' : 'text-red-300'}`}>
-            {free === 0 ? 'Not available for these dates'
-              : item.quantity > 1 ? `${free} of ${item.quantity} free for these dates`
-              : 'Free for these dates'}
+            {free === 0 ? 'Not available on this day'
+              : item.quantity > 1 ? `${free} of ${item.quantity} free on this day`
+              : 'Free on this day'}
           </p>
           {!!free && (
             <>
@@ -90,7 +87,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
           )}
           {inCart > 0 && (
             <div className="flex gap-2">
-              <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm">Remove</button>
+              <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-2.5 rounded-xl border border-red-500/50 text-red-300 text-sm font-medium active:opacity-70">Remove</button>
               <button onClick={() => navigate('/reserve')} className="flex-1 py-2.5 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium">
                 Review reservation ({cart.count})
               </button>

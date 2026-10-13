@@ -38,6 +38,19 @@ function Loading() {
   )
 }
 
+// While previewing another role, the blue strip takes its own row and the
+// screens scroll beneath it. Otherwise screens render exactly as normal (a
+// wrapper here would squeeze tall pages and hide their bottom padding).
+function ViewAsFrame({ on, children }: { on: boolean; children: ReactNode }) {
+  if (!on) return <>{children}</>
+  return (
+    <div className="flex flex-col h-full">
+      <ViewAsBanner />
+      <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
+    </div>
+  )
+}
+
 // Arts department + owner only. Creators who follow a link here go back to search.
 function StaffOnly({ children }: { children: ReactNode }) {
   const { isStaff } = useSession()
@@ -116,13 +129,10 @@ export default function App() {
   return (
     <SessionContext.Provider value={session}>
     <CartProvider>
-    {/* The View-as strip takes its own row; the screens fill the rest. */}
-    <div className="flex flex-col h-full">
-      <ViewAsBanner />
-      <div className={session.viewingAs ? 'flex-1 min-h-0 overflow-y-auto' : 'contents'}>
+    <ViewAsFrame on={!!session.viewingAs}>
       <Routes>
         {/* Full-screen routes outside the shell */}
-        <Route path="/bin/:qrSlug" element={<BinQrScreen />} />
+        <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
         <Route path="/item/:id" element={<ItemDetailScreen />} />
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
         <Route path="/reserve" element={<ReserveScreen />} />
@@ -144,8 +154,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-      </div>
-    </div>
+    </ViewAsFrame>
     </CartProvider>
     </SessionContext.Provider>
   )

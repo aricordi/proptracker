@@ -14,7 +14,8 @@ interface Props {
 // Shoot dates. Native date pickers work well on phones; each field gets its own
 // full-width row because phone date inputs don't shrink to fit side by side.
 export default function DateRangePicker({ start, end, min, onChange, leadTimeNote, compact, maxDays }: Props) {
-  const input = 'block w-full min-w-0 appearance-none bg-pt-surface border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-base focus:outline-none focus:border-pt-accent [color-scheme:dark]'
+  // min-h keeps the box full-size even while empty (phones shrink empty date fields).
+  const input = 'block w-full min-w-0 min-h-[3.25rem] appearance-none bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text text-lg focus:outline-none focus:border-pt-accent [color-scheme:dark]'
   const label = 'text-pt-muted text-xs uppercase tracking-wider'
   const single = maxDays === 1
   const latestEnd = start && maxDays ? addDays(start, maxDays - 1) : undefined
@@ -27,6 +28,7 @@ export default function DateRangePicker({ start, end, min, onChange, leadTimeNot
           <input type="date" value={start ?? ''} min={min}
             onChange={e => { const d = e.target.value || null; onChange(d, d) }}
             className={input} />
+          <span className="block text-pt-muted text-xs mt-1">Props are due back the same night.</span>
         </label>
       ) : (
         <div className="space-y-2">

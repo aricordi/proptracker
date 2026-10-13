@@ -208,7 +208,7 @@ export default function ItemDetailScreen() {
         {!item.archived && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
 
         {/* Location */}
-        {locationPath && (
+        {isStaff && locationPath && (
           <div>
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Bin / storage</p>
             <p className="text-pt-text">{locationPath}</p>

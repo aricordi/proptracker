@@ -54,18 +54,7 @@ export default function BookingRulesScreen() {
             <span className="text-pt-muted">days</span>
           </div>
         </div>
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-2">
-          <p className="text-pt-text font-medium">Longest booking</p>
-          <p className="text-pt-muted text-sm">
-            The most days a creator can book props for. 1 means single-day shoots only, and creators pick one shoot day.
-            The arts department can book longer when needed.
-          </p>
-          <div className="flex items-center gap-3">
-            <input inputMode="numeric" value={maxDays} onChange={e => { setMaxDays(e.target.value.replace(/\D/g, '')); setState('idle') }} className={input} />
-            <span className="text-pt-muted">day{maxN === 1 ? '' : 's'}</span>
-          </div>
-        </div>
-        {!valid && <p className="text-amber-400 text-sm">Notice can be 0–60 days, turnaround 0–30 days, longest booking 1–60 days.</p>}
+        {!valid && <p className="text-amber-400 text-sm">Notice can be 0–60 days, turnaround 0–30 days.</p>}
         <button onClick={save} disabled={!valid || !changed || state === 'busy'}
           className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
           {state === 'busy' ? 'Saving…' : state === 'saved' && !changed ? 'Saved ✓' : 'Save'}

@@ -39,13 +39,13 @@ export default function ReserveScreen() {
     const problem = !item ? 'No longer in the inventory'
       : item.archived ? 'No longer in the inventory'
       : item.condition === 'damaged' && !isStaff ? 'Damaged, can’t be reserved'
-      : free !== null && free < qty ? (free === 0 ? 'Not available for these dates' : `Only ${free} free for these dates`)
+      : free !== null && free < qty ? (free === 0 ? 'Not available on this day' : `Only ${free} free on this day`)
       : conflicts[itemId] ? `Just taken: ${conflicts[itemId].free} free now`
       : null
     return { itemId, qty, item, free, problem }
   })
 
-  const tooLong = !isStaff && !!dates && daysBetween(dates.start, dates.end) + 1 > settings.maxDays
+  const tooLong = !!dates && daysBetween(dates.start, dates.end) > 0
   const datesOk = !!dates && dates.start >= minStart && !tooLong
 
   // Build-to-order request form
@@ -89,7 +89,8 @@ export default function ReserveScreen() {
   const input = 'w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent'
 
   return (
-    <div className="min-h-screen bg-pt-bg pb-32">
+    // Bottom padding = height of the floating Reserve button, so nothing hides behind it.
+    <div className="min-h-screen bg-pt-bg pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
         <button onClick={() => navigate(-1)} className="text-pt-text text-base font-medium py-1">‹ Back</button>
         <h1 className="font-display text-xl text-pt-text">Your reservation</h1>
@@ -98,11 +99,11 @@ export default function ReserveScreen() {
 
       <div className="p-4 space-y-5">
         <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates}
-          maxDays={isStaff ? undefined : settings.maxDays}
+          maxDays={1}
           leadTimeNote={!isStaff && settings.leadTimeDays > 0 ? `Earliest start: ${formatDay(minStart)} (${settings.leadTimeDays} days' notice).` : undefined} />
         {tooLong && (
           <p className="text-amber-400 text-sm -mt-3">
-            Bookings can be at most {settings.maxDays} day{settings.maxDays === 1 ? '' : 's'}. Pick a shoot day above.
+            Bookings are for a single shoot day now. Pick your shoot day above.
           </p>
         )}
 

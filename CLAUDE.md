@@ -140,6 +140,11 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 - Owner request: bookings max 1 day by default → `maxDays` in app_settings/booking (1–60,
   editable in Booking rules). Creators limited; arts/owner can book longer. With maxDays 1 the
   date picker shows a single "Shoot day" field. Date fields now stack (they overlapped on phones).
+- Owner feedback round 2: ONE shoot day per booking for everyone (UI always single "Shoot day",
+  "props due back the same night"); "Longest booking" control removed from Booking rules
+  (server maxDays still defaults to 1 for creators). Creators don't see bin/storage
+  locations (prop page hidden; /bin QR pages staff-only). Reserve screen bottom padding fixed.
+  Smart search does NOT need manual rebuilds: onItemWritten indexes new/edited props.
 - "View as" (Account screen, owner only): preview the app as Arts or Creator. UI-only; the server
   still treats the owner as owner. Sky-blue strip at top with Exit.
 - `.github/workflows/server-logs.yml`: read-only "Read server logs" button (invoker access,

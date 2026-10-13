@@ -203,7 +203,7 @@ export default function HomeScreen() {
           showDates ? (
             <div className="mt-3 space-y-2">
               <DateRangePicker start={cart.start} end={cart.end} min={minStart}
-                maxDays={isStaff ? undefined : settings.maxDays}
+                maxDays={1}
                 onChange={(s, e) => cart.setDates(s, e)}
                 leadTimeNote={!isStaff && settings.leadTimeDays > 0
                   ? `Props must be booked ${settings.leadTimeDays} day${settings.leadTimeDays > 1 ? 's' : ''} ahead. Earliest: ${formatDay(minStart)}.`
@@ -215,7 +215,7 @@ export default function HomeScreen() {
           ) : (
             <button onClick={() => setShowDates(true)}
               className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-pt-accent/60 text-pt-accent text-sm font-medium active:opacity-70">
-              📅 Pick your shoot dates to see what’s free
+              📅 Pick your shoot day to see what’s free
             </button>
           )
         ) : (
