@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react'
 import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 import { storage } from '../firebase'
+import { shrinkPhoto } from '../lib/shrinkPhoto'
 
-interface Slot { key: string; preview: string; url: string | null; failed?: boolean }
+interface Slot { key: string; preview: string; url: string | null; failed?: boolean; why?: string }
 
 interface Props {
   folder: string                         // e.g. reservation-photos/{id}/pack
@@ -26,10 +27,14 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
       const key = `${Date.now()}_${Math.random().toString(36).slice(2)}`
       setSlots(s => [...s, { key, preview: URL.createObjectURL(file), url: null }])
       onUploading?.(true)
-      const task = uploadBytesResumable(storageRef(storage, `${folder}/${key}.jpg`), file, { contentType: file.type || 'image/jpeg' })
+      void shrinkPhoto(file).then(blob => {
+      const type = blob === file ? (file.type || 'image/jpeg') : 'image/jpeg'
+      const task = uploadBytesResumable(storageRef(storage, `${folder}/${key}.jpg`), blob, { contentType: type })
       task.on('state_changed', undefined,
-        () => {
-          setSlots(s => s.map(x => x.key === key ? { ...x, failed: true } : x))
+        (err: { code?: string }) => {
+          console.error('Photo upload failed', err)
+          const why = err?.code === 'storage/unauthorized' ? 'Not allowed' : err?.code === 'storage/retry-limit-exceeded' ? 'No signal' : 'Failed'
+          setSlots(s => s.map(x => x.key === key ? { ...x, failed: true, why } : x))
           onUploading?.(false)
         },
         async () => {
@@ -38,6 +43,7 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
           onChange([...latest.current, url])
           onUploading?.(false)
         })
+      })
     }
   }
 
@@ -56,7 +62,7 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
           <div key={s.key} className="relative aspect-square rounded-xl overflow-hidden bg-pt-border">
             <img src={s.preview} alt="" className="w-full h-full object-cover" />
             {!s.url && !s.failed && <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs">Uploading…</div>}
-            {s.failed && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-red-300 text-xs">Failed</div>}
+            {s.failed && <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-red-300 text-xs text-center px-1">{s.why ?? 'Failed'}<br />Remove and try again</div>}
             <button onClick={() => remove(s)} aria-label="Remove photo"
               className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-sm">×</button>
           </div>
