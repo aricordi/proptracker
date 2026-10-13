@@ -80,6 +80,17 @@ describe('batch import', () => {
     expect((await call('approveImports', { items: [{ id: 'test0004x4' }] }, ARTS)).result.results[0].error).toBeTruthy()
   })
 
+  it('signs saying "bin 5", "BIN 5" or "Bin  5" all become one bin called "Bin 5"', async () => {
+    const { result } = await call('startImport', { links: ['test:3'], dryRun: true }, OWNER)
+    await runToEnd(result.jobId)
+    const r = await call('approveImports', { items: [
+      { id: 'test0001x3', newBinLabel: 'bin 5' }, { id: 'test0002x3', newBinLabel: 'BIN 5' }, { id: 'test0003x3', newBinLabel: 'Bin  5' },
+    ] }, ARTS)
+    const items = await Promise.all(r.result.results.map((x: { itemId: string }) => getDoc(`items/${x.itemId}`)))
+    expect(new Set(items.map(i => i!.binId)).size).toBe(1)
+    expect((await getDoc(`bins/${items[0]!.binId}`))!.label).toBe('Bin 5')
+  })
+
   it('stops at the cost cap, and the queue waits instead of failing', async () => {
     await put('app_settings/import', { capUsd: 0.03, spentUsd: 0 })
     const { result } = await call('startImport', { links: ['test:12'] }, OWNER)

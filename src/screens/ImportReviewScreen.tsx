@@ -134,7 +134,7 @@ export default function ImportReviewScreen() {
                           {/* suggested-but-unknown bins from other photos on this page, so they can be reused */}
                           {newBinLabels.filter(b => b !== d.bin).map(b => <option key={b} value={b}>New: {b.slice(4)}</option>)}
                           {d.bin.startsWith('new:') && <option value={d.bin}>New: {d.bin.slice(4)}</option>}
-                          {bins.map(b => <option key={b.id} value={b.id}>Bin {b.label}</option>)}
+                          {bins.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
                         </select>
                         <input type="number" min={1} value={d.quantity} onChange={e => edit(it, { quantity: Math.max(1, Math.floor(Number(e.target.value) || 1)) })}
                           aria-label="Quantity" title="How many" className="w-14 shrink-0 bg-pt-bg border border-pt-border rounded-lg px-1 py-2 text-pt-text text-sm text-center focus:outline-none focus:border-pt-accent" />

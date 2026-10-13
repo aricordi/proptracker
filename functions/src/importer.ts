@@ -42,6 +42,9 @@ function moveCount(jobRef: DocumentReference, from: Status | null, to: Status) {
 // Bin labels written many ways on signs: "Bin C7", "c 7", "C7" → "C7".
 export const binKey = (s: string) => s.toUpperCase().replace(/^BIN\s*/, '').replace(/[\s#.-]+/g, '')
 
+// How a new bin from a sign is named: "bin 1", "BIN 1" and "Bin  1" all become "Bin 1".
+export const tidyBinLabel = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/^bin\b\s*/i, 'Bin ').trim()
+
 // ─── 0. Info for the Import screen ───────────────────────────────────────────
 
 export const importInfo = onCall(CALLABLE, async req => {
@@ -238,7 +241,7 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
 
   async function binFor(a: Approval, s: ImportAnalysis): Promise<{ id: string; locationId: string } | null> {
     if (a.binId) return binById.get(a.binId) ?? null
-    const label = str(a.newBinLabel, 40) || (a.binId === null ? '' : s.binLabel ?? '')
+    const label = tidyBinLabel(str(a.newBinLabel, 40) || (a.binId === null ? '' : s.binLabel ?? ''))
     if (!label) return null
     const known = binsByKey.get(binKey(label))
     if (known) return known
