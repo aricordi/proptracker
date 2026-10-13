@@ -16,7 +16,7 @@ import { getStorage } from 'firebase-admin/storage'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { analyzeImportPhoto, GEMINI_API_KEY, type ImportAnalysis } from './gemini.js'
-import { folderIdFrom, listImages, fetchPhoto, serviceAccountEmail, type DriveImage } from './drive.js'
+import { folderIdFrom, resourceKeyFrom, listImages, fetchPhoto, serviceAccountEmail, type DriveImage } from './drive.js'
 import { tagIdsFor } from './tags.js'
 
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
@@ -56,15 +56,15 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
   const links: string[] = Array.isArray(req.data?.links) ? req.data.links.filter((l: unknown) => typeof l === 'string' && l.trim()).slice(0, 200) : []
   const dryRun = req.data?.dryRun === true
   if (!links.length) throw new HttpsError('invalid-argument', 'Paste at least one Google Drive folder link.')
-  const ids = links.map(l => ({ link: l, id: folderIdFrom(l) }))
+  const ids = links.map(l => ({ link: l, id: folderIdFrom(l), key: resourceKeyFrom(l) }))
   const bad = ids.filter(x => !x.id)
   if (bad.length) throw new HttpsError('invalid-argument', `That doesn't look like a Drive folder link: ${bad[0].link.slice(0, 80)}`)
 
   const all = new Map<string, DriveImage>()
   const folders: { id: string; name: string; count: number }[] = []
-  for (const { id } of ids) {
+  for (const { id, key } of ids) {
     try {
-      const { folderName, images } = await listImages(id!)
+      const { folderName, images } = await listImages(id!, 5000, key)
       folders.push({ id: id!, name: folderName, count: images.length })
       for (const img of images) all.set(img.id, img)
     } catch (err) {
@@ -96,6 +96,7 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
     queued.slice(i, i + 400).forEach((img, j) => batch.set(db.doc(`import_items/${img.id}`), {
       jobId: jobRef.id, order: i + j, fileId: img.id, fileName: img.name, folder: img.folder, mimeType: img.mimeType,
       ...(img.thumbnailLink ? { thumbnailLink: img.thumbnailLink } : {}),
+      ...(img.resourceKey ? { resourceKey: img.resourceKey } : {}),
       status: 'pending', createdAt: now,
     }))
     await batch.commit()
@@ -184,7 +185,7 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
     }
     let reserved = RESERVE_USD
     try {
-      const jpeg = await fetchPhoto({ id: item.fileId, name: item.fileName, folder: item.folder, mimeType: item.mimeType, thumbnailLink: item.thumbnailLink })
+      const jpeg = await fetchPhoto({ id: item.fileId, name: item.fileName, folder: item.folder, mimeType: item.mimeType, thumbnailLink: item.thumbnailLink, resourceKey: item.resourceKey })
       const path = `items/imported/${item.fileId}.jpg`
       const token = randomUUID()
       await bucket.file(path).save(jpeg, { contentType: 'image/jpeg', metadata: { metadata: { firebaseStorageDownloadTokens: token } } })

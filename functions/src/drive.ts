@@ -8,9 +8,15 @@ const DRIVE = 'https://www.googleapis.com/drive/v3'
 const FOLDER = 'application/vnd.google-apps.folder'
 const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/drive.readonly'] })
 
-export interface DriveImage { id: string; name: string; folder: string; mimeType: string; thumbnailLink?: string }
+export interface DriveImage { id: string; name: string; folder: string; mimeType: string; thumbnailLink?: string; resourceKey?: string }
 
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
+
+// Older "anyone with the link" files carry a security code ("resource key") in
+// their link that must be sent with every request for them.
+export function resourceKeyFrom(link: string): string | undefined {
+  return link.match(/[?&]resourcekey=([A-Za-z0-9_-]+)/i)?.[1]
+}
 
 // Accepts a folder link ("https://drive.google.com/drive/folders/<id>?usp=…") or a bare ID.
 // In the emulator, "test:12" stands for a pretend folder with 12 photos.
@@ -34,18 +40,19 @@ async function token(): Promise<string> {
   return t.token
 }
 
-async function driveGet(url: string, tok: string): Promise<Response> {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } })
+async function driveGet(url: string, tok: string, keys: Record<string, string | undefined> = {}): Promise<Response> {
+  const pairs = Object.entries(keys).filter(([, k]) => k).map(([id, k]) => `${id}/${k}`)
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${tok}`, ...(pairs.length ? { 'X-Goog-Drive-Resource-Keys': pairs.join(',') } : {}) } })
   if (res.status === 403 && (await res.clone().text()).includes('accessNotConfigured')) {
     throw new Error('The Google Drive API is not turned on for this project yet.')
   }
-  if (res.status === 404) throw new Error("Can't see that folder. Is it shared with the app's email?")
+  if (res.status === 404) throw new Error("Can't see that folder. Share it with the app's address shown on this screen (or make sure the link is right).")
   if (!res.ok) throw new Error(`Google Drive ${res.status}: ${(await res.text()).slice(0, 200)}`)
   return res
 }
 
 // Every image in the folder and its subfolders (up to `max`), sorted by folder then name.
-export async function listImages(folderId: string, max = 5000): Promise<{ folderName: string; images: DriveImage[] }> {
+export async function listImages(folderId: string, max = 5000, resourceKey?: string): Promise<{ folderName: string; images: DriveImage[] }> {
   if (folderId.startsWith('test:')) {
     const n = Math.min(Number(folderId.slice(5)), max)
     return { folderName: 'Test folder', images: Array.from({ length: n }, (_, i) => ({
@@ -53,22 +60,22 @@ export async function listImages(folderId: string, max = 5000): Promise<{ folder
     })) }
   }
   const tok = await token()
-  const meta = await (await driveGet(`${DRIVE}/files/${folderId}?fields=name,mimeType&supportsAllDrives=true`, tok)).json() as { name: string; mimeType: string }
+  const meta = await (await driveGet(`${DRIVE}/files/${folderId}?fields=name,mimeType&supportsAllDrives=true`, tok, { [folderId]: resourceKey })).json() as { name: string; mimeType: string }
   if (meta.mimeType !== FOLDER) throw new Error(`"${meta.name}" is a file, not a folder.`)
 
   const images: DriveImage[] = []
-  const queue: { id: string; path: string }[] = [{ id: folderId, path: meta.name }]
+  const queue: { id: string; path: string; key?: string }[] = [{ id: folderId, path: meta.name, key: resourceKey }]
   while (queue.length && images.length < max) {
-    const { id, path } = queue.shift()!
+    const { id, path, key } = queue.shift()!
     let pageToken = ''
     do {
       const q = encodeURIComponent(`'${id}' in parents and trashed = false`)
       const url = `${DRIVE}/files?q=${q}&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true`
-        + `&fields=nextPageToken,files(id,name,mimeType,thumbnailLink)${pageToken ? `&pageToken=${pageToken}` : ''}`
-      const page = await (await driveGet(url, tok)).json() as { nextPageToken?: string; files: { id: string; name: string; mimeType: string; thumbnailLink?: string }[] }
+        + `&fields=nextPageToken,files(id,name,mimeType,thumbnailLink,resourceKey)${pageToken ? `&pageToken=${pageToken}` : ''}`
+      const page = await (await driveGet(url, tok, { [id]: key })).json() as { nextPageToken?: string; files: { id: string; name: string; mimeType: string; thumbnailLink?: string; resourceKey?: string }[] }
       for (const f of page.files) {
-        if (f.mimeType === FOLDER) queue.push({ id: f.id, path: `${path} / ${f.name}` })
-        else if (f.mimeType.startsWith('image/')) images.push({ id: f.id, name: f.name, folder: path, mimeType: f.mimeType, thumbnailLink: f.thumbnailLink })
+        if (f.mimeType === FOLDER) queue.push({ id: f.id, path: `${path} / ${f.name}`, key: f.resourceKey })
+        else if (f.mimeType.startsWith('image/')) images.push({ id: f.id, name: f.name, folder: path, mimeType: f.mimeType, thumbnailLink: f.thumbnailLink, resourceKey: f.resourceKey })
       }
       pageToken = page.nextPageToken ?? ''
     } while (pageToken && images.length < max)
@@ -87,12 +94,12 @@ export async function fetchPhoto(img: DriveImage): Promise<Buffer> {
     original = await sharp({ create: { width: 64 + n, height: 64, channels: 3, background: { r: (n * 40) % 255, g: 120, b: 200 } } }).png().toBuffer()
   } else {
     const tok = await token()
-    original = Buffer.from(await (await driveGet(`${DRIVE}/files/${img.id}?alt=media&supportsAllDrives=true`, tok)).arrayBuffer())
+    original = Buffer.from(await (await driveGet(`${DRIVE}/files/${img.id}?alt=media&supportsAllDrives=true`, tok, { [img.id]: img.resourceKey })).arrayBuffer())
     try {
       return await shrink(original)
     } catch {
       if (!img.thumbnailLink) throw new Error('This photo format could not be read.')
-      original = Buffer.from(await (await driveGet(img.thumbnailLink.replace(/=s\d+$/, '=s1600'), tok)).arrayBuffer())
+      original = Buffer.from(await (await driveGet(img.thumbnailLink.replace(/=s\d+$/, '=s1600'), tok, { [img.id]: img.resourceKey })).arrayBuffer())
     }
   }
   return shrink(original)
