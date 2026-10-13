@@ -3,13 +3,11 @@
 import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
-import { defineSecret } from 'firebase-functions/params'
-import { analyzePhoto, embedText, hashText } from './gemini.js'
+import { analyzePhoto, embedText, hashText, GEMINI_API_KEY } from './gemini.js'
 
 import { db, requireRole, CALLABLE } from './auth.js'
 export * from './reservations.js'
 
-const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
 
 function apiKey() {
   // Empty in the local emulator unless a real key is supplied; gemini.ts then uses fake answers.
@@ -136,3 +134,4 @@ export const rebuildSearchIndex = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY
 export * from './email.js'
 export * from './notices.js'
 export * from './activity.js'
+export * from './importer.js'

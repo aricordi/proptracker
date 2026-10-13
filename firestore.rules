@@ -72,6 +72,14 @@ service cloud.firestore {
       allow delete: if false; // archive instead
     }
 
+    // Batch import (Phase 6): written only by the server, read by the arts department.
+    match /import_jobs/{id} {
+      allow read: if isStaff();
+    }
+    match /import_items/{id} {
+      allow read: if isStaff();
+    }
+
     // Activity log: written only by the server, read by the arts department.
     match /activity/{id} {
       allow read: if isStaff();

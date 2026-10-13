@@ -104,6 +104,12 @@ describe('inventory', () => {
     await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true }))
     await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true, ...by(OWNER) }))
   })
+  it('import records are read-only, and only the arts department can see them', async () => {
+    await assertSucceeds(getDoc(doc(as(ARTS), 'import_items', 'f1')))
+    await assertSucceeds(getDoc(doc(as(ARTS), 'import_jobs', 'j1')))
+    await assertFails(getDoc(doc(as(CREATOR), 'import_items', 'f1')))
+    await assertFails(setDoc(doc(as(OWNER), 'import_items', 'f1'), { status: 'approved' }))
+  })
   it('the activity log is read-only, and only the arts department can see it', async () => {
     await assertSucceeds(getDoc(doc(as(ARTS), 'activity', 'a1')))
     await assertFails(getDoc(doc(as(CREATOR), 'activity', 'a1')))

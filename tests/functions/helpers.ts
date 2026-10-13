@@ -11,7 +11,7 @@ function toValue(v: unknown): unknown {
   }
   if (Array.isArray(v)) return { arrayValue: { values: v.map(toValue) } }
   if (typeof v === 'boolean') return { booleanValue: v }
-  if (typeof v === 'number') return { integerValue: String(v) }
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }
   return { stringValue: String(v) }
 }
 export async function put(path: string, data: Record<string, unknown>) {
