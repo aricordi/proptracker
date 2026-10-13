@@ -281,6 +281,19 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     `GearBundlesScreen` (/gear/bundles), `GearBundleEditScreen` (/gear/bundles/new|:id, steppers capped at free).
   - Seed: gear@example.com (Equipment team test login), 7 gear items, 1 bundle.
   - saveGearBundle has a marker for step 2: refuse edits while the bundle is booked or out.
+  - ADD-ON EXTRAS (owner, Oct 13): creators see ONLY what the team offers: bundles (booked whole) and
+    add-on extras (`gear_bundles.kind: 'extra'`, exactly ONE kind of piece; pieces[0].qty = how many are
+    offered; creators will pick how many). Loose pieces are never visible to creators (gear_items is staff-only).
+    Extras use the same stock (a piece is in one bundle OR one extra). A bundle can't turn into an extra.
+- REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
+  `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
+  on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".
+  Owner wants an Apple-like, polished, consistent look across the full buildout. Look mockup with 3 directions
+  (1 Black & Gold [recommended, + 3 automatically in light mode], 2 Monochrome, 3 Light & Gold) at
+  https://claude.ai/artifact/1KaXE8dXb7pcXpnLbYpsJS . Shared rules proposed: iPhone system font (drop Passion
+  One), large titles, one accent colour for "tap this", grouped cards, frosted tab bar, folding filters, sheets.
+  WAITING on owner: direction + app name ("Prime Capitol" recommended; still "PropTracker" in manifest/title).
+  Tokens live in tailwind.config (pt-*), so the restyle is mostly there + font + shared components.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
   then GO LIVE (deploy hosting; needs OK), then delete the OLD exposed Gemini key and (with OK)
