@@ -132,8 +132,11 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 
 ### Fixes after first live test (Oct 12)
 - Callable functions were unreachable (HTTP 401): failed first-deploy creates left them without
-  the public invoker. Every onCall now passes `CALLABLE` ({ invoker: 'public' }) from
-  functions/src/auth.ts so each deploy re-applies it. Functions still check sign-in + role.
+  the public invoker, and `firebase deploy` does NOT re-apply it on updates even with
+  `invoker: 'public'` (CALLABLE in functions/src/auth.ts). Fix that actually worked: the
+  deploy workflow's last step sets allUsers→run.invoker on every callable with gcloud.
+  When adding a new callable function, ADD IT TO THAT LIST in deploy-backend.yml (and the
+  check list in server-logs.yml). Functions still check sign-in + role themselves.
 - Owner request: bookings max 1 day by default → `maxDays` in app_settings/booking (1–60,
   editable in Booking rules). Creators limited; arts/owner can book longer. With maxDays 1 the
   date picker shows a single "Shoot day" field. Date fields now stack (they overlapped on phones).
