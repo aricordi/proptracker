@@ -1,0 +1,50 @@
+# "Allow a web address to sign in" button: adds ONE web address to Firebase
+# Authentication's "Authorized domains" (needed for Sign in with Google to work
+# there). Keeps every address already on the list; never removes any.
+# Owner's OK needed (sign-in security setting).
+name: Allow a web address to sign in
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: Web address without https:// (e.g. proptracker.arbcreative.co)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sign in to Google Cloud as the deploy account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Add the address (keeps the existing ones)
+        env:
+          DOMAIN: ${{ inputs.domain }}
+        run: |
+          echo "$DOMAIN" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$' \
+            || { echo "::error::'$DOMAIN' doesn't look like a web address (no https://, no slashes)."; exit 1; }
+          URL="https://identitytoolkit.googleapis.com/admin/v2/projects/proptracker-9732e/config"
+          TOKEN=$(gcloud auth print-access-token)
+          curl -sS -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: proptracker-9732e" "$URL" > config.json
+          python3 - <<'EOF' > body.json
+          import json, os, sys
+          d = json.load(open('config.json'))
+          if 'error' in d: sys.exit('Google refused: ' + d['error'].get('message', ''))
+          domains = d.get('authorizedDomains', [])
+          new = os.environ['DOMAIN']
+          print(json.dumps({'authorizedDomains': domains + ([new] if new not in domains else [])}))
+          EOF
+          curl -sS -X PATCH -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: proptracker-9732e" \
+            -H "Content-Type: application/json" --data @body.json "$URL?updateMask=authorizedDomains" > result.json
+          python3 -c 'import json; d=json.load(open("result.json"));
+          import sys
+          if "error" in d: sys.exit("Google refused: " + d["error"].get("message",""))
+          print("Allowed web addresses now:"); [print("  -", x) for x in d.get("authorizedDomains", [])]'
