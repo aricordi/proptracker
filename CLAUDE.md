@@ -266,7 +266,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   team + recorded on the previous holder's history (records only). Mockup v3 shows this.
   GEAR BUILD, in steps: (1) equipment role + All gear + bundles  (2) creators book whole bundles by the hour
   (3) pickup check / return photo / check-in / late / gear queue  (4) one shoot request with props + gear.
-  STEP 1 BUILT (Oct 13, NOT deployed; needs owner OK because it changes security rules):
+  STEP 1 BUILT AND DEPLOYED (Oct 13, run 21):
   - Role 'equipment' (gear only; no props: rules isMember excludes it). Only the owner can invite it.
     App: `isGearStaff` in session; equipment home → /gear/bundles; tabs Bundles / All gear / Account;
     owner reaches gear from Admin → "Gear (equipment team)". View as includes Equipment team.
@@ -296,7 +296,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   tailwind pt-* tokens (#000 bg, #1C1C1E surface, #2C2C2E border, #8E8E93 muted, #F5F5F7 text, #C9A961
   gold accent), iPhone system font for sans + display (Passion One removed; .font-display = 700, -0.02em),
   page titles white (not gold), frosted tab bar, theme colour #000, Search title = eagle + "Props".
-  Gear step 1 + extras backend deploy started Oct 13 with the owner's OK.
+  Gear step 1 + add-on extras backend DEPLOYED Oct 13 (run 21, green) with the owner's OK.
   STILL WAITING: app name ("Prime Capitol" recommended; manifest/title still "PropTracker").
   Tokens live in tailwind.config (pt-*), so the restyle is mostly there + font + shared components.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
