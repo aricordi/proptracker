@@ -346,5 +346,12 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     see; staff may only set status applied/dismissed + reply). Staff see open ones on the prop page and
     in Admin → Suggested edits (`SuggestionsScreen`); "Apply changes" edits the prop (normal
     updateItem → Activity log) then marks it applied. Creators see their suggestion's status.
+  - Oct 13 (NOT deployed yet; needs the backend deploy, which also carries the suggestions rules + index):
+    creators get a "Wrong name?" link under the prop name (name-only suggestion); ARTS can now merge
+    duplicates (`mergeProps` owner+arts; deleting a single imported prop stays owner-only); Find duplicates
+    shows each photo's file name. BINS: `functions/src/binNames.ts` (shared with the app) — `binKey`
+    ignores punctuation/spaces/"Bin"/leading zeros, so "B.31", "B:31", "B: 31", "B031" are one bin;
+    Bins screen shows "Look-alike bins" → `mergeBins` (owner+arts) moves props into the kept bin and
+    deletes the extra bins (their old QR stickers stop working).
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.
