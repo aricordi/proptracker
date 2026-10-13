@@ -315,7 +315,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   Props category "Gear" (id 'gear') → "Tech props" (owner, Oct 13): default label changed in src/config.ts and
   ensureDefaultCategories renames the live doc once if its label is still exactly "Gear" (runs when staff open the app).
   Step 2 backend DEPLOYED Oct 13 (run 22, green).
-  STEP 3 BUILT (Oct 13, NOT deployed; changes storage rules → needs owner OK):
+  STEP 3 BUILT AND DEPLOYED (Oct 13, run 23, green, owner OK):
   - Statuses: held → out (picked up) → returned (photo) → checked_in (team). Cancel/decline only while held.
   - Shared helpers in gearBooking.ts: nowStamp (Toronto), addMinutes, pickupWindow ('early'|'open'|'over';
     opens 30 min before `from`, closes at `to`), isGearLate (out and now ≥ to + 30 min), wasGearReturnedLate,
@@ -334,7 +334,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     GearBookingsScreen = team "Gear queue" tabs Today (pickups today + due back today) / Out (late first,
     red ring) / To check in / Upcoming / Past, "⚠ Missing reported" pill; creators Upcoming / Past.
     Missing warnings on shop cards, bundle page, and team Bundles list with "Found it". Late banner on /gear.
-  STEP 4 BUILT (Oct 13, NOT deployed; deploy together with step 3 after owner OK):
+  STEP 4 BUILT AND DEPLOYED (Oct 13, run 23, green). GEAR BUILD COMPLETE; owner to test on the preview.
   ONE SHOOT REQUEST with props + gear.
   - Props and gear share ONE shoot day (`ShootDaySync` in gearCart.tsx keeps both baskets on the same day).
   - `/reserve` (ReserveScreen) = "Your shoot": one shoot day picker, a Props section (arts department) and
