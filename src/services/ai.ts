@@ -8,6 +8,7 @@ export interface PhotoAnalysis {
   categoryId: string | null
   tags: string[]
   description: string
+  searchWords?: string[]
 }
 
 export interface SimilarResult {
@@ -61,3 +62,7 @@ export async function searchSimilar(query: string): Promise<SimilarResult[]> {
 export async function rebuildSearchIndex() {
   return (await rebuildCall()).data
 }
+
+// Owner: one-off AI top-up of hidden search words for props that already exist.
+export interface SearchWordsRun { total: number; remaining: number; processed: number; failed: number; capped: boolean; slowDown: boolean }
+export const improveSearchWords = httpsCallable<{ countOnly?: boolean }, SearchWordsRun>(functions, 'improveSearchWords')

@@ -18,6 +18,8 @@ export interface Item {
   photos: string[];         // photo URLs, first one is the cover
   photoUrl?: string;        // legacy single photo — kept in sync with photos[0]
   description?: string;     // short "what it looks like" line (AI can suggest)
+  searchWords?: string[];   // hidden extra search words (AI suggests; staff can edit)
+  searchWordsAt?: string;   // when the one-off "Improve search words" top-up did this prop
   notes?: string;           // "Notes for creators": visible to everyone
                             // (internal notes live in item_private/{id}, staff only)
   tags: string[];           // tag IDs from the master tag list

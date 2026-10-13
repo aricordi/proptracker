@@ -53,7 +53,7 @@ export const findDuplicates = onCall({ ...CALLABLE, timeoutSeconds: 120, memory:
   return { pairs: pairs.slice(0, 300), checked: vectors.length, withoutFingerprint: items.length - vectors.length }
 })
 
-async function photoOf(item: DocumentData): Promise<{ base64: string; mimeType: string }> {
+export async function photoOf(item: DocumentData): Promise<{ base64: string; mimeType: string }> {
   const url = (item.photos as string[] | undefined)?.[0] ?? item.photoUrl
   if (!url) throw new HttpsError('failed-precondition', `"${item.name}" has no photo to compare.`)
   const res = await fetch(url)

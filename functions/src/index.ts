@@ -98,6 +98,7 @@ async function searchTextFor(item: DocumentData) {
     tagSnaps.map(t => t.exists ? t.get('label') : '').join(' '),
     item.description,
     item.notes,
+    Array.isArray(item.searchWords) ? item.searchWords.join(', ') : '',
   ].filter(Boolean).join('. ')
 }
 
@@ -143,3 +144,4 @@ export * from './notices.js'
 export * from './activity.js'
 export * from './importer.js'
 export * from './dedupe.js'
+export * from './searchWords.js'

@@ -270,6 +270,7 @@ async function approvalContext() {
       quantity, condition: 'good', collection: 'company',   // Prime Capitol's
       tags: await tagIdsFor((Array.isArray(a.tags) ? a.tags : s.tags).filter((t): t is string => typeof t === 'string').slice(0, 15)),
       description: str(a.description, 300) || s.description || '', notes: '',
+      ...(s.searchWords?.length ? { searchWords: s.searchWords } : {}),
       ...(bin ? { binId: bin.id, locationId: bin.locationId } : {}),
       status: 'available', archived: false,
     }

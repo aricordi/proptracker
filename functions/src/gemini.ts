@@ -29,6 +29,18 @@ export interface PhotoAnalysis {
   categoryId: string | null
   tags: string[]
   description: string
+  searchWords: string[]     // hidden extra search words (who/what it depicts, themes, synonyms)
+}
+
+// What the AI is asked for in "searchWords" (shared by every prompt that writes them).
+const SEARCH_WORDS_RULE = `- "searchWords": 12-25 lowercase words or short phrases people might type to find this, especially ones NOT obvious from the name:
+  who or what it depicts or is associated with (a Lincoln mask → "president", "abraham lincoln", "honest abe", "civil war", "american history"),
+  characters/roles who would use it, scenes and settings, genres, occasions/holidays, eras, synonyms, slang and British/American spellings.`
+
+export function parseSearchWords(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  const out = v.filter((t): t is string => typeof t === 'string').map(t => t.trim().toLowerCase().slice(0, 40)).filter(Boolean)
+  return [...new Set(out)].slice(0, 30)
 }
 
 export interface CategoryOption { id: string; label: string }
@@ -40,7 +52,7 @@ export async function analyzePhoto(
   existingTags: string[],
 ): Promise<PhotoAnalysis> {
   if (isFakeMode(apiKey)) {
-    return { name: 'Test prop', categoryId: categories[0]?.id ?? null, tags: ['test', 'sample'], description: 'A sample prop from test mode.' }
+    return { name: 'Test prop', categoryId: categories[0]?.id ?? null, tags: ['test', 'sample'], description: 'A sample prop from test mode.', searchWords: ['sample word'] }
   }
   if (!apiKey) throw new Error('Gemini API key is not configured')
 
@@ -48,10 +60,11 @@ export async function analyzePhoto(
 Return ONLY a JSON object with exactly these fields:
 - "name": a short, plain name someone would search for (2-5 words, Title Case), e.g. "Rotary Telephone".
 - "category": the single best fit, copied exactly from this list: ${JSON.stringify(categories.map(c => c.label))}
-- "tags": 5-8 lowercase single-word or hyphenated search tags: what it is, what it's used for, era/style, colour, material.
+- "tags": 6-10 lowercase single-word or hyphenated search tags: what it is, who/what it depicts, what it's used for, era/style, colour, material.
   If it is a consumable SUPPLY rather than a prop (tape, adhesive squares, glue, batteries, zip ties, cleaning products, packaging…), make "supplies" the FIRST tag.
   Prefer reusing these existing tags when they fit: ${JSON.stringify(existingTags.slice(0, 300))}
 - "description": one sentence (max 20 words) describing what it looks like.
+${SEARCH_WORDS_RULE}
 If there is a handwritten or printed card/label in the photo, ignore it when naming the item.`
 
   const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
@@ -80,9 +93,10 @@ If there is a handwritten or printed card/label in the photo, ignore it when nam
     name: typeof parsed.name === 'string' ? parsed.name.trim().slice(0, 120) : '',
     categoryId: category?.id ?? null,
     tags: Array.isArray(parsed.tags)
-      ? parsed.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 8)
+      ? parsed.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 10)
       : [],
     description: typeof parsed.description === 'string' ? parsed.description.trim().slice(0, 300) : '',
+    searchWords: parseSearchWords(parsed.searchWords),
   }
 }
 
@@ -109,7 +123,7 @@ export async function analyzeImportPhoto(
     const n = image.base64.length % 3
     return {
       analysis: { name: `Test prop ${image.base64.length % 1000}`, categoryId: categories[0]?.id ?? null, tags: ['test', 'imported'],
-        description: 'A sample prop from test mode.', binLabel: ['A1', 'Z9', null][n], quantity: n + 1 },
+        description: 'A sample prop from test mode.', searchWords: ['sample word'], binLabel: ['A1', 'Z9', null][n], quantity: n + 1 },
       costUsd: 0.002,
     }
   }
@@ -121,10 +135,11 @@ and sometimes a sign like "x2" or "x3" meaning there are that many identical uni
 Return ONLY a JSON object with exactly these fields:
 - "name": a short, plain name someone would search for (2-5 words, Title Case), e.g. "Rotary Telephone". Don't name the sign.
 - "category": the single best fit, copied exactly from this list: ${JSON.stringify(categories.map(c => c.label))}
-- "tags": 5-8 lowercase single-word or hyphenated search tags: what it is, what it's used for, era/style, colour, material.
+- "tags": 6-10 lowercase single-word or hyphenated search tags: what it is, who/what it depicts, what it's used for, era/style, colour, material.
   If it is a consumable SUPPLY rather than a prop (tape, adhesive squares, glue, batteries, zip ties, cleaning products, packaging…), make "supplies" the FIRST tag.
   Prefer reusing these existing tags when they fit: ${JSON.stringify(existingTags.slice(0, 300))}
 - "description": one sentence (max 20 words) describing what the prop looks like.
+${SEARCH_WORDS_RULE}
 - "bin": the bin name/number written on the sign, exactly as written (e.g. "C7", "Bin 12"), or null if there is no bin sign.
   Known bins (use the exact spelling if the sign matches one): ${JSON.stringify(existingBins.slice(0, 300))}
 - "quantity": the number from a quantity sign like "x2" or "x 3", or 1 if there is none.`
@@ -160,9 +175,10 @@ Return ONLY a JSON object with exactly these fields:
       name: typeof parsed.name === 'string' ? parsed.name.trim().slice(0, 120) : '',
       categoryId: category?.id ?? null,
       tags: Array.isArray(parsed.tags)
-        ? parsed.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 8)
+        ? parsed.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim().toLowerCase()).filter(Boolean).slice(0, 10)
         : [],
       description: typeof parsed.description === 'string' ? parsed.description.trim().slice(0, 300) : '',
+      searchWords: parseSearchWords(parsed.searchWords),
       binLabel: typeof parsed.bin === 'string' && parsed.bin.trim() ? parsed.bin.trim().slice(0, 40) : null,
       quantity: Number.isInteger(qty) && qty >= 1 && qty <= 999 ? qty : 1,
     },
@@ -209,6 +225,39 @@ Return ONLY JSON: {"same": true|false, "confidence": "high"|"medium"|"low", "rea
   const parsed = match ? JSON.parse(match[0]) as Record<string, unknown> : {}
   const confidence = ['high', 'medium', 'low'].includes(String(parsed.confidence)) ? parsed.confidence as PairVerdict['confidence'] : 'low'
   return { verdict: { same: parsed.same === true, confidence, reason: String(parsed.reason ?? '').slice(0, 200) }, costUsd }
+}
+
+// ─── Extra search words for props that already exist (one-off top-up) ────────
+
+export async function suggestSearchWords(
+  apiKey: string | undefined,
+  info: { name: string; category?: string; tags: string[]; description?: string },
+  image: { base64: string; mimeType: string } | null,
+): Promise<{ searchWords: string[]; costUsd: number }> {
+  if (isFakeMode(apiKey)) return { searchWords: ['sample word', ...info.name.toLowerCase().split(/\s+/)], costUsd: 0.002 }
+  if (!apiKey) throw new Error('Gemini API key is not configured')
+  const prompt = `This prop from a film production's inventory is catalogued as:
+name: ${JSON.stringify(info.name)}; category: ${JSON.stringify(info.category ?? '')}; tags: ${JSON.stringify(info.tags)}; description: ${JSON.stringify(info.description ?? '')}.
+${image ? 'Its photo is attached (ignore any bin or quantity sign in it).' : ''}
+Return ONLY a JSON object: {"searchWords": [...]}, where
+${SEARCH_WORDS_RULE}`
+  const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: keyHeaders(apiKey),
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }, ...(image ? [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }] : [])] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: 1024, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
+    }),
+  })
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const json = await res.json() as any
+  const usage = json.usageMetadata ?? {}
+  const costUsd = ((usage.promptTokenCount ?? 0) * PRICE_PER_M.in
+    + ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)) * PRICE_PER_M.out) / 1_000_000
+  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const match = text.match(/\{[\s\S]*\}/)
+  const parsed = match ? JSON.parse(match[0]) as Record<string, unknown> : {}
+  return { searchWords: parseSearchWords(parsed.searchWords), costUsd }
 }
 
 export type EmbedTask = 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'

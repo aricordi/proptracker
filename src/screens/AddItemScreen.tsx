@@ -48,12 +48,13 @@ export default function AddItemScreen() {
   const [internalNotes, setInternalNotes] = useState('')
   const [originalInternalNotes, setOriginalInternalNotes] = useState('')
   const [categoryTouched, setCategoryTouched] = useState(false)
-  const [aiFilled, setAiFilled] = useState<Set<'name' | 'category' | 'tags' | 'description'>>(new Set())
+  const [aiFilled, setAiFilled] = useState<Set<'name' | 'category' | 'tags' | 'description' | 'searchWords'>>(new Set())
   const [locationId, setLocationId] = useState(searchParams.get('locationId') ?? '')
   const [binId, setBinId] = useState(searchParams.get('binId') ?? '')
   const [tagLabels, setTagLabels] = useState<string[]>([])
   const [characterLabels, setCharacterLabels] = useState<string[]>([])
   const [description, setDescription] = useState('')
+  const [searchWords, setSearchWords] = useState('')   // hidden extra search words, comma-separated
   const [replacementCost, setReplacementCost] = useState('')
   const [whereToRebuy, setWhereToRebuy] = useState('')
   const [showMore, setShowMore] = useState(false)
@@ -92,6 +93,7 @@ export default function AddItemScreen() {
       setLocationId(data.locationId ?? '')
       setBinId(data.binId ?? '')
       setDescription(data.description ?? '')
+      setSearchWords((data.searchWords ?? []).join(', '))
       setReplacementCost(data.replacementCost != null ? String(data.replacementCost) : '')
       setWhereToRebuy(data.whereToRebuy ?? '')
       setPhotos(data.photos.map(url => ({ key: url, preview: url, url, progress: null })))
@@ -155,16 +157,17 @@ export default function AddItemScreen() {
 
   // The AI answers a few seconds after the photo is picked; by then the admin
   // may have typed. Read the latest values from here, not from a stale closure.
-  const latest = useRef({ name, description, tagLabels, categoryTouched })
-  latest.current = { name, description, tagLabels, categoryTouched }
+  const latest = useRef({ name, description, tagLabels, categoryTouched, searchWords })
+  latest.current = { name, description, tagLabels, categoryTouched, searchWords }
 
   // Fill in whatever the admin hasn't already typed or picked themselves.
   function applyAi(result: PhotoAnalysis) {
     const now = latest.current
-    const filled = new Set<'name' | 'category' | 'tags' | 'description'>()
+    const filled = new Set<'name' | 'category' | 'tags' | 'description' | 'searchWords'>()
     if (result.name && !now.name.trim()) { setName(result.name); filled.add('name') }
     if (result.categoryId && !now.categoryTouched) { setCategoryId(result.categoryId); filled.add('category') }
     if (result.description && !now.description.trim()) { setDescription(result.description); filled.add('description'); setShowMore(true) }
+    if (result.searchWords?.length && !now.searchWords.trim()) { setSearchWords(result.searchWords.join(', ')); filled.add('searchWords') }
     if (result.tags.length) {
       // Reuse the existing spelling of a tag ("chairs" → existing "chair") so tags don't multiply.
       const existing = new Map(tags.map(t => [t.normalizedKey || normalizeTag(t.label), t.label]))
@@ -225,6 +228,7 @@ export default function AddItemScreen() {
         photos: photoUrls,
         photoUrl: photoUrls[0],
         description: description.trim() || undefined,
+        searchWords: searchWordList(searchWords),
         notes: notes.trim() || undefined,
         tags: newTagIds,
         characters: newCharacterIds,
@@ -259,6 +263,7 @@ export default function AddItemScreen() {
           status: editItem?.status ?? 'available',
           photoUrl: common.photoUrl ?? deleteField(),
           description: common.description ?? deleteField(),
+          searchWords: common.searchWords ?? deleteField(),
           notes: common.notes ?? deleteField(),
           locationId: common.locationId ?? deleteField(),
           binId: common.binId ?? deleteField(),
@@ -513,7 +518,7 @@ export default function AddItemScreen() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className={`w-4 h-4 transition-transform ${showMore ? 'rotate-180' : ''}`}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
           </svg>
-          {showMore ? 'Hide extra details' : 'Description, notes, where to rebuy'}
+          {showMore ? 'Hide extra details' : 'Description, search words, notes, where to rebuy'}
         </button>
 
         {showMore && (
@@ -527,6 +532,17 @@ export default function AddItemScreen() {
                 rows={2}
                 className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none"
               />
+            </div>
+            <div>
+              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Extra search words{aiFilled.has('searchWords') && <AiMark />}</p>
+              <textarea
+                value={searchWords}
+                onChange={e => setSearchWords(e.target.value)}
+                placeholder="e.g. president, civil war, history (separate with commas)"
+                rows={2}
+                className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none"
+              />
+              <p className="text-pt-muted text-xs mt-1">Not shown on the prop page. Search uses them to find this prop.</p>
             </div>
             <div>
               <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Notes for creators</p>
@@ -614,4 +630,10 @@ export default function AddItemScreen() {
 // Small marker beside a field the AI filled in.
 function AiMark() {
   return <span className="text-pt-accent normal-case tracking-normal ml-1.5">✦ AI</span>
+}
+
+// "president, Civil War,, history" → ['president', 'civil war', 'history'] (undefined if empty).
+function searchWordList(text: string): string[] | undefined {
+  const list = [...new Set(text.split(/[,\n]/).map(w => w.trim().toLowerCase().slice(0, 40)).filter(Boolean))].slice(0, 40)
+  return list.length ? list : undefined
 }

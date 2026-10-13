@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 196 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 200 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -357,5 +357,14 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     props with a "supplies" tag; the AI prompts (add-prop + import) now put "supplies" first for them.
     No re-analysis of already-imported photos (owner: not worth it). ARTS can now delete imported,
     never-booked props too (`deleteImportedProp` owner+arts) so the prop department can clear them.
+  - BETTER SEARCH (owner request Oct 13: "president" should find the Abraham Lincoln mask), NOT deployed yet:
+    hidden item field `searchWords` (AI-written associations: who/what it depicts, roles, themes,
+    occasions, eras, synonyms; staff can edit "Extra search words" on add/edit; never shown on the prop
+    page). Written by analyzePropPhoto + import (SEARCH_WORDS_RULE in gemini.ts); tags now 6–10 incl.
+    "who/what it depicts". Used by text search (`src/lib/search.ts`, which also treats plurals as
+    singulars) and by the smart-search fingerprint (searchTextFor in index.ts → re-embedded automatically).
+    Existing props: owner button Health → AI usage → "Improve search words" (`improveSearchWords` in
+    `functions/src/searchWords.ts`, 12 props/call, photo + details, ~$0.002/prop ≈ $3 for 1,500, counted
+    in the import cap; marks `searchWordsAt`; keeps old words). ASK THE OWNER before running it.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

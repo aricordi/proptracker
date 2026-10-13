@@ -35,7 +35,7 @@ jobs:
       - name: Who may call each function (needs allUsers for the app to reach it)
         continue-on-error: true
         run: |
-          for f in analyzepropphoto searchsimilar rebuildsearchindex createreservation cancelreservation declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin sendtestemail checknoticesnow importinfo startimport processimport approveimports skipimports mergeimports deleteimportedprop undoimport findduplicates comparepropphotos mergeprops mergebins; do
+          for f in analyzepropphoto searchsimilar rebuildsearchindex createreservation cancelreservation declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin sendtestemail checknoticesnow importinfo startimport processimport approveimports skipimports mergeimports deleteimportedprop undoimport findduplicates comparepropphotos mergeprops mergebins improvesearchwords; do
             echo "== $f"; gcloud run services get-iam-policy "$f" --region northamerica-northeast1 --project proptracker-9732e --format='value(bindings)' || true
           done
 

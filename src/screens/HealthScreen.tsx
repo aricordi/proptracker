@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { FirebaseError } from 'firebase/app'
 import { useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -11,7 +12,7 @@ import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import { mergeTags, deleteUnusedTags } from '../services/tags'
 import { subscribeToDismissedPairs, dismissDuplicatePair, pairKey, getAllInternalNotes } from '../services/health'
-import { rebuildSearchIndex } from '../services/ai'
+import { rebuildSearchIndex, improveSearchWords } from '../services/ai'
 import {
   findDuplicateTags, planTagMerge, tagUsage, unusedTags,
   findDuplicateProps, emptyBins, emptyLocations, type TagGroup,
@@ -209,6 +210,7 @@ export default function HealthScreen() {
           </div>
           <p className="text-pt-muted text-xs">Each costs a fraction of a cent. Expect well under $2/month at your size.</p>
           {isOwner && <RebuildIndex />}
+          {isOwner && <ImproveSearchWords />}
         </Card>
 
         {/* Export */}
@@ -402,6 +404,57 @@ function RebuildIndex() {
         {state === 'done' ? result
           : state === 'error' ? "Didn't finish. It's safe to run again."
           : 'Owner only. Run once after the update goes live so existing props show up in "Similar" results. Safe to repeat.'}
+      </p>
+    </div>
+  )
+}
+
+// Owner: the AI writes hidden extra search words for props that don't have them
+// yet (a Lincoln mask → "president"). Runs in rounds while this screen is open.
+function ImproveSearchWords() {
+  const [counts, setCounts] = useState<{ total: number; remaining: number } | null>(null)
+  const [running, setRunning] = useState(false)
+  const [message, setMessage] = useState('')
+  const stop = useRef(false)
+  useEffect(() => { improveSearchWords({ countOnly: true }).then(r => setCounts(r.data)).catch(() => setCounts(null)) }, [])
+  useEffect(() => () => { stop.current = true }, [])
+
+  async function run() {
+    stop.current = false; setRunning(true); setMessage('')
+    let failed = 0, stalls = 0
+    try {
+      while (!stop.current) {
+        const r = (await improveSearchWords({})).data
+        failed += r.failed
+        setCounts({ total: r.total, remaining: r.remaining })
+        if (r.capped) { setMessage('Stopped: the AI spending cap was reached. Raise it on Admin → Import to continue.'); break }
+        if (r.slowDown) {
+          if (++stalls >= 6) { setMessage('Google keeps asking us to slow down. Tap the button again later; nothing is lost.'); break }
+          setMessage('Google asked us to slow down. Waiting 30 seconds…')
+          for (let i = 0; i < 30 && !stop.current; i++) await new Promise(res => setTimeout(res, 1000))
+          continue
+        }
+        stalls = 0
+        if (r.remaining <= 0 || r.processed + r.failed === 0) { setMessage(`Done.${failed ? ` ${failed} prop${failed === 1 ? '' : 's'} couldn't be done and kept their current words.` : ''}`); break }
+        setMessage('')
+      }
+    } catch (err) {
+      setMessage(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Tap the button to continue.")
+    } finally { setRunning(false) }
+  }
+
+  if (!counts) return null
+  const cost = (counts.remaining * 0.002).toFixed(2)
+  return (
+    <div className="pt-2 space-y-1">
+      <button onClick={running ? () => { stop.current = true } : run} disabled={!running && counts.remaining === 0}
+        className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        {running ? `Improving… ${counts.total - counts.remaining} of ${counts.total} · tap to stop` : counts.remaining ? `Improve search words (${counts.remaining} props)` : 'Search words: all done ✓'}
+      </button>
+      <p className="text-pt-muted text-xs">
+        {message || (counts.remaining
+          ? `The AI looks at each prop's photo and adds hidden search words (a Lincoln mask gets "president", "civil war"…). About $${cost} in total, counted in the import spending cap. Keep this screen open; you can stop and continue later.`
+          : 'Every prop has extra search words. New props get them automatically.')}
       </p>
     </div>
   )

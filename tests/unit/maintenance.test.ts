@@ -71,6 +71,14 @@ describe('search', () => {
     expect(matchesQuery(chair, 'oak', tags)).toBe(true)
     expect(matchesQuery(chair, 'wobbly', tags)).toBe(true)
   })
+  it('finds props by their hidden search words, and plurals find singulars', () => {
+    const mask = item('Bearded Man Mask', { searchWords: ['president', 'abraham lincoln', 'civil war'] })
+    expect(matchesQuery(mask, 'president', tags)).toBe(true)
+    expect(matchesQuery(mask, 'Presidents', tags)).toBe(true)
+    expect(matchesQuery(mask, 'lincoln mask', tags)).toBe(true)
+    expect(matchesQuery(mask, 'king', tags)).toBe(false)
+    expect(matchesQuery(chair, 'chairs', tags)).toBe(true)
+  })
   it('needs every typed word to match', () => {
     expect(matchesQuery(chair, 'red chair', tags)).toBe(true)
     expect(matchesQuery(chair, 'red table', tags)).toBe(false)

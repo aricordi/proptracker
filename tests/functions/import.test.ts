@@ -67,6 +67,7 @@ describe('batch import', () => {
     expect(a).toMatchObject({ name: 'Red Rotary Phone', quantity: 2, binId: 'b1', locationId: 'loc-main', createdBy: ARTS, condition: 'good', archived: false })
     expect(a!.tags).toHaveLength(2)   // "phone" and "Phones" are one tag
     expect(a!.photos[0]).toMatch(/test0001x4/)
+    expect(a!.searchWords).toContain('sample word')   // hidden extra search words from the AI
     expect(b!.locationId).toBe('imported')       // new bin from the sign, in "Imported – needs sorting"
     expect((await getDoc(`bins/${b!.binId}`))!.label).toBe('C7')
     expect((await getDoc('locations/imported'))!.name).toMatch(/Imported/)
