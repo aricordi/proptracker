@@ -15,6 +15,8 @@ import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
+import { logger } from 'firebase-functions'
+import { isRateLimit } from './limits.js'
 import { analyzeImportPhoto, GEMINI_API_KEY, type ImportAnalysis } from './gemini.js'
 import { folderIdFrom, resourceKeyFrom, listImages, fetchPhoto, serviceAccountEmail, type DriveImage } from './drive.js'
 import { tagIdsFor } from './tags.js'
@@ -23,7 +25,7 @@ const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch 
 
 export const DEFAULT_CAP_USD = 10
 export const RESERVE_USD = 0.01          // set aside before each AI call (real cost is ~$0.002)
-const PER_CALL = 8                // photos handled per processImport call, in parallel
+const PER_CALL = 4                // photos handled per processImport call, in parallel (gentle on Google's limits)
 const DRY_RUN_SIZE = 10
 const STALE_MS = 3 * 60_000       // a photo "being worked on" this long is retried
 export const BUDGET = () => db.doc('app_settings/import')
@@ -172,6 +174,7 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
   const bucket = getStorage().bucket()
 
   let capped = false
+  let slowDown = false
   await Promise.all(claimed.map(async ref => {
     const item = (await ref.get()).data()!
     const finish = async (to: Status, data: Record<string, unknown>) => {
@@ -200,7 +203,15 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
       await finish('analyzed', { photoUrl: photoUrl(path, token, bucket.name), suggestion: analysis satisfies ImportAnalysis, analyzedAt: new Date().toISOString() })
     } catch (err) {
       if (reserved) await BUDGET().set({ spentUsd: FieldValue.increment(-reserved) }, { merge: true })
-      await finish('failed', { error: (err instanceof Error ? err.message : String(err)).slice(0, 300) })
+      const message = (err instanceof Error ? err.message : String(err)).slice(0, 300)
+      if (isRateLimit(message)) {
+        // Google asked us to slow down: put the photo back in the queue (not a failure).
+        slowDown = true
+        await ref.update({ status: 'pending', workingAt: FieldValue.delete(), lastError: message })
+      } else {
+        logger.warn('Import photo failed', { fileId: item.fileId, error: message })
+        await finish('failed', { error: message })
+      }
     }
   }))
 
@@ -208,6 +219,7 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
   return {
     processed: claimed.length,
     capped,
+    slowDown,   // the Import screen waits a bit before the next batch
     counts: job.get('counts'),
     spentUsd: budget.get('spentUsd') ?? 0,
     capUsd: budget.get('capUsd') ?? DEFAULT_CAP_USD,

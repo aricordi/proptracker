@@ -52,6 +52,8 @@ export default function ImportScreen() {
     setRunning(jobId); setMessage(null)
     try {
       let first = true
+      let stalls = 0   // pauses in a row without a single photo getting through
+      let lastPending: number | undefined
       while (!stopRef.current) {
         const r = (await processImport({ jobId, retryFailed: first && retryFailed })).data
         first = false
@@ -59,6 +61,21 @@ export default function ImportScreen() {
           setMessage({ tone: 'error', text: `Stopped: the AI spending cap (${usd(r.capUsd)}) was reached. Raise the cap below to continue.` })
           break
         }
+        if (r.slowDown) {
+          stalls = r.processed > 0 && r.counts.pending < (lastPending ?? Infinity) ? 0 : stalls + 1
+          lastPending = r.counts.pending
+          if (stalls >= 6) {
+            setMessage({ tone: 'error', text: "Google keeps saying \"too many requests\", so the AI's limit may be used up for now (some keys have an hourly or daily limit). Nothing is lost: tap \"Continue\" later, or tell Claude to check the AI key's plan." })
+            break
+          }
+          // Google asked us to slow down; those photos went back in the queue.
+          setMessage({ tone: 'ok', text: 'Google asked us to slow down. Waiting 30 seconds, then carrying on by itself…' })
+          for (let s = 0; s < 30 && !stopRef.current; s++) await new Promise(res => setTimeout(res, 1000))
+          setMessage(null)
+          continue
+        }
+        lastPending = r.counts.pending
+        stalls = 0
         if (r.counts.pending === 0 || r.processed === 0) break
       }
     } catch (err) {

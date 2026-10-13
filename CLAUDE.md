@@ -159,7 +159,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 188 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 190 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -268,5 +268,10 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
     = optional Gemini photo check (~$0.001, counted in the import cap); `mergeProps` (owner) keeps one,
     adds photos (+ quantity for copies), deletes the other if imported & never booked else archives it
     (`mergedInto`), re-points import_items so re-imports don't resurrect it. Refuses props in a current booking.
+  - Owner's full import started failing after 64 photos (cause TBD; failure reasons are on each
+    import_items doc `error` and now also logged). Fix: "too many requests"/quota/busy errors
+    (`functions/src/limits.ts` isRateLimit) put the photo back in the queue (`lastError`) and return
+    `slowDown`; the Import screen waits 30 s and continues, stopping after 6 stalls in a row.
+    PER_CALL lowered 8 → 4. Failed photos can be re-queued with "Try failed again".
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

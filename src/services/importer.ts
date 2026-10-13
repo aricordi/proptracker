@@ -77,7 +77,7 @@ export interface Approval {
 
 export const importInfo     = httpsCallable<void, { serviceAccount: string }>(functions, 'importInfo')
 export const startImport    = httpsCallable<{ links: string[]; dryRun: boolean }, { jobId: string | null; queued: number; alreadyImported: number; found: number }>(functions, 'startImport')
-export const processImport  = httpsCallable<{ jobId: string; retryFailed?: boolean }, { processed: number; capped: boolean; counts: ImportCounts; spentUsd: number; capUsd: number }>(functions, 'processImport')
+export const processImport  = httpsCallable<{ jobId: string; retryFailed?: boolean }, { processed: number; capped: boolean; slowDown?: boolean; counts: ImportCounts; spentUsd: number; capUsd: number }>(functions, 'processImport')
 export const approveImports = httpsCallable<{ items: Approval[] }, { results: { id: string; itemId?: string; error?: string }[] }>(functions, 'approveImports')
 export const skipImports    = httpsCallable<{ ids: string[] }, { skipped: number }>(functions, 'skipImports')
 
