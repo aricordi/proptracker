@@ -195,6 +195,14 @@ Everything Prime Capitol offers, bookable in one app:
 - MAKEUP: book makeup for a video.
 - CASTING: roster of actors with their look + availability; book them for shoots.
 - CREW: e.g. book a camera operator.
+Owner shared a real "GUIDELINE" (The Classroom): synopsis/structure/step-by-step (stays in their docs,
+out of scope) + a CREW BOX = Actors (role, count, gender, ages, notes), Schedule (call times + location +
+who), Locations, Make up (per role + supplies, e.g. black contacts), Props (item + qty), Equipment,
+Wardrobe, Budget. Suggested to the owner (not decided): build a digital Crew Box = "Shoot sheet" as the
+hub; props section = real bookings (exists); other sections start as structured requests to each
+team's queue and upgrade to real booking one department at a time; AI pre-fills the sheet from an
+uploaded guideline PDF and matches the props list to inventory. Proposed order: rebrand → Shoot sheet +
+AI pre-fill → gear + packages → actor roster/casting → locations → makeup/crew.
 Suggested shape: generalise props into typed "bookable things" with departments (each with its
 own queue), packages for gear, people (actors/crew/makeup) with availability, and a single
 "Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
