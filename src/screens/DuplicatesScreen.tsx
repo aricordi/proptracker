@@ -84,6 +84,7 @@ function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
       {it.photos[0] ? <img src={it.photos[0]} alt="" className="w-full aspect-square object-cover rounded-lg bg-pt-bg" /> : <div className="w-full aspect-square rounded-lg bg-pt-bg" />}
       <p className="text-pt-text text-sm font-medium truncate mt-1">{it.name}</p>
       <p className="text-pt-muted text-xs truncate">×{it.quantity} · {it.photos.length} photo{it.photos.length === 1 ? '' : 's'}{binLabel(it.binId) ? ` · ${binLabel(it.binId)}` : ''}</p>
+      {it.importedFrom?.fileName && <p className="text-pt-muted text-xs truncate" title={`${it.importedFrom.folder} / ${it.importedFrom.fileName}`}>📄 {it.importedFrom.fileName}</p>}
       <p className={`text-xs ${keep === side ? 'text-pt-accent' : 'text-pt-muted'}`}>{keep === side ? '✓ Keep this one' : 'Tap to keep this one'}</p>
     </button>
   )
