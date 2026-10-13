@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
 import { findDuplicates, comparePropPhotos, mergeProps, type DuplicatePair, type PairVerdict } from '../services/importer'
-import { dismissDuplicatePair } from '../services/health'
+import { dismissDuplicatePair, subscribeToLaterPairs, setPairLater, pairKey } from '../services/health'
+import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."
@@ -22,7 +23,9 @@ export default function DuplicatesScreen() {
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [onlySplit, setOnlySplit] = useState(false)
+  const [view, setView] = useState<'all' | 'split' | 'later'>('all')
+  const [later, setLater] = useState<Set<string>>(new Set())
+  useEffect(() => subscribeToLaterPairs(setLater), [])
 
   async function scan() {
     setBusy(true); setError(null)
@@ -35,10 +38,13 @@ export default function DuplicatesScreen() {
 
   // Once a prop is merged away, drop every pair that mentions it.
   const done = (gone: string[]) => setPairs(p => (p ?? []).filter(x => !gone.includes(x.a) && !gone.includes(x.b)))
-  const all = (pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b))
+  const found = (pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b))
+  const isLater = (p: DuplicatePair) => later.has(pairKey(p.a, p.b))
   const isSplit = (p: DuplicatePair) => (byId.get(p.a)!.binId ?? '') !== (byId.get(p.b)!.binId ?? '')
+  const all = found.filter(p => !isLater(p))
+  const laterList = found.filter(isLater)
   const splitCount = all.filter(isSplit).length
-  const live = onlySplit ? all.filter(isSplit) : all
+  const live = view === 'later' ? laterList : view === 'split' ? all.filter(isSplit) : all
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -56,27 +62,27 @@ export default function DuplicatesScreen() {
         </button>
         {info && <p className="text-pt-muted text-xs">{info}</p>}
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
-        {splitCount > 0 && (
-          <div className="flex gap-2">
-            {([[false, `All (${all.length})`], [true, `In different bins (${splitCount})`]] as const).map(([v, label]) => (
-              <button key={label} onClick={() => setOnlySplit(v)}
-                className={`px-3 py-1 rounded-full text-sm ${onlySplit === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
+        {pairs && (
+          <div className="flex gap-2 flex-wrap">
+            {([['all', `To check (${all.length})`], ['split', `In different bins (${splitCount})`], ['later', `Later (${laterList.length})`]] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)}
+                className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
             ))}
           </div>
         )}
-        {pairs && live.length === 0 && <p className="text-green-400 text-sm text-center py-4">No likely duplicates. 🎉</p>}
+        {pairs && live.length === 0 && <p className="text-green-400 text-sm text-center py-4">{view === 'later' ? 'Nothing set aside.' : 'No likely duplicates. 🎉'}</p>}
         {live.map(p => (
           <PairCard key={`${p.a}|${p.b}`} pair={p} a={byId.get(p.a)!} b={byId.get(p.b)!} binLabel={binLabel}
-            canMerge={isStaff} onDone={done} onDismissed={() => setPairs(ps => (ps ?? []).filter(x => x !== p))} />
+            canMerge={isStaff} later={isLater(p)} onDone={done} onDismissed={() => setPairs(ps => (ps ?? []).filter(x => x !== p))} />
         ))}
       </div>
     </div>
   )
 }
 
-function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
+function PairCard({ pair, a, b, binLabel, canMerge, later, onDone, onDismissed }: {
   pair: DuplicatePair; a: Item; b: Item; binLabel: (id?: string) => string | undefined
-  canMerge: boolean; onDone: (gone: string[]) => void; onDismissed: () => void
+  canMerge: boolean; later: boolean; onDone: (gone: string[]) => void; onDismissed: () => void
 }) {
   const navigate = useNavigate()
   // Keep the one with more photos (or more units) by default.
@@ -84,6 +90,7 @@ function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
   const [verdict, setVerdict] = useState<PairVerdict | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null)   // full-size photo
   const kept = keep === 'a' ? a : b, other = keep === 'a' ? b : a
   // Different bins: they get moved onto one shelf first, then the team says which bin.
   const split = (a.binId ?? '') !== (b.binId ?? '')
@@ -96,14 +103,30 @@ function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
     try { await fn() } catch (err) { setError(errText(err)) } finally { setBusy(null) }
   }
 
+  // The whole photo (not cropped); tap it to see it full screen and zoom. Extra photos underneath.
   const tile = (it: Item, side: 'a' | 'b') => (
-    <button onClick={() => setKeep(side)} className={`flex-1 min-w-0 text-left rounded-xl border-2 p-1.5 ${keep === side ? 'border-pt-accent' : 'border-transparent'}`}>
-      {it.photos[0] ? <img src={it.photos[0]} alt="" className="w-full aspect-square object-cover rounded-lg bg-pt-bg" /> : <div className="w-full aspect-square rounded-lg bg-pt-bg" />}
+    <div className={`flex-1 min-w-0 rounded-xl border-2 p-1.5 ${keep === side ? 'border-pt-accent' : 'border-transparent'}`}>
+      {it.photos[0]
+        ? <button onClick={() => setZoom({ src: it.photos[0], alt: it.name })} className="block w-full" aria-label="See the whole photo">
+            <img src={it.photos[0]} alt="" className="w-full aspect-square object-contain rounded-lg bg-black" />
+          </button>
+        : <div className="w-full aspect-square rounded-lg bg-pt-bg" />}
+      {it.photos.length > 1 && (
+        <div className="flex gap-1 mt-1 overflow-x-auto">
+          {it.photos.slice(1).map(u => (
+            <button key={u} onClick={() => setZoom({ src: u, alt: it.name })} className="shrink-0">
+              <img src={u} alt="" className="w-10 h-10 object-cover rounded" />
+            </button>
+          ))}
+        </div>
+      )}
+      <button onClick={() => setKeep(side)} className="block w-full text-left">
       <p className="text-pt-text text-sm font-medium truncate mt-1">{it.name}</p>
       <p className="text-pt-muted text-xs truncate">×{it.quantity} · {it.photos.length} photo{it.photos.length === 1 ? '' : 's'}{binLabel(it.binId) ? ` · ${binLabel(it.binId)}` : ''}</p>
       {it.importedFrom?.fileName && <p className="text-pt-muted text-xs truncate" title={`${it.importedFrom.folder} / ${it.importedFrom.fileName}`}>📄 {it.importedFrom.fileName}</p>}
-      <p className={`text-xs ${keep === side ? 'text-pt-accent' : 'text-pt-muted'}`}>{keep === side ? '✓ Keep this one' : 'Tap to keep this one'}</p>
-    </button>
+      <p className={`text-xs ${keep === side ? 'text-pt-accent' : 'text-pt-muted'}`}>{keep === side ? '✓ Keep this one' : 'Tap here to keep this one'}</p>
+      </button>
+    </div>
   )
 
   return (
@@ -150,8 +173,15 @@ function PairCard({ pair, a, b, binLabel, canMerge, onDone, onDismissed }: {
           </button>
         </div>
       )}
-      <button disabled={!!busy} onClick={() => run('no', async () => { await dismissDuplicatePair(a.id, b.id); onDismissed() })}
-        className="w-full py-2 rounded-xl text-pt-muted text-sm">Not duplicates</button>
+      <div className="grid grid-cols-2 gap-2">
+        <button disabled={!!busy} onClick={() => run('later', () => setPairLater(a.id, b.id, !later))}
+          className="py-2 rounded-xl border border-pt-border text-pt-text text-sm disabled:opacity-40">
+          {later ? '↩ Back to the list' : '⏸ Decide later'}
+        </button>
+        <button disabled={!!busy} onClick={() => run('no', async () => { await dismissDuplicatePair(a.id, b.id); await setPairLater(a.id, b.id, false); onDismissed() })}
+          className="py-2 rounded-xl text-pt-muted text-sm">Not duplicates</button>
+      </div>
+      {zoom && <ImageLightbox src={zoom.src} alt={zoom.alt} onClose={() => setZoom(null)} />}
       {canMerge && <p className="text-pt-muted text-[11px]">"Copies" adds up the quantities; "Same one" just adds the extra photos. The other prop is then removed (archived if it was ever booked).</p>}
     </div>
   )
