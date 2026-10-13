@@ -31,6 +31,12 @@ import DuplicatesScreen from './screens/DuplicatesScreen'
 import GearItemsScreen from './screens/GearItemsScreen'
 import GearBundlesScreen from './screens/GearBundlesScreen'
 import GearBundleEditScreen from './screens/GearBundleEditScreen'
+import GearShopScreen from './screens/GearShopScreen'
+import GearOfferScreen from './screens/GearOfferScreen'
+import GearReviewScreen from './screens/GearReviewScreen'
+import GearBookingsScreen from './screens/GearBookingsScreen'
+import GearBookingScreen from './screens/GearBookingScreen'
+import { GearCartProvider } from './gearCart'
 import SuggestionsScreen from './screens/SuggestionsScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
@@ -76,7 +82,13 @@ function GearOnly({ children }: { children: ReactNode }) {
 // The equipment team works only with gear: their home is the bundles list.
 function Home() {
   const { role } = useSession()
-  return role === 'equipment' ? <Navigate to="/gear/bundles" replace /> : <HomeScreen />
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : <HomeScreen />
+}
+
+// Booking gear is for creators, the arts department and the owner (the equipment team runs it).
+function GearBookers({ children }: { children: ReactNode }) {
+  const { role } = useSession()
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : <>{children}</>
 }
 
 function StaffOnly({ children }: { children: ReactNode }) {
@@ -156,6 +168,7 @@ export default function App() {
   return (
     <SessionContext.Provider value={session}>
     <CartProvider>
+    <GearCartProvider>
     <ViewAsFrame on={!!session.viewingAs}>
       <Routes>
         {/* Full-screen routes outside the shell */}
@@ -165,9 +178,14 @@ export default function App() {
         <Route path="/reserve" element={<ReserveScreen />} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
+        <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
+        <Route path="/gear/review" element={<GearBookers><GearReviewScreen /></GearBookers>} />
+        <Route path="/gear/bookings/:id" element={<GearBookingScreen />} />
 
         <Route element={<ShellLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/gear" element={<GearBookers><GearShopScreen /></GearBookers>} />
+          <Route path="/gear/bookings" element={<GearBookingsScreen />} />
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
           <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
@@ -192,6 +210,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ViewAsFrame>
+    </GearCartProvider>
     </CartProvider>
     </SessionContext.Provider>
   )

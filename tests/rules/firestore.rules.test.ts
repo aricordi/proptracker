@@ -334,3 +334,25 @@ describe('gear (equipment team)', () => {
     await assertFails(getDoc(doc(as(GEAR), 'items', 'cop')))
   })
 })
+
+describe('gear bookings', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'gear_bookings', 'g1'), { creatorEmail: CREATOR, status: 'held' })
+      await setDoc(doc(db, 'gear_holds', 'b1'), { entries: [] })
+    })
+  })
+  it('creators see their own gear bookings; the equipment team and owner see all; arts only their own', async () => {
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'gear_bookings', 'g1')))
+    await assertSucceeds(getDoc(doc(as(GEAR), 'gear_bookings', 'g1')))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'gear_bookings', 'g1')))
+    await assertFails(getDoc(doc(as(ARTS), 'gear_bookings', 'g1')))
+    await assertFails(getDoc(doc(as(STRANGER), 'gear_bookings', 'g1')))
+  })
+  it('holds (times only) are visible to members; nobody writes bookings or holds directly', async () => {
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'gear_holds', 'b1')))
+    await assertFails(setDoc(doc(as(CREATOR), 'gear_holds', 'b1'), { entries: [] }))
+    await assertFails(setDoc(doc(as(CREATOR), 'gear_bookings', 'new'), { creatorEmail: CREATOR, status: 'held' }))
+  })
+})

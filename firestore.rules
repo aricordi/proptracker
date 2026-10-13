@@ -187,6 +187,16 @@ service cloud.firestore {
       allow read: if isMember() || isGearStaff();
       allow write: if false;
     }
+    // Holds on each bundle/extra (times only, no names), so the app can show what's free.
+    match /gear_holds/{id} {
+      allow read: if isMember() || isGearStaff();
+      allow write: if false;
+    }
+    // Gear bookings: the creator sees their own; the owner and equipment team see all.
+    match /gear_bookings/{id} {
+      allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
+      allow write: if false;
+    }
 
     // Smart-search fingerprints. Only the server functions touch these.
     match /item_vectors/{id} {

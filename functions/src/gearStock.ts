@@ -10,7 +10,7 @@
 export const GEAR_CATEGORIES = ['Camera', 'Lens', 'Lighting', 'Audio', 'Drones', 'Power', 'Grip', 'Monitors', 'Other'] as const
 export type GearCategory = typeof GEAR_CATEGORIES[number]
 
-export interface BundlePiece { itemId: string; qty: number }
+export interface BundlePiece { itemId: string; qty: number; name?: string }   // name: copied in by the server
 export interface StockItem { id: string; name: string; have: number; archived?: boolean }
 export type OfferKind = 'bundle' | 'extra'
 export interface StockBundle { id: string; pieces: BundlePiece[]; archived?: boolean; kind?: OfferKind }

@@ -93,6 +93,11 @@ const gearItems = [
 ]
 for (const { id, ...g } of gearItems) await put(`gear_items/${id}`, { serial: null, value: null, notes: '', photos: [], archived: false, ...g, ...meta })
 await put('gear_bundles/b-fx3', { name: 'Sony FX3 Cinema Bundle', category: 'Camera', description: 'Run-and-gun cinema kit', photos: [], archived: false,
-  pieces: [{ itemId: 'g-fx3', qty: 1 }, { itemId: 'g-2470', qty: 1 }, { itemId: 'g-npfz', qty: 2 }, { itemId: 'g-chg', qty: 1 }, { itemId: 'g-cfx', qty: 2 }], ...meta })
+  kind: 'bundle', pieces: [{ itemId: 'g-fx3', qty: 1, name: 'Sony FX3 body' }, { itemId: 'g-2470', qty: 1, name: '24–70mm f/2.8 lens' },
+    { itemId: 'g-npfz', qty: 2, name: 'NP-FZ100 battery' }, { itemId: 'g-chg', qty: 1, name: 'Dual battery charger' }, { itemId: 'g-cfx', qty: 2, name: '128 GB CFexpress card' }], ...meta })
+await put('gear_bundles/b-600d', { name: 'Aputure 600d Light Bundle', category: 'Lighting', description: 'One big soft key light', photos: [], archived: false,
+  kind: 'bundle', pieces: [{ itemId: 'g-600d', qty: 1, name: 'Aputure 600d light' }, { itemId: 'g-cst', qty: 1, name: 'C-stand' }], ...meta })
+await put('gear_bundles/x-cst', { name: 'C-stand', category: 'Grip', description: '', photos: [], archived: false,
+  kind: 'extra', pieces: [{ itemId: 'g-cst', qty: 4, name: 'C-stand' }], ...meta })
 
 console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)

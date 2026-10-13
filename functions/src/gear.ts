@@ -3,6 +3,17 @@
 // block direct writes) so the "a piece is in one bundle at a time" rule always holds.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { db, requireRole, CALLABLE } from './auth.js'
+import type { GearHold } from './gearBooking.js'
+
+// Is a bundle/extra booked now or later? (holds that haven't ended yet)
+function stampNow() {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date())
+  const g = (t: string) => p.find(x => x.type === t)?.value ?? '00'
+  return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`
+}
+const activeHolds = (entries: GearHold[] | undefined) => (entries ?? []).filter(h => h.to > stampNow())
+const samePieces = (a: { itemId: string; qty: number }[], b: { itemId: string; qty: number }[]) =>
+  a.length === b.length && a.every(p => b.some(q => q.itemId === p.itemId && q.qty === p.qty))
 import {
   GEAR_CATEGORIES, tidyPieces, bundleProblems, haveProblem,
   type StockItem, type StockBundle, type GearCategory, type OfferKind,
@@ -38,6 +49,11 @@ export const saveGearItem = onCall(CALLABLE, async req => {
     const all = bundles.docs.map(b => asBundle(b.id, b.data()))
     const problem = haveProblem(item, archived ? 0 : have, all)
     if (problem) throw new HttpsError('failed-precondition', archived ? `Can't archive it: ${problem}` : problem)
+    // Bundles keep a copy of each piece's name (creators can't read the gear list).
+    for (const b of bundles.docs) {
+      const ps = (b.get('pieces') as { itemId: string; qty: number; name?: string }[] | undefined) ?? []
+      if (ps.some(p => p.itemId === ref.id && p.name !== name)) tx.update(b.ref, { pieces: ps.map(p => p.itemId === ref.id ? { ...p, name } : p) })
+    }
     tx.set(ref, {
       name, category: category(d.category), have, serial: serial || null, value, notes: str(d.notes, 500),
       photos: photosOf(d.photos), archived,
@@ -61,16 +77,21 @@ export const saveGearBundle = onCall(CALLABLE, async req => {
 
   const ref = typeof d.id === 'string' && d.id ? db.doc(`gear_bundles/${d.id}`) : db.collection('gear_bundles').doc()
   await db.runTransaction(async tx => {
-    const [snap, items, bundles] = await Promise.all([tx.get(ref), tx.get(db.collection('gear_items')), tx.get(db.collection('gear_bundles'))])
+    const [snap, items, bundles, holds] = await Promise.all([tx.get(ref), tx.get(db.collection('gear_items')), tx.get(db.collection('gear_bundles')), tx.get(db.doc(`gear_holds/${ref.id}`))])
     if (typeof d.id === 'string' && d.id && !snap.exists) throw new HttpsError('not-found', 'That bundle no longer exists.')
     if (snap.get('archived') === true) throw new HttpsError('failed-precondition', 'Bring the bundle back before editing it.')
-    // Gear step 2 adds: refuse while the bundle is booked or out.
+    // What's in it can't change while it's booked or out (the name, photo and description can).
+    if (snap.exists && activeHolds(holds.get('entries')).length && !samePieces(pieces, (snap.get('pieces') ?? []) as { itemId: string; qty: number }[])) {
+      throw new HttpsError('failed-precondition', "It's booked or out, so what's in it can't change right now. You can still change the name, photo and description.")
+    }
     if (snap.exists && (snap.get('kind') ?? 'bundle') !== kind) throw new HttpsError('failed-precondition', "A bundle can't become an add-on extra (or the other way round). Make a new one instead.")
     const problems = bundleProblems(pieces, items.docs.map(i => asItem(i.id, i.data())), bundles.docs.map(b => asBundle(b.id, b.data())), ref.id, kind)
     if (problems.length) throw new HttpsError('failed-precondition', problems.join(' '))
     tx.set(ref, {
       name, kind, category: category(d.category), description: str(d.description, 500), photos: photosOf(d.photos),
-      pieces, archived: false, updatedAt: now, updatedBy: caller.email,
+      // Each piece carries its name so creators can see what's in the case.
+      pieces: pieces.map(p => ({ ...p, name: String(items.docs.find(i => i.id === p.itemId)?.get('name') ?? '') })),
+      archived: false, updatedAt: now, updatedBy: caller.email,
       ...(snap.exists ? {} : { createdAt: now, createdBy: caller.email }),
     }, { merge: true })
   })
@@ -86,6 +107,9 @@ export const setGearBundleArchived = onCall(CALLABLE, async req => {
   await db.runTransaction(async tx => {
     const [snap, items, bundles] = await Promise.all([tx.get(ref), tx.get(db.collection('gear_items')), tx.get(db.collection('gear_bundles'))])
     if (!snap.exists) throw new HttpsError('not-found', 'That bundle no longer exists.')
+    if (archived && activeHolds((await tx.get(db.doc(`gear_holds/${id}`))).get('entries')).length) {
+      throw new HttpsError('failed-precondition', "It's booked or out. Archive it after those bookings are done (or cancel them).")
+    }
     if (!archived) {
       const problems = bundleProblems(asBundle(id, snap.data()!).pieces, items.docs.map(i => asItem(i.id, i.data())), bundles.docs.map(b => asBundle(b.id, b.data())), id)
       if (problems.length) throw new HttpsError('failed-precondition', `Can't bring it back: ${problems.join(' ')}`)

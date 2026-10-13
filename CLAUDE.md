@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 228 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 254 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -285,6 +285,34 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     add-on extras (`gear_bundles.kind: 'extra'`, exactly ONE kind of piece; pieces[0].qty = how many are
     offered; creators will pick how many). Loose pieces are never visible to creators (gear_items is staff-only).
     Extras use the same stock (a piece is in one bundle OR one extra). A bundle can't turn into an extra.
+  STEP 2 BUILT (Oct 13, NOT deployed; changes security rules → needs owner OK): creators book whole
+  bundles + add-on extras BY THE HOUR with an INSTANT HOLD.
+  - Shared rules `functions/src/gearBooking.ts` (server + app): times = minutes after midnight, 30-min
+    steps, 6 AM–midnight; `holdWindow` (open day = booked hours; CLOSED-day shoot = pick up last open day
+    at the start time, back next open day 10 AM); holds stored as 'YYYY-MM-DDTHH:MM' text (sorts in time
+    order); `freeQty` (bundle = 1, extra = offered count), no gap between bookings; `nextFreeStart`;
+    `checkGearTimes` (creators 1 open day notice via pickup day; staff/arts/owner skip); `pruneHolds` (>7 days old).
+  - Server `functions/src/gearBookings.ts`: createGearBooking (owner/arts/creator; equipment can't book),
+    cancelGearBooking (own creator or owner/equipment, only while 'held'), declineGearBooking (owner/equipment,
+    reason required). Transactions over `gear_holds/{offerId}.entries[]` (no names; members can read) →
+    no double-booking (race tested). `gear_bookings/{id}`: title, notes, creator, date/start/end, from/to,
+    pickupDay, closedDay, lines[{offerId, kind, name, qty, photo, pieces[{itemId, qty, name}]}] (snapshot for
+    the step-3 pickup check), offerIds, status held|cancelled|declined, history. Rules: own creator or
+    owner/equipment read; no client writes. Index: gear_bookings creatorEmail + date desc.
+  - gear.ts: bundles store each piece's NAME (creators can't read gear_items); renaming a piece updates
+    bundles; a bundle's pieces can't change and it can't be archived while it has holds that haven't ended
+    (name/photo/description still editable).
+  - App: `src/gearCart.tsx` (gear basket on the phone: day, hours, offerId→qty), `src/components/GearUi.tsx`
+    (useGearWhen, GearWhenPicker, GearArt placeholder art, Pill, DayTimeline), screens GearShopScreen (/gear:
+    bundles grid with Free/Taken, category chips, extras with steppers capped at free, "Review & hold"),
+    GearOfferScreen (/gear/b/:id: what's in the case, battery note, timeline, next free + "Use those hours",
+    similar free bundles), GearReviewScreen (/gear/review: shoot name, notes, pickup/return text, Hold),
+    GearBookingsScreen (/gear/bookings: own or all; Upcoming / Past & cancelled), GearBookingScreen
+    (/gear/bookings/:id: pickup/back-by/where, lines with pieces, cancel with confirm, decline with reason,
+    history). Creator tabs: Props / Gear / Bookings / Account. Equipment tabs: Bookings / Bundles / All gear /
+    Account (home = /gear/bookings). Admin: "Book gear", owner "Gear bookings".
+  - Seed: 2 bundles (FX3 camera, 600d light) + C-stand extra (4) with piece names.
+  NEXT: step 3 (pickup check by the creator in the 30-min window, return photo, team check-in, late, queue).
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
   on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".

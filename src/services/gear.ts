@@ -1,7 +1,8 @@
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot, doc, query, where, orderBy, limit } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
 import type { BundlePiece, GearCategory, OfferKind } from '../../functions/src/gearStock'
+import type { GearHold } from '../../functions/src/gearBooking'
 
 export { GEAR_CATEGORIES, bundledCounts, looseCount, bundleProblems, pieceTotal } from '../../functions/src/gearStock'
 export type { BundlePiece, GearCategory, OfferKind } from '../../functions/src/gearStock'
@@ -49,3 +50,45 @@ export function subscribeToGearBundles(cb: (bundles: GearBundle[]) => void) {
 export const saveGearItem = httpsCallable<Partial<GearItem>, { id: string }>(functions, 'saveGearItem')
 export const saveGearBundle = httpsCallable<Partial<GearBundle>, { id: string }>(functions, 'saveGearBundle')
 export const setGearBundleArchived = httpsCallable<{ id: string; archived: boolean }, { ok: boolean }>(functions, 'setGearBundleArchived')
+
+// ─── Booking gear (step 2) ───────────────────────────────────────────────────
+export * from '../../functions/src/gearBooking'
+
+export interface GearBookingLine {
+  offerId: string; kind: OfferKind; name: string; qty: number; photo?: string | null
+  pieces: { itemId: string; qty: number; name: string }[]
+}
+export interface GearBooking {
+  id: string
+  title: string; notes?: string
+  creatorEmail: string; creatorName?: string
+  date: string; start: number; end: number; from: string; to: string; pickupDay: string; closedDay?: boolean
+  lines: GearBookingLine[]; offerIds: string[]
+  status: 'held' | 'cancelled' | 'declined'
+  declineReason?: string
+  createdAt: string
+  history: { at: string; by: string; action: string; note?: string }[]
+}
+
+// Every bundle's/extra's holds (times only), for showing what's free.
+export function subscribeToGearHolds(cb: (byOffer: Record<string, GearHold[]>) => void) {
+  return onSnapshot(collection(db, 'gear_holds'),
+    snap => cb(Object.fromEntries(snap.docs.map(d => [d.id, (d.get('entries') ?? []) as GearHold[]]))),
+    () => cb({}))
+}
+
+// Creators: their own gear bookings. Owner + equipment team: everyone's (newest shoots first).
+export function subscribeToGearBookings(mine: string | null, cb: (b: GearBooking[]) => void) {
+  const col = collection(db, 'gear_bookings')
+  const q = mine ? query(col, where('creatorEmail', '==', mine), orderBy('date', 'desc'), limit(100))
+                 : query(col, orderBy('date', 'desc'), limit(200))
+  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))), () => cb([]))
+}
+
+export function subscribeToGearBooking(id: string, cb: (b: GearBooking | null) => void) {
+  return onSnapshot(doc(db, 'gear_bookings', id), snap => cb(snap.exists() ? { id: snap.id, ...snap.data() } as GearBooking : null), () => cb(null))
+}
+
+export const createGearBooking = httpsCallable<{ title: string; notes?: string; date: string; start: number; end: number; lines: { offerId: string; qty: number }[] }, { id: string }>(functions, 'createGearBooking')
+export const cancelGearBooking = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelGearBooking')
+export const declineGearBooking = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineGearBooking')

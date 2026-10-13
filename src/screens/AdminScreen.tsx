@@ -16,7 +16,11 @@ export default function AdminScreen() {
     { to: '/booking-rules', title: 'Booking rules',  detail: 'How far ahead props must be booked; turnaround days' },
     ...(isOwner ? [{ to: '/email', title: 'Email', detail: 'Turn emails on, choose the sending service, send a test' }] : []),
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
-    ...(isOwner ? [{ to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles creators will book' }] : []),
+    { to: '/gear',       title: 'Book gear',         detail: 'Hold camera, light and sound bundles for a shoot, by the hour' },
+    ...(isOwner ? [
+      { to: '/gear/bookings', title: 'Gear bookings', detail: "Everyone's gear bookings; decline if something's wrong" },
+      { to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles and extras creators can book' },
+    ] : []),
     { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout, kept until everything moves to the Queue' },
     { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Preview the app as Arts or Creator; sign out' : 'Who you are signed in as; sign out' },
   ]
