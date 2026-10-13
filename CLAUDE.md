@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 202 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 208 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -371,7 +371,10 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     staff tap the bin they're in now, and `mergeProps` takes optional `binId` (must be one of the two
     props' bins) → kept prop gets that bin + its storage area. NOT deployed yet.
   - Find duplicates (Oct 13, owner feedback): pairs are JOINED INTO GROUPS (A~B, B~C → one card;
-    `groupPairs` in DuplicatesScreen) so e.g. 3 copies in 3 bins are decided once. Tap photo = keep that
+    `groupPairs` in `src/lib/duplicates.ts`, any size, chains too) so e.g. 4 copies in 4 bins are decided once.
+    "In different bins" tab shows a copyable MOVE LIST for the arts team (`shelfList`; owner: don't
+    accommodate multi-bin props, get the team to gather them into one bin). findDuplicates returns top 1000 pairs.
+    If one merge in a group fails (e.g. booked), the ones already merged stay merged. Tap photo = keep that
     one; 🔍 button = full-screen zoom (ImageLightbox); extra photos as thumbnails; "Not the same" leaves
     one out (its pair with the kept prop is dismissed). Different bins → amber flag + tab "⚠ In different
     bins"; staff pick the bin they're all in now; the app merges the prop already in that bin first (server

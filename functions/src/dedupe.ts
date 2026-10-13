@@ -50,7 +50,7 @@ export const findDuplicates = onCall({ ...CALLABLE, timeoutSeconds: 120, memory:
     }
   }
   pairs.sort((x, y) => y.score - x.score)
-  return { pairs: pairs.slice(0, 300), checked: vectors.length, withoutFingerprint: items.length - vectors.length }
+  return { pairs: pairs.slice(0, 1000), checked: vectors.length, withoutFingerprint: items.length - vectors.length }
 })
 
 export async function photoOf(item: DocumentData): Promise<{ base64: string; mimeType: string }> {

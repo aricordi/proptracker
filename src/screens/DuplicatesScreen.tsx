@@ -5,30 +5,12 @@ import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
 import { findDuplicates, comparePropPhotos, mergeProps, type DuplicatePair, type PairVerdict } from '../services/importer'
-import { dismissDuplicatePairs, subscribeToLaterPairs, setPairsLater, pairKey } from '../services/health'
+import { dismissDuplicatePairs, subscribeToLaterPairs, setPairsLater } from '../services/health'
+import { groupPairs, isSpread, spreadOf, shelfList, pairKey, type Group } from '../lib/duplicates'
 import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."
-
-// Look-alike pairs joined into groups: A~B and B~C → one group {A, B, C}, so a prop
-// photographed 3 times (maybe in 3 bins) is decided once.
-interface Group { ids: string[]; keys: string[]; score: number }
-function groupPairs(pairs: DuplicatePair[]): Group[] {
-  const parent = new Map<string, string>()
-  const find = (x: string): string => { const p = parent.get(x) ?? x; if (p === x) return x; const r = find(p); parent.set(x, r); return r }
-  for (const p of pairs) { const a = find(p.a), b = find(p.b); if (a !== b) parent.set(a, b) }
-  const groups = new Map<string, Group>()
-  for (const p of pairs) {
-    const root = find(p.a)
-    const g = groups.get(root) ?? { ids: [], keys: [], score: 0 }
-    for (const id of [p.a, p.b]) if (!g.ids.includes(id)) g.ids.push(id)
-    g.keys.push(pairKey(p.a, p.b))
-    g.score = Math.max(g.score, p.score)
-    groups.set(root, g)
-  }
-  return [...groups.values()].sort((x, y) => y.score - x.score)
-}
 
 // Admin → Find duplicates: after the import, go through look-alike groups and merge them.
 export default function DuplicatesScreen() {
@@ -36,7 +18,8 @@ export default function DuplicatesScreen() {
   const { isStaff } = useSession()
   const items = useItems()
   const bins = useBins()
-  const byId = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
+  // Archived props (e.g. ones just merged away) are never shown again.
+  const byId = useMemo(() => new Map(items.filter(i => !i.archived).map(i => [i.id, i])), [items])
   const binLabel = (id?: string) => bins.find(b => b.id === id)?.label
   const [pairs, setPairs] = useState<DuplicatePair[] | null>(null)
   const [info, setInfo] = useState<string | null>(null)
@@ -61,11 +44,14 @@ export default function DuplicatesScreen() {
 
   const groups = useMemo(() => groupPairs((pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b))), [pairs, byId])
   const isLater = (g: Group) => g.keys.some(k => later.has(k))
-  const isSplit = (g: Group) => new Set(g.ids.map(id => byId.get(id)!.binId ?? '')).size > 1
+  const isSplit = (g: Group) => isSpread(g.ids.map(id => byId.get(id)!))
   const all = groups.filter(g => !isLater(g))
   const laterList = groups.filter(isLater)
   const splitCount = all.filter(isSplit).length
   const live = view === 'later' ? laterList : view === 'split' ? all.filter(isSplit) : all
+  // Every look-alike group spread over several bins (incl. ones set aside), as a list for the arts team.
+  const moveList = shelfList(groups.filter(isSplit).map(g => g.ids.map(id => byId.get(id)!)), id => binLabel(id) ?? 'unknown bin')
+  const [copied, setCopied] = useState(false)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -89,6 +75,17 @@ export default function DuplicatesScreen() {
               <button key={v} onClick={() => setView(v)}
                 className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
             ))}
+          </div>
+        )}
+        {view === 'split' && moveList && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
+            <p className="text-amber-200 text-sm">
+              These props are spread over several bins. Send the list to the arts department so they gather each one into a
+              single bin; then come back, tap the bin it's in now and merge.
+            </p>
+            <pre className="text-pt-text text-xs whitespace-pre-wrap max-h-48 overflow-y-auto bg-pt-bg rounded-lg p-2">{moveList}</pre>
+            <button onClick={() => { navigator.clipboard?.writeText(moveList).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
+              className="w-full py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold">{copied ? 'Copied ✓' : 'Copy list (to text or email the team)'}</button>
           </div>
         )}
         {pairs && live.length === 0 && <p className="text-green-400 text-sm text-center py-4">{view === 'later' ? 'Nothing set aside.' : 'No likely duplicates. 🎉'}</p>}
@@ -120,7 +117,8 @@ function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismis
   const others = included.filter(p => p.id !== keeper.id)
   // Different bins: they get moved onto one shelf first, then the team says which bin.
   const binChoices = [...new Set(included.map(p => p.binId).filter((x): x is string => !!x))]
-  const split = new Set(included.map(p => p.binId ?? '')).size > 1
+  const spread = spreadOf(included)
+  const split = spread.length > 1
   const [bin, setBin] = useState<string | null>(null)
   const chosenBin = bin && binChoices.includes(bin) ? bin : binChoices.length === 1 ? binChoices[0] : null
   const needBin = split && binChoices.length > 1 && !chosenBin
@@ -140,13 +138,19 @@ function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismis
     // The server only accepts a bin belonging to one of the two props being merged,
     // so merge the one already in the chosen bin first; after that the kept prop is in it.
     const ordered = [...others].sort((x, y) => Number(y.binId === chosenBin) - Number(x.binId === chosenBin))
-    for (const o of ordered) {
-      await mergeProps({ keepId: keeper.id, removeId: o.id, mode, ...(chosenBin ? { binId: chosenBin } : {}) })
+    const merged: string[] = []
+    try {
+      for (const o of ordered) {
+        await mergeProps({ keepId: keeper.id, removeId: o.id, mode, ...(chosenBin ? { binId: chosenBin } : {}) })
+        merged.push(o.id)
+      }
+    } finally {
+      // If one fails (e.g. it's out on a booking), the ones already merged stay merged.
+      if (merged.length) onMerged(merged)
     }
     // Props left out of the merge aren't duplicates of the one kept: don't group them again.
     const notSame = props.filter(p => leftOut.has(p.id)).map(p => pairKey(p.id, keeper.id))
     await dismissDuplicatePairs(notSame)
-    onMerged(others.map(o => o.id))
     if (notSame.length) onDismissed(notSame)
   }
 
@@ -216,7 +220,8 @@ function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismis
       {split && binChoices.length > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 space-y-1.5">
           <p className="text-amber-200 text-sm">
-            ⚠ In {new Set(included.map(p => p.binId ?? '')).size} different bins. Put them all in one bin, then tap the bin they're in now:
+            ⚠ Spread over {spread.length} spots ({spread.map(s => `${s.binId ? binLabel(s.binId) ?? '?' : 'no bin'} ×${s.qty}`).join(', ')}).
+            Put them all in one bin, then tap the bin they're in now:
           </p>
           <div className="flex flex-wrap gap-1.5">
             {binChoices.map(id => (
