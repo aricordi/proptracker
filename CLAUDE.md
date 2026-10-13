@@ -370,7 +370,9 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   button GitHub → Actions → "Set up backups" (`.github/workflows/backups.yml`, safe to re-run): daily
   (kept 14 days) + weekly Sundays (kept 14 weeks) + point-in-time recovery (7-day undo) + photo bucket
   soft delete 7 days. Few cents/month. If the deploy account lacks permission → add role
-  "Cloud Datastore Owner" to github-deploy in IAM. NOT RUN YET (needs owner OK);
+  "Cloud Datastore Owner" to github-deploy in IAM. RUN Oct 13 (run 1, green, owner OK): both schedules
+  created, PITR on, photo soft delete was already on (7 days). Restoring = ask Claude (gcloud firestore
+  databases restore to a NEW database, or PITR read; never overwrite live data without the owner);
   (3) email (on hold, see below); (4) optional: "Room" wording + move many bins at once;
   tune SIMILAR_MIN_SCORE with real props.
 - Go-live (owner adding GitHub secrets).
