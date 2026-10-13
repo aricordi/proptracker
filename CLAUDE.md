@@ -58,7 +58,7 @@ on proptracker-9732e.firebaseapp.com, a different address, and Safari blocks the
 recommended): `signInDomain()` in src/firebase.ts uses the app's own address as authDomain on our 3 hosting
 addresses (arbcreative, web.app, preview). Owner added https://<each>/__/auth/handler to the OAuth web client's
 Authorized redirect URIs (Oct 13). A NEW address needs both: add it there AND to signInDomain's list + authorized domains.
-On the preview Oct 13 (run 81); owner confirmed iPhone sign-in WORKS on the preview. Not live yet (next live deploy).
+Owner confirmed iPhone sign-in works. LIVE Oct 13 (website run 3) together with fast photos + proof-photo shrink.
 UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
