@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { signInWithPopup, signInWithCredential, GoogleAuthProvider } from 'firebase/auth'
 import { auth, USING_EMULATORS } from '../firebase'
 import BrandMark from '../components/BrandMark'
@@ -17,12 +18,31 @@ function testSignIn(email: string) {
   return signInWithCredential(auth, GoogleAuthProvider.credential(fakeIdToken))
 }
 
+// Plain-language reason a Google sign-in failed (the code in brackets helps Claude fix it).
+function signInProblem(code: string) {
+  const standalone = window.matchMedia?.('(display-mode: standalone)').matches
+  const msg: Record<string, string> = {
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.',
+    'auth/popup-closed-by-user': 'The Google window closed before sign-in finished. Try again.',
+    'auth/cancelled-popup-request': 'The Google window closed before sign-in finished. Try again.',
+    'auth/unauthorized-domain': 'This web address isn\'t allowed to use Google sign-in yet.',
+    'auth/network-request-failed': 'No connection. Check your internet and try again.',
+    'auth/operation-not-supported-in-this-environment': 'Sign-in doesn\'t work inside this app view.',
+  }
+  const base = msg[code] ?? 'Google sign-in didn\'t work.'
+  const tip = standalone ? ' If you opened Prime App from your home screen, try it in Safari or Chrome instead.' : ''
+  return `${base}${tip} (${code})`
+}
+
 export default function LoginScreen() {
+  const [problem, setProblem] = useState<string | null>(null)
   const handleSignIn = async () => {
+    setProblem(null)
     try {
       await signInWithPopup(auth, new GoogleAuthProvider())
     } catch (err) {
       console.error('Sign-in failed:', err)
+      setProblem(signInProblem((err as { code?: string })?.code ?? 'unknown'))
     }
   }
 
@@ -46,6 +66,7 @@ export default function LoginScreen() {
         </svg>
         Sign in with Google
       </button>
+      {problem && <p className="mt-4 max-w-xs text-center text-amber-300 text-sm">{problem}</p>}
 
       {USING_EMULATORS && (
         <div className="mt-10 w-full max-w-xs space-y-2">
