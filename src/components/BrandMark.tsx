@@ -4,7 +4,7 @@ export const EAGLE_PATH = 'M 2 2.4 C 2 2.8, 309.9 305.5, 335.8 330.5 L 347.1 341
 
 export default function BrandMark({ className = 'w-10', title = 'Prime Capitol' }: { className?: string; title?: string }) {
   return (
-    <svg viewBox="0 0 2000 1041" className={className} role="img" aria-label={title} fill="currentColor">
+    <svg viewBox="0 0 2000 1041" className={className} fill="currentColor" {...(title ? { role: "img", "aria-label": title } : { "aria-hidden": true })}>
       <path d={EAGLE_PATH} fillRule="evenodd" />
     </svg>
   )

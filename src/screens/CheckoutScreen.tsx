@@ -103,7 +103,7 @@ export default function CheckoutScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border flex items-center justify-between">
-        <h1 className="font-display text-2xl text-pt-accent py-2">Checkout</h1>
+        <h1 className="font-display text-3xl text-pt-text py-2">Checkout</h1>
         <button
           onClick={openNewSheet}
           className="flex items-center gap-1.5 bg-pt-accent text-stone-900 text-sm font-semibold px-3 py-1.5 rounded-full active:opacity-80"

@@ -4,15 +4,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        'pt-bg':      '#1C1917',
-        'pt-surface': '#292524',
-        'pt-border':  '#44403C',
-        'pt-muted':   '#78716C',
-        'pt-text':    '#E7E5E4',
-        'pt-accent':  '#F59E0B',
+        // Prime Capitol "Black & Gold" (owner's pick, Oct 13): iPhone dark-mode
+        // greys with one muted gold that means "you can tap this".
+        'pt-bg':      '#000000',
+        'pt-surface': '#1C1C1E',
+        'pt-border':  '#2C2C2E',
+        'pt-muted':   '#8E8E93',
+        'pt-text':    '#F5F5F7',
+        'pt-accent':  '#C9A961',
       },
       fontFamily: {
-        display: ['"Passion One"', 'sans-serif'],
+        // The iPhone's own font everywhere (SF Pro); good system fallbacks elsewhere.
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"Helvetica Neue"', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        display: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"Helvetica Neue"', '"Segoe UI"', 'Roboto', 'sans-serif'],
       },
     },
   },

@@ -12,7 +12,7 @@ export default function NotAuthorizedScreen({ user }: Props) {
       <h1 className="font-display text-2xl text-pt-text mb-2">You're not on the list yet</h1>
       <p className="text-pt-muted text-sm mb-6 max-w-sm">
         You're signed in as <span className="text-pt-text break-all">{user.email}</span>,
-        but this email hasn't been invited to PropTracker, or its access was turned off.
+        but this email hasn't been invited to the Prime Capitol app, or its access was turned off.
       </p>
       <p className="text-pt-muted text-sm mb-8 max-w-sm">
         Ask someone in the arts department to invite this exact email address,

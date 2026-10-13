@@ -73,7 +73,7 @@ export default function BottomNav() {
   const { isStaff, role } = useSession()
   const nav = role === 'equipment' ? equipmentNav : isStaff ? staffNav : creatorNav
   return (
-    <nav className="flex bg-pt-surface border-t border-pt-border pb-safe">
+    <nav className="flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 border-t border-pt-border pb-safe">
       {nav.map(({ to, label, icon }) => (
         <NavLink
           key={to}

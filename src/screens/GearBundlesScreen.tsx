@@ -29,7 +29,7 @@ export default function GearBundlesScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
-        <h1 className="font-display text-2xl text-pt-accent flex-1">Bundles</h1>
+        <h1 className="font-display text-3xl text-pt-text flex-1">Bundles</h1>
         <button onClick={() => navigate('/gear/items')} className="text-pt-muted text-sm px-3 py-1.5 rounded-xl border border-pt-border">All gear</button>
       </div>
       <div className="p-4 space-y-3">

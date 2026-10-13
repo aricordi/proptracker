@@ -21,6 +21,7 @@ import { matchesQuery, availabilityOf, byName, type Availability } from '../lib/
 import { SIMILAR_MIN_SCORE } from '../config'
 import type { Item } from '../types'
 import { useHideOnScroll } from '../hooks/useHideOnScroll'
+import BrandMark from '../components/BrandMark'
 
 // Folds part of the header away (smoothly) and makes it untappable while hidden.
 function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -165,7 +166,7 @@ export default function HomeScreen() {
       {/* Sticky header + search */}
       <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <Collapse open={!folded}>
-          <h1 className="font-display text-2xl text-pt-accent py-2">PropTracker</h1>
+          <h1 className="font-display text-3xl text-pt-text py-2 flex items-center gap-2.5"><BrandMark className="w-10 text-pt-text" title="" />Props</h1>
         </Collapse>
         {folded && <div className="h-3" />}
 

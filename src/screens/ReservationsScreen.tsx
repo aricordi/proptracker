@@ -57,7 +57,7 @@ export default function ReservationsScreen() {
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl text-pt-accent py-2">{isStaff ? 'Queue' : 'My bookings'}</h1>
+          <h1 className="font-display text-3xl text-pt-text py-2">{isStaff ? 'Queue' : 'My bookings'}</h1>
           <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1">+ New request</button>
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">

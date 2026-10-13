@@ -63,7 +63,7 @@ export default function BinQrScreen() {
           Back
         </button>
         <div className="text-right">
-          <p className="font-display text-xl text-pt-accent leading-tight">{bin.label}</p>
+          <p className="font-display text-xl text-pt-text leading-tight">{bin.label}</p>
           {location && <p className="text-pt-muted text-xs">{location.name}</p>}
         </div>
       </div>

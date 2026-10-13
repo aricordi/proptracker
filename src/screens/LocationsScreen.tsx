@@ -95,7 +95,7 @@ export default function LocationsScreen() {
           </svg>
           Back
         </button>
-        <h1 className="font-display text-2xl text-pt-accent py-2">Locations</h1>
+        <h1 className="font-display text-3xl text-pt-text py-2">Locations</h1>
         <button
           onClick={openAdd}
           className="bg-pt-accent text-stone-900 px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80"

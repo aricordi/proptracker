@@ -14,7 +14,7 @@ export default function AccountScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-2xl text-pt-accent py-2">Account</h1>
+        <h1 className="font-display text-3xl text-pt-text py-2">Account</h1>
       </div>
       <div className="p-4 space-y-4">
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-1">

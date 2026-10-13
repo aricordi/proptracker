@@ -292,7 +292,12 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   (1 Black & Gold [recommended, + 3 automatically in light mode], 2 Monochrome, 3 Light & Gold) at
   https://claude.ai/artifact/1KaXE8dXb7pcXpnLbYpsJS . Shared rules proposed: iPhone system font (drop Passion
   One), large titles, one accent colour for "tap this", grouped cards, frosted tab bar, folding filters, sheets.
-  WAITING on owner: direction + app name ("Prime Capitol" recommended; still "PropTracker" in manifest/title).
+  OWNER PICKED "Black & Gold" (Oct 13), dark only for now (auto light mode = optional later). APPLIED:
+  tailwind pt-* tokens (#000 bg, #1C1C1E surface, #2C2C2E border, #8E8E93 muted, #F5F5F7 text, #C9A961
+  gold accent), iPhone system font for sans + display (Passion One removed; .font-display = 700, -0.02em),
+  page titles white (not gold), frosted tab bar, theme colour #000, Search title = eagle + "Props".
+  Gear step 1 + extras backend deploy started Oct 13 with the owner's OK.
+  STILL WAITING: app name ("Prime Capitol" recommended; manifest/title still "PropTracker").
   Tokens live in tailwind.config (pt-*), so the restyle is mostly there + font + shared components.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
