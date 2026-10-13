@@ -50,7 +50,7 @@ const STATUS_WORDS: Record<ReservationStatus, string> = {
 
 // ─── Small helpers ───────────────────────────────────────────────────────────
 
-async function loadSettings(): Promise<BookingSettings> {
+export async function loadSettings(): Promise<BookingSettings> {
   const snap = await db.doc('app_settings/booking').get()
   const d = snap.data() ?? {}
   const num = (v: unknown, fallback: number) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 60 ? v as number : fallback

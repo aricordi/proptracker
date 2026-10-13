@@ -79,7 +79,8 @@ jobs:
       - name: Make sure the app can reach every function
         run: |
           for svc in analyzepropphoto searchsimilar rebuildsearchindex createreservation cancelreservation \
-                     declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin; do
+                     declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin \
+                     sendtestemail checknoticesnow; do
             gcloud run services add-iam-policy-binding "$svc" --region northamerica-northeast1 \
               --project proptracker-9732e --member=allUsers --role=roles/run.invoker --quiet >/dev/null
             echo "✔ $svc"

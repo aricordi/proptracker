@@ -130,6 +130,11 @@ service cloud.firestore {
 
     // Booking rules (lead time, turnaround) can be changed by the arts
     // department; other settings by the owner only.
+    // Queued and sent emails. Written only by the server; the owner can see the log.
+    match /outbox/{id} {
+      allow read: if isOwner();
+    }
+
     match /app_settings/{id} {
       allow read: if isMember();
       allow write: if isOwner()

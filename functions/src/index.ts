@@ -133,3 +133,5 @@ export const rebuildSearchIndex = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY
   }))
   return { total: items.size, updated, unchanged, failed }
 })
+export * from './email.js'
+export * from './notices.js'

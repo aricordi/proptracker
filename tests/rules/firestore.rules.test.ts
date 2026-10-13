@@ -222,6 +222,16 @@ describe('reservations', () => {
 })
 
 describe('everything else', () => {
+  it('only the owner can see the email log, and nobody can write to it from the app', async () => {
+    await assertSucceeds(getDoc(doc(as(OWNER), 'outbox', 'm1')))
+    await assertFails(getDoc(doc(as(ARTS), 'outbox', 'm1')))
+    await assertFails(getDoc(doc(as(CREATOR), 'outbox', 'm1')))
+    await assertFails(setDoc(doc(as(OWNER), 'outbox', 'm1'), { to: 'x@example.com' }))
+  })
+  it('only the owner can change email settings', async () => {
+    await assertSucceeds(setDoc(doc(as(OWNER), 'app_settings', 'email'), { enabled: true, host: 'smtp.gmail.com' }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'email'), { enabled: false }))
+  })
   it('old Videos data is kept and only the owner can read it', async () => {
     await assertSucceeds(getDoc(doc(as(OWNER), 'video_checklists', 'v1')))
     await assertFails(getDoc(doc(as(ARTS), 'video_checklists', 'v1')))

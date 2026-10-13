@@ -10,6 +10,7 @@ export default function AdminScreen() {
     { to: '/users',      title: isOwner ? 'People & access' : 'Invite creators', detail: isOwner ? 'Invite people, change roles, turn access off' : 'Add creators or turn their access off' },
     { to: '/categories', title: 'Categories',        detail: 'Add, rename, reorder or hide categories' },
     { to: '/booking-rules', title: 'Booking rules',  detail: 'How far ahead props must be booked; turnaround days' },
+    ...(isOwner ? [{ to: '/email', title: 'Email', detail: 'Turn emails on, choose the sending service, send a test' }] : []),
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
     { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout, kept until everything moves to the Queue' },
     { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Preview the app as Arts or Creator; sign out' : 'Who you are signed in as; sign out' },

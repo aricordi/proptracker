@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 148 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 156 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -188,9 +188,15 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 
 ### Next
 - Go-live (owner adding GitHub secrets).
-- Email: owner wanted Brevo, then Resend, but has NO domain DNS access yet; Resend/Brevo need a
-  verified domain to email other people. Plan: one SMTP sender (nodemailer) so the provider is a
-  settings change; owner to choose (Gmail/Workspace app password now vs wait for domain).
+- Email (built Oct 13, NOT deployed): owner chose a Gmail inbox now (no domain DNS access),
+  Resend later. `functions/src/email.ts`: `sendQueuedEmail` (on outbox create; SMTP via nodemailer 10;
+  'arts-team' = active arts + owner; host 'fake' or emulator w/o password = practice send) and
+  `sendTestEmail` (owner). Settings in app_settings/email (owner-only screen Admin → Email, presets
+  Gmail/Resend/Brevo); password = Secret Manager SMTP_PASSWORD (deploy FAILS until it exists).
+  `functions/src/notices.ts`: `checkLateAndAtRisk` hourly (Cloud Scheduler — owner OK needed) +
+  `checkNoticesNow` (owner): emails late creators + arts once (lateNotifiedAt) and at-risk
+  bookings once per prop (riskNotified). Owner reads `outbox` (rules). After go-live, change
+  "Link in emails" to the live URL.
 - Phase 5 remainder (owner's decisions, Oct 13), in steps:
   1. ✅ Closed days (deployed Oct 13).
   2. ✅ Late returns: `isLate()` in booking.ts = status 'collected' and past 10am on the next open

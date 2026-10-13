@@ -22,6 +22,7 @@ import CheckoutScreen from './screens/CheckoutScreen'
 import HealthScreen from './screens/HealthScreen'
 import UsersScreen from './screens/UsersScreen'
 import CategoriesScreen from './screens/CategoriesScreen'
+import EmailSettingsScreen from './screens/EmailSettingsScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
 import ReserveScreen from './screens/ReserveScreen'
@@ -52,6 +53,11 @@ function ViewAsFrame({ on, children }: { on: boolean; children: ReactNode }) {
 }
 
 // Arts department + owner only. Creators who follow a link here go back to search.
+function OwnerOnly({ children }: { children: ReactNode }) {
+  const { isOwner } = useSession()
+  return isOwner ? <>{children}</> : <Navigate to="/" replace />
+}
+
 function StaffOnly({ children }: { children: ReactNode }) {
   const { isStaff } = useSession()
   return isStaff ? <>{children}</> : <Navigate to="/" replace />
@@ -151,6 +157,7 @@ export default function App() {
           <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
           <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
           <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />
+          <Route path="/email" element={<OwnerOnly><EmailSettingsScreen /></OwnerOnly>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
