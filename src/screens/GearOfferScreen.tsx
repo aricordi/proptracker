@@ -43,6 +43,11 @@ export default function GearOfferScreen() {
           <p className="text-pt-muted text-sm mt-0.5">{b.category} bundle · comes as a whole</p>
           {b.description && <p className="text-pt-text text-[15px] mt-2 leading-relaxed">{b.description}</p>}
         </div>
+        {b.missing?.length ? (
+          <div className="bg-amber-500/10 rounded-2xl px-4 py-3 text-amber-200 text-[15px]">
+            ⚠ Missing right now: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}. The rest of the bundle is fine.
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
           <p className="text-pt-muted text-xs uppercase tracking-wider px-1">In the case</p>

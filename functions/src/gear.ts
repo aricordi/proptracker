@@ -3,14 +3,8 @@
 // block direct writes) so the "a piece is in one bundle at a time" rule always holds.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { db, requireRole, CALLABLE } from './auth.js'
-import type { GearHold } from './gearBooking.js'
+import { nowStamp as stampNow, type GearHold } from './gearBooking.js'
 
-// Is a bundle/extra booked now or later? (holds that haven't ended yet)
-function stampNow() {
-  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date())
-  const g = (t: string) => p.find(x => x.type === t)?.value ?? '00'
-  return `${g('year')}-${g('month')}-${g('day')}T${g('hour')}:${g('minute')}`
-}
 const activeHolds = (entries: GearHold[] | undefined) => (entries ?? []).filter(h => h.to > stampNow())
 const samePieces = (a: { itemId: string; qty: number }[], b: { itemId: string; qty: number }[]) =>
   a.length === b.length && a.every(p => b.some(q => q.itemId === p.itemId && q.qty === p.qty))

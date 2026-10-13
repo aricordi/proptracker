@@ -81,3 +81,58 @@ export function fmtTime(min: number): string {
   return m ? `${h12}:${pad(m)} ${ap}` : `${h12} ${ap}`
 }
 export const fmtHours = (start: number, end: number) => `${fmtTime(start)}–${fmtTime(end)}`
+
+// ─── Pickup, return, late (step 3) ───────────────────────────────────────────
+
+// "Now" as a stamp in the studio's time zone, e.g. '2026-10-16T09:41'.
+export function nowStamp(now = new Date()): string {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now)
+  const g = (t: string) => p.find(x => x.type === t)?.value ?? '00'
+  return `${g('year')}-${g('month')}-${g('day')}T${g('hour') === '24' ? '00' : g('hour')}:${g('minute')}`
+}
+
+// A stamp moved by some minutes ('…T24:00' counts as midnight at the end of that day).
+export function addMinutes(s: string, minutes: number): string {
+  const total = Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16)) + minutes
+  const dayShift = Math.floor(total / 1440), m = ((total % 1440) + 1440) % 1440
+  const d = new Date(`${s.slice(0, 10)}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + dayShift)
+  return stamp(d.toISOString().slice(0, 10), m)
+}
+
+export const PICKUP_OPENS_MINUTES = 30   // the pickup check opens 30 min before the start (owner, Oct 13)
+
+// When the creator can do the pickup check: from 30 min before the start until the end.
+export const pickupOpensAt = (from: string) => addMinutes(from, -PICKUP_OPENS_MINUTES)
+export function pickupWindow(b: { from: string; to: string }, now: string): 'early' | 'open' | 'over' {
+  if (now < pickupOpensAt(b.from)) return 'early'
+  return now < b.to ? 'open' : 'over'
+}
+
+// Late from 30 minutes after it was due back, while still out.
+export const gearDueBy = (to: string) => addMinutes(to, GEAR_LATE_MINUTES)
+export const isGearLate = (b: { status: string; to: string }, now: string) => b.status === 'out' && now >= gearDueBy(b.to)
+export const wasGearReturnedLate = (b: { to: string; returnedAt?: string | null }) => !!b.returnedAt && b.returnedAt >= gearDueBy(b.to)
+
+// Every single piece to tick, one line per unit ("NP-FZ100 battery 1 of 2").
+export interface CheckLine { key: string; offerId: string; itemId: string; name: string; unit: number; of: number }
+export function checkLines(lines: { offerId: string; kind: string; qty: number; name: string; pieces: { itemId: string; qty: number; name: string }[] }[]): CheckLine[] {
+  const out: CheckLine[] = []
+  for (const l of lines) {
+    const pieces = l.kind === 'extra' ? [{ itemId: l.pieces[0]?.itemId ?? l.offerId, qty: l.qty, name: l.name }] : l.pieces
+    for (const p of pieces) for (let u = 1; u <= p.qty; u++) {
+      out.push({ key: `${l.offerId}|${p.itemId}|${u}`, offerId: l.offerId, itemId: p.itemId, name: p.name || l.name, unit: u, of: p.qty })
+    }
+  }
+  return out
+}
+
+// Turn ticked-as-missing keys into counts per piece: [{offerId, itemId, name, qty}].
+export function countMissing(lines: CheckLine[], missingKeys: string[]) {
+  const m = new Map<string, { offerId: string; itemId: string; name: string; qty: number }>()
+  for (const l of lines) if (missingKeys.includes(l.key)) {
+    const k = `${l.offerId}|${l.itemId}`
+    const e = m.get(k) ?? { offerId: l.offerId, itemId: l.itemId, name: l.name, qty: 0 }
+    e.qty++; m.set(k, e)
+  }
+  return [...m.values()]
+}

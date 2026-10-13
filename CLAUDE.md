@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 254 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 261 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -315,7 +315,26 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   Props category "Gear" (id 'gear') → "Tech props" (owner, Oct 13): default label changed in src/config.ts and
   ensureDefaultCategories renames the live doc once if its label is still exactly "Gear" (runs when staff open the app).
   Step 2 backend deploy started Oct 13 with the owner's OK.
-  NEXT: step 3 (pickup check by the creator in the 30-min window, return photo, team check-in, late, queue).
+  STEP 3 BUILT (Oct 13, NOT deployed; changes storage rules → needs owner OK):
+  - Statuses: held → out (picked up) → returned (photo) → checked_in (team). Cancel/decline only while held.
+  - Shared helpers in gearBooking.ts: nowStamp (Toronto), addMinutes, pickupWindow ('early'|'open'|'over';
+    opens 30 min before `from`, closes at `to`), isGearLate (out and now ≥ to + 30 min), wasGearReturnedLate,
+    checkLines (one line per unit: key 'offerId|itemId|unit'; extras = qty units), countMissing.
+  - Server (gearBookings.ts): pickUpGear (creator who booked, or owner/equipment; must sign; only in the
+    window; missing → booking.pickup.missing + alerts, bundle.missing[] warning, and a 'missing_after' problem
+    on the PREVIOUS holder's booking = latest returned/checked_in booking of that offer ending before this one),
+    returnGear (≥1 photo URL; releases holds immediately so the next booking can go; returnedAt stamp +
+    returnedLate), checkInGear (owner/equipment, status returned; missing → 'missing_at_checkin' problem on
+    this booking + bundle warning; optional note), markGearFound (owner/equipment; removes bundle.missing[i]).
+    createGearBooking refuses CREATORS with late gear (problem 'late').
+  - Storage `gear-returns/{bookingId}/{file}`: add-only (resource == null), creator who booked + gear staff.
+  - App: GearBookingScreen shows progress (Held / Picked up / Returned / Checked in), pickup checklist
+    (PieceChecklist in GearUi; "Missing?"/"Found"; sign), return steps + required photo (ProofPhotos),
+    team check-in checklist + note, return photo thumbnails (zoom), Problems box, Late banner.
+    GearBookingsScreen = team "Gear queue" tabs Today (pickups today + due back today) / Out (late first,
+    red ring) / To check in / Upcoming / Past, "⚠ Missing reported" pill; creators Upcoming / Past.
+    Missing warnings on shop cards, bundle page, and team Bundles list with "Found it". Late banner on /gear.
+  NEXT: step 4 (one shoot request with props + gear in one basket).
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
   on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".

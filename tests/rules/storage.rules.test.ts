@@ -33,6 +33,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'users', 'creator@example.com'), { email: 'creator@example.com', role: 'creator', active: true })
     await setDoc(doc(db, 'users', 'gear@example.com'), { email: 'gear@example.com', role: 'equipment', active: true })
     await uploadBytes(ref(ctx.storage(), 'gear/bundles/b.png'), png, { contentType: 'image/png' })
+    await setDoc(doc(db, 'gear_bookings', 'gb1'), { creatorEmail: 'creator@example.com', status: 'out' })
     await setDoc(doc(db, 'reservations', 'res1'), { creatorEmail: 'creator@example.com', status: 'packed' })
     await uploadBytes(ref(ctx.storage(), 'items/x/photo.png'), png, { contentType: 'image/png' })
     await uploadBytes(ref(ctx.storage(), 'reservation-photos/res1/pack/p.png'), png, { contentType: 'image/png' })
@@ -100,5 +101,19 @@ describe('gear photos', () => {
   })
   it('the equipment team cannot upload prop photos', async () => {
     await assertFails(uploadBytes(ref(storageAs('gear@example.com'), 'items/g/new.png'), png, img))
+  })
+})
+
+describe('gear return photos', () => {
+  const img = { contentType: 'image/png' }
+  it('the creator who booked it (and the gear team) can add return photos; others cannot', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'gear-returns/gb1/r.png'), png, img))
+    await assertSucceeds(uploadBytes(ref(storageAs('gear@example.com'), 'gear-returns/gb1/t.png'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'gear-returns/gb1/x.png'), png, img))
+  })
+  it('return photos cannot be replaced or deleted', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'gear-returns/gb1/r2.png'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'gear-returns/gb1/r2.png'), png, img))
+    await assertFails(deleteObject(ref(storageAs('creator@example.com'), 'gear-returns/gb1/r2.png')))
   })
 })

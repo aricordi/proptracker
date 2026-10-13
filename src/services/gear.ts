@@ -31,6 +31,7 @@ export interface GearBundle {
   photos?: string[]
   pieces: BundlePiece[]
   archived?: boolean
+  missing?: { itemId: string; name: string; qty: number; at: string; bookingId: string }[]   // reported missing, until found
 }
 
 const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base', numeric: true })
@@ -58,14 +59,21 @@ export interface GearBookingLine {
   offerId: string; kind: OfferKind; name: string; qty: number; photo?: string | null
   pieces: { itemId: string; qty: number; name: string }[]
 }
+export interface GearMissing { offerId: string; itemId: string; name: string; qty: number }
 export interface GearBooking {
   id: string
   title: string; notes?: string
   creatorEmail: string; creatorName?: string
   date: string; start: number; end: number; from: string; to: string; pickupDay: string; closedDay?: boolean
   lines: GearBookingLine[]; offerIds: string[]
-  status: 'held' | 'cancelled' | 'declined'
+  status: 'held' | 'out' | 'returned' | 'checked_in' | 'cancelled' | 'declined'
   declineReason?: string
+  pickup?: { at: string; by: string; missing: GearMissing[] }
+  return?: { at: string; by: string; photos: string[] }
+  returnedAt?: string; returnedLate?: boolean
+  checkIn?: { at: string; by: string; missing: GearMissing[]; note?: string }
+  problems?: (GearMissing & { kind: 'missing_after' | 'missing_at_checkin'; at: string; reportedOn?: string })[]
+  alerts?: { kind: string; at: string; count: number }[]
   createdAt: string
   history: { at: string; by: string; action: string; note?: string }[]
 }
@@ -92,3 +100,7 @@ export function subscribeToGearBooking(id: string, cb: (b: GearBooking | null) =
 export const createGearBooking = httpsCallable<{ title: string; notes?: string; date: string; start: number; end: number; lines: { offerId: string; qty: number }[] }, { id: string }>(functions, 'createGearBooking')
 export const cancelGearBooking = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelGearBooking')
 export const declineGearBooking = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineGearBooking')
+export const pickUpGear = httpsCallable<{ id: string; missing: string[]; signed: true }, { ok: boolean }>(functions, 'pickUpGear')
+export const returnGear = httpsCallable<{ id: string; photos: string[] }, { ok: boolean }>(functions, 'returnGear')
+export const checkInGear = httpsCallable<{ id: string; missing: string[]; note?: string }, { ok: boolean }>(functions, 'checkInGear')
+export const markGearFound = httpsCallable<{ offerId: string; index: number }, { ok: boolean }>(functions, 'markGearFound')

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGearCart } from '../gearCart'
-import { subscribeToGearBundles, subscribeToGearHolds, freeQty, pieceTotal, fmtHours, type GearBundle, type GearHold } from '../services/gear'
+import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, freeQty, pieceTotal, fmtHours, nowStamp, isGearLate, type GearBundle, type GearHold, type GearBooking } from '../services/gear'
+import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, Pill, useGearWhen } from '../components/GearUi'
 import { formatDay } from '../lib/dates'
 
@@ -13,6 +14,10 @@ export default function GearShopScreen() {
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [cat, setCat] = useState<string | null>(null)
+  const { profile } = useSession()
+  const [mine, setMine] = useState<GearBooking[]>([])
+  useEffect(() => subscribeToGearBookings(profile.email, setMine), [profile.email])
+  const lateOnes = mine.filter(b => isGearLate(b, nowStamp()))
   useEffect(() => subscribeToGearBundles(setOffers), [])
   useEffect(() => subscribeToGearHolds(setHolds), [])
 
@@ -33,6 +38,11 @@ export default function GearShopScreen() {
       </div>
 
       <div className="p-4 space-y-6">
+        {lateOnes.length > 0 && (
+          <button onClick={() => navigate(`/gear/bookings/${lateOnes[0].id}`)} className="w-full text-left bg-red-500/10 rounded-2xl px-4 py-3 text-red-200 text-[15px]">
+            You have gear that's late coming back ({lateOnes.map(b => b.title).join(', ')}). Return it before booking more. <span className="text-pt-accent font-medium">Open ›</span>
+          </button>
+        )}
         {offers === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
         {offers && live.length === 0 && <p className="text-pt-muted text-sm text-center py-10">No gear to book yet. The equipment team is setting it up.</p>}
 
@@ -62,6 +72,7 @@ export default function GearShopScreen() {
                     <div className="p-2.5 space-y-1">
                       <p className="text-pt-text text-sm font-semibold leading-tight">{b.name}</p>
                       <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
+                      {b.missing?.length ? <p className="text-amber-200 text-xs">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
                       {!w.problem && (ok ? <Pill tone="free">Free {fmtHours(w.start, w.end)}</Pill> : <Pill tone="taken">Taken</Pill>)}
                     </div>
                   </button>

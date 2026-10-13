@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
-import { subscribeToGearItems, subscribeToGearBundles, setGearBundleArchived, pieceTotal, type GearItem, type GearBundle } from '../services/gear'
+import { GearArt } from '../components/GearUi'
+import { subscribeToGearItems, subscribeToGearBundles, setGearBundleArchived, markGearFound, pieceTotal, type GearItem, type GearBundle } from '../services/gear'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
 
@@ -47,9 +48,7 @@ export default function GearBundlesScreen() {
         {s.list.map(b => (
           <div key={b.id} className="bg-pt-surface border border-pt-border rounded-2xl p-3 flex gap-3">
             <button onClick={() => !b.archived && navigate(`/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">
-              <div className="w-16 h-16 rounded-xl bg-pt-bg overflow-hidden shrink-0 flex items-center justify-center text-pt-muted text-xs">
-                {b.photos?.[0] ? <img src={b.photos[0]} alt="" className="w-full h-full object-cover" /> : b.category}
-              </div>
+              <GearArt photo={b.photos?.[0]} category={b.category} className="w-16 h-16 rounded-xl shrink-0" />
               <div className="min-w-0">
                 <p className="text-pt-text font-medium truncate">{b.name}</p>
                 {b.kind === 'extra'
@@ -61,6 +60,18 @@ export default function GearBundlesScreen() {
               </div>
             </button>
             {b.archived && <button onClick={() => bringBack(b)} className="text-pt-accent text-sm shrink-0">Bring back</button>}
+          </div>
+        ))}
+        {s.list.filter(b => b.missing?.length).map(b => (
+          <div key={`${b.id}-missing`} className="bg-amber-500/10 rounded-2xl px-3 py-2 space-y-1">
+            <p className="text-amber-200 text-xs font-medium">{b.name}: reported missing</p>
+            {b.missing!.map((m, i) => (
+              <div key={i} className="flex items-center justify-between text-sm">
+                <span className="text-pt-text">{m.qty}× {m.name} · {new Date(m.at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</span>
+                <button onClick={async () => { setError(null); try { await markGearFound({ offerId: b.id, index: i }) } catch (err) { setError(errText(err)) } }}
+                  className="text-pt-accent text-sm">Found it</button>
+              </div>
+            ))}
           </div>
         ))}
           </div>

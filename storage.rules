@@ -31,6 +31,20 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // Gear return photos (everything in the case, batteries charging): the creator who
+    // booked it adds them; they and the gear team can see them. Add-only.
+    function gearBookedBy(bookingId) {
+      return firestore.get(/databases/(default)/documents/gear_bookings/$(bookingId)).data.creatorEmail == myEmail();
+    }
+    match /gear-returns/{bookingId}/{file} {
+      allow read: if isGearStaff() || (isMember() && gearBookedBy(bookingId));
+      // resource == null: only brand-new files, so a return photo can't be swapped later.
+      allow create: if resource == null && (isGearStaff() || (isMember() && gearBookedBy(bookingId)))
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow update, delete: if false;
+    }
+
     match /items/{allPaths=**} {
       allow read: if isMember();
       allow create, update: if isStaff()
