@@ -90,6 +90,11 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
   Per-category turnaround (e.g. costumes need washing): `categories/{id}.turnaroundDays`
   (0–30; blank = use the default), set on the same screen; `turnaroundFor()` in booking.ts
   picks it, used by `createReservation` and the app's availability (`src/hooks/useTurnaround.ts`).
+- Closed days (Phase 5, owner decision): `closedWeekdays` (0=Sun…6=Sat, default [0] = Sundays) and
+  `closedDates` (holidays) in app_settings/booking, set in Booking rules. Shoots CAN be on closed days.
+  Notice and turnaround count only open days (`addOpenDays`); pickup is the last open day on/before
+  the shoot (`pickupDay`); props are late from 10am on the next open day after the shoot (`returnDueDay`,
+  `RETURN_DEADLINE_HOUR`). Calendar shows "closed"; queue urgency counts to pickup day.
 - A unit is tied up from shoot start to end + buffer. If the end date passes and the
   reservation isn't marked returned, the hold stays open-ended (owner's choice:
   props come back only when someone marks them returned). Props on the old
@@ -155,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 125 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 136 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -184,5 +189,11 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 ### Next
 - Go-live (owner adding GitHub secrets).
 - Email: owner to pick a service; then add a sender for the `outbox` collection.
-- Phase 5 remainder: audit log, per-prop/per-creator history, late-return flags.
+- Phase 5 remainder (owner's decisions, Oct 13), in steps:
+  1. ✅ Closed days (built; backend deploy needs owner OK).
+  2. Late returns: "Late" from 10am next open day; late creators BLOCKED from new bookings until
+     returned (arts can still book for them); reminder queued in `outbox`.
+  3. Activity log: booking steps + prop edits (who, what, from → to), written by the server.
+  4. History pages per prop and per creator; damaged/missing with replacement cost + running
+     total (records only, no billing/settling).
 - Phase 6: batch import.

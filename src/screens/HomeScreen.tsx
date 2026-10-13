@@ -48,7 +48,7 @@ export default function HomeScreen() {
   // With shoot dates picked, "free" means free for those dates (incl. turnaround).
   const freeFor = (i: Item) => dates
     ? freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' },
-        bookings[i.id] ?? [], dates.start, dates.end, today, turnaround(i))
+        bookings[i.id] ?? [], dates.start, dates.end, today, turnaround(i), settings)
     : null
 
   const [query, setQuery] = useState('')
@@ -92,7 +92,7 @@ export default function HomeScreen() {
         && (!categoryFilter || i.categoryId === categoryFilter))
       .sort(byName),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, turnaround],
+    [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, turnaround, settings],
   )
 
   const matched = useMemo(
@@ -208,7 +208,7 @@ export default function HomeScreen() {
                 maxDays={1}
                 onChange={(s, e) => cart.setDates(s, e)}
                 leadTimeNote={!isStaff && settings.leadTimeDays > 0
-                  ? `Props must be booked ${settings.leadTimeDays} day${settings.leadTimeDays > 1 ? 's' : ''} ahead. Earliest: ${formatDay(minStart)}.`
+                  ? `Props must be booked ${settings.leadTimeDays} open day${settings.leadTimeDays > 1 ? 's' : ''} ahead. Earliest: ${formatDay(minStart)}.`
                   : undefined} />
               <button onClick={() => setShowDates(false)} className="w-full py-2 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold">
                 {dates ? 'Show what’s free' : 'Done'}

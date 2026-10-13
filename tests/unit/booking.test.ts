@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
   addDays, bookedOn, freeForRange, holdUntil, checkDates, todayInStudio,
-  DEFAULT_BOOKING_SETTINGS as S, type BookingEntry,
+  addOpenDays, pickupDay, returnDueDay, earliestStart, cleanClosedDays, isOpen,
+  DEFAULT_BOOKING_SETTINGS as DEFAULTS, type BookingEntry,
 } from '../../functions/src/booking'
 
 const TODAY = '2026-10-12'
+// Most tests: open every day, so the plain day maths is easy to follow.
+const S = { ...DEFAULTS, closedWeekdays: [], closedDates: [] }
 const entry = (start: string, end: string, qty = 1, id = 'r'): BookingEntry => ({ reservationId: id, start, end, qty })
 
 describe('dates', () => {
@@ -92,5 +95,54 @@ describe('reservation dates', () => {
     expect(checkDates('2026-10-20', '2026-10-20', TODAY, S, false)).toBeNull()
     expect(checkDates('2026-10-20', '2026-10-21', TODAY, S, false)).toBe('too-long')
     expect(checkDates('2026-10-20', '2026-10-25', TODAY, S, true)).toBeNull()
+  })
+})
+
+// Oct 2026: the 17th is a Saturday, the 18th a Sunday.
+describe('days the prop room is closed', () => {
+  const sundays = { closedWeekdays: [0], closedDates: [] as string[] }
+  it('Sundays are closed by default', () => {
+    expect(isOpen('2026-10-18', DEFAULTS)).toBe(false)
+    expect(isOpen('2026-10-17', DEFAULTS)).toBe(true)
+  })
+  it('counting open days skips Sundays and holidays', () => {
+    expect(addOpenDays('2026-10-17', 1, sundays)).toBe('2026-10-19')
+    expect(addOpenDays('2026-10-16', 2, sundays)).toBe('2026-10-19')
+    expect(addOpenDays('2026-10-16', 2, { closedWeekdays: [0], closedDates: ['2026-10-17'] })).toBe('2026-10-20')
+    expect(addOpenDays('2026-10-16', 0, sundays)).toBe('2026-10-16')
+  })
+  it('a Sunday shoot is picked up Saturday; a weekday shoot the same day', () => {
+    expect(pickupDay('2026-10-18', sundays)).toBe('2026-10-17')
+    expect(pickupDay('2026-10-14', sundays)).toBe('2026-10-14')
+  })
+  it('props from a Saturday or Sunday shoot are due back Monday', () => {
+    expect(returnDueDay('2026-10-17', sundays)).toBe('2026-10-19')
+    expect(returnDueDay('2026-10-18', sundays)).toBe('2026-10-19')
+    expect(returnDueDay('2026-10-14', sundays)).toBe('2026-10-15')
+  })
+  it('notice counts open days: booked Thursday with 3 days notice, earliest shoot is Monday', () => {
+    const s = { ...DEFAULTS, ...sundays }
+    expect(earliestStart('2026-10-15', s, false)).toBe('2026-10-19')
+    expect(checkDates('2026-10-18', '2026-10-18', '2026-10-15', s, false)).toBe('too-soon')
+    expect(checkDates('2026-10-19', '2026-10-19', '2026-10-15', s, false)).toBeNull()
+    expect(earliestStart('2026-10-15', s, true)).toBe('2026-10-15')
+  })
+  it('a costume back from a Saturday shoot with 2 turnaround days is free again Wednesday', () => {
+    const e = [entry('2026-10-17', '2026-10-17')]
+    expect(holdUntil(e[0], '2026-10-12', 2, sundays)).toBe('2026-10-20')
+    expect(freeForRange({ quantity: 1 }, e, '2026-10-20', '2026-10-20', '2026-10-12', 2, sundays)).toBe(0)
+    expect(freeForRange({ quantity: 1 }, e, '2026-10-21', '2026-10-21', '2026-10-12', 2, sundays)).toBe(1)
+  })
+  it('a new booking also needs its turnaround counted in open days', () => {
+    // Friday booking, 1 turnaround day: Saturday. A Saturday hold elsewhere clashes.
+    const e = [entry('2026-10-17', '2026-10-17')]
+    expect(freeForRange({ quantity: 1 }, e, '2026-10-16', '2026-10-16', '2026-10-12', 1, sundays)).toBe(0)
+  })
+  it('bad settings from the database are cleaned up, and every day can never be closed', () => {
+    expect(cleanClosedDays({ closedWeekdays: [0, 0, 9, 'x'], closedDates: ['2026-12-25', 'nope'] }))
+      .toEqual({ closedWeekdays: [0], closedDates: ['2026-12-25'] })
+    expect(cleanClosedDays({ closedWeekdays: [0, 1, 2, 3, 4, 5, 6] }).closedWeekdays).toEqual([])
+    expect(cleanClosedDays({}).closedWeekdays).toEqual([0])
+    expect(addOpenDays('2026-10-16', 2, { closedWeekdays: [0, 1, 2, 3, 4, 5, 6], closedDates: [] })).toBe('2026-10-18')
   })
 })

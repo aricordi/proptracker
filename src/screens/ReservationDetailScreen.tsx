@@ -11,7 +11,8 @@ import {
   ACTIVE_STATUSES, type Reservation, type ReservationLine, type BuildLine,
 } from '../services/reservations'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
-import { todayInStudio } from '../../functions/src/booking'
+import { todayInStudio, pickupDay } from '../../functions/src/booking'
+import { useBookingSettings } from '../hooks/useBookings'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
 
@@ -25,6 +26,7 @@ export default function ReservationDetailScreen() {
   const navigate = useNavigate()
   const { isStaff, profile } = useSession()
   const [res, setRes] = useState<Reservation | null | undefined>(undefined)
+  const settings = useBookingSettings()
 
   useEffect(() => id ? subscribeToReservation(id, setRes) : undefined, [id])
 
@@ -35,6 +37,7 @@ export default function ReservationDetailScreen() {
   const overdue = res.status === 'collected' && res.endDate < todayInStudio()
   const mine = res.creatorEmail === profile.email
   const s = res.status
+  const pickup = pickupDay(res.startDate, settings)
 
   return (
     <div className="min-h-screen bg-pt-bg pb-12">
@@ -55,6 +58,9 @@ export default function ReservationDetailScreen() {
         <div>
           <h1 className="font-display text-2xl text-pt-text leading-tight">{res.title}</h1>
           <p className="text-pt-text mt-1">📅 {formatRange(res.startDate, res.endDate)}</p>
+          {active && pickup !== res.startDate && (
+            <p className="text-amber-300 text-sm mt-0.5">Pick up {formatDay(pickup)}: the prop room is closed on the shoot day.</p>
+          )}
           {isStaff && <p className="text-pt-muted text-sm mt-0.5">Booked by {res.creatorName} · {res.creatorEmail}</p>}
         </div>
 

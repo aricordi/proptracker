@@ -36,7 +36,7 @@ export default function ReserveScreen() {
     const item = itemById.get(itemId)
     const free = item && dates
       ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: item.status === 'checked-out' },
-          bookings[itemId] ?? [], dates.start, dates.end, today, turnaround(item))
+          bookings[itemId] ?? [], dates.start, dates.end, today, turnaround(item), settings)
       : null
     const problem = !item ? 'No longer in the inventory'
       : item.archived ? 'No longer in the inventory'
@@ -102,7 +102,7 @@ export default function ReserveScreen() {
       <div className="p-4 space-y-5">
         <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates}
           maxDays={1}
-          leadTimeNote={!isStaff && settings.leadTimeDays > 0 ? `Earliest start: ${formatDay(minStart)} (${settings.leadTimeDays} days' notice).` : undefined} />
+          leadTimeNote={!isStaff && settings.leadTimeDays > 0 ? `Earliest start: ${formatDay(minStart)} (${settings.leadTimeDays} open days' notice).` : undefined} />
         {tooLong && (
           <p className="text-amber-400 text-sm -mt-3">
             Bookings are for a single shoot day now. Pick your shoot day above.

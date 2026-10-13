@@ -1,5 +1,6 @@
-import { addDays } from '../../functions/src/booking'
+import { addDays, pickupDay, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
+import { useBookingSettings } from '../hooks/useBookings'
 
 interface Props {
   start: string | null
@@ -18,6 +19,8 @@ export default function DateRangePicker({ start, end, min, onChange, leadTimeNot
   const input = 'block w-full min-w-0 min-h-[3.25rem] appearance-none bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text text-lg focus:outline-none focus:border-pt-accent [color-scheme:dark]'
   const label = 'text-pt-muted text-xs uppercase tracking-wider'
   const single = maxDays === 1
+  const settings = useBookingSettings()
+  const pickup = start ? pickupDay(start, settings) : null
   const latestEnd = start && maxDays ? addDays(start, maxDays - 1) : undefined
 
   return (
@@ -28,7 +31,14 @@ export default function DateRangePicker({ start, end, min, onChange, leadTimeNot
           <input type="date" value={start ?? ''} min={min}
             onChange={e => { const d = e.target.value || null; onChange(d, d) }}
             className={input} />
-          <span className="block text-pt-muted text-xs mt-1">Props are due back the same night.</span>
+          {start ? (
+            <span className="block text-pt-muted text-xs mt-1">
+              {pickup !== start && <>The prop room is closed that day: pick up on <b className="text-pt-text font-medium">{formatDay(pickup!)}</b>. </>}
+              Bring props back the night of the shoot. They count as late after {RETURN_DEADLINE_HOUR}am on {formatDay(returnDueDay(start, settings))}.
+            </span>
+          ) : (
+            <span className="block text-pt-muted text-xs mt-1">Props are due back the same night.</span>
+          )}
         </label>
       ) : (
         <div className="space-y-2">

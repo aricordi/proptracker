@@ -20,7 +20,7 @@ beforeEach(async () => {
   for (const [email, role] of [[ARTS, 'arts'], [ALEX, 'creator'], [BLAIR, 'creator'], [CASEY, 'creator']]) {
     await put(`users/${email}`, { email, role, active: true, name: email.split('@')[0] })
   }
-  await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7 })
+  await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
   await put('items/cop', { name: 'Cop costume', quantity: 1, condition: 'good', tags: [] })
   await put('items/chairs', { name: 'Wooden chair', quantity: 10, condition: 'fair', tags: [] })
   await put('items/skull', { name: 'Fake skull', quantity: 1, condition: 'damaged', tags: [] })
@@ -49,6 +49,13 @@ describe('one-of-a-kind props', () => {
     // Other categories keep the 1-day default.
     await reserve(ALEX, [{ itemId: 'chairs', qty: 10 }], day(10), day(10))
     expect((await reserve(BLAIR, [{ itemId: 'chairs', qty: 1 }], day(12), day(12))).ok).toBe(true)
+  })
+  it('turnaround only counts days the prop room is open (holidays skipped)', async () => {
+    await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [], closedDates: [day(11)] })
+    await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(10))
+    // day 11 is a holiday, so the 1 turnaround day is day 12.
+    expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(12), day(12))).ok).toBe(false)
+    expect((await reserve(BLAIR, [{ itemId: 'cop', qty: 1 }], day(13), day(13))).ok).toBe(true)
   })
   it('five people grabbing it at the same instant: exactly one wins', async () => {
     const racers = [ALEX, BLAIR, CASEY, ARTS, OWNER]
@@ -95,12 +102,17 @@ describe('what can be booked', () => {
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(3), day(3))).ok).toBe(true)
     expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
+  it('notice only counts open days', async () => {
+    await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [], closedDates: [day(2)] })
+    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(3), day(3))).message).toMatch(/earliest/i)
+    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(4), day(4))).ok).toBe(true)
+  })
   it('the lead time follows the admin setting', async () => {
-    await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7 })
+    await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
   it('creators are held to the maximum booking length; arts department is not', async () => {
-    await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 1 })
+    await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 1, closedWeekdays: [] })
     const twoDays = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(11))
     expect(twoDays.error).toBe('INVALID_ARGUMENT')
     expect(twoDays.message).toContain('at most 1 day')

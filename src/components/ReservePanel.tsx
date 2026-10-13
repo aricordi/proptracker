@@ -6,7 +6,7 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { useTurnaround } from '../hooks/useTurnaround'
 import AvailabilityCalendar from './AvailabilityCalendar'
 import DateRangePicker from './DateRangePicker'
-import { freeForRange, todayInStudio, earliestStart, type BookingEntry } from '../../functions/src/booking'
+import { freeForRange, todayInStudio, earliestStart, pickupDay, type BookingEntry } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
 import type { Item } from '../types'
 
@@ -22,7 +22,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const legacyOut = item.status === 'checked-out'
   const dates = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
   const free = dates
-    ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, turnaroundDays)
+    ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, turnaroundDays, settings)
     : null
   const inCart = cart.lines[item.id] ?? 0
   const [qty, setQty] = useState(Math.max(1, inCart))
@@ -40,7 +40,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
     <div className="space-y-3">
       <p className="text-pt-muted text-xs uppercase tracking-wider">Availability</p>
       <AvailabilityCalendar quantity={Math.max(0, item.quantity - (item.missingQty ?? 0))} entries={entries} today={today}
-        bufferDays={turnaroundDays} unavailable={legacyOut} selected={dates} onPick={pick} />
+        bufferDays={turnaroundDays} closed={settings} unavailable={legacyOut} selected={dates} onPick={pick} />
       {note && <p className="text-amber-400 text-xs">{note}</p>}
       {legacyOut && <p className="text-amber-400 text-sm">Out on a quick checkout. Unavailable until the arts team marks it returned.</p>}
 
@@ -60,6 +60,9 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
             <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
             <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change day</button>
           </div>
+          {pickupDay(dates.start, settings) !== dates.start && (
+            <p className="text-amber-300 text-xs -mt-1">The prop room is closed that day: pick up on {formatDay(pickupDay(dates.start, settings))}.</p>
+          )}
           <p className={`text-sm font-medium ${free ? 'text-green-400' : 'text-red-300'}`}>
             {free === 0 ? 'Not available on this day'
               : item.quantity > 1 ? `${free} of ${item.quantity} free on this day`

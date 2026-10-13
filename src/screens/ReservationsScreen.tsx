@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToReservations, ACTIVE_STATUSES, type Reservation, type ReservationStatus } from '../services/reservations'
-import { todayInStudio, daysBetween } from '../../functions/src/booking'
+import { todayInStudio, daysBetween, pickupDay } from '../../functions/src/booking'
+import { useBookingSettings } from '../hooks/useBookings'
 import { formatRange } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 
@@ -31,6 +32,7 @@ function whenLabel(start: string, today: string) {
 }
 
 export default function ReservationsScreen() {
+  const settings = useBookingSettings()
   const navigate = useNavigate()
   const { isStaff, profile } = useSession()
   const [list, setList] = useState<Reservation[] | null>(null)
@@ -79,7 +81,9 @@ export default function ReservationsScreen() {
         )}
         {shown.map(r => {
           const overdue = r.status === 'collected' && r.endDate < today
-          const urgent = (r.status === 'requested' || r.status === 'preparing') && daysBetween(today, r.startDate) <= 1
+          // Urgency counts to pickup: a Sunday shoot is picked up Saturday if the prop room is closed Sundays.
+          const pickup = pickupDay(r.startDate, settings)
+          const urgent = (r.status === 'requested' || r.status === 'preparing') && daysBetween(today, pickup) <= 1
           const builds = r.builds ?? []
           const total = r.lines.length + builds.length
           const done = r.lines.filter(l => l.pick).length + builds.filter(b => b.state !== 'todo').length
@@ -92,7 +96,7 @@ export default function ReservationsScreen() {
                   <p className="text-pt-muted text-sm">
                     {formatRange(r.startDate, r.endDate)}
                     {isStaff && ['requested', 'preparing', 'packed'].includes(r.status) && (
-                      <span className={urgent ? 'text-red-300' : ''}> · {whenLabel(r.startDate, today)}</span>
+                      <span className={urgent ? 'text-red-300' : ''}> · {pickup !== r.startDate ? `pickup ${whenLabel(pickup, today).toLowerCase()}` : whenLabel(r.startDate, today)}</span>
                     )}
                   </p>
                 </div>

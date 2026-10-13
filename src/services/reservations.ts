@@ -2,7 +2,7 @@ import { collection, doc, onSnapshot, query, where, orderBy, setDoc } from 'fire
 import { httpsCallable } from 'firebase/functions'
 import { db, functions, auth } from '../firebase'
 import {
-  DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings,
+  DEFAULT_BOOKING_SETTINGS, cleanClosedDays, type BookingEntry, type BookingSettings,
 } from '../../functions/src/booking'
 
 export type ReservationStatus =
@@ -76,7 +76,7 @@ export function subscribeToBookings(cb: (byItem: Record<string, BookingEntry[]>)
 
 export function subscribeToBookingSettings(cb: (s: BookingSettings) => void) {
   return onSnapshot(doc(db, 'app_settings', 'booking'),
-    snap => cb({ ...DEFAULT_BOOKING_SETTINGS, ...(snap.data() ?? {}) } as BookingSettings),
+    snap => cb({ ...DEFAULT_BOOKING_SETTINGS, ...(snap.data() ?? {}), ...cleanClosedDays(snap.data() ?? {}) } as BookingSettings),
     () => cb(DEFAULT_BOOKING_SETTINGS))
 }
 
@@ -85,6 +85,8 @@ export function saveBookingSettings(s: BookingSettings) {
     leadTimeDays: s.leadTimeDays,
     bufferDays: s.bufferDays,
     maxDays: s.maxDays,
+    closedWeekdays: s.closedWeekdays,
+    closedDates: s.closedDates,
     updatedAt: new Date().toISOString(),
     updatedBy: auth.currentUser?.email ?? 'unknown',
   })

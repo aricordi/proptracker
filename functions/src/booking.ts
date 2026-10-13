@@ -9,9 +9,18 @@ export interface BookingSettings {
   leadTimeDays: number   // creators must book at least this many days ahead
   bufferDays: number     // days after a shoot before the same unit can go out again
   maxDays: number        // longest booking a creator can make (1 = single-day shoots only)
+  closedWeekdays: number[]  // days the arts department is closed every week (0 = Sunday … 6 = Saturday)
+  closedDates: string[]     // one-off closed days, e.g. holidays ('YYYY-MM-DD')
 }
 
-export const DEFAULT_BOOKING_SETTINGS: BookingSettings = { leadTimeDays: 3, bufferDays: 1, maxDays: 1 }
+export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
+  leadTimeDays: 3, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
+}
+
+// The arts department's days off. Shoots can still happen on them, but nobody is
+// there to pack, hand over, take back or wash props.
+export type ClosedDays = Pick<BookingSettings, 'closedWeekdays' | 'closedDates'>
+export const NO_CLOSED_DAYS: ClosedDays = { closedWeekdays: [], closedDates: [] }
 
 // One reservation's hold on one prop. Lives in item_bookings/{itemId}.entries
 // while the reservation is active; removed when it's returned, cancelled or declined.
@@ -60,14 +69,57 @@ export function eachDay(start: string, end: string): string[] {
   return out
 }
 
+// ─── Open and closed days ────────────────────────────────────────────────────
+
+export function weekday(day: string): number {
+  return new Date(`${day}T00:00:00Z`).getUTCDay()
+}
+
+export function isOpen(day: string, closed: ClosedDays): boolean {
+  return !closed.closedWeekdays.includes(weekday(day)) && !closed.closedDates.includes(day)
+}
+
+// Safety net: if every day were somehow closed, fall back to plain calendar days.
+const LOOK_AHEAD = 400
+
+// Step forward n open days from `day` (not counting `day` itself).
+// addOpenDays(Saturday, 1) with Sundays closed is Monday.
+export function addOpenDays(day: string, n: number, closed: ClosedDays): string {
+  let d = day
+  for (let counted = 0, steps = 0; counted < n; steps++) {
+    if (steps > LOOK_AHEAD) return addDays(day, n)
+    d = addDays(d, 1)
+    if (isOpen(d, closed)) counted++
+  }
+  return d
+}
+
+// Props for a shoot are picked up on the shoot day, or on the last open day
+// before it if the arts department is closed that day.
+export function pickupDay(start: string, closed: ClosedDays): string {
+  let d = start
+  for (let steps = 0; !isOpen(d, closed); steps++) {
+    if (steps > LOOK_AHEAD) return start
+    d = addDays(d, -1)
+  }
+  return d
+}
+
+// Props are due back the night of the shoot; they count as late from
+// RETURN_DEADLINE_HOUR on the next open day (e.g. Monday 10am after a Saturday shoot).
+export const RETURN_DEADLINE_HOUR = 10
+export function returnDueDay(end: string, closed: ClosedDays): string {
+  return addOpenDays(end, 1, closed)
+}
+
 // ─── Availability ────────────────────────────────────────────────────────────
 
 // The last day an entry keeps its units tied up. Normally the shoot's end plus
-// the turnaround buffer. If the shoot is over but nobody has marked the props
+// the turnaround days (counting only days the arts department is open). If the shoot is over but nobody has marked the props
 // returned yet, they stay tied up until someone does (open-ended).
-export function holdUntil(entry: BookingEntry, today: string, bufferDays: number): string {
+export function holdUntil(entry: BookingEntry, today: string, bufferDays: number, closed: ClosedDays = NO_CLOSED_DAYS): string {
   if (entry.end < today) return '9999-12-31'
-  return addDays(entry.end, bufferDays)
+  return addOpenDays(entry.end, bufferDays, closed)
 }
 
 export interface ItemStock {
@@ -79,22 +131,23 @@ export interface ItemStock {
 }
 
 // How many units are tied up on one day.
-export function bookedOn(day: string, entries: BookingEntry[], today: string, bufferDays: number): number {
+export function bookedOn(day: string, entries: BookingEntry[], today: string, bufferDays: number, closed: ClosedDays = NO_CLOSED_DAYS): number {
   let n = 0
-  for (const e of entries) if (e.start <= day && day <= holdUntil(e, today, bufferDays)) n += e.qty
+  for (const e of entries) if (e.start <= day && day <= holdUntil(e, today, bufferDays, closed)) n += e.qty
   return n
 }
 
 // Fewest units free on any day of [start, end] — what a new booking could take.
 export function freeForRange(
   stock: ItemStock, entries: BookingEntry[], start: string, end: string, today: string, bufferDays: number,
+  closed: ClosedDays = NO_CLOSED_DAYS,
 ): number {
   if (stock.legacyCheckedOut) return 0
   const usable = Math.max(0, stock.quantity - (stock.missingQty ?? 0))
   // The new booking also needs its own turnaround days after `end`.
   let free = usable
-  for (const day of eachDay(start, addDays(end, bufferDays))) {
-    free = Math.min(free, usable - bookedOn(day, entries, today, bufferDays))
+  for (const day of eachDay(start, addOpenDays(end, bufferDays, closed))) {
+    free = Math.min(free, usable - bookedOn(day, entries, today, bufferDays, closed))
     if (free <= 0) return 0
   }
   return Math.max(0, free)
@@ -116,10 +169,23 @@ export function checkDates(
   const maxDays = isStaff ? MAX_RESERVATION_DAYS : Math.min(settings.maxDays, MAX_RESERVATION_DAYS)
   if (daysBetween(start, end) + 1 > maxDays) return 'too-long'
   if (start < today) return 'in-past'
-  if (!isStaff && start < addDays(today, settings.leadTimeDays)) return 'too-soon'
+  if (!isStaff && start < earliestStart(today, settings, false)) return 'too-soon'
   return null
 }
 
+// Notice counts only days the arts department is open, since that's when packing happens.
 export function earliestStart(today: string, settings: BookingSettings, skipLeadTime: boolean) {
-  return skipLeadTime ? today : addDays(today, settings.leadTimeDays)
+  return skipLeadTime ? today : addOpenDays(today, settings.leadTimeDays, settings)
+}
+
+// Reads closed-day settings defensively (they come from the database).
+export function cleanClosedDays(d: { closedWeekdays?: unknown; closedDates?: unknown }): ClosedDays {
+  const weekdays = Array.isArray(d.closedWeekdays)
+    ? [...new Set(d.closedWeekdays.filter((n): n is number => Number.isInteger(n) && n >= 0 && n <= 6))]
+    : DEFAULT_BOOKING_SETTINGS.closedWeekdays
+  return {
+    // Never closed every day of the week.
+    closedWeekdays: weekdays.length >= 7 ? [] : weekdays,
+    closedDates: Array.isArray(d.closedDates) ? d.closedDates.filter(isDay) : [],
+  }
 }

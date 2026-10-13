@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { addDays, bookedOn, type BookingEntry } from '../../functions/src/booking'
+import { addDays, bookedOn, isOpen, NO_CLOSED_DAYS, type BookingEntry, type ClosedDays } from '../../functions/src/booking'
 
 interface Props {
   quantity: number
   entries: BookingEntry[]
   today: string
   bufferDays: number
+  closed?: ClosedDays             // arts department's days off
   unavailable?: boolean           // e.g. out on the old Checkout screen
   selected?: { start: string; end: string } | null
   onPick?: (day: string) => void
@@ -14,7 +15,7 @@ interface Props {
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 // Month view of one prop: which days are free, partly booked or fully booked.
-export default function AvailabilityCalendar({ quantity, entries, today, bufferDays, unavailable, selected, onPick }: Props) {
+export default function AvailabilityCalendar({ quantity, entries, today, bufferDays, closed = NO_CLOSED_DAYS, unavailable, selected, onPick }: Props) {
   const [month, setMonth] = useState(() => (selected?.start ?? today).slice(0, 7))
 
   const days = useMemo(() => {
@@ -45,8 +46,9 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
         {days.map((d, i) => {
           if (!d) return <span key={i} />
           const past = d < today
-          const used = unavailable ? quantity : bookedOn(d, entries, today, bufferDays)
+          const used = unavailable ? quantity : bookedOn(d, entries, today, bufferDays, closed)
           const free = Math.max(0, quantity - used)
+          const off = !isOpen(d, closed)
           const inRange = selected && d >= selected.start && d <= selected.end
           const tone = past ? 'text-pt-border'
             : free === 0 ? 'bg-red-500/25 text-red-300'
@@ -56,9 +58,11 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
             <button key={d} disabled={past || !onPick} onClick={() => onPick?.(d)}
               className={`relative h-10 rounded-lg text-sm flex flex-col items-center justify-center ${tone} ${inRange ? 'ring-2 ring-pt-accent' : ''} ${d === today ? 'font-bold' : ''}`}>
               {Number(d.slice(8))}
-              {!past && quantity > 1 && free > 0 && free < quantity && (
+              {!past && quantity > 1 && free > 0 && free < quantity ? (
                 <span className="text-[9px] leading-none">{free} left</span>
-              )}
+              ) : !past && off ? (
+                <span className="text-[9px] leading-none text-pt-muted">closed</span>
+              ) : null}
             </button>
           )
         })}
@@ -69,7 +73,7 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-red-500/30 inline-block" /> Booked</span>
         {selected && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded ring-2 ring-pt-accent inline-block" /> Your day</span>}
       </div>
-      {bufferDays > 0 && <p className="text-pt-muted text-[11px] mt-1">Booked days include {bufferDays} turnaround day{bufferDays > 1 ? 's' : ''} after each shoot.</p>}
+      {bufferDays > 0 && <p className="text-pt-muted text-[11px] mt-1">Booked days include {bufferDays} turnaround day{bufferDays > 1 ? 's' : ''} after each shoot{closed.closedWeekdays.length || closed.closedDates.length ? ' (days the prop room is open)' : ''}.</p>}
     </div>
   )
 }

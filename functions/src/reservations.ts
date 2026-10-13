@@ -13,7 +13,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, type Caller } from './auth.js'
 import {
-  checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor,
+  checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor, cleanClosedDays,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
 } from './booking.js'
 
@@ -58,6 +58,7 @@ async function loadSettings(): Promise<BookingSettings> {
     leadTimeDays: num(d.leadTimeDays, DEFAULT_BOOKING_SETTINGS.leadTimeDays),
     bufferDays:   num(d.bufferDays,   DEFAULT_BOOKING_SETTINGS.bufferDays),
     maxDays:      Math.max(1, num(d.maxDays, DEFAULT_BOOKING_SETTINGS.maxDays)),
+    ...cleanClosedDays(d),
   }
 }
 
@@ -173,7 +174,7 @@ export const createReservation = onCall(CALLABLE, async req => {
   const problem = checkDates(startDate, endDate, today, settings, caller.isStaff)
   if (problem) {
     const extra = problem === 'too-soon'
-      ? ` The earliest start date is ${earliestStart(today, settings, false)} (${settings.leadTimeDays} days ahead).`
+      ? ` The earliest start date is ${earliestStart(today, settings, false)} (${settings.leadTimeDays} open days ahead).`
       : problem === 'too-long'
         ? ` Bookings can be at most ${settings.maxDays} day${settings.maxDays === 1 ? '' : 's'}.`
         : ''
@@ -213,6 +214,7 @@ export const createReservation = onCall(CALLABLE, async req => {
         { quantity, missingQty: Number(item.get('missingQty') ?? 0), legacyCheckedOut: item.get('status') === 'checked-out' },
         entriesOf(bookingSnaps[i]), startDate, endDate, today,
         turnaroundFor(item.get('categoryId') ?? item.get('itemType') ?? 'prop', categoryTurnaround, settings.bufferDays),
+        settings,
       )
       if (free < line.qty) {
         conflicts.push({ itemId: line.itemId, name, requested: line.qty, free, reason: 'not enough free for those dates' })

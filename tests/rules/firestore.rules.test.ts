@@ -212,6 +212,13 @@ describe('reservations', () => {
     await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 0 }))
     await assertFails(setDoc(doc(as(CREATOR), 'app_settings', 'booking'), { leadTimeDays: 0, bufferDays: 0 }))
   })
+  it('arts can set the days the prop room is closed; creators cannot', async () => {
+    const base = { leadTimeDays: 3, bufferDays: 1, maxDays: 1 }
+    await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { ...base, closedWeekdays: [0], closedDates: ['2026-12-25'] }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { ...base, closedWeekdays: [0, 1, 2, 3, 4, 5, 6] }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { ...base, closedWeekdays: 'sunday' }))
+    await assertFails(setDoc(doc(as(CREATOR), 'app_settings', 'booking'), { ...base, closedWeekdays: [] }))
+  })
 })
 
 describe('everything else', () => {
