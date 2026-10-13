@@ -22,6 +22,7 @@ import CharacterInput from '../components/CharacterInput'
 import type { Item, Condition } from '../types'
 import { useSession } from '../auth'
 import { COLLECTION_LABELS, type PropCollection } from '../../functions/src/collections'
+import { shrinkPhoto } from '../lib/shrinkPhoto'
 
 export default function AddItemScreen() {
   const navigate = useNavigate()
@@ -191,13 +192,17 @@ export default function AddItemScreen() {
       const patch = (p: Partial<PhotoSlot>) =>
         setPhotos(prev => prev.map(x => x.key === key ? { ...x, ...p } : x))
 
-      const task = uploadBytesResumable(storageRef(storage, `items/${uid}/${key}_${file.name}`), file)
+      void shrinkPhoto(file).then(blob => {
+      const jpeg = blob !== file
+      const name = jpeg ? `${key}.jpg` : `${key}_${file.name}`
+      const task = uploadBytesResumable(storageRef(storage, `items/${uid}/${name}`), blob, jpeg ? { contentType: 'image/jpeg' } : undefined)
       task.on(
         'state_changed',
         snap => patch({ progress: (snap.bytesTransferred / snap.totalBytes) * 100 }),
         () => patch({ failed: true, progress: null }),
         () => getDownloadURL(task.snapshot.ref).then(url => patch({ url, progress: null })),
       )
+      })
     }
   }
 

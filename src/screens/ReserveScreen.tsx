@@ -19,6 +19,7 @@ import {
   freeQty, holdWindow, checkGearTimes, earliestGearDay, fmtHours, fmtTime, GEAR_TIME_MESSAGES, type GearBundle, type GearHold,
 } from '../services/gear'
 import { GearArt, GearWhenPicker, Pill, nowMinutes } from '../components/GearUi'
+import { thumbOf } from '../services/itemShape'
 
 const shootIdNew = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 const errMsg = (err: unknown) => err instanceof FirebaseError ? (err.message.replace(/^.*?:\s*/, '') || 'Could not book.') : "Couldn't reach the server. Check your connection and try again."
@@ -178,7 +179,7 @@ export default function ReserveScreen() {
             {lines.map(({ itemId, qty, item, free, problem }) => (
               <div key={itemId} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-2.5 ${problem ? 'border-red-500/50' : 'border-pt-border'}`}>
                 <button onClick={() => navigate(`/item/${itemId}`)} className="w-14 h-14 rounded-xl bg-pt-border overflow-hidden shrink-0">
-                  {item?.photos[0] && <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />}
+                  {item?.photos[0] && <img src={thumbOf(item, item.photos[0])} alt="" className="w-full h-full object-cover" />}
                 </button>
                 <div className="flex-1 min-w-0">
                   <p className="text-pt-text text-sm font-medium truncate">{item?.name ?? 'Unknown prop'}</p>

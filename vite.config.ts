@@ -49,7 +49,7 @@ export default defineConfig({
             options: {
               cacheName: 'photos-cache',
               expiration: {
-                maxEntries: 500,
+                maxEntries: 4000,
                 maxAgeSeconds: 30 * 24 * 60 * 60,
               },
             },

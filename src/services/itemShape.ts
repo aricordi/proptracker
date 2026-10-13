@@ -26,3 +26,10 @@ export function normalizeItem(id: string, raw: Record<string, any>): Item {
     missingQty: typeof raw.missingQty === 'number' && raw.missingQty > 0 ? raw.missingQty : 0,
   } as Item
 }
+
+// The small version of a prop photo for lists and tiles (made by the server a few
+// seconds after a photo is added); the full photo until it exists.
+export function thumbOf(item: { thumbs?: Record<string, string> } | undefined | null, url: string | undefined): string | undefined {
+  if (!url) return url
+  return item?.thumbs?.[url] ?? url
+}

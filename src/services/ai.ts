@@ -66,3 +66,7 @@ export async function rebuildSearchIndex() {
 // Owner: one-off AI top-up of hidden search words for props that already exist.
 export interface SearchWordsRun { total: number; remaining: number; processed: number; failed: number; capped: boolean; slowDown: boolean }
 export const improveSearchWords = httpsCallable<{ countOnly?: boolean }, SearchWordsRun>(functions, 'improveSearchWords')
+
+// Owner: one-off "Speed up photos" — small list versions for props added before thumbnails existed.
+export interface ThumbsRun { total: number; remaining: number; processed: number }
+export const makeMissingThumbs = httpsCallable<{ countOnly?: boolean }, ThumbsRun>(functions, 'makeMissingThumbs', { timeout: 300_000 })

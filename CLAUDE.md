@@ -173,7 +173,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 262 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 265 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -367,6 +367,14 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   linking to LIVE_APP_URL (src/config.ts, https://proptracker-9732e.web.app); "already on the list" →
   "Open their access settings". Arts still invite creators only (rules unchanged). Checked in a browser:
   owner → equipment invite → that person lands on the gear queue; arts → creator invite.
+- FAST PHOTOS (owner Oct 13: "pictures are loading too slow"; lists showed full photos, up to several MB
+  from phones). `functions/src/thumbs.ts`: trigger `makeItemThumbs` (items/{id} written → any photo without a
+  thumbnail gets a ≤480px JPEG in Storage `thumbs/<hash>-<token>.jpg`, cached 1 year; saved on the prop as
+  `thumbs: {photoUrl: thumbUrl}`, only for current photos; broken photos skipped) + owner callable
+  `makeMissingThumbs` (Health → "Speed up photos", 25 props/call, free, no AI). App: `thumbOf(item, url)` in
+  src/services/itemShape.ts used by search cards, Your shoot, Health, Find duplicates, import review; prop page
+  keeps full photos. New prop photos are shrunk on the phone to 1600px JPEG before upload (`src/lib/shrinkPhoto.ts`).
+  Phone photo cache 500 → 4000 entries (vite.config). NEEDS backend deploy (owner OK), then owner taps "Speed up photos".
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
   on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".

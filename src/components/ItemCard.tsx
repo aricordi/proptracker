@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { Item, Condition } from '../types'
+import { thumbOf } from '../services/itemShape'
 
 export const CONDITION_LABELS: Record<Condition, string> = {
   good:    'Good',
@@ -52,7 +53,7 @@ export default function ItemCard({ item, subtitle, badge: override, inCart }: Pr
     >
       <div className="relative aspect-square bg-pt-border flex items-center justify-center">
         {item.photos[0]
-          ? <img src={item.photos[0]} alt={item.name} className="w-full h-full object-cover" loading="lazy" />
+          ? <img src={thumbOf(item, item.photos[0])} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
           : <CameraIcon className="w-10 h-10 text-pt-muted" />
         }
         <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>

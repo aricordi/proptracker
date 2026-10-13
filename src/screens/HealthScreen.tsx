@@ -12,7 +12,7 @@ import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import { mergeTags, deleteUnusedTags } from '../services/tags'
 import { subscribeToDismissedPairs, dismissDuplicatePair, pairKey, getAllInternalNotes } from '../services/health'
-import { rebuildSearchIndex, improveSearchWords } from '../services/ai'
+import { rebuildSearchIndex, improveSearchWords, makeMissingThumbs } from '../services/ai'
 import {
   findDuplicateTags, planTagMerge, tagUsage, unusedTags,
   findDuplicateProps, emptyBins, emptyLocations, type TagGroup,
@@ -20,6 +20,7 @@ import {
 import { DUPLICATE_NAME_SIMILARITY } from '../config'
 import { formatMoney } from '../components/ItemCard'
 import type { AiUsageRecord, Item } from '../types'
+import { thumbOf } from '../services/itemShape'
 
 export default function HealthScreen() {
   const navigate   = useNavigate()
@@ -211,6 +212,7 @@ export default function HealthScreen() {
           <p className="text-pt-muted text-xs">Each costs a fraction of a cent. Expect well under $2/month at your size.</p>
           {isOwner && <RebuildIndex />}
           {isOwner && <ImproveSearchWords />}
+          {isOwner && <SpeedUpPhotos />}
         </Card>
 
         {/* Export */}
@@ -266,7 +268,7 @@ function ItemRow({ item, onTap }: { item: Item; onTap: () => void }) {
   return (
     <button type="button" onClick={onTap} className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg text-left active:opacity-70">
       <div className="w-9 h-9 rounded-lg bg-pt-border overflow-hidden shrink-0">
-        {item.photos[0] && <img src={item.photos[0]} alt="" className="w-full h-full object-cover" />}
+        {item.photos[0] && <img src={thumbOf(item, item.photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" />}
       </div>
       <span className="text-pt-text text-sm truncate flex-1">{item.name}</span>
       {item.archived && <span className="text-pt-muted text-xs">archived</span>}
@@ -455,6 +457,48 @@ function ImproveSearchWords() {
         {message || (counts.remaining
           ? `The AI looks at each prop's photo and adds hidden search words (a Lincoln mask gets "president", "civil war"…). About $${cost} in total, counted in the import spending cap. Keep this screen open; you can stop and continue later.`
           : 'Every prop has extra search words. New props get them automatically.')}
+      </p>
+    </div>
+  )
+}
+
+// Owner: make small list versions of photos for props added before this existed.
+// Free (no AI); runs in rounds while this screen is open. New photos get one automatically.
+function SpeedUpPhotos() {
+  const [counts, setCounts] = useState<{ total: number; remaining: number } | null>(null)
+  const [running, setRunning] = useState(false)
+  const [message, setMessage] = useState('')
+  const stop = useRef(false)
+  useEffect(() => { makeMissingThumbs({ countOnly: true }).then(r => setCounts(r.data)).catch(() => setCounts(null)) }, [])
+  useEffect(() => () => { stop.current = true }, [])
+
+  async function run() {
+    stop.current = false; setRunning(true); setMessage('')
+    try {
+      let last = Infinity
+      while (!stop.current) {
+        const r = (await makeMissingThumbs({})).data
+        setCounts({ total: r.total, remaining: r.remaining })
+        if (r.remaining <= 0) { setMessage('Done. Lists now load the small photos.'); break }
+        if (r.remaining >= last) { setMessage(`Done. ${r.remaining} prop${r.remaining === 1 ? '' : 's'} have a photo that couldn't be read; they keep showing the full photo.`); break }
+        last = r.remaining
+      }
+    } catch (err) {
+      setMessage(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Tap the button to continue.")
+    } finally { setRunning(false) }
+  }
+
+  if (!counts) return null
+  return (
+    <div className="pt-2 space-y-1">
+      <button onClick={running ? () => { stop.current = true } : run} disabled={!running && counts.remaining === 0}
+        className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        {running ? `Speeding up… ${counts.total - counts.remaining} of ${counts.total} · tap to stop` : counts.remaining ? `Speed up photos (${counts.remaining} props)` : 'Photos: all fast ✓'}
+      </button>
+      <p className="text-pt-muted text-xs">
+        {message || (counts.remaining
+          ? 'Makes a small version of each photo for the lists, so they load much faster. Free (no AI). Keep this screen open; you can stop and continue later.'
+          : 'Every prop has small list photos. New photos get them automatically.')}
       </p>
     </div>
   )

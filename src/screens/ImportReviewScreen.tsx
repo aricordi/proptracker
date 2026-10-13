@@ -10,6 +10,7 @@ import { useBins } from '../hooks/useBins'
 import { useItems } from '../hooks/useItems'
 import BottomSheet from '../components/BottomSheet'
 import type { Bin, Category, Item } from '../types'
+import { thumbOf } from '../services/itemShape'
 
 const PAGE = 20
 const TABS: { key: ImportStatus; label: string }[] = [
@@ -340,7 +341,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
               {candidates.map(({ p }) => (
                 <button key={p.id} onClick={() => setTarget(p.id)}
                   className={`w-full flex items-center gap-2 text-left rounded-xl border px-2 py-1.5 ${target === p.id ? 'border-pt-accent bg-pt-accent/10' : 'border-pt-border'}`}>
-                  {p.photos[0] ? <img src={p.photos[0]} alt="" className="w-10 h-10 rounded-lg object-cover bg-pt-bg" /> : <div className="w-10 h-10 rounded-lg bg-pt-bg" />}
+                  {p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-10 h-10 rounded-lg object-cover bg-pt-bg" /> : <div className="w-10 h-10 rounded-lg bg-pt-bg" />}
                   <span className="flex-1 min-w-0">
                     <span className="block text-pt-text text-sm truncate">{p.name}</span>
                     <span className="block text-pt-muted text-xs">×{p.quantity} · {p.photos.length} photo{p.photos.length === 1 ? '' : 's'}</span>

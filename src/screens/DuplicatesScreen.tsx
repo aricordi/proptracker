@@ -13,6 +13,7 @@ import {
 import { groupPairs, spreadOf, isSpread, shelfList, pairKey, crossKeys, insideKeys, type Group } from '../lib/duplicates'
 import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
+import { thumbOf } from '../services/itemShape'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."
 
@@ -113,7 +114,7 @@ export default function DuplicatesScreen() {
               {gatherProps.map(props => (
                 <li key={props.map(p => p.id).join()} className="flex gap-3 bg-pt-surface rounded-xl p-2">
                   <div className="w-14 h-14 rounded-lg bg-pt-bg overflow-hidden shrink-0">
-                    {props[0].photos[0] && <img src={props[0].photos[0]} alt="" className="w-full h-full object-cover" />}
+                    {props[0].photos[0] && <img src={thumbOf(props[0], props[0].photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-pt-text text-sm font-medium truncate">{props[0].name}</p>
@@ -241,7 +242,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
           {/* Tap the photo to tick it as "the same prop". The magnifier shows the whole photo. */}
           <button onClick={() => toggle(it.id)} className="block w-full" aria-label={on ? 'Untick' : 'Tick as the same prop'}>
             {it.photos[0]
-              ? <img src={it.photos[0]} alt="" className="w-full aspect-square object-cover rounded-lg bg-pt-bg" />
+              ? <img src={thumbOf(it, it.photos[0])} alt="" className="w-full aspect-square object-cover rounded-lg bg-pt-bg" loading="lazy" />
               : <div className="w-full aspect-square rounded-lg bg-pt-bg" />}
           </button>
           {on && <span className="absolute top-1 left-1 w-8 h-8 rounded-full bg-pt-accent text-stone-900 font-bold flex items-center justify-center pointer-events-none">✓</span>}

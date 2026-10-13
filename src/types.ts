@@ -17,6 +17,7 @@ export interface Item {
   name: string;
   photos: string[];         // photo URLs, first one is the cover
   photoUrl?: string;        // legacy single photo — kept in sync with photos[0]
+  thumbs?: Record<string, string>; // photo URL → small fast version (made by the server)
   description?: string;     // short "what it looks like" line (AI can suggest)
   searchWords?: string[];   // hidden extra search words (AI suggests; staff can edit)
   searchWordsAt?: string;   // when the one-off "Improve search words" top-up did this prop
