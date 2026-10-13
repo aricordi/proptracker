@@ -48,9 +48,30 @@ const creatorNav = [
   { to: '/account',      label: 'Account',  icon: accountIcon },
 ]
 
+const gearIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+    <path d="M3 8l9-5 9 5v8l-9 5-9-5z" />
+    <path d="M3 8l9 5 9-5M12 13v8" />
+  </svg>
+)
+
+const cameraIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+    <rect x="2.5" y="7" width="13" height="10" rx="2" />
+    <path d="M15.5 10.5 21 8v8l-5.5-2.5" />
+  </svg>
+)
+
+// Equipment team: gear only (the gear queue arrives with gear bookings).
+const equipmentNav = [
+  { to: '/gear/bundles', label: 'Bundles',  icon: gearIcon },
+  { to: '/gear/items',   label: 'All gear', icon: cameraIcon },
+  { to: '/account',      label: 'Account',  icon: accountIcon },
+]
+
 export default function BottomNav() {
-  const { isStaff } = useSession()
-  const nav = isStaff ? staffNav : creatorNav
+  const { isStaff, role } = useSession()
+  const nav = role === 'equipment' ? equipmentNav : isStaff ? staffNav : creatorNav
   return (
     <nav className="flex bg-pt-surface border-t border-pt-border pb-safe">
       {nav.map(({ to, label, icon }) => (

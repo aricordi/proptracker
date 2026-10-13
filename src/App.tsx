@@ -28,6 +28,9 @@ import PersonHistoryScreen from './screens/PersonHistoryScreen'
 import ImportScreen from './screens/ImportScreen'
 import ImportReviewScreen from './screens/ImportReviewScreen'
 import DuplicatesScreen from './screens/DuplicatesScreen'
+import GearItemsScreen from './screens/GearItemsScreen'
+import GearBundlesScreen from './screens/GearBundlesScreen'
+import GearBundleEditScreen from './screens/GearBundleEditScreen'
 import SuggestionsScreen from './screens/SuggestionsScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
@@ -62,6 +65,18 @@ function ViewAsFrame({ on, children }: { on: boolean; children: ReactNode }) {
 function OwnerOnly({ children }: { children: ReactNode }) {
   const { isOwner } = useSession()
   return isOwner ? <>{children}</> : <Navigate to="/" replace />
+}
+
+// Owner + equipment team (gear).
+function GearOnly({ children }: { children: ReactNode }) {
+  const { isGearStaff } = useSession()
+  return isGearStaff ? <>{children}</> : <Navigate to="/" replace />
+}
+
+// The equipment team works only with gear: their home is the bundles list.
+function Home() {
+  const { role } = useSession()
+  return role === 'equipment' ? <Navigate to="/gear/bundles" replace /> : <HomeScreen />
 }
 
 function StaffOnly({ children }: { children: ReactNode }) {
@@ -149,9 +164,12 @@ export default function App() {
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
         <Route path="/reserve" element={<ReserveScreen />} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
+        <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
 
         <Route element={<ShellLayout />}>
-          <Route path="/" element={<HomeScreen />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
+          <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />

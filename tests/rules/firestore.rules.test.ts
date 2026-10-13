@@ -13,6 +13,7 @@ const ARTS    = 'arts@example.com'
 const CREATOR = 'creator@example.com'
 const GONE    = 'former@example.com'   // deactivated user
 const STRANGER = 'stranger@example.com' // never invited
+const GEAR    = 'gear@example.com'     // equipment team
 
 let env: RulesTestEnvironment
 
@@ -41,6 +42,7 @@ beforeEach(async () => {
       setDoc(doc(db, 'users', email), { email, role, active })
     await u(ARTS, 'arts')
     await u(CREATOR, 'creator')
+    await u(GEAR, 'equipment')
     await u(GONE, 'arts', false)
     await setDoc(doc(db, 'items', 'cop'), item)
     await setDoc(doc(db, 'categories', 'prop'), { label: 'Prop', order: 0, active: true })
@@ -205,6 +207,11 @@ describe('users and invites', () => {
     await assertFails(setDoc(doc(as(OWNER), 'users', 'a@example.com'), invite('b@example.com', 'creator')))
     await assertFails(setDoc(doc(as(OWNER), 'users', 'Caps@example.com'), invite('Caps@example.com', 'creator')))
   })
+  it('only the owner can add someone to the equipment team', async () => {
+    await assertSucceeds(setDoc(doc(as(OWNER), 'users', 'grip@example.com'), invite('grip@example.com', 'equipment')))
+    await assertFails(setDoc(doc(as(ARTS), 'users', 'grip2@example.com'), invite('grip2@example.com', 'equipment')))
+    await assertFails(setDoc(doc(as(OWNER), 'users', 'x@example.com'), invite('x@example.com', 'janitor')))
+  })
   it('nobody can delete a user record', async () => {
     await assertFails(deleteDoc(doc(as(OWNER), 'users', CREATOR)))
   })
@@ -298,5 +305,32 @@ describe('everything else', () => {
   it('only the owner can change app settings', async () => {
     await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'general'), { leadTimeDays: 2 }))
     await assertSucceeds(setDoc(doc(as(OWNER), 'app_settings', 'general'), { leadTimeDays: 2 }))
+  })
+})
+
+describe('gear (equipment team)', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'gear_items', 'bat'), { name: 'Battery', have: 6, value: 79 })
+      await setDoc(doc(db, 'gear_bundles', 'b1'), { name: 'FX3 Bundle', pieces: [{ itemId: 'bat', qty: 2 }] })
+    })
+  })
+  it('the gear list (with values) is for the owner and the equipment team only', async () => {
+    await assertSucceeds(getDoc(doc(as(GEAR), 'gear_items', 'bat')))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'gear_items', 'bat')))
+    await assertFails(getDoc(doc(as(ARTS), 'gear_items', 'bat')))
+    await assertFails(getDoc(doc(as(CREATOR), 'gear_items', 'bat')))
+  })
+  it('everyone signed in can see bundles; strangers cannot', async () => {
+    for (const who of [GEAR, OWNER, ARTS, CREATOR]) await assertSucceeds(getDoc(doc(as(who), 'gear_bundles', 'b1')))
+    await assertFails(getDoc(doc(as(STRANGER), 'gear_bundles', 'b1')))
+  })
+  it('nobody writes gear directly (only the server, which keeps pieces in one bundle at a time)', async () => {
+    await assertFails(setDoc(doc(as(GEAR), 'gear_items', 'new'), { name: 'X', have: 1 }))
+    await assertFails(updateDoc(doc(as(OWNER), 'gear_bundles', 'b1'), { name: 'Hacked' }))
+  })
+  it('the equipment team cannot see props', async () => {
+    await assertFails(getDoc(doc(as(GEAR), 'items', 'cop')))
   })
 })

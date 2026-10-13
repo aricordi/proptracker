@@ -8,6 +8,7 @@ service cloud.firestore {
     //             the owner gives the 'owner' role)
     //   arts    — arts department: manages inventory, invites creators
     //   creator — searches and views props
+    //   equipment — gear team: manages gear and gear bundles (no props)
     // A person's role lives in /users/{their email, lowercased}.
     // Keep OWNER_EMAIL in sync with src/config.ts and storage.rules.
     // ─────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ service cloud.firestore {
     function isOwner()  { return role() == 'owner'; }
     function isStaff()  { return role() in ['owner', 'arts']; }
     function isMember() { return role() in ['owner', 'arts', 'creator']; }
+    function isGearStaff() { return role() in ['owner', 'equipment']; }
 
     // ─── Users ──────────────────────────────────────────────────
     function validUser(email) {
@@ -39,7 +41,7 @@ service cloud.firestore {
       return d.keys().hasOnly(['email', 'name', 'role', 'active', 'invitedBy', 'invitedAt', 'updatedAt', 'updatedBy'])
         && d.email == email
         && email == email.lower()
-        && d.role in ['owner', 'arts', 'creator']
+        && d.role in ['owner', 'arts', 'creator', 'equipment']
         && d.active is bool;
     }
 
@@ -171,6 +173,19 @@ service cloud.firestore {
     // Health page bookkeeping (e.g. "not a duplicate" decisions).
     match /health/{id} {
       allow read, write: if isStaff();
+    }
+
+    // ─── Gear (equipment team) ──────────────────────────────────
+    // Every piece of gear (with replacement value): gear team only. Bundles are what
+    // creators book, so members can see them. Only server functions write both,
+    // which keeps "a piece is in one bundle at a time" true.
+    match /gear_items/{id} {
+      allow read: if isGearStaff();
+      allow write: if false;
+    }
+    match /gear_bundles/{id} {
+      allow read: if isMember() || isGearStaff();
+      allow write: if false;
     }
 
     // Smart-search fingerprints. Only the server functions touch these.

@@ -7,6 +7,7 @@ const TEST_ACCOUNTS = [
   { email: 'alexisricordi@gmail.com', label: 'Owner' },
   { email: 'arts@example.com',        label: 'Arts department' },
   { email: 'creator@example.com',     label: 'Creator' },
+  { email: 'gear@example.com',        label: 'Equipment team' },
   { email: 'stranger@example.com',    label: 'Not invited' },
 ]
 

@@ -13,7 +13,7 @@ export const db = getFirestore()
 // Keep in sync with src/config.ts, firestore.rules and storage.rules.
 export const OWNER_EMAIL = 'alexisricordi@gmail.com'
 
-export type Role = 'owner' | 'arts' | 'creator'
+export type Role = 'owner' | 'arts' | 'creator' | 'equipment'   // equipment = gear team (gear only, no props)
 
 export interface Caller {
   email: string

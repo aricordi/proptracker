@@ -31,6 +31,8 @@ beforeEach(async () => {
     const db = ctx.firestore()
     await setDoc(doc(db, 'users', 'arts@example.com'), { email: 'arts@example.com', role: 'arts', active: true })
     await setDoc(doc(db, 'users', 'creator@example.com'), { email: 'creator@example.com', role: 'creator', active: true })
+    await setDoc(doc(db, 'users', 'gear@example.com'), { email: 'gear@example.com', role: 'equipment', active: true })
+    await uploadBytes(ref(ctx.storage(), 'gear/bundles/b.png'), png, { contentType: 'image/png' })
     await setDoc(doc(db, 'reservations', 'res1'), { creatorEmail: 'creator@example.com', status: 'packed' })
     await uploadBytes(ref(ctx.storage(), 'items/x/photo.png'), png, { contentType: 'image/png' })
     await uploadBytes(ref(ctx.storage(), 'reservation-photos/res1/pack/p.png'), png, { contentType: 'image/png' })
@@ -82,5 +84,21 @@ describe('booking proof photos', () => {
   it('creators can attach reference photos only under their own email', async () => {
     await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'request-photos/creator@example.com/x.png'), png, img))
     await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'request-photos/other@example.com/x.png'), png, img))
+  })
+})
+
+describe('gear photos', () => {
+  const img = { contentType: 'image/png' }
+  it('the equipment team uploads gear photos; arts and creators cannot', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('gear@example.com'), 'gear/items/new.png'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'gear/items/new2.png'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'gear/items/new3.png'), png, img))
+  })
+  it('creators can see bundle photos; strangers cannot', async () => {
+    await assertSucceeds(getBytes(ref(storageAs('creator@example.com'), 'gear/bundles/b.png')))
+    await assertFails(getBytes(ref(storageAs('stranger@example.com'), 'gear/bundles/b.png')))
+  })
+  it('the equipment team cannot upload prop photos', async () => {
+    await assertFails(uploadBytes(ref(storageAs('gear@example.com'), 'items/g/new.png'), png, img))
   })
 })

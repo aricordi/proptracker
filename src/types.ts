@@ -55,7 +55,7 @@ export interface Category {
   turnaroundDays?: number;  // days before a prop in this category can go out again (blank = default)
 }
 
-export type Role = 'owner' | 'arts' | 'creator';
+export type Role = 'owner' | 'arts' | 'creator' | 'equipment';   // equipment = gear team (gear only)
 
 export interface AppUser {
   email: string;            // lowercase; also the document ID

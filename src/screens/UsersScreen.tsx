@@ -7,7 +7,7 @@ import BottomSheet from '../components/BottomSheet'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser, Role } from '../types'
 
-const ROLE_ORDER: Role[] = ['owner', 'arts', 'creator']
+const ROLE_ORDER: Role[] = ['owner', 'arts', 'equipment', 'creator']
 
 export default function UsersScreen() {
   const navigate = useNavigate()
@@ -111,7 +111,7 @@ function Row({ email, name, subtitle, inactive, onTap }: {
 }
 
 function RolePicker({ value, onChange, isOwner }: { value: Role; onChange: (r: Role) => void; isOwner: boolean }) {
-  const options: Role[] = isOwner ? ['creator', 'arts', 'owner'] : ['creator']
+  const options: Role[] = isOwner ? ['creator', 'arts', 'equipment', 'owner'] : ['creator']
   return (
     <div className="flex gap-2 flex-wrap">
       {options.map(r => (

@@ -9,6 +9,7 @@ export interface Session {
   realRole: Role      // the person's actual role
   isOwner: boolean
   isStaff: boolean    // owner or arts department
+  isGearStaff: boolean   // owner or equipment team
   viewingAs: Role | null                 // set while the owner previews another role
   setViewAs: (role: Role | null) => void // owner only
 }
@@ -34,6 +35,7 @@ export function makeSession(user: User, profile: AppUser, viewAs: Role | null, s
     realRole,
     isOwner: role === 'owner',
     isStaff: role === 'owner' || role === 'arts',
+    isGearStaff: role === 'owner' || role === 'equipment',
     viewingAs: role !== realRole ? role : null,
     setViewAs,
   }

@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 210 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 228 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -260,7 +260,27 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   Open bundle questions (guesses in the mockup): a piece in only one bundle at a time; counts per item
   (serial numbers only for cameras/drones); creator takes the return photo at drop-off, then the team
   ticks every piece; bundles editable when not booked/out; loose pieces staff-only with a "not in a bundle" count.
-  Wait for the owner's answers to the bundle questions before building gear.
+  Owner (Oct 13): bundle guesses all OK. PLUS: the team may not check gear in between uses, so the
+  CREATOR PICKING UP ticks every piece and reports missing ones AT THEIR PICKUP TIME (window opens 30 min
+  before start), before signing; after signing it's theirs. Missing-at-pickup → alert to the equipment
+  team + recorded on the previous holder's history (records only). Mockup v3 shows this.
+  GEAR BUILD, in steps: (1) equipment role + All gear + bundles  (2) creators book whole bundles by the hour
+  (3) pickup check / return photo / check-in / late / gear queue  (4) one shoot request with props + gear.
+  STEP 1 BUILT (Oct 13, NOT deployed; needs owner OK because it changes security rules):
+  - Role 'equipment' (gear only; no props: rules isMember excludes it). Only the owner can invite it.
+    App: `isGearStaff` in session; equipment home → /gear/bundles; tabs Bundles / All gear / Account;
+    owner reaches gear from Admin → "Gear (equipment team)". View as includes Equipment team.
+  - `gear_items/{id}` {name, category, have, serial (→ have 1), value (staff only), notes, photos, archived}
+    and `gear_bundles/{id}` {name, category, description, photos, pieces[{itemId, qty}], archived}.
+    Rules: items readable by owner+equipment, bundles by members+equipment; NO client writes.
+    Server (`functions/src/gear.ts`): saveGearItem, saveGearBundle, setGearBundleArchived (owner+equipment),
+    transactions enforce `functions/src/gearStock.ts` (shared with app): a piece in ONE bundle at a time,
+    can't lower `have`/archive below what bundles use, archiving a bundle frees its pieces, bringing it back
+    re-checks. Storage `gear/**` (members+equipment read, owner+equipment upload).
+  - Screens: `GearItemsScreen` (/gear/items: by type, have, in bundles, "N loose", add/edit sheet),
+    `GearBundlesScreen` (/gear/bundles), `GearBundleEditScreen` (/gear/bundles/new|:id, steppers capped at free).
+  - Seed: gear@example.com (Equipment team test login), 7 gear items, 1 bundle.
+  - saveGearBundle has a marker for step 2: refuse edits while the bundle is booked or out.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
   then GO LIVE (deploy hosting; needs OK), then delete the OLD exposed Gemini key and (with OK)

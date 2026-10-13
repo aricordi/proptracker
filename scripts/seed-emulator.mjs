@@ -34,6 +34,7 @@ const meta = { createdAt: now, updatedAt: now, createdBy: 'seed', updatedBy: 'se
 const users = [
   { email: 'arts@example.com', name: 'Sam (Arts)', role: 'arts', active: true },
   { email: 'creator@example.com', name: 'Riley (Creator)', role: 'creator', active: true },
+  { email: 'gear@example.com', name: 'Dev (Equipment)', role: 'equipment', active: true },
   { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false },
 ]
 const locations = [{ id: 'loc-main', name: 'Main prop room' }, { id: 'loc-cage', name: 'Costume cage' }]
@@ -79,5 +80,19 @@ items.push({ id: 'my-lamp', name: "Grandma's brass lamp", categoryId: 'set-dress
   replacementCost: 120, tags: [], photos: [], status: 'available', archived: false, collection: 'personal' })
 for (const { id, ...i } of items) await put(`items/${id}`, { collection: 'company', ...i, ...meta })
 await put('checkouts/co1', { label: 'Bar fight shoot', startedAt: now, itemIds: ['legacy-bottle'] })
+
+// Gear: pieces the company owns, and one bundle built from some of them.
+const gearItems = [
+  { id: 'g-fx3', name: 'Sony FX3 body', category: 'Camera', have: 1, serial: 'FX3-001' },
+  { id: 'g-2470', name: '24–70mm f/2.8 lens', category: 'Lens', have: 2 },
+  { id: 'g-npfz', name: 'NP-FZ100 battery', category: 'Power', have: 6 },
+  { id: 'g-chg', name: 'Dual battery charger', category: 'Power', have: 3 },
+  { id: 'g-cfx', name: '128 GB CFexpress card', category: 'Camera', have: 4 },
+  { id: 'g-cst', name: 'C-stand', category: 'Grip', have: 8 },
+  { id: 'g-600d', name: 'Aputure 600d light', category: 'Lighting', have: 1, value: 1700 },
+]
+for (const { id, ...g } of gearItems) await put(`gear_items/${id}`, { serial: null, value: null, notes: '', photos: [], archived: false, ...g, ...meta })
+await put('gear_bundles/b-fx3', { name: 'Sony FX3 Cinema Bundle', category: 'Camera', description: 'Run-and-gun cinema kit', photos: [], archived: false,
+  pieces: [{ itemId: 'g-fx3', qty: 1 }, { itemId: 'g-2470', qty: 1 }, { itemId: 'g-npfz', qty: 2 }, { itemId: 'g-chg', qty: 1 }, { itemId: 'g-cfx', qty: 2 }], ...meta })
 
 console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)
