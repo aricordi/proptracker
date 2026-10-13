@@ -26,7 +26,8 @@ creators reserve props, the arts department picks/packs them, everything is logg
 - Run the automated tests (double-booking + security rules) before calling a
   phase done. Test each phase on a Firebase preview channel before it goes live.
 - Ask the owner which email service to use before picking one.
-- Out of scope for now: actors, locations, Google Calendar. Do not build these.
+- Out of scope for now: actors, locations, Google Calendar. Do not build these until the owner
+  starts the NEXT SPRINT (see "Next sprint" below).
 
 ## Build plan
 
@@ -184,6 +185,20 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 6. Later, with approval: remove the obsolete `embedding` arrays from props
    (they make every phone download extra data).
 7. After hosting goes live: delete the OLD Gemini key (it was exposed in the old website code).
+
+### Next sprint (owner's plan, Oct 13 — NOT started; plan with the owner first)
+Everything Prime Capitol offers, bookable in one app:
+- REBRAND the app (name/logo/colours; currently "PropTracker").
+- GEAR: cameras, lights, drones, batteries… run by a DIFFERENT team (equipment, not arts), own
+  queue/look; checked out in PACKAGES/kits.
+- LOCATIONS: book and scout film locations.
+- MAKEUP: book makeup for a video.
+- CASTING: roster of actors with their look + availability; book them for shoots.
+- CREW: e.g. book a camera operator.
+Suggested shape: generalise props into typed "bookable things" with departments (each with its
+own queue), packages for gear, people (actors/crew/makeup) with availability, and a single
+"Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
+props/bookings. Calendar sync may come up with availability — ask the owner.
 
 ### Next
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
