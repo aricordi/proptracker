@@ -159,7 +159,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 164 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 170 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -228,4 +228,17 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
      history" or "Booked by" on a booking): bookings, late returns (`wasReturnedLate`), damaged/
      missing with current replacement cost and total (`src/lib/history.ts`; records only, no billing).
   PHASE 5 IS COMPLETE except email sending (on hold). Owner to test on the preview.
-- Phase 6: batch import.
+- Phase 6 (batch import) BUILT Oct 13, NOT deployed. Owner decisions: photos are in Google Drive
+  (~70 folders, ~1,500 photos), app pulls them directly; one prop per photo; a sign in each photo
+  names the bin, and "x2"/"x3" signs give quantity; unknown bins → suggested new bin (created on
+  approve in storage area `locations/imported` "Imported – needs sorting"); hard cap $10.
+  Server: `functions/src/drive.ts` (Drive API as the functions' service account — owner shares the
+  folders with that email as Viewer; Google Drive API must be enabled on the project; sharp shrinks
+  photos to 1600px JPEG, HEIC falls back to Drive's thumbnail; emulator fake folders "test:N"),
+  `functions/src/importer.ts` (importInfo, startImport [owner], processImport [owner; 8 photos/call,
+  client loops], approveImports/skipImports [staff]), `analyzeImportPhoto` + PRICE_PER_M in gemini.ts,
+  `functions/src/tags.ts` (server tag normalizing). `import_items/{driveFileId}` = one record per
+  Drive photo forever (resume/no duplicates); `import_jobs/{id}` with counts + spentUsd; budget in
+  app_settings/import {capUsd, spentUsd} — each AI call reserves $0.01 first in a transaction.
+  App: Admin → Import (`ImportScreen`), review at /import/:jobId (`ImportReviewScreen`).
+  Estimate: ~$0.002/photo → ~$3 for 1,500. Ask the owner before the full run.

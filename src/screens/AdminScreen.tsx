@@ -6,6 +6,7 @@ export default function AdminScreen() {
   const { isOwner } = useSession()
 
   const entries = [
+    { to: '/import',     title: 'Import props',      detail: 'Bring the photo library in from Google Drive; review AI suggestions' },
     { to: '/activity',   title: 'Activity',          detail: 'Everything that happened: bookings and prop changes, with who and when' },
     { to: '/health',     title: 'Health',            detail: 'Fix-it list, duplicates, inventory counts, AI usage, export' },
     { to: '/users',      title: isOwner ? 'People & access' : 'Invite creators', detail: isOwner ? 'Invite people, change roles, turn access off' : 'Add creators or turn their access off' },
