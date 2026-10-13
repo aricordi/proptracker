@@ -230,6 +230,14 @@ OWNER DECISIONS for the sprint (Oct 13; owner answers the design questions perso
   (call time / camera-ready time). Helpers: the LEAD ADDS THEM (names) to a booking; helpers don't log in.
   Notice: no fixed rule — the lead decides per request. If the lead isn't free: creator PICKS ANOTHER
   DATE (no outside-artist custom request for makeup).
+- LOCATIONS (answered): separate LOCATIONS role (location manager, own queue). Library has places
+  you OWN/control and places that NEED PERMISSION (no "scouted ideas" list). Owned places = INSTANT
+  hold; permission places = REQUEST the location manager arranges. Booked by EXACT HOURS (matches the
+  guideline's schedule, e.g. road 12–5pm, house 5–8pm). Page shows photos + map/address, permissions
+  & cost (staff only), past shoots there. CUSTOM REQUEST (place not in library): a LINK if they already
+  know the place (e.g. Maps/Airbnb), description + reference photos, date, hours + crowd size.
+  (Note: "locations" here = film locations; the existing `locations` collection = storage areas/rooms
+  for bins — use a different name, e.g. `film_locations`, to avoid confusion.)
 Suggested shape: generalise props into typed "bookable things" with departments (each with its
 own queue), packages for gear, people (actors/crew/makeup) with availability, and a single
 "Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
