@@ -14,6 +14,7 @@ import { useCategories } from '../hooks/useCategories'
 import ImageLightbox from '../components/ImageLightbox'
 import ReservePanel from '../components/ReservePanel'
 import PropHistory from '../components/PropHistory'
+import PropSuggestions from '../components/Suggestions'
 import { useBookings } from '../hooks/useBookings'
 import { CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
 import type { Item, Condition } from '../types'
@@ -298,6 +299,8 @@ export default function ItemDetailScreen() {
             <p className="text-pt-text text-sm">{item.whereToRebuy}</p>
           </div>
         )}
+
+        {!item.archived && <PropSuggestions item={item} />}
 
         {isStaff && <PropHistory item={item} />}
 

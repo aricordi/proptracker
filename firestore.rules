@@ -85,6 +85,27 @@ service cloud.firestore {
       allow delete: if false; // archive instead
     }
 
+    // "Suggest an edit" on a prop: anyone can suggest (in their own name, about a prop
+    // they can see); the arts department applies or dismisses. Never deleted.
+    match /suggestions/{id} {
+      allow read: if isStaff() || (isMember() && resource.data.by == myEmail());
+      allow create: if isMember()
+        && request.resource.data.keys().hasOnly(['itemId', 'itemName', 'by', 'byName', 'at', 'status', 'message', 'changes', 'photos'])
+        && request.resource.data.by == myEmail()
+        && request.resource.data.status == 'open'
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0 && request.resource.data.message.size() <= 1000
+        && request.resource.data.get('changes', {}) is map
+        && request.resource.data.get('photos', []) is list && request.resource.data.get('photos', []).size() <= 5
+        && request.resource.data.itemId is string
+        && exists(/databases/$(database)/documents/items/$(request.resource.data.itemId))
+        && (isOwner() || isCompanyProp(get(/databases/$(database)/documents/items/$(request.resource.data.itemId)).data));
+      allow update: if isStaff()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'resolvedBy', 'resolvedAt', 'reply'])
+        && request.resource.data.status in ['applied', 'dismissed'];
+      allow delete: if false;
+    }
+
     // Batch import (Phase 6): written only by the server, read by the arts department.
     match /import_jobs/{id} {
       allow read: if isStaff();

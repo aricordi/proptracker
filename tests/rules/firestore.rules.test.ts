@@ -104,6 +104,21 @@ describe('inventory', () => {
     await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true }))
     await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true, ...by(OWNER) }))
   })
+  it('suggested edits: creators suggest in their own name; only the arts department resolves them', async () => {
+    const mine = { itemId: 'cop', itemName: 'Cop costume', by: CREATOR, byName: 'Riley', at: '2026-10-13', status: 'open', message: 'Sleeve is torn', changes: { condition: 'damaged' } }
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'suggestions', 's1'), mine))
+    await assertFails(setDoc(doc(as(CREATOR), 'suggestions', 's2'), { ...mine, by: ARTS }))            // not in someone else's name
+    await assertFails(setDoc(doc(as(CREATOR), 'suggestions', 's3'), { ...mine, status: 'applied' }))   // can't pre-approve
+    await assertFails(setDoc(doc(as(CREATOR), 'suggestions', 's4'), { ...mine, message: '' }))
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'items', 'mine'), { name: 'My lamp', tags: [] }) })
+    await assertFails(setDoc(doc(as(CREATOR), 'suggestions', 's5'), { ...mine, itemId: 'mine' }))      // personal prop: invisible to them
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'suggestions', 's1')))
+    await assertSucceeds(getDoc(doc(as(ARTS), 'suggestions', 's1')))
+    await assertFails(updateDoc(doc(as(CREATOR), 'suggestions', 's1'), { status: 'applied' }))
+    await assertFails(updateDoc(doc(as(ARTS), 'suggestions', 's1'), { message: 'changed' }))
+    await assertSucceeds(updateDoc(doc(as(ARTS), 'suggestions', 's1'), { status: 'dismissed', resolvedBy: ARTS, resolvedAt: 'x', reply: 'It was already fixed' }))
+    await assertFails(deleteDoc(doc(as(OWNER), 'suggestions', 's1')))
+  })
   it('import records are read-only, and only the arts department can see them', async () => {
     await assertSucceeds(getDoc(doc(as(ARTS), 'import_items', 'f1')))
     await assertSucceeds(getDoc(doc(as(ARTS), 'import_jobs', 'j1')))

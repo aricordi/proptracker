@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 190 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 191 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -340,5 +340,11 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     (`functions/src/limits.ts` isRateLimit) put the photo back in the queue (`lastError`) and return
     `slowDown`; the Import screen waits 30 s and continues, stopping after 6 stalls in a row.
     PER_CALL lowered 8 → 4. Failed photos can be re-queued with "Try failed again".
+  - SUGGEST AN EDIT (owner request, Oct 13): creators tap "Something wrong? Suggest an edit" on a prop
+    (message + optional proposed name/quantity/condition/description + photos in request-photos/{email}).
+    `suggestions/{id}` written by the app under rules (own name, status 'open', only props they can
+    see; staff may only set status applied/dismissed + reply). Staff see open ones on the prop page and
+    in Admin → Suggested edits (`SuggestionsScreen`); "Apply changes" edits the prop (normal
+    updateItem → Activity log) then marks it applied. Creators see their suggestion's status.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

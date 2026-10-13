@@ -6,6 +6,7 @@ export default function AdminScreen() {
   const { isOwner } = useSession()
 
   const entries = [
+    { to: '/suggestions', title: 'Suggested edits',  detail: "Creators' corrections to props: apply in one tap or dismiss" },
     { to: '/import',     title: 'Import props',      detail: 'Bring the photo library in from Google Drive; review AI suggestions' },
     { to: '/duplicates', title: 'Find duplicates',   detail: 'After an import: look-alike props side by side, merge or mark as different' },
     { to: '/activity',   title: 'Activity',          detail: 'Everything that happened: bookings and prop changes, with who and when' },
