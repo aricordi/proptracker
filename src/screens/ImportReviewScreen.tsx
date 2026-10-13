@@ -76,6 +76,11 @@ export default function ImportReviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, drafts, bins, tab])
   useEffect(() => { setSelected(new Set()) }, [tab, jobId])
+  const approvedGroups = useMemo(() => {
+    const m = new Map<string, ImportItem[]>()
+    if (tab === 'approved') for (const it of items ?? []) { const k = it.itemId ?? it.id; m.set(k, [...(m.get(k) ?? []), it]) }
+    return [...m.entries()]
+  }, [items, tab])
 
   async function merge(args: { item?: Approval; addToItemId?: string; addQuantity?: number }) {
     const ids = (items ?? []).filter(it => selected.has(it.id)).map(it => it.id)
@@ -156,7 +161,26 @@ export default function ImportReviewScreen() {
           </div>
         )}
 
-        {shown.map(it => {
+        {/* Approved: one entry per prop (several photos can have been merged into one). */}
+        {tab === 'approved' && approvedGroups.map(([itemId, its]) => {
+          const prop = allItems.find(i => i.id === itemId)
+          return (
+            <div key={itemId} className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-2">
+              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+                {its.map(it => <img key={it.id} src={it.photoUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-pt-text text-sm font-medium truncate">{prop?.name ?? its[0].suggestion?.name ?? its[0].fileName}</p>
+                  <p className="text-pt-muted text-xs">{prop ? `×${prop.quantity}` : 'Deleted or merged into another prop'}{its.length > 1 ? ` · from ${its.length} photos` : ''}</p>
+                </div>
+                {prop && <button onClick={() => navigate(`/item/${itemId}`)} className="text-pt-accent text-sm shrink-0">Open prop ›</button>}
+              </div>
+            </div>
+          )
+        })}
+
+        {tab !== 'approved' && shown.map(it => {
           const d = draftOf(it)
           const working = busy.has(it.id)
           return (

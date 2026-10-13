@@ -87,3 +87,10 @@ export const mergeImports = httpsCallable<
 >(functions, 'mergeImports')
 export const undoImport = httpsCallable<{ jobId: string }, { deletedProps: number; clearedPhotos: number }>(functions, 'undoImport')
 export const deleteImportedProp = httpsCallable<{ itemId: string }, { ok: boolean }>(functions, 'deleteImportedProp')
+
+// Duplicate finder (after the import).
+export interface DuplicatePair { a: string; b: string; score: number }
+export interface PairVerdict { same: boolean; confidence: 'high' | 'medium' | 'low'; reason: string }
+export const findDuplicates    = httpsCallable<{ min?: number }, { pairs: DuplicatePair[]; checked: number; withoutFingerprint: number }>(functions, 'findDuplicates')
+export const comparePropPhotos = httpsCallable<{ a: string; b: string }, PairVerdict>(functions, 'comparePropPhotos')
+export const mergeProps        = httpsCallable<{ keepId: string; removeId: string; mode: 'copies' | 'angles' }, { keptId: string; removed: 'deleted' | 'archived' }>(functions, 'mergeProps')

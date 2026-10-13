@@ -159,7 +159,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 181 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 188 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -260,5 +260,13 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
     `undoImport` (deletes the job's props + photos + records so the same Drive photos can be imported
     again) and `deleteImportedProp` (button on imported props). Logged in activity as 'deleted'.
     Client deletes are still blocked by the rules; only these server functions delete.
+  - Owner reported "merging two gave two ×2 entries": it was ONE prop; the Approved tab listed each
+    photo separately. Approved tab now shows one entry per prop (with all its photos and quantity).
+  - DUPLICATE FINDER (owner idea; Admin → Find duplicates, `src/screens/DuplicatesScreen.tsx`,
+    `functions/src/dedupe.ts`): `findDuplicates` = free pairwise similarity of existing item_vectors
+    fingerprints (≥0.86, top 300, skips health/dismissed pairs shared with Health); `comparePropPhotos`
+    = optional Gemini photo check (~$0.001, counted in the import cap); `mergeProps` (owner) keeps one,
+    adds photos (+ quantity for copies), deletes the other if imported & never booked else archives it
+    (`mergedInto`), re-points import_items so re-imports don't resurrect it. Refuses props in a current booking.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

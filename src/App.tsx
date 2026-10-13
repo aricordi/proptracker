@@ -27,6 +27,7 @@ import ActivityScreen from './screens/ActivityScreen'
 import PersonHistoryScreen from './screens/PersonHistoryScreen'
 import ImportScreen from './screens/ImportScreen'
 import ImportReviewScreen from './screens/ImportReviewScreen'
+import DuplicatesScreen from './screens/DuplicatesScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
 import ReserveScreen from './screens/ReserveScreen'
@@ -166,6 +167,7 @@ export default function App() {
           <Route path="/people/:email" element={<StaffOnly><PersonHistoryScreen /></StaffOnly>} />
           <Route path="/import" element={<StaffOnly><ImportScreen /></StaffOnly>} />
           <Route path="/import/:jobId" element={<StaffOnly><ImportReviewScreen /></StaffOnly>} />
+          <Route path="/duplicates" element={<StaffOnly><DuplicatesScreen /></StaffOnly>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
