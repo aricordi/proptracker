@@ -5,7 +5,7 @@ import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import { useSession } from '../auth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import ItemCard, { type Badge } from '../components/ItemCard'
 import DateRangePicker from '../components/DateRangePicker'
 import LateBanner from '../components/LateBanner'
@@ -54,7 +54,9 @@ export default function HomeScreen() {
         bookings[i.id] ?? [], dates.start, dates.end, today, turnaround(i), settings)
     : null
 
-  const [query, setQuery] = useState('')
+  // ?q= lets other screens open a search (e.g. "find something similar").
+  const [params] = useSearchParams()
+  const [query, setQuery] = useState(() => params.get('q') ?? '')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [availability, setAvailability] = useState<AvailabilityFilter>('all')
   const [similarIds, setSimilarIds] = useState<string[]>([])

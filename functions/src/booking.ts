@@ -29,6 +29,7 @@ export interface BookingEntry {
   start: string
   end: string
   qty: number
+  out?: boolean   // the props are with the creator (picked up, not yet brought back)
 }
 
 // Turnaround for one prop: its category's own setting if it has one (e.g.
@@ -202,4 +203,39 @@ export function cleanClosedDays(d: { closedWeekdays?: unknown; closedDates?: unk
     closedWeekdays: weekdays.length >= 7 ? [] : weekdays,
     closedDates: Array.isArray(d.closedDates) ? d.closedDates.filter(isDay) : [],
   }
+}
+
+// ─── Upcoming bookings at risk ───────────────────────────────────────────────
+
+// Why a prop in an upcoming booking might not be ready: someone else has it
+// out late, it came back damaged, or units went missing.
+export type Risk = 'late' | 'damaged' | 'missing'
+
+export function lineRisk(a: {
+  reservationId: string
+  qty: number
+  start: string
+  end: string
+  stock: ItemStock
+  damaged: boolean
+  entries: BookingEntry[]   // all holds on this prop
+  today: string
+  bufferDays: number
+  closed: ClosedDays
+  now?: Date
+}): Risk | null {
+  if (a.damaged) return 'damaged'
+  const others = a.entries.filter(e => e.reservationId !== a.reservationId)
+  const lateQty = others
+    .filter(e => e.out && isLate('collected', e.end, a.closed, a.now))
+    .reduce((n, e) => n + e.qty, 0)
+  const usable = Math.max(0, a.stock.quantity - (a.stock.missingQty ?? 0))
+  // Other bookings still within their planned dates (not ones that are already over).
+  const current = others.filter(e => e.end >= a.today)
+  let busiest = 0
+  for (const day of eachDay(a.start, a.end)) busiest = Math.max(busiest, bookedOn(day, current, a.today, a.bufferDays, a.closed))
+  if (usable - lateQty - busiest >= a.qty) return null
+  if (lateQty > 0 && usable - busiest >= a.qty) return 'late'
+  if ((a.stock.missingQty ?? 0) > 0) return 'missing'
+  return lateQty > 0 ? 'late' : null
 }

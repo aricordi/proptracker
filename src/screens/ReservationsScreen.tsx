@@ -4,6 +4,7 @@ import { useSession } from '../auth'
 import { subscribeToReservations, ACTIVE_STATUSES, type Reservation, type ReservationStatus } from '../services/reservations'
 import { todayInStudio, daysBetween, pickupDay, isLate } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
+import { useAtRisk } from '../hooks/useAtRisk'
 import { formatRange } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 
@@ -50,6 +51,7 @@ export default function ReservationsScreen() {
   })), [list, tabs])
 
   const shown = byTab[tabKey] ?? []
+  const atRisk = useAtRisk(list ?? [])
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -89,7 +91,7 @@ export default function ReservationsScreen() {
           const done = r.lines.filter(l => l.pick).length + builds.filter(b => b.state !== 'todo').length
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
-              className={`w-full text-left bg-pt-surface border rounded-2xl p-3 active:opacity-75 ${overdue || urgent ? 'border-red-500/50' : 'border-pt-border'}`}>
+              className={`w-full text-left bg-pt-surface border rounded-2xl p-3 active:opacity-75 ${overdue || urgent ? 'border-red-500/50' : atRisk[r.id] ? 'border-amber-500/60' : 'border-pt-border'}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-pt-text font-semibold truncate">{r.title}</p>
@@ -104,6 +106,11 @@ export default function ReservationsScreen() {
                   {overdue ? 'Late' : statusLabel(r)}
                 </span>
               </div>
+              {atRisk[r.id] && (
+                <p className="text-amber-300 text-xs mt-1.5">
+                  ⚠ At risk: {atRisk[r.id].map(x => x.itemName).join(', ')} {atRisk[r.id].some(x => x.risk === 'late') ? 'not back yet' : 'may not be usable'}
+                </p>
+              )}
               <div className="flex items-center gap-2 mt-2">
                 <div className="flex -space-x-2">
                   {r.lines.slice(0, 4).map(l => (

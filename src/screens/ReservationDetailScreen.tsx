@@ -13,6 +13,7 @@ import {
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
+import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
 
@@ -27,6 +28,8 @@ export default function ReservationDetailScreen() {
   const { isStaff, profile } = useSession()
   const [res, setRes] = useState<Reservation | null | undefined>(undefined)
   const settings = useBookingSettings()
+  const asList = useMemo(() => res ? [res] : [], [res])
+  const risky = useAtRisk(asList)[res?.id ?? ''] ?? []
 
   useEffect(() => id ? subscribeToReservation(id, setRes) : undefined, [id])
 
@@ -67,6 +70,25 @@ export default function ReservationDetailScreen() {
 
         {active || s === 'returned' ? <Journey res={res} /> : null}
 
+        {risky.length > 0 && (
+          <div className="border border-amber-500/40 bg-amber-500/10 rounded-xl px-4 py-3 space-y-2">
+            <p className="font-medium text-amber-200">⚠ Some props might not be ready</p>
+            {risky.map(x => (
+              <div key={x.itemId} className="flex items-center justify-between gap-3">
+                <p className="text-pt-text text-sm"><b className="font-medium">{x.itemName}</b> {RISK_WORDS[x.risk]}.</p>
+                {!isStaff && (
+                  <button onClick={() => navigate(`/?q=${encodeURIComponent(x.itemName)}`)}
+                    className="shrink-0 px-3 py-1.5 rounded-lg border border-pt-accent text-pt-accent text-xs font-medium">Find similar</button>
+                )}
+              </div>
+            ))}
+            <p className="text-pt-text/70 text-xs">
+              {isStaff
+                ? 'Chase it up, or mark it “not available” with a reason in the picking list below so the creator knows.'
+                : 'The arts department has been flagged. Your booking still stands; if it can’t be ready they’ll mark it not available.'}
+            </p>
+          </div>
+        )}
         {res.statusReason && <Banner tone="red" title={s === 'declined' ? 'Declined' : 'Note'}>{res.statusReason}</Banner>}
         {res.notes && <Section title="Notes from the creator"><p className="text-pt-text text-sm whitespace-pre-wrap">{res.notes}</p></Section>}
 

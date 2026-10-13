@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   addDays, bookedOn, freeForRange, holdUntil, checkDates, todayInStudio,
-  addOpenDays, pickupDay, returnDueDay, earliestStart, cleanClosedDays, isOpen, isLate,
+  addOpenDays, pickupDay, returnDueDay, earliestStart, cleanClosedDays, isOpen, isLate, lineRisk,
   DEFAULT_BOOKING_SETTINGS as DEFAULTS, type BookingEntry,
 } from '../../functions/src/booking'
 
@@ -164,5 +164,33 @@ describe('late returns', () => {
     const later = new Date('2026-11-30T12:00:00Z')
     for (const status of ['requested', 'preparing', 'packed', 'return_pending', 'returned', 'cancelled'])
       expect(isLate(status, '2026-10-14', sundays, later)).toBe(false)
+  })
+})
+
+describe('upcoming bookings at risk', () => {
+  const none = { closedWeekdays: [] as number[], closedDates: [] as string[] }
+  // Alex's shoot was Oct 14 and the costume is still out; Blair has it booked Oct 20.
+  const alex = { reservationId: 'alex', start: '2026-10-14', end: '2026-10-14', qty: 1, out: true }
+  const blair = { reservationId: 'blair', start: '2026-10-20', end: '2026-10-20', qty: 1 }
+  const base = {
+    reservationId: 'blair', qty: 1, start: '2026-10-20', end: '2026-10-20', stock: { quantity: 1 },
+    damaged: false, entries: [alex, blair], today: '2026-10-16', bufferDays: 1, closed: none,
+    now: new Date('2026-10-16T15:00:00Z'),
+  }
+  it('flags a booking when the prop before it is late', () => {
+    expect(lineRisk(base)).toBe('late')
+  })
+  it('not before the late deadline', () => {
+    expect(lineRisk({ ...base, today: '2026-10-15', now: new Date('2026-10-15T13:00:00Z') })).toBeNull()
+  })
+  it('not once it has been brought back (no longer out)', () => {
+    expect(lineRisk({ ...base, entries: [{ ...alex, out: undefined }, blair] })).toBeNull()
+  })
+  it('not when there are enough spare units anyway', () => {
+    expect(lineRisk({ ...base, stock: { quantity: 2 } })).toBeNull()
+  })
+  it('flags damaged props and missing units', () => {
+    expect(lineRisk({ ...base, entries: [blair], damaged: true })).toBe('damaged')
+    expect(lineRisk({ ...base, entries: [blair], stock: { quantity: 1, missingQty: 1 } })).toBe('missing')
   })
 })

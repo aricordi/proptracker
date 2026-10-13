@@ -402,6 +402,22 @@ export const markPacked = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// Mark this reservation's holds as out with the creator (or back), so the app can
+// tell which props are late and warn people who booked them next.
+async function setOut(tx: Transaction, reservationId: string, itemIds: string[], out: boolean) {
+  if (!itemIds.length) return () => {}
+  const snaps = await tx.getAll(...itemIds.map(bookingsRef))
+  return () => itemIds.forEach((itemId, i) => {
+    tx.set(bookingsRef(itemId), {
+      entries: entriesOf(snaps[i]).map(e => {
+        if (e.reservationId !== reservationId) return e
+        const { out: _was, ...rest } = e
+        return out ? { ...rest, out: true } : rest
+      }),
+    })
+  })
+}
+
 // ─── 4. Pickup (creator signs off) ───────────────────────────────────────────
 
 export const confirmPickup = onCall(CALLABLE, async req => {
@@ -415,7 +431,9 @@ export const confirmPickup = onCall(CALLABLE, async req => {
     // The point is the creator's own confirmation, so only they can sign.
     if (r.res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Only the person who booked can confirm pickup.')
     requireStatus(r.res, ['packed'])
+    const markOut = await setOut(tx, r.id, r.res.itemIds ?? [], true)
     const now = new Date().toISOString()
+    markOut()
     tx.update(r.ref, {
       status: 'collected',
       pickup: { at: now, by: caller.email, allReceived, ...(issue ? { issue } : {}) },
@@ -438,7 +456,9 @@ export const startReturn = onCall(CALLABLE, async req => {
     const r = await loadForUpdate(tx, req.data?.id)
     if (r.res.creatorEmail !== caller.email && !caller.isStaff) throw new HttpsError('permission-denied', 'Not your booking')
     requireStatus(r.res, ['collected'])
+    const markBack = await setOut(tx, r.id, r.res.itemIds ?? [], false)
     const now = new Date().toISOString()
+    markBack()
     tx.update(r.ref, {
       status: 'return_pending',
       returnInfo: { at: now, by: caller.email, photos, ...(note ? { note } : {}), byStaff: r.res.creatorEmail !== caller.email },

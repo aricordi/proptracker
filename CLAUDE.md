@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 143 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 148 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -188,7 +188,9 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 
 ### Next
 - Go-live (owner adding GitHub secrets).
-- Email: owner to pick a service; then add a sender for the `outbox` collection.
+- Email: owner wanted Brevo, then Resend, but has NO domain DNS access yet; Resend/Brevo need a
+  verified domain to email other people. Plan: one SMTP sender (nodemailer) so the provider is a
+  settings change; owner to choose (Gmail/Workspace app password now vs wait for domain).
 - Phase 5 remainder (owner's decisions, Oct 13), in steps:
   1. ✅ Closed days (deployed Oct 13).
   2. ✅ Late returns: `isLate()` in booking.ts = status 'collected' and past 10am on the next open
@@ -196,6 +198,11 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
      arts/owner never blocked. App: LateBanner (Search + Reserve screens, Reserve button disabled),
      "Late" badge in Queue/booking page with due time. Reminder EMAIL deferred until an email
      service is picked (needs a scheduled function = Cloud Scheduler; ask owner then).
+  2b. ✅ At-risk upcoming bookings (owner: warn arts + creator): item_bookings entries get `out: true`
+     at confirmPickup (removed at startReturn). `lineRisk()` in booking.ts flags a not-yet-picked line
+     of a requested/preparing booking when another holder is late, or the prop is damaged/missing.
+     App: `src/hooks/useAtRisk.ts`; amber "⚠ At risk" on Queue/My bookings cards; warning box on the
+     booking page (creator gets "Find similar" → Search with ?q=). Email for it comes with the sender.
   3. Activity log: booking steps + prop edits (who, what, from → to), written by the server.
   4. History pages per prop and per creator; damaged/missing with replacement cost + running
      total (records only, no billing/settling).
