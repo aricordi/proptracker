@@ -314,7 +314,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   - Seed: 2 bundles (FX3 camera, 600d light) + C-stand extra (4) with piece names.
   Props category "Gear" (id 'gear') → "Tech props" (owner, Oct 13): default label changed in src/config.ts and
   ensureDefaultCategories renames the live doc once if its label is still exactly "Gear" (runs when staff open the app).
-  Step 2 backend deploy started Oct 13 with the owner's OK.
+  Step 2 backend DEPLOYED Oct 13 (run 22, green).
   STEP 3 BUILT (Oct 13, NOT deployed; changes storage rules → needs owner OK):
   - Statuses: held → out (picked up) → returned (photo) → checked_in (team). Cancel/decline only while held.
   - Shared helpers in gearBooking.ts: nowStamp (Toronto), addMinutes, pickupWindow ('early'|'open'|'over';
