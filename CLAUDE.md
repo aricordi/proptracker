@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 191 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 196 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -353,5 +353,9 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     ignores punctuation/spaces/"Bin"/leading zeros, so "B.31", "B:31", "B: 31", "B031" are one bin;
     Bins screen shows "Look-alike bins" → `mergeBins` (owner+arts) moves props into the kept bin and
     deletes the extra bins (their old QR stickers stop working).
+  - SUPPLIES (owner decision Oct 13): consumables (tape, 3M adhesive squares, batteries…) stay as
+    props with a "supplies" tag; the AI prompts (add-prop + import) now put "supplies" first for them.
+    No re-analysis of already-imported photos (owner: not worth it). ARTS can now delete imported,
+    never-booked props too (`deleteImportedProp` owner+arts) so the prop department can clear them.
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.

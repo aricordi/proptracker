@@ -49,6 +49,7 @@ Return ONLY a JSON object with exactly these fields:
 - "name": a short, plain name someone would search for (2-5 words, Title Case), e.g. "Rotary Telephone".
 - "category": the single best fit, copied exactly from this list: ${JSON.stringify(categories.map(c => c.label))}
 - "tags": 5-8 lowercase single-word or hyphenated search tags: what it is, what it's used for, era/style, colour, material.
+  If it is a consumable SUPPLY rather than a prop (tape, adhesive squares, glue, batteries, zip ties, cleaning products, packaging…), make "supplies" the FIRST tag.
   Prefer reusing these existing tags when they fit: ${JSON.stringify(existingTags.slice(0, 300))}
 - "description": one sentence (max 20 words) describing what it looks like.
 If there is a handwritten or printed card/label in the photo, ignore it when naming the item.`
@@ -121,6 +122,7 @@ Return ONLY a JSON object with exactly these fields:
 - "name": a short, plain name someone would search for (2-5 words, Title Case), e.g. "Rotary Telephone". Don't name the sign.
 - "category": the single best fit, copied exactly from this list: ${JSON.stringify(categories.map(c => c.label))}
 - "tags": 5-8 lowercase single-word or hyphenated search tags: what it is, what it's used for, era/style, colour, material.
+  If it is a consumable SUPPLY rather than a prop (tape, adhesive squares, glue, batteries, zip ties, cleaning products, packaging…), make "supplies" the FIRST tag.
   Prefer reusing these existing tags when they fit: ${JSON.stringify(existingTags.slice(0, 300))}
 - "description": one sentence (max 20 words) describing what the prop looks like.
 - "bin": the bin name/number written on the sign, exactly as written (e.g. "C7", "Bin 12"), or null if there is no bin sign.

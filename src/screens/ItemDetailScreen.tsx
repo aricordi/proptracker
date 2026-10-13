@@ -22,7 +22,7 @@ import type { Item, Condition } from '../types'
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isStaff, isOwner } = useSession()
+  const { isStaff } = useSession()
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'busy'>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const tags       = useTags()
@@ -330,8 +330,8 @@ export default function ItemDetailScreen() {
 
             <div className="h-px bg-pt-border" />
 
-            {/* Owner, while testing the import: imported props can be deleted for good. */}
-            {isOwner && item.importedFrom && item.collection === 'company' && (
+            {/* Owner + arts: imported props (never booked) can be deleted for good. */}
+            {isStaff && item.importedFrom && item.collection === 'company' && (
               deleteState === 'idle' ? (
                 <button onClick={() => { setDeleteState('confirm'); setDeleteError(null) }} className="w-full text-red-400 text-sm py-2 active:opacity-70">
                   Delete this imported prop

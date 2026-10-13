@@ -146,8 +146,8 @@ describe('batch import', () => {
     const ok = await call('approveImports', { items: [{ id: 'test0001x3' }, { id: 'test0002x3' }] }, ARTS)
     const [a, b] = ok.result.results.map((x: { itemId: string }) => x.itemId)
 
-    expect((await call('deleteImportedProp', { itemId: a }, ARTS)).error).toBe('PERMISSION_DENIED')
-    expect((await call('deleteImportedProp', { itemId: a }, OWNER)).ok).toBe(true)
+    expect((await call('deleteImportedProp', { itemId: a }, ALEX)).error).toBe('PERMISSION_DENIED')
+    expect((await call('deleteImportedProp', { itemId: a }, ARTS)).ok).toBe(true)
     expect(await getDoc(`items/${a}`)).toBeNull()
     expect(await getDoc('import_items/test0001x3')).toBeNull()        // that photo can be imported again
     expect((await getDoc(`import_jobs/${result.jobId}`))!.counts.approved).toBe(1)

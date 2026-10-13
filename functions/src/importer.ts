@@ -432,8 +432,9 @@ async function deleteImportedProps(itemIds: string[], by: string) {
   }
 }
 
+// Owner + arts (owner decision Oct 13: the prop department clears out supplies/mistakes).
 export const deleteImportedProp = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  const caller = await requireRole(req, ['owner'])
+  const caller = await requireRole(req, ['owner', 'arts'])
   const id = typeof req.data?.itemId === 'string' ? req.data.itemId : ''
   const item = id ? (await db.doc(`items/${id}`).get()).data() : undefined
   if (!item) throw new HttpsError('not-found', 'Prop not found')
