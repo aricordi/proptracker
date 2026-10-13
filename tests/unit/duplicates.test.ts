@@ -45,7 +45,7 @@ describe('copies spread over several bins', () => {
       [prop('a', 'b1'), prop('b', 'b2'), prop('c', 'b3'), prop('d', 'b4', 2)],
       [{ ...prop('x', 'b1'), name: 'Lamp' }, { ...prop('y', 'b1'), name: 'Lamp' }],   // same bin: not listed
     ], id => names[id])
-    expect(text).toContain('• Police Costume: B.31 ×1, C.4 ×1, D.2 ×1, E.9 ×2')
+    expect(text).toContain('Police Costume (5 total)\n   - 1 in B.31\n   - 1 in C.4\n   - 1 in D.2\n   - 2 in E.9')
     expect(text).not.toContain('Lamp')
     expect(shelfList([], id => id)).toBe('')
   })

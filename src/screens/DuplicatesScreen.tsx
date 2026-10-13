@@ -4,12 +4,13 @@ import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
+import { useLocations } from '../hooks/useLocations'
 import { findDuplicates, comparePropPhotos, mergeProps, type DuplicatePair, type PairVerdict } from '../services/importer'
 import {
   dismissDuplicatePairs, subscribeToLaterPairs, setPairsLater,
   subscribeToGatherGroups, addGatherGroup, removeGatherGroup, type GatherGroup,
 } from '../services/health'
-import { groupPairs, spreadOf, shelfList, pairKey, crossKeys, insideKeys, type Group } from '../lib/duplicates'
+import { groupPairs, spreadOf, isSpread, shelfList, pairKey, crossKeys, insideKeys, type Group } from '../lib/duplicates'
 import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
 
@@ -25,7 +26,14 @@ export default function DuplicatesScreen() {
   const bins = useBins()
   // Archived props (e.g. ones just merged away) are never shown again.
   const byId = useMemo(() => new Map(items.filter(i => !i.archived).map(i => [i.id, i])), [items])
+  const locations = useLocations()
   const binLabel = (id?: string) => bins.find(b => b.id === id)?.label
+  // "A1 (Main room)": the bin and the storage area it's in.
+  const binWhere = (id: string) => {
+    const b = bins.find(x => x.id === id)
+    const area = b?.locationId ? locations.find(l => l.id === b.locationId)?.name : undefined
+    return b ? (area ? `${b.label} (${area})` : b.label) : 'unknown bin'
+  }
   const [pairs, setPairs] = useState<DuplicatePair[] | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -58,7 +66,15 @@ export default function DuplicatesScreen() {
   const isLater = (g: Group) => g.keys.some(k => later.has(k))
   const toCheck = groups.filter(g => !isLater(g))
   const laterList = groups.filter(isLater)
-  const moveList = shelfList(gatherLive.map(g => g.ids.map(id => byId.get(id)!)), id => binLabel(id) ?? 'unknown bin')
+  const gatherProps = gatherLive.map(g => g.ids.map(id => byId.get(id)!)).filter(isSpread)
+  const moveList = shelfList(gatherProps, binWhere)
+  async function sendList() {
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Props to gather', text: moveList }); return }
+    } catch { /* closed the share sheet: fall back to copying */ }
+    await navigator.clipboard?.writeText(moveList)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -87,17 +103,35 @@ export default function DuplicatesScreen() {
           ))}
         </div>
 
-        {view === 'gather' && (gatherLive.length ? (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
-            <p className="text-amber-200 text-sm">
-              Each of these is one prop spread over several bins. Send the list to the arts department so they put each one in a
-              single bin; then tap the bin it's in now and merge.
-            </p>
-            <pre className="text-pt-text text-xs whitespace-pre-wrap max-h-48 overflow-y-auto bg-pt-bg rounded-lg p-2">{moveList}</pre>
-            <button onClick={() => { navigator.clipboard?.writeText(moveList).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
-              className="w-full py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold">{copied ? 'Copied ✓' : 'Copy list (to text or email the team)'}</button>
+        {view === 'gather' && (gatherProps.length ? (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 space-y-3">
+            <div>
+              <p className="text-amber-200 font-medium">📦 {gatherProps.length} prop{gatherProps.length === 1 ? '' : 's'} to gather</p>
+              <p className="text-pt-muted text-xs">Each one is split between bins. Ask the arts department to put all copies of each prop in one bin.</p>
+            </div>
+            <ul className="space-y-2">
+              {gatherProps.map(props => (
+                <li key={props.map(p => p.id).join()} className="flex gap-3 bg-pt-surface rounded-xl p-2">
+                  <div className="w-14 h-14 rounded-lg bg-pt-bg overflow-hidden shrink-0">
+                    {props[0].photos[0] && <img src={props[0].photos[0]} alt="" className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-pt-text text-sm font-medium truncate">{props[0].name}</p>
+                    {spreadOf(props).map(sp => (
+                      <p key={sp.binId ?? 'none'} className="text-pt-muted text-xs">
+                        <span className="text-pt-text font-medium">{sp.qty}</span> in {sp.binId ? binWhere(sp.binId) : 'no bin yet'}
+                      </p>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button onClick={sendList} className="w-full py-2.5 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold">
+              {copied ? 'Copied ✓ Paste it in a text or email' : 'Send this list to the team'}
+            </button>
+            <p className="text-pt-muted text-xs">When they're done, tap the bin each prop is in now on its card below, then "Copies".</p>
           </div>
-        ) : <p className="text-pt-muted text-sm text-center py-4">Nothing to gather. When you confirm look-alikes are the same prop but in different bins, they show up here.</p>)}
+        ) : !gatherLive.length && <p className="text-pt-muted text-sm text-center py-4">Nothing to gather. When you confirm look-alikes are the same prop but in different bins, they show up here.</p>)}
 
         {view === 'gather' && gatherLive.map(g => (
           <GroupCard key={g.id} mode="gather" gatherId={g.id} ids={g.ids} keys={insideKeys(g.ids)} props={g.ids.map(id => byId.get(id)!)}

@@ -375,7 +375,7 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     ones that are the same prop (🔍 = full-screen zoom; "Keep this one" picks the kept one), then:
     merge them (Copies / Same one; if spread over bins, tap the bin they're in now) or "📦 Flag N to
     gather into one bin" → saved in `health/gather` {groups: {id: {ids, at}}} (staff, shared) and shown
-    in the "To gather" tab with a copyable MOVE LIST (`shelfList`) for the arts team; merging there removes
+    in the "To gather" tab: readable list (photo, name, "1 in A1 (room)" lines) + "Send this list to the team" (phone share sheet, else copy; text from `shelfList`); merging there removes
     the flag. The UNTICKED ones are RELEASED: only their pairs with the ticked ones are dismissed
     (`crossKeys`), so they stay candidates with each other and with any other prop (owner requirement).
     Tabs: To check / To gather / Later ("Decide later" = `health/later` {duplicatePairs}). No backend

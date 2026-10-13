@@ -45,13 +45,16 @@ export function spreadOf(props: Placed[]): { binId: string | null; qty: number; 
 
 export const isSpread = (props: Placed[]) => spreadOf(props).length > 1
 
-// Plain-text list to send the arts team: what to gather into one bin.
+// Plain-text message for the arts team (to text or email): each prop, then where its copies are.
 export function shelfList(groups: Placed[][], binName: (id: string) => string): string {
-  const lines = groups.filter(isSpread).map(props => {
-    const where = spreadOf(props).map(s => `${s.binId ? binName(s.binId) : 'no bin'} ×${s.qty}`).join(', ')
-    return `• ${props[0].name}: ${where}`
+  const spread = groups.filter(isSpread)
+  if (!spread.length) return ''
+  const blocks = spread.map(props => {
+    const total = props.reduce((n, p) => n + p.quantity, 0)
+    const where = spreadOf(props).map(s => `   - ${s.qty} in ${s.binId ? binName(s.binId) : 'no bin yet'}`).join('\n')
+    return `${props[0].name} (${total} total)\n${where}`
   })
-  return lines.length ? `Put each of these in ONE bin (then tell the app which):\n${lines.join('\n')}` : ''
+  return `Hi! These props are split between bins. Please put all copies of each one together in ONE bin, then let me know which bin:\n\n${blocks.join('\n\n')}`
 }
 
 // Every pair between two sets of props (e.g. the ticked ones × the released ones).
