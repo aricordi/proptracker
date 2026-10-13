@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToReservations, ACTIVE_STATUSES, type Reservation, type ReservationStatus } from '../services/reservations'
-import { todayInStudio, daysBetween, pickupDay } from '../../functions/src/booking'
+import { todayInStudio, daysBetween, pickupDay, isLate } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { formatRange } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
@@ -80,7 +80,7 @@ export default function ReservationsScreen() {
           </div>
         )}
         {shown.map(r => {
-          const overdue = r.status === 'collected' && r.endDate < today
+          const overdue = isLate(r.status, r.endDate, settings)
           // Urgency counts to pickup: a Sunday shoot is picked up Saturday if the prop room is closed Sundays.
           const pickup = pickupDay(r.startDate, settings)
           const urgent = (r.status === 'requested' || r.status === 'preparing') && daysBetween(today, pickup) <= 1
@@ -101,7 +101,7 @@ export default function ReservationsScreen() {
                   </p>
                 </div>
                 <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[r.status]}`}>
-                  {overdue ? 'Overdue' : statusLabel(r)}
+                  {overdue ? 'Late' : statusLabel(r)}
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-2">

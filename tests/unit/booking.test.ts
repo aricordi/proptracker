@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   addDays, bookedOn, freeForRange, holdUntil, checkDates, todayInStudio,
-  addOpenDays, pickupDay, returnDueDay, earliestStart, cleanClosedDays, isOpen,
+  addOpenDays, pickupDay, returnDueDay, earliestStart, cleanClosedDays, isOpen, isLate,
   DEFAULT_BOOKING_SETTINGS as DEFAULTS, type BookingEntry,
 } from '../../functions/src/booking'
 
@@ -144,5 +144,25 @@ describe('days the prop room is closed', () => {
     expect(cleanClosedDays({ closedWeekdays: [0, 1, 2, 3, 4, 5, 6] }).closedWeekdays).toEqual([])
     expect(cleanClosedDays({}).closedWeekdays).toEqual([0])
     expect(addOpenDays('2026-10-16', 2, { closedWeekdays: [0, 1, 2, 3, 4, 5, 6], closedDates: [] })).toBe('2026-10-18')
+  })
+})
+
+describe('late returns', () => {
+  const sundays = { closedWeekdays: [0], closedDates: [] as string[] }
+  // Toronto is UTC-4 in October: 10am there is 14:00 UTC.
+  it('a Wednesday shoot is late from 10am Thursday, not before', () => {
+    expect(isLate('collected', '2026-10-14', sundays, new Date('2026-10-15T13:59:00Z'))).toBe(false)
+    expect(isLate('collected', '2026-10-14', sundays, new Date('2026-10-15T14:00:00Z'))).toBe(true)
+    expect(isLate('collected', '2026-10-14', sundays, new Date('2026-10-16T02:00:00Z'))).toBe(true)
+  })
+  it('a Saturday shoot is not late until 10am Monday', () => {
+    expect(isLate('collected', '2026-10-17', sundays, new Date('2026-10-18T20:00:00Z'))).toBe(false)
+    expect(isLate('collected', '2026-10-17', sundays, new Date('2026-10-19T13:00:00Z'))).toBe(false)
+    expect(isLate('collected', '2026-10-17', sundays, new Date('2026-10-19T14:30:00Z'))).toBe(true)
+  })
+  it('only props that are out with the creator can be late', () => {
+    const later = new Date('2026-11-30T12:00:00Z')
+    for (const status of ['requested', 'preparing', 'packed', 'return_pending', 'returned', 'cancelled'])
+      expect(isLate(status, '2026-10-14', sundays, later)).toBe(false)
   })
 })

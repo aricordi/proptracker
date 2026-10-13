@@ -6,6 +6,8 @@ import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import DateRangePicker from '../components/DateRangePicker'
+import LateBanner from '../components/LateBanner'
+import { useMyLateBookings } from '../hooks/useLateBookings'
 import { useTurnaround } from '../hooks/useTurnaround'
 import ProofPhotos from '../components/ProofPhotos'
 import { createReservation, type Conflict } from '../services/reservations'
@@ -19,6 +21,7 @@ export default function ReserveScreen() {
   const items = useItems()
   const bookings = useBookings()
   const settings = useBookingSettings()
+  const late = useMyLateBookings()
   const turnaround = useTurnaround()
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
@@ -61,7 +64,7 @@ export default function ReserveScreen() {
     setBuildDesc(''); setBuildQty(1); setBuildPhotos([]); setShowBuild(false)
   }
 
-  const canSubmit = datesOk && title.trim() && (lines.length > 0 || cart.builds.length > 0) && lines.every(l => !l.problem) && !busy && !buildUploading
+  const canSubmit = late.length === 0 && datesOk && title.trim() && (lines.length > 0 || cart.builds.length > 0) && lines.every(l => !l.problem) && !busy && !buildUploading
 
   async function submit() {
     if (!dates) return
@@ -100,6 +103,7 @@ export default function ReserveScreen() {
       </div>
 
       <div className="p-4 space-y-5">
+        <LateBanner late={late} />
         <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates}
           maxDays={1}
           leadTimeNote={!isStaff && settings.leadTimeDays > 0 ? `Earliest start: ${formatDay(minStart)} (${settings.leadTimeDays} open days' notice).` : undefined} />

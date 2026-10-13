@@ -132,6 +132,33 @@ describe('what can be booked', () => {
   })
 })
 
+describe('late returns', () => {
+  const outWith = (id: string, email: string, end: string) => put(`reservations/${id}`, {
+    title: `Shoot ${id}`, creatorEmail: email, status: 'collected', startDate: end, endDate: end, lines: [], itemIds: [],
+  })
+  it('a creator with late props cannot book until they are back', async () => {
+    await outWith('old', ALEX, day(-3))
+    const r = await reserve(ALEX, [{ itemId: 'chairs', qty: 1 }])
+    expect(r.error).toBe('FAILED_PRECONDITION')
+    expect(r.message).toMatch(/late/)
+    expect(r.details.reservationIds).toEqual(['old'])
+    // Someone else is not affected.
+    expect((await reserve(BLAIR, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
+  })
+  it('props from a shoot today are not late yet', async () => {
+    await outWith('today', ALEX, day(0))
+    expect((await reserve(ALEX, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
+  })
+  it('once returned, the creator can book again', async () => {
+    await put('reservations/old', { title: 'Old', creatorEmail: ALEX, status: 'returned', startDate: day(-3), endDate: day(-3), lines: [], itemIds: [] })
+    expect((await reserve(ALEX, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
+  })
+  it('the arts department is never blocked', async () => {
+    await outWith('artsOld', ARTS, day(-3))
+    expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
+  })
+})
+
 describe('ending a reservation frees the props', () => {
   it('a creator can cancel their own, then someone else can book', async () => {
     const { result } = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }])

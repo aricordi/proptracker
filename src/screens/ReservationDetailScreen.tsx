@@ -11,7 +11,7 @@ import {
   ACTIVE_STATUSES, type Reservation, type ReservationLine, type BuildLine,
 } from '../services/reservations'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
-import { todayInStudio, pickupDay } from '../../functions/src/booking'
+import { pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
@@ -34,7 +34,8 @@ export default function ReservationDetailScreen() {
   if (res === null) return <Centered>Booking not found.</Centered>
 
   const active = ACTIVE_STATUSES.includes(res.status)
-  const overdue = res.status === 'collected' && res.endDate < todayInStudio()
+  const overdue = isLate(res.status, res.endDate, settings)
+  const dueBy = `${RETURN_DEADLINE_HOUR}am ${formatDay(returnDueDay(res.endDate, settings))}`
   const mine = res.creatorEmail === profile.email
   const s = res.status
   const pickup = pickupDay(res.startDate, settings)
@@ -44,7 +45,7 @@ export default function ReservationDetailScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
         <button onClick={() => navigate('/reservations')} className="text-pt-text text-base font-medium py-1">‹ {isStaff ? 'Queue' : 'Bookings'}</button>
         <span className={`text-xs px-2.5 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
-          {overdue ? 'Overdue' : statusLabel(res)}
+          {overdue ? 'Late' : statusLabel(res)}
         </span>
       </div>
 
@@ -93,10 +94,15 @@ export default function ReservationDetailScreen() {
         )}
 
         {/* ── Return ── */}
+        {s === 'collected' && mine && (
+          <Banner tone={overdue ? 'red' : 'amber'} title={overdue ? 'These props are late' : `Bring these back the night of the shoot`}>
+            {overdue ? `They were due back by ${dueBy}. You can't book more props until they're returned.` : `They count as late after ${dueBy}.`}
+          </Banner>
+        )}
         {s === 'collected' && mine && <ReturnForm res={res} />}
         {s === 'collected' && isStaff && !mine && (
-          <Banner tone={overdue ? 'red' : 'amber'} title={overdue ? 'Overdue: not returned yet' : 'Out with the creator'}>
-            Due back after {formatDay(res.endDate)}. The creator photographs everything when returning.
+          <Banner tone={overdue ? 'red' : 'amber'} title={overdue ? `Late: was due back by ${dueBy}` : 'Out with the creator'}>
+            {overdue ? 'They can’t book more props until this is returned.' : `Due back the night of the shoot; late after ${dueBy}.`} The creator photographs everything when returning.
           </Banner>
         )}
         {res.returnInfo && (

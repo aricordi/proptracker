@@ -13,7 +13,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, type Caller } from './auth.js'
 import {
-  checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor, cleanClosedDays,
+  checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor, cleanClosedDays, isLate,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
 } from './booking.js'
 
@@ -170,6 +170,21 @@ export const createReservation = onCall(CALLABLE, async req => {
   if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Add at least one prop.')
 
   const settings = await loadSettings()
+
+  // Creators with props out late can't book more until they bring them back
+  // (owner's rule). The arts department is never blocked.
+  if (!caller.isStaff) {
+    const out = await db.collection('reservations')
+      .where('creatorEmail', '==', caller.email).where('status', '==', 'collected').get()
+    const late = out.docs.filter(d => isLate('collected', d.get('endDate'), settings))
+    if (late.length) {
+      const names = late.map(d => `"${d.get('title')}"`).join(', ')
+      throw new HttpsError('failed-precondition',
+        `Props from ${names} are late. Bring them back to the arts department before booking more.`,
+        { problem: 'late', reservationIds: late.map(d => d.id) })
+    }
+  }
+
   const today = todayInStudio()
   const problem = checkDates(startDate, endDate, today, settings, caller.isStaff)
   if (problem) {

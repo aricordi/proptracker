@@ -112,6 +112,20 @@ export function returnDueDay(end: string, closed: ClosedDays): string {
   return addOpenDays(end, 1, closed)
 }
 
+// The hour of the day (0–23) at the studio.
+export function hourInStudio(now = new Date()): number {
+  return Number(new Intl.DateTimeFormat('en-CA', { timeZone: STUDIO_TIME_ZONE, hour: '2-digit', hourCycle: 'h23' }).format(now))
+}
+
+// Is a booking that's out with the creator late? Only bookings whose props were
+// picked up and not yet brought back can be late (status 'collected').
+export function isLate(status: string, end: string, closed: ClosedDays, now = new Date()): boolean {
+  if (status !== 'collected') return false
+  const due = returnDueDay(end, closed)
+  const today = todayInStudio(now)
+  return today > due || (today === due && hourInStudio(now) >= RETURN_DEADLINE_HOUR)
+}
+
 // ─── Availability ────────────────────────────────────────────────────────────
 
 // The last day an entry keeps its units tied up. Normally the shoot's end plus

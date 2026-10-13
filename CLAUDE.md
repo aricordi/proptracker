@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 136 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 143 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -190,9 +190,12 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 - Go-live (owner adding GitHub secrets).
 - Email: owner to pick a service; then add a sender for the `outbox` collection.
 - Phase 5 remainder (owner's decisions, Oct 13), in steps:
-  1. ✅ Closed days (built; backend deploy needs owner OK).
-  2. Late returns: "Late" from 10am next open day; late creators BLOCKED from new bookings until
-     returned (arts can still book for them); reminder queued in `outbox`.
+  1. ✅ Closed days (deployed Oct 13).
+  2. ✅ Late returns: `isLate()` in booking.ts = status 'collected' and past 10am on the next open
+     day after the shoot. `createReservation` refuses creators with late props (problem 'late');
+     arts/owner never blocked. App: LateBanner (Search + Reserve screens, Reserve button disabled),
+     "Late" badge in Queue/booking page with due time. Reminder EMAIL deferred until an email
+     service is picked (needs a scheduled function = Cloud Scheduler; ask owner then).
   3. Activity log: booking steps + prop edits (who, what, from → to), written by the server.
   4. History pages per prop and per creator; damaged/missing with replacement cost + running
      total (records only, no billing/settling).

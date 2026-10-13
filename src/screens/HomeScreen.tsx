@@ -8,6 +8,8 @@ import { useSession } from '../auth'
 import { useNavigate } from 'react-router-dom'
 import ItemCard, { type Badge } from '../components/ItemCard'
 import DateRangePicker from '../components/DateRangePicker'
+import LateBanner from '../components/LateBanner'
+import { useMyLateBookings } from '../hooks/useLateBookings'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useCart } from '../cart'
 import { useTurnaround } from '../hooks/useTurnaround'
@@ -37,6 +39,7 @@ export default function HomeScreen() {
   const categories = useCategories()
   const bookings   = useBookings()
   const settings   = useBookingSettings()
+  const late       = useMyLateBookings()
   const cart       = useCart()
   const turnaround = useTurnaround()
   const navigate   = useNavigate()
@@ -230,6 +233,7 @@ export default function HomeScreen() {
       </div>
 
       <div className="p-4">
+        {late.length > 0 && <div className="mb-4"><LateBanner late={late} /></div>}
         {nothingAtAll && (
           <p className="text-center mt-16 text-pt-muted text-sm leading-relaxed">
             No props yet.
