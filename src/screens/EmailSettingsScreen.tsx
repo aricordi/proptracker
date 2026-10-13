@@ -10,6 +10,8 @@ import { formatDay } from '../lib/dates'
 // (e.g. Gmail → Resend) = pick the service, change the login, update the secret.
 const SERVICES = [
   { key: 'gmail',  label: 'Gmail / Workspace', host: 'smtp.gmail.com',       port: 465, user: '',       hint: 'Login = the Gmail address. Password = a Google app password.' },
+  { key: 'icloud', label: 'iCloud',            host: 'smtp.mail.me.com',     port: 587, user: '',       hint: 'Login = your full @icloud.com address. Password = an Apple app-specific password.' },
+  { key: 'yahoo',  label: 'Yahoo',             host: 'smtp.mail.yahoo.com',  port: 465, user: '',       hint: 'Login = your Yahoo address. Password = a Yahoo app password.' },
   { key: 'resend', label: 'Resend',            host: 'smtp.resend.com',      port: 465, user: 'resend', hint: 'Login = resend. Password = your Resend API key. Needs a verified domain.' },
   { key: 'brevo',  label: 'Brevo',             host: 'smtp-relay.brevo.com', port: 587, user: '',       hint: 'Login + password = your Brevo SMTP login and key. Needs a verified domain.' },
 ]
@@ -87,7 +89,7 @@ export default function EmailSettingsScreen() {
           {service && <p className="text-pt-muted text-xs">{service.hint}</p>}
           <label className="block space-y-1">
             <span className={label}>Login</span>
-            <input value={form.user} onChange={e => set({ user: e.target.value.trim() })} placeholder="props.yourshow@gmail.com" className={input} autoCapitalize="none" />
+            <input value={form.user} onChange={e => set({ user: e.target.value.trim() })} placeholder="you@icloud.com" className={input} autoCapitalize="none" />
           </label>
           <label className="block space-y-1">
             <span className={label}>Send from (address people see)</span>
