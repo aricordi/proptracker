@@ -42,6 +42,7 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 Phases 1–4 (plus Phase 5's photo returns and check-in) are built and tested.
 LIVE NOW (Oct 12, 2026): backend — all server functions, new Firestore + Storage rules, indexes.
+Oct 13: per-category turnaround (costume washing days) deployed to the backend too.
 NOT live yet: the website itself (hosting). The live site still runs the OLD app; the new app
 is only on the preview link. Owner is testing the preview next.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
