@@ -44,8 +44,10 @@ creators reserve props, the arts department picks/packs them, everything is logg
 Phases 1–4 (plus Phase 5's photo returns and check-in) are built and tested.
 LIVE NOW (Oct 12, 2026): backend — all server functions, new Firestore + Storage rules, indexes.
 Oct 13: per-category turnaround (costume washing days) deployed to the backend too.
-NOT live yet: the website itself (hosting). The live site still runs the OLD app; the new app
-is only on the preview link. Owner is testing the preview next.
+WEBSITE LIVE (Oct 13, owner OK): the new app is on https://proptracker-9732e.web.app (button GitHub →
+Actions → "Deploy website (LIVE)", `.github/workflows/deploy-website.yml`: tests → build → publish to the
+live channel with FIREBASE_SERVICE_ACCOUNT; undo = Firebase console → Hosting → release history → Roll back).
+Pushes to the branch still only update the preview; the live site changes ONLY via that button (ask first).
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
@@ -181,7 +183,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 3. ✅ Backend deployed (needed Cloud Billing API enabled; first run had flaky Cloud Build
    failures, the workflow now retries once and sets a 7-day image cleanup policy).
 4. Owner opens the preview, tests, then runs "Rebuild smart search" on Health.
-5. Deploy hosting to live.
+5. ✅ Hosting deployed to live (Oct 13, run 1).
 6. Later, with approval: remove the obsolete `embedding` arrays from props
    (they make every phone download extra data).
 7. After hosting goes live: delete the OLD Gemini key (it was exposed in the old website code).
