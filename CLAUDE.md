@@ -223,6 +223,13 @@ OWNER DECISIONS for the sprint (Oct 13; owner answers the design questions perso
   Hours = one block per day, CALL TIME → WRAP. Profile: photos/headshots + look, age range, gender,
   height, skills & notes (+ past shoots), rate & contact (STAFF ONLY). Creators see photos, look,
   skills, availability (not rates/contact). New people found for a role are ADDED TO THE ROSTER.
+- MAKEUP (answered): ONE LEAD artist + helpers. The lead gets her own login (new MAKEUP role) to:
+  set her availability, accept/decline/PROPOSE CHANGES (e.g. other call time), and see shoot details
+  for her bookings only (looks, roles, location, call times). Booking = creator REQUESTS, lead
+  CONFIRMS. Request includes LOOKS PER ROLE (+ reference photos) and NUMBER OF PEOPLE + TIMING
+  (call time / camera-ready time). Helpers: the LEAD ADDS THEM (names) to a booking; helpers don't log in.
+  Notice: no fixed rule — the lead decides per request. If the lead isn't free: creator PICKS ANOTHER
+  DATE (no outside-artist custom request for makeup).
 Suggested shape: generalise props into typed "bookable things" with departments (each with its
 own queue), packages for gear, people (actors/crew/makeup) with availability, and a single
 "Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
