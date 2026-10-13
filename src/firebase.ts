@@ -21,12 +21,22 @@ const firebaseConfig = USING_EMULATORS
     }
   : {
       apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+      authDomain:        signInDomain(),
       projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
       storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
       messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
       appId:             import.meta.env.VITE_FIREBASE_APP_ID,
     };
+
+// Google sign-in runs through "<authDomain>/__/auth/handler". iPhone Safari blocks it when that
+// is a different address from the app ("missing initial state"), so on our own Firebase Hosting
+// addresses we use the address the app was opened on. Each one must be listed as an authorized
+// redirect URI (…/__/auth/handler) on the Google OAuth web client, or Google refuses.
+function signInDomain() {
+  const own = ['proptracker.arbcreative.co', 'proptracker-9732e.web.app', 'proptracker-9732e--preview-9kd7p2pf.web.app']
+  const here = typeof window !== 'undefined' ? window.location.hostname : ''
+  return own.includes(here) ? here : import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
+}
 
 const app = initializeApp(firebaseConfig);
 
