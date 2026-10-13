@@ -229,11 +229,8 @@ interface Approval {
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 
-export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  const caller = await requireRole(req, ['owner', 'arts'])
-  const list: Approval[] = Array.isArray(req.data?.items) ? req.data.items.slice(0, 50) : []
-  if (!list.length) throw new HttpsError('invalid-argument', 'Nothing to approve')
-
+// Categories and bins for turning suggestions into props (creates new bins on demand).
+async function approvalContext() {
   const [cats, bins] = await Promise.all([db.collection('categories').get(), db.collection('bins').get()])
   const categoryIds = new Set(cats.docs.map(d => d.id))
   const binsByKey = new Map(bins.docs.map(d => [binKey(String(d.get('label'))), { id: d.id, locationId: d.get('locationId') as string }]))
@@ -254,6 +251,29 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
     return bin
   }
 
+  // The prop's fields from the reviewer's edits, falling back to the AI's suggestion.
+  async function fieldsFor(a: Approval, s: ImportAnalysis, fileName: string) {
+    const quantity = Number.isInteger(a.quantity) && a.quantity! >= 1 && a.quantity! <= 100000 ? a.quantity! : s.quantity || 1
+    const bin = await binFor(a, s)
+    return {
+      name: str(a.name, 200) || s.name || fileName,
+      categoryId: a.categoryId && categoryIds.has(a.categoryId) ? a.categoryId : s.categoryId && categoryIds.has(s.categoryId) ? s.categoryId : 'prop',
+      quantity, condition: 'good', collection: 'company',   // Prime Capitol's
+      tags: await tagIdsFor((Array.isArray(a.tags) ? a.tags : s.tags).filter((t): t is string => typeof t === 'string').slice(0, 15)),
+      description: str(a.description, 300) || s.description || '', notes: '',
+      ...(bin ? { binId: bin.id, locationId: bin.locationId } : {}),
+      status: 'available', archived: false,
+    }
+  }
+  return { fieldsFor }
+}
+
+export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+  const caller = await requireRole(req, ['owner', 'arts'])
+  const list: Approval[] = Array.isArray(req.data?.items) ? req.data.items.slice(0, 50) : []
+  if (!list.length) throw new HttpsError('invalid-argument', 'Nothing to approve')
+  const { fieldsFor } = await approvalContext()
+
   const results: { id: string; itemId?: string; error?: string }[] = []
   for (const a of list) {
     if (typeof a?.id !== 'string') continue
@@ -264,12 +284,7 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
       if (!imp) throw new Error('Not found')
       if (imp.status === 'approved') { results.push({ id: a.id, itemId: imp.itemId }); continue }
       if (imp.status !== 'analyzed') throw new Error('Not ready to approve')
-      const s = imp.suggestion as ImportAnalysis
-      const name = str(a.name, 200) || s.name || imp.fileName
-      const categoryId = a.categoryId && categoryIds.has(a.categoryId) ? a.categoryId : s.categoryId && categoryIds.has(s.categoryId) ? s.categoryId : 'prop'
-      const quantity = Number.isInteger(a.quantity) && a.quantity! >= 1 && a.quantity! <= 100000 ? a.quantity! : s.quantity || 1
-      const tagIds = await tagIdsFor((Array.isArray(a.tags) ? a.tags : s.tags).filter((t): t is string => typeof t === 'string').slice(0, 15))
-      const bin = await binFor(a, s)
+      const fields = await fieldsFor(a, imp.suggestion as ImportAnalysis, imp.fileName)
       const now = new Date().toISOString()
       const itemRef = db.collection('items').doc()
       const jobRef = db.doc(`import_jobs/${imp.jobId}`)
@@ -277,11 +292,8 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
         const again = await tx.get(ref)
         if (again.get('status') !== 'analyzed') return false   // someone else just approved/skipped it
         tx.set(itemRef, {
-          name, categoryId, quantity, condition: 'good', tags: tagIds, collection: 'company',   // Prime Capitol's
-          description: str(a.description, 300) || s.description || '', notes: '',
+          ...fields,
           photos: [imp.photoUrl], photoUrl: imp.photoUrl,
-          ...(bin ? { binId: bin.id, locationId: bin.locationId } : {}),
-          status: 'available', archived: false,
           importedFrom: { driveFileId: imp.fileId, fileName: imp.fileName, folder: imp.folder },
           createdAt: now, updatedAt: now, createdBy: caller.email, updatedBy: caller.email,
         })
@@ -295,6 +307,60 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
     }
   }
   return { results }
+})
+
+// Several photos of the same kind of prop → ONE prop. Either a new prop (from the
+// reviewer's edits; quantity as they set it: copies, or 1 for "more angles"), or
+// added to a prop already in the app (its photos, plus any extra quantity).
+export const mergeImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+  const caller = await requireRole(req, ['owner', 'arts'])
+  const ids: string[] = Array.isArray(req.data?.ids) ? [...new Set<string>(req.data.ids.filter((x: unknown) => typeof x === 'string'))].slice(0, 30) : []
+  const addToItemId = typeof req.data?.addToItemId === 'string' ? req.data.addToItemId : null
+  const addQuantity = Number.isInteger(req.data?.addQuantity) && req.data.addQuantity >= 0 && req.data.addQuantity <= 100000 ? req.data.addQuantity as number : 0
+  if (ids.length < (addToItemId ? 1 : 2)) throw new HttpsError('invalid-argument', addToItemId ? 'Pick at least one photo.' : 'Pick at least two photos to merge.')
+
+  const refs = ids.map(id => db.doc(`import_items/${id}`))
+  const first = (await refs[0].get()).data()
+  if (!first || first.status !== 'analyzed') throw new HttpsError('failed-precondition', 'Those photos have already been handled.')
+  const now = new Date().toISOString()
+  let fields: Record<string, unknown> | null = null
+  if (!addToItemId) {
+    const { fieldsFor } = await approvalContext()
+    fields = await fieldsFor({ ...(req.data?.item ?? {}), id: ids[0] }, first.suggestion as ImportAnalysis, first.fileName)
+  }
+  const itemRef = addToItemId ? db.doc(`items/${addToItemId}`) : db.collection('items').doc()
+
+  await db.runTransaction(async tx => {
+    const snaps = await Promise.all(refs.map(r => tx.get(r)))
+    const target = addToItemId ? await tx.get(itemRef) : null
+    if (snaps.some(sn => sn.get('status') !== 'analyzed')) throw new HttpsError('failed-precondition', 'Some of those photos were just handled by someone else. Refresh and try again.')
+    if (target && (!target.exists || target.get('collection') !== 'company' || target.get('archived') === true)) {
+      throw new HttpsError('failed-precondition', "That prop can't take more photos (it's archived or not a Prime Capitol prop).")
+    }
+    const newPhotos = snaps.map(sn => sn.get('photoUrl') as string).filter(Boolean)
+    if (target) {
+      const photos = [...((target.get('photos') as string[] | undefined) ?? []), ...newPhotos].slice(0, 20)
+      tx.update(itemRef, {
+        photos, photoUrl: photos[0],
+        ...(addQuantity ? { quantity: FieldValue.increment(addQuantity) } : {}),
+        updatedAt: now, updatedBy: caller.email,
+      })
+    } else {
+      tx.set(itemRef, {
+        ...fields!, photos: newPhotos.slice(0, 20), photoUrl: newPhotos[0],
+        importedFrom: { driveFileId: first.fileId, fileName: first.fileName, folder: first.folder, mergedPhotos: ids.length },
+        createdAt: now, updatedAt: now, createdBy: caller.email, updatedBy: caller.email,
+      })
+    }
+    // Tally per import (photos may come from different imports, e.g. the dry run).
+    const perJob = new Map<string, number>()
+    for (const sn of snaps) perJob.set(sn.get('jobId'), (perJob.get(sn.get('jobId')) ?? 0) + 1)
+    snaps.forEach(sn => tx.update(sn.ref, { status: 'approved', itemId: itemRef.id, mergedInto: itemRef.id, approvedBy: caller.email, approvedAt: now }))
+    for (const [jobId, n] of perJob) {
+      tx.update(db.doc(`import_jobs/${jobId}`), { 'counts.analyzed': FieldValue.increment(-n), 'counts.approved': FieldValue.increment(n), updatedAt: now })
+    }
+  })
+  return { itemId: itemRef.id }
 })
 
 export const skipImports = onCall(CALLABLE, async req => {
@@ -314,4 +380,87 @@ export const skipImports = onCall(CALLABLE, async req => {
     })
   }
   return { skipped }
+})
+
+// ─── 4. Clean-up while testing (owner only) ──────────────────────────────────
+// Only props that came from an import can be deleted: never the owner's
+// personal props, never props added by hand, never a prop that was ever booked
+// (its bookings would lose their history). The activity log records each one.
+
+async function everBooked(itemId: string) {
+  return !(await db.collection('reservations').where('itemIds', 'array-contains', itemId).limit(1).get()).empty
+}
+
+// Deletes the props (and their photos, notes, search entries) and forgets the
+// Drive photos they came from, so those photos can be imported again.
+async function deleteImportedProps(itemIds: string[], by: string) {
+  const bucket = getStorage().bucket()
+  const now = new Date().toISOString()
+  for (const id of itemIds) {
+    const ref = db.doc(`items/${id}`)
+    const item = (await ref.get()).data()
+    if (!item) continue
+    const records = await db.collection('import_items').where('itemId', '==', id).get()
+    const jobIds = [...new Set(records.docs.map(r => r.get('jobId') as string))]
+    const liveJobs = new Set((jobIds.length ? await db.getAll(...jobIds.map(j => db.doc(`import_jobs/${j}`))) : []).filter(j => j.exists).map(j => j.id))
+    const batch = db.batch()
+    batch.delete(ref)
+    batch.delete(db.doc(`item_private/${id}`))
+    batch.delete(db.doc(`item_bookings/${id}`))
+    for (const t of (item.tags as string[] | undefined) ?? []) batch.set(db.doc(`tags/${t}`), { usageCount: FieldValue.increment(-1) }, { merge: true })
+    for (const r of records.docs) {
+      batch.delete(r.ref)
+      if (liveJobs.has(r.get('jobId'))) {
+        batch.update(db.doc(`import_jobs/${r.get('jobId')}`), { 'counts.approved': FieldValue.increment(-1), total: FieldValue.increment(-1), updatedAt: now })
+      }
+    }
+    batch.set(db.collection('activity').doc(), {
+      at: now, by, kind: 'prop', action: 'deleted', itemIds: [id], itemName: String(item.name ?? '').slice(0, 200),
+      reason: 'Deleted an imported prop (testing clean-up)',
+    })
+    await batch.commit()
+    await Promise.all(records.docs.map(r => bucket.file(`items/imported/${r.get('fileId')}.jpg`).delete().catch(() => {})))
+  }
+}
+
+export const deleteImportedProp = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+  const caller = await requireRole(req, ['owner'])
+  const id = typeof req.data?.itemId === 'string' ? req.data.itemId : ''
+  const item = id ? (await db.doc(`items/${id}`).get()).data() : undefined
+  if (!item) throw new HttpsError('not-found', 'Prop not found')
+  if (!item.importedFrom || item.collection !== 'company') throw new HttpsError('failed-precondition', 'Only props that came from an import can be deleted. Archive this one instead.')
+  if (await everBooked(id)) throw new HttpsError('failed-precondition', 'This prop has been booked, so it is kept for the records. Archive it instead.')
+  await deleteImportedProps([id], caller.email)
+  return { ok: true }
+})
+
+// "Undo this import": deletes the props it created and its records, so the same
+// Drive photos can be imported again from scratch. AI money already spent stays spent.
+export const undoImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '512MiB' }, async req => {
+  const caller = await requireRole(req, ['owner'])
+  const jobId = typeof req.data?.jobId === 'string' ? req.data.jobId : ''
+  const jobRef = db.doc(`import_jobs/${jobId}`)
+  if (!jobId || !(await jobRef.get()).exists) throw new HttpsError('not-found', 'Import not found')
+  const records = await db.collection('import_items').where('jobId', '==', jobId).get()
+  if (records.docs.some(r => r.get('status') === 'working')) throw new HttpsError('failed-precondition', 'This import is still running. Stop it first.')
+
+  const itemIds = [...new Set(records.docs.map(r => r.get('itemId') as string | undefined).filter((x): x is string => !!x))]
+  const booked: string[] = []
+  for (const id of itemIds) if (await everBooked(id)) booked.push(id)
+  if (booked.length) {
+    throw new HttpsError('failed-precondition', `${booked.length} prop${booked.length > 1 ? 's' : ''} from this import ${booked.length > 1 ? 'have' : 'has'} been booked, so the import can't be undone. Delete the other props one by one instead.`)
+  }
+  await deleteImportedProps(itemIds, caller.email)   // also removes their import records
+
+  // Photos that were never approved: remove their stored copy and record.
+  const bucket = getStorage().bucket()
+  const left = await db.collection('import_items').where('jobId', '==', jobId).get()
+  await Promise.all(left.docs.map(r => bucket.file(`items/imported/${r.get('fileId')}.jpg`).delete().catch(() => {})))
+  for (let i = 0; i < left.docs.length; i += 400) {
+    const batch = db.batch()
+    left.docs.slice(i, i + 400).forEach(r => batch.delete(r.ref))
+    await batch.commit()
+  }
+  await jobRef.delete()
+  return { deletedProps: itemIds.length, clearedPhotos: records.size }
 })
