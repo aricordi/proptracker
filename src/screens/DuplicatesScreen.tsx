@@ -13,7 +13,7 @@ const errText = (err: unknown) => err instanceof FirebaseError ? err.message.rep
 // Admin → Find duplicates: after the import, go through look-alike pairs and merge them.
 export default function DuplicatesScreen() {
   const navigate = useNavigate()
-  const { isOwner } = useSession()
+  const { isStaff } = useSession()
   const items = useItems()
   const bins = useBins()
   const byId = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
@@ -55,9 +55,8 @@ export default function DuplicatesScreen() {
         {pairs && live.length === 0 && <p className="text-green-400 text-sm text-center py-4">No likely duplicates. 🎉</p>}
         {live.map(p => (
           <PairCard key={`${p.a}|${p.b}`} pair={p} a={byId.get(p.a)!} b={byId.get(p.b)!} binLabel={binLabel}
-            canMerge={isOwner} onDone={done} onDismissed={() => setPairs(ps => (ps ?? []).filter(x => x !== p))} />
+            canMerge={isStaff} onDone={done} onDismissed={() => setPairs(ps => (ps ?? []).filter(x => x !== p))} />
         ))}
-        {!isOwner && live.length > 0 && <p className="text-pt-muted text-xs">Only the owner can merge props; you can mark pairs as "not duplicates".</p>}
       </div>
     </div>
   )

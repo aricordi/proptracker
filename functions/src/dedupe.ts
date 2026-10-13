@@ -80,8 +80,9 @@ export const comparePropPhotos = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY]
   }
 })
 
+// Owner + arts (owner decision Oct 13: the arts department clears duplicates too).
 export const mergeProps = onCall({ ...CALLABLE, timeoutSeconds: 60 }, async req => {
-  const caller = await requireRole(req, ['owner'])
+  const caller = await requireRole(req, ['owner', 'arts'])
   const keepId = String(req.data?.keepId ?? ''), removeId = String(req.data?.removeId ?? '')
   const copies = req.data?.mode !== 'angles'   // 'copies' (add up quantity) or 'angles' (photos only)
   if (!keepId || !removeId || keepId === removeId) throw new HttpsError('invalid-argument', 'Pick two different props.')

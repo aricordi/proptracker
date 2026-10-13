@@ -173,3 +173,48 @@ function SuggestSheet({ item, onClose }: { item: Item; onClose: () => void }) {
     </BottomSheet>
   )
 }
+
+// Creators: a quick "Wrong name?" link under the prop's name (names are what the AI gets wrong most).
+export function WrongNameLink({ item }: { item: Item }) {
+  const { profile } = useSession()
+  const [open, setOpen] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [name, setName] = useState('')
+  const [note, setNote] = useState('')
+  const [state, setState] = useState<'idle' | 'busy' | 'error'>('idle')
+  const clean = name.trim().slice(0, 200)
+
+  async function send() {
+    setState('busy')
+    try {
+      await addSuggestion({ itemId: item.id, itemName: item.name, byName: profile.name || profile.email,
+        message: note.trim().slice(0, 1000) || 'Wrong name', changes: { name: clean } })
+      setOpen(false); setSent(true); setName(''); setNote(''); setState('idle')
+    } catch { setState('error') }
+  }
+
+  const input = 'w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent'
+  return (
+    <>
+      {sent
+        ? <p className="text-green-400 text-xs mt-1">Thanks! Sent to the arts department.</p>
+        : <button onClick={() => setOpen(true)} className="text-pt-accent text-xs mt-1 active:opacity-70">Wrong name?</button>}
+      {open && (
+        <BottomSheet open onClose={() => setOpen(false)} title="Suggest the right name">
+          <div className="space-y-3">
+            <p className="text-pt-muted text-sm">Now called: <span className="text-pt-text">{item.name}</span></p>
+            <label className="block space-y-1"><span className="text-pt-muted text-xs uppercase tracking-wider">Correct name</span>
+              <input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="e.g. Cowboy hat" className={input} /></label>
+            <label className="block space-y-1"><span className="text-pt-muted text-xs uppercase tracking-wider">Note (optional)</span>
+              <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. it's a cowboy hat, not a top hat" className={input} /></label>
+            {state === 'error' && <p className="text-red-300 text-sm">Couldn't send. Try again.</p>}
+            <button onClick={send} disabled={!clean || clean === item.name || state === 'busy'}
+              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+              {state === 'busy' ? 'Sending…' : 'Send to the arts department'}
+            </button>
+          </div>
+        </BottomSheet>
+      )}
+    </>
+  )
+}

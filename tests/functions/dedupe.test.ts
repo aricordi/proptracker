@@ -2,7 +2,7 @@
 import { beforeEach, describe, it, expect } from 'vitest'
 import { put, call, getDoc, clearDatabase, waitFor, exists } from './helpers'
 
-const OWNER = 'alexisricordi@gmail.com', ARTS = 'dup-arts@example.com'
+const OWNER = 'alexisricordi@gmail.com', ARTS = 'dup-arts@example.com', CREATOR = 'dup-creator@example.com'
 const PHOTO = 'http://127.0.0.1:8080/'   // anything the server can download, for the fake AI
 const prop = (name: string, extra: Record<string, unknown> = {}) =>
   ({ collection: 'company', name, quantity: 1, condition: 'good', tags: [], photos: [`${PHOTO}?${Math.random()}`], description: 'Blue police uniform', ...extra })
@@ -10,6 +10,7 @@ const prop = (name: string, extra: Record<string, unknown> = {}) =>
 beforeEach(async () => {
   await clearDatabase()
   await put(`users/${ARTS}`, { email: ARTS, role: 'arts', active: true })
+  await put(`users/${CREATOR}`, { email: CREATOR, role: 'creator', active: true })
   await put('items/cop1', prop('Police Costume', { importedFrom: { driveFileId: 'f1', fileName: 'a.jpg', folder: 'x' } }))
   await put('items/cop2', prop('Police Costume', { importedFrom: { driveFileId: 'f2', fileName: 'b.jpg', folder: 'x' } }))
   await put('items/lamp', prop('Brass Lamp', { description: 'Old lamp' }))
@@ -34,8 +35,10 @@ describe('finding duplicates', () => {
 })
 
 describe('merging a pair', () => {
-  it('only the owner can merge', async () => {
-    expect((await call('mergeProps', { keepId: 'cop1', removeId: 'cop2' }, ARTS)).error).toBe('PERMISSION_DENIED')
+  it('creators cannot merge; the arts department can', async () => {
+    expect((await call('mergeProps', { keepId: 'cop1', removeId: 'cop2' }, CREATOR)).error).toBe('PERMISSION_DENIED')
+    const r = await call('mergeProps', { keepId: 'cop1', removeId: 'cop2', mode: 'copies' }, ARTS)
+    expect(r.result.removed).toBe('deleted')
   })
   it('identical copies: quantities add up, photos combine, the imported duplicate is deleted', async () => {
     await put('import_items/f2', { fileId: 'f2', itemId: 'cop2', status: 'approved', jobId: 'j' })

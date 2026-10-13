@@ -14,7 +14,7 @@ import { useCategories } from '../hooks/useCategories'
 import ImageLightbox from '../components/ImageLightbox'
 import ReservePanel from '../components/ReservePanel'
 import PropHistory from '../components/PropHistory'
-import PropSuggestions from '../components/Suggestions'
+import PropSuggestions, { WrongNameLink } from '../components/Suggestions'
 import { useBookings } from '../hooks/useBookings'
 import { CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
 import type { Item, Condition } from '../types'
@@ -176,6 +176,7 @@ export default function ItemDetailScreen() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="font-display text-2xl text-pt-text leading-tight">{item.name}</h1>
+            {!isStaff && !item.archived && <WrongNameLink item={item} />}
             <p className="text-pt-muted text-sm mt-0.5">
               {categoryLabel}
               {item.quantity > 1 && <> · <span className="text-pt-text">{item.quantity} in stock</span></>}
