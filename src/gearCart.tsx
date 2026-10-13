@@ -1,6 +1,7 @@
 // The gear being put together for a shoot: day, hours, bundles and extras.
 // Kept on this phone only (survives closing the app) until it's held.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useCart } from './cart'
 
 export interface GearCart {
   date: string | null
@@ -52,4 +53,13 @@ export function useGearCart(): GearCartApi {
   const c = useContext(Ctx)
   if (!c) throw new Error('useGearCart outside GearCartProvider')
   return c
+}
+
+// Props and gear are for the same shoot, so the shoot day is shared: picking it in
+// one basket picks it in the other. (Mounted once, inside both basket providers.)
+export function ShootDaySync() {
+  const props = useCart(), gear = useGearCart()
+  useEffect(() => { if (props.start && props.start !== gear.date) gear.setWhen(props.start, gear.start, gear.end) }, [props.start])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (gear.date && gear.date !== props.start) props.setDates(gear.date, gear.date) }, [gear.date])                   // eslint-disable-line react-hooks/exhaustive-deps
+  return null
 }

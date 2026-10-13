@@ -110,3 +110,16 @@ describe('bundles that are booked', () => {
     expect((await getDoc('gear_bundles/fx3'))!.pieces[1]).toMatchObject({ itemId: 'bat', name: 'NP-FZ100 battery (Sony)' })
   })
 })
+
+describe('one shoot: props + gear linked', () => {
+  it('both halves keep the same shoot link; junk links are ignored', async () => {
+    await put('items/lamp', { collection: 'company', name: 'Lamp', quantity: 1, condition: 'good', tags: [], photos: [] })
+    const g = await call('createGearBooking', { title: 'Shoot', date: DAY, start: 600, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], shootId: 'sabc123xyz' }, OWNER)
+    const r = await call('createReservation', { title: 'Shoot', startDate: DAY, endDate: DAY, notes: '', lines: [{ itemId: 'lamp', qty: 1 }], builds: [], shootId: 'sabc123xyz' }, OWNER)
+    expect(r.ok).toBe(true)
+    expect((await getDoc(`gear_bookings/${g.result.id}`))!.shootId).toBe('sabc123xyz')
+    expect((await getDoc(`reservations/${r.result.id}`))!.shootId).toBe('sabc123xyz')
+    const bad = await call('createGearBooking', { title: 'X', date: DAY, start: 960, end: 1020, lines: [{ offerId: 'fx3', qty: 1 }], shootId: 'no spaces/allowed' }, OWNER)
+    expect((await getDoc(`gear_bookings/${bad.result.id}`))!.shootId).toBeUndefined()
+  })
+})

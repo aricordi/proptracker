@@ -26,6 +26,7 @@ export interface Reservation {
   notes?: string
   creatorEmail: string
   creatorName: string
+  shootId?: string   // set when booked together with gear (one shoot)
   startDate: string
   endDate: string
   status: ReservationStatus
@@ -103,7 +104,7 @@ export interface Conflict { itemId: string; name: string; requested: number; fre
 export interface NewBuild { description: string; qty: number; refPhoto?: string }
 
 export const createReservation = httpsCallable<
-  { title: string; startDate: string; endDate: string; notes: string; lines: { itemId: string; qty: number }[]; builds: NewBuild[] },
+  { title: string; startDate: string; endDate: string; notes: string; lines: { itemId: string; qty: number }[]; builds: NewBuild[]; shootId?: string },
   { id: string }
 >(functions, 'createReservation')
 

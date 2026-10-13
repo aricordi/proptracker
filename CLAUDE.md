@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 261 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 262 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -334,7 +334,19 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     GearBookingsScreen = team "Gear queue" tabs Today (pickups today + due back today) / Out (late first,
     red ring) / To check in / Upcoming / Past, "⚠ Missing reported" pill; creators Upcoming / Past.
     Missing warnings on shop cards, bundle page, and team Bundles list with "Found it". Late banner on /gear.
-  NEXT: step 4 (one shoot request with props + gear in one basket).
+  STEP 4 BUILT (Oct 13, NOT deployed; deploy together with step 3 after owner OK):
+  ONE SHOOT REQUEST with props + gear.
+  - Props and gear share ONE shoot day (`ShootDaySync` in gearCart.tsx keeps both baskets on the same day).
+  - `/reserve` (ReserveScreen) = "Your shoot": one shoot day picker, a Props section (arts department) and
+    a Gear section (equipment team: hours picker `GearWhenPicker hoursOnly`, lines with availability and the
+    pickup text). Button: "Book props + gear" / "Hold this gear" / "Reserve these props".
+    GearReviewScreen was REMOVED (/gear/review redirects to /reserve); "Review your shoot" bars on Search + Gear.
+  - Submit: when BOTH are in the basket the app makes a `shootId`. Gear is held first (createGearBooking),
+    then props (createReservation). If props fail, the gear hold is cancelled (cancelGearBooking) and the
+    creator sees "Nothing was booked; your gear is still in the basket."
+  - Server: both createReservation and createGearBooking store an optional `shootId` (`shootIdOf` in
+    reservations.ts validates it). Each team still sees only its own part in its own queue.
+  - `src/components/ShootLink.tsx`: "Also in this shoot: gear/props (n) Open ›" on both booking pages.
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
   on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".

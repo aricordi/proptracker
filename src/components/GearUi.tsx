@@ -34,16 +34,16 @@ export function useGearWhen() {
   return { date, start: cart.start, end: cart.end, earliest, problem, message: problem ? GEAR_TIME_MESSAGES[problem] : null, win, settings, closed: !isOpen(date, settings) }
 }
 
-export function GearWhenPicker() {
+export function GearWhenPicker({ hoursOnly = false }: { hoursOnly?: boolean } = {}) {
   const cart = useGearCart()
   const w = useGearWhen()
   const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-2.5 py-2 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
   return (
     <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
-      <div className="grid grid-cols-[1.35fr_1fr_1fr] gap-2">
-        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">Shoot day</span>
-          <input type="date" value={w.date} min={w.earliest} onChange={e => e.target.value && cart.setWhen(e.target.value, cart.start, cart.end)} className={field} /></label>
-        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">From</span>
+      <div className={`grid gap-2 ${hoursOnly ? 'grid-cols-2' : 'grid-cols-[1.35fr_1fr_1fr]'}`}>
+        {!hoursOnly && <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">Shoot day</span>
+          <input type="date" value={w.date} min={w.earliest} onChange={e => e.target.value && cart.setWhen(e.target.value, cart.start, cart.end)} className={field} /></label>}
+        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">{hoursOnly ? 'Gear from' : 'From'}</span>
           <select value={cart.start} onChange={e => { const s = Number(e.target.value); cart.setWhen(w.date, s, Math.max(cart.end, s + GEAR_STEP)) }} className={field}>
             {TIMES.slice(0, -1).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
           </select></label>
@@ -52,8 +52,8 @@ export function GearWhenPicker() {
             {TIMES.filter(t => t > cart.start).map(t => <option key={t} value={t}>{t === GEAR_DAY_END ? 'Midnight' : fmtTime(t)}</option>)}
           </select></label>
       </div>
-      {w.message && <p className="text-red-300 text-sm">{w.message}</p>}
-      {!w.message && w.closed && (
+      {!hoursOnly && w.message && <p className="text-red-300 text-sm">{w.message}</p>}
+      {!hoursOnly && !w.message && w.closed && (
         <p className="text-amber-200 text-sm">We're closed that day, so you pick the gear up {formatDay(w.win.pickup)} at {fmtTime(w.start)} and bring it back {formatDay(w.win.to.slice(0, 10))} by 10 AM.</p>
       )}
     </div>

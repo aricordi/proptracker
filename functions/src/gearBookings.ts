@@ -4,7 +4,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
-import { loadSettings } from './reservations.js'
+import { loadSettings, shootIdOf } from './reservations.js'
 import { todayInStudio } from './booking.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
@@ -86,6 +86,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
     }, { merge: true }))
     tx.set(ref, {
       title, notes: str(d.notes, 1000), creatorEmail: caller.email, creatorName: caller.name,
+      ...(shootIdOf(d.shootId) ? { shootId: shootIdOf(d.shootId) } : {}),
       date, start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay,
       lines: out.map(({ entries: _e, ...l }) => l), offerIds: out.map(l => l.offerId),
       status: 'held', createdAt: now, updatedAt: now,

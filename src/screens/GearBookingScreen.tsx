@@ -9,6 +9,7 @@ import {
 import { GearArt, Pill, PieceChecklist, STATUS_LABEL } from '../components/GearUi'
 import ProofPhotos from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
+import ShootLink from '../components/ShootLink'
 import { formatDay } from '../lib/dates'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
@@ -97,6 +98,8 @@ export default function GearBookingScreen() {
             {mine ? ' Bring it back as soon as you can. You can\'t book more gear until it\'s returned.' : ''}
           </div>
         )}
+
+        <ShootLink shootId={b.shootId} creatorEmail={b.creatorEmail} other="props" />
 
         <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Pick up</span>

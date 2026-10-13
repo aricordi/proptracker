@@ -33,10 +33,9 @@ import GearBundlesScreen from './screens/GearBundlesScreen'
 import GearBundleEditScreen from './screens/GearBundleEditScreen'
 import GearShopScreen from './screens/GearShopScreen'
 import GearOfferScreen from './screens/GearOfferScreen'
-import GearReviewScreen from './screens/GearReviewScreen'
 import GearBookingsScreen from './screens/GearBookingsScreen'
 import GearBookingScreen from './screens/GearBookingScreen'
-import { GearCartProvider } from './gearCart'
+import { GearCartProvider, ShootDaySync } from './gearCart'
 import SuggestionsScreen from './screens/SuggestionsScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
@@ -169,6 +168,7 @@ export default function App() {
     <SessionContext.Provider value={session}>
     <CartProvider>
     <GearCartProvider>
+    <ShootDaySync />
     <ViewAsFrame on={!!session.viewingAs}>
       <Routes>
         {/* Full-screen routes outside the shell */}
@@ -179,7 +179,7 @@ export default function App() {
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
         <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
-        <Route path="/gear/review" element={<GearBookers><GearReviewScreen /></GearBookers>} />
+        <Route path="/gear/review" element={<Navigate to="/reserve" replace />} />
         <Route path="/gear/bookings/:id" element={<GearBookingScreen />} />
 
         <Route element={<ShellLayout />}>

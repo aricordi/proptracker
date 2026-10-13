@@ -99,7 +99,7 @@ export default function GearOfferScreen() {
 
         {inCart ? (
           <div className="space-y-2">
-            <button onClick={() => navigate('/gear/review')} className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold">In your shoot ✓ · Review & hold</button>
+            <button onClick={() => navigate('/reserve')} className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold">In your shoot ✓ · Review</button>
             <button onClick={() => cart.setQty(b.id, 0)} className="w-full py-2 text-pt-muted text-sm">Remove from my shoot</button>
           </div>
         ) : (

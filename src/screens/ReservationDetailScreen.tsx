@@ -16,6 +16,7 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
+import ShootLink from '../components/ShootLink'
 
 function errText(err: unknown) {
   return err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Try again."
@@ -71,6 +72,8 @@ export default function ReservationDetailScreen() {
             </button>
           )}
         </div>
+
+        <ShootLink shootId={res.shootId} creatorEmail={res.creatorEmail} other="gear" />
 
         {active || s === 'returned' ? <Journey res={res} /> : null}
 

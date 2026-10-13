@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useCart } from '../cart'
@@ -13,11 +13,24 @@ import ProofPhotos from '../components/ProofPhotos'
 import { createReservation, type Conflict } from '../services/reservations'
 import { freeForRange, todayInStudio, earliestStart, daysBetween } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
+import { useGearCart } from '../gearCart'
+import {
+  subscribeToGearBundles, subscribeToGearHolds, createGearBooking, cancelGearBooking,
+  freeQty, holdWindow, checkGearTimes, earliestGearDay, fmtHours, fmtTime, GEAR_TIME_MESSAGES, type GearBundle, type GearHold,
+} from '../services/gear'
+import { GearArt, GearWhenPicker, Pill, nowMinutes } from '../components/GearUi'
 
+const shootIdNew = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+const errMsg = (err: unknown) => err instanceof FirebaseError ? (err.message.replace(/^.*?:\s*/, '') || 'Could not book.') : "Couldn't reach the server. Check your connection and try again."
+
+// "Your shoot": the props AND gear for one shoot day, sent together. Gear is held first;
+// if the props part then fails, the gear hold is cancelled again so nothing is half-booked.
+// Each team only sees its own part (props → arts department, gear → equipment team).
 export default function ReserveScreen() {
   const navigate = useNavigate()
   const cart = useCart()
-  const { isStaff, profile } = useSession()
+  const gear = useGearCart()
+  const { isStaff, isGearStaff, profile } = useSession()
   const items = useItems()
   const bookings = useBookings()
   const settings = useBookingSettings()
@@ -51,7 +64,24 @@ export default function ReserveScreen() {
   })
 
   const tooLong = !!dates && daysBetween(dates.start, dates.end) > 0
+  const hasProps = lines.length > 0 || cart.builds.length > 0
   const datesOk = !!dates && dates.start >= minStart && !tooLong
+
+  // ── Gear for the same day ──
+  const [offers, setOffers] = useState<GearBundle[]>([])
+  const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
+  useEffect(() => subscribeToGearBundles(setOffers), [])
+  useEffect(() => subscribeToGearHolds(setHolds), [])
+  const day = dates?.start ?? gear.date
+  const gearLines = Object.entries(gear.lines).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty, offer: offers.find(o => o.id === id) }))
+  const hasGear = gearLines.length > 0
+  const gearProblem = hasGear ? (day ? checkGearTimes(day, gear.start, gear.end, today, nowMinutes(), settings, isStaff || isGearStaff) : 'bad-format') : null
+  const win = day ? holdWindow(day, gear.start, gear.end, settings) : null
+  const gearUnavailable = gearLines.filter(l => !l.offer || l.offer.archived || !win
+    || freeQty(l.offer.kind === 'extra' ? (l.offer.pieces[0]?.qty ?? 0) : 1, holds[l.id] ?? [], win.from, win.to) < l.qty)
+  const gearOk = !hasGear || (!gearProblem && gearUnavailable.length === 0)
+  // With props, the props notice applies to the day; gear alone only needs the gear notice.
+  const pickerMin = hasProps || !hasGear ? minStart : (isStaff ? today : earliestGearDay(today, settings))
 
   // Build-to-order request form
   const [showBuild, setShowBuild] = useState(false)
@@ -64,28 +94,45 @@ export default function ReserveScreen() {
     setBuildDesc(''); setBuildQty(1); setBuildPhotos([]); setShowBuild(false)
   }
 
-  const canSubmit = late.length === 0 && datesOk && title.trim() && (lines.length > 0 || cart.builds.length > 0) && lines.every(l => !l.problem) && !busy && !buildUploading
+  const propsOk = !hasProps || (late.length === 0 && datesOk && lines.every(l => !l.problem))
+  const canSubmit = !!day && title.trim() && (hasProps || hasGear) && propsOk && gearOk && !busy && !buildUploading
 
   async function submit() {
-    if (!dates) return
+    if (!day) return
     setBusy(true); setError(null); setConflicts({})
+    const shootId = hasProps && hasGear ? shootIdNew() : undefined
+    let gearId: string | null = null
     try {
-      const res = await createReservation({
-        title: title.trim(), notes: notes.trim(),
-        startDate: dates.start, endDate: dates.end,
-        lines: lines.map(l => ({ itemId: l.itemId, qty: l.qty })),
-        builds: cart.builds.map(({ description, qty, refPhoto }) => ({ description, qty, ...(refPhoto ? { refPhoto } : {}) })),
-      })
-      cart.clear()
-      navigate(`/reservations/${res.data.id}?new=1`, { replace: true })
-    } catch (err) {
-      if (err instanceof FirebaseError) {
-        const details = (err as FirebaseError & { details?: { conflicts?: Conflict[] } }).details
-        if (details?.conflicts) setConflicts(Object.fromEntries(details.conflicts.map(c => [c.itemId, c])))
-        setError(err.message.replace(/^.*?:\s*/, '') || 'Could not reserve.')
-      } else {
-        setError("Couldn't reach the server. Check your connection and try again.")
+      // 1. Hold the gear (instant).
+      if (hasGear) {
+        gearId = (await createGearBooking({
+          title: title.trim(), notes: notes.trim(), date: day, start: gear.start, end: gear.end, shootId,
+          lines: gearLines.map(l => ({ offerId: l.id, qty: l.qty })),
+        })).data.id
       }
+      // 2. Request the props.
+      let resId: string | null = null
+      if (hasProps && dates) {
+        try {
+          resId = (await createReservation({
+            title: title.trim(), notes: notes.trim(), startDate: dates.start, endDate: dates.end, shootId,
+            lines: lines.map(l => ({ itemId: l.itemId, qty: l.qty })),
+            builds: cart.builds.map(({ description, qty, refPhoto }) => ({ description, qty, ...(refPhoto ? { refPhoto } : {}) })),
+          })).data.id
+        } catch (err) {
+          // Don't leave the gear half-booked.
+          if (gearId) await cancelGearBooking({ id: gearId }).catch(() => {})
+          const details = err instanceof FirebaseError ? (err as FirebaseError & { details?: { conflicts?: Conflict[] } }).details : undefined
+          if (details?.conflicts) setConflicts(Object.fromEntries(details.conflicts.map(c => [c.itemId, c])))
+          setError(`${errMsg(err)}${gearId ? ' Nothing was booked; your gear is still in the basket.' : ''}`)
+          return
+        }
+      }
+      if (hasProps) cart.clear()
+      if (hasGear) gear.clear()
+      navigate(resId ? `/reservations/${resId}?new=1` : `/gear/bookings/${gearId}`, { replace: true })
+    } catch (err) {
+      setError(errMsg(err))
     } finally {
       setBusy(false)
     }
@@ -98,15 +145,15 @@ export default function ReserveScreen() {
     <div className="min-h-screen bg-pt-bg pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
         <button onClick={() => navigate(-1)} className="text-pt-text text-base font-medium py-1">‹ Back</button>
-        <h1 className="font-display text-xl text-pt-text">Your reservation</h1>
+        <h1 className="font-display text-xl text-pt-text">Your shoot</h1>
         <div className="w-12" />
       </div>
 
       <div className="p-4 space-y-5">
-        <LateBanner late={late} />
-        <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates}
+        {hasProps && <LateBanner late={late} />}
+        <DateRangePicker start={cart.start ?? gear.date} end={cart.end ?? gear.date} min={pickerMin} onChange={(s, e) => { cart.setDates(s, e); if (s) gear.setWhen(s, gear.start, gear.end) }}
           maxDays={1}
-          leadTimeNote={!isStaff && settings.leadTimeDays > 0 ? `Earliest start: ${formatDay(minStart)} (${settings.leadTimeDays} open days' notice).` : undefined} />
+          leadTimeNote={!isStaff && hasProps && settings.leadTimeDays > 0 ? `Props need ${settings.leadTimeDays} open days' notice: earliest ${formatDay(minStart)}.` : undefined} />
         {tooLong && (
           <p className="text-amber-400 text-sm -mt-3">
             Bookings are for a single shoot day now. Pick your shoot day above.
@@ -120,12 +167,12 @@ export default function ReserveScreen() {
         </div>
 
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Props ({lines.length})</p>
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="text-pt-muted text-xs uppercase tracking-wider">Props ({lines.length}) · arts department</p>
+            <button onClick={() => navigate('/')} className="text-pt-accent text-sm">+ Add props</button>
+          </div>
           {lines.length === 0 && cart.builds.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-pt-muted text-sm mb-3">Nothing added yet.</p>
-              <button onClick={() => navigate('/')} className="text-pt-accent text-sm font-medium">Browse props</button>
-            </div>
+            <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No props yet.</p>
           )}
           <div className="space-y-2">
             {lines.map(({ itemId, qty, item, free, problem }) => (
@@ -195,13 +242,48 @@ export default function ReserveScreen() {
           )}
         </div>
 
+        {/* Gear (equipment team) */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <p className="text-pt-muted text-xs uppercase tracking-wider">Gear ({gearLines.length}) · equipment team</p>
+            <button onClick={() => navigate('/gear')} className="text-pt-accent text-sm">+ Add gear</button>
+          </div>
+          {!hasGear && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No gear yet. Cameras, lights and sound come as bundles.</p>}
+          {hasGear && (
+            <>
+              <GearWhenPicker hoursOnly />
+              {gearProblem && day && <p className="text-red-300 text-sm">{GEAR_TIME_MESSAGES[gearProblem]}</p>}
+              <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+                {gearLines.map(l => {
+                  const bad = gearUnavailable.includes(l)
+                  return (
+                    <div key={l.id} className="flex items-center gap-3 px-3 py-2.5">
+                      <GearArt photo={l.offer?.photos?.[0]} category={l.offer?.category} className="w-12 h-12 rounded-xl shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-pt-text text-sm font-medium truncate">{l.offer?.kind === 'extra' ? `${l.qty}× ` : ''}{l.offer?.name ?? 'No longer offered'}</p>
+                        {bad && !gearProblem ? <Pill tone="taken">Not free for these hours</Pill> : <p className="text-pt-muted text-xs">{l.offer?.kind === 'extra' ? 'Add-on extra' : 'Bundle'} · {fmtHours(gear.start, gear.end)}</p>}
+                      </div>
+                      <button onClick={() => gear.setQty(l.id, 0)} aria-label="Remove" className="text-pt-muted text-2xl px-2">×</button>
+                    </div>
+                  )
+                })}
+              </div>
+              {win && !gearProblem && (
+                <p className="text-pt-muted text-xs leading-snug px-1">
+                  Gear: pick up {formatDay(win.pickup)} at {fmtTime(gear.start)} from the equipment cage; back {win.closedDay ? `${formatDay(win.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(gear.end)}`}. Return photo required.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
         <button onClick={submit} disabled={!canSubmit}
           className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80 mb-3">
-          {busy ? 'Reserving…' : 'Reserve these props'}
+          {busy ? 'Sending…' : hasProps && hasGear ? 'Book props + gear' : hasGear ? 'Hold this gear' : 'Reserve these props'}
         </button>
       </div>
     </div>

@@ -22,6 +22,7 @@ import { SIMILAR_MIN_SCORE } from '../config'
 import type { Item } from '../types'
 import { useHideOnScroll } from '../hooks/useHideOnScroll'
 import BrandMark from '../components/BrandMark'
+import { useGearCart } from '../gearCart'
 
 // Folds part of the header away (smoothly) and makes it untappable while hidden.
 function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -61,6 +62,7 @@ export default function HomeScreen() {
   const settings   = useBookingSettings()
   const late       = useMyLateBookings()
   const cart       = useCart()
+  const gearCart   = useGearCart()
   const turnaround = useTurnaround()
   const navigate   = useNavigate()
   const [showDates, setShowDates] = useState(false)
@@ -326,15 +328,15 @@ export default function HomeScreen() {
           </>
         )}
 
-        <div className={cart.count > 0 ? 'h-20' : 'h-4'} />
+        <div className={cart.count + gearCart.count > 0 ? 'h-20' : 'h-4'} />
       </div>
 
-      {/* Reservation being built */}
-      {cart.count > 0 && (
+      {/* The shoot being put together (props + gear) */}
+      {cart.count + gearCart.count > 0 && (
         <div className="sticky bottom-3 px-4">
           <button onClick={() => navigate('/reserve')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-3.5 shadow-lg font-semibold active:opacity-90">
-            <span>Your reservation · {cart.count} prop{cart.count !== 1 ? 's' : ''}</span>
+            <span>Your shoot · {[cart.count && `${cart.count} prop${cart.count !== 1 ? 's' : ''}`, gearCart.count && `${gearCart.count} gear`].filter(Boolean).join(' · ')}</span>
             <span>Review →</span>
           </button>
         </div>

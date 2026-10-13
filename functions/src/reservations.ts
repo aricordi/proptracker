@@ -161,6 +161,9 @@ async function releaseHolds(tx: Transaction, reservationId: string, itemIds: str
 
 // ─── 1. Create ───────────────────────────────────────────────────────────────
 
+// A shoot id from the app: short letters/digits only (it's just a link between bookings).
+export const shootIdOf = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(v) ? v : null
+
 export const createReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const { startDate, endDate } = req.data ?? {}
@@ -250,6 +253,8 @@ export const createReservation = onCall(CALLABLE, async req => {
     tx.set(resRef, {
       title,
       notes: text(req.data?.notes, 2000),
+      // Links the props and gear halves of one shoot request (step 4).
+      ...(shootIdOf(req.data?.shootId) ? { shootId: shootIdOf(req.data?.shootId) } : {}),
       creatorEmail: caller.email,
       creatorName: caller.name,
       startDate, endDate,
