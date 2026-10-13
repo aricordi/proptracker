@@ -186,6 +186,13 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 7. After hosting goes live: delete the OLD Gemini key (it was exposed in the old website code).
 
 ### Next
+- STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
+  Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
+  then GO LIVE (deploy hosting; needs OK), then delete the OLD exposed Gemini key and (with OK)
+  remove legacy `embedding` arrays; (2) DATABASE BACKUPS — in the original spec, NOT done yet
+  (scheduled Firestore export; Cloud Scheduler + bucket, few cents/month; ask first);
+  (3) email (on hold, see below); (4) optional: "Room" wording + move many bins at once;
+  tune SIMILAR_MIN_SCORE with real props.
 - Go-live (owner adding GitHub secrets).
 - Deploy gotcha: the deploy fails if the code even DECLARES a secret that doesn't exist, so
   `defineSecret('SMTP_PASSWORD')` only runs when SMTP_SECRET_READY is true (or in the emulator).
@@ -237,7 +244,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   (index added). App: owner switch Prime Capitol/Personal on Search, "Belongs to" on add/edit
   (owner only; arts always company), Personal badge, Activity → Personal tab (owner).
   Imported and built-at-check-in props are 'company'. Seed has one personal prop ("Grandma's brass lamp").
-- Phase 6 (batch import) BUILT Oct 13, NOT deployed. Owner decisions: photos are in Google Drive
+- Phase 6 (batch import) BUILT AND DEPLOYED Oct 13 (incl. retry fix). Owner decisions: photos are in Google Drive
   (~70 folders, ~1,500 photos), app pulls them directly; one prop per photo; a sign in each photo
   names the bin, and "x2"/"x3" signs give quantity; unknown bins → suggested new bin (created on
   approve in storage area `locations/imported` "Imported – needs sorting"); hard cap $10.
@@ -268,7 +275,9 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
     = optional Gemini photo check (~$0.001, counted in the import cap); `mergeProps` (owner) keeps one,
     adds photos (+ quantity for copies), deletes the other if imported & never booked else archives it
     (`mergedInto`), re-points import_items so re-imports don't resurrect it. Refuses props in a current booking.
-  - Owner's full import started failing after 64 photos (cause TBD; failure reasons are on each
+  - Owner's full import started failing after 64 photos. CAUSE: Gemini key was on Google's FREE
+    tier ("429 You exceeded your current quota"). Owner turned on paid billing for the key's AI
+    Studio project (Oct 13). Earlier note ( failure reasons are on each
     import_items doc `error` and now also logged). Fix: "too many requests"/quota/busy errors
     (`functions/src/limits.ts` isRateLimit) put the photo back in the queue (`lastError`) and return
     `slowDown`; the Import screen waits 30 s and continues, stopping after 6 stalls in a row.
