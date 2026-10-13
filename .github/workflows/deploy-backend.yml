@@ -70,3 +70,17 @@ jobs:
         run: |
           deploy() { npx firebase deploy --only functions,firestore,storage --project proptracker-9732e --non-interactive; }
           deploy || { echo "First attempt failed; waiting 60s and retrying once..."; sleep 60; deploy; }
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Let the app reach every callable function. Firebase's deploy tool can
+      # skip this on updates, which left functions answering "401 not allowed".
+      # Safe: each function still checks the caller's sign-in and role itself.
+      - name: Make sure the app can reach every function
+        run: |
+          for svc in analyzepropphoto searchsimilar rebuildsearchindex createreservation cancelreservation \
+                     declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin; do
+            gcloud run services add-iam-policy-binding "$svc" --region northamerica-northeast1 \
+              --project proptracker-9732e --member=allUsers --role=roles/run.invoker --quiet >/dev/null
+            echo "✔ $svc"
+          done
