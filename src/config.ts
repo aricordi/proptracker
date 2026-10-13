@@ -19,6 +19,9 @@ export const DUPLICATE_NAME_SIMILARITY = 0.8;
 // ─────────────────────────────────────────────────────────────
 export const OWNER_EMAIL = 'alexisricordi@gmail.com';
 
+// The live website: invite messages always send people here (never to the preview).
+export const LIVE_APP_URL = 'https://proptracker-9732e.web.app';
+
 // Categories created automatically the first time an admin opens the app.
 // IDs match the old "type" values so existing props land in the right place.
 export const DEFAULT_CATEGORIES = [

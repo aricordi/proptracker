@@ -347,6 +347,13 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   - Server: both createReservation and createGearBooking store an optional `shootId` (`shootIdOf` in
     reservations.ts validates it). Each team still sees only its own part in its own queue.
   - `src/components/ShootLink.tsx`: "Also in this shoot: gear/props (n) Open ›" on both booking pages.
+- INVITES (owner report Oct 13: "only lets me invite creators"): the owner's picker had all roles in tests,
+  so likely cause was "View as" preview (or another Google account / the old live site). People screen now:
+  blue notice + "Exit preview" while previewing; one-line description per role (owner choice in amber);
+  button "Invite as <role>"; success sheet "Invited ✓" with a ready-to-send message (share sheet, else copy)
+  linking to LIVE_APP_URL (src/config.ts, https://proptracker-9732e.web.app); "already on the list" →
+  "Open their access settings". Arts still invite creators only (rules unchanged). Checked in a browser:
+  owner → equipment invite → that person lands on the gear queue; arts → creator invite.
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
   on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".
