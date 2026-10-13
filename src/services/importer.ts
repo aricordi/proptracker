@@ -80,3 +80,10 @@ export const startImport    = httpsCallable<{ links: string[]; dryRun: boolean }
 export const processImport  = httpsCallable<{ jobId: string; retryFailed?: boolean }, { processed: number; capped: boolean; counts: ImportCounts; spentUsd: number; capUsd: number }>(functions, 'processImport')
 export const approveImports = httpsCallable<{ items: Approval[] }, { results: { id: string; itemId?: string; error?: string }[] }>(functions, 'approveImports')
 export const skipImports    = httpsCallable<{ ids: string[] }, { skipped: number }>(functions, 'skipImports')
+
+export const mergeImports = httpsCallable<
+  { ids: string[]; item?: Omit<Approval, 'id'>; addToItemId?: string; addQuantity?: number },
+  { itemId: string }
+>(functions, 'mergeImports')
+export const undoImport = httpsCallable<{ jobId: string }, { deletedProps: number; clearedPhotos: number }>(functions, 'undoImport')
+export const deleteImportedProp = httpsCallable<{ itemId: string }, { ok: boolean }>(functions, 'deleteImportedProp')

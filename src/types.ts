@@ -36,6 +36,7 @@ export interface Item {
   cost?: number;            // legacy — read as replacementCost when that is missing
   whereToRebuy?: string;    // e.g. "Dollarama" or "Amazon: search 'fake eyeballs'"
   archived: boolean;        // archived props are hidden, never deleted
+  importedFrom?: { driveFileId: string; fileName: string; folder: string; mergedPhotos?: number }; // set on props from the batch import
   collection: PropCollection; // 'company' = Prime Capitol (everyone); 'personal' = the owner's own (owner only)
   embedding?: number[];     // legacy: from a retired AI model, no longer used or written
   createdAt: string;

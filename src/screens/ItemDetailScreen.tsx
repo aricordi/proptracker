@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, setItemArchived } from '../services/items'
+import { FirebaseError } from 'firebase/app'
+import { deleteImportedProp } from '../services/importer'
 import { getItemPrivate } from '../services/itemPrivate'
 import { useSession } from '../auth'
 import { HIGH_VALUE_THRESHOLD } from '../config'
@@ -19,7 +21,9 @@ import type { Item, Condition } from '../types'
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isStaff } = useSession()
+  const { isStaff, isOwner } = useSession()
+  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'busy'>('idle')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const tags       = useTags()
   const characters = useCharacters()
   const locations  = useLocations()
@@ -321,6 +325,31 @@ export default function ItemDetailScreen() {
             {actionError && <p className="text-red-400 text-sm">{actionError}</p>}
 
             <div className="h-px bg-pt-border" />
+
+            {/* Owner, while testing the import: imported props can be deleted for good. */}
+            {isOwner && item.importedFrom && item.collection === 'company' && (
+              deleteState === 'idle' ? (
+                <button onClick={() => { setDeleteState('confirm'); setDeleteError(null) }} className="w-full text-red-400 text-sm py-2 active:opacity-70">
+                  Delete this imported prop
+                </button>
+              ) : (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-3">
+                  <p className="text-pt-text text-sm font-medium">Delete "{item.name}" for good?</p>
+                  <p className="text-pt-muted text-xs">This can't be undone. Its photo can be imported again later. (Props that were ever booked can't be deleted.)</p>
+                  {deleteError && <p className="text-red-300 text-xs">{deleteError}</p>}
+                  <div className="flex gap-3">
+                    <button onClick={() => setDeleteState('idle')} className="flex-1 py-2 rounded-lg border border-pt-border text-pt-text text-sm">Keep it</button>
+                    <button disabled={deleteState === 'busy'} onClick={async () => {
+                      setDeleteState('busy'); setDeleteError(null)
+                      try { await deleteImportedProp({ itemId: item.id }); navigate('/', { replace: true }) }
+                      catch (err) { setDeleteError(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."); setDeleteState('confirm') }
+                    }} className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-50">
+                      {deleteState === 'busy' ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
 
             {item.archived ? (
               <button onClick={() => setArchived(false)} disabled={busy}

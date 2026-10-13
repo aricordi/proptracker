@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import {
-  subscribeToImportJobs, subscribeToImportBudget, setImportCap, importInfo, startImport, processImport,
+  subscribeToImportJobs, subscribeToImportBudget, setImportCap, importInfo, startImport, processImport, undoImport,
   DEFAULT_CAP_USD, type ImportJob, type ImportBudget,
 } from '../services/importer'
 import { formatDay } from '../lib/dates'
@@ -64,6 +64,18 @@ export default function ImportScreen() {
     } catch (err) {
       setMessage({ tone: 'error', text: `${errText(err)} Tap "Continue" to pick up where it stopped.` })
     } finally { setRunning(null) }
+  }
+
+  async function undo(j: ImportJob) {
+    const props = j.counts.approved
+    if (!window.confirm(`Undo this import?\n\nThis deletes the ${props} prop${props === 1 ? '' : 's'} it created and clears its history, so the same photos can be imported again. It can't be undone. Money already spent on the AI stays spent.`)) return
+    setMessage(null)
+    try {
+      const r = (await undoImport({ jobId: j.id })).data
+      setMessage({ tone: 'ok', text: `Import undone: ${r.deletedProps} prop${r.deletedProps === 1 ? '' : 's'} deleted, ${r.clearedPhotos} photos cleared.` })
+    } catch (err) {
+      setMessage({ tone: 'error', text: errText(err) })
+    }
   }
 
   async function changeCap() {
@@ -158,6 +170,9 @@ export default function ImportScreen() {
                   )}
                   {isOwner && c.failed > 0 && !running && (
                     <button onClick={() => run(j.id, true)} className="px-3 py-1.5 rounded-lg border border-pt-border text-pt-text text-sm">Try failed again</button>
+                  )}
+                  {isOwner && !running && (
+                    <button onClick={() => undo(j)} className="px-3 py-1.5 rounded-lg text-red-400 text-sm ml-auto">Undo this import</button>
                   )}
                 </div>
               </div>

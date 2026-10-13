@@ -159,7 +159,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 177 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 181 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -251,3 +251,14 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   app_settings/import {capUsd, spentUsd} — each AI call reserves $0.01 first in a transaction.
   App: Admin → Import (`ImportScreen`), review at /import/:jobId (`ImportReviewScreen`).
   Estimate: ~$0.002/photo → ~$3 for 1,500. Ask the owner before the full run.
+  DEPLOYED Oct 13; owner's dry run "did really well". Follow-ups (Oct 13):
+  - Bin names: review screen no longer prefixes "Bin"; new bins from signs are tidied ("bin 5" → "Bin 5").
+  - Duplicates (same prop photographed several times): review screen has tick boxes, "N look-alikes"
+    chips (same AI name + bin), "Merge into one" (identical copies → quantity, or same prop more angles)
+    and "Add to existing…" (extra photos and/or units on a Prime Capitol prop) → `mergeImports`.
+  - Testing clean-up (owner decision: IMPORTED props only, owner only, never ever-booked ones):
+    `undoImport` (deletes the job's props + photos + records so the same Drive photos can be imported
+    again) and `deleteImportedProp` (button on imported props). Logged in activity as 'deleted'.
+    Client deletes are still blocked by the rules; only these server functions delete.
+  - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
+    sorting". Owner may later want "Room" wording and moving many bins at once.
