@@ -58,7 +58,7 @@ on proptracker-9732e.firebaseapp.com, a different address, and Safari blocks the
 recommended): `signInDomain()` in src/firebase.ts uses the app's own address as authDomain on our 3 hosting
 addresses (arbcreative, web.app, preview). Owner added https://<each>/__/auth/handler to the OAuth web client's
 Authorized redirect URIs (Oct 13). A NEW address needs both: add it there AND to signInDomain's list + authorized domains.
-On the preview Oct 13 (run 81); NOT live yet (needs owner's iPhone test + OK).
+On the preview Oct 13 (run 81); owner confirmed iPhone sign-in WORKS on the preview. Not live yet (next live deploy).
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
@@ -374,7 +374,8 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   `makeMissingThumbs` (Health → "Speed up photos", 25 props/call, free, no AI). App: `thumbOf(item, url)` in
   src/services/itemShape.ts used by search cards, Your shoot, Health, Find duplicates, import review; prop page
   keeps full photos. New prop photos are shrunk on the phone to 1600px JPEG before upload (`src/lib/shrinkPhoto.ts`).
-  Phone photo cache 500 → 4000 entries (vite.config). NEEDS backend deploy (owner OK), then owner taps "Speed up photos".
+  Phone photo cache 500 → 4000 entries (vite.config). Backend DEPLOYED Oct 13 (run 24, owner OK); owner to tap
+  "Speed up photos" on the preview, then live website deploy (with the sign-in fix) after OK.
 - REBRAND STARTED (Oct 13): Attic Studios removed. Prime Capitol eagle (no words) traced to a vector:
   `src/components/BrandMark.tsx` (EAGLE_PATH, takes text colour); new app icons in public/icons (white eagle
   on #0E0E10). Login shows the eagle + "Welcome / Props and gear for Prime Capitol shoots".
