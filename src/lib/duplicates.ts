@@ -53,3 +53,13 @@ export function shelfList(groups: Placed[][], binName: (id: string) => string): 
   })
   return lines.length ? `Put each of these in ONE bin (then tell the app which):\n${lines.join('\n')}` : ''
 }
+
+// Every pair between two sets of props (e.g. the ticked ones × the released ones).
+export function crossKeys(a: string[], b: string[]): string[] {
+  return [...new Set(a.flatMap(x => b.filter(y => y !== x).map(y => pairKey(x, y))))]
+}
+
+// Every pair inside one set of props.
+export function insideKeys(ids: string[]): string[] {
+  return [...new Set(ids.flatMap((x, i) => ids.slice(i + 1).filter(y => y !== x).map(y => pairKey(x, y))))]
+}

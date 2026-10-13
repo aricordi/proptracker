@@ -1,4 +1,4 @@
-import { doc, onSnapshot, setDoc, arrayUnion, arrayRemove, collection, getDocs } from 'firebase/firestore'
+import { doc, onSnapshot, setDoc, updateDoc, deleteField, arrayUnion, arrayRemove, collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 
 // "Not a duplicate" decisions on the Health page, shared by the whole arts team.
@@ -32,6 +32,28 @@ export function setPairsLater(keys: string[], later: boolean) {
 export function dismissDuplicatePairs(keys: string[]) {
   if (!keys.length) return Promise.resolve()
   return setDoc(ref, { duplicatePairs: arrayUnion(...keys) }, { merge: true })
+}
+
+// Find duplicates: props someone CONFIRMED are the same prop but sit in different
+// bins. They wait here ("To gather") until the arts department puts them in one bin
+// and someone merges them. Shared by the team.
+export interface GatherGroup { id: string; ids: string[]; at: string }
+const gatherRef = doc(db, 'health', 'gather')
+
+export function subscribeToGatherGroups(cb: (groups: GatherGroup[]) => void) {
+  return onSnapshot(gatherRef, snap => {
+    const g = (snap.data()?.groups ?? {}) as Record<string, { ids: string[]; at: string }>
+    cb(Object.entries(g).map(([id, v]) => ({ id, ids: v.ids ?? [], at: v.at ?? '' })).sort((a, b) => a.at.localeCompare(b.at)))
+  }, () => cb([]))
+}
+
+export function addGatherGroup(ids: string[]) {
+  const id = [...ids].sort().join('_').slice(0, 300)
+  return setDoc(gatherRef, { groups: { [id]: { ids, at: new Date().toISOString() } } }, { merge: true })
+}
+
+export function removeGatherGroup(id: string) {
+  return updateDoc(gatherRef, { [`groups.${id}`]: deleteField() })
 }
 
 // For the spreadsheet export: every prop's internal notes in one read.

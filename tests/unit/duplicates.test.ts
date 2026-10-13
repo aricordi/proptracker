@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { groupPairs, spreadOf, isSpread, shelfList, pairKey } from '../../src/lib/duplicates'
+import { groupPairs, spreadOf, isSpread, shelfList, pairKey, crossKeys, insideKeys } from '../../src/lib/duplicates'
 
 const p = (a: string, b: string, score = 0.9) => ({ a, b, score })
 
@@ -48,5 +48,23 @@ describe('copies spread over several bins', () => {
     expect(text).toContain('• Police Costume: B.31 ×1, C.4 ×1, D.2 ×1, E.9 ×2')
     expect(text).not.toContain('Lamp')
     expect(shelfList([], id => id)).toBe('')
+  })
+})
+
+describe('ticking the same ones and releasing the rest', () => {
+  it('releasing only cuts the links between the ticked and the unticked ones', () => {
+    // A mixed group of 5: A, B, C are one prop; D and E are a different prop (and match F elsewhere).
+    const pairs = [p('A', 'B'), p('B', 'C'), p('C', 'D'), p('D', 'E'), p('A', 'E'), p('E', 'F')]
+    const released = new Set(crossKeys(['A', 'B', 'C'], ['D', 'E', 'F']))
+    const confirmed = new Set(insideKeys(['A', 'B', 'C']))   // flagged "to gather"
+    const left = pairs.filter(x => !released.has(pairKey(x.a, x.b)) && !confirmed.has(pairKey(x.a, x.b)))
+    const g = groupPairs(left)
+    expect(g).toHaveLength(1)
+    expect(g[0].ids.sort()).toEqual(['D', 'E', 'F'])   // still candidates with each other and with F
+  })
+  it('counts each pair once', () => {
+    expect(insideKeys(['A', 'B', 'C', 'D'])).toHaveLength(6)
+    expect(crossKeys(['A', 'B'], ['C', 'D', 'A'])).toEqual([pairKey('A', 'C'), pairKey('A', 'D'), pairKey('B', 'C'), pairKey('B', 'D'), pairKey('B', 'A')])
+    expect(insideKeys(['A'])).toEqual([])
   })
 })

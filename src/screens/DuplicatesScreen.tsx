@@ -5,14 +5,19 @@ import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
 import { findDuplicates, comparePropPhotos, mergeProps, type DuplicatePair, type PairVerdict } from '../services/importer'
-import { dismissDuplicatePairs, subscribeToLaterPairs, setPairsLater } from '../services/health'
-import { groupPairs, isSpread, spreadOf, shelfList, pairKey, type Group } from '../lib/duplicates'
+import {
+  dismissDuplicatePairs, subscribeToLaterPairs, setPairsLater,
+  subscribeToGatherGroups, addGatherGroup, removeGatherGroup, type GatherGroup,
+} from '../services/health'
+import { groupPairs, spreadOf, shelfList, pairKey, crossKeys, insideKeys, type Group } from '../lib/duplicates'
 import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."
 
-// Admin → Find duplicates: after the import, go through look-alike groups and merge them.
+// Admin → Find duplicates. Look-alikes are shown in groups; staff tick the ones that are
+// really the same prop and merge them (same bin) or flag them "to gather" (different bins).
+// The rest are released: they stay candidates with every other prop, just not with these.
 export default function DuplicatesScreen() {
   const navigate = useNavigate()
   const { isStaff } = useSession()
@@ -25,9 +30,12 @@ export default function DuplicatesScreen() {
   const [info, setInfo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [view, setView] = useState<'all' | 'split' | 'later'>('all')
+  const [view, setView] = useState<'check' | 'gather' | 'later'>('check')
   const [later, setLater] = useState<Set<string>>(new Set())
+  const [gather, setGather] = useState<GatherGroup[]>([])
+  const [copied, setCopied] = useState(false)
   useEffect(() => subscribeToLaterPairs(setLater), [])
+  useEffect(() => subscribeToGatherGroups(setGather), [])
 
   async function scan() {
     setBusy(true); setError(null)
@@ -42,16 +50,15 @@ export default function DuplicatesScreen() {
   const dropProps = (gone: string[]) => setPairs(p => (p ?? []).filter(x => !gone.includes(x.a) && !gone.includes(x.b)))
   const dropKeys = (keys: string[]) => setPairs(p => (p ?? []).filter(x => !keys.includes(pairKey(x.a, x.b))))
 
-  const groups = useMemo(() => groupPairs((pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b))), [pairs, byId])
+  // Confirmed "same prop, different bins" groups (props still around).
+  const gatherLive = gather.map(g => ({ ...g, ids: g.ids.filter(id => byId.has(id)) })).filter(g => g.ids.length > 1)
+  const confirmed = useMemo(() => new Set(gatherLive.flatMap(g => insideKeys(g.ids))), [gatherLive])
+  const groups = useMemo(() => groupPairs((pairs ?? [])
+    .filter(p => byId.has(p.a) && byId.has(p.b) && !confirmed.has(pairKey(p.a, p.b)))), [pairs, byId, confirmed])
   const isLater = (g: Group) => g.keys.some(k => later.has(k))
-  const isSplit = (g: Group) => isSpread(g.ids.map(id => byId.get(id)!))
-  const all = groups.filter(g => !isLater(g))
+  const toCheck = groups.filter(g => !isLater(g))
   const laterList = groups.filter(isLater)
-  const splitCount = all.filter(isSplit).length
-  const live = view === 'later' ? laterList : view === 'split' ? all.filter(isSplit) : all
-  // Every look-alike group spread over several bins (incl. ones set aside), as a list for the arts team.
-  const moveList = shelfList(groups.filter(isSplit).map(g => g.ids.map(id => byId.get(id)!)), id => binLabel(id) ?? 'unknown bin')
-  const [copied, setCopied] = useState(false)
+  const moveList = shelfList(gatherLive.map(g => g.ids.map(id => byId.get(id)!)), id => binLabel(id) ?? 'unknown bin')
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -61,119 +68,149 @@ export default function DuplicatesScreen() {
       </div>
       <div className="p-4 space-y-3">
         <p className="text-pt-muted text-sm">
-          Compares every Prime Capitol prop with every other one and groups the ones that look alike. Free.
-          Tap <b>Ask AI</b> on a group to have the AI compare the photos (about $0.001 per photo).
+          Groups the Prime Capitol props that look alike. In each group, <b>tap the photos of the ones that are the same prop</b>,
+          then merge them or flag them to be gathered into one bin. The others are released and can still match other props.
         </p>
         <button onClick={scan} disabled={busy} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
           {busy ? 'Comparing…' : pairs ? 'Check again' : 'Find duplicates'}
         </button>
         {info && <p className="text-pt-muted text-xs">{info}</p>}
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
-        {pairs && (
-          <div className="flex gap-2 flex-wrap">
-            {([['all', `To check (${all.length})`], ['split', `⚠ In different bins (${splitCount})`], ['later', `Later (${laterList.length})`]] as const).map(([v, label]) => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
-            ))}
-          </div>
-        )}
-        {view === 'split' && moveList && (
+        <div className="flex gap-2 flex-wrap">
+          {([
+            ['check', pairs ? `To check (${toCheck.length})` : 'To check'],
+            ['gather', `📦 To gather (${gatherLive.length})`],
+            ['later', pairs ? `Later (${laterList.length})` : 'Later'],
+          ] as const).map(([v, label]) => (
+            <button key={v} onClick={() => setView(v)}
+              className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
+          ))}
+        </div>
+
+        {view === 'gather' && (gatherLive.length ? (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
             <p className="text-amber-200 text-sm">
-              These props are spread over several bins. Send the list to the arts department so they gather each one into a
-              single bin; then come back, tap the bin it's in now and merge.
+              Each of these is one prop spread over several bins. Send the list to the arts department so they put each one in a
+              single bin; then tap the bin it's in now and merge.
             </p>
             <pre className="text-pt-text text-xs whitespace-pre-wrap max-h-48 overflow-y-auto bg-pt-bg rounded-lg p-2">{moveList}</pre>
             <button onClick={() => { navigator.clipboard?.writeText(moveList).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
               className="w-full py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold">{copied ? 'Copied ✓' : 'Copy list (to text or email the team)'}</button>
           </div>
+        ) : <p className="text-pt-muted text-sm text-center py-4">Nothing to gather. When you confirm look-alikes are the same prop but in different bins, they show up here.</p>)}
+
+        {view === 'gather' && gatherLive.map(g => (
+          <GroupCard key={g.id} mode="gather" gatherId={g.id} ids={g.ids} keys={insideKeys(g.ids)} props={g.ids.map(id => byId.get(id)!)}
+            binLabel={binLabel} canMerge={isStaff} later={false} onMerged={dropProps} onDismissed={dropKeys} />
+        ))}
+
+        {view !== 'gather' && !pairs && <p className="text-pt-muted text-sm text-center py-4">Tap "Find duplicates" to load the groups.</p>}
+        {view !== 'gather' && pairs && (view === 'later' ? laterList : toCheck).length === 0 && (
+          <p className="text-green-400 text-sm text-center py-4">{view === 'later' ? 'Nothing set aside.' : 'No likely duplicates. 🎉'}</p>
         )}
-        {pairs && live.length === 0 && <p className="text-green-400 text-sm text-center py-4">{view === 'later' ? 'Nothing set aside.' : 'No likely duplicates. 🎉'}</p>}
-        {live.map(g => (
-          <GroupCard key={g.keys.join(',')} group={g} props={g.ids.map(id => byId.get(id)!)} binLabel={binLabel}
-            canMerge={isStaff} later={isLater(g)} onMerged={dropProps} onDismissed={dropKeys} />
+        {view !== 'gather' && (view === 'later' ? laterList : toCheck).map(g => (
+          <GroupCard key={g.keys.join(',')} mode="check" ids={g.ids} keys={g.keys} score={g.score} props={g.ids.map(id => byId.get(id)!)}
+            binLabel={binLabel} canMerge={isStaff} later={isLater(g)} onMerged={dropProps} onDismissed={dropKeys} />
         ))}
       </div>
     </div>
   )
 }
 
-function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismissed }: {
-  group: Group; props: Item[]; binLabel: (id?: string) => string | undefined
-  canMerge: boolean; later: boolean; onMerged: (gone: string[]) => void; onDismissed: (keys: string[]) => void
+function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge, later, onMerged, onDismissed }: {
+  mode: 'check' | 'gather'; gatherId?: string; ids: string[]; keys: string[]; score?: number; props: Item[]
+  binLabel: (id?: string) => string | undefined; canMerge: boolean; later: boolean
+  onMerged: (gone: string[]) => void; onDismissed: (keys: string[]) => void
 }) {
   const navigate = useNavigate()
-  // Keep the one with the most photos (then most units) by default. Tap a photo to change it.
-  const [keepId, setKeepId] = useState(() =>
-    [...props].sort((x, y) => y.photos.length - x.photos.length || y.quantity - x.quantity)[0].id)
-  const [leftOut, setLeftOut] = useState<Set<string>>(new Set())   // not the same prop after all
+  // Which ones are the same prop: tap photos to tick. A confirmed "to gather" group starts all ticked.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(mode === 'gather' ? ids : []))
+  const [keepId, setKeepId] = useState<string | null>(null)
   const [verdicts, setVerdicts] = useState<Record<string, PairVerdict>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null)   // full-size photo
-
-  const keeper = props.find(p => p.id === keepId) ?? props[0]
-  const included = props.filter(p => !leftOut.has(p.id))
-  const others = included.filter(p => p.id !== keeper.id)
-  // Different bins: they get moved onto one shelf first, then the team says which bin.
-  const binChoices = [...new Set(included.map(p => p.binId).filter((x): x is string => !!x))]
-  const spread = spreadOf(included)
-  const split = spread.length > 1
   const [bin, setBin] = useState<string | null>(null)
+
+  const chosen = props.filter(p => selected.has(p.id))
+  const released = props.filter(p => !selected.has(p.id))
+  // The one kept: picked with ★, else the ticked one with the most photos (then units).
+  const best = [...chosen].sort((x, y) => y.photos.length - x.photos.length || y.quantity - x.quantity)[0]
+  const keeper = chosen.find(p => p.id === keepId) ?? best
+  const others = chosen.filter(p => p.id !== keeper?.id)
+  const spread = spreadOf(chosen)
+  const split = spread.length > 1
+  const binChoices = [...new Set(chosen.map(p => p.binId).filter((x): x is string => !!x))]
   const chosenBin = bin && binChoices.includes(bin) ? bin : binChoices.length === 1 ? binChoices[0] : null
   const needBin = split && binChoices.length > 1 && !chosenBin
-  const totalQty = included.reduce((n, p) => n + p.quantity, 0)
+  const totalQty = chosen.reduce((n, p) => n + p.quantity, 0)
+  const ready = chosen.length >= 2
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label); setError(null)
     try { await fn() } catch (err) { setError(errText(err)) } finally { setBusy(null) }
   }
 
-  function toggleLeftOut(id: string) {
-    setLeftOut(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
-    if (id === keepId) setKeepId(props.find(p => p.id !== id && !leftOut.has(p.id))?.id ?? keepId)
+  function toggle(id: string) {
+    setSelected(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   }
 
-  async function merge(mode: 'copies' | 'angles') {
+  // The unticked ones aren't the same prop as the ticked ones: remember only THAT, so
+  // they can still be matched with each other and with any other prop.
+  async function releaseRest() {
+    const keysOut = crossKeys(chosen.map(p => p.id), released.map(p => p.id))
+    await dismissDuplicatePairs(keysOut)
+    await setPairsLater(keysOut, false)
+    if (keysOut.length) onDismissed(keysOut)
+  }
+
+  async function merge(kind: 'copies' | 'angles') {
+    if (!keeper) return
     // The server only accepts a bin belonging to one of the two props being merged,
     // so merge the one already in the chosen bin first; after that the kept prop is in it.
     const ordered = [...others].sort((x, y) => Number(y.binId === chosenBin) - Number(x.binId === chosenBin))
     const merged: string[] = []
     try {
       for (const o of ordered) {
-        await mergeProps({ keepId: keeper.id, removeId: o.id, mode, ...(chosenBin ? { binId: chosenBin } : {}) })
+        await mergeProps({ keepId: keeper.id, removeId: o.id, mode: kind, ...(chosenBin ? { binId: chosenBin } : {}) })
         merged.push(o.id)
       }
     } finally {
       // If one fails (e.g. it's out on a booking), the ones already merged stay merged.
       if (merged.length) onMerged(merged)
     }
-    // Props left out of the merge aren't duplicates of the one kept: don't group them again.
-    const notSame = props.filter(p => leftOut.has(p.id)).map(p => pairKey(p.id, keeper.id))
-    await dismissDuplicatePairs(notSame)
-    if (notSame.length) onDismissed(notSame)
+    await releaseRest()
+    if (gatherId) await removeGatherGroup(gatherId)
+  }
+
+  async function flagToGather() {
+    await addGatherGroup(chosen.map(p => p.id))
+    await setPairsLater(insideKeys(chosen.map(p => p.id)), false)
+    await releaseRest()
   }
 
   async function askAi() {
-    for (const o of others) {
-      if (verdicts[o.id]) continue
-      const v = (await comparePropPhotos({ a: keeper.id, b: o.id })).data
+    const ref = keeper ?? props[0]
+    for (const o of props) {
+      if (o.id === ref.id || verdicts[o.id]) continue
+      const v = (await comparePropPhotos({ a: ref.id, b: o.id })).data
       setVerdicts(prev => ({ ...prev, [o.id]: v }))
     }
   }
 
   const tile = (it: Item) => {
-    const isKeeper = it.id === keeper.id, out = leftOut.has(it.id)
+    const on = selected.has(it.id), isKeeper = on && it.id === keeper?.id
     const v = verdicts[it.id]
     return (
-      <div key={it.id} className={`min-w-0 rounded-xl border-2 p-1.5 ${out ? 'border-transparent opacity-40' : isKeeper ? 'border-pt-accent' : 'border-transparent'}`}>
+      <div key={it.id} className={`min-w-0 rounded-xl border-2 p-1.5 ${on ? 'border-pt-accent bg-pt-accent/5' : 'border-transparent'}`}>
         <div className="relative">
-          {/* Tap the photo to keep this one. The magnifier shows the whole photo. */}
-          <button onClick={() => !out && setKeepId(it.id)} className="block w-full" aria-label="Keep this one">
+          {/* Tap the photo to tick it as "the same prop". The magnifier shows the whole photo. */}
+          <button onClick={() => toggle(it.id)} className="block w-full" aria-label={on ? 'Untick' : 'Tick as the same prop'}>
             {it.photos[0]
               ? <img src={it.photos[0]} alt="" className="w-full aspect-square object-cover rounded-lg bg-pt-bg" />
               : <div className="w-full aspect-square rounded-lg bg-pt-bg" />}
           </button>
+          {on && <span className="absolute top-1 left-1 w-8 h-8 rounded-full bg-pt-accent text-stone-900 font-bold flex items-center justify-center pointer-events-none">✓</span>}
           {it.photos[0] && (
             <button onClick={() => setZoom({ src: it.photos[0], alt: it.name })} aria-label="See the whole photo"
               className="absolute top-1 right-1 w-9 h-9 rounded-full bg-black/60 text-white text-base flex items-center justify-center">🔍</button>
@@ -191,37 +228,40 @@ function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismis
         <p className="text-pt-text text-sm font-medium truncate mt-1">{it.name}</p>
         <p className="text-pt-muted text-xs truncate">×{it.quantity} · {binLabel(it.binId) ?? 'no bin'}</p>
         {it.importedFrom?.fileName && <p className="text-pt-muted text-xs truncate" title={`${it.importedFrom.folder} / ${it.importedFrom.fileName}`}>📄 {it.importedFrom.fileName}</p>}
-        {v && !isKeeper && <p className={`text-xs ${v.same ? 'text-green-300' : 'text-amber-300'}`}>AI: {v.same ? 'same' : 'different'} ({v.confidence})</p>}
-        <p className={`text-xs ${isKeeper && !out ? 'text-pt-accent' : 'text-pt-muted'}`}>{out ? 'Left out' : isKeeper ? '✓ Keep this one' : 'Tap photo to keep'}</p>
-        <div className="flex gap-2 mt-0.5">
+        {v && <p className={`text-xs ${v.same ? 'text-green-300' : 'text-amber-300'}`}>AI: {v.same ? 'same' : 'different'} ({v.confidence})</p>}
+        <div className="flex gap-2 mt-0.5 items-center">
           <button onClick={() => navigate(`/item/${it.id}`)} className="text-pt-accent text-xs">Open</button>
-          {props.length > 2 && <button onClick={() => toggleLeftOut(it.id)} className="text-pt-muted text-xs underline">{out ? 'Put back' : 'Not the same'}</button>}
+          {on && chosen.length > 1 && (isKeeper
+            ? <span className="text-pt-accent text-xs">★ Kept</span>
+            : <button onClick={() => setKeepId(it.id)} className="text-pt-muted text-xs underline">Keep this one</button>)}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-2">
+    <div className={`bg-pt-surface border rounded-2xl p-3 space-y-2 ${mode === 'gather' ? 'border-amber-500/40' : 'border-pt-border'}`}>
       <div className="flex items-center justify-between">
-        <span className="text-pt-muted text-xs">{props.length > 2 ? `${props.length} look-alikes` : `${Math.round(group.score * 100)}% alike`}</span>
-        {split && <span className="text-amber-300 text-xs">⚠ different bins</span>}
+        <span className="text-pt-muted text-xs">
+          {mode === 'gather' ? '📦 Same prop, different bins' : props.length > 2 ? `${props.length} look-alikes` : `${Math.round((score ?? 0) * 100)}% alike`}
+        </span>
+        <span className="text-pt-muted text-xs">{chosen.length ? `${chosen.length} ticked` : 'Tap the ones that are the same'}</span>
       </div>
       <div className="grid grid-cols-2 gap-2">{props.map(tile)}</div>
 
-      {others.length > 0 && Object.keys(verdicts).length < others.length && (
+      {props.length > 1 && Object.keys(verdicts).length < props.length - 1 && (
         <button onClick={() => run('ai', askAi)} disabled={!!busy}
           className="w-full py-2 rounded-xl border border-pt-border text-pt-text text-sm disabled:opacity-40">
-          {busy === 'ai' ? 'Asking AI…' : `Ask AI to compare the photos${others.length > 1 ? ` (${others.length})` : ''}`}
+          {busy === 'ai' ? 'Asking AI…' : `Ask AI to compare the photos (${props.length - 1})`}
         </button>
       )}
       {error && <p className="text-red-300 text-xs">{error}</p>}
 
-      {split && binChoices.length > 0 && (
+      {ready && split && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 space-y-1.5">
           <p className="text-amber-200 text-sm">
-            ⚠ Spread over {spread.length} spots ({spread.map(s => `${s.binId ? binLabel(s.binId) ?? '?' : 'no bin'} ×${s.qty}`).join(', ')}).
-            Put them all in one bin, then tap the bin they're in now:
+            ⚠ The ticked ones are spread over {spread.length} spots ({spread.map(s => `${s.binId ? binLabel(s.binId) ?? '?' : 'no bin'} ×${s.qty}`).join(', ')}).
+            {mode === 'check' ? ' Flag them to be gathered into one bin, or if they\'re already together, tap the bin they\'re in now:' : ' Once they\'re all in one bin, tap it:'}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {binChoices.map(id => (
@@ -229,9 +269,16 @@ function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismis
                 className={`px-3 py-1 rounded-lg text-sm ${chosenBin === id ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg border border-pt-border text-pt-text'}`}>{binLabel(id) ?? 'Unknown bin'}</button>
             ))}
           </div>
+          {mode === 'check' && canMerge && (
+            <button disabled={!!busy} onClick={() => run('flag', flagToGather)}
+              className="w-full py-2 rounded-lg bg-amber-400 text-stone-900 text-sm font-semibold disabled:opacity-40">
+              {busy === 'flag' ? 'Flagging…' : `📦 Flag ${chosen.length} to gather into one bin`}
+            </button>
+          )}
         </div>
       )}
-      {canMerge && others.length > 0 && (
+
+      {canMerge && ready && (
         <div className="grid grid-cols-2 gap-2">
           <button disabled={!!busy || needBin} onClick={() => run('copies', () => merge('copies'))}
             className="py-2 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">
@@ -239,24 +286,33 @@ function GroupCard({ group, props, binLabel, canMerge, later, onMerged, onDismis
           </button>
           <button disabled={!!busy || needBin} onClick={() => run('angles', () => merge('angles'))}
             className="py-2 rounded-xl border border-pt-accent text-pt-accent text-sm font-medium disabled:opacity-40">
-            {busy === 'angles' ? 'Merging…' : `Same one: ×${keeper.quantity}`}
+            {busy === 'angles' ? 'Merging…' : `Same one: ×${keeper?.quantity ?? 1}`}
           </button>
         </div>
       )}
+      {ready && released.length > 0 && (
+        <p className="text-pt-muted text-[11px]">The {released.length} not ticked will be released: they stay in the search for duplicates, just not with these.</p>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
-        <button disabled={!!busy} onClick={() => run('later', () => setPairsLater(group.keys, !later))}
-          className="py-2 rounded-xl border border-pt-border text-pt-text text-sm disabled:opacity-40">
-          {later ? '↩ Back to the list' : '⏸ Decide later'}
-        </button>
-        <button disabled={!!busy} onClick={() => run('no', async () => {
-          await dismissDuplicatePairs(group.keys); await setPairsLater(group.keys, false); onDismissed(group.keys)
-        })}
-          className="py-2 rounded-xl text-pt-muted text-sm">{props.length > 2 ? 'None are duplicates' : 'Not duplicates'}</button>
+        {mode === 'check' ? (
+          <>
+            <button disabled={!!busy} onClick={() => run('later', () => setPairsLater(keys, !later))}
+              className="py-2 rounded-xl border border-pt-border text-pt-text text-sm disabled:opacity-40">
+              {later ? '↩ Back to the list' : '⏸ Decide later'}
+            </button>
+            <button disabled={!!busy} onClick={() => run('no', async () => {
+              await dismissDuplicatePairs(keys); await setPairsLater(keys, false); onDismissed(keys)
+            })} className="py-2 rounded-xl text-pt-muted text-sm">{props.length > 2 ? 'None are duplicates' : 'Not duplicates'}</button>
+          </>
+        ) : (
+          <button disabled={!!busy} onClick={() => run('unflag', () => removeGatherGroup(gatherId!))}
+            className="col-span-2 py-2 rounded-xl text-pt-muted text-sm">Unflag (back to "To check")</button>
+        )}
       </div>
       {zoom && <ImageLightbox src={zoom.src} alt={zoom.alt} onClose={() => setZoom(null)} />}
-      {canMerge && <p className="text-pt-muted text-[11px]">
+      {canMerge && ready && <p className="text-pt-muted text-[11px]">
         "Copies" adds up the quantities; "Same one" just adds the extra photos. The others are then removed (archived if they were ever booked).
-        {props.length > 2 && ' Tap "Not the same" on any that don\'t belong.'}
       </p>}
     </div>
   )

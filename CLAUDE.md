@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 208 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 210 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -370,15 +370,17 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
     one shelf). Find duplicates flags pairs whose bins differ (amber box + "In different bins (N)" filter);
     staff tap the bin they're in now, and `mergeProps` takes optional `binId` (must be one of the two
     props' bins) → kept prop gets that bin + its storage area. DEPLOYED Oct 13 (run 20).
-  - Find duplicates (Oct 13, owner feedback): pairs are JOINED INTO GROUPS (A~B, B~C → one card;
-    `groupPairs` in `src/lib/duplicates.ts`, any size, chains too) so e.g. 4 copies in 4 bins are decided once.
-    "In different bins" tab shows a copyable MOVE LIST for the arts team (`shelfList`; owner: don't
-    accommodate multi-bin props, get the team to gather them into one bin). findDuplicates returns top 1000 pairs.
-    If one merge in a group fails (e.g. booked), the ones already merged stay merged. Tap photo = keep that
-    one; 🔍 button = full-screen zoom (ImageLightbox); extra photos as thumbnails; "Not the same" leaves
-    one out (its pair with the kept prop is dismissed). Different bins → amber flag + tab "⚠ In different
-    bins"; staff pick the bin they're all in now; the app merges the prop already in that bin first (server
-    only accepts one of the two props' bins), then the rest. "Decide later" stores the group's pair keys
-    in `health/later` {duplicatePairs} (staff, shared); tabs To check / In different bins / Later.
+  - Find duplicates (Oct 13, final shape after owner feedback): look-alike pairs are JOINED INTO GROUPS
+    (`groupPairs` in `src/lib/duplicates.ts`, any size/chains). In a group staff TAP PHOTOS TO TICK the
+    ones that are the same prop (🔍 = full-screen zoom; "Keep this one" picks the kept one), then:
+    merge them (Copies / Same one; if spread over bins, tap the bin they're in now) or "📦 Flag N to
+    gather into one bin" → saved in `health/gather` {groups: {id: {ids, at}}} (staff, shared) and shown
+    in the "To gather" tab with a copyable MOVE LIST (`shelfList`) for the arts team; merging there removes
+    the flag. The UNTICKED ones are RELEASED: only their pairs with the ticked ones are dismissed
+    (`crossKeys`), so they stay candidates with each other and with any other prop (owner requirement).
+    Tabs: To check / To gather / Later ("Decide later" = `health/later` {duplicatePairs}). No backend
+    deploy needed for this (app + existing staff rules on `health/*`). findDuplicates returns top 1000
+    pairs; if one merge in a group fails (e.g. booked), the ones already merged stay merged. Checked in a
+    real browser against the emulator (flag 3 of 5 → other 2 stay grouped; gather → merge ×3 into chosen bin).
   - Rooms: bins already belong to "storage areas" (= rooms); imported bins go to "Imported – needs
     sorting". Owner may later want "Room" wording and moving many bins at once.
