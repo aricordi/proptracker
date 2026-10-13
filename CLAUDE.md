@@ -48,6 +48,11 @@ WEBSITE LIVE (Oct 13, owner OK): the new app is on https://proptracker-9732e.web
 Actions → "Deploy website (LIVE)", `.github/workflows/deploy-website.yml`: tests → build → publish to the
 live channel with FIREBASE_SERVICE_ACCOUNT; undo = Firebase console → Hosting → release history → Roll back).
 Pushes to the branch still only update the preview; the live site changes ONLY via that button (ask first).
+Owner's real address: https://proptracker.arbcreative.co (custom domain on the same hosting). Sign-in failed
+there at first ("nothing happens") because it wasn't in Authentication → Authorized domains; added Oct 13 with
+the "Allow a web address to sign in" button (`.github/workflows/add-signin-domain.yml`, keeps existing ones;
+owner OK). "Read server logs" now also lists the authorized domains. Invite messages link to LIVE_APP_URL =
+proptracker.arbcreative.co (owner choice). Login now shows WHY Google sign-in failed (code in brackets).
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
