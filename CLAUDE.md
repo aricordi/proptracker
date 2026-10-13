@@ -250,10 +250,17 @@ props/bookings. Calendar sync may come up with availability — ask the owner.
   https://claude.ai/artifact/2ByduqvsYrCNLd59rTz332 (creator: hours picker, kit cards with free/taken,
   kit page with pieces, day timeline, next-free + similar kits, extras with counts, one "My shoot" basket
   with props + gear; equipment team: queue by time, tick-every-piece hand-over/check-in with "missing",
-  Out tab with late, inventory). OPEN QUESTIONS shown with guesses: notice (1 open day?), closed days
-  (same as props?), late (30 min after end?), missing piece (kit bookable with warning?), one basket for
-  props + gear (yes?), hand-over photo (no?), extras by count + hours (yes?), value shown to creators (staff only?).
-  Wait for the owner's answers before building gear.
+  Out tab with late, inventory).
+  GEAR DECISIONS (owner, Oct 13; mockup v2 at the same link): all 8 guesses accepted (1 open day notice;
+  closed days like props; late = 30 min after booked end, late creators blocked; missing piece → bundle
+  stays bookable with a warning; props + gear in ONE request, each team sees its part; no hand-over
+  photo; staff-only value) EXCEPT: staff keep an inventory of EVERY PIECE of gear and BUILD BUNDLES from
+  it; creators can ONLY book whole bundles (no single pieces, no extras, a bundle can't be split); a
+  RETURN PHOTO is REQUIRED (everything in the case + batteries plugged in to charge).
+  Open bundle questions (guesses in the mockup): a piece in only one bundle at a time; counts per item
+  (serial numbers only for cameras/drones); creator takes the return photo at drop-off, then the team
+  ticks every piece; bundles editable when not booked/out; loose pieces staff-only with a "not in a bundle" count.
+  Wait for the owner's answers to the bundle questions before building gear.
 - STATUS Oct 13 evening: owner running the full import, then cleaning up with Find duplicates.
   Remaining, in suggested order: (1) owner tests preview as each role + invites team on People,
   then GO LIVE (deploy hosting; needs OK), then delete the OLD exposed Gemini key and (with OK)
