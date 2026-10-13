@@ -23,6 +23,7 @@ import HealthScreen from './screens/HealthScreen'
 import UsersScreen from './screens/UsersScreen'
 import CategoriesScreen from './screens/CategoriesScreen'
 import EmailSettingsScreen from './screens/EmailSettingsScreen'
+import ActivityScreen from './screens/ActivityScreen'
 import AccountScreen from './screens/AccountScreen'
 import AdminScreen from './screens/AdminScreen'
 import ReserveScreen from './screens/ReserveScreen'
@@ -158,6 +159,7 @@ export default function App() {
           <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
           <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />
           <Route path="/email" element={<OwnerOnly><EmailSettingsScreen /></OwnerOnly>} />
+          <Route path="/activity" element={<StaffOnly><ActivityScreen /></StaffOnly>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

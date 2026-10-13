@@ -66,8 +66,15 @@ service cloud.firestore {
 
     match /items/{id} {
       allow read: if isMember();
-      allow create, update: if isStaff() && validItem();
+      // updatedBy must be the person making the change: the activity log relies on it.
+      allow create, update: if isStaff() && validItem()
+        && request.resource.data.updatedBy == request.auth.uid;
       allow delete: if false; // archive instead
+    }
+
+    // Activity log: written only by the server, read by the arts department.
+    match /activity/{id} {
+      allow read: if isStaff();
     }
 
     match /categories/{id} {

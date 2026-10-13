@@ -16,9 +16,11 @@ const STRANGER = 'stranger@example.com' // never invited
 
 let env: RulesTestEnvironment
 
+const uid = (email: string) => email.replace(/\W/g, '_')
 function as(email: string, verified = true) {
-  return env.authenticatedContext(email.replace(/\W/g, '_'), { email, email_verified: verified }).firestore()
+  return env.authenticatedContext(uid(email), { email, email_verified: verified }).firestore()
 }
+const by = (email: string) => ({ updatedBy: uid(email) })
 
 const item = { name: 'Cop costume', quantity: 1, condition: 'good', replacementCost: 250, tags: [], photos: [] }
 
@@ -95,8 +97,17 @@ describe('inventory', () => {
     await assertFails(getDoc(doc(as(CREATOR), 'characters', 'c1')))
   })
   it('arts department can add and edit props', async () => {
-    await assertSucceeds(setDoc(doc(as(ARTS), 'items', 'chairs'), { ...item, name: 'Chair', quantity: 10 }))
-    await assertSucceeds(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true }))
+    await assertSucceeds(setDoc(doc(as(ARTS), 'items', 'chairs'), { ...item, name: 'Chair', quantity: 10, ...by(ARTS) }))
+    await assertSucceeds(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true, ...by(ARTS) }))
+  })
+  it('every prop change must say who made it (for the activity log)', async () => {
+    await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true }))
+    await assertFails(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true, ...by(OWNER) }))
+  })
+  it('the activity log is read-only, and only the arts department can see it', async () => {
+    await assertSucceeds(getDoc(doc(as(ARTS), 'activity', 'a1')))
+    await assertFails(getDoc(doc(as(CREATOR), 'activity', 'a1')))
+    await assertFails(setDoc(doc(as(OWNER), 'activity', 'a1'), { action: 'fake' }))
   })
   it('nobody can permanently delete a prop', async () => {
     await assertFails(deleteDoc(doc(as(ARTS), 'items', 'cop')))
@@ -111,7 +122,7 @@ describe('inventory', () => {
     await assertFails(setDoc(doc(db, 'items', 'e'), { ...item, replacementCost: -5 }))
   })
   it('accepts old-style props with no new fields', async () => {
-    await assertSucceeds(setDoc(doc(as(ARTS), 'items', 'old'), { name: 'Old prop', tags: [], status: 'available' }))
+    await assertSucceeds(setDoc(doc(as(ARTS), 'items', 'old'), { name: 'Old prop', tags: [], status: 'available', ...by(ARTS) }))
   })
 })
 

@@ -160,7 +160,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 156 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 160 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -214,7 +214,13 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
      of a requested/preparing booking when another holder is late, or the prop is damaged/missing.
      App: `src/hooks/useAtRisk.ts`; amber "⚠ At risk" on Queue/My bookings cards; warning box on the
      booking page (creator gets "Find similar" → Search with ?q=). Email for it comes with the sender.
-  3. Activity log: booking steps + prop edits (who, what, from → to), written by the server.
+  3. ✅ Activity log (built Oct 13): `functions/src/activity.ts` triggers write `activity/{id}`
+     (server-only; staff read). `logItemChange` diffs TRACKED_FIELDS on items (who = updatedBy: email
+     from server, sign-in ID from the app → looked up). Rules now REQUIRE items' updatedBy == the
+     signed-in user's ID (old live app already does this). `logReservationChange` turns each new
+     history entry into `{resId}_h{n}` + "not available" marks. Screen: Admin → Activity
+     (`src/components/ActivityList.tsx`, reusable with itemId / creatorEmail filters). Indexes for
+     activity (kind/itemIds/creatorEmail + at desc) in firestore.indexes.json.
   4. History pages per prop and per creator; damaged/missing with replacement cost + running
      total (records only, no billing/settling).
 - Phase 6: batch import.
