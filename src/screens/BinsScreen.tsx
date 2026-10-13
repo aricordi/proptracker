@@ -5,6 +5,7 @@ import { useBins } from '../hooks/useBins'
 import { useLocations } from '../hooks/useLocations'
 import { addBin, updateBin, deleteBin, canDeleteBin } from '../services/bins'
 import BottomSheet from '../components/BottomSheet'
+import LookAlikeBins from '../components/LookAlikeBins'
 import type { Bin, Location } from '../types'
 
 type SheetMode = { mode: 'add' } | { mode: 'edit'; bin: Bin }
@@ -257,6 +258,8 @@ export default function BinsScreen() {
           No bins yet. Tap "+ Add" to create your first bin.
         </p>
       )}
+
+      <LookAlikeBins bins={bins} locationMap={locationMap} />
 
       <div className="space-y-6">
         {orderedGroups.map(({ location, bins: groupBins }) => (

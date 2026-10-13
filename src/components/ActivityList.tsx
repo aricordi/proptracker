@@ -72,7 +72,9 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
         const day = a.at.slice(0, 10)
         const header = day !== lastDay ? (lastDay = day) : null
         const who = nameOf(a.by)
-        const what = a.kind === 'prop'
+        const what = a.kind === 'bin'
+          ? <>{who} merged look-alike bins into <b className="font-medium">{a.itemName}</b></>
+          : a.kind === 'prop'
           ? <>{who} {a.action === 'added' ? 'added' : a.action === 'archived' ? 'archived' : a.action === 'unarchived' ? 'brought back' : 'changed'} <b className="font-medium">{a.itemName}</b></>
           : a.action === 'unavailable'
             ? <>{who} marked <b className="font-medium">{a.itemName}</b> not available for <b className="font-medium">{a.title}</b></>

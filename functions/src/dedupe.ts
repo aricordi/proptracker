@@ -128,3 +128,43 @@ export const mergeProps = onCall({ ...CALLABLE, timeoutSeconds: 60 }, async req 
   }
   return { keptId: keepId, removed: deleteIt ? 'deleted' : 'archived' }
 })
+
+// Bins that are really the same bin ("B.31", "B:31", "B: 31"): move every prop
+// in the extra bins into the one being kept, then remove the extra bins.
+// Owner + arts. Props themselves are only re-pointed, never removed.
+export const mergeBins = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+  const caller = await requireRole(req, ['owner', 'arts'])
+  const keepId = String(req.data?.keepId ?? '')
+  const removeIds = [...new Set((Array.isArray(req.data?.removeIds) ? req.data.removeIds : []).map(String))]
+    .filter(id => id && id !== keepId).slice(0, 20)
+  if (!keepId || !removeIds.length) throw new HttpsError('invalid-argument', 'Pick the bin to keep and at least one other.')
+  const keep = await db.doc(`bins/${keepId}`).get()
+  if (!keep.exists) throw new HttpsError('not-found', 'That bin is gone already.')
+  const locationId = keep.get('locationId') as string | undefined
+  const now = new Date().toISOString()
+
+  let moved = 0
+  const labels: string[] = []
+  for (const id of removeIds) {
+    const bin = await db.doc(`bins/${id}`).get()
+    if (!bin.exists) continue
+    labels.push(String(bin.get('label') ?? id))
+    const items = await db.collection('items').where('binId', '==', id).get()
+    for (let i = 0; i < items.docs.length; i += 400) {
+      const batch = db.batch()
+      items.docs.slice(i, i + 400).forEach(d => batch.update(d.ref, {
+        binId: keepId, ...(locationId ? { locationId } : {}), updatedAt: now, updatedBy: caller.email,
+      }))
+      await batch.commit()
+    }
+    moved += items.size
+    await bin.ref.delete()
+  }
+  if (labels.length) {
+    await db.collection('activity').add({
+      at: now, by: caller.email, kind: 'bin', action: 'merged', itemIds: [], itemName: String(keep.get('label') ?? ''),
+      reason: `Merged bin${labels.length === 1 ? '' : 's'} ${labels.map(l => `"${l}"`).join(', ')} into "${keep.get('label')}" (${moved} prop${moved === 1 ? '' : 's'} moved).`,
+    })
+  }
+  return { moved, removed: labels.length }
+})

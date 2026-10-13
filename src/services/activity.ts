@@ -6,7 +6,7 @@ export interface Activity {
   id: string
   at: string
   by: string
-  kind: 'prop' | 'booking'
+  kind: 'prop' | 'booking' | 'bin'
   action: string
   itemIds: string[]
   itemName?: string

@@ -67,8 +67,7 @@ export function setImportCap(capUsd: number) {
   return setDoc(doc(db, 'app_settings', 'import'), { capUsd }, { merge: true })
 }
 
-// Bin signs are written many ways: "Bin C7", "c 7", "C7" all mean bin C7.
-export const binKey = (s: string) => s.toUpperCase().replace(/^BIN\s*/, '').replace(/[\s#.-]+/g, '')
+export { binKey } from '../../functions/src/binNames'
 
 export interface Approval {
   id: string; name?: string; categoryId?: string; tags?: string[]; description?: string; quantity?: number
@@ -94,3 +93,4 @@ export interface PairVerdict { same: boolean; confidence: 'high' | 'medium' | 'l
 export const findDuplicates    = httpsCallable<{ min?: number }, { pairs: DuplicatePair[]; checked: number; withoutFingerprint: number }>(functions, 'findDuplicates')
 export const comparePropPhotos = httpsCallable<{ a: string; b: string }, PairVerdict>(functions, 'comparePropPhotos')
 export const mergeProps        = httpsCallable<{ keepId: string; removeId: string; mode: 'copies' | 'angles' }, { keptId: string; removed: 'deleted' | 'archived' }>(functions, 'mergeProps')
+export const mergeBins = httpsCallable<{ keepId: string; removeIds: string[] }, { moved: number; removed: number }>(functions, 'mergeBins')

@@ -64,3 +64,22 @@ describe('merging a pair', () => {
     expect((await call('mergeProps', { keepId: 'cop1', removeId: 'cop2' }, OWNER)).error).toBe('FAILED_PRECONDITION')
   })
 })
+
+describe('merging look-alike bins', () => {
+  it('moves every prop into the kept bin and removes the others', async () => {
+    await put('bins/b1', { label: 'B.31', locationId: 'imported', qrSlug: 'b1' })
+    await put('bins/b2', { label: 'B:31', locationId: 'imported', qrSlug: 'b2' })
+    await put('bins/b3', { label: 'B: 31', locationId: 'garage', qrSlug: 'b3' })
+    await put('items/cop1', prop('Police Costume', { binId: 'b2', locationId: 'imported' }))
+    await put('items/lamp', prop('Brass Lamp', { binId: 'b3', locationId: 'garage' }))
+
+    expect((await call('mergeBins', { keepId: 'b1', removeIds: ['b2', 'b3'] }, CREATOR)).error).toBe('PERMISSION_DENIED')
+    const r = await call('mergeBins', { keepId: 'b1', removeIds: ['b2', 'b3'] }, ARTS)
+    expect(r.result).toEqual({ moved: 2, removed: 2 })
+    expect((await getDoc('items/cop1'))).toMatchObject({ binId: 'b1', locationId: 'imported', updatedBy: ARTS })
+    expect((await getDoc('items/lamp'))).toMatchObject({ binId: 'b1', locationId: 'imported', name: 'Brass Lamp' })
+    expect(await exists('bins/b2')).toBe(false)
+    expect(await exists('bins/b3')).toBe(false)
+    expect(await exists('bins/b1')).toBe(true)
+  })
+})
