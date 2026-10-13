@@ -203,6 +203,19 @@ hub; props section = real bookings (exists); other sections start as structured 
 team's queue and upgrade to real booking one department at a time; AI pre-fills the sheet from an
 uploaded guideline PDF and matches the props list to inventory. Proposed order: rebrand → Shoot sheet +
 AI pre-fill → gear + packages → actor roster/casting → locations → makeup/crew.
+OWNER DECISIONS for the sprint (Oct 13; owner answers the design questions personally):
+- Order: GEAR → CASTING → MAKEUP → LOCATIONS (+ crew). Clickable mockups before building each.
+- Every area = "pick from our library" OR "custom request" (same idea as prop build requests):
+  existing locations or a custom location request; roster actors or a casting request; makeup/crew
+  booking or a custom request.
+- MAKEUP: one specific makeup person/team → needs its OWN LOGIN (new role) that can only set their
+  availability and accept/decline/adjust their bookings. Same pattern may later serve crew/actors.
+- GEAR (answered): mostly ready-made KITS (cases with several pieces; single extras can be added);
+  booked by EXACT start/end HOURS (not whole days); a kit can go out again as soon as it's returned —
+  no turnaround gap, but tell creators there's no guarantee on battery charge; out/in check = tick
+  EVERY PIECE in the case; creators book with an INSTANT HOLD (gear team can decline), like props;
+  run by a separate EQUIPMENT TEAM role (sees gear queue + gear inventory, not props); when a kit is
+  taken show SIMILAR FREE KITS and WHEN IT'S NEXT FREE (no waitlist).
 Suggested shape: generalise props into typed "bookable things" with departments (each with its
 own queue), packages for gear, people (actors/crew/makeup) with availability, and a single
 "Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
