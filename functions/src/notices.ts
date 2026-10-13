@@ -3,7 +3,7 @@
 //  • an upcoming booking is at risk because a prop is late, damaged or missing
 //    (to that booking's creator and the arts department).
 // Each notice is sent once: the reservation remembers it (lateNotifiedAt, riskNotified).
-import { onSchedule } from 'firebase-functions/v2/scheduler'
+// import { onSchedule } from 'firebase-functions/v2/scheduler'  (for the hourly check below)
 import { onCall } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
@@ -86,10 +86,11 @@ export async function runNotices(now = new Date()) {
   return { late, atRisk }
 }
 
-// Every hour, Toronto time.
-export const checkLateAndAtRisk = onSchedule({ schedule: 'every 60 minutes', timeZone: 'America/Toronto' }, async () => {
-  await runNotices()
-})
+// Every hour, Toronto time. Turned OFF until email is set up (it needs Google
+// Cloud Scheduler, which the owner approves separately). To turn on: uncomment.
+// export const checkLateAndAtRisk = onSchedule({ schedule: 'every 60 minutes', timeZone: 'America/Toronto' }, async () => {
+//   await runNotices()
+// })
 
 // Owner: run the same check right now (also used by the automated tests).
 export const checkNoticesNow = onCall(CALLABLE, async req => {

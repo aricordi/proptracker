@@ -188,7 +188,12 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
 
 ### Next
 - Go-live (owner adding GitHub secrets).
-- Email (built Oct 13, NOT deployed): owner chose a Gmail inbox now (no domain DNS access),
+- Email ON HOLD (Oct 13): no new Gmail possible; Proton needs a domain; Yahoo's app-password button is
+  greyed out (owner thinks account must age a few days); iCloud is the fallback. To turn on: owner
+  stores SMTP_PASSWORD in Secret Manager → set `SMTP_SECRET_READY = true` in functions/src/email.ts →
+  (with owner OK for Cloud Scheduler) uncomment `checkLateAndAtRisk` in notices.ts → deploy →
+  owner sets Admin → Email. Until then emails are logged as "skipped" (deploys work without the secret).
+- Email code (built Oct 13): first plan was a Gmail inbox (no domain DNS access),
   Resend later. `functions/src/email.ts`: `sendQueuedEmail` (on outbox create; SMTP via nodemailer 10;
   'arts-team' = active arts + owner; host 'fake' or emulator w/o password = practice send) and
   `sendTestEmail` (owner). Settings in app_settings/email (owner-only screen Admin → Email, presets

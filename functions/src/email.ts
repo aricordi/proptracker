@@ -13,6 +13,12 @@ import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 
 export const SMTP_PASSWORD = defineSecret('SMTP_PASSWORD')
 
+// Flip to true once SMTP_PASSWORD exists in Secret Manager: deploys fail if a
+// function asks for a secret that doesn't exist. Until then, emails are only
+// logged as "skipped" (the local emulator always uses practice sending).
+const SMTP_SECRET_READY = false
+const smtpSecrets = SMTP_SECRET_READY || process.env.FUNCTIONS_EMULATOR === 'true' ? [SMTP_PASSWORD] : []
+
 export interface EmailSettings {
   enabled: boolean
   host: string        // e.g. smtp.gmail.com
@@ -49,10 +55,11 @@ async function recipientsFor(to: string): Promise<string[]> {
 }
 
 function password(): string {
+  if (!smtpSecrets.length) return ''
   try { return SMTP_PASSWORD.value() } catch { return '' }
 }
 
-export const sendQueuedEmail = onDocumentCreated({ document: 'outbox/{id}', secrets: [SMTP_PASSWORD] }, async event => {
+export const sendQueuedEmail = onDocumentCreated({ document: 'outbox/{id}', secrets: smtpSecrets }, async event => {
   const created = event.data
   if (!created) return
   // Record the outcome; ignore it if the email record has since disappeared.
