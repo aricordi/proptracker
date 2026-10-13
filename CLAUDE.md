@@ -53,6 +53,12 @@ there at first ("nothing happens") because it wasn't in Authentication → Autho
 the "Allow a web address to sign in" button (`.github/workflows/add-signin-domain.yml`, keeps existing ones;
 owner OK). "Read server logs" now also lists the authorized domains. Invite messages link to LIVE_APP_URL =
 proptracker.arbcreative.co (owner choice). Login now shows WHY Google sign-in failed (code in brackets).
+iPhone Safari then showed "Unable to process request due to missing initial state" (the Google sign-in page ran
+on proptracker-9732e.firebaseapp.com, a different address, and Safari blocks the hand-back). Fix (Google's
+recommended): `signInDomain()` in src/firebase.ts uses the app's own address as authDomain on our 3 hosting
+addresses (arbcreative, web.app, preview). Owner added https://<each>/__/auth/handler to the OAuth web client's
+Authorized redirect URIs (Oct 13). A NEW address needs both: add it there AND to signInDomain's list + authorized domains.
+On the preview Oct 13 (run 81); NOT live yet (needs owner's iPhone test + OK).
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
