@@ -133,7 +133,7 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
           <input type="number" min={0} value={value} onChange={e => setValue(e.target.value)} placeholder="Optional" className={input} /></label>
         <label className="block space-y-1"><span className={label}>Notes</span>
           <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" className={input} /></label>
-        <ProofPhotos folder="gear/items" urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo (optional)" max={3} />
+        <ProofPhotos cameraOnly={false} folder="gear/items" urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo (optional)" max={3} />
         {error && <p className="text-red-300 text-sm">{error}</p>}
         <button onClick={() => save()} disabled={busy || uploading || !name.trim()}
           className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Save'}</button>

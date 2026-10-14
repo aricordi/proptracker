@@ -162,7 +162,7 @@ function SuggestSheet({ item, onClose }: { item: Item; onClose: () => void }) {
         </div>
         <label className="block space-y-1"><span className={label}>Better description</span>
           <input value={description} onChange={e => setDescription(e.target.value)} className={input} /></label>
-        <ProofPhotos folder={`request-photos/${profile.email}`} urls={photos} onChange={setPhotos} onUploading={setUploading}
+        <ProofPhotos cameraOnly={false} folder={`request-photos/${profile.email}`} urls={photos} onChange={setPhotos} onUploading={setUploading}
           label="Photo (optional)" hint="e.g. show the damage" max={5} />
         {state === 'error' && <p className="text-red-300 text-sm">Couldn't send. Try again.</p>}
         <button onClick={send} disabled={!message.trim() || uploading || state === 'busy'}

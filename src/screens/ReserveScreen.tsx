@@ -227,7 +227,7 @@ export default function ReserveScreen() {
                 <span className="text-pt-text w-6 text-center">{buildQty}</span>
                 <button onClick={() => setBuildQty(q => Math.min(1000, q + 1))} className="w-9 h-9 rounded-full bg-pt-bg border border-pt-border text-pt-text">+</button>
               </div>
-              <ProofPhotos folder={`request-photos/${profile.email}`} urls={buildPhotos} onChange={setBuildPhotos}
+              <ProofPhotos cameraOnly={false} folder={`request-photos/${profile.email}`} urls={buildPhotos} onChange={setBuildPhotos}
                 onUploading={setBuildUploading} max={1} label="Reference photo (optional)" hint="A photo or screenshot of what you have in mind." />
               <div className="flex gap-2">
                 <button onClick={() => setShowBuild(false)} className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm">Cancel</button>

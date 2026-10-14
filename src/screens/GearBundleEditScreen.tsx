@@ -105,7 +105,7 @@ export default function GearBundleEditScreen() {
             </select></label>
           <label className="block space-y-1"><span className={label}>Description for creators</span>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional: what it's good for" className={input} /></label>
-          <ProofPhotos folder="gear/bundles" urls={photos} onChange={setPhotos} onUploading={setUploading} label={isExtra ? 'Photo' : 'Photo of the case'} hint="Creators see this" max={4} />
+          <ProofPhotos cameraOnly={false} folder="gear/bundles" urls={photos} onChange={setPhotos} onUploading={setUploading} label={isExtra ? 'Photo' : 'Photo of the case'} hint="Creators see this" max={4} />
         </div>
 
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-1">

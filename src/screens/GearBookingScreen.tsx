@@ -7,7 +7,7 @@ import {
   fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking,
 } from '../services/gear'
 import { GearArt, Pill, PieceChecklist, STATUS_LABEL } from '../components/GearUi'
-import ProofPhotos from '../components/ProofPhotos'
+import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
 import { formatDay } from '../lib/dates'
@@ -168,7 +168,7 @@ export default function GearBookingScreen() {
           <div className="space-y-1.5">
             <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Return photo{b.return.photos.length > 1 ? 's' : ''}</p>
             <div className="flex gap-2">{b.return.photos.map(u => (
-              <button key={u} onClick={() => setZoom(u)}><img src={u} alt="" className="w-24 h-24 rounded-xl object-cover" /></button>
+              <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)}><img src={u} alt="" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>
             ))}</div>
           </div>
         ) : null}

@@ -65,6 +65,13 @@ in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore 
 it only had roles/firebasestorage.serviceAgent. The owner never noticed (isOwner() is checked by email first).
 FIXED Oct 14: owner granted that role in Google Cloud IAM (confirmed with "Read server logs", which shows this agent's roles). Proof photos
 are now shrunk before upload and show "Not allowed"/"No signal" when one fails.
+PROOF PHOTO DATES (owner decision Oct 14: stop people re-using old photos): proof photos (pack, return,
+check-in, gear return) are CAMERA ONLY (ProofPhotos `cameraOnly` default true → input capture="environment",
+"Opens your camera" hint; catalogue/reference photos pass cameraOnly={false}). `src/lib/photoTakenAt.ts` reads
+the EXIF taken-date BEFORE shrinkPhoto (which drops it) and uploads it as Storage customMetadata {takenAt, source}.
+`PhotoStamp` (under PhotoStrip + gear return photos) compares takenAt with the server's upload time
+(timeCreated, can't be faked by the phone): "Taken Oct 14, 2:14 PM", red "⚠ Taken 3 days before upload" when
+> 1 hour (OLD_PHOTO_MINUTES, owner choice), amber "⚠ No date on this photo". Photos from before this show nothing.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
@@ -179,7 +186,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 265 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 270 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
