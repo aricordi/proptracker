@@ -71,7 +71,7 @@ check-in, gear return) are CAMERA ONLY (ProofPhotos `cameraOnly` default true �
 the EXIF taken-date BEFORE shrinkPhoto (which drops it) and uploads it as Storage customMetadata {takenAt, source}.
 `PhotoStamp` (under PhotoStrip + gear return photos) compares takenAt with the server's upload time
 (timeCreated, can't be faked by the phone): "Taken Oct 14, 2:14 PM", red "⚠ Taken 3 days before upload" when
-> 1 hour (OLD_PHOTO_MINUTES, owner choice), amber "⚠ No date on this photo". Photos from before this show nothing.
+> 1 hour (OLD_PHOTO_MINUTES, owner choice), amber "⚠ No date on this photo". Photos from before this show nothing. LIVE Oct 14 (website run 4, owner OK).
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
 ### Phase 1 (Foundation)
