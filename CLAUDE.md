@@ -63,7 +63,7 @@ UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo).
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
 it only had roles/firebasestorage.serviceAgent. The owner never noticed (isOwner() is checked by email first).
-Fix = owner grants that role in Google Cloud IAM ("Read server logs" now shows this agent's roles). Proof photos
+FIXED Oct 14: owner granted that role in Google Cloud IAM (confirmed with "Read server logs", which shows this agent's roles). Proof photos
 are now shrunk before upload and show "Not allowed"/"No signal" when one fails.
 The old UID-based users (Keanu, friend #3) do not need access; only the owner does for now.
 
