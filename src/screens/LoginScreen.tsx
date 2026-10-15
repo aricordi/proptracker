@@ -24,7 +24,7 @@ function signInProblem(code: string) {
   const standalone = window.matchMedia?.('(display-mode: standalone)').matches
   const msg: Record<string, string> = {
     'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups for this site, then try again.',
-    'auth/popup-closed-by-user': 'The Google window closed before sign-in finished. Try again.',
+    'auth/popup-closed-by-user': 'The Google window closed before you could sign in. An ad blocker or Private Browsing usually causes this: try "Sign in another way" below, or turn the blocker off for this site.',
     'auth/cancelled-popup-request': 'The Google window closed before sign-in finished. Try again.',
     'auth/unauthorized-domain': 'This web address isn\'t allowed to use Google sign-in yet.',
     'auth/network-request-failed': 'No connection. Check your internet and try again.',
@@ -60,6 +60,13 @@ export default function LoginScreen() {
     }
   }
 
+  // Full-page Google sign-in (no pop-up window); also works on phones that block pop-ups.
+  const handleRedirect = async () => {
+    setProblem(null)
+    try { await signInWithRedirect(auth, new GoogleAuthProvider()) }
+    catch (err) { setProblem(signInProblem((err as { code?: string })?.code ?? 'unknown')) }
+  }
+
   const copyLink = async () => {
     try { await navigator.clipboard.writeText(window.location.origin); setCopied(true) } catch { setCopied(false) }
   }
@@ -92,6 +99,17 @@ export default function LoginScreen() {
         Sign in with Google
       </button>
       {problem && <p className="mt-4 max-w-xs text-center text-amber-300 text-sm">{problem}</p>}
+      <button onClick={handleRedirect} className="mt-4 text-pt-muted text-sm underline underline-offset-4 active:opacity-70">
+        Trouble signing in? Sign in another way
+      </button>
+      {problem && (
+        <details className="mt-3 max-w-xs text-pt-muted text-xs">
+          <summary className="text-center cursor-pointer">Using an ad blocker or Private Browsing?</summary>
+          <p className="mt-2">Ad blockers can stop Google's sign-in page from loading (it stays blank). On iPhone: tap <b>aA</b> in
+            Safari's address bar → <b>Turn Off Content Blockers</b>, then sign in again. Private Browsing tabs can also block it:
+            use a normal tab. You only need to sign in once; you stay signed in after that.</p>
+        </details>
+      )}
 
       {USING_EMULATORS && (
         <div className="mt-10 w-full max-w-xs space-y-2">

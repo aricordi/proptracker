@@ -63,6 +63,9 @@ INVITEE SIGN-IN "nothing pops up" (Oct 15, Ariel): likely opened the invite insi
 (Instagram/Messenger/Gmail…), where Google blocks sign-in. Login now: `src/lib/inAppBrowser.ts` detects those and
 shows "Open this page in Safari or Chrome" + Copy link; if the pop-up is blocked it falls back to signInWithRedirect
 (works because authDomain = the app's own address) and getRedirectResult shows any error.
+Ariel's video (Oct 15, real Safari): Google's sign-in page opened BLANK and closed → his AD BLOCKER (and Private
+Browsing) blocked Google's sign-in scripts. Login now has "Trouble signing in? Sign in another way" (signInWithRedirect)
+and, after an error, help text: Safari aA → Turn Off Content Blockers / use a normal tab. Can't be fixed from our side.
 UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
