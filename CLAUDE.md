@@ -69,7 +69,7 @@ and, after an error, help text: Safari aA → Turn Off Content Blockers / use a 
 REAL CAUSE (Oct 15, ad blocker off and still failing; "Sign in with Google" opened new tabs of the home page): the PWA
 service worker's navigateFallback answered /__/auth/handler (Firebase's Google sign-in page, same domain since
 signInDomain) with the cached index.html. Phones that had opened the app before signing in were stuck. FIX:
-vite.config workbox navigateFallbackDenylist [/^\/__\//]. NEVER remove it while authDomain = the app's own address.
+vite.config workbox navigateFallbackDenylist [/^\/__\//]. NEVER remove it while authDomain = the app's own address. LIVE Oct 15 (website run 5, owner OK), with the login help/redirect fallback.
 UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
