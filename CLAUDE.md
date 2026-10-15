@@ -66,6 +66,10 @@ shows "Open this page in Safari or Chrome" + Copy link; if the pop-up is blocked
 Ariel's video (Oct 15, real Safari): Google's sign-in page opened BLANK and closed → his AD BLOCKER (and Private
 Browsing) blocked Google's sign-in scripts. Login now has "Trouble signing in? Sign in another way" (signInWithRedirect)
 and, after an error, help text: Safari aA → Turn Off Content Blockers / use a normal tab. Can't be fixed from our side.
+REAL CAUSE (Oct 15, ad blocker off and still failing; "Sign in with Google" opened new tabs of the home page): the PWA
+service worker's navigateFallback answered /__/auth/handler (Firebase's Google sign-in page, same domain since
+signInDomain) with the cached index.html. Phones that had opened the app before signing in were stuck. FIX:
+vite.config workbox navigateFallbackDenylist [/^\/__\//]. NEVER remove it while authDomain = the app's own address.
 UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
