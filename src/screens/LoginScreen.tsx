@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import { signInWithPopup, signInWithCredential, GoogleAuthProvider } from 'firebase/auth'
+import { useEffect, useState } from 'react'
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider } from 'firebase/auth'
 import { auth, USING_EMULATORS } from '../firebase'
 import BrandMark from '../components/BrandMark'
+import { inAppBrowser } from '../lib/inAppBrowser'
 
 // Emulator only: one-tap sign-in as a pretend Google account, so each role
 // can be tried without real accounts. Never shown on the live site.
@@ -36,14 +37,31 @@ function signInProblem(code: string) {
 
 export default function LoginScreen() {
   const [problem, setProblem] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const insideApp = USING_EMULATORS ? null : inAppBrowser(navigator.userAgent)
+
+  // Coming back from the full-page Google sign-in (the fallback below): show any error.
+  useEffect(() => {
+    getRedirectResult(auth).catch(err => setProblem(signInProblem((err as { code?: string })?.code ?? 'unknown')))
+  }, [])
+
   const handleSignIn = async () => {
     setProblem(null)
     try {
       await signInWithPopup(auth, new GoogleAuthProvider())
     } catch (err) {
+      const code = (err as { code?: string })?.code ?? 'unknown'
       console.error('Sign-in failed:', err)
-      setProblem(signInProblem((err as { code?: string })?.code ?? 'unknown'))
+      // The browser blocked the Google window: sign in on a full page instead.
+      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        try { await signInWithRedirect(auth, new GoogleAuthProvider()); return } catch { /* show the message below */ }
+      }
+      setProblem(signInProblem(code))
     }
+  }
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(window.location.origin); setCopied(true) } catch { setCopied(false) }
   }
 
   return (
@@ -54,6 +72,13 @@ export default function LoginScreen() {
         <p className="text-pt-muted mt-2 text-sm">Props and gear for Prime Capitol shoots</p>
       </div>
 
+      {insideApp && (
+        <div className="mb-6 max-w-xs rounded-2xl bg-amber-500/15 px-4 py-3 text-center text-amber-100 text-sm space-y-2">
+          <p><b>Open this page in Safari or Chrome.</b> You opened it inside {insideApp}, and Google doesn't allow signing in there.</p>
+          <p className="text-amber-200/80">Tap the <b>⋯</b> or share button at the top or bottom and choose <b>Open in browser</b> / <b>Open in Safari</b>. Or copy the link and paste it into Safari or Chrome.</p>
+          <button onClick={copyLink} className="rounded-xl bg-amber-400 text-stone-900 font-semibold px-4 py-2">{copied ? 'Copied ✓' : 'Copy link'}</button>
+        </div>
+      )}
       <button
         onClick={handleSignIn}
         className="flex items-center gap-3 bg-white text-gray-800 px-6 py-3.5 rounded-2xl font-semibold text-base shadow-lg active:scale-95 transition-transform"

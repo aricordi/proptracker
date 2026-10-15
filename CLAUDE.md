@@ -59,6 +59,10 @@ recommended): `signInDomain()` in src/firebase.ts uses the app's own address as 
 addresses (arbcreative, web.app, preview). Owner added https://<each>/__/auth/handler to the OAuth web client's
 Authorized redirect URIs (Oct 13). A NEW address needs both: add it there AND to signInDomain's list + authorized domains.
 Owner confirmed iPhone sign-in works. LIVE Oct 13 (website run 3) together with fast photos + proof-photo shrink.
+INVITEE SIGN-IN "nothing pops up" (Oct 15, Ariel): likely opened the invite inside an app's built-in browser
+(Instagram/Messenger/Gmail…), where Google blocks sign-in. Login now: `src/lib/inAppBrowser.ts` detects those and
+shows "Open this page in Safari or Chrome" + Copy link; if the pop-up is blocked it falls back to signInWithRedirect
+(works because authDomain = the app's own address) and getRedirectResult shows any error.
 UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
@@ -186,7 +190,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 270 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 272 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
