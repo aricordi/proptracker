@@ -350,7 +350,21 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   with that shoot, optional guideline, history, cancel). Every prop/gear request belongs to a shoot (replaces the
   separate baskets + shoot-day picker). Team persona (Maanik): Schedule / Team (Check-ins, Creators, Block,
   Settings incl. draw + Sunday release) / How it works. Arts + equipment queues stay, each request shows its shoot.
-- Next: ask the owner the open guesses ONE BY ONE (owner asked), then plan the build.
+- OWNER ANSWERS to the guesses (Oct 16, one by one):
+  1. Partner invite HOLDS the next slot for the invited partner for 10 MINUTES, then it opens to everyone.
+  2. Slots: 9 per day, 2 h each, first 7–9 AM, last 11 PM–1 AM (crosses midnight!).
+  3. Wishlist open 15th–20th, draw 20th 6 PM.
+  4. Sunday release of unclaimed Thu/Sat slots at 6 PM.
+  5. Strikes: 2 in 30 days → props + gear paused 14 days (team can lift).
+  6. Cutoffs (open days before the shoot, Sundays don't count): NEW props (build requests) 4, props from
+     inventory 2, gear 2, casting 4, location 4; makeup = lead decides. (App today: props 3, gear 1 → change in build.)
+  7. Check-in opens 15 min before the slot; missed check-in → creator has 12 HOURS to explain, then Maanik decides.
+  8. Checked in but no wrap = counts as filmed (noted in history). NEW: at check-in the next creator can REPORT
+     the slot before them: ran over into my time (minutes) and/or house left a mess, with camera photos.
+  9. Reports go to Maanik (Team tab) who dismisses or turns them into a strike (no automatic strike).
+  Defaults kept (not asked): up to 3 usual partners; cancelling before the day is free; team moves/cancels = no strike;
+  offsite shoots need no guideline; monthly slots only at Cliff 1; guideline optional.
+- Next: update the mockup with these answers, then propose the build plan in steps (owner go-ahead needed).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
