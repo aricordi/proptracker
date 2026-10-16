@@ -311,8 +311,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   countdown + reminders; automatic strikes → pause props/gear (like late returns); staff "Block time" (events,
   cleaners, maintenance, external rentals); Cliff 2 external rentals as blocks (Airbnb calendar feed later);
   app = source of truth, writes ONE-WAY to the shared Google Calendar + one-time import of future events.
-- Next: owner sends the COO's write-up of the current booking process, THEN Claude proposes improvements
-  and a clickable mockup before any code.
+- OWNER DECISIONS (Oct 16, all recommended options): (a) monthly 4 Cliff 1 slots = PICK WINDOW + AUTO-FILL
+  (window opens ~20th for next month, max 2 picks in the first day, collab partners can pick together, app
+  auto-places non-pickers using their preferred days/partners); (b) FIXED 2-HOUR SLOT GRID (staff-editable);
+  (c) AUTOMATIC STRIKES for no-shows + same-day Thu/Sat cancels → after N strikes props + gear booking pauses
+  (threshold/time to set; staff can lift); (d) schedule managed by the EQUIPMENT role (Maanik) + owner.
+  App = source of truth; ONE-WAY write to the shared Google Calendar + one-time import (not objected to).
+- Next: clickable mockup (guesses for open details: slot times, window dates, strike threshold), then build.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
