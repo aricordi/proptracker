@@ -296,6 +296,21 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
 - Google Calendar: bring EXISTING future bookings in. Maanik (equipment manager) runs the calendar today;
   schedule should be visible to ALL creators. Calendar also holds events, house maintenance, cleaners
   (anything affecting shooting) → need non-shoot blocks.
+- COO WRITE-UP (Oct 16), current system: (1) Cliff 1: every creator GUARANTEED 4 slots/month, pre-scheduled
+  manually (ChatGPT → Google Calendar) using availability + preferred partners, mixed up. (2) THURSDAY + SATURDAY =
+  PRIORITY days for: Main Channel, Stromedy Studios, Jana, Aji, Kyle, Alex, DK, Ariel; every SUNDAY the unclaimed
+  Thu/Sat slots of the coming week open to everyone, and booking those needs a FILMING GUIDELINE. (3) SUNDAYS open,
+  first-come; crew is off (creators on their own). (4) EXTRA slots any time (mornings/evenings) if free; OFFSITE shoots
+  recorded too (no guideline/resources needed) to track production. (5) Guideline ideally 96 HOURS before; no-show
+  without notice → penalties / temporary loss of equipment + inventory access; same-day cancel of Thu/Sat → penalty.
+  (6) Cliff 2.0: first-come for creators + Studios directors; LATER listed on Airbnb + Set Scouter, external rentals
+  take priority. (7) Goal: automate monthly allocation, preferences/collabs, priority + Sunday release, guideline
+  reminders, confirmations/cancellations/accountability, offsite records, real-time availability, Google Calendar sync.
+- Claude proposed (Oct 16): fixed 2-h slot grid; monthly pick window with 4 Cliff 1 credits + auto-fill; priority group
+  tag + automatic Sunday release (scheduled function → needs owner OK); guideline attached to the shoot with 96-h
+  countdown + reminders; automatic strikes → pause props/gear (like late returns); staff "Block time" (events,
+  cleaners, maintenance, external rentals); Cliff 2 external rentals as blocks (Airbnb calendar feed later);
+  app = source of truth, writes ONE-WAY to the shared Google Calendar + one-time import of future events.
 - Next: owner sends the COO's write-up of the current booking process, THEN Claude proposes improvements
   and a clickable mockup before any code.
 
