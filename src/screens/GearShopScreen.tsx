@@ -112,7 +112,7 @@ export default function GearShopScreen() {
       </div>
 
       {cart.count > 0 && (
-        <div className="fixed left-0 right-0 bottom-[calc(64px+env(safe-area-inset-bottom))] px-4 pb-3 z-20">
+        <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
           <button onClick={() => navigate('/reserve')}
             className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-lg shadow-black/50">
             Review your shoot ({cart.count}) · {formatDay(w.date)}

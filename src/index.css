@@ -39,6 +39,12 @@
   .pb-safe {
     padding-bottom: max(env(safe-area-inset-bottom), 6px);
   }
+  /* Tab bar: iPhone reserves ~34px at the bottom for the home-swipe line. Using all of it
+     left a tall empty black "chin" under the tab labels (owner, Oct 16), so the tab bar
+     only keeps about half of it (the labels sit just above the swipe line). */
+  .pb-tabbar {
+    padding-bottom: max(calc(env(safe-area-inset-bottom) - 18px), 6px);
+  }
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }

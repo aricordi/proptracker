@@ -71,7 +71,7 @@ service worker's navigateFallback answered /__/auth/handler (Firebase's Google s
 signInDomain) with the cached index.html. Phones that had opened the app before signing in were stuck. FIX:
 vite.config workbox navigateFallbackDenylist [/^\/__\//]. NEVER remove it while authDomain = the app's own address. LIVE Oct 15 (website run 5, owner OK), with the login help/redirect fallback.
 HOME-SCREEN "CHIN" (owner, Oct 16): black strip under the tab bar in iPhone home-screen mode = page shorter than the
-screen. #root is now position:fixed; inset:0; overflow-y:auto (src/index.css). LIVE Oct 16 (website run 6, owner OK).
+screen. #root is now position:fixed; inset:0; overflow-y:auto (src/index.css). LIVE Oct 16 (website run 6) but DID NOT remove it: the "chin" is the tab bar's own bottom padding for the iPhone home-swipe zone (~34px; there is no address bar in home-screen mode). Fix: tab bar uses .pb-tabbar = safe area minus 18px (min 6px), Gear "Review" bar moved to match. On the preview; live after owner OK.
 UPLOADS BY NON-OWNERS FAILED (Oct 13: Farrell, arts, couldn't add a pack photo). Cause: storage.rules look up roles
 in Firestore (firestore.get/exists), which needs role "Firebase Rules Firestore Service Agent"
 (roles/firebaserules.firestoreServiceAgent) on service-727332101415@gcp-sa-firebasestorage.iam.gserviceaccount.com;
