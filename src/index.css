@@ -20,7 +20,11 @@
   }
 
   #root {
-    height: 100%;
+    /* Pinned to the whole screen. On iPhone home-screen apps "height: 100%" came out shorter
+       than the screen (by the status bar), leaving a black "chin" under the tab bar (Oct 16). */
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
     background-color: #000000; /* pt-bg for the actual content area */
   }
 
