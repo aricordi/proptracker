@@ -334,7 +334,23 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   schedule marks free slots next to a partner's shoot with ★; booking can HOLD the next slot for one partner, who
   has 24 h to accept (else it opens to all; each uses their own slot); monthly picks "+ partner"; auto-fill places
   partners together; a priority creator can bring a partner onto a priority day.
-- Next: owner reviews v2 + guesses, then build in steps (needs owner go-ahead).
+- OWNER CHANGES (Oct 16) → MOCKUP v3 (same link): (1) monthly slots must NOT be a race → WISHLIST + FAIR DRAW:
+  wishlist open 15th–20th, up to 8 ranked wishes (slot + optional partner), timing doesn't matter; on the 20th 6 PM
+  the app runs 4 rounds, everyone gets one slot per round, turn order random, flips each round (snake) and rotates
+  monthly; best still-free wish; partners who both wished adjacent slots are placed together; no wishes left →
+  preferences (days/times); afterwards swap for any free slot. (2) NO HOLDING slots for partners (owner: messy; if
+  ever, 1 hour max): booking can INVITE a partner to the next slot (notice + link), not held, first to book gets it;
+  an invite from a priority creator lets the partner book that priority-day slot. (3) Remove the "copied to Google
+  Calendar" tagline from creator screens (team settings only). (4) REIMAGINED CREATOR APP around THE SHOOT (designed
+  as if from the start; staff keep dedicated views): creator tabs HOME (next shoot card with Check in, To do list:
+  invites, "Props for <shoot>? add by…", wishlist; Coming up; Book a shoot) / BOOK (Cliff 1 | Cliff 2 | Offsite,
+  day strip, slots, "Find a time" sheet) / BROWSE (Props & costumes | Gear, always "Adding to: <shoot>" bar with
+  availability for that shoot's day/hours; closed after cutoff) / ME (wishlist, monthly slots, strikes, usual
+  partners, past shoots, How it works). Shoot sheet = hub (check-in/wrap, needs with cutoffs → Add jumps to Browse
+  with that shoot, optional guideline, history, cancel). Every prop/gear request belongs to a shoot (replaces the
+  separate baskets + shoot-day picker). Team persona (Maanik): Schedule / Team (Check-ins, Creators, Block,
+  Settings incl. draw + Sunday release) / How it works. Arts + equipment queues stay, each request shows its shoot.
+- Next: ask the owner the open guesses ONE BY ONE (owner asked), then plan the build.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
