@@ -375,7 +375,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   lists don't need to match. The draw pairs people ONLY when BOTH wished for the same back-to-back pair naming
   each other (favourites never used by the draw or auto-fill).
 - EMAIL (Oct 16): owner now has alex@primecapitol.ca and wants app emails sent from it, maybe via an alias
-  (e.g. bookings@). Asked the owner which provider hosts primecapitol.ca mail.
+  (e.g. bookings@). Provider = GOOGLE WORKSPACE. Plan (email.ts already supports a separate fromAddress): owner adds
+  alias in admin.google.com (Users → Alex → alternate email), adds it in Gmail Settings → Accounts → "Send mail as",
+  turns on 2-Step Verification and makes an APP PASSWORD (myaccount.google.com/apppasswords), stores it in Secret
+  Manager as SMTP_PASSWORD (never in chat) → Claude sets SMTP_SECRET_READY = true + backend deploy (owner OK) →
+  owner sets Admin → Email: Gmail/Workspace preset, login alex@primecapitol.ca, from = alias, name "Prime App",
+  then "Send test email". Timed reminders (checkLateAndAtRisk) still need the Cloud Scheduler OK.
 - PROPOSED BUILD STEPS (Oct 16, awaiting owner go-ahead): (1) schedule core: houses, slot grid, blocks, instant
   booking/cancel with no double-booking (transactions like props), Book screen + team Schedule/Block, How it works,
   settings; (2) Google Calendar: one-time import of future events + one-way copy of every booking/block (owner shares
