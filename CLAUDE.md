@@ -317,7 +317,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   (c) AUTOMATIC STRIKES for no-shows + same-day Thu/Sat cancels → after N strikes props + gear booking pauses
   (threshold/time to set; staff can lift); (d) schedule managed by the EQUIPMENT role (Maanik) + owner.
   App = source of truth; ONE-WAY write to the shared Google Calendar + one-time import (not objected to).
-- Next: clickable mockup (guesses for open details: slot times, window dates, strike threshold), then build.
+- MOCKUP v1 (Oct 16): https://claude.ai/artifact/XFc1e3nJF33V1ftyXD7U2a (personas Maya creator / Jana priority /
+  Maanik team; Schedule by house + day, Find a slot (2/4/6 h), Monthly picks (credits, suggestions, preferences,
+  auto-fill note), My shoots (guideline countdown, strikes), Team: Did it happen? / Guidelines / Block time / Rules).
+  GUESSES to confirm: slots 8 AM–10 PM (7 slots); picks open the 16th, close the 21st 6 PM (2 picks first day);
+  Sunday release 9 AM; guideline reminders 2 days + 1 day before; strikes 2 in 30 days → 14-day pause; team cancels
+  = no strike; cancelling ahead of time free; offsite needs no guideline; monthly slots only at Cliff 1.
+- Next: owner tries the mockup + confirms guesses, then build in steps (needs owner go-ahead).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
