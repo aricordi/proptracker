@@ -323,7 +323,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   GUESSES to confirm: slots 8 AM–10 PM (7 slots); picks open the 16th, close the 21st 6 PM (2 picks first day);
   Sunday release 9 AM; guideline reminders 2 days + 1 day before; strikes 2 in 30 days → 14-day pause; team cancels
   = no strike; cancelling ahead of time free; offsite needs no guideline; monthly slots only at Cliff 1.
-- Next: owner tries the mockup + confirms guesses, then build in steps (needs owner go-ahead).
+- OWNER CHANGES (Oct 16) → MOCKUP v2 (same link): (1) "How it works" rules page for everyone, built from the same
+  settings the team edits; (2) AUDIT that they actually filmed: creator CHECKS IN on the day (opens 15 min before,
+  camera-only set photo with date stamp) and WRAPS ("what did you film?"); no check-in by slot end → flagged to
+  the team (creator can explain within 24 h) → team marks "They filmed" or "No-show · strike"; team "Creators"
+  view = booked vs filmed (30 days); every shoot has a History log; (3) GUIDELINE NOT REQUIRED (optional attachment);
+  instead each department has a CUTOFF in open days before the shoot (guesses: props 3, gear 1, casting 7,
+  location 7 for permission places, makeup = lead decides); (4) BOOK TIME FIRST, add props/gear/casting/location/
+  makeup later from My shoots → shoot page, until each cutoff; (5) PARTNERS kept simple: up to 3 "usual partners";
+  schedule marks free slots next to a partner's shoot with ★; booking can HOLD the next slot for one partner, who
+  has 24 h to accept (else it opens to all; each uses their own slot); monthly picks "+ partner"; auto-fill places
+  partners together; a priority creator can bring a partner onto a priority day.
+- Next: owner reviews v2 + guesses, then build in steps (needs owner go-ahead).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
