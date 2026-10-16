@@ -282,6 +282,23 @@ own queue), packages for gear, people (actors/crew/makeup) with availability, an
 "Shoot" booking a creator fills with props + gear + location + people. Don't disturb existing
 props/bookings. Calendar sync may come up with availability — ask the owner.
 
+### SCHEDULING sprint (owner, Oct 16 — PLANNING, nothing built; "the heart of the app")
+Today: shared Google Calendar; creators ask an assistant who books it. Goal: creators book their own
+shoot slots in the app; props + gear (later casting/locations) hang off the booked shoot (shoot date
+comes from the schedule). Owner open to smarter rules than today's. Owner answers (Oct 16):
+- Two houses: 2375 Cliff Road ("Cliff 1") and 2371 Cliff Road ("Cliff 2"). No sharing: a booking takes
+  the WHOLE house. Slots are usually 2 HOURS per creator; no setup/cleanup gap.
+- Collabs: creators filming together shoot BACK TO BACK; app should offer booking adjacent slots together
+  and find "next available slot (of a given length)".
+- Approval INSTANT when within the rules (rules still to define).
+- Offsite / specific-location shoots ALSO go on the schedule (props + gear depend on them), no house held.
+- Cancellation/change rules: owner decides later.
+- Google Calendar: bring EXISTING future bookings in. Maanik (equipment manager) runs the calendar today;
+  schedule should be visible to ALL creators. Calendar also holds events, house maintenance, cleaners
+  (anything affecting shooting) → need non-shoot blocks.
+- Next: owner sends the COO's write-up of the current booking process, THEN Claude proposes improvements
+  and a clickable mockup before any code.
+
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
   (told the owner preview + live share ONE database; roles/rules are what protect data). Before inviting:
