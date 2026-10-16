@@ -368,6 +368,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   (props 2 / new props 4 / gear 2 / casting 4 / location 4), 12 h to explain, Sunday 6 PM release, CHECK-IN SHEET
   (set photo + "The slot before you": ran over N min / house left a mess + photos) → REPORTS reviewed by Maanik in
   Team → Check-ins ("Reports to review": Dismiss / Strike for X); reports logged on both shoots' history.
+- MOCKUP v5 (Oct 16, owner: keep browse/search + picks + find): Browse = full catalogue ANY time (search incl.
+  hidden words, categories, "Similar, might work too", item sheet with upcoming bookings + Suggest an edit); a shoot
+  is only needed to ADD ("Adding to <shoot>" bar, or "Just browsing"). Book header: "Find a time" + "Monthly picks".
+  PARTNERS clarified: "Favourite partners" = private one-way shortcut list (★ on schedule, first in invite list);
+  lists don't need to match. The draw pairs people ONLY when BOTH wished for the same back-to-back pair naming
+  each other (favourites never used by the draw or auto-fill).
+- EMAIL (Oct 16): owner now has alex@primecapitol.ca and wants app emails sent from it, maybe via an alias
+  (e.g. bookings@). Asked the owner which provider hosts primecapitol.ca mail.
 - PROPOSED BUILD STEPS (Oct 16, awaiting owner go-ahead): (1) schedule core: houses, slot grid, blocks, instant
   booking/cancel with no double-booking (transactions like props), Book screen + team Schedule/Block, How it works,
   settings; (2) Google Calendar: one-time import of future events + one-way copy of every booking/block (owner shares
