@@ -364,7 +364,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   9. Reports go to Maanik (Team tab) who dismisses or turns them into a strike (no automatic strike).
   Defaults kept (not asked): up to 3 usual partners; cancelling before the day is free; team moves/cancels = no strike;
   offsite shoots need no guideline; monthly slots only at Cliff 1; guideline optional.
-- Next: update the mockup with these answers, then propose the build plan in steps (owner go-ahead needed).
+- MOCKUP v4 (same link, Oct 16): new slot grid, 10-min invite hold ("Held for X · opens at…"), cutoffs split
+  (props 2 / new props 4 / gear 2 / casting 4 / location 4), 12 h to explain, Sunday 6 PM release, CHECK-IN SHEET
+  (set photo + "The slot before you": ran over N min / house left a mess + photos) → REPORTS reviewed by Maanik in
+  Team → Check-ins ("Reports to review": Dismiss / Strike for X); reports logged on both shoots' history.
+- PROPOSED BUILD STEPS (Oct 16, awaiting owner go-ahead): (1) schedule core: houses, slot grid, blocks, instant
+  booking/cancel with no double-booking (transactions like props), Book screen + team Schedule/Block, How it works,
+  settings; (2) Google Calendar: one-time import of future events + one-way copy of every booking/block (owner shares
+  the calendar with the functions' service account; Calendar API on; free); (3) shoot-centred creator app: Home /
+  Book / Browse / Me, shoot sheet, props + gear attach to a shoot, new cutoffs; old bookings keep working;
+  (4) check-in/wrap, reports, missed check-in flags, strikes + automatic pause, Creators view; (5) priority days +
+  Sunday release + partner invite 10-min hold (scheduled function → Cloud Scheduler, cents/month, owner OK);
+  (6) monthly wishlist + fair draw (scheduled, 20th 6 PM). Notices in-app (To do) until email is set up.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
