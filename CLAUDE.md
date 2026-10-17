@@ -351,7 +351,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   separate baskets + shoot-day picker). Team persona (Maanik): Schedule / Team (Check-ins, Creators, Block,
   Settings incl. draw + Sunday release) / How it works. Arts + equipment queues stay, each request shows its shoot.
 - OWNER ANSWERS to the guesses (Oct 16, one by one):
-  1. Partner invite HOLDS the next slot for the invited partner for 10 MINUTES, then it opens to everyone.
+  1. Partner invite HOLDS the next slot for the invited partner for 10 MINUTES, then it opens to everyone. (Changed to 20 MINUTES Oct 17.)
   2. Slots: 9 per day, 2 h each, first 7–9 AM, last 11 PM–1 AM (crosses midnight!).
   3. Wishlist open 15th–20th, draw 20th 6 PM.
   4. Sunday release of unclaimed Thu/Sat slots at 6 PM.
@@ -584,8 +584,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   OWNER (Oct 17): GROUP shoots via the assistant: "I'm filming with Kyle and Jana this week" → finds back-to-back slots
   free for ALL (same house, one slot each, e.g. You 1–3 · Kyle 3–5 · Jana 5–7) → booking books YOUR slot and auto-INVITES
   each friend to confirm their own slot (held for them; confirm with one tap; if they can't, it opens to everyone).
-  Mockup shows Booked / Invited · held / Confirmed. OPEN: hold length for these invites (owner chose 10 min for partner
-  invites; may be short for a group — asked).
+  Mockup shows Booked / Held 20 min / Confirmed. OWNER DECISION (Oct 17): invite HOLD = 20 MINUTES (so it doesn't block
+  other creators for long); while held, the schedule shows the slot as "Held for <name> · opens at <time> if they don't
+  confirm" (dashed amber) so others know to check back. Applied to partner invites too (one rule; was 10 min).
   AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
   budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
   the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI
