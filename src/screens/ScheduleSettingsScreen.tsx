@@ -85,6 +85,7 @@ export default function ScheduleSettingsScreen() {
           <p className="text-pt-muted text-xs">The app copies every booking, move, cancel and blocked time to this calendar. Changes made in Google Calendar are not copied back. Find the ID in Google Calendar → the calendar's Settings → "Integrate calendar" → Calendar ID.</p>
           <input value={s.googleCalendarId} onChange={e => set({ googleCalendarId: e.target.value.trim() })} placeholder="e.g. abc123@group.calendar.google.com" className={field} />
           <CalendarTest />
+          <button onClick={() => navigate('/schedule/import')} className="block text-pt-accent text-sm">Import what's already in the calendar ›</button>
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">

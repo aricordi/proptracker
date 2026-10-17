@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 312 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 313 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -464,7 +464,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   - Tests 308. Checked in a browser on the emulator (accept a swap, offsite any hours, move, profile photo + channel).
   - Functions added to deploy/log lists: moveshoot requestswap answerswap.
 
-- STEP 1 + EXTRAS DEPLOY: backend run 25 started Oct 17 (owner OK "yes deploy").
+- STEP 1 + EXTRAS: backend DEPLOYED Oct 17 (run 25, green, owner OK). Preview has the app. Live website NOT updated yet (ask).
 - STEP 2 (GOOGLE CALENDAR) PART 1 BUILT (Oct 17; NOT deployed — needs a backend deploy, owner OK):
   `functions/src/calendar.ts`:
   - PERSONAL FEED: `myCalendarLink` (callable, anyone; reuses one random 36-hex token in `calendar_tokens/{token}`
@@ -482,8 +482,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   - OWNER STEPS before it works: Google Cloud → enable "Google Calendar API" on proptracker-9732e; in Google Calendar
     share the shared calendar with the service account shown by the test ("Make changes to events"); paste the
     calendar ID in Schedule → Settings → Save → Test.
-  - NOT BUILT YET: one-time IMPORT of existing future events with Maanik's review screen (needs the calendar
-    shared first to see the event title format).
+  - IMPORT (built Oct 17): `previewCalendarImport` (team) lists future timed events (next 120 days) not made by the
+    app ('s|b|t'+hex ids) and not already handled (`calendar_imports/{eventId}`), with guesses (`guessImport`: house
+    from "cliff 2/2371" or "cliff/2375" else offsite; block if clean/maint/event/airbnb…; person = first name in
+    the title; nearest slot). `applyCalendarImport` (team): shoot → `placeShootAsTeam` (scheduling.ts; slot must be
+    free; kind extra/offsite; shoot.calendarEventId = original Google event, so the sync UPDATES it instead of making
+    a copy) or block, then remembers the event. Screen `/schedule/import` (CalendarImportScreen, team) from Settings
+    → "Import what's already in the calendar". Emulator returns 2 demo events. Imported shoots count as EXTRA slots.
   - Tests 312 (tests/functions/calendar.test.ts). Functions added to deploy/log lists: mycalendarlink
     testcalendarlink shootscalendar.
 

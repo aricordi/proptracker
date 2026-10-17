@@ -52,3 +52,22 @@ describe('calendar links', () => {
     expect((await call('testCalendarLink', {}, ANA)).error).toBe('PERMISSION_DENIED')
   })
 })
+
+describe('importing the existing calendar', () => {
+  it('previews events with guesses, then imports a shoot (keeping its Google event) and a block; imported ones disappear', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('users/jana@example.com', { email: 'jana@example.com', role: 'creator', active: true, name: 'Jana' })
+    const p = await call('previewCalendarImport', {}, MAANIK)
+    expect(p.ok, p.message).toBe(true)
+    const [shoot, block] = p.result.events
+    expect(shoot.guess).toMatchObject({ action: 'shoot', email: 'jana@example.com', house: 'cliff1', start: 780 })
+    expect(block.guess.action).toBe('block')
+    const r = await call('applyCalendarImport', { items: [
+      { id: shoot.id, action: 'shoot', email: 'jana@example.com', house: 'cliff1', date: shoot.date, start: 780 },
+      { id: block.id, action: 'block', house: 'cliff1', type: 'cleaners', date: block.date, start: block.startMin, end: block.endMin, title: block.title },
+    ] }, MAANIK)
+    expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
+    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+    expect((await call('previewCalendarImport', {}, ANA)).error).toBe('PERMISSION_DENIED')
+  })
+})

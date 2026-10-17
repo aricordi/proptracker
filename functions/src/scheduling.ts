@@ -327,3 +327,23 @@ export const listSchedulePeople = onCall(CALLABLE, async req => {
       .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
   }
 })
+
+// Place a shoot for someone with no rule checks except "the slot is free" (used by the calendar import).
+export async function placeShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}) {
+  const s = await loadScheduleSettings()
+  if (!isDay(spot.date)) throw fail('bad-date')
+  const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : 'extra'
+  const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
+  const at = new Date().toISOString()
+  const ref = db.collection('shoots').doc()
+  await db.runTransaction(async tx => {
+    const write = await editDays(tx, [spot.date], days => placeIn(days[spot.date], spot, { shootId: ref.id, name: who.name, email: who.email, kind }, s))
+    write()
+    tx.set(ref, {
+      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked',
+      bookedBy: by, createdAt: at, updatedAt: at, ...extra,
+      history: [{ at, by, action: 'booked', note: `${spotLabel(spot, s)} · imported from Google Calendar` }],
+    })
+  })
+  return ref.id
+}
