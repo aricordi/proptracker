@@ -83,6 +83,8 @@ export default function HomeScreen() {
   // ?q= lets other screens open a search (e.g. "find something similar").
   const [params] = useSearchParams()
   const [query, setQuery] = useState(() => params.get('q') ?? '')
+  const searchRef = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (params.get('focus')) searchRef.current?.focus() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [availability, setAvailability] = useState<AvailabilityFilter>('all')
   const [similarIds, setSimilarIds] = useState<string[]>([])
@@ -156,8 +158,12 @@ export default function HomeScreen() {
     return { label: 'Free', style: 'bg-green-500/90 text-stone-900' }
   }
 
+  // Creators with a shoot picked: + on the photo adds one (tap again to take it out).
+  const quickAdd = (item: Item) => !isStaff && active.shoot && !item.archived && item.condition !== 'damaged' && (freeFor(item) ?? 0) > 0
+    ? () => cart.setQty(item.id, cart.lines[item.id] ? 0 : 1)
+    : undefined
   const card = (item: Item) => (
-    <ItemCard key={item.id} item={item} subtitle={subtitle(item)} badge={badgeFor(item)} inCart={cart.lines[item.id]} />
+    <ItemCard key={item.id} item={item} subtitle={subtitle(item)} badge={badgeFor(item)} inCart={cart.lines[item.id]} onAdd={quickAdd(item)} />
   )
 
   const filtersActive = !!categoryFilter || availability !== 'all'
@@ -182,6 +188,7 @@ export default function HomeScreen() {
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
           <input
+            ref={searchRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search props, costumes, set dressing…"

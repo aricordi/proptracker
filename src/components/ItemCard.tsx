@@ -39,14 +39,16 @@ interface Props {
   subtitle?: string     // e.g. category, or bin for staff
   badge?: Badge         // overrides the status badge (e.g. "3 free" for chosen dates)
   inCart?: number       // quantity already in the reservation being built
+  onAdd?: () => void    // creators adding to a shoot: a + on the photo adds one straight away
 }
 
 // One tile in the 2-across search grid: big photo, name, status.
-export default function ItemCard({ item, subtitle, badge: override, inCart }: Props) {
+export default function ItemCard({ item, subtitle, badge: override, inCart, onAdd }: Props) {
   const navigate = useNavigate()
   const { label, style } = override ?? badge(item)
 
   return (
+    <div className="relative w-full h-full">
     <button
       onClick={() => navigate(`/item/${item.id}`)}
       className="w-full h-full flex flex-col text-left bg-pt-surface border border-pt-border rounded-2xl overflow-hidden active:opacity-75 transition-opacity"
@@ -57,7 +59,7 @@ export default function ItemCard({ item, subtitle, badge: override, inCart }: Pr
           : <CameraIcon className="w-10 h-10 text-pt-muted" />
         }
         <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>
-        {!!inCart && (
+        {!!inCart && !onAdd && (
           <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
             ✓ {item.quantity > 1 ? inCart : 'Added'}
           </span>
@@ -73,5 +75,13 @@ export default function ItemCard({ item, subtitle, badge: override, inCart }: Pr
         {subtitle && <p className="text-pt-muted text-xs truncate mt-0.5">{subtitle}</p>}
       </div>
     </button>
+    {onAdd && (
+      <button onClick={onAdd} aria-label={inCart ? `Remove ${item.name}` : `Add ${item.name}`}
+        className={`absolute top-2 right-2 min-w-9 h-9 px-2 rounded-full grid place-items-center font-bold backdrop-blur-md border transition-colors ${
+          inCart ? 'pop bg-pt-accent text-stone-900 border-pt-accent text-sm' : 'bg-black/60 text-pt-text border-white/20 text-xl'}`}>
+        {inCart ? (item.quantity > 1 ? `✓ ${inCart}` : '✓') : '+'}
+      </button>
+    )}
+    </div>
   )
 }

@@ -48,4 +48,16 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
+  /* Sideways-scrolling rows (chips, "Your usuals") without a scrollbar. */
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }
+
+/* Opening screen (Splash): the eagle rises in, then the name. */
+@keyframes splash-rise { from { opacity: 0; transform: translateY(8px) scale(0.94); } to { opacity: 1; transform: none; } }
+.splash-rise { animation: splash-rise 0.9s 0.1s both cubic-bezier(0.2, 0.9, 0.3, 1); }
+.splash-rise-late { animation: splash-rise 0.8s 0.45s both ease-out; }
+/* Quick-add pop on a photo's + button. */
+@keyframes pop { 50% { transform: scale(1.2); } }
+.pop { animation: pop 0.35s; }
+@media (prefers-reduced-motion: reduce) { .splash-rise, .splash-rise-late, .pop { animation: none; } }

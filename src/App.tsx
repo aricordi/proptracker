@@ -51,6 +51,7 @@ import ScheduleTeamScreen from './screens/ScheduleTeamScreen'
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import CreatorHomeScreen from './screens/CreatorHomeScreen'
+import Splash from './components/Splash'
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 
 function Loading() {
@@ -190,6 +191,7 @@ export default function App() {
     <GearCartProvider>
     <ShootDaySync />
     <ActiveShootProvider>
+    <Splash />
     <ViewAsFrame on={!!session.viewingAs}>
       <Routes>
         {/* Full-screen routes outside the shell */}
