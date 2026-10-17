@@ -204,6 +204,25 @@ service cloud.firestore {
       allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;
     }
+    // Swap requests between two creators: only those two (and the schedule team) see them; server writes.
+    match /swap_requests/{id} {
+      allow read: if isGearStaff() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
+      allow write: if false;
+    }
+    // Profiles: a small photo + channel name. Everyone in the company sees them; you edit your own;
+    // the owner and schedule team can tidy anyone's (e.g. remove a photo).
+    function validProfile() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'updatedAt'])
+        && d.get('photoURL', '') is string && d.get('photoURL', '').size() <= 1000
+        && d.get('googlePhoto', '') is string && d.get('googlePhoto', '').size() <= 1000
+        && d.get('channel', '') is string && d.get('channel', '').size() <= 60;
+    }
+    match /profiles/{email} {
+      allow read: if isMember() || isGearStaff();
+      allow create, update: if validProfile() && ((signedIn() && myEmail() == email && (isMember() || isGearStaff())) || isGearStaff());
+      allow delete: if false;
+    }
     match /gear_bookings/{id} {
       allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;

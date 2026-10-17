@@ -27,7 +27,7 @@ describe('booking a house', () => {
     expect(r.result.kind).toBe('monthly')
     const shoot = (await getDoc(`shoots/${r.result.id}`))!
     expect(shoot).toMatchObject({ creatorEmail: ANA, creatorName: 'Ana', place: 'cliff1', date: FRI, start: 780, end: 900, kind: 'monthly', status: 'booked', from: `${FRI}T13:00`, to: `${FRI}T15:00` })
-    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780']).toEqual({ shootId: r.result.id, name: 'Ana', kind: 'monthly' })
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780']).toEqual({ shootId: r.result.id, name: 'Ana', email: ANA, kind: 'monthly' })
   })
 
   it('no double-booking, even when two people tap at the same moment', async () => {
@@ -64,10 +64,11 @@ describe('booking a house', () => {
   })
 
   it('offsite shoots go on the schedule without holding a house', async () => {
-    const r = await book(ANA, { place: 'offsite', where: 'Rosewood Park' })
+    const r = await book(ANA, { place: 'offsite', start: 630, end: 900, where: 'Rosewood Park' })   // any half hours: 10:30 AM–3 PM
     expect(r.ok).toBe(true)
-    expect((await getDoc(`schedule_days/${FRI}`))!.offsite).toEqual([{ shootId: r.result.id, name: 'Ana', start: 780, end: 900, where: 'Rosewood Park' }])
-    expect((await book(BEN, { place: 'offsite', where: '' })).message).toMatch(/where/)
+    expect((await getDoc(`schedule_days/${FRI}`))!.offsite).toEqual([{ shootId: r.result.id, name: 'Ana', email: ANA, start: 630, end: 900, where: 'Rosewood Park' }])
+    expect((await book(BEN, { place: 'offsite', end: 900, where: '' })).message).toMatch(/where/)
+    expect((await book(BEN, { place: 'offsite', start: 900, end: 840, where: 'Park' })).message).toMatch(/start and end/)
     expect((await book(BEN, {})).ok).toBe(true)   // Cliff 1 at the same time is still free
   })
 })
@@ -129,5 +130,75 @@ describe('schedule team', () => {
     const people = await call('listSchedulePeople', {}, OWNER)
     expect(people.result.people.map((p: { email: string }) => p.email)).toContain(BEN)
     expect((await call('listSchedulePeople', {}, BEN)).error).toBe('PERMISSION_DENIED')
+  })
+})
+
+// A shoot about a day away: inside the 48-hour notice period (skip near midnight edge cases by using an afternoon slot).
+let SOON = addDays(today, 1)
+if (weekday(SOON) === 4 || weekday(SOON) === 6) SOON = addDays(SOON, 1)   // avoid priority days
+
+describe('moving and the 48-hour notice', () => {
+  it('moves to a free slot in one step; the old slot frees up and the history says where from', async () => {
+    const r = await book(ANA, {})
+    const m = await call('moveShoot', { id: r.result.id, place: 'cliff2', date: FRI, start: 1380 }, ANA)
+    expect(m.ok, m.message).toBe(true)
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff1?.['780']).toBeUndefined()
+    expect(day.cliff2['1380']).toMatchObject({ shootId: r.result.id, name: 'Ana', kind: 'extra' })   // Cliff 2 is never monthly
+    const shoot = (await getDoc(`shoots/${r.result.id}`))!
+    expect(shoot).toMatchObject({ place: 'cliff2', start: 1380, kind: 'extra', to: `${addDays(FRI, 1)}T01:00` })   // 11 PM–1 AM
+    expect(shoot.history.at(-1).action).toBe('moved')
+  })
+
+  it('a move to a taken slot changes nothing', async () => {
+    const r = await book(ANA, {})
+    await book(BEN, { start: 900 })
+    expect((await call('moveShoot', { id: r.result.id, place: 'cliff1', date: FRI, start: 900 }, ANA)).message).toMatch(/just booked/)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId).toBe(r.result.id)
+  })
+
+  it('inside 48 hours: no free move; cancelling needs confirming and counts as a no-show; the team is exempt', async () => {
+    const r = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
+    expect(r.ok, r.message).toBe(true)
+    expect((await call('moveShoot', { id: r.result.id, date: FRI, start: 1260 }, ANA)).message).toMatch(/Swap with someone/)
+    expect((await call('cancelShoot', { id: r.result.id }, ANA)).message).toMatch(/no-show/)
+    const c = await call('cancelShoot', { id: r.result.id, confirmNoShow: true }, ANA)
+    expect(c.result.lateCancel).toBe(true)
+    expect((await getDoc(`shoots/${r.result.id}`))!).toMatchObject({ status: 'cancelled', noShow: 'late-cancel' })
+    const r2 = await book(BEN, { date: SOON, start: 1260, kind: 'extra' })
+    expect((await call('moveShoot', { id: r2.result.id, date: FRI, start: 1260 }, MAANIK)).ok).toBe(true)
+  })
+})
+
+describe('swaps', () => {
+  it('ask, accept, and both shoots trade places in one step (even inside 48 hours)', async () => {
+    const a = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
+    const b = await book(BEN, { start: 900 })
+    const req = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    expect(req.ok, req.message).toBe(true)
+    expect((await call('answerSwap', { id: req.result.id, accept: true }, ANA)).error).toBe('PERMISSION_DENIED')   // can't accept your own
+    expect((await call('answerSwap', { id: req.result.id, accept: true }, BEN)).ok).toBe(true)
+    expect((await getDoc(`shoots/${a.result.id}`))!).toMatchObject({ creatorEmail: ANA, date: FRI, start: 900 })
+    expect((await getDoc(`shoots/${b.result.id}`))!).toMatchObject({ creatorEmail: BEN, date: SOON, start: 1260 })
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['900']).toMatchObject({ shootId: a.result.id, name: 'Ana' })
+    expect((await getDoc(`schedule_days/${SOON}`))!.cliff1['1260']).toMatchObject({ shootId: b.result.id, name: 'Ben' })
+    expect((await getDoc(`swap_requests/${req.result.id}`))!.status).toBe('accepted')
+  })
+
+  it('declined swaps change nothing; one open request per shoot; stale requests expire', async () => {
+    const a = await book(ANA, {}), b = await book(BEN, { start: 900 })
+    const req = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    expect((await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)).message).toMatch(/already asked/)
+    expect((await call('answerSwap', { id: req.result.id, accept: false }, BEN)).ok).toBe(true)
+    expect((await getDoc(`shoots/${a.result.id}`))!.start).toBe(780)
+    const req2 = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    await call('moveShoot', { id: b.result.id, date: FRI, start: 1020 }, BEN)   // Ben moves first
+    expect((await call('answerSwap', { id: req2.result.id, accept: true }, BEN)).message).toMatch(/no longer works/)
+    expect((await getDoc(`swap_requests/${req2.result.id}`))!.status).toBe('expired')
+  })
+
+  it('you can only offer your own shoot', async () => {
+    const a = await book(ANA, {}), b = await book(BEN, { start: 900 })
+    expect((await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, BEN)).error).toBe('PERMISSION_DENIED')
   })
 })

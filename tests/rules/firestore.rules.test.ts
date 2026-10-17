@@ -386,3 +386,29 @@ describe('house schedule', () => {
     await assertFails(setDoc(doc(as(GEAR), 'app_settings', 'schedule'), { monthlySlots: 9 }))
   })
 })
+
+describe('swap requests and profiles', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'swap_requests', 'w1'), { fromEmail: CREATOR, toEmail: 'other@example.com', status: 'pending' })
+      await setDoc(doc(db, 'swap_requests', 'w2'), { fromEmail: 'a@example.com', toEmail: 'b@example.com', status: 'pending' })
+    })
+  })
+  it('only the two people (and the schedule team) see a swap request; nobody writes them directly', async () => {
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'swap_requests', 'w1')))
+    await assertFails(getDoc(doc(as(CREATOR), 'swap_requests', 'w2')))
+    await assertSucceeds(getDoc(doc(as(GEAR), 'swap_requests', 'w2')))
+    await assertFails(setDoc(doc(as(CREATOR), 'swap_requests', 'w3'), { fromEmail: CREATOR, status: 'accepted' }))
+  })
+  it('you edit your own profile (photo + channel name) and everyone sees it; the team can tidy anyone\'s', async () => {
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { photoURL: 'https://x/y.jpg', channel: '@riley' }))
+    await assertSucceeds(getDoc(doc(as(ARTS), 'profiles', CREATOR)))
+    await assertSucceeds(getDoc(doc(as(GEAR), 'profiles', CREATOR)))
+    await assertFails(setDoc(doc(as(ARTS), 'profiles', CREATOR), { photoURL: '' }))
+    await assertSucceeds(setDoc(doc(as(GEAR), 'profiles', CREATOR), { photoURL: '', channel: '@riley' }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { photoURL: '', role: 'owner' }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { channel: 'x'.repeat(61) }))
+    await assertFails(getDoc(doc(as(STRANGER), 'profiles', CREATOR)))
+  })
+})

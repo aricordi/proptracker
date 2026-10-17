@@ -78,6 +78,13 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // Profile photos (small, square). Everyone in the company can see them; you upload your own.
+    match /avatars/{email}/{file} {
+      allow read: if isMember() || isGearStaff();
+      allow create: if resource == null && isImage() && (isMember() || isGearStaff()) && myEmail() == email;
+      allow update, delete: if false;
+    }
+
     match /{allPaths=**} {
       allow read: if isOwner();
     }

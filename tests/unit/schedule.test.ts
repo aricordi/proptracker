@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   cleanScheduleSettings, slotState, findFree, priorityLocked, releaseStamp, slotWindow, checkSlot, fmtSlot,
-  DEFAULT_SCHEDULE, type ScheduleDay,
+  DEFAULT_SCHEDULE, isShortNotice, offsiteHoursOk, type ScheduleDay,
 } from '../../functions/src/schedule'
 
 const S = DEFAULT_SCHEDULE
@@ -72,5 +72,18 @@ describe('checkSlot', () => {
     expect(checkSlot('cliff1', '2027-06-01', 540, S, '2026-10-17', '2026-10-17T10:00')).toBe('too-far')
     expect(checkSlot('garage', FRI, 540, S, '2026-10-17', '2026-10-17T10:00')).toBe('bad-slot')
     expect(checkSlot('offsite', FRI, 540, S, '2026-10-17', '2026-10-17T10:00')).toBe(null)
+  })
+})
+
+describe('notice and offsite hours', () => {
+  it('48 hours before the start is the line', () => {
+    expect(isShortNotice('2026-10-20T13:00', '2026-10-18T13:01', S)).toBe(true)
+    expect(isShortNotice('2026-10-20T13:00', '2026-10-18T12:59', S)).toBe(false)
+  })
+  it('offsite: any half hours, ending after the start, at most 18 hours', () => {
+    expect(offsiteHoursOk(630, 900)).toBe(true)
+    expect(offsiteHoursOk(630, 630)).toBe(false)
+    expect(offsiteHoursOk(630, 915)).toBe(false)
+    expect(offsiteHoursOk(600, 600 + 19 * 60)).toBe(false)
   })
 })

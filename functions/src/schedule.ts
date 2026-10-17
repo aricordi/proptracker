@@ -21,6 +21,7 @@ export interface ScheduleSettings {
   priority: { email: string; name: string }[]   // priority group (Thursdays + Saturdays at Cliff 1)
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
+  noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
 }
 
 // Owner decisions, Oct 16: 9 slots from 7–9 AM to 11 PM–1 AM, 4 monthly Cliff 1 slots,
@@ -36,6 +37,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   priority: [],
   priorityWeekdays: [4, 6],
   releaseMinute: 18 * 60,
+  noticeHours: 48,
 }
 export const MONTHLY_HOUSE: House = 'cliff1'
 export const PRIORITY_HOUSE: House = 'cliff1'
@@ -68,12 +70,13 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
       : [],
     priorityWeekdays: days,
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
+    noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
   }
 }
 
 // ─── What one day of the schedule holds ──────────────────────────────────────
-export interface SlotEntry { shootId: string; name: string; kind: ShootKind }
-export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string }
+export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string }
+export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string }
 export type BlockType = 'cleaners' | 'maintenance' | 'event' | 'rental' | 'other'
 export const BLOCK_TYPES: Record<BlockType, string> = {
   cleaners: 'Cleaners', maintenance: 'Maintenance', event: 'Event', rental: 'External rental', other: 'Blocked',
@@ -150,10 +153,11 @@ export function findFree(days: Record<string, ScheduleDay>, fromDate: string, da
   return out
 }
 
-export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where'
+export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice'
 export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'bad-date': 'Pick a day.',
   'bad-slot': 'Pick one of the 2-hour slots.',
+  'bad-hours': 'Pick a start and end time, in half hours, ending after it starts.',
   'in-past': 'That slot has already started.',
   'too-far': `Bookings can be made up to ${BOOK_AHEAD_DAYS} days ahead.`,
   locked: 'This priority-day slot opens to everyone on the Sunday before, at the release time.',
@@ -161,14 +165,23 @@ export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   taken: 'Someone just booked that slot. Pick another one.',
   blocked: 'That time is blocked at the house.',
   'no-where': 'Say where the offsite shoot is.',
+  'short-notice': 'Less than 48 hours to go. Swap with someone instead, or cancel (it counts as a no-show).',
 }
 
 // Checks that don't need the database (the rest happen in the transaction).
 export function checkSlot(place: unknown, date: unknown, start: unknown, s: ScheduleSettings, today: string, now: string): ScheduleProblem | null {
   if (!isDay(date)) return 'bad-date'
   if (place !== 'cliff1' && place !== 'cliff2' && place !== 'offsite') return 'bad-slot'
-  if (!Number.isInteger(start) || !s.slots.includes(start as number)) return 'bad-slot'
+  if (place === 'offsite') { if (!Number.isInteger(start) || (start as number) < 0 || (start as number) >= 1440 || (start as number) % 30) return 'bad-hours' }
+  else if (!Number.isInteger(start) || !s.slots.includes(start as number)) return 'bad-slot'
   if (stamp(date, start as number) <= now) return 'in-past'
   if (date > addDays(today, BOOK_AHEAD_DAYS)) return 'too-far'
   return null
 }
+
+// Offsite shoots take any start/end in half hours; up to 18 hours long, may run past midnight.
+export const offsiteHoursOk = (start: number, end: unknown): end is number =>
+  Number.isInteger(end) && (end as number) > start && (end as number) % 30 === 0 && (end as number) <= start + 18 * 60
+
+// Less than the notice period (48 h) before the shoot starts? Moving or cancelling now counts as a no-show.
+export const isShortNotice = (from: string, now: string, s: ScheduleSettings) => from <= addMinutes(now, s.noticeHours * 60)
