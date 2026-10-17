@@ -111,7 +111,16 @@ const shoots = [
   { id: 'sh3', d: 1, place: 'cliff1', start: 900, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
   { id: 'sh4', d: 2, place: 'cliff2', start: 1140, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra' },
   { id: 'sh5', d: 2, place: 'offsite', start: 900, email: 'kyle@example.com', name: 'Kyle', kind: 'offsite', where: 'Rosewood Park' },
+  // Yesterday: Kyle never checked in (shows in Schedule team → Check-ins).
+  { id: 'sh6', d: -1, place: 'cliff2', start: 780, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
 ]
+// Right now (if a slot is running): Riley at Cliff 2 can check in; Jana had the slot before (to report).
+const nowMin = (([h, m]) => h * 60 + m)(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number))
+const slotNow = [420, 540, 660, 780, 900, 1020, 1140, 1260, 1380].find(t => t <= nowMin && nowMin < t + 120)
+if (slotNow) {
+  shoots.push({ id: 'sh7', d: 0, place: 'cliff2', start: slotNow, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra' })
+  if (slotNow > 420) shoots.push({ id: 'sh8', d: 0, place: 'cliff2', start: slotNow - 120, email: 'jana@example.com', name: 'Jana', kind: 'extra' })
+}
 const scheduleDays = {}
 for (const x of shoots) {
   const date = dayOf(x.d), pad = n => String(n).padStart(2, '0'), hm = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`
