@@ -42,8 +42,17 @@ const cameraIcon = (
   </svg>
 )
 
+const scheduleIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+    <path d="M3 10.5 12 4l9 6.5" />
+    <path d="M5 9v11h14V9" />
+    <path d="M12 12.5v3.5l2 1.5" />
+  </svg>
+)
+
 const staffNav = [
   { to: '/',         label: 'Search',   icon: searchIcon },
+  { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
   { to: '/reservations', label: 'Queue', icon: reservationsIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
   { to: '/admin',    label: 'Admin',    icon: adminIcon },
@@ -51,6 +60,7 @@ const staffNav = [
 
 const creatorNav = [
   { to: '/',             label: 'Props',    icon: searchIcon },
+  { to: '/schedule',     label: 'Schedule', icon: scheduleIcon },
   { to: '/gear',         label: 'Gear',     icon: cameraIcon },
   { to: '/reservations', label: 'Bookings', icon: reservationsIcon },
   { to: '/account',      label: 'Account',  icon: accountIcon },
@@ -66,6 +76,7 @@ const gearIcon = (
 
 // Equipment team: gear only (the gear queue arrives with gear bookings).
 const equipmentNav = [
+  { to: '/schedule',      label: 'Schedule', icon: scheduleIcon },
   { to: '/gear/bookings', label: 'Bookings', icon: reservationsIcon },
   { to: '/gear/bundles', label: 'Bundles',  icon: gearIcon },
   { to: '/gear/items',   label: 'All gear', icon: cameraIcon },

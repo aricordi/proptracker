@@ -43,6 +43,9 @@ import ReserveScreen from './screens/ReserveScreen'
 import ReservationsScreen from './screens/ReservationsScreen'
 import ReservationDetailScreen from './screens/ReservationDetailScreen'
 import BookingRulesScreen from './screens/BookingRulesScreen'
+import ScheduleScreen from './screens/ScheduleScreen'
+import ScheduleSettingsScreen from './screens/ScheduleSettingsScreen'
+import ScheduleRulesScreen from './screens/ScheduleRulesScreen'
 import { CartProvider } from './cart'
 
 function Loading() {
@@ -189,6 +192,9 @@ export default function App() {
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
           <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
+          <Route path="/schedule" element={<ScheduleScreen />} />
+          <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
+          <Route path="/schedule/settings" element={<GearOnly><ScheduleSettingsScreen /></GearOnly>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />

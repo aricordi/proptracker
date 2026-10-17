@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 272 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 296 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -390,6 +390,35 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   (4) check-in/wrap, reports, missed check-in flags, strikes + automatic pause, Creators view; (5) priority days +
   Sunday release + partner invite 10-min hold (scheduled function → Cloud Scheduler, cents/month, owner OK);
   (6) monthly wishlist + fair draw (scheduled, 20th 6 PM). Notices in-app (To do) until email is set up.
+
+- STEP 1 BUILT (Oct 17, owner said go; NOT deployed: backend needs owner OK — new rules + 6 functions + index):
+  - Shared rules `functions/src/schedule.ts` (app + server): settings in app_settings/schedule (cleanScheduleSettings;
+    defaults = owner answers: slots [420…1380] 2 h, 4 monthly Cliff 1 slots, priority Thu+Sat until Sunday 6 PM,
+    priority group = list of {email,name}); slotState / findFree / priorityLocked / releaseStamp / checkSlot.
+  - ONE DOC PER DAY `schedule_days/{YYYY-MM-DD}`: cliff1/cliff2 maps slot start ('780') → {shootId, name, kind},
+    offsite[] {shootId,name,start,end,where}, blocks[] {id,house,start,end,type,note}. Booking writes it in a
+    transaction → no double-booking (race tested). Slots keyed by START MINUTE, so changing the grid never breaks
+    old bookings. `shoots/{id}`: creatorEmail/Name, place cliff1|cliff2|offsite, where, date, month, start/end,
+    from/to stamps (last slot ends next day 1 AM), kind monthly|extra|offsite, status booked|cancelled, bookedBy,
+    lateCancel (same-day priority-day cancel; strikes come in step 4), history.
+  - Server `functions/src/scheduling.ts`: bookShoot (owner/arts/creator/equipment; team may book forEmail and skips
+    priority lock; monthly only at Cliff 1, counted per month; offsite needs `where`), cancelShoot (own before start,
+    or team any time = "by the schedule team"), addScheduleBlock (team; refuses over a booking, says whose),
+    removeScheduleBlock, saveScheduleSettings, listSchedulePeople (team; equipment can't read users).
+  - Rules: schedule_days read members+equipment; shoots read own or owner/equipment; app_settings/schedule readable
+    by equipment too; no client writes. Index shoots creatorEmail+date. Functions added to deploy/log lists.
+  - App: tab "Schedule" for everyone (creators: Props/Schedule/Gear/Bookings/Account; staff + equipment too).
+    `ScheduleScreen` (/schedule): Cliff 1 | Cliff 2 | Offsite, 35-day strip (gold dot = your shoot), next-shoot card,
+    notes (Sunday no crew, priority lock with release time, Cliff 2), slot rows (Free / name / You / Blocked /
+    Priority only 🔒 / Past), sheets: Book (Monthly N left / Extra; team "Book for"), Your shoot (details, history,
+    cancel with confirm + same-day warning), team Book-or-block (types + all day), remove block, Find a time
+    (2/4/6 h, either house, 60 days). Offsite tab lists + adds offsite shoots. `ScheduleSettingsScreen`
+    (/schedule/settings, owner+equipment): houses, slot chips, monthly count, priority weekdays + release time +
+    priority group checklist. `ScheduleRulesScreen` (/schedule/how) = How it works from live settings.
+  - Seed: jana@ (priority) + kyle@ creators, 5 shoots, a cleaners block. Tests: 296 (unit schedule + functions
+    schedule + rules). Checked in a browser on the emulator (creator books/cancels, Thu locked, team books for
+    Kyle, blocks, saves settings).
+  - Owner must set the real PRIORITY GROUP in Schedule → Settings after deploy (names need app accounts).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site

@@ -192,6 +192,20 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "shoots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "creatorEmail",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

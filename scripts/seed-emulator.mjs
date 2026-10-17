@@ -35,6 +35,8 @@ const users = [
   { email: 'arts@example.com', name: 'Sam (Arts)', role: 'arts', active: true },
   { email: 'creator@example.com', name: 'Riley (Creator)', role: 'creator', active: true },
   { email: 'gear@example.com', name: 'Dev (Equipment)', role: 'equipment', active: true },
+  { email: 'jana@example.com', name: 'Jana', role: 'creator', active: true },
+  { email: 'kyle@example.com', name: 'Kyle', role: 'creator', active: true },
   { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false },
 ]
 const locations = [{ id: 'loc-main', name: 'Main prop room' }, { id: 'loc-cage', name: 'Costume cage' }]
@@ -99,5 +101,28 @@ await put('gear_bundles/b-600d', { name: 'Aputure 600d Light Bundle', category: 
   kind: 'bundle', pieces: [{ itemId: 'g-600d', qty: 1, name: 'Aputure 600d light' }, { itemId: 'g-cst', qty: 1, name: 'C-stand' }], ...meta })
 await put('gear_bundles/x-cst', { name: 'C-stand', category: 'Grip', description: '', photos: [], archived: false,
   kind: 'extra', pieces: [{ itemId: 'g-cst', qty: 4, name: 'C-stand' }], ...meta })
+
+// House schedule: Jana is in the priority group; a few shoots over the next days.
+const dayOf = n => { const d = new Date(Date.now() + n * 86400000); return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(d) }
+await put('app_settings/schedule', { priority: [{ email: 'jana@example.com', name: 'Jana' }] })
+const shoots = [
+  { id: 'sh1', d: 1, place: 'cliff1', start: 660, email: 'jana@example.com', name: 'Jana', kind: 'monthly' },
+  { id: 'sh2', d: 1, place: 'cliff1', start: 780, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'monthly' },
+  { id: 'sh3', d: 1, place: 'cliff1', start: 900, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
+  { id: 'sh4', d: 2, place: 'cliff2', start: 1140, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra' },
+  { id: 'sh5', d: 2, place: 'offsite', start: 900, email: 'kyle@example.com', name: 'Kyle', kind: 'offsite', where: 'Rosewood Park' },
+]
+const scheduleDays = {}
+for (const x of shoots) {
+  const date = dayOf(x.d), pad = n => String(n).padStart(2, '0'), hm = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`
+  await put(`shoots/${x.id}`, { creatorEmail: x.email, creatorName: x.name, place: x.place, where: x.where ?? '', date, month: date.slice(0, 7),
+    start: x.start, end: x.start + 120, from: `${date}T${hm(x.start)}`, to: `${date}T${hm(x.start + 120)}`, kind: x.kind, status: 'booked',
+    bookedBy: x.email, createdAt: now, updatedAt: now, history: [{ at: now, by: x.email, action: 'booked', note: 'seed' }] })
+  const day = scheduleDays[date] ??= { date }
+  if (x.place === 'offsite') (day.offsite ??= []).push({ shootId: x.id, name: x.name, start: x.start, end: x.start + 120, where: x.where })
+  else (day[x.place] ??= {})[String(x.start)] = { shootId: x.id, name: x.name, kind: x.kind }
+}
+scheduleDays[dayOf(1)].blocks = [{ id: 'blk1', house: 'cliff1', start: 420, end: 540, type: 'cleaners', note: 'Cleaners' }]
+for (const [date, day] of Object.entries(scheduleDays)) await put(`schedule_days/${date}`, day)
 
 console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)

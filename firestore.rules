@@ -193,6 +193,17 @@ service cloud.firestore {
       allow write: if false;
     }
     // Gear bookings: the creator sees their own; the owner and equipment team see all.
+    // House schedule: one doc per day (who booked each slot, offsite shoots, blocked time).
+    // Everyone can see the schedule; only server functions write it.
+    match /schedule_days/{day} {
+      allow read: if isMember() || isGearStaff();
+      allow write: if false;
+    }
+    // Shoots: the creator sees their own; the owner and schedule team (equipment) see all.
+    match /shoots/{id} {
+      allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
+      allow write: if false;
+    }
     match /gear_bookings/{id} {
       allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;
@@ -217,7 +228,7 @@ service cloud.firestore {
     }
 
     match /app_settings/{id} {
-      allow read: if isMember();
+      allow read: if isMember() || (id == 'schedule' && isGearStaff());
       allow write: if isOwner()
         || (isStaff() && id == 'booking'
             && request.resource.data.keys().hasOnly(['leadTimeDays', 'bufferDays', 'maxDays', 'closedWeekdays', 'closedDates', 'updatedAt', 'updatedBy'])

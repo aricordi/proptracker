@@ -356,3 +356,33 @@ describe('gear bookings', () => {
     await assertFails(setDoc(doc(as(CREATOR), 'gear_bookings', 'new'), { creatorEmail: CREATOR, status: 'held' }))
   })
 })
+
+describe('house schedule', () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'schedule_days', '2026-11-06'), { date: '2026-11-06', cliff1: { 780: { shootId: 's1', name: 'Ana', kind: 'monthly' } } })
+      await setDoc(doc(db, 'shoots', 's1'), { creatorEmail: CREATOR, status: 'booked' })
+      await setDoc(doc(db, 'shoots', 's2'), { creatorEmail: 'someone@example.com', status: 'booked' })
+      await setDoc(doc(db, 'app_settings', 'schedule'), { monthlySlots: 4 })
+    })
+  })
+  it('everyone in the company sees the schedule; strangers do not; nobody writes it directly', async () => {
+    for (const who of [CREATOR, ARTS, GEAR, OWNER]) await assertSucceeds(getDoc(doc(as(who), 'schedule_days', '2026-11-06')))
+    await assertFails(getDoc(doc(as(STRANGER), 'schedule_days', '2026-11-06')))
+    await assertFails(setDoc(doc(as(GEAR), 'schedule_days', '2026-11-07'), { date: '2026-11-07' }))
+    await assertFails(setDoc(doc(as(CREATOR), 'schedule_days', '2026-11-07'), { date: '2026-11-07' }))
+  })
+  it('creators read only their own shoots; the schedule team and owner read all', async () => {
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'shoots', 's1')))
+    await assertFails(getDoc(doc(as(CREATOR), 'shoots', 's2')))
+    await assertSucceeds(getDoc(doc(as(GEAR), 'shoots', 's2')))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'shoots', 's2')))
+    await assertFails(setDoc(doc(as(CREATOR), 'shoots', 's3'), { creatorEmail: CREATOR, status: 'booked' }))
+  })
+  it('the equipment team can read the schedule settings (but not other settings)', async () => {
+    await assertSucceeds(getDoc(doc(as(GEAR), 'app_settings', 'schedule')))
+    await assertFails(getDoc(doc(as(GEAR), 'app_settings', 'booking')))
+    await assertFails(setDoc(doc(as(GEAR), 'app_settings', 'schedule'), { monthlySlots: 9 }))
+  })
+})
