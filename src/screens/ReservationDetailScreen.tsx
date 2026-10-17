@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
+import ChangeRequest from '../components/ChangeRequest'
 import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
 import { useLocations } from '../hooks/useLocations'
@@ -104,6 +105,10 @@ export default function ReservationDetailScreen() {
 
         {/* ── Everyone else before packing: what's in it ── */}
         {!(isStaff && (s === 'requested' || s === 'preparing')) && <ContentsList res={res} />}
+        {mine && s === 'requested' && <ChangeRequest res={res} />}
+        {mine && s !== 'requested' && ACTIVE_STATUSES.includes(s) && res.shootId && (
+          <p className="text-pt-muted text-xs -mt-2">The arts department has started on this, so it can't be changed here. Need something else? Add more to the same shoot from Browse.</p>
+        )}
 
         {/* ── Packed: proof + creator sign-off ── */}
         {res.packPhotos && (
@@ -682,7 +687,7 @@ function History({ res }: { res: Reservation }) {
       <ul className="space-y-1">
         {res.history.map((h, i) => (
           <li key={i} className="text-pt-muted text-xs">
-            {formatDay(h.at.slice(0, 10), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
+            {formatDay(h.at.slice(0, 10), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
             {h.reason ? ` ("${h.reason}")` : ''}
           </li>
         ))}

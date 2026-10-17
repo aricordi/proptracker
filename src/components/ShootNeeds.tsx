@@ -19,6 +19,9 @@ const GEAR_WORDS: Record<string, string> = {
   held: 'Held', out: 'Picked up', returned: 'Returned', checked_in: 'Checked in', declined: 'Declined', cancelled: 'Cancelled',
 }
 
+const PROP_STEPS = ['requested', 'preparing', 'packed', 'collected', 'returned']
+const GEAR_STEPS = ['held', 'out', 'returned', 'checked_in']
+
 // Live list of this shoot's props and gear bookings (yours; the team sees gear).
 function useLinked(shoot: Shoot, props: boolean, gear: boolean) {
   const [p, setP] = useState<Linked[]>([])
@@ -59,13 +62,22 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
           <button onClick={() => add(to)} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-1.5 text-sm">+ Add</button>
         )}
       </div>
-      {list.map(l => (
-        <button key={l.id} onClick={() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`)}
-          className="w-full flex items-center justify-between gap-2 bg-pt-surface rounded-lg px-3 py-2 text-left">
-          <span className="min-w-0 truncate text-pt-text text-sm">{l.title} · {l.count} {kind === 'props' ? (l.count === 1 ? 'prop' : 'props') : 'item' + (l.count === 1 ? '' : 's')}</span>
-          <span className={`shrink-0 text-xs ${['cancelled', 'declined'].includes(l.status) ? 'text-pt-muted' : 'text-pt-accent'}`}>{(kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
-        </button>
-      ))}
+      {list.map(l => {
+        const steps = kind === 'props' ? PROP_STEPS : GEAR_STEPS
+        const at = steps.indexOf(l.status === 'return_pending' ? 'returned' : l.status)
+        const over = ['cancelled', 'declined'].includes(l.status)
+        return (
+          <button key={l.id} onClick={() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`)}
+            className="w-full bg-pt-surface rounded-lg px-3 py-2.5 text-left space-y-2">
+            <span className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-pt-text text-sm">{l.title} · {l.count} {kind === 'props' ? (l.count === 1 ? 'prop' : 'props') : 'item' + (l.count === 1 ? '' : 's')}</span>
+              <span className={`shrink-0 text-xs ${over ? 'text-pt-muted' : 'text-pt-accent'}`}>{(kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
+            </span>
+            {!over && <span className="flex gap-1">{steps.map((_, i) => <i key={i} className={`flex-1 h-1.5 rounded-full ${i <= at ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>}
+            {!over && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}
+          </button>
+        )
+      })}
       {list.length === 0 && <p className="text-pt-muted text-xs">Nothing yet.</p>}
     </div>
   )

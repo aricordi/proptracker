@@ -45,7 +45,7 @@ export interface Reservation {
   returnedWithoutCreatorPhoto?: boolean
   createdAt: string
   updatedAt: string
-  history: { status: ReservationStatus; at: string; by: string; reason?: string }[]
+  history: { status: ReservationStatus; at: string; by: string; reason?: string; event?: string }[]
 }
 
 // Statuses in which props are still tied up (mirrors functions/src/reservations.ts).
@@ -110,6 +110,8 @@ export const createReservation = httpsCallable<
 >(functions, 'createReservation')
 
 export const cancelReservation  = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelReservation')
+// Change a request while it's still "Requested" (quantities, props out/in, things to make or find).
+export const editReservation = httpsCallable<{ id: string; lines: { itemId: string; qty: number }[]; builds: NewBuild[]; notes?: string }, { ok: boolean }>(functions, 'editReservation')
 export const declineReservation = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineReservation')
 type Ok = { ok: boolean }
 export const setLinePick    = httpsCallable<{ id: string; itemId: string; state: 'picked' | 'todo' | 'unavailable'; reason?: string }, Ok>(functions, 'setLinePick')

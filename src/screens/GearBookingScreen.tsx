@@ -1,3 +1,4 @@
+import ChangeGear from '../components/ChangeGear'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
@@ -13,7 +14,7 @@ import ShootLink from '../components/ShootLink'
 import { formatDay } from '../lib/dates'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
-const ACTIONS: Record<string, string> = { held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
+const ACTIONS: Record<string, string> = { edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
 const STEPS = ['Held', 'Picked up', 'Returned', 'Checked in']
 const STEP_OF: Record<string, number> = { held: 0, out: 1, returned: 2, checked_in: 3 }
 const stampMin = (s: string) => Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16))
@@ -197,6 +198,8 @@ export default function GearBookingScreen() {
             </div>
           ))}
         </div>
+
+        {b.status === 'held' && mine && <ChangeGear b={b} />}
 
         {b.notes && <div className="bg-pt-surface rounded-2xl px-4 py-3"><p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-pt-text text-[15px] whitespace-pre-wrap">{b.notes}</p></div>}
 

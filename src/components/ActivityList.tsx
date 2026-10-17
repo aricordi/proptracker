@@ -18,7 +18,7 @@ const FIELD_NAMES: Record<string, string> = {
 
 const BOOKING_WORDS: Record<string, string> = {
   requested: 'booked', preparing: 'started picking', packed: 'packed', collected: 'picked up',
-  return_pending: 'brought back', returned: 'checked in', declined: 'declined', cancelled: 'cancelled',
+  return_pending: 'brought back', returned: 'checked in', declined: 'declined', cancelled: 'cancelled', edited: 'changed',
 }
 
 const ICONS: Record<string, string> = {

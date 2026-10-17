@@ -136,6 +136,70 @@ export const cancelGearBooking = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// Change held gear before pickup: other bundles or extras, or other hours on the same day.
+// Anything added (or new hours) follows the usual notice and availability rules; removing is always fine.
+export const editGearBooking = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
+  if (caller.role === 'creator') await assertNotPaused(caller.email)
+  const d = req.data ?? {}
+  const id = str(d.id, 100)
+  const lines = tidyLines(d.lines)
+  if (!lines.length) throw new HttpsError('invalid-argument', 'Nothing left. Cancel this gear booking instead.')
+  const settings = await loadSettings()
+  const today = todayInStudio()
+  const ref = db.doc(`gear_bookings/${id}`)
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(ref)
+    const b = snap.data()
+    if (!b) throw new HttpsError('not-found', 'Booking not found.')
+    if (!GEAR_STAFF.includes(caller.role) && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your booking.')
+    if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This gear has been picked up already, so it can\'t be changed.')
+    const start = Number.isInteger(d.start) ? d.start as number : b.start, end = Number.isInteger(d.end) ? d.end as number : b.end
+    const before = new Map(((b.lines ?? []) as { offerId: string; qty: number }[]).map(l => [l.offerId, l.qty]))
+    const adding = lines.some(l => l.qty > (before.get(l.offerId) ?? 0)) || start !== b.start || end !== b.end
+    if (adding) {
+      const problem = checkGearTimes(b.date, start, end, today, minutesNow(), settings, caller.role !== 'creator')
+      if (problem) throw new HttpsError('failed-precondition', problem === 'too-soon' ? `${GEAR_TIME_MESSAGES[problem]} You can still remove things.` : GEAR_TIME_MESSAGES[problem], { problem })
+    }
+    const win = holdWindow(b.date, start, end, settings)
+    const ids = [...new Set([...before.keys(), ...lines.map(l => l.offerId)])]
+    const offerRefs = ids.map(o => db.doc(`gear_bundles/${o}`)), holdRefs = ids.map(o => db.doc(`gear_holds/${o}`))
+    const [offers, holds] = await Promise.all([tx.getAll(...offerRefs), tx.getAll(...holdRefs)])
+    const taken: { name: string; free: number; wanted: number }[] = []
+    const saved = lines.map(l => {
+      const i = ids.indexOf(l.offerId), o = offers[i]
+      const kept = (b.lines as { offerId: string }[]).find(x => x.offerId === l.offerId) as Record<string, unknown> | undefined
+      if (!o.exists || (o.get('archived') === true && !kept)) throw new HttpsError('failed-precondition', 'One of these is no longer offered. Remove it and try again.')
+      const kind = o.get('kind') === 'extra' ? 'extra' : 'bundle'
+      if (kind === 'bundle' && l.qty !== 1) throw new HttpsError('invalid-argument', 'A bundle is booked whole, one at a time.')
+      const pieces = (o.get('pieces') as { itemId: string; qty: number; name?: string }[] | undefined) ?? []
+      const others = ((holds[i].get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id)
+      const free = freeQty(kind === 'extra' ? (pieces[0]?.qty ?? 0) : 1, others, win.from, win.to)
+      if (free < l.qty) taken.push({ name: String(o.get('name')), free, wanted: l.qty })
+      return {
+        offerId: l.offerId, kind, name: String(o.get('name') ?? ''), qty: l.qty,
+        photo: ((o.get('photos') as string[] | undefined) ?? [])[0] ?? null,
+        pieces: pieces.map(p => ({ itemId: p.itemId, qty: kind === 'extra' ? l.qty : p.qty, name: p.name ?? '' })),
+      }
+    })
+    if (taken.length) {
+      throw new HttpsError('failed-precondition',
+        taken.map(t => t.free ? `Only ${t.free} "${t.name}" free for those hours.` : `"${t.name}" is taken for those hours.`).join(' '), { problem: 'taken', taken })
+    }
+    ids.forEach((o, i) => {
+      const line = saved.find(l => l.offerId === o)
+      const others = pruneHolds(((holds[i].get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id), today)
+      tx.set(holdRefs[i], { entries: line ? [...others, { bookingId: id, from: win.from, to: win.to, qty: line.qty }] : others }, { merge: true })
+    })
+    const now = new Date().toISOString()
+    tx.update(ref, {
+      lines: saved, offerIds: saved.map(l => l.offerId), start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay, updatedAt: now,
+      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'edited', note: `${saved.length} item${saved.length === 1 ? '' : 's'} · ${fmtHours(start, end)}` }),
+    })
+  })
+  return { ok: true }
+})
+
 export const declineGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'])
   const id = str(req.data?.id, 100), reason = str(req.data?.reason, 500)

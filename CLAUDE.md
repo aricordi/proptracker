@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 324 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 327 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -597,6 +597,25 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   rest are plain rows. More space between sections.
   → OWNER PREFERRED THE PREVIOUS LOOK (v3, the cards). v4 REVERTED (Oct 17); the visual rules above are NOT adopted.
   The real issue was "something else" — asking the owner what.
+  OWNER (Oct 17): "grown to like it, LOCK IT IN" = the v3 card look (current mockup link). BUILD STARTED:
+  - DESIGN BUILD A (Oct 17): `src/components/Splash.tsx` (white eagle + "PRIME CAPITOL", once per visit, tap to skip;
+    keyframes in index.css), new `CreatorHomeScreen` (header eagle + PRIME CAPITOL + avatar, "Hey <name>", next-shoot gold
+    card with Time/Props/Gear steps (✓ or + with "By <cutoff>"/"Too late") + Check in / Open this shoot, search bar →
+    /browse?focus=1, "Your usuals" (most-booked props + gear from your own requests), Monthly slots (left this month,
+    bars) + Streak (`filmedStreak`: filmed in a row; no-show/late cancel ends it), To do, Coming up, Book another shoot).
+    ItemCard `onAdd` = + quick add on photos (creators with a shoot picked; tap again removes). `.no-scrollbar` helper.
+  - DESIGN BUILD B (Oct 17): CHANGE A SENT REQUEST. Server `editReservation` (reservations.ts: creator who booked or
+    staff, ONLY while 'requested'; new lines/quantities re-checked against availability excluding its own holds;
+    additions need the props notice, new builds the build notice; removing always OK; keeps existing build ids;
+    history {event:'edited'}; arts-team email) and `editGearBooking` (gearBookings.ts: owner/gear staff or creator,
+    ONLY while 'held'; same day, new hours and/or lines; additions/new hours need the gear notice; holds rewritten in
+    the transaction). Both in deploy/log lists. App: `src/components/ChangeRequest.tsx` on the props request page
+    (steppers, remove/put back, add make-or-find, Save; "+ Add more" = Browse with that shoot) and
+    `src/components/ChangeGear.tsx` on the gear page (extras steppers, remove, hours). ShootNeeds shows a progress bar
+    per request + "Tap to change it…". History/activity say "Changed". Tests 327 (tests/functions/editRequests.test.ts).
+    Checked in a browser on the emulator (add a make-or-find to a request; move gear hours).
+  - NEXT (C): AI helpers (video idea → props; "Ask for a time" incl. group back-to-back + 20-min invite holds) with the
+    $50/month AI budget + per-person daily limit. Backend deploy of steps 3+4+A+B still waiting for the owner's OK.
   AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
   budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
   the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI

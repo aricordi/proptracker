@@ -106,7 +106,7 @@ export const logReservationChange = onDocumentWritten('reservations/{id}', async
   const seen = (before?.history as unknown[] | undefined)?.length ?? 0
   const history = (after.history as DocumentData[] | undefined) ?? []
   history.slice(seen).forEach((h, i) => writes.push([`${id}_h${seen + i}`, {
-    ...base, at: h.at, by: h.by, action: h.status, ...(h.reason ? { reason: String(h.reason).slice(0, 500) } : {}),
+    ...base, at: h.at, by: h.by, action: h.event === 'edited' ? 'edited' : h.status, ...(h.reason ? { reason: String(h.reason).slice(0, 500) } : {}),
   }]))
 
   // Props marked "not available" while picking (with the reason).

@@ -325,6 +325,89 @@ export const cancelReservation = onCall(CALLABLE, async req => {
   })
 })
 
+// Change a request before the arts team starts on it: other quantities, props added or
+// taken out, new things to make or find. Anything added follows the same notice and
+// availability rules as a new request; taking things out is always fine.
+export const editReservation = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  if (caller.role === 'creator') await assertNotPaused(caller.email)
+  const lines = cleanLines(req.data?.lines)
+  const builds = cleanBuilds(req.data?.builds)
+  if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Nothing left in this request. Cancel it instead.')
+  const settings = await loadSettings()
+  const today = todayInStudio()
+  const cats = await db.collection('categories').get()
+  const categoryTurnaround = Object.fromEntries(cats.docs.map(d => [d.id, d.get('turnaroundDays') as number | undefined]))
+
+  await db.runTransaction(async tx => {
+    const r = await loadForUpdate(tx, req.data?.id)
+    if (!caller.isStaff && r.res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your request.')
+    if (r.res.status !== 'requested') {
+      throw new HttpsError('failed-precondition', 'The arts department has started on this request, so it can\'t be changed here. Message them, or add a new request for the same shoot.')
+    }
+    const start = r.res.startDate as string, end = r.res.endDate as string
+    const oldLines = (r.res.lines ?? []) as ReservationLine[]
+    const before = new Map(oldLines.map(l => [l.itemId, l.qty]))
+    const adding = lines.some(l => l.qty > (before.get(l.itemId) ?? 0))
+    if (!caller.isStaff && adding && start < earliestStart(today, settings, false)) {
+      throw new HttpsError('failed-precondition', `It's too late to add props for this day (they need ${settings.leadTimeDays} open days' notice). You can still lower or remove them.`, { problem: 'too-soon' })
+    }
+    const oldBuilds = (r.res.builds ?? []) as BuildLine[]
+    const known = new Set(oldBuilds.map(b => b.description))
+    const newBuilds = builds.filter(b => !known.has(b.description))
+    if (!caller.isStaff && newBuilds.length && start < addOpenDays(today, settings.buildLeadDays, settings)) {
+      throw new HttpsError('failed-precondition', `New props (things to make or find) need ${settings.buildLeadDays} open days' notice, so they can't be added for this day.`, { problem: 'too-soon-build' })
+    }
+
+    const ids = [...new Set([...before.keys(), ...lines.map(l => l.itemId)])]
+    const snaps = ids.length ? await tx.getAll(...ids.map(id => db.doc(`items/${id}`)), ...ids.map(bookingsRef)) : []
+    const itemSnap = new Map(ids.map((id, i) => [id, snaps[i]]))
+    const bookingSnap = new Map(ids.map((id, i) => [id, snaps[ids.length + i]]))
+    const conflicts: { itemId: string; name: string; requested: number; free: number; reason: string }[] = []
+    const saved: ReservationLine[] = []
+    for (const line of lines) {
+      const item = itemSnap.get(line.itemId)!
+      const hidden = collectionOf(item.data()) === 'personal' && caller.role !== 'owner'
+      const name = hidden ? 'Unknown prop' : String(item.get('name') ?? 'Unknown prop')
+      const had = before.get(line.itemId) ?? 0
+      if (line.qty > had) {
+        if (!item.exists || item.get('archived') === true || hidden) { conflicts.push({ itemId: line.itemId, name, requested: line.qty, free: 0, reason: 'no longer in the inventory' }); continue }
+        if ((item.get('condition') === 'damaged' || item.get('status') === 'damaged') && !caller.isStaff) { conflicts.push({ itemId: line.itemId, name, requested: line.qty, free: 0, reason: 'damaged' }); continue }
+        const quantity = Number.isInteger(item.get('quantity')) && item.get('quantity') >= 1 ? item.get('quantity') as number : 1
+        const others = entriesOf(bookingSnap.get(line.itemId)!).filter(e => e.reservationId !== r.id)
+        const free = freeForRange({ quantity, missingQty: Number(item.get('missingQty') ?? 0), legacyCheckedOut: item.get('status') === 'checked-out' },
+          others, start, end, today, turnaroundFor(item.get('categoryId') ?? item.get('itemType') ?? 'prop', categoryTurnaround, settings.bufferDays), settings)
+        if (free < line.qty) { conflicts.push({ itemId: line.itemId, name, requested: line.qty, free, reason: 'not enough free for that day' }); continue }
+      }
+      const kept = oldLines.find(l => l.itemId === line.itemId)
+      const photos = item.get('photos') as string[] | undefined
+      const photo = kept?.photo ?? photos?.[0] ?? item.get('photoUrl')
+      saved.push({ itemId: line.itemId, itemName: kept?.itemName ?? name, qty: line.qty, ...(photo ? { photo } : {}) })
+    }
+    if (conflicts.length) throw new HttpsError('failed-precondition', 'Some props aren\'t free for that day.', { conflicts })
+
+    // Things to make or find: kept ones stay as they are; new ones are added.
+    let n = oldBuilds.reduce((m, b) => Math.max(m, Number(String(b.id).slice(1)) || 0), 0)
+    const wanted = new Map(builds.map(b => [b.description, b]))
+    const keptBuilds = oldBuilds.filter(b => wanted.has(b.description)).map(b => ({ ...b, qty: wanted.get(b.description)!.qty }))
+    const addedBuilds = newBuilds.map(b => ({ ...b, id: `b${++n}` }))
+
+    const now = new Date().toISOString()
+    for (const id of ids) {
+      const line = saved.find(l => l.itemId === id)
+      const others = entriesOf(bookingSnap.get(id)!).filter(e => e.reservationId !== r.id)
+      tx.set(bookingsRef(id), { entries: line ? [...others, { reservationId: r.id, start, end, qty: line.qty }] : others })
+    }
+    tx.update(r.ref, {
+      lines: saved, itemIds: saved.map(l => l.itemId), builds: [...keptBuilds, ...addedBuilds], updatedAt: now,
+      ...(typeof req.data?.notes === 'string' ? { notes: text(req.data.notes, 2000) } : {}),
+      history: historyWith(r.res, { status: 'requested', at: now, by: caller.email, event: 'edited' }),
+    })
+    if (caller.email === r.res.creatorEmail) queueEmail(tx, 'arts-team', `Changed: "${r.res.title}"`, `${caller.name} changed their request (${saved.length} prop(s)${addedBuilds.length + keptBuilds.length ? `, ${addedBuilds.length + keptBuilds.length} to make or find` : ''}).`, r.id)
+  })
+  return { ok: true }
+})
+
 export const declineReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts'])
   const reason = text(req.data?.reason, 500)
