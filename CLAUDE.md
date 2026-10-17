@@ -381,6 +381,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   Manager as SMTP_PASSWORD (never in chat) → Claude sets SMTP_SECRET_READY = true + backend deploy (owner OK) →
   owner sets Admin → Email: Gmail/Workspace preset, login alex@primecapitol.ca, from = alias, name "Prime App",
   then "Send test email". Timed reminders (checkLateAndAtRisk) still need the Cloud Scheduler OK.
+  ON HOLD (Oct 17): owner has no Workspace ADMIN access yet (can't add alias / app password). Resume when they do.
 - PROPOSED BUILD STEPS (Oct 16, awaiting owner go-ahead): (1) schedule core: houses, slot grid, blocks, instant
   booking/cancel with no double-booking (transactions like props), Book screen + team Schedule/Block, How it works,
   settings; (2) Google Calendar: one-time import of future events + one-way copy of every booking/block (owner shares
