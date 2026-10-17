@@ -544,6 +544,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     lastDayToBook unit test; old notice tests updated). Checked in a browser on the emulator (Home → To do → Browse
     with the shoot → add chair → Your shoot → request → shows on the shoot sheet; gear shop with the shoot's hours; Me).
   - Still to do later: staff queues showing which schedule shoot a request belongs to; casting/locations/makeup sections.
+- DESIGN PASS (owner, Oct 17: "UX and fun are 100% the priority"; creators are lazy and fall back to dropping requests in
+  a chat → must feel fun, fresh, modern, premium, zero thinking). Mockup v1: https://claude.ai/artifact/R4Ay3EbqD17DdtajpFaCeF
+  (Home hero card with Time/Props/Gear ticks + one gold action, "Just say what you need" QUICK ADD (AI matches a
+  chat-style message to props/gear/builds; cutoffs only shown when they bite), streak + monthly slots tiles, phone-style
+  reminder, Book = big gold free slots → 2-tap sheet → celebration (confetti) → "Add props & gear", Browse = + on every
+  photo + bottom basket "Send N to the teams", shoot page = cover + 3 tiles + "More" (move/swap/cancel/history),
+  shoot day = full-screen "You're up" + one camera button → timer → wrap → celebration + streak). Waiting for the
+  owner's feedback before building. Backend deploy of steps 3+4 still waiting for the owner's OK.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
