@@ -4,6 +4,7 @@ import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
 import ShootNeeds from '../components/ShootNeeds'
+import TimeChat from '../components/TimeChat'
 import { Pill } from '../components/GearUi'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { formatDay } from '../lib/dates'
@@ -11,7 +12,7 @@ import { useProfiles } from '../services/profiles'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, useMyStatus, bookShoot, cancelShoot, moveShoot, requestSwap, answerSwap,
+  useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, answerInvite, type ScheduleInvite, bookShoot, cancelShoot, moveShoot, requestSwap, answerSwap,
   addScheduleBlock, removeScheduleBlock, listSchedulePeople, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
@@ -66,6 +67,8 @@ export default function ScheduleScreen() {
   const days = useScheduleDays(today, addDays(today, 120))
   const mine = useMyShoots(profile.email, today)
   const swaps = useMySwaps(profile.email)
+  const invites = useMyInvites(profile.email)
+  const [chat, setChat] = useState(false)
   const status = useMyStatus(profile.email)
   const paused = !!status?.pausedUntil && status.pausedUntil > today
   const day = days?.[date]
@@ -117,6 +120,7 @@ export default function ScheduleScreen() {
         {!paused && (status?.strikes ?? 0) > 0 && <div className="rounded-xl px-3 py-2 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">{status!.strikes} strike{status!.strikes === 1 ? '' : 's'} in the last {s.strikeDays} days. {s.strikeCount} pause your prop and gear bookings for {s.pauseDays} days.</div>}
         {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}
+        {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
 
         {!team && next && date === today && (
           <button onClick={() => setSheet({ kind: 'shoot', id: next.id })}
@@ -127,6 +131,11 @@ export default function ScheduleScreen() {
           </button>
         )}
 
+        <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-3.5 rounded-[20px] text-left border border-[#BF9DFF]/30 bg-gradient-to-br from-[#BF9DFF]/15 to-[#BF9DFF]/[0.04] active:scale-[0.98] transition-transform">
+          <span className="w-10 h-10 rounded-xl grid place-items-center text-lg bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
+          <span className="flex-1 min-w-0"><b className="block">Ask for a time</b><span className="text-pt-muted text-[13px]">"4 hours with Jana next week, evenings" · type or talk</span></span>
+          <span className="w-9 h-9 rounded-full grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg></span>
+        </button>
         <button onClick={() => setSheet({ kind: 'start' })} className={btnGold}>Book a shoot</button>
         <button onClick={() => setSheet({ kind: 'calendar' })} className="w-full text-pt-accent text-sm py-1">📅 Add {team ? 'the schedule' : 'my shoots'} to my phone's calendar</button>
 
@@ -188,6 +197,7 @@ export default function ScheduleScreen() {
         </BottomSheet>
       )}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
+      {chat && <TimeChat onClose={() => setChat(false)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
@@ -243,6 +253,13 @@ function SlotRow({ day, date, house, start, team, email, now, onTap }: {
     if (isMine) { pill = <Pill tone="info">Yours</Pill>; cls = 'bg-pt-accent/10 border-pt-accent' }
   }
   else if (st.t === 'past') { title = '—'; sub = 'Past'; cls = 'bg-pt-surface border-transparent opacity-45' }
+  else if (st.t === 'held') {
+    const forMe = st.entry.email === email
+    face = <Avatar email={st.entry.email} name={st.entry.name} />
+    title = <span className="text-amber-300">{forMe ? 'Held for you' : `Held for ${st.entry.name}`}</span>
+    sub = `${st.entry.hold?.fromName}'s collab · ${forMe ? 'confirm above' : `opens at ${fmtTime(Number(st.until.slice(11, 13)) * 60 + Number(st.until.slice(14, 16)))} if not confirmed`}`
+    pill = <Pill tone="warn">Held</Pill>; cls = 'bg-amber-400/[0.06] border-dashed border-amber-400/50'
+  }
   else if (st.t === 'locked') { title = <span className="text-pt-muted">Priority only</span>; sub = `Opens ${stampLabel(st.opens)}`; pill = <Pill tone="muted">🔒</Pill> }
   else { title = <span className="text-pt-accent">{team ? 'Free · book or block' : 'Free'}</span>; sub = isNoCrewDay(date) ? 'No crew' : null; cls = 'bg-pt-surface border-pt-accent/35' }
   const tappable = st.t === 'free' || st.t === 'booked' || (st.t === 'block' && team)
@@ -765,6 +782,29 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
         </div>
       )}
       {shoot.outcome && <p className="text-pt-muted text-sm">{shoot.outcome === 'filmed' ? 'Marked as filmed by the team.' : 'Marked as a no-show by the team.'}</p>}
+    </div>
+  )
+}
+
+// Someone invited you to film right after them: the slot is held for you for 20 minutes.
+function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string }) {
+  const s = useScheduleSettings()
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const until = fmtTime(Number(inv.until.slice(11, 13)) * 60 + Number(inv.until.slice(14, 16)))
+  async function answer(accept: boolean) {
+    setBusy(true); setErr('')
+    try { await answerInvite({ id: inv.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
+  }
+  return (
+    <div className="rounded-2xl p-3.5 border border-amber-400/40 bg-amber-400/10 space-y-2">
+      <p className="text-pt-text text-[15px]"><b>{inv.fromName}</b> invited you to film right after them: <b>{formatDay(inv.date)} · {s.houses[inv.place].name} · {fmtSlot(inv.start, inv.end - inv.start)}</b>.</p>
+      <p className="text-amber-200 text-sm">Held for you until {until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` (${formatDay(inv.until.slice(0, 10))})` : ''}.</p>
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+      <div className="flex gap-2">
+        <button disabled={busy} onClick={() => answer(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2.5 disabled:opacity-40">Can't make it</button>
+        <button disabled={busy} onClick={() => answer(true)} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-2.5 disabled:opacity-40">Confirm my slot</button>
+      </div>
     </div>
   )
 }

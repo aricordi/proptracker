@@ -89,6 +89,36 @@ export function useMySwaps(email: string): { incoming: SwapRequest[]; outgoing: 
   }, [email])
   return { incoming, outgoing }
 }
+// ─── Back to back with friends + "Ask for a time" ────────────────────────────
+export interface ScheduleInvite {
+  id: string; fromEmail: string; fromName: string; fromShootId: string; toEmail: string; toName: string
+  place: House; date: string; start: number; end: number; until: string
+  status: 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'expired'; shootId?: string; createdAt: string
+}
+// Invites to film right after someone (held for 20 min), sent to me and by me, live. Recent ones only.
+export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgoing: ScheduleInvite[] } {
+  const [incoming, setIn] = useState<ScheduleInvite[]>([])
+  const [outgoing, setOut] = useState<ScheduleInvite[]>([])
+  useEffect(() => {
+    const since = new Date(Date.now() - 2 * 86400000).toISOString()
+    const q = (field: string, set: (x: ScheduleInvite[]) => void) => onSnapshot(
+      query(collection(db, 'schedule_invites'), where(field, '==', email)),
+      snap => set(snap.docs.map(d => ({ id: d.id, ...d.data() } as ScheduleInvite)).filter(i => i.createdAt >= since).sort((a, b) => b.createdAt.localeCompare(a.createdAt))), () => set([]))
+    const a = q('toEmail', setIn), b = q('fromEmail', setOut)
+    return () => { a(); b() }
+  }, [email])
+  return { incoming, outgoing }
+}
+export const bookWithFriends = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind }, { shootIds: string[]; inviteIds: string[]; until: string }>(functions, 'bookWithFriends')
+export const answerInvite = httpsCallable<{ id: string; accept: boolean }, { ok: boolean; shootId: string | null }>(functions, 'answerInvite')
+export interface TimeAskResult {
+  reply: string
+  ask: Record<string, unknown>
+  friends: { email: string; name: string }[]
+  options: { date: string; place: House; start: number; slots: { email: string; name: string; start: number; me: boolean }[] }[]
+}
+export const askForTime = httpsCallable<{ text: string; previous?: Record<string, unknown> }, TimeAskResult>(functions, 'askForTime')
+
 export const addScheduleBlock = httpsCallable<{ date: string; house: House; start?: number; end?: number; allDay?: boolean; type: BlockType; note?: string }, { id: string }>(functions, 'addScheduleBlock')
 export const removeScheduleBlock = httpsCallable<{ date: string; id: string }, { ok: boolean }>(functions, 'removeScheduleBlock')
 export const saveScheduleSettings = httpsCallable<Partial<ScheduleSettings>, ScheduleSettings>(functions, 'saveScheduleSettings')

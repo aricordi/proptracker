@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 327 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 340 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -614,8 +614,39 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     `src/components/ChangeGear.tsx` on the gear page (extras steppers, remove, hours). ShootNeeds shows a progress bar
     per request + "Tap to change it…". History/activity say "Changed". Tests 327 (tests/functions/editRequests.test.ts).
     Checked in a browser on the emulator (add a make-or-find to a request; move gear hours).
-  - NEXT (C): AI helpers (video idea → props; "Ask for a time" incl. group back-to-back + 20-min invite holds) with the
-    $50/month AI budget + per-person daily limit. Backend deploy of steps 3+4+A+B still waiting for the owner's OK.
+  - Steps 3 + 4 + A + B backend DEPLOYED Oct 17 (run 27, green, owner OK). Owner to set "Props we have" = 2 in Booking rules.
+  - AI HELPERS (C) BUILT Oct 17 (owner: "go ahead with the AI helpers"; NOT deployed yet — new functions + rules):
+    - BUDGET (`functions/src/assistant.ts`): `reserveAi(email, helper)` in a transaction: refuses when this month's
+      `ai_usage/{YYYY-MM}.spentUsd` + $0.02 > monthlyCapUsd (default $50) or the person's count today ≥ perPersonDaily
+      (default 25) → "resting until the 1st" / "used today's AI help… search and browse still work"; settles the real
+      cost after. Settings `app_settings/ai` {monthlyCapUsd, perPersonDaily}; owner screen Admin → "AI helpers" (/ai,
+      `AiSettingsScreen`: spend bar, uses by helper, edit both). Rules: ai_usage owner read (people/{email}: owner or self).
+      The import keeps its own cap.
+    - VIDEO IDEA → PROPS (`ideaToProps`): embed the idea → nearest 60 company props (item_vectors) + all gear bundles →
+      Gemini (`askJson` in gemini.ts) groups picks by scene ("For the cop", "To film it") with a short why; only ids from
+      the candidate list are kept; "missing" = things to make or find. Test mode returns a simple answer.
+      App: `src/components/IdeasSheet.tsx` (IdeasButton card on Home + small "✦ Ideas" chip on Home search, Browse and
+      Gear): describe the idea / example chips → grouped results with photo, why, free/taken for the picked shoot,
+      + to add (props cart / gear cart), "Ask for it" adds a make-or-find, "Review your shoot".
+    - ASK FOR A TIME (`askForTime`): Gemini only turns the words into a TimeAsk {from,to,people,mySlots,houses,timeOfDay}
+      (+ a short reply); `functions/src/timeFinder.ts` (pure, unit-tested): roughParse/roughAdjust (no-AI reading and
+      follow-ups), cleanAsk, matchPeople (unique first names), findOptions = real free back-to-back slots (you first,
+      then each friend, same house; slotState for YOU incl. priority days; friends not filming elsewhere then; time of
+      day; ≤2 per day, ≤5). Follow-ups send `previous`. App: `src/components/TimeChat.tsx` (full screen from Schedule's
+      "✦ Ask for a time" card; chat bubbles, chips, MIC via the browser's SpeechRecognition (Safari/Chrome) else the
+      keyboard mic; option cards with Book).
+    - FRIEND HOLDS (scheduling.ts): `bookWithFriends` books your slot(s) and HOLDS the next slot for each friend
+      (day-doc entry {shootId:'', email, name, hold:{until, inviteId, fromName}}, INVITE_HOLD_MINUTES = 20) +
+      `schedule_invites/{id}` (from/to, place/date/start/end, until, status pending|accepted|declined|withdrawn|expired;
+      rules: the two people + gear staff, server writes). `answerInvite` (friend accepts → their own extra shoot,
+      invitedBy; declines → slot freed; inviter can withdraw; after `until` → "the 20 minutes ran out"). slotState
+      returns 'held' while active (an ended hold counts as free; placeIn lets the held person or anyone after it ends
+      take it; others get 'held' message). Schedule rows: dashed amber "Held for X · opens at HH:MM if not confirmed";
+      `InviteAsk` banner on Schedule (Confirm my slot / Can't make it); Home To do lists invites; TimeChat shows live
+      Held until / Confirmed. Attendance reports ignore held slots.
+    - Test login "Kyle (creator)" added. Tests 340 (unit timeFinder, functions assistant + invites). Checked in a
+      browser on the emulator (ask → book with Kyle → Kyle confirms → Confirmed ✓; ideas sheet).
+    - Not yet: email/push for invites (in-app only until email); "invite a friend" button on the plain Book sheet.
   AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
   budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
   the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI

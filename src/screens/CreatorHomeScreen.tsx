@@ -18,7 +18,7 @@ import { todayInStudio, addDays, daysBetween } from '../../functions/src/booking
 import { nowStamp } from '../../functions/src/gearBooking'
 import { formatDay } from '../lib/dates'
 import {
-  useScheduleSettings, useMyShoots, useMySwaps, useMyStatus, checkinWindow, isMissed, explainUntil, fmtSlot, monthOf, type Shoot,
+  useScheduleSettings, useMyShoots, useMySwaps, useMyStatus, useMyInvites, checkinWindow, isMissed, explainUntil, fmtSlot, monthOf, type Shoot,
 } from '../services/schedule'
 
 const TODO_DAYS = 21   // remind about props/gear for shoots in the next 3 weeks
@@ -48,6 +48,7 @@ export default function CreatorHomeScreen() {
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 60_000); return () => clearInterval(t) }, [])
   const history = useMyShoots(profile.email, addDays(today, -120))
   const swaps = useMySwaps(profile.email)
+  const invites = useMyInvites(profile.email)
   const status = useMyStatus(profile.email)
   const late = useMyLateBookings()
   const items = useItems()
@@ -91,6 +92,7 @@ export default function CreatorHomeScreen() {
   const first = (profile.name || user.displayName || '').split(' ')[0]
 
   const todo: { key: string; text: string; action: string; go: () => void }[] = [
+    ...invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => ({ key: i.id, text: `${i.fromName} invited you to film right after them: ${formatDay(i.date)} · ${fmtSlot(i.start, i.end - i.start)}. Held for you for a few minutes.`, action: 'Answer', go: () => navigate('/schedule') })),
     ...swaps.incoming.map(r => ({ key: r.id, text: `${r.fromName} asks to swap shoots with you`, action: 'Answer', go: () => navigate('/schedule') })),
     ...toExplain.map(x => ({ key: x.id, text: `You didn't check in for ${label(x)}. Say what happened.`, action: 'Explain', go: () => open(x.id) })),
     ...needsStuff.map(x => ({ key: x.id, text: `Props or gear for ${label(x)}? Add by ${formatDay(cutoffs(x).props)}.`, action: 'Open', go: () => open(x.id) })),
