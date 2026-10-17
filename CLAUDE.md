@@ -662,7 +662,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       reserveAi also refuses more than 6 uses a minute per person (BURST). Personal props, internal notes and emails are
       never sent to the AI. Tests 345 (tests/unit/aiSafety.test.ts + burst test).
     - AI helpers + AI safety backend deploy started Oct 17 (run 28, owner OK).
-  - RUNNING COSTS + PHOTO CLEAN-UP + HELP (owner, Oct 17; NOT deployed yet — new functions + rules):
+  - RUNNING COSTS + PHOTO CLEAN-UP + HELP (owner, Oct 17; backend run 29):
     - `functions/src/costs.ts`: `costReport` (owner): lists every Storage file (bytes/files by folder), REAL usage this
       month from Google Cloud Monitoring (Firestore read/write counts, Storage sent bytes; null in the emulator or if
       not permitted), projected to month end at list prices after free amounts, AI spend, clean-up preview, last run.
@@ -672,8 +672,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       UNUSED_KEEP_DAYS = 14. "Referenced" = any download link found by walking EVERY field of EVERY doc in every
       top-level collection (+ import_items fileId → items/imported/<id>.jpg). Aborts if no links could be read; ≤500
       deletions per run; logged in `cleanup_runs` (owner read). Bucket soft delete keeps removed files 7 days.
-      Weekly SCHEDULE NOT turned on yet (explained to the owner; would be an onSchedule job, Sunday ~4 AM, a few
-      cents/month) — manual "Clean up now" button only.
+      WEEKLY AUTOMATIC run (owner OK, Oct 17): `weeklyPhotoCleanup` (onSchedule 'every sunday 04:00' Toronto →
+      Cloud Scheduler job, cents/month) does the same as "Clean up now" (logged by 'weekly clean-up'). Scheduled
+      functions are NOT in the invoker lists (those are for callables only).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

@@ -9,6 +9,7 @@
 // If that check can't be completed, nothing is deleted. Each run removes at most MAX_DELETE files,
 // and the bucket keeps deleted files for 7 days (soft delete), so a mistake can be undone.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { getStorage } from 'firebase-admin/storage'
 import type { DocumentData } from 'firebase-admin/firestore'
 import { GoogleAuth } from 'google-auth-library'
@@ -159,4 +160,9 @@ export const costReport = onCall({ ...CALLABLE, timeoutSeconds: 300, memory: '51
 export const cleanUpPhotos = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '512MiB' }, async req => {
   const caller = await requireRole(req, ['owner'])
   try { return await runCleanup(caller.email) } catch (e) { throw new HttpsError('failed-precondition', (e as Error).message) }
+})
+
+// Weekly, Sunday 4 AM (owner OK, Oct 17): same clean-up as the button, while nobody is using the app.
+export const weeklyPhotoCleanup = onSchedule({ schedule: 'every sunday 04:00', timeZone: 'America/Toronto', timeoutSeconds: 540, memory: '512MiB' }, async () => {
+  await runCleanup('weekly clean-up')
 })
