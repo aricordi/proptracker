@@ -581,6 +581,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   BUILD NOTE: the AI (Gemini) only turns the words into a search {dates, length, houses, partner, time of day};
   the app's own findFree() + priority/notice rules pick the slots, so it never invents a time. Voice = the phone
   keyboard's dictation or the browser's speech recognition (Safari supports it).
+  OWNER (Oct 17): GROUP shoots via the assistant: "I'm filming with Kyle and Jana this week" → finds back-to-back slots
+  free for ALL (same house, one slot each, e.g. You 1–3 · Kyle 3–5 · Jana 5–7) → booking books YOUR slot and auto-INVITES
+  each friend to confirm their own slot (held for them; confirm with one tap; if they can't, it opens to everyone).
+  Mockup shows Booked / Invited · held / Confirmed. OPEN: hold length for these invites (owner chose 10 min for partner
+  invites; may be short for a group — asked).
+  AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
+  budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
+  the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI
+  helpers pause with "search and browse still work" (booking/search never blocked). Estimates at PRICE_PER_M (0.30 in /
+  2.50 out): time ask ≈ $0.0015, video idea → props ≈ $0.004 (smart search narrows to ~60 candidates first) → $50 ≈
+  10,000+ uses/month. Owner can also add a Google Cloud budget alert (free).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
