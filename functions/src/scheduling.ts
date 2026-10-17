@@ -8,6 +8,9 @@ import { db, requireRole, CALLABLE, OWNER_EMAIL, type Caller } from './auth.js'
 import { todayInStudio, isDay } from './booking.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
 import { addStrike } from './strikes.js'
+import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
+import { cancelForShoot } from './reservations.js'
+import { cancelGearForShoot } from './gearBookings.js'
 import {
   cleanScheduleSettings, checkSlot, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type Place, type House,
@@ -155,7 +158,17 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     })
   })
   if (noShow) await addStrike(who.email, who.name, 'late-cancel', id, caller.email)
-  return { ok: true, lateCancel: noShow }
+  // Props and gear for this shoot aren't needed any more. Ones already picked up stay out until returned.
+  const links = await openLinks(id)
+  let cancelledProps = 0, cancelledGear = 0
+  for (const p of links.props.filter(x => ['requested', 'preparing', 'packed'].includes(x.status))) {
+    try { await cancelForShoot(caller, p.id); cancelledProps++ } catch (e) { console.warn('cancel props for shoot', id, p.id, e) }
+  }
+  for (const g of links.gear.filter(x => x.status === 'held')) {
+    try { await cancelGearForShoot(caller.email, g.id); cancelledGear++ } catch (e) { console.warn('cancel gear for shoot', id, g.id, e) }
+  }
+  const stillOut = links.props.length - cancelledProps + links.gear.length - cancelledGear
+  return { ok: true, lateCancel: noShow, cancelledProps, cancelledGear, stillOut }
 })
 
 // Move to another free slot (or other offsite hours) in one step: the old slot is only
@@ -173,6 +186,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
   // Offsite shoots move to other offsite hours; house shoots move between the houses.
   const spot = readSpot({ ...d, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
+  await assertNoLinksForDayChange(id, pre.date, spot.date)
   if (spot.place !== 'offsite' && !team && priorityLocked(spot.date, spot.place, s, pre.creatorEmail, now)) throw fail('locked')
   // A monthly slot stays monthly at Cliff 1 (checked against the new month); anywhere else it becomes an extra slot.
   let kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE ? pre.kind : 'extra'
@@ -214,6 +228,7 @@ export const requestSwap = onCall(CALLABLE, async req => {
   if (mine.status !== 'booked' || theirs.status !== 'booked') throw new HttpsError('failed-precondition', 'One of these shoots is cancelled.')
   if (mine.place === 'offsite' || theirs.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
   if (mine.from <= now || theirs.from <= now) throw new HttpsError('failed-precondition', 'One of these shoots has already started.')
+  await assertNoLinksForDayChange(mineId, mine.date, theirs.date)
   const open = await db.collection('swap_requests').where('fromShootId', '==', mineId).where('status', '==', 'pending').get()
   if (!open.empty) throw new HttpsError('failed-precondition', 'You already asked someone to swap this shoot. Wait for their answer or withdraw it first.')
   const ref = db.collection('swap_requests').doc()
@@ -233,6 +248,11 @@ export const answerSwap = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   const at = new Date().toISOString()
   let expired = false
+  const pre = (await ref.get()).data()
+  if (accept && pre?.status === 'pending') {
+    await assertNoLinksForDayChange(pre.fromShootId, pre.from.date, pre.to.date)
+    await assertNoLinksForDayChange(pre.toShootId, pre.to.date, pre.from.date)
+  }
   await db.runTransaction(async tx => {
     expired = false
     const r = (await tx.get(ref)).data()

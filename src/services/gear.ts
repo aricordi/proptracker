@@ -98,7 +98,7 @@ export function subscribeToGearBooking(id: string, cb: (b: GearBooking | null) =
   return onSnapshot(doc(db, 'gear_bookings', id), snap => cb(snap.exists() ? { id: snap.id, ...snap.data() } as GearBooking : null), () => cb(null))
 }
 
-export const createGearBooking = httpsCallable<{ title: string; notes?: string; date: string; start: number; end: number; lines: { offerId: string; qty: number }[]; shootId?: string }, { id: string }>(functions, 'createGearBooking')
+export const createGearBooking = httpsCallable<{ title: string; notes?: string; date: string; start: number; end: number; lines: { offerId: string; qty: number }[]; shootId?: string; scheduleShootId?: string }, { id: string }>(functions, 'createGearBooking')
 export const cancelGearBooking = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelGearBooking')
 export const declineGearBooking = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineGearBooking')
 export const pickUpGear = httpsCallable<{ id: string; missing: string[]; signed: true }, { ok: boolean }>(functions, 'pickUpGear')

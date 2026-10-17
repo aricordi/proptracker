@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useSession } from '../auth'
 
 const searchIcon = (
@@ -58,12 +58,18 @@ const staffNav = [
   { to: '/admin',    label: 'Admin',    icon: adminIcon },
 ]
 
+const homeIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+    <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />
+  </svg>
+)
+
+// Creators: everything revolves around the shoot (Home → Book a time → Browse props + gear → Me).
 const creatorNav = [
-  { to: '/',             label: 'Props',    icon: searchIcon },
-  { to: '/schedule',     label: 'Schedule', icon: scheduleIcon },
-  { to: '/gear',         label: 'Gear',     icon: cameraIcon },
-  { to: '/reservations', label: 'Bookings', icon: reservationsIcon },
-  { to: '/account',      label: 'Account',  icon: accountIcon },
+  { to: '/',         label: 'Home',   icon: homeIcon },
+  { to: '/schedule', label: 'Book',   icon: scheduleIcon },
+  { to: '/browse',   label: 'Browse', icon: searchIcon, also: ['/gear', '/item'] },
+  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/reservations', '/gear/bookings'] },
 ]
 
 const gearIcon = (
@@ -85,17 +91,20 @@ const equipmentNav = [
 
 export default function BottomNav() {
   const { isStaff, role } = useSession()
-  const nav = role === 'equipment' ? equipmentNav : isStaff ? staffNav : creatorNav
+  const nav: { to: string; label: string; icon: JSX.Element; also?: string[] }[] = role === 'equipment' ? equipmentNav : isStaff ? staffNav : creatorNav
+  const path = useLocation().pathname
+  // Gear bookings belong to "Me" for creators; the gear shop to "Browse".
+  const alsoActive = (also?: string[]) => !!also?.some(p => path.startsWith(p)) && !(path.startsWith('/gear/bookings') && !also?.includes('/gear/bookings'))
   return (
     <nav className="flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 border-t border-pt-border pb-tabbar">
-      {nav.map(({ to, label, icon }) => (
+      {nav.map(({ to, label, icon, also }) => (
         <NavLink
           key={to}
           to={to}
           end={to === '/'}
           className={({ isActive }) =>
             `flex-1 flex flex-col items-center gap-0.5 pt-2 pb-0 text-xs transition-colors ${
-              isActive ? 'text-pt-accent' : 'text-pt-muted'
+              isActive || alsoActive(also) ? 'text-pt-accent' : 'text-pt-muted'
             }`
           }
         >

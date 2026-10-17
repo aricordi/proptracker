@@ -45,9 +45,9 @@ describe('what is free', () => {
 
 describe('checking the day and hours', () => {
   const today = '2026-10-15' // Thursday
-  it('creators book at least 1 open day ahead; staff can book today', () => {
-    expect(checkGearTimes('2026-10-15', 900, 960, today, 600, closed, false)).toBe('too-soon')
-    expect(checkGearTimes('2026-10-16', 600, 660, today, 600, closed, false)).toBeNull()
+  it('creators book at least 2 open days ahead; staff can book today', () => {
+    expect(checkGearTimes('2026-10-16', 900, 960, today, 600, closed, false)).toBe('too-soon')
+    expect(checkGearTimes('2026-10-17', 600, 660, today, 600, closed, false)).toBeNull()
     expect(checkGearTimes('2026-10-15', 900, 960, today, 600, closed, true)).toBeNull()
   })
   it('refuses past times, bad hours and junk', () => {
@@ -59,7 +59,8 @@ describe('checking the day and hours', () => {
   })
   it('a Sunday shoot counts its Saturday pickup for notice', () => {
     expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-17', 0, closed, false)).toBe('too-soon')
-    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-16', 0, closed, false)).toBeNull()
+    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-16', 0, closed, false)).toBe('too-soon')
+    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-15', 0, closed, false)).toBeNull()
   })
 })
 

@@ -5,6 +5,8 @@ import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, 
 import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, Pill, useGearWhen } from '../components/GearUi'
 import { formatDay } from '../lib/dates'
+import { useActiveShoot } from '../activeShoot'
+import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
 
 // Creators: pick the shoot day + hours, see which bundles and extras are free, add them.
 export default function GearShopScreen() {
@@ -14,7 +16,11 @@ export default function GearShopScreen() {
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [cat, setCat] = useState<string | null>(null)
-  const { profile } = useSession()
+  const { profile, role } = useSession()
+  // Creators add gear to one of their booked shoots; without one they just browse.
+  const creator = role === 'creator'
+  const { shoot } = useActiveShoot()
+  const showFree = !creator || !!shoot
   const [mine, setMine] = useState<GearBooking[]>([])
   useEffect(() => subscribeToGearBookings(profile.email, setMine), [profile.email])
   const lateOnes = mine.filter(b => isGearLate(b, nowStamp()))
@@ -31,10 +37,10 @@ export default function GearShopScreen() {
     <div className="min-h-full bg-pt-bg pb-28">
       <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-end justify-between py-2">
-          <h1 className="font-display text-3xl text-pt-text">Gear</h1>
+          <h1 className="font-display text-3xl text-pt-text">{creator ? 'Browse' : 'Gear'}</h1>
           <button onClick={() => navigate('/gear/bookings')} className="text-pt-accent text-sm font-medium pb-1">My gear bookings</button>
         </div>
-        <GearWhenPicker />
+        {creator ? <div className="space-y-2"><BrowseTabs /><AddingToBar kind="gear" />{shoot && <GearWhenPicker hoursOnly />}</div> : <GearWhenPicker />}
       </div>
 
       <div className="p-4 space-y-6">
@@ -73,7 +79,7 @@ export default function GearShopScreen() {
                       <p className="text-pt-text text-sm font-semibold leading-tight">{b.name}</p>
                       <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
                       {b.missing?.length ? <p className="text-amber-200 text-xs">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
-                      {!w.problem && (ok ? <Pill tone="free">Free {fmtHours(w.start, w.end)}</Pill> : <Pill tone="taken">Taken</Pill>)}
+                      {showFree && !w.problem && (ok ? <Pill tone="free">Free {fmtHours(w.start, w.end)}</Pill> : <Pill tone="taken">Taken</Pill>)}
                     </div>
                   </button>
                 )
@@ -90,13 +96,13 @@ export default function GearShopScreen() {
             </div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
               {extras.map(x => {
-                const n = cart.lines[x.id] ?? 0, f = w.problem ? 0 : free(x)
+                const n = cart.lines[x.id] ?? 0, f = w.problem || !showFree ? 0 : free(x)
                 return (
                   <div key={x.id} className="flex items-center gap-3 px-3 py-2.5">
                     <GearArt photo={x.photos?.[0]} category={x.category} className="w-11 h-11 rounded-xl shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-pt-text text-[15px] truncate">{x.name}</p>
-                      <p className={`text-xs ${f ? 'text-pt-muted' : 'text-red-300'}`}>{f ? `${f} free for your hours` : 'None free for your hours'}</p>
+                      <p className={`text-xs ${f || !showFree ? 'text-pt-muted' : 'text-red-300'}`}>{!showFree ? `${x.pieces[0]?.qty ?? 0} offered` : f ? `${f} free for your hours` : 'None free for your hours'}</p>
                     </div>
                     <div className="flex items-center rounded-xl overflow-hidden bg-pt-bg border border-pt-border shrink-0">
                       <button onClick={() => cart.setQty(x.id, n - 1)} disabled={n === 0} aria-label={`One less ${x.name}`} className="w-9 h-9 text-pt-text disabled:opacity-30">−</button>

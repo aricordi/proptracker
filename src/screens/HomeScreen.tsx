@@ -23,6 +23,8 @@ import type { Item } from '../types'
 import { useHideOnScroll } from '../hooks/useHideOnScroll'
 import BrandMark from '../components/BrandMark'
 import { useGearCart } from '../gearCart'
+import { useActiveShoot } from '../activeShoot'
+import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
 
 // Folds part of the header away (smoothly) and makes it untappable while hidden.
 function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -68,7 +70,9 @@ export default function HomeScreen() {
   const [showDates, setShowDates] = useState(false)
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
-  const dates = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
+  const active = useActiveShoot()
+  // Creators see availability for the shoot they're adding to; staff pick any day.
+  const dates = cart.start && cart.end && (isStaff || active.shoot) ? { start: cart.start, end: cart.end } : null
 
   // With shoot dates picked, "free" means free for those dates (incl. turnaround).
   const freeFor = (i: Item) => dates
@@ -168,7 +172,8 @@ export default function HomeScreen() {
       {/* Sticky header + search */}
       <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <Collapse open={!folded}>
-          <h1 className="font-display text-3xl text-pt-text py-2 flex items-center gap-2.5"><BrandMark className="w-10 text-pt-text" title="" />Props</h1>
+          <h1 className="font-display text-3xl text-pt-text py-2 flex items-center gap-2.5"><BrandMark className="w-10 text-pt-text" title="" />{isStaff ? 'Props' : 'Browse'}</h1>
+          {!isStaff && <div className="mb-3"><BrowseTabs /></div>}
         </Collapse>
         {folded && <div className="h-3" />}
 
@@ -255,8 +260,8 @@ export default function HomeScreen() {
           </span>
         </div>
 
-        {/* Shoot dates */}
-        {showDates || !dates ? (
+        {/* Shoot dates (creators: the shoot they're adding to) */}
+        {!isStaff ? <div className="mt-3"><AddingToBar kind="props" /></div> : showDates || !dates ? (
           showDates ? (
             <div className="mt-3 space-y-2">
               <DateRangePicker start={cart.start} end={cart.end} min={minStart}

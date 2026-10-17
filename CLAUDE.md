@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 318 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 324 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -516,6 +516,34 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     explainmissedcheckin decideshoot reviewreport liftpause.
   - NOT automatic yet: nothing flags a missed check-in by itself (the team's Check-ins tab computes it on open);
     reminders need email + Cloud Scheduler.
+- STEP 3 BUILT (Oct 17, owner "let's go next step"; NOT deployed — deploy together with step 4, needs owner OK):
+  SHOOT-CENTRED CREATOR APP. Creators' tabs: HOME (/) / BOOK (/schedule) / BROWSE (/browse props, /gear) / ME (/account).
+  Staff, arts and equipment tabs unchanged.
+  - Server: `functions/src/shootLinks.ts` — createReservation + createGearBooking take optional `scheduleShootId`
+    (own booked shoot, or owner); props must be for the shoot's date, gear for its date (hours free); stored as
+    shootId + scheduleShootId; shoot history 'props-added' / 'gear-added'. cancelShoot then cancels the shoot's
+    props (requested/preparing/packed) and held gear (returns cancelledProps/cancelledGear/stillOut). moveShoot,
+    requestSwap and answerSwap REFUSE a change of DAY while the shoot has open props/gear (same-day moves OK).
+    Server does NOT yet require a shoot for creators (the old live website still books without one) — the new app does.
+  - CUTOFFS (owner Oct 16): props from inventory = Booking rules leadTimeDays (default now 2; the LIVE stored value
+    wins — owner/arts should set it to 2 in Admin → Booking rules), NEW props/build requests = `buildLeadDays`
+    (default 4, new field in Booking rules; rules allow the key), gear = GEAR_LEAD_TIME_DAYS 2 (was 1, constant).
+    `lastDayToBook(shootDay, lead, closed)` in booking.ts = "add by" date shown everywhere.
+  - App: `src/activeShoot.tsx` (ActiveShootProvider in App: the shoot you're "Adding to", kept on the phone; sets both
+    baskets to its day + gear to its hours (trimmed to 6 AM–midnight); clears when the shoot is cancelled/over;
+    useShootLabel, useCutoffs). `src/components/AddingToBar.tsx` (bar + "Which shoot?" sheet, BrowseTabs Props &
+    costumes | Gear). Creators only see "free" when a shoot is picked ("Just browsing" otherwise); prop page
+    (ReservePanel) "Add to this shoot"; gear shop/bundle page follow the shoot; /reserve shows the shoot (no day
+    picker) and sends scheduleShootId; refuses new props inside 4 days. `src/screens/CreatorHomeScreen.tsx`: next
+    shoot card (Check in button when open → /schedule?shoot=id), Book a shoot (/schedule?book=1), To do (incoming
+    swaps, missed check-ins to explain, shoots in the next 21 days with no props/gear before the gear cutoff → Add),
+    Coming up. `src/components/ShootNeeds.tsx` on the shoot sheet: Props & costumes / Gear with "Add by" + linked
+    requests + "+ Add" (sets the shoot, opens Browse). Me = profile + strikes + My prop requests / My gear / How it works.
+    How it works: "Props and gear for your shoot". ScheduleScreen opens ?shoot= / ?book=.
+  - Seed: sh9 = Riley's shoot 8 days out (time to add things). Tests 324 (tests/functions/shootLinks.test.ts +
+    lastDayToBook unit test; old notice tests updated). Checked in a browser on the emulator (Home → To do → Browse
+    with the shoot → add chair → Your shoot → request → shows on the shoot sheet; gear shop with the shoot's hours; Me).
+  - Still to do later: staff queues showing which schedule shoot a request belongs to; casting/locations/makeup sections.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site

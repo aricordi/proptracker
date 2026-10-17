@@ -90,6 +90,7 @@ export function subscribeToBookingSettings(cb: (s: BookingSettings) => void) {
 export function saveBookingSettings(s: BookingSettings) {
   return setDoc(doc(db, 'app_settings', 'booking'), {
     leadTimeDays: s.leadTimeDays,
+    buildLeadDays: s.buildLeadDays,
     bufferDays: s.bufferDays,
     maxDays: s.maxDays,
     closedWeekdays: s.closedWeekdays,
@@ -104,7 +105,7 @@ export interface Conflict { itemId: string; name: string; requested: number; fre
 export interface NewBuild { description: string; qty: number; refPhoto?: string }
 
 export const createReservation = httpsCallable<
-  { title: string; startDate: string; endDate: string; notes: string; lines: { itemId: string; qty: number }[]; builds: NewBuild[]; shootId?: string },
+  { title: string; startDate: string; endDate: string; notes: string; lines: { itemId: string; qty: number }[]; builds: NewBuild[]; shootId?: string; scheduleShootId?: string },
   { id: string }
 >(functions, 'createReservation')
 

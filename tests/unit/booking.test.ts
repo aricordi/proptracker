@@ -1,3 +1,4 @@
+import { lastDayToBook } from '../../functions/src/booking'
 import { describe, it, expect } from 'vitest'
 import {
   addDays, bookedOn, freeForRange, holdUntil, checkDates, todayInStudio,
@@ -80,7 +81,8 @@ describe('reservation dates', () => {
     expect(checkDates('2026-10-15', '2026-10-16', TODAY, multi, false)).toBeNull()
   })
   it('rejects requests inside the lead time for creators', () => {
-    expect(checkDates('2026-10-14', '2026-10-14', TODAY, S, false)).toBe('too-soon')
+    expect(checkDates('2026-10-13', '2026-10-13', TODAY, S, false)).toBe('too-soon')
+    expect(checkDates('2026-10-14', '2026-10-14', TODAY, S, false)).toBeNull()   // 2 days' notice (owner, Oct 16)
   })
   it('lets the arts department skip the lead time', () => {
     expect(checkDates('2026-10-12', '2026-10-12', TODAY, S, true)).toBeNull()
@@ -121,7 +123,7 @@ describe('days the prop room is closed', () => {
     expect(returnDueDay('2026-10-14', sundays)).toBe('2026-10-15')
   })
   it('notice counts open days: booked Thursday with 3 days notice, earliest shoot is Monday', () => {
-    const s = { ...DEFAULTS, ...sundays }
+    const s = { ...DEFAULTS, ...sundays, leadTimeDays: 3 }
     expect(earliestStart('2026-10-15', s, false)).toBe('2026-10-19')
     expect(checkDates('2026-10-18', '2026-10-18', '2026-10-15', s, false)).toBe('too-soon')
     expect(checkDates('2026-10-19', '2026-10-19', '2026-10-15', s, false)).toBeNull()
@@ -192,5 +194,15 @@ describe('upcoming bookings at risk', () => {
   it('flags damaged props and missing units', () => {
     expect(lineRisk({ ...base, entries: [blair], damaged: true })).toBe('damaged')
     expect(lineRisk({ ...base, entries: [blair], stock: { quantity: 1, missingQty: 1 } })).toBe('missing')
+  })
+})
+
+describe('last day to add things to a shoot', () => {
+  it('counts open days back from the shoot (Sundays closed)', () => {
+    const closed = { closedWeekdays: [0], closedDates: [] }
+    // Shoot Tuesday Oct 20, 2 open days: still OK on Sunday Oct 18 (Mon, Tue count).
+    expect(lastDayToBook('2026-10-20', 2, closed)).toBe('2026-10-18')
+    expect(lastDayToBook('2026-10-20', 4, closed)).toBe('2026-10-15')
+    expect(lastDayToBook('2026-10-20', 0, closed)).toBe('2026-10-20')
   })
 })

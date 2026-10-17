@@ -3,6 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useGearCart } from '../gearCart'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, nextFreeStart, fmtHours, type GearBundle, type GearHold } from '../services/gear'
 import { GearWhenPicker, GearArt, Pill, DayTimeline, useGearWhen } from '../components/GearUi'
+import { useSession } from '../auth'
+import { useActiveShoot } from '../activeShoot'
+import AddingToBar from '../components/AddingToBar'
 import ImageLightbox from '../components/ImageLightbox'
 import { formatDay } from '../lib/dates'
 
@@ -12,6 +15,10 @@ export default function GearOfferScreen() {
   const navigate = useNavigate()
   const cart = useGearCart()
   const w = useGearWhen()
+  // Creators add gear to one of their booked shoots (its day; hours can be trimmed).
+  const creator = useSession().role === 'creator'
+  const { shoot } = useActiveShoot()
+  const showFree = !creator || !!shoot
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [zoom, setZoom] = useState<string | null>(null)
@@ -64,8 +71,8 @@ export default function GearOfferScreen() {
           🔋 Batteries are charged when gear comes back, but a bundle can go straight out again, so we can't promise a full charge.
         </p>
 
-        <GearWhenPicker />
-        {!w.problem && (
+        {creator ? <><AddingToBar kind="gear" />{shoot && <GearWhenPicker hoursOnly />}</> : <GearWhenPicker />}
+        {showFree && !w.problem && (
           <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between">
               <p className="text-pt-muted text-xs uppercase tracking-wider">{formatDay(w.date)}</p>
@@ -75,7 +82,7 @@ export default function GearOfferScreen() {
           </div>
         )}
 
-        {!w.problem && !free && (
+        {showFree && !w.problem && !free && (
           <div className="space-y-3">
             <div className="bg-red-500/10 rounded-2xl px-4 py-3 text-[15px] text-red-200">
               Someone has it for part of those hours.
@@ -97,7 +104,7 @@ export default function GearOfferScreen() {
           </div>
         )}
 
-        {inCart ? (
+        {!showFree ? null : inCart ? (
           <div className="space-y-2">
             <button onClick={() => navigate('/reserve')} className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold">In your shoot ✓ · Review</button>
             <button onClick={() => cart.setQty(b.id, 0)} className="w-full py-2 text-pt-muted text-sm">Remove from my shoot</button>

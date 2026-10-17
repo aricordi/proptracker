@@ -5,7 +5,7 @@
 // A hold is stored as two text stamps 'YYYY-MM-DDTHH:MM', which sort in time order.
 import { addOpenDays, isOpen, pickupDay, returnDueDay, isDay, type ClosedDays } from './booking.js'
 
-export const GEAR_LEAD_TIME_DAYS = 1      // creators book at least 1 open day ahead (owner, Oct 13)
+export const GEAR_LEAD_TIME_DAYS = 2      // creators book at least 2 open days ahead (owner, Oct 16; was 1)
 export const GEAR_LATE_MINUTES = 30       // gear is late 30 min after the booked end (step 3)
 export const GEAR_DAY_START = 6 * 60      // earliest start: 6 AM
 export const GEAR_DAY_END = 24 * 60       // latest end: midnight
@@ -57,7 +57,7 @@ export const GEAR_TIME_MESSAGES: Record<GearTimeProblem, string> = {
   'bad-format': 'Pick a shoot day and hours.',
   'bad-hours': 'Pick hours between 6 AM and midnight, in half hours, ending after they start.',
   'in-past': 'That time has already passed.',
-  'too-soon': 'Gear has to be booked at least 1 open day ahead.',
+  'too-soon': `Gear has to be booked at least ${GEAR_LEAD_TIME_DAYS} open days ahead.`,
 }
 
 // Is this day + hours bookable? Staff (owner, equipment team, arts) skip the notice rule.

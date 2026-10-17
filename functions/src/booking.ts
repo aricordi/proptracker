@@ -6,7 +6,8 @@
 export const STUDIO_TIME_ZONE = 'America/Toronto'
 
 export interface BookingSettings {
-  leadTimeDays: number   // creators must book at least this many days ahead
+  leadTimeDays: number   // creators must book props from the inventory at least this many open days ahead
+  buildLeadDays: number  // … and NEW props (things to make or find) this many (owner, Oct 16: 4)
   bufferDays: number     // days after a shoot before the same unit can go out again
   maxDays: number        // longest booking a creator can make (1 = single-day shoots only)
   closedWeekdays: number[]  // days the arts department is closed every week (0 = Sunday … 6 = Saturday)
@@ -14,7 +15,7 @@ export interface BookingSettings {
 }
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
-  leadTimeDays: 3, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
+  leadTimeDays: 2, buildLeadDays: 4, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
 }
 
 // The arts department's days off. Shoots can still happen on them, but nobody is
@@ -186,6 +187,13 @@ export function checkDates(
   if (start < today) return 'in-past'
   if (!isStaff && start < earliestStart(today, settings, false)) return 'too-soon'
   return null
+}
+
+// The last day something with `lead` open days' notice can still be booked for a shoot on `shootDay`.
+export function lastDayToBook(shootDay: string, lead: number, closed: ClosedDays): string {
+  let d = shootDay
+  for (let i = 0; i < 60 && addOpenDays(d, lead, closed) > shootDay; i++) d = addDays(d, -1)
+  return d
 }
 
 // Notice counts only days the arts department is open, since that's when packing happens.

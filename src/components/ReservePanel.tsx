@@ -9,6 +9,8 @@ import DateRangePicker from './DateRangePicker'
 import { freeForRange, todayInStudio, earliestStart, pickupDay, type BookingEntry } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
 import type { Item } from '../types'
+import { useActiveShoot } from '../activeShoot'
+import AddingToBar from './AddingToBar'
 
 // On a prop's page: when it's booked, and adding it to the reservation being built.
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
@@ -20,7 +22,9 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
   const legacyOut = item.status === 'checked-out'
-  const dates = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
+  const { shoot } = useActiveShoot()
+  // Creators add props to one of their booked shoots; staff can pick any day.
+  const dates = cart.start && cart.end && (isStaff || shoot) ? { start: cart.start, end: cart.end } : null
   const free = dates
     ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, dates.start, dates.end, today, turnaroundDays, settings)
     : null
@@ -30,6 +34,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const blocked = item.condition === 'damaged' && !isStaff
 
   function pick(day: string) {
+    if (!isStaff) { setNote('Pick one of your shoots below. Its day is used.'); return }
     if (day < minStart) { setNote(`The earliest you can book is ${formatDay(minStart)}.`); return }
     setNote(null)
     // One shoot day per booking: tapping a day picks it.
@@ -48,6 +53,8 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
         <p className="bg-red-500/10 border border-red-500/30 text-red-300 text-sm rounded-xl px-4 py-3">
           This prop is damaged and can't be reserved until the arts department fixes it.
         </p>
+      ) : !isStaff && !dates ? (
+        <AddingToBar kind="props" />
       ) : !dates ? (
         <div className="space-y-2">
           <p className="text-pt-text text-sm">Tap your shoot day on the calendar, or pick it here:</p>
@@ -56,10 +63,12 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
         </div>
       ) : (
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
-            <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change day</button>
-          </div>
+          {isStaff ? (
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
+              <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change day</button>
+            </div>
+          ) : <AddingToBar kind="props" />}
           {pickupDay(dates.start, settings) !== dates.start && (
             <p className="text-amber-300 text-xs -mt-1">The prop room is closed that day: pick up on {formatDay(pickupDay(dates.start, settings))}.</p>
           )}
@@ -80,12 +89,12 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
               )}
               {inCart === Math.min(qty, free) ? (
                 <p className="w-full py-3 rounded-xl bg-pt-accent/15 text-pt-accent font-semibold text-center">
-                  ✓ In your reservation{item.quantity > 1 ? ` (${inCart})` : ''}
+                  ✓ {isStaff ? 'In your reservation' : 'Added to this shoot'}{item.quantity > 1 ? ` (${inCart})` : ''}
                 </p>
               ) : (
                 <button onClick={() => cart.setQty(item.id, Math.min(qty, free))}
                   className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold active:opacity-80">
-                  {inCart ? `Change to ${Math.min(qty, free)}` : 'Add to reservation'}
+                  {inCart ? `Change to ${Math.min(qty, free)}` : isStaff ? 'Add to reservation' : 'Add to this shoot'}
                 </button>
               )}
             </>
@@ -94,7 +103,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
             <div className="flex gap-2">
               <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-2.5 rounded-xl border border-red-500/50 text-red-300 text-sm font-medium active:opacity-70">Remove</button>
               <button onClick={() => navigate('/reserve')} className="flex-1 py-2.5 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium">
-                Review reservation ({cart.count})
+                {isStaff ? 'Review reservation' : 'Review shoot'} ({cart.count})
               </button>
             </div>
           )}

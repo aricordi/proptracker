@@ -19,6 +19,7 @@ export default function BookingRulesScreen() {
   const settings = useBookingSettings()
   const categories = useCategories()
   const [lead, setLead] = useState(String(settings.leadTimeDays))
+  const [buildLead, setBuildLead] = useState(String(settings.buildLeadDays))
   const [buffer, setBuffer] = useState(String(settings.bufferDays))
   // Per-category turnaround; '' means "use the default".
   const [perCategory, setPerCategory] = useState<Record<string, string>>({})
@@ -28,7 +29,7 @@ export default function BookingRulesScreen() {
   const [state, setState] = useState<'idle' | 'busy' | 'saved' | 'error'>('idle')
 
   useEffect(() => {
-    setLead(String(settings.leadTimeDays)); setBuffer(String(settings.bufferDays))
+    setLead(String(settings.leadTimeDays)); setBuildLead(String(settings.buildLeadDays)); setBuffer(String(settings.bufferDays))
     setWeekdaysOff(settings.closedWeekdays); setDatesOff(settings.closedDates)
   }, [settings])
   const today = todayInStudio()
@@ -41,15 +42,15 @@ export default function BookingRulesScreen() {
   const savedFor = (c: Category) => c.turnaroundDays == null ? '' : String(c.turnaroundDays)
   const changedCategories = categories.filter(c => (perCategory[c.id] ?? '') !== savedFor(c))
 
-  const valid = validDays(lead, 60) && validDays(buffer, 30)
+  const valid = validDays(lead, 60) && validDays(buildLead, 60) && validDays(buffer, 30)
     && categories.every(c => (perCategory[c.id] ?? '') === '' || validDays(perCategory[c.id], 30))
-  const changed = Number(lead) !== settings.leadTimeDays || Number(buffer) !== settings.bufferDays || changedCategories.length > 0
+  const changed = Number(lead) !== settings.leadTimeDays || Number(buildLead) !== settings.buildLeadDays || Number(buffer) !== settings.bufferDays || changedCategories.length > 0
     || !sameSet(weekdaysOff, settings.closedWeekdays) || !sameSet(upcomingOff, settings.closedDates)
 
   async function save() {
     setState('busy')
     try {
-      await saveBookingSettings({ ...settings, leadTimeDays: Number(lead), bufferDays: Number(buffer),
+      await saveBookingSettings({ ...settings, leadTimeDays: Number(lead), buildLeadDays: Number(buildLead), bufferDays: Number(buffer),
         closedWeekdays: [...weekdaysOff].sort(), closedDates: upcomingOff })
       await Promise.all(changedCategories.map(c => {
         const v = perCategory[c.id] ?? ''
@@ -113,11 +114,17 @@ export default function BookingRulesScreen() {
 
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-2">
           <p className="text-pt-text font-medium">Notice needed</p>
-          <p className="text-pt-muted text-sm">Creators must book at least this many open days before the shoot day. The arts department can always book sooner.</p>
-          <div className="flex items-center gap-3">
+          <p className="text-pt-muted text-sm">Creators must ask at least this many open days before the shoot day. The arts department can always book sooner.</p>
+          <label className="flex items-center gap-3">
+            <span className="text-pt-text text-sm w-36">Props we have</span>
             <input inputMode="numeric" value={lead} onChange={e => { setLead(e.target.value.replace(/\D/g, '')); touch() }} className={input} />
             <span className="text-pt-muted">days</span>
-          </div>
+          </label>
+          <label className="flex items-center gap-3">
+            <span className="text-pt-text text-sm w-36">New props (make or find)</span>
+            <input inputMode="numeric" value={buildLead} onChange={e => { setBuildLead(e.target.value.replace(/\D/g, '')); touch() }} className={input} />
+            <span className="text-pt-muted">days</span>
+          </label>
         </div>
 
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
+import ShootNeeds from '../components/ShootNeeds'
 import { Pill } from '../components/GearUi'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { formatDay } from '../lib/dates'
@@ -52,6 +53,14 @@ export default function ScheduleScreen() {
   const [date, setDate] = useState(today)
   const [house, setHouse] = useState<Place>('cliff1')
   const [sheet, setSheet] = useState<SheetState>(null)
+  // ?shoot=<id> opens that shoot (from Home); ?book=1 opens "Book a shoot".
+  const [params, setParams] = useSearchParams()
+  useEffect(() => {
+    const id = params.get('shoot'), book = params.get('book')
+    if (id) setSheet({ kind: 'shoot', id })
+    else if (book) setSheet({ kind: 'start' })
+    if (id || book) setParams({}, { replace: true })
+  }, [params])   // eslint-disable-line react-hooks/exhaustive-deps
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 60_000); return () => clearInterval(t) }, [])
   const days = useScheduleDays(today, addDays(today, 120))
@@ -369,7 +378,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
     setBusy(true); setErr('')
     try { await cancelShoot({ id, ...(noShow ? { confirmNoShow: true } : {}) }); onClose() } catch (e) { setErr(errorText(e)); setBusy(false) }
   }
-  const actionLabel: Record<string, string> = { booked: 'Booked', cancelled: 'Cancelled', moved: 'Moved', swapped: 'Swapped', 'checked-in': 'Checked in', wrapped: 'Wrapped', reported: 'Reported', report: 'Sent a report', explained: 'Explained a missed check-in', 'no-show': 'No-show', 'marked-filmed': 'Marked as filmed' }
+  const actionLabel: Record<string, string> = { booked: 'Booked', cancelled: 'Cancelled', moved: 'Moved', swapped: 'Swapped', 'checked-in': 'Checked in', wrapped: 'Wrapped', reported: 'Reported', report: 'Sent a report', explained: 'Explained a missed check-in', 'no-show': 'No-show', 'marked-filmed': 'Marked as filmed', 'props-added': 'Props requested', 'gear-added': 'Gear held' }
   return (
     <BottomSheet open onClose={onClose} title={mine ? 'Your shoot' : shoot.creatorName}>
       <div className="space-y-3">
@@ -386,11 +395,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
           </div>
         </div>
         {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
-        {shoot.status === 'booked' && !shoot.checkin && (
-          <div className="bg-pt-bg rounded-xl p-3 text-sm text-pt-muted">
-            Props, gear and more will be added right from this shoot in the next update. For now, book props and gear for this day in Props and Gear.
-          </div>
-        )}
+        {shoot.status === 'booked' && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
         {mine && upcoming && short && !team && (
           <p className="rounded-xl px-3 py-2.5 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
             Less than {s.noticeHours} hours to go. You can still <b>swap</b> with someone; cancelling now counts as a no-show.
@@ -418,7 +423,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
         )}
         {canCancel && confirm && (
           <div className="space-y-2">
-            <p className="text-pt-text text-sm">{noShow ? `It's less than ${s.noticeHours} hours before your shoot, so cancelling counts as a no-show. Swapping with someone doesn't.` : 'The slot opens to everyone right away.'}</p>
+            <p className="text-pt-text text-sm">{noShow ? `It's less than ${s.noticeHours} hours before your shoot, so cancelling counts as a no-show. Swapping with someone doesn't.` : 'The slot opens to everyone right away.'} Props and gear requested for this shoot are cancelled too.</p>
             <div className="flex gap-2">
               <button onClick={() => setConfirm(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Keep it</button>
               <button disabled={busy} onClick={cancel} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Cancelling…' : 'Yes, cancel'}</button>

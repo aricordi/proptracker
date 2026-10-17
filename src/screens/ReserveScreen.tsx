@@ -20,6 +20,9 @@ import {
 } from '../services/gear'
 import { GearArt, GearWhenPicker, Pill, nowMinutes } from '../components/GearUi'
 import { thumbOf } from '../services/itemShape'
+import { useActiveShoot } from '../activeShoot'
+import AddingToBar from '../components/AddingToBar'
+import { addOpenDays } from '../../functions/src/booking'
 
 const shootIdNew = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 const errMsg = (err: unknown) => err instanceof FirebaseError ? (err.message.replace(/^.*?:\s*/, '') || 'Could not book.') : "Couldn't reach the server. Check your connection and try again."
@@ -39,6 +42,9 @@ export default function ReserveScreen() {
   const turnaround = useTurnaround()
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
+  // Creators: everything is for one of their booked shoots (its day).
+  const { shoot } = useActiveShoot()
+  const needShoot = !isStaff && !shoot
 
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
@@ -95,19 +101,21 @@ export default function ReserveScreen() {
     setBuildDesc(''); setBuildQty(1); setBuildPhotos([]); setShowBuild(false)
   }
 
-  const propsOk = !hasProps || (late.length === 0 && datesOk && lines.every(l => !l.problem))
-  const canSubmit = !!day && title.trim() && (hasProps || hasGear) && propsOk && gearOk && !busy && !buildUploading
+  const buildsTooSoon = !isStaff && cart.builds.length > 0 && !!day && day < addOpenDays(today, settings.buildLeadDays, settings)
+  const propsOk = !hasProps || (late.length === 0 && datesOk && !buildsTooSoon && lines.every(l => !l.problem))
+  const canSubmit = !needShoot && !!day && title.trim() && (hasProps || hasGear) && propsOk && gearOk && !busy && !buildUploading
 
   async function submit() {
     if (!day) return
     setBusy(true); setError(null); setConflicts({})
-    const shootId = hasProps && hasGear ? shootIdNew() : undefined
+    const shootId = hasProps && hasGear && !shoot ? shootIdNew() : undefined
+    const scheduleShootId = shoot && !isStaff ? shoot.id : undefined
     let gearId: string | null = null
     try {
       // 1. Hold the gear (instant).
       if (hasGear) {
         gearId = (await createGearBooking({
-          title: title.trim(), notes: notes.trim(), date: day, start: gear.start, end: gear.end, shootId,
+          title: title.trim(), notes: notes.trim(), date: day, start: gear.start, end: gear.end, shootId, scheduleShootId,
           lines: gearLines.map(l => ({ offerId: l.id, qty: l.qty })),
         })).data.id
       }
@@ -116,7 +124,7 @@ export default function ReserveScreen() {
       if (hasProps && dates) {
         try {
           resId = (await createReservation({
-            title: title.trim(), notes: notes.trim(), startDate: dates.start, endDate: dates.end, shootId,
+            title: title.trim(), notes: notes.trim(), startDate: dates.start, endDate: dates.end, shootId, scheduleShootId,
             lines: lines.map(l => ({ itemId: l.itemId, qty: l.qty })),
             builds: cart.builds.map(({ description, qty, refPhoto }) => ({ description, qty, ...(refPhoto ? { refPhoto } : {}) })),
           })).data.id
@@ -152,9 +160,11 @@ export default function ReserveScreen() {
 
       <div className="p-4 space-y-5">
         {hasProps && <LateBanner late={late} />}
-        <DateRangePicker start={cart.start ?? gear.date} end={cart.end ?? gear.date} min={pickerMin} onChange={(s, e) => { cart.setDates(s, e); if (s) gear.setWhen(s, gear.start, gear.end) }}
+        {!isStaff ? <AddingToBar kind="shoot" /> : <DateRangePicker start={cart.start ?? gear.date} end={cart.end ?? gear.date} min={pickerMin} onChange={(s, e) => { cart.setDates(s, e); if (s) gear.setWhen(s, gear.start, gear.end) }}
           maxDays={1}
-          leadTimeNote={!isStaff && hasProps && settings.leadTimeDays > 0 ? `Props need ${settings.leadTimeDays} open days' notice: earliest ${formatDay(minStart)}.` : undefined} />
+          leadTimeNote={!isStaff && hasProps && settings.leadTimeDays > 0 ? `Props need ${settings.leadTimeDays} open days' notice: earliest ${formatDay(minStart)}.` : undefined} />}
+        {!isStaff && shoot && hasProps && !datesOk && <p className="text-red-300 text-sm -mt-3">It's too late to add props from the inventory to this shoot.</p>}
+        {buildsTooSoon && <p className="text-red-300 text-sm -mt-3">New props (things to make or find) need {settings.buildLeadDays} open days' notice, so they can't be added to this shoot.</p>}
         {tooLong && (
           <p className="text-amber-400 text-sm -mt-3">
             Bookings are for a single shoot day now. Pick your shoot day above.
@@ -170,7 +180,7 @@ export default function ReserveScreen() {
         <div>
           <div className="flex items-baseline justify-between mb-2">
             <p className="text-pt-muted text-xs uppercase tracking-wider">Props ({lines.length}) · arts department</p>
-            <button onClick={() => navigate('/')} className="text-pt-accent text-sm">+ Add props</button>
+            <button onClick={() => navigate(isStaff ? '/' : '/browse')} className="text-pt-accent text-sm">+ Add props</button>
           </div>
           {lines.length === 0 && cart.builds.length === 0 && (
             <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No props yet.</p>

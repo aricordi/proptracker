@@ -4,6 +4,10 @@ import { auth } from '../firebase'
 import { useSession } from '../auth'
 import Avatar from '../components/Avatar'
 import { useProfiles, saveProfile, uploadProfilePhoto } from '../services/profiles'
+import { useNavigate } from 'react-router-dom'
+import { useMyStatus } from '../services/schedule'
+import { todayInStudio } from '../../functions/src/booking'
+import { formatDay } from '../lib/dates'
 
 export const ROLE_LABELS: Record<string, string> = {
   owner:   'Owner',
@@ -17,10 +21,11 @@ export default function AccountScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-3xl text-pt-text py-2">Account</h1>
+        <h1 className="font-display text-3xl text-pt-text py-2">{role === 'creator' ? 'Me' : 'Account'}</h1>
       </div>
       <div className="p-4 space-y-4">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
+        {role === 'creator' && <CreatorLinks email={profile.email} />}
         {realRole === 'owner' && (
           <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
             <p className="text-pt-text font-medium">View the app as…</p>
@@ -91,5 +96,33 @@ function ProfileCard({ name, email, roleLabel }: { name: string; email: string; 
         </div></label>
       {msg && <p className="text-sm text-pt-muted">{msg}</p>}
     </div>
+  )
+}
+
+// Creators: your requests, your standing (strikes), and the rules.
+function CreatorLinks({ email }: { email: string }) {
+  const navigate = useNavigate()
+  const st = useMyStatus(email)
+  const paused = !!st?.pausedUntil && st.pausedUntil > todayInStudio()
+  const rows: [string, string, string][] = [
+    ['My prop requests', 'Every props request and where it is', '/reservations'],
+    ['My gear', 'Gear held, picked up and returned', '/gear/bookings'],
+    ['How it works', 'Slots, monthly picks, cutoffs, check-ins, strikes', '/schedule/how'],
+  ]
+  return (
+    <>
+      <div className={`rounded-2xl p-4 text-sm ${paused ? 'bg-red-500/10 border border-red-500/40' : 'bg-pt-surface border border-pt-border'}`}>
+        <p className="text-pt-text font-semibold">{paused ? `Props and gear paused until ${formatDay(st!.pausedUntil!)}` : st?.strikes ? `${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : 'No strikes'}</p>
+        <p className="text-pt-muted">{paused ? 'You can still book house time.' : 'Strikes come from no-shows, late cancels and upheld reports.'}</p>
+      </div>
+      <div className="bg-pt-surface border border-pt-border rounded-2xl divide-y divide-pt-border">
+        {rows.map(([t, d, to]) => (
+          <button key={to} onClick={() => navigate(to)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+            <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span>
+            <span className="text-pt-muted">›</span>
+          </button>
+        ))}
+      </div>
+    </>
   )
 }

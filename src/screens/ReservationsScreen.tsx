@@ -78,7 +78,7 @@ export default function ReservationsScreen() {
         {list !== null && shown.length === 0 && (
           <div className="text-center mt-12">
             <p className="text-pt-muted text-sm mb-3">Nothing here.</p>
-            {!isStaff && tabKey === 'current' && <button onClick={() => navigate('/')} className="text-pt-accent text-sm font-medium">Find props to reserve</button>}
+            {!isStaff && tabKey === 'current' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium">Find props to reserve</button>}
           </div>
         )}
         {shown.map(r => {

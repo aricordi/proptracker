@@ -10,12 +10,13 @@
 // records inside a transaction, so if two people race for the last unit,
 // Firestore makes one of them retry, and the retry sees the unit is gone.
 import { assertNotPaused } from './strikes.js'
+import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, type Caller } from './auth.js'
 import { collectionOf } from './collections.js'
 import {
-  checkDates, freeForRange, todayInStudio, earliestStart, turnaroundFor, cleanClosedDays, isLate,
+  checkDates, freeForRange, todayInStudio, earliestStart, addOpenDays, turnaroundFor, cleanClosedDays, isLate,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
 } from './booking.js'
 
@@ -58,6 +59,7 @@ export async function loadSettings(): Promise<BookingSettings> {
   const num = (v: unknown, fallback: number) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 60 ? v as number : fallback
   return {
     leadTimeDays: num(d.leadTimeDays, DEFAULT_BOOKING_SETTINGS.leadTimeDays),
+    buildLeadDays: num(d.buildLeadDays, DEFAULT_BOOKING_SETTINGS.buildLeadDays),
     bufferDays:   num(d.bufferDays,   DEFAULT_BOOKING_SETTINGS.bufferDays),
     maxDays:      Math.max(1, num(d.maxDays, DEFAULT_BOOKING_SETTINGS.maxDays)),
     ...cleanClosedDays(d),
@@ -176,6 +178,11 @@ export const createReservation = onCall(CALLABLE, async req => {
   if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Add at least one prop.')
 
   const settings = await loadSettings()
+  // Added to a shoot on the schedule: the props are for that shoot's day.
+  const shoot = await shootToAddTo(caller, req.data?.scheduleShootId)
+  if (shoot && (startDate !== shoot.date || endDate !== shoot.date)) {
+    throw new HttpsError('invalid-argument', `Props for this shoot are for its day (${shoot.date}).`, { problem: 'shoot-day' })
+  }
 
   // Creators with props out late can't book more until they bring them back
   // (owner's rule). The arts department is never blocked.
@@ -200,6 +207,12 @@ export const createReservation = onCall(CALLABLE, async req => {
         ? ` Bookings can be at most ${settings.maxDays} day${settings.maxDays === 1 ? '' : 's'}.`
         : ''
     throw new HttpsError('invalid-argument', DATE_MESSAGES[problem] + extra, { problem })
+  }
+  // New props (things to make or find) need more notice than props from the inventory.
+  if (!caller.isStaff && builds.length && startDate < addOpenDays(today, settings.buildLeadDays, settings)) {
+    throw new HttpsError('invalid-argument',
+      `New props (things to make or find) need ${settings.buildLeadDays} open days' notice. The earliest shoot day for them is ${addOpenDays(today, settings.buildLeadDays, settings)}.`,
+      { problem: 'too-soon-build' })
   }
 
   const resRef = db.collection('reservations').doc()
@@ -256,7 +269,7 @@ export const createReservation = onCall(CALLABLE, async req => {
       title,
       notes: text(req.data?.notes, 2000),
       // Links the props and gear halves of one shoot request (step 4).
-      ...(shootIdOf(req.data?.shootId) ? { shootId: shootIdOf(req.data?.shootId) } : {}),
+      ...(shoot ? { shootId: shoot.id, scheduleShootId: shoot.id } : shootIdOf(req.data?.shootId) ? { shootId: shootIdOf(req.data?.shootId) } : {}),
       creatorEmail: caller.email,
       creatorName: caller.name,
       startDate, endDate,
@@ -275,6 +288,7 @@ export const createReservation = onCall(CALLABLE, async req => {
     queueEmail(tx, 'arts-team', `New request: "${title}" (${startDate})`,
       `${caller.name} requested ${saved.length} prop(s)${builds.length ? ` and ${builds.length} build(s)` : ''} for ${startDate} to ${endDate}.`, resRef.id)
   })
+  if (shoot) await noteOnShoot(shoot.id, caller.email, 'props-added', `${lines.length + builds.length} prop request${lines.length + builds.length === 1 ? '' : 's'}`)
 
   return { id: resRef.id }
 })
@@ -300,6 +314,9 @@ async function endEarly(caller: Caller, id: unknown, to: 'cancelled' | 'declined
   })
   return { ok: true }
 }
+
+// Used when the shoot these props were for is cancelled.
+export const cancelForShoot = (by: Caller, id: string) => endEarly(by, id, 'cancelled', undefined, () => {})
 
 export const cancelReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])

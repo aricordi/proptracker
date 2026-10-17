@@ -49,6 +49,8 @@ import ScheduleRulesScreen from './screens/ScheduleRulesScreen'
 import CalendarImportScreen from './screens/CalendarImportScreen'
 import ScheduleTeamScreen from './screens/ScheduleTeamScreen'
 import { CartProvider } from './cart'
+import { ActiveShootProvider } from './activeShoot'
+import CreatorHomeScreen from './screens/CreatorHomeScreen'
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 
 function Loading() {
@@ -84,10 +86,11 @@ function GearOnly({ children }: { children: ReactNode }) {
   return isGearStaff ? <>{children}</> : <Navigate to="/" replace />
 }
 
-// The equipment team works only with gear: their home is the bundles list.
+// The equipment team works only with gear: their home is the gear queue.
+// Creators' home is their shoots; staff land on prop search.
 function Home() {
   const { role } = useSession()
-  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : <HomeScreen />
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'creator' ? <CreatorHomeScreen /> : <HomeScreen />
 }
 
 // Booking gear is for creators, the arts department and the owner (the equipment team runs it).
@@ -186,6 +189,7 @@ export default function App() {
     <CartProvider>
     <GearCartProvider>
     <ShootDaySync />
+    <ActiveShootProvider>
     <ViewAsFrame on={!!session.viewingAs}>
       <Routes>
         {/* Full-screen routes outside the shell */}
@@ -201,6 +205,7 @@ export default function App() {
 
         <Route element={<ShellLayout />}>
           <Route path="/" element={<Home />} />
+          <Route path="/browse" element={<HomeScreen />} />
           <Route path="/gear" element={<GearBookers><GearShopScreen /></GearBookers>} />
           <Route path="/gear/bookings" element={<GearBookingsScreen />} />
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
@@ -232,6 +237,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ViewAsFrame>
+    </ActiveShootProvider>
     </GearCartProvider>
     </CartProvider>
     </ProfilesContext.Provider>

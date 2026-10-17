@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { fmtTime } from '../../functions/src/gearBooking'
+import { fmtTime, GEAR_LEAD_TIME_DAYS } from '../../functions/src/gearBooking'
+import { useBookingSettings } from '../hooks/useBookings'
 import { useScheduleSettings, fmtSlot, BOOK_AHEAD_DAYS } from '../services/schedule'
 
 const WEEKDAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
@@ -9,6 +10,7 @@ const list = (xs: string[]) => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1)
 export default function ScheduleRulesScreen() {
   const navigate = useNavigate()
   const s = useScheduleSettings()
+  const b = useBookingSettings()
   const c1 = s.houses.cliff1.name, c2 = s.houses.cliff2.name
   const prioDays = list(s.priorityWeekdays.map(d => WEEKDAY_NAMES[d]))
   const H = ({ children }: { children: React.ReactNode }) => <h2 className="text-pt-text font-semibold text-lg pt-4">{children}</h2>
@@ -54,6 +56,13 @@ export default function ScheduleRulesScreen() {
         <ul className="list-disc pl-5 space-y-1.5">
           <Li>{c2} is first come, first served. External rentals come first.</Li>
           <Li>Shooting somewhere else? Tap <b>Book a shoot</b> → <b>Somewhere else</b>: pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
+        </ul>
+
+        <H>Props and gear for your shoot</H>
+        <ul className="list-disc pl-5 space-y-1.5">
+          <Li><b>Book your time first.</b> Then add props, costumes and gear to that shoot from Browse (or from the shoot itself). Browsing is open any time.</Li>
+          <Li>Each team needs notice, counted in open days before the shoot{b.closedWeekdays.includes(0) ? ' (Sundays don\'t count)' : ''}: props we have <b>{b.leadTimeDays}</b>, new props to make or find <b>{b.buildLeadDays}</b>, gear <b>{GEAR_LEAD_TIME_DAYS}</b>.</Li>
+          <Li>Cancelling a shoot cancels its props and gear requests too. A shoot with props or gear can move to another time the same day; to change the day, cancel those first.</Li>
         </ul>
 
         <H>On the day</H>

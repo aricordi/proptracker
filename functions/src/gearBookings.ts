@@ -6,6 +6,7 @@ import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
 import { assertNotPaused } from './strikes.js'
+import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { todayInStudio } from './booking.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
@@ -40,6 +41,9 @@ export const createGearBooking = onCall(CALLABLE, async req => {
   const lines = tidyLines(d.lines)
   if (!lines.length) throw new HttpsError('invalid-argument', 'Add at least one bundle or extra.')
   const settings = await loadSettings()
+  // Added to a shoot on the schedule: the gear is for that shoot's day.
+  const shoot = await shootToAddTo(caller, d.scheduleShootId)
+  if (shoot && d.date !== shoot.date) throw new HttpsError('invalid-argument', `Gear for this shoot is for its day (${shoot.date}).`, { problem: 'shoot-day' })
   const today = todayInStudio()
   const problem = checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, caller.role !== 'creator')
   if (problem) throw new HttpsError('failed-precondition', GEAR_TIME_MESSAGES[problem], { problem })
@@ -88,13 +92,14 @@ export const createGearBooking = onCall(CALLABLE, async req => {
     }, { merge: true }))
     tx.set(ref, {
       title, notes: str(d.notes, 1000), creatorEmail: caller.email, creatorName: caller.name,
-      ...(shootIdOf(d.shootId) ? { shootId: shootIdOf(d.shootId) } : {}),
+      ...(shoot ? { shootId: shoot.id, scheduleShootId: shoot.id } : shootIdOf(d.shootId) ? { shootId: shootIdOf(d.shootId) } : {}),
       date, start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay,
       lines: out.map(({ entries: _e, ...l }) => l), offerIds: out.map(l => l.offerId),
       status: 'held', createdAt: now, updatedAt: now,
       history: [{ at: now, by: caller.email, action: 'held', note: `${date} ${fmtHours(start, end)}` }],
     })
   })
+  if (shoot) await noteOnShoot(shoot.id, caller.email, 'gear-added', `${lines.length} gear item${lines.length === 1 ? '' : 's'} · ${fmtHours(start, end)}`)
   return { id: ref.id }
 })
 
@@ -120,6 +125,9 @@ async function release(id: string, by: string, status: 'cancelled' | 'declined',
     })
   })
 }
+
+// Used when the shoot this gear was for is cancelled.
+export const cancelGearForShoot = (by: string, id: string) => release(id, by, 'cancelled', () => true, 'the shoot was cancelled')
 
 export const cancelGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
