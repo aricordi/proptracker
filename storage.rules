@@ -78,6 +78,17 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // Shoot check-in photos (the set, and any mess from the slot before): the creator who booked adds
+    // them; they and the schedule team can see them. Add-only.
+    function shootBookedBy(shootId) {
+      return firestore.get(/databases/(default)/documents/shoots/$(shootId)).data.creatorEmail == myEmail();
+    }
+    match /shoot-photos/{shootId}/{file} {
+      allow read: if isGearStaff() || ((isMember() || isGearStaff()) && shootBookedBy(shootId));
+      allow create: if resource == null && isImage() && (isGearStaff() || shootBookedBy(shootId));
+      allow update, delete: if false;
+    }
+
     // Profile photos (small, square). Everyone in the company can see them; you upload your own.
     match /avatars/{email}/{file} {
       allow read: if isMember() || isGearStaff();

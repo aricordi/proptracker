@@ -23,6 +23,11 @@ export interface ScheduleSettings {
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
   googleCalendarId: string // shared Google Calendar the app copies bookings to ('' = off)
+  checkinBefore: number    // check-in opens this many minutes before the start
+  explainHours: number     // a missed check-in can be explained for this many hours after the end
+  strikeCount: number      // this many strikes…
+  strikeDays: number       // …within this many days…
+  pauseDays: number        // …pause prop + gear booking for this many days
 }
 
 // Owner decisions, Oct 16: 9 slots from 7–9 AM to 11 PM–1 AM, 4 monthly Cliff 1 slots,
@@ -40,6 +45,11 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   releaseMinute: 18 * 60,
   noticeHours: 48,
   googleCalendarId: '',
+  checkinBefore: 15,
+  explainHours: 12,
+  strikeCount: 2,
+  strikeDays: 30,
+  pauseDays: 14,
 }
 export const MONTHLY_HOUSE: House = 'cliff1'
 export const PRIORITY_HOUSE: House = 'cliff1'
@@ -47,6 +57,7 @@ export const NO_CREW_WEEKDAYS = [0]     // Sundays: open filming, crew is off
 export const BOOK_AHEAD_DAYS = 120      // how far ahead anyone can book
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
+const int = (v: unknown, min: number, max: number, fallback: number) => Number.isInteger(v) && (v as number) >= min && (v as number) <= max ? v as number : fallback
 const emailOk = (v: unknown): v is string => typeof v === 'string' && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)
 
 // Settings from the database, with anything missing or odd replaced by the defaults.
@@ -74,6 +85,11 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
     googleCalendarId: str(x.googleCalendarId, 200),
+    checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
+    explainHours: int(x.explainHours, 0, 168, D.explainHours),
+    strikeCount: int(x.strikeCount, 1, 20, D.strikeCount),
+    strikeDays: int(x.strikeDays, 1, 365, D.strikeDays),
+    pauseDays: int(x.pauseDays, 0, 365, D.pauseDays),
   }
 }
 
@@ -192,3 +208,14 @@ export const isShortNotice = (from: string, now: string, s: ScheduleSettings) =>
 // Just booked it by mistake? Cancelling within 10 minutes of booking is always free.
 export const UNDO_MINUTES = 10
 export const withinUndo = (createdAt: string | undefined, nowMs = Date.now()) => !!createdAt && nowMs - Date.parse(createdAt) < UNDO_MINUTES * 60_000
+
+// ─── On the day: check in, wrap, missed check-ins (step 4) ───────────────────
+export interface AttendanceShoot { status: string; from: string; to: string; checkin?: { at: string } | null; outcome?: string | null }
+// Check-in opens a little before the start and stays open until the end.
+export function checkinWindow(sh: { from: string; to: string }, now: string, s: ScheduleSettings): 'early' | 'open' | 'over' {
+  if (now < addMinutes(sh.from, -s.checkinBefore)) return 'early'
+  return now < sh.to ? 'open' : 'over'
+}
+// Booked, over, never checked in, and the team hasn't decided yet.
+export const isMissed = (sh: AttendanceShoot, now: string) => sh.status === 'booked' && !sh.checkin && !sh.outcome && now >= sh.to
+export const explainUntil = (sh: { to: string }, s: ScheduleSettings) => addMinutes(sh.to, s.explainHours * 60)

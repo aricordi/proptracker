@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, type Caller } from './auth.js'
 import { todayInStudio, isDay } from './booking.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
+import { addStrike } from './strikes.js'
 import {
   cleanScheduleSettings, checkSlot, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type Place, type House,
@@ -133,6 +134,7 @@ export const cancelShoot = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   const now = nowStamp()
   let noShow = false
+  let who = { email: '', name: '' }
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
     if (!b) throw new HttpsError('not-found', 'Shoot not found.')
@@ -141,6 +143,7 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     if (b.status !== 'booked') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started. Ask the schedule team if something went wrong.')
     noShow = !team && isShortNotice(b.from, now, s) && !withinUndo(b.createdAt)
+    who = { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
     const write = await editDays(tx, [b.date], days => takeOut(days[b.date], b as Spot, id))
     write()
@@ -151,6 +154,7 @@ export const cancelShoot = onCall(CALLABLE, async req => {
         ...(team && b.creatorEmail !== caller.email ? { note: 'by the schedule team' } : noShow ? { note: `less than ${s.noticeHours} h before · counts as a no-show` } : {}) }),
     })
   })
+  if (noShow) await addStrike(who.email, who.name, 'late-cancel', id, caller.email)
   return { ok: true, lateCancel: noShow }
 })
 

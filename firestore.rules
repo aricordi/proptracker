@@ -223,6 +223,20 @@ service cloud.firestore {
       allow create, update: if validProfile() && ((signedIn() && myEmail() == email && (isMember() || isGearStaff())) || isGearStaff());
       allow delete: if false;
     }
+    // Check-ins & accountability: reports about the slot before (team + the reporter), strikes and
+    // pauses (the person themselves + team). Server writes only.
+    match /schedule_reports/{id} {
+      allow read: if isGearStaff() || (signedIn() && resource.data.byEmail == myEmail());
+      allow write: if false;
+    }
+    match /strikes/{id} {
+      allow read: if isGearStaff() || (signedIn() && resource.data.email == myEmail());
+      allow write: if false;
+    }
+    match /user_status/{email} {
+      allow read: if isGearStaff() || (signedIn() && myEmail() == email);
+      allow write: if false;
+    }
     match /gear_bookings/{id} {
       allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;

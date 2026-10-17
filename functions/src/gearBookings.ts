@@ -5,6 +5,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
+import { assertNotPaused } from './strikes.js'
 import { todayInStudio } from './booking.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
@@ -34,6 +35,7 @@ function tidyLines(v: unknown): LineIn[] {
 
 export const createGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  if (caller.role === 'creator') await assertNotPaused(caller.email)
   const d = req.data ?? {}
   const lines = tidyLines(d.lines)
   if (!lines.length) throw new HttpsError('invalid-argument', 'Add at least one bundle or extra.')

@@ -9,6 +9,7 @@
 // listing its active holds. Creating a reservation reads and rewrites those
 // records inside a transaction, so if two people race for the last unit,
 // Firestore makes one of them retry, and the retry sees the unit is gone.
+import { assertNotPaused } from './strikes.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, type Caller } from './auth.js'
@@ -166,6 +167,7 @@ export const shootIdOf = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-
 
 export const createReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  if (caller.role === 'creator') await assertNotPaused(caller.email)
   const { startDate, endDate } = req.data ?? {}
   const title = text(req.data?.title, 120)
   if (!title) throw new HttpsError('invalid-argument', 'Give the shoot a name.')
