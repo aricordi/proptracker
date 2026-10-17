@@ -574,6 +574,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   RENAMED in the real app (Oct 17): "Prime App" → "Prime Capitol" everywhere (browser tab, home-screen label, manifest,
   login/invite/not-invited text, email sender default/test, calendar feed names). Server text goes live with the next
   backend deploy. (iPhone may shorten the home-screen label to "Prime Capi…".)
+  OWNER (Oct 17): AI should also FIND OPEN FILMING TIMES from the schedule, and creators can TALK it through → mockup:
+  Book tab "✦ Ask for a time" (type or MIC) → chat: "4 hours with Jana next week, evenings" → real options as cards
+  (back-to-back slots "You 5–7 · Jana 7–9", Book button; partner gets the 10-min invite hold), follow-up chips
+  ("Anything on the weekend?", "Only Cliff 2", "Just me, 2 hours"), priority-day/monthly notes in the answers.
+  BUILD NOTE: the AI (Gemini) only turns the words into a search {dates, length, houses, partner, time of day};
+  the app's own findFree() + priority/notice rules pick the slots, so it never invents a time. Voice = the phone
+  keyboard's dictation or the browser's speech recognition (Safari supports it).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
