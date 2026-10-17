@@ -552,6 +552,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   photo + bottom basket "Send N to the teams", shoot page = cover + 3 tiles + "More" (move/swap/cancel/history),
   shoot day = full-screen "You're up" + one camera button → timer → wrap → celebration + streak). Waiting for the
   owner's feedback before building. Backend deploy of steps 3+4 still waiting for the owner's OK.
+  OWNER FEEDBACK on v1 (Oct 17): AI quick add won't be accurate enough → keep it only as an OPTIONAL helper (suggestions,
+  "frequently used"); creators must be able to SEARCH and BROWSE the real catalogue with photos (to see it / get inspired);
+  keep the checkout granularity: see in-progress requests and CHANGE / ADD to them; pros want to dig in (filters, detail);
+  don't forget BRANDING. → MOCKUP v2 (same link): eagle splash "PRIME APP" + eagle in header/cards/notification icon;
+  Home = hero shoot card + search bar with "✦ Ask AI" chip + "Your usuals" (most booked) + "✦ Suggested for Saturday"
+  rows (+ quick add on each); Browse = Adding-to bar, real search (+ "Similar, might work too"), Props & costumes | Gear,
+  category chips, Filters sheet (only free for my shoot, sort A–Z / most booked, condition), + on cards; ITEM PAGE =
+  photos (dots), free count, next 7 days strip (gold = your shoot), how many, notes, suggest an edit; gear page = what's
+  in the case + adjustable gear hours + battery note; basket "Review your shoot · N" → YOUR SHOOT review (steppers,
+  remove, "We don't have it · make or find" inline with the 4-day cutoff note, gear hours, notes for the teams, Send);
+  SHOOT PAGE = request cards with status track (Requested → Being picked → Packed → Picked up → Returned; gear Held →
+  Picked up → Returned → Checked in), item list, CHANGE (only while Requested; after that "message the team or add
+  more") + "+ Add more"; Me = My requests with statuses. BUILD NOTE: editing a sent request needs a new server function
+  (e.g. editReservation/editGearBooking while 'requested'/'held', re-checking availability in the transaction).
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
