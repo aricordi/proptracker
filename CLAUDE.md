@@ -587,6 +587,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   Mockup shows Booked / Held 20 min / Confirmed. OWNER DECISION (Oct 17): invite HOLD = 20 MINUTES (so it doesn't block
   other creators for long); while held, the schedule shows the slot as "Held for <name> · opens at <time> if they don't
   confirm" (dashed amber) so others know to check back. Applied to partner invites too (one rule; was 10 min).
+  OWNER (Oct 17): "a bunch of squares, can't tell the AI from the calendar from the other stuff" → MOCKUP v4 VISUAL RULES
+  (use these in the build): (1) YOUR SHOOT = the only big gold card; (2) AI = always a VIOLET GRADIENT PILL with ✦
+  (animated gradient border, round sparkle icon, "✦ Ideas" gradient chip), never a box; AI chat bubbles violet-tinted;
+  (3) SCHEDULE = timeline rows with hairlines (time column with a coloured rail: gold = free + outline "Book" pill,
+  dashed amber = held with "Held · 20 min" tag, grey = taken with a face), day strip = plain numbers, selected day =
+  gold circle; (4) CATALOGUE = photos only (rounded photo, text under it, no card); (5) STATS + info lists = plain
+  lines with dividers (stats strip, "Coming up" timeline with gold dates); shoot page: request cards stay cards, the
+  rest are plain rows. More space between sections.
   AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
   budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
   the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI
