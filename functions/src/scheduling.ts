@@ -6,14 +6,14 @@ import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, type Caller } from './auth.js'
 import { todayInStudio, isDay } from './booking.js'
-import { nowStamp, fmtTime } from './gearBooking.js'
+import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot } from './gearBookings.js'
 import {
-  cleanScheduleSettings, checkSlot, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
-  SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type Place, type House,
+  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
+  SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
 
@@ -72,7 +72,9 @@ function placeIn(day: ScheduleDay, spot: Spot, entry: { shootId: string; name: s
   }
   if (blockAt(day, spot.place, spot.start, s.slotMinutes)) throw fail('blocked')
   const taken = day[spot.place]?.[slotKey(spot.start)]
-  if (taken && taken.shootId !== entry.shootId) throw fail('taken')
+  // A held slot is only free again once the hold has ended, or for the person it's held for.
+  if (taken?.hold) { if (holdActive(taken, nowStamp()) && taken.email !== entry.email) throw fail('held') }
+  else if (taken && taken.shootId !== entry.shootId) throw fail('taken')
   day[spot.place] = { ...(day[spot.place] ?? {}), [slotKey(spot.start)]: { shootId: entry.shootId, name: entry.name, email: entry.email, kind: entry.kind } }
 }
 function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootId: string) {
@@ -371,3 +373,120 @@ export async function placeShootAsTeam(spot: Spot, who: { email: string; name: s
   })
   return ref.id
 }
+
+// ─── Filming back to back with friends ───────────────────────────────────────
+// Book your slot(s), and hold the slot after yours for each friend (in the order given) for
+// INVITE_HOLD_MINUTES. Each friend confirms their own slot (answerInvite); a hold nobody
+// confirms simply ends and the slot is free for everyone again. While held, the schedule
+// shows "Held for <name>". An invite from a priority-group creator covers a priority day.
+
+function placeHold(day: ScheduleDay, house: House, start: number, entry: SlotEntry, s: ScheduleSettings) {
+  if (blockAt(day, house, start, s.slotMinutes)) throw fail('blocked')
+  const taken = day[house]?.[slotKey(start)]
+  if (taken?.hold ? holdActive(taken, nowStamp()) : taken) throw fail(taken?.hold ? 'held' : 'taken')
+  day[house] = { ...(day[house] ?? {}), [slotKey(start)]: entry }
+}
+
+export const bookWithFriends = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, [...ANYONE])
+  const d = req.data ?? {}
+  const s = await loadScheduleSettings()
+  const spot = readSpot(d, s)
+  if (spot.place === 'offsite') throw new HttpsError('invalid-argument', 'Back-to-back booking is for the houses.')
+  const house = spot.place as House
+  const mySlots = Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= 3 ? d.mySlots as number : 1
+  const friendEmails = [...new Set((Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).toLowerCase()).filter(Boolean))]
+    .filter(e => e !== caller.email).slice(0, 4) as string[]
+  const friends: { email: string; name: string }[] = []
+  for (const email of friendEmails) {
+    const u = email === OWNER_EMAIL ? { active: true, name: 'Owner' } : (await db.doc(`users/${email}`).get()).data()
+    if (!u || u.active !== true) throw new HttpsError('not-found', `${email} has no active account.`)
+    friends.push({ email, name: u.name || email })
+  }
+  const now = nowStamp()
+  if (!isTeam(caller) && priorityLocked(spot.date, house, s, caller.email, now)) throw fail('locked')
+  const total = mySlots + friends.length
+  const starts = Array.from({ length: total }, (_, j) => spot.start + j * s.slotMinutes)
+  if (starts.some(st => !s.slots.includes(st))) throw new HttpsError('failed-precondition', 'There aren\'t enough back-to-back slots left that day. Start earlier.')
+  const kind: ShootKind = house === MONTHLY_HOUSE && d.kind === 'monthly' ? 'monthly' : 'extra'
+  if (kind === 'monthly' && await monthlyUsed(caller.email, monthOf(spot.date)) + mySlots > s.monthlySlots) throw fail('no-monthly-left')
+
+  const until = addMinutes(now, INVITE_HOLD_MINUTES), at = new Date().toISOString()
+  const shootRefs = starts.slice(0, mySlots).map(() => db.collection('shoots').doc())
+  const inviteRefs = friends.map(() => db.collection('schedule_invites').doc())
+  const withNames = friends.map(f => f.name).join(' and ')
+  await db.runTransaction(async tx => {
+    const write = await editDays(tx, [spot.date], days => {
+      shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind }, s))
+      friends.forEach((f, j) => placeHold(days[spot.date], house, starts[mySlots + j],
+        { shootId: '', name: f.name, email: f.email, kind: 'extra', hold: { until, inviteId: inviteRefs[j].id, fromName: caller.name } }, s))
+    })
+    write()
+    shootRefs.forEach((ref, j) => {
+      const sp = { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }
+      const win = slotWindow(sp.date, sp.start, s.slotMinutes)
+      tx.set(ref, {
+        creatorEmail: caller.email, creatorName: caller.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind,
+        status: 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
+        history: [{ at, by: caller.email, action: 'booked', note: `${spotLabel(sp, s)}${withNames ? ` · with ${withNames}` : ''}` }],
+      })
+    })
+    friends.forEach((f, j) => tx.set(inviteRefs[j], {
+      fromEmail: caller.email, fromName: caller.name, fromShootId: shootRefs[0].id, toEmail: f.email, toName: f.name,
+      place: house, date: spot.date, start: starts[mySlots + j], end: starts[mySlots + j] + s.slotMinutes,
+      until, status: 'pending', createdAt: at,
+    }))
+  })
+  return { shootIds: shootRefs.map(r => r.id), inviteIds: inviteRefs.map(r => r.id), until }
+})
+
+// A friend confirms (or declines) the slot held for them. The person who invited can also withdraw it.
+export const answerInvite = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, [...ANYONE])
+  const id = str(req.data?.id, 100), accept = req.data?.accept === true
+  const ref = db.doc(`schedule_invites/${id}`)
+  const s = await loadScheduleSettings()
+  const shootRef = db.collection('shoots').doc()
+  let outcome = ''
+  await db.runTransaction(async tx => {
+    const inv = (await tx.get(ref)).data()
+    if (!inv) throw new HttpsError('not-found', 'Invite not found.')
+    const withdraw = inv.fromEmail === caller.email && !accept
+    if (inv.toEmail !== caller.email && !withdraw) throw new HttpsError('permission-denied', 'This invite is for someone else.')
+    if (inv.status !== 'pending') throw new HttpsError('failed-precondition', 'This invite was already answered.')
+    const now = nowStamp(), at = new Date().toISOString()
+    const ours = (days: Record<string, ScheduleDay>) => days[inv.date][inv.place as House]?.[slotKey(inv.start)]?.hold?.inviteId === id
+    const clear = (days: Record<string, ScheduleDay>) => {
+      if (!ours(days)) return
+      const { [slotKey(inv.start)]: _gone, ...rest } = days[inv.date][inv.place as House]!
+      days[inv.date][inv.place as House] = rest
+    }
+    if (!accept) {
+      const write = await editDays(tx, [inv.date], clear); write()
+      tx.update(ref, { status: withdraw ? 'withdrawn' : 'declined', answeredAt: at })
+      outcome = 'declined'; return
+    }
+    if (inv.until <= now) {
+      const write = await editDays(tx, [inv.date], clear); write()
+      tx.update(ref, { status: 'expired', answeredAt: at })
+      outcome = 'expired'; return
+    }
+    const sp: Spot = { place: inv.place, date: inv.date, start: inv.start, end: inv.end, where: '' }
+    const write = await editDays(tx, [inv.date], days => {
+      if (!ours(days)) throw fail('taken')
+      clear(days)
+      placeIn(days[inv.date], sp, { shootId: shootRef.id, name: inv.toName, email: inv.toEmail, kind: 'extra' }, s)
+    })
+    write()
+    const win = slotWindow(sp.date, sp.start, s.slotMinutes)
+    tx.set(shootRef, {
+      creatorEmail: inv.toEmail, creatorName: inv.toName, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind: 'extra',
+      status: 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, invitedBy: inv.fromEmail,
+      history: [{ at, by: caller.email, action: 'booked', note: `${spotLabel(sp, s)} · invited by ${inv.fromName}` }],
+    })
+    tx.update(ref, { status: 'accepted', answeredAt: at, shootId: shootRef.id })
+    outcome = 'accepted'
+  })
+  if (outcome === 'expired') throw new HttpsError('failed-precondition', `The ${INVITE_HOLD_MINUTES} minutes ran out, so the slot opened to everyone. Book it on the schedule if it's still free.`, { problem: 'expired' })
+  return { ok: true, shootId: outcome === 'accepted' ? shootRef.id : null }
+})

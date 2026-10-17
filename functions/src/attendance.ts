@@ -44,7 +44,7 @@ export const checkInShoot = onCall(CALLABLE, async req => {
     if (mess && !messPhotos.length) throw new HttpsError('invalid-argument', 'Add a photo of the mess.')
     const day = ((await db.doc(`schedule_days/${sh.date}`).get()).data() ?? {}) as ScheduleDay
     const prev = day[sh.place as House]?.[slotKey(sh.start - s.slotMinutes)]
-    if (prev && prev.shootId !== id) {
+    if (prev && prev.shootId && prev.shootId !== id) {
       const what = [over ? `ran over ${over} min` : '', mess ? 'house left a mess' : ''].filter(Boolean).join(', ')
       const rep = await db.collection('schedule_reports').add({
         onShootId: prev.shootId, onEmail: prev.email ?? '', onName: prev.name, byShootId: id, byEmail: caller.email, byName: sh.creatorName,

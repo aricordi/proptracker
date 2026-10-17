@@ -209,6 +209,11 @@ service cloud.firestore {
       allow read: if isGearStaff() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
       allow write: if false;
     }
+    // Invites to film back to back (a held slot for a friend): the two people + the schedule team; server-only writes.
+    match /schedule_invites/{id} {
+      allow read: if isGearStaff() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
+      allow write: if false;
+    }
     // Profiles: a small photo + channel name. Everyone in the company sees them; you edit your own;
     // the owner and schedule team can tidy anyone's (e.g. remove a photo).
     function validProfile() {

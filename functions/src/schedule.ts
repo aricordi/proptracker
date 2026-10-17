@@ -94,7 +94,11 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 }
 
 // ─── What one day of the schedule holds ──────────────────────────────────────
-export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string }
+// A slot can also be HELD for a friend someone invited to film back to back: `hold` is set, shootId is ''.
+// The hold lasts INVITE_HOLD_MINUTES (owner, Oct 17: 20 min); after that the slot is free again for everyone.
+export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string } }
+export const INVITE_HOLD_MINUTES = 20
+export const holdActive = (e: SlotEntry | undefined, now: string) => !!e?.hold && e.hold.until > now
 export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string }
 export type BlockType = 'cleaners' | 'maintenance' | 'event' | 'rental' | 'other'
 export const BLOCK_TYPES: Record<BlockType, string> = {
@@ -138,6 +142,7 @@ export type SlotState =
   | { t: 'block'; block: Block }
   | { t: 'past' }
   | { t: 'locked'; opens: string }
+  | { t: 'held'; entry: SlotEntry; until: string }
 
 // What one slot looks like to this person right now. The schedule team (owner,
 // equipment) is never locked out of priority days.
@@ -145,7 +150,8 @@ export function slotState(day: ScheduleDay | undefined, date: string, house: Hou
   const block = blockAt(day, house, start, s.slotMinutes)
   if (block) return { t: 'block', block }
   const entry = day?.[house]?.[slotKey(start)]
-  if (entry) return { t: 'booked', entry }
+  if (entry?.hold) { if (entry.hold.until > now) return { t: 'held', entry, until: entry.hold.until } }   // an ended hold counts as free
+  else if (entry) return { t: 'booked', entry }
   if (stamp(date, start) <= now) return { t: 'past' }
   if (!isTeam && priorityLocked(date, house, s, email, now)) return { t: 'locked', opens: releaseStamp(date, s) }
   return { t: 'free' }
@@ -172,7 +178,7 @@ export function findFree(days: Record<string, ScheduleDay>, fromDate: string, da
   return out
 }
 
-export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice'
+export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice' | 'held'
 export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'bad-date': 'Pick a day.',
   'bad-slot': 'Pick one of the 2-hour slots.',
@@ -185,6 +191,7 @@ export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   blocked: 'That time is blocked at the house.',
   'no-where': 'Say where the offsite shoot is.',
   'short-notice': 'Less than 48 hours to go. Swap with someone instead, or cancel (it counts as a no-show).',
+  held: `That slot is held for someone's collab (up to ${INVITE_HOLD_MINUTES} minutes). Check back soon.`,
 }
 
 // Checks that don't need the database (the rest happen in the transaction).

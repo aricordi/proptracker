@@ -4,7 +4,11 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
-import { todayInStudio } from './booking.js'
+import { todayInStudio, addDays, weekday } from './booking.js'
+import { nowStamp } from './gearBooking.js'
+import { roughParse, roughAdjust, cleanAsk, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
+import { loadScheduleSettings } from './scheduling.js'
+import type { ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, isFakeMode } from './gemini.js'
 
@@ -112,4 +116,59 @@ only things that clearly fit the idea; "missing": 0-4 important things not in th
   const missing = (Array.isArray(data.missing) ? data.missing : []).slice(0, 4)
     .map((m: any) => ({ name: str(m?.name, 60), why: str(m?.why, 90) })).filter(m => m.name)
   return { groups, missing }
+})
+
+// ─── Ask for a time (type or talk) ───────────────────────────────────────────
+
+export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
+  const text = str(req.data?.text, 400)
+  if (text.length < 3) throw new HttpsError('invalid-argument', 'Say when you want to film.')
+  const settle = await reserveAi(caller.email, 'times')
+  const s = await loadScheduleSettings()
+  const today = todayInStudio(), now = nowStamp()
+  const users = await db.collection('users').where('active', '==', true).get()
+  const people = users.docs.map(d => ({ email: d.id, name: String(d.get('name') || d.id) })).filter(p => p.email !== caller.email)
+  const previous = req.data?.previous && typeof req.data.previous === 'object' ? req.data.previous as Record<string, unknown> : null
+  let ask: TimeAsk = previous ? roughAdjust(cleanAsk(previous, today, roughParse('', today, people)), text, today, people) : roughParse(text, today, people)
+  let reply = '', cost = 0
+  const key = apiKey()
+  if (key && !isFakeMode(key)) {
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday(today)]
+    const prompt = `You help a creator find filming times at a studio. Today is ${dayName} ${today}, ${now.slice(11)} (Toronto).
+Houses: "cliff1" = ${s.houses.cliff1.name}, "cliff2" = ${s.houses.cliff2.name}. Slots are ${s.slotMinutes / 60} hours each. Weeks run Monday to Sunday.
+People the creator might film with: ${people.map(p => p.name).join(', ') || '(none)'}.
+${previous ? `Their previous search (they may be adjusting it): ${JSON.stringify(previous)}\n` : ''}Creator's message: """${text}"""
+Return ONLY JSON: {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","people":["exact names from the list they will film with, right after them"],
+"mySlots":1,"houses":["cliff1","cliff2"],"timeOfDay":"any|morning|afternoon|evening|late","reply":"one short friendly sentence saying what you'll look for"}
+Rules: from >= today; at most ${'' + 21} days between from and to; "this week" = today to Sunday; "next week" = next Monday to Sunday;
+mySlots = how many ${s.slotMinutes / 60}-hour slots the creator needs for themselves (1-3; friends each get their own slot after);
+houses = both unless they name one; keep anything from the previous search they didn't change.`
+    try { const r = await askJson(key, prompt, 400); cost = r.costUsd; ask = cleanAsk(r.data, today, ask); reply = str(r.data.reply, 160) } catch { /* the simple reading is used */ }
+  }
+  await settle(cost)
+
+  const friends = matchPeople(ask.people, people, caller.email)
+  const unknown = ask.people.filter(n => !friends.some(f => f.name.toLowerCase().split(/\s+/)[0] === n.toLowerCase().split(/\s+/)[0]))
+  const dates: string[] = []
+  for (let d = ask.from; d <= ask.to; d = addDays(d, 1)) dates.push(d)
+  const daySnaps = dates.length ? await db.getAll(...dates.map(d => db.doc(`schedule_days/${d}`))) : []
+  const days = Object.fromEntries(daySnaps.map((x, i) => [dates[i], (x.data() ?? { date: dates[i] }) as ScheduleDay]))
+  const friendBusy: Record<string, { from: string; to: string }[]> = {}
+  for (const f of friends) {
+    const q = await db.collection('shoots').where('creatorEmail', '==', f.email).where('date', '>=', addDays(ask.from, -1)).where('date', '<=', ask.to).get()
+    friendBusy[f.email] = q.docs.filter(d => d.get('status') === 'booked').map(d => ({ from: d.get('from'), to: d.get('to') }))
+  }
+  const me = { email: caller.email, name: caller.name }
+  const team = caller.role === 'owner' || caller.role === 'equipment'
+  const options = findOptions(ask, me, friends, days, friendBusy, s, now, team)
+  const who = friends.length ? `you${friends.map(f => `, ${f.name.split(' ')[0]}`).join('')} back to back` : `${ask.mySlots * s.slotMinutes / 60} hours`
+  if (!reply) reply = `Looking for ${who}.`
+  const note = unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : ''
+  return {
+    reply: options.length ? `${reply}${note}` : `${reply}${note} Nothing is free for that. Try other days, the other house, or a different time of day.`,
+    ask: { ...ask, people: friends.map(f => f.name) },
+    friends,
+    options,
+  }
 })
