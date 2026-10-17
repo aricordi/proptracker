@@ -15,6 +15,7 @@ export default function AdminScreen() {
     { to: '/categories', title: 'Categories',        detail: 'Add, rename, reorder or hide categories' },
     { to: '/booking-rules', title: 'Booking rules',  detail: 'How far ahead props must be booked; turnaround days' },
     ...(isOwner ? [{ to: '/email', title: 'Email', detail: 'Turn emails on, choose the sending service, send a test' }] : []),
+    ...(isOwner ? [{ to: '/ai', title: 'AI helpers', detail: 'Monthly AI budget, daily limit per person, what it has cost' }] : []),
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
     { to: '/gear',       title: 'Book gear',         detail: 'Hold camera, light and sound bundles for a shoot, by the hour' },
     ...(isOwner ? [

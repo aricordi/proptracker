@@ -237,6 +237,15 @@ service cloud.firestore {
       allow read: if isGearStaff() || (signedIn() && myEmail() == email);
       allow write: if false;
     }
+    // AI helper usage (monthly spend + per-person daily counts): the owner reads it, only the server writes.
+    match /ai_usage/{month} {
+      allow read: if isOwner();
+      allow write: if false;
+      match /people/{email} {
+        allow read: if isOwner() || (signedIn() && myEmail() == email);
+        allow write: if false;
+      }
+    }
     match /gear_bookings/{id} {
       allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;

@@ -52,6 +52,7 @@ import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import CreatorHomeScreen from './screens/CreatorHomeScreen'
 import Splash from './components/Splash'
+import AiSettingsScreen from './screens/AiSettingsScreen'
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 
 function Loading() {
@@ -229,6 +230,7 @@ export default function App() {
           <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
           <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />
           <Route path="/email" element={<OwnerOnly><EmailSettingsScreen /></OwnerOnly>} />
+          <Route path="/ai" element={<OwnerOnly><AiSettingsScreen /></OwnerOnly>} />
           <Route path="/activity" element={<StaffOnly><ActivityScreen /></StaffOnly>} />
           <Route path="/people/:email" element={<StaffOnly><PersonHistoryScreen /></StaffOnly>} />
           <Route path="/import" element={<StaffOnly><ImportScreen /></StaffOnly>} />

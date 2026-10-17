@@ -7,6 +7,7 @@ import { GearWhenPicker, GearArt, Pill, useGearWhen } from '../components/GearUi
 import { formatDay } from '../lib/dates'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
+import IdeasSheet, { IdeasButton } from '../components/IdeasSheet'
 
 // Creators: pick the shoot day + hours, see which bundles and extras are free, add them.
 export default function GearShopScreen() {
@@ -16,6 +17,7 @@ export default function GearShopScreen() {
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [cat, setCat] = useState<string | null>(null)
+  const [ideas, setIdeas] = useState(false)
   const { profile, role } = useSession()
   // Creators add gear to one of their booked shoots; without one they just browse.
   const creator = role === 'creator'
@@ -38,7 +40,7 @@ export default function GearShopScreen() {
       <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-end justify-between py-2">
           <h1 className="font-display text-3xl text-pt-text">{creator ? 'Browse' : 'Gear'}</h1>
-          <button onClick={() => navigate('/gear/bookings')} className="text-pt-accent text-sm font-medium pb-1">My gear bookings</button>
+          <span className="flex items-center gap-3 pb-1">{creator && <IdeasButton small onClick={() => setIdeas(true)} />}<button onClick={() => navigate('/gear/bookings')} className="text-pt-accent text-sm font-medium">{creator ? 'My gear' : 'My gear bookings'}</button></span>
         </div>
         {creator ? <div className="space-y-2"><BrowseTabs /><AddingToBar kind="gear" />{shoot && <GearWhenPicker hoursOnly />}</div> : <GearWhenPicker />}
       </div>
@@ -125,6 +127,7 @@ export default function GearShopScreen() {
           </button>
         </div>
       )}
+      {creator && <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />}
     </div>
   )
 }

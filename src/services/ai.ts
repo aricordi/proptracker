@@ -70,3 +70,10 @@ export const improveSearchWords = httpsCallable<{ countOnly?: boolean }, SearchW
 // Owner: one-off "Speed up photos" — small list versions for props added before thumbnails existed.
 export interface ThumbsRun { total: number; remaining: number; processed: number }
 export const makeMissingThumbs = httpsCallable<{ countOnly?: boolean }, ThumbsRun>(functions, 'makeMissingThumbs', { timeout: 300_000 })
+
+// ─── Creator AI helpers ──────────────────────────────────────────────────────
+
+export interface IdeaPick { kind: 'prop' | 'gear'; id: string; why: string }
+export interface IdeaResult { groups: { title: string; picks: IdeaPick[] }[]; missing: { name: string; why: string }[] }
+// A video idea → props and gear from the inventory, grouped by scene (each with why it fits).
+export const ideaToProps = httpsCallable<{ idea: string }, IdeaResult>(functions, 'ideaToProps')

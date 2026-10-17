@@ -6,6 +6,7 @@ import { useSession } from '../auth'
 import BrandMark from '../components/BrandMark'
 import Avatar from '../components/Avatar'
 import LateBanner from '../components/LateBanner'
+import IdeasSheet, { IdeasButton } from '../components/IdeasSheet'
 import { GearArt } from '../components/GearUi'
 import { useMyLateBookings } from '../hooks/useLateBookings'
 import { useItems } from '../hooks/useItems'
@@ -42,6 +43,7 @@ export default function CreatorHomeScreen() {
   const label = useShootLabel(), cutoffs = useCutoffs()
   const { upcoming } = useActiveShoot()
   const today = todayInStudio()
+  const [ideas, setIdeas] = useState(false)
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 60_000); return () => clearInterval(t) }, [])
   const history = useMyShoots(profile.email, addDays(today, -120))
@@ -152,10 +154,14 @@ export default function CreatorHomeScreen() {
         )}
 
         {/* Search */}
-        <button onClick={() => navigate('/browse?focus=1')} className="w-full flex items-center gap-2.5 bg-pt-surface rounded-[14px] px-3.5 py-3.5 text-pt-muted text-left">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-          <span className="flex-1">Search props, costumes, gear</span>
-        </button>
+        <div className="flex items-center gap-2 bg-pt-surface rounded-[14px] pl-3.5 pr-2 py-2">
+          <button onClick={() => navigate('/browse?focus=1')} className="flex-1 flex items-center gap-2.5 py-1.5 text-pt-muted text-left min-w-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="shrink-0"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+            <span className="truncate">Search props, costumes, gear</span>
+          </button>
+          <IdeasButton small onClick={() => setIdeas(true)} />
+        </div>
+        <IdeasButton onClick={() => setIdeas(true)} />
       </div>
 
       {/* Your usuals */}
@@ -231,6 +237,7 @@ export default function CreatorHomeScreen() {
           <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-3.5 font-semibold bg-pt-surface text-pt-text">Book another shoot</button>
         )}
       </div>
+      <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />
     </div>
   )
 }

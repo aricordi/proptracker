@@ -227,6 +227,30 @@ Return ONLY JSON: {"same": true|false, "confidence": "high"|"medium"|"low", "rea
   return { verdict: { same: parsed.same === true, confidence, reason: String(parsed.reason ?? '').slice(0, 200) }, costUsd }
 }
 
+// ─── Text in, JSON out (the creator AI helpers) ───────────────────────────────
+
+// One text prompt answered as a JSON object, plus what it cost. Callers handle test mode.
+export async function askJson(apiKey: string, prompt: string, maxOutputTokens = 1500): Promise<{ data: Record<string, unknown>; costUsd: number }> {
+  const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
+    method: 'POST',
+    headers: keyHeaders(apiKey),
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.4, maxOutputTokens, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
+    }),
+  })
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const json = await res.json() as any
+  const usage = json.usageMetadata ?? {}
+  const costUsd = ((usage.promptTokenCount ?? 0) * PRICE_PER_M.in
+    + ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)) * PRICE_PER_M.out) / 1_000_000
+  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const match = text.match(/\{[\s\S]*\}/)
+  let data: Record<string, unknown> = {}
+  try { data = match ? JSON.parse(match[0]) : {} } catch { data = {} }
+  return { data, costUsd }
+}
+
 // ─── Extra search words for props that already exist (one-off top-up) ────────
 
 export async function suggestSearchWords(
