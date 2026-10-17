@@ -44,7 +44,7 @@ const fold = (line: string) => line.length <= 74 ? line : line.match(/.{1,74}/g)
 
 export function buildIcs(name: string, events: { uid: string; from: string; to: string; title: string; where: string; note?: string; stampedAt: string }[]) {
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prime App//Schedule//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prime Capitol//Schedule//EN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     `X-WR-CALNAME:${icsText(name)}`, 'X-WR-TIMEZONE:America/Toronto', 'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H',
   ]
   for (const e of events) {
@@ -59,7 +59,7 @@ export function buildIcs(name: string, events: { uid: string; from: string; to: 
 export const shootsCalendar = onRequest({ invoker: 'public' }, async (req, res) => {
   const token = String(req.query.t ?? '')
   const t = /^[a-f0-9]{36}$/.test(token) ? (await db.doc(`calendar_tokens/${token}`).get()).data() : undefined
-  if (!t) { res.status(404).send('This calendar link is no longer valid. Get a new one in Prime App → Schedule.'); return }
+  if (!t) { res.status(404).send('This calendar link is no longer valid. Get a new one in Prime Capitol → Schedule.'); return }
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const from = addDays(todayInStudio(), -30), to = addDays(todayInStudio(), 120)
   const base = db.collection('shoots').where('date', '>=', from).where('date', '<=', to)
@@ -73,7 +73,7 @@ export const shootsCalendar = onRequest({ invoker: 'public' }, async (req, res) 
       return { uid: x.id, from: x.from, to: x.to, title: t.all ? `${x.creatorName} · ${house ? house.name : 'Offsite'}` : `Shoot · ${house ? house.name : x.where}`, where, stampedAt: now }
     })
   res.set('Content-Type', 'text/calendar; charset=utf-8').set('Cache-Control', 'private, max-age=900')
-  res.send(buildIcs(t.all ? 'Prime App · All shoots' : 'Prime App · My shoots', events))
+  res.send(buildIcs(t.all ? 'Prime Capitol · All shoots' : 'Prime Capitol · My shoots', events))
 })
 
 // ─── 2. Shared Google Calendar (one-way copy) ────────────────────────────────
@@ -121,7 +121,7 @@ export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event 
     await upsertEvent(cal, id, {
       summary: `${after.creatorName} · ${house ? house.name : 'Offsite'}`,
       location: house ? house.address : after.where,
-      description: `${after.kind === 'monthly' ? 'Monthly slot' : after.kind === 'offsite' ? 'Offsite shoot' : 'Extra slot'} · booked in Prime App (changes made here are not copied back)`,
+      description: `${after.kind === 'monthly' ? 'Monthly slot' : after.kind === 'offsite' ? 'Offsite shoot' : 'Extra slot'} · booked in Prime Capitol (changes made here are not copied back)`,
       start: when(after.from), end: when(after.to),
     })
   } catch (e) { logger.warn('Calendar copy failed for shoot', event.params.id, String(e)) }
@@ -145,7 +145,7 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
       const from = stamp(date, b.start)
       await upsertEvent(cal, blockEventId(date, b.id), {
         summary: `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
-        location: s.houses[b.house].address, description: 'Blocked time · set in Prime App',
+        location: s.houses[b.house].address, description: 'Blocked time · set in Prime Capitol',
         start: when(from), end: when(addMinutes(from, b.end - b.start)),
       })
     }
@@ -162,7 +162,7 @@ export const testCalendarLink = onCall(CALLABLE, async req => {
   try {
     const id = `t${hex(String(Date.now()))}`
     const start = new Date(), end = new Date(start.getTime() + 30 * 60_000)
-    await upsertEvent(cal, id, { summary: 'Prime App connection test', start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } })
+    await upsertEvent(cal, id, { summary: 'Prime Capitol connection test', start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } })
     await deleteEvent(cal, id)
     return { ok: true, account }
   } catch (e) {

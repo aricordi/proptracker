@@ -31,7 +31,7 @@ function signInProblem(code: string) {
     'auth/operation-not-supported-in-this-environment': 'Sign-in doesn\'t work inside this app view.',
   }
   const base = msg[code] ?? 'Google sign-in didn\'t work.'
-  const tip = standalone ? ' If you opened Prime App from your home screen, try it in Safari or Chrome instead.' : ''
+  const tip = standalone ? ' If you opened Prime Capitol from your home screen, try it in Safari or Chrome instead.' : ''
   return `${base}${tip} (${code})`
 }
 

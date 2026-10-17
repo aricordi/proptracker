@@ -146,7 +146,7 @@ function RolePicker({ value, onChange, isOwner }: { value: Role; onChange: (r: R
 // The text the inviter sends: where to go and which Google account to use.
 function inviteText(email: string, role: Role, name: string) {
   const hi = name.trim() ? `Hi ${name.trim().split(' ')[0]}! ` : ''
-  return `${hi}You're invited to Prime App (Prime Capitol) as ${ROLE_LABELS[role]}.\n`
+  return `${hi}You're invited to Prime Capitol as ${ROLE_LABELS[role]}.\n`
     + `1. Open ${USING_EMULATORS ? window.location.origin : LIVE_APP_URL}\n`
     + `2. Tap "Sign in with Google" and use ${email}\n`
     + `Tip: on iPhone, tap Share → "Add to Home Screen" to keep it like an app.`

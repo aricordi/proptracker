@@ -566,6 +566,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   Picked up → Returned → Checked in), item list, CHANGE (only while Requested; after that "message the team or add
   more") + "+ Add more"; Me = My requests with statuses. BUILD NOTE: editing a sent request needs a new server function
   (e.g. editReservation/editGearBooking while 'requested'/'held', re-checking availability in the transaction).
+  OWNER (Oct 17) → MOCKUP v3 (same link): app NAME = "PRIME CAPITOL" (not "Prime App"); the EAGLE is WHITE (not gold);
+  AI = HELPER that turns a creator's VIDEO IDEA into props: Home card "Got an idea for a video?" + "✦ Ideas" chip on the
+  search bars → "Prop ideas" sheet (describe the video, example idea chips) → suggestions GROUPED BY SCENE ("For the cop",
+  "For the diner", "To film it") each with WHY it fits + free/taken + "check it ›" (opens the item page) + quick +,
+  "We don't have it" builds, "Add the top picks and review". Search and browse stay the main way.
+  RENAMED in the real app (Oct 17): "Prime App" → "Prime Capitol" everywhere (browser tab, home-screen label, manifest,
+  login/invite/not-invited text, email sender default/test, calendar feed names). Server text goes live with the next
+  backend deploy. (iPhone may shorten the home-screen label to "Prime Capi…".)
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
@@ -699,7 +707,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   gold accent), iPhone system font for sans + display (Passion One removed; .font-display = 700, -0.02em),
   page titles white (not gold), frosted tab bar, theme colour #000, Search title = eagle + "Props".
   Gear step 1 + add-on extras backend DEPLOYED Oct 13 (run 21, green) with the owner's OK.
-  APP NAME (owner, Oct 13): "Prime App" — browser tab, home-screen label (manifest name/short_name,
+  APP NAME (owner, Oct 13): "Prime App" (renamed "Prime Capitol" Oct 17) — browser tab, home-screen label (manifest name/short_name,
   apple-mobile-web-app-title), not-invited screen, email sender name/subject/body text. Email server text
   changes go live with the next backend deploy.
   Tokens live in tailwind.config (pt-*), so the restyle is mostly there + font + shared components.
