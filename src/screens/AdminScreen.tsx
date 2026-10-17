@@ -22,7 +22,7 @@ export default function AdminScreen() {
       { to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles and extras creators can book' },
     ] : []),
     { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout, kept until everything moves to the Queue' },
-    { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Preview the app as Arts or Creator; sign out' : 'Who you are signed in as; sign out' },
+    { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Your photo and channel name; preview the app as another role; sign out' : 'Your photo and channel name; sign out' },
   ]
 
   return (

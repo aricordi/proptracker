@@ -157,9 +157,17 @@ describe('moving and the 48-hour notice', () => {
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId).toBe(r.result.id)
   })
 
+  it('a booking made by mistake can be cancelled for free within 10 minutes, even inside 48 hours', async () => {
+    const r = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
+    const c = await call('cancelShoot', { id: r.result.id }, ANA)
+    expect(c.ok, c.message).toBe(true)
+    expect(c.result.lateCancel).toBe(false)
+  })
+
   it('inside 48 hours: no free move; cancelling needs confirming and counts as a no-show; the team is exempt', async () => {
     const r = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
     expect(r.ok, r.message).toBe(true)
+    await put(`shoots/${r.result.id}`, { ...(await getDoc(`shoots/${r.result.id}`))!, createdAt: '2026-01-01T00:00:00.000Z' })   // booked long ago
     expect((await call('moveShoot', { id: r.result.id, date: FRI, start: 1260 }, ANA)).message).toMatch(/Swap with someone/)
     expect((await call('cancelShoot', { id: r.result.id }, ANA)).message).toMatch(/no-show/)
     const c = await call('cancelShoot', { id: r.result.id, confirmNoShow: true }, ANA)

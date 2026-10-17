@@ -119,10 +119,16 @@ for (const x of shoots) {
     start: x.start, end: x.start + 120, from: `${date}T${hm(x.start)}`, to: `${date}T${hm(x.start + 120)}`, kind: x.kind, status: 'booked',
     bookedBy: x.email, createdAt: now, updatedAt: now, history: [{ at: now, by: x.email, action: 'booked', note: 'seed' }] })
   const day = scheduleDays[date] ??= { date }
-  if (x.place === 'offsite') (day.offsite ??= []).push({ shootId: x.id, name: x.name, start: x.start, end: x.start + 120, where: x.where })
-  else (day[x.place] ??= {})[String(x.start)] = { shootId: x.id, name: x.name, kind: x.kind }
+  if (x.place === 'offsite') (day.offsite ??= []).push({ shootId: x.id, name: x.name, email: x.email, start: x.start, end: x.start + 120, where: x.where })
+  else (day[x.place] ??= {})[String(x.start)] = { shootId: x.id, name: x.name, email: x.email, kind: x.kind }
 }
 scheduleDays[dayOf(1)].blocks = [{ id: 'blk1', house: 'cliff1', start: 420, end: 540, type: 'cleaners', note: 'Cleaners' }]
 for (const [date, day] of Object.entries(scheduleDays)) await put(`schedule_days/${date}`, day)
+await put('profiles/jana@example.com', { channel: '@janafilms' })
+await put('profiles/kyle@example.com', { channel: 'Kyle Does Things' })
+// Kyle asks Riley (the test creator) to swap: Riley's tomorrow 1 PM for Kyle's tomorrow 3 PM.
+const t1 = dayOf(1)
+await put('swap_requests/sw1', { fromShootId: 'sh3', toShootId: 'sh2', fromEmail: 'kyle@example.com', fromName: 'Kyle', toEmail: 'creator@example.com', toName: 'Riley (Creator)',
+  from: { place: 'cliff1', date: t1, start: 900, end: 1020 }, to: { place: 'cliff1', date: t1, start: 780, end: 900 }, status: 'pending', createdAt: now })
 
 console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)

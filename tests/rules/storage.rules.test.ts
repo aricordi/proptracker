@@ -117,3 +117,13 @@ describe('gear return photos', () => {
     await assertFails(deleteObject(ref(storageAs('creator@example.com'), 'gear-returns/gb1/r2.png')))
   })
 })
+
+describe('profile photos', () => {
+  const img = { contentType: 'image/jpeg' }
+  it('you upload your own photo only; everyone in the company can see photos', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'avatars/creator@example.com/1.jpg'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'avatars/arts@example.com/1.jpg'), png, img))
+    await assertSucceeds(uploadBytes(ref(storageAs('gear@example.com'), 'avatars/gear@example.com/1.jpg'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'avatars/creator@example.com/2.txt'), png, { contentType: 'text/plain' }))
+  })
+})

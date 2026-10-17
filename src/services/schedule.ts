@@ -56,8 +56,34 @@ export function useShoot(id: string | null): Shoot | null | undefined {
   return s
 }
 
-export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; kind?: ShootKind; forEmail?: string; where?: string }, { id: string; kind: ShootKind }>(functions, 'bookShoot')
-export const cancelShoot = httpsCallable<{ id: string }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
+export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string }, { id: string; kind: ShootKind }>(functions, 'bookShoot')
+export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
+export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string }, { ok: boolean; kind: ShootKind }>(functions, 'moveShoot')
+export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')
+export const answerSwap = httpsCallable<{ id: string; accept: boolean }, { ok: boolean }>(functions, 'answerSwap')
+
+export interface SwapRequest {
+  id: string
+  fromShootId: string; toShootId: string
+  fromEmail: string; fromName: string; toEmail: string; toName: string
+  from: { place: Place; date: string; start: number; end: number }
+  to: { place: Place; date: string; start: number; end: number }
+  status: 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'expired'
+  createdAt: string
+}
+// Pending swap requests sent to me and by me, live.
+export function useMySwaps(email: string): { incoming: SwapRequest[]; outgoing: SwapRequest[] } {
+  const [incoming, setIn] = useState<SwapRequest[]>([])
+  const [outgoing, setOut] = useState<SwapRequest[]>([])
+  useEffect(() => {
+    const q = (field: string, set: (x: SwapRequest[]) => void) => onSnapshot(
+      query(collection(db, 'swap_requests'), where(field, '==', email), where('status', '==', 'pending')),
+      snap => set(snap.docs.map(d => ({ id: d.id, ...d.data() } as SwapRequest))), () => set([]))
+    const a = q('toEmail', setIn), b = q('fromEmail', setOut)
+    return () => { a(); b() }
+  }, [email])
+  return { incoming, outgoing }
+}
 export const addScheduleBlock = httpsCallable<{ date: string; house: House; start?: number; end?: number; allDay?: boolean; type: BlockType; note?: string }, { id: string }>(functions, 'addScheduleBlock')
 export const removeScheduleBlock = httpsCallable<{ date: string; id: string }, { ok: boolean }>(functions, 'removeScheduleBlock')
 export const saveScheduleSettings = httpsCallable<Partial<ScheduleSettings>, ScheduleSettings>(functions, 'saveScheduleSettings')

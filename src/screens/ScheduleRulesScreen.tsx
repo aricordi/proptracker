@@ -53,13 +53,15 @@ export default function ScheduleRulesScreen() {
         <H>{c2} and offsite shoots</H>
         <ul className="list-disc pl-5 space-y-1.5">
           <Li>{c2} is first come, first served. External rentals come first.</Li>
-          <Li>Shooting somewhere else? Add it under <b>Offsite</b> so props, gear and the team know, and so it counts toward production.</Li>
+          <Li>Shooting somewhere else? Tap <b>Book a shoot</b> → <b>Somewhere else</b>: pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
         </ul>
 
-        <H>Cancelling</H>
+        <H>Moving, swapping and cancelling</H>
         <ul className="list-disc pl-5 space-y-1.5">
-          <Li>Cancel from your shoot any time before it starts. The slot opens to everyone right away.</Li>
-          <Li>Cancelling a priority-day slot <b>on the day</b> counts against you.</Li>
+          <Li>More than <b>{s.noticeHours} hours</b> before your shoot, you can <b>move</b> it to any free slot or <b>cancel</b> it for free. A move happens in one step: you keep your slot until the new one is yours.</Li>
+          <Li>Closer than {s.noticeHours} hours, you can only <b>swap</b> with another creator. Cancelling then <b>counts as a no-show</b>.</Li>
+          <Li>To swap, open your shoot → <b>Swap with someone</b>, or tap someone's slot → <b>Ask to swap</b>. When they accept, both shoots switch instantly. A swap never counts against anyone.</Li>
+          <Li>Booked something by mistake? You can cancel it for free within 10 minutes of booking.</Li>
           <Li>If the team moves or cancels your shoot (for example, for a repair), it never counts against you.</Li>
         </ul>
       </div>

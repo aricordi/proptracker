@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 296 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 308 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -433,6 +433,36 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   - PROFILES: Google photo by default (initials on a colour if none), upload your own (circle crop, shrunk) +
     CHANNEL NAME/handle shown under your name. Team can remove a photo. Shown on schedule slots, next-shoot card,
     queues, People.
+
+- STEP 1 EXTRAS BUILT (Oct 17, owner chose "add first, deploy once"; NOT deployed yet):
+  - MOVE (`moveShoot`): one transaction takes the shoot out of the old day doc and into the new one (never loses
+    the old slot first); creators need ≥ noticeHours (settings, default 48) before the start, team any time;
+    monthly stays monthly at Cliff 1 (becomes extra at Cliff 2 or if the new month has no monthly left);
+    house ↔ offsite moves refused (cancel + rebook). History 'moved' "from X to Y".
+  - CANCEL inside the notice period by a creator = NO-SHOW: server refuses unless `confirmNoShow: true`, then marks
+    shoot `noShow: 'late-cancel'` + `lateCancel: true` (strikes come in step 4). UNDO window: cancelling within
+    10 minutes of booking is always free (`withinUndo`, UNDO_MINUTES) so mistakes don't count.
+  - SWAPS (`requestSwap`, `answerSwap`): `swap_requests/{id}` {fromShootId,toShootId,from/to emails+names, from/to
+    snapshots {place,date,start,end}, status pending|accepted|declined|withdrawn|expired}. One pending request per
+    offered shoot; house slots only; any time before either starts (incl. inside 48 h — the only no-penalty way).
+    Accept = both shoots trade place/date/start in one transaction (each keeps its owner; monthly only at Cliff 1);
+    if either shoot changed since the request → 'expired'. Requester can withdraw; recipient declines/accepts.
+    Rules: read by the two people + owner/equipment; server-only writes.
+  - OFFSITE: any start/end in half hours, up to 18 h, may pass midnight (`offsiteHoursOk`); day doc offsite entry
+    keeps start/end/where + email.
+  - Day doc slot entries now include the creator's `email` (for faces + "mine"); profiles are company-visible anyway.
+  - PROFILES: `profiles/{email}` {photoURL (uploaded), googlePhoto (saved automatically from Google sign-in by
+    App.tsx), channel ≤60}. Rules: members + equipment read; you write your own; owner/equipment may edit anyone's.
+    Storage `avatars/{email}/{file}` (own uploads, images only). `src/services/profiles.ts` (ProfilesContext in
+    App, uploadProfilePhoto = centre square crop 400px JPEG), `src/components/Avatar.tsx` (photo or initials on a
+    colour). Account screen: profile card (tap photo to change, "Use Google photo", channel name + Save).
+  - App: Schedule has "Book a shoot" → Cliff 1 / Cliff 2 / Somewhere else (house → Find a time; else OffsiteSheet with
+    day, from/until, where, team "Book for"); swap banners (incoming Accept/Decline, outgoing Withdraw); faces +
+    channel on slot rows; taken slot → "Ask to swap"; Your shoot → Move (MoveSheet: free slots, house/either) /
+    Swap with someone (SwapSheet) / Cancel (or "Cancel (counts as a no-show)" + amber notice inside 48 h).
+    Settings: "Moving and cancelling" notice hours. How it works updated (moving/swapping/cancelling, offsite, undo).
+  - Tests 308. Checked in a browser on the emulator (accept a swap, offsite any hours, move, profile photo + channel).
+  - Functions added to deploy/log lists: moveshoot requestswap answerswap.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site

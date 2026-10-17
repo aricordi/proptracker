@@ -81,6 +81,17 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+          <h2 className="text-pt-text font-semibold">Moving and cancelling</h2>
+          <div className="flex items-center gap-3">
+            <button onClick={() => set({ noticeHours: Math.max(0, s.noticeHours - 12) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+            <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.noticeHours}</span>
+            <button onClick={() => set({ noticeHours: Math.min(336, s.noticeHours + 12) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+            <span className="text-pt-muted text-sm">hours' notice to move or cancel for free</span>
+          </div>
+          <p className="text-pt-muted text-xs">Closer than that, a creator can only swap with someone; cancelling counts as a no-show. Your own changes never count.</p>
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
           <h2 className="text-pt-text font-semibold">Priority days at {s.houses.cliff1.name}</h2>
           <div className="flex flex-wrap gap-1.5">
             {WEEKDAYS.map((w, i) => (

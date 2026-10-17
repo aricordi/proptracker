@@ -185,3 +185,7 @@ export const offsiteHoursOk = (start: number, end: unknown): end is number =>
 
 // Less than the notice period (48 h) before the shoot starts? Moving or cancelling now counts as a no-show.
 export const isShortNotice = (from: string, now: string, s: ScheduleSettings) => from <= addMinutes(now, s.noticeHours * 60)
+
+// Just booked it by mistake? Cancelling within 10 minutes of booking is always free.
+export const UNDO_MINUTES = 10
+export const withinUndo = (createdAt: string | undefined, nowMs = Date.now()) => !!createdAt && nowMs - Date.parse(createdAt) < UNDO_MINUTES * 60_000

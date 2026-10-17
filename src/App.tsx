@@ -47,6 +47,7 @@ import ScheduleScreen from './screens/ScheduleScreen'
 import ScheduleSettingsScreen from './screens/ScheduleSettingsScreen'
 import ScheduleRulesScreen from './screens/ScheduleRulesScreen'
 import { CartProvider } from './cart'
+import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 
 function Loading() {
   return (
@@ -149,6 +150,16 @@ export default function App() {
     if (session?.isStaff) ensureDefaultCategories().catch(() => {})
   }, [session?.isStaff])
 
+  // Everyone's profile photos + channel names; and keep your Google photo as the default picture.
+  const profiles = useProfilesLive(!!session)
+  const myEmail = session?.profile.email
+  useEffect(() => {
+    const g = user?.photoURL
+    if (!myEmail || !g || profiles[myEmail]?.googlePhoto === g) return
+    const t = setTimeout(() => saveProfile(myEmail, { googlePhoto: g }).catch(() => {}), 1500)
+    return () => clearTimeout(t)
+  }, [myEmail, user?.photoURL, profiles])
+
   if (authLoading || profileLoading) return <Loading />
 
   if (!user) {
@@ -169,6 +180,7 @@ export default function App() {
 
   return (
     <SessionContext.Provider value={session}>
+    <ProfilesContext.Provider value={profiles}>
     <CartProvider>
     <GearCartProvider>
     <ShootDaySync />
@@ -218,6 +230,7 @@ export default function App() {
     </ViewAsFrame>
     </GearCartProvider>
     </CartProvider>
+    </ProfilesContext.Provider>
     </SessionContext.Provider>
   )
 }
