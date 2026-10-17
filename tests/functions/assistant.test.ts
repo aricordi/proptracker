@@ -32,6 +32,10 @@ describe('limits', () => {
     expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).ok).toBe(true)
     expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).message).toMatch(/today's AI help/)
   })
+  it('no more than 6 uses a minute', async () => {
+    for (let i = 0; i < 6; i++) expect((await call('ideaToProps', { idea: `Bank heist number ${i}` }, ANA)).ok).toBe(true)
+    expect((await call('ideaToProps', { idea: 'Bank heist again' }, ANA)).message).toMatch(/Wait a minute/)
+  })
   it('monthly budget', async () => {
     await put('app_settings/ai', { monthlyCapUsd: 0.01, perPersonDaily: 25 })
     expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).message).toMatch(/budget is used up/)

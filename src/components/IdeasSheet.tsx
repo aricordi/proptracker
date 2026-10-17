@@ -51,7 +51,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
 
   async function ask() {
     setBusy(true); setErr(''); setResult(null)
-    try { setResult((await ideaToProps({ idea: idea.trim() })).data) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+    try { setResult((await ideaToProps({ idea: idea.trim(), ...(shoot ? { shootId: shoot.id } : {}) })).data) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
   }
   const freeProp = (id: string) => {
     const i = itemById.get(id)
@@ -78,7 +78,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
         {result && (
           <div className="space-y-4 pt-1">
             <p className="text-pt-muted text-xs">{shoot ? `Free or taken for ${label(shoot)}.` : 'Pick a shoot in Browse to see what\'s free and add things.'}</p>
-            {result.groups.length === 0 && <p className="text-pt-muted text-sm">Nothing in the inventory fits that well. Try describing it differently, or search.</p>}
+            {result.groups.length === 0 && <p className="text-pt-muted text-sm">{result.note || 'Nothing in the inventory fits that well. Try describing the scenes differently, or search.'}</p>}
             {result.groups.map(g => (
               <div key={g.title} className="space-y-2">
                 <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{g.title}</p>

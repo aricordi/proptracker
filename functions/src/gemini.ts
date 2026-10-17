@@ -229,14 +229,22 @@ Return ONLY JSON: {"same": true|false, "confidence": "high"|"medium"|"low", "rea
 
 // ─── Text in, JSON out (the creator AI helpers) ───────────────────────────────
 
-// One text prompt answered as a JSON object, plus what it cost. Callers handle test mode.
-export async function askJson(apiKey: string, prompt: string, maxOutputTokens = 1500): Promise<{ data: Record<string, unknown>; costUsd: number }> {
+// One request answered as a JSON object, plus what it cost. Callers handle test mode.
+// The app's own instructions go in `system` (the model treats them as the rules); anything a
+// person typed goes in `user`, wrapped as data. Google's safety filters are on; a blocked or
+// broken answer comes back as {} so callers fall back gracefully.
+const SAFETY = ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH', 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT']
+  .map(category => ({ category, threshold: 'BLOCK_MEDIUM_AND_ABOVE' }))
+export async function askJson(apiKey: string, prompt: string | { system: string; user: string }, maxOutputTokens = 1500, temperature = 0.3): Promise<{ data: Record<string, unknown>; costUsd: number }> {
+  const parts = typeof prompt === 'string' ? { system: '', user: prompt } : prompt
   const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
     method: 'POST',
     headers: keyHeaders(apiKey),
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.4, maxOutputTokens, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
+      ...(parts.system ? { systemInstruction: { parts: [{ text: parts.system }] } } : {}),
+      contents: [{ role: 'user', parts: [{ text: parts.user }] }],
+      safetySettings: SAFETY,
+      generationConfig: { temperature, maxOutputTokens, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
     }),
   })
   if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`)
@@ -249,6 +257,27 @@ export async function askJson(apiKey: string, prompt: string, maxOutputTokens = 
   let data: Record<string, unknown> = {}
   try { data = match ? JSON.parse(match[0]) : {} } catch { data = {} }
   return { data, costUsd }
+}
+
+// Words from the AI that are shown to people: plain short text only. No links, web addresses,
+// email addresses, markup or code, so a trick message can't make the app show a phishing link.
+export function safeText(v: unknown, max: number): string {
+  if (typeof v !== 'string') return ''
+  return v
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/https?:\/\/\S+|www\.\S+/gi, '')
+    .replace(/\S+@\S+\.\S+/g, '')
+    .replace(/\b[a-z0-9-]+\.(com|net|org|io|co|ca|ly|me|app|xyz|info|link|gg)\b\S*/gi, '')
+    .replace(/[<>{}[\]`*_#|\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max)
+}
+
+// What a person typed, made safe to put inside a prompt as data: no control characters,
+// no way to fake the end of the data block, limited length.
+export function asData(v: string, max: number) {
+  return v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/<\/?\s*creator_text\s*>/gi, '').replace(/"""/g, '"').slice(0, max)
 }
 
 // ─── Extra search words for props that already exist (one-off top-up) ────────
