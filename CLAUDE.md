@@ -595,6 +595,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   gold circle; (4) CATALOGUE = photos only (rounded photo, text under it, no card); (5) STATS + info lists = plain
   lines with dividers (stats strip, "Coming up" timeline with gold dates); shoot page: request cards stay cards, the
   rest are plain rows. More space between sections.
+  → OWNER PREFERRED THE PREVIOUS LOOK (v3, the cards). v4 REVERTED (Oct 17); the visual rules above are NOT adopted.
+  The real issue was "something else" — asking the owner what.
   AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
   budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
   the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI
