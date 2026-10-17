@@ -17,6 +17,11 @@ export interface Shoot {
   bookedBy: string; lateCancel?: boolean
   createdAt: string
   history: { at: string; by: string; action: string; note?: string }[]
+  checkin?: { at: string; photos: string[] }
+  wrap?: { at: string; title: string }
+  explanation?: { at: string; text: string }
+  outcome?: 'filmed' | 'noshow'
+  noShow?: 'late-cancel' | 'missed'
 }
 
 // Settings (slot times, priority group…), live. Defaults until loaded.
@@ -91,6 +96,48 @@ export const listSchedulePeople = httpsCallable<Record<string, never>, { people:
 
 export const myCalendarLink = httpsCallable<{ reset?: boolean }, { url: string; webcal: string }>(functions, 'myCalendarLink')
 export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boolean; account: string }>(functions, 'testCalendarLink')
+
+export const checkInShoot = httpsCallable<{ id: string; photos: string[]; report?: { overMinutes?: number; mess?: boolean; photos?: string[] } }, { ok: boolean; reported: string | null }>(functions, 'checkInShoot')
+export const wrapShoot = httpsCallable<{ id: string; title: string }, { ok: boolean }>(functions, 'wrapShoot')
+export const explainMissedCheckIn = httpsCallable<{ id: string; text: string }, { ok: boolean }>(functions, 'explainMissedCheckIn')
+export const decideShoot = httpsCallable<{ id: string; outcome: 'filmed' | 'noshow' }, { ok: boolean }>(functions, 'decideShoot')
+export const reviewReport = httpsCallable<{ id: string; uphold: boolean }, { ok: boolean }>(functions, 'reviewReport')
+export const liftPause = httpsCallable<{ email: string }, { ok: boolean }>(functions, 'liftPause')
+
+export interface UserStatus { email: string; name?: string; strikes?: number; pausedUntil?: string | null }
+export interface ScheduleReport { id: string; onShootId: string; onEmail: string; onName: string; byEmail: string; byName: string; date: string; place: Place; overMinutes: number; mess: boolean; photos: string[]; status: string; createdAt: string }
+
+// Your strikes / pause, live.
+export function useMyStatus(email: string): UserStatus | null {
+  const [st, setSt] = useState<UserStatus | null>(null)
+  useEffect(() => onSnapshot(doc(db, 'user_status', email), snap => setSt(snap.exists() ? snap.data() as UserStatus : null), () => setSt(null)), [email])
+  return st
+}
+// Team: every shoot from a date on, all statuses (for check-ins and creator records).
+export function useShootsSince(fromDate: string, enabled: boolean): Shoot[] | null {
+  const [list, setList] = useState<Shoot[] | null>(null)
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(query(collection(db, 'shoots'), where('date', '>=', fromDate)), snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot))), () => setList([]))
+  }, [fromDate, enabled])
+  return list
+}
+export function useOpenReports(enabled: boolean): ScheduleReport[] {
+  const [list, setList] = useState<ScheduleReport[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(query(collection(db, 'schedule_reports'), where('status', '==', 'open')), snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as ScheduleReport))), () => setList([]))
+  }, [enabled])
+  return list
+}
+export function useAllStatuses(enabled: boolean): Record<string, UserStatus> {
+  const [m, setM] = useState<Record<string, UserStatus>>({})
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(collection(db, 'user_status'), snap => setM(Object.fromEntries(snap.docs.map(d => [d.id, d.data() as UserStatus]))), () => setM({}))
+  }, [enabled])
+  return m
+}
 
 // Error text from a server call, in plain words.
 export const errorText = (e: unknown) => (e as { message?: string })?.message || 'Something went wrong. Try again.'

@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 313 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 318 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -491,6 +491,31 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     → "Import what's already in the calendar". Emulator returns 2 demo events. Imported shoots count as EXTRA slots.
   - Tests 312 (tests/functions/calendar.test.ts). Functions added to deploy/log lists: mycalendarlink
     testcalendarlink shootscalendar.
+  - CALENDAR (feed + shared calendar + import) backend DEPLOYED Oct 17 (run 26, green, owner OK). Owner steps above still to do.
+- STEP 4 BUILT (Oct 17; NOT deployed — new security rules + 6 functions → needs owner OK for a backend deploy):
+  ON THE DAY + STRIKES. Settings (app_settings/schedule): checkinBefore 15, explainHours 12, strikeCount 2,
+  strikeDays 30, pauseDays 14 (Schedule settings → "Check-ins and strikes"). Helpers in schedule.ts: checkinWindow,
+  isMissed (booked, no check-in, no outcome, slot over), explainUntil.
+  - `functions/src/attendance.ts`: checkInShoot (only the creator who booked; window opens checkinBefore min before,
+    closes at slot end; ≥1 camera photo in Storage `shoot-photos/{shootId}/` (add-only; that creator + gear staff);
+    optional REPORT on the slot before (same house, start − slotMinutes): overMinutes and/or mess (+ photos required)
+    → `schedule_reports/{id}` status open, history on both shoots), wrapShoot ("what did you film?"; check in first),
+    explainMissedCheckIn (within explainHours after the slot), decideShoot (team: 'filmed' | 'noshow' → noShow
+    'missed' + strike), reviewReport (team: dismiss | uphold → strike on that person), liftPause (team).
+  - `functions/src/strikes.ts`: addStrike → `strikes/{id}` {email, reason late-cancel|no-show|report, shootId, by, at}
+    and `user_status/{email}` {strikes (in window, since liftedAt), pausedUntil}. strikeCount in strikeDays →
+    paused pauseDays. assertNotPaused blocks CREATORS in createReservation + createGearBooking (house booking is NOT
+    paused). cancelShoot inside the notice period (confirmNoShow) now adds a 'late-cancel' strike.
+  - Rules: schedule_reports (gear staff or the reporter), strikes + user_status (gear staff or own), no client writes.
+  - App: Your shoot sheet → `OnTheDay` (progress Booked / Checked in / Filmed; check-in with set photo + "The slot
+    before you" chips Ran over (minutes) / Mess (photos); wrap; missed → explain box; team "They filmed" /
+    "No-show · strike"). Schedule: pause banner + strike count, "Team" link (gear staff) → `/schedule/team`
+    (ScheduleTeamScreen: Check-ins = needs a decision + yesterday/today with set photos; Reports = Dismiss / Strike
+    for X; Creators = filmed of booked, missed, strikes, "Paused · Lift"). How it works: "On the day" + "Strikes".
+  - Tests 318 (tests/functions/attendance.test.ts). Functions in deploy/log lists: checkinshoot wrapshoot
+    explainmissedcheckin decideshoot reviewreport liftpause.
+  - NOT automatic yet: nothing flags a missed check-in by itself (the team's Check-ins tab computes it on open);
+    reminders need email + Cloud Scheduler.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site

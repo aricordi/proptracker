@@ -4,13 +4,15 @@ import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
 import { Pill } from '../components/GearUi'
+import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { formatDay } from '../lib/dates'
 import { useProfiles } from '../services/profiles'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, bookShoot, cancelShoot, moveShoot, requestSwap, answerSwap,
-  addScheduleBlock, removeScheduleBlock, listSchedulePeople, myCalendarLink, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
+  useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, useMyStatus, bookShoot, cancelShoot, moveShoot, requestSwap, answerSwap,
+  addScheduleBlock, removeScheduleBlock, listSchedulePeople, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
+  checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot, type SwapRequest,
 } from '../services/schedule'
@@ -55,6 +57,8 @@ export default function ScheduleScreen() {
   const days = useScheduleDays(today, addDays(today, 120))
   const mine = useMyShoots(profile.email, today)
   const swaps = useMySwaps(profile.email)
+  const status = useMyStatus(profile.email)
+  const paused = !!status?.pausedUntil && status.pausedUntil > today
   const day = days?.[date]
   const myDays = useMemo(() => new Set((mine ?? []).map(x => x.date)), [mine])
   const next = (mine ?? []).find(x => x.to > now)
@@ -75,6 +79,7 @@ export default function ScheduleScreen() {
           <h1 className="font-display text-3xl text-pt-text">Schedule</h1>
           <div className="flex gap-3 pb-1">
             <button onClick={() => navigate('/schedule/how')} className="text-pt-accent text-sm">How it works</button>
+            {team && <button onClick={() => navigate('/schedule/team')} className="text-pt-accent text-sm">Team</button>}
             {team && <button onClick={() => navigate('/schedule/settings')} className="text-pt-accent text-sm">Settings</button>}
           </div>
         </div>
@@ -99,6 +104,8 @@ export default function ScheduleScreen() {
       </div>
 
       <div className="px-4 pt-3 space-y-2">
+        {paused && <div className="rounded-xl px-3 py-2.5 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop and gear bookings paused until {formatDay(status!.pausedUntil!)}</b> because of {status!.strikes ?? 2} strikes (no-shows or reports). You can still book house slots. Ask the schedule team if this looks wrong.</div>}
+        {!paused && (status?.strikes ?? 0) > 0 && <div className="rounded-xl px-3 py-2 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">{status!.strikes} strike{status!.strikes === 1 ? '' : 's'} in the last {s.strikeDays} days. {s.strikeCount} pause your prop and gear bookings for {s.pauseDays} days.</div>}
         {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}
 
@@ -362,7 +369,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
     setBusy(true); setErr('')
     try { await cancelShoot({ id, ...(noShow ? { confirmNoShow: true } : {}) }); onClose() } catch (e) { setErr(errorText(e)); setBusy(false) }
   }
-  const actionLabel: Record<string, string> = { booked: 'Booked', cancelled: 'Cancelled', moved: 'Moved', swapped: 'Swapped' }
+  const actionLabel: Record<string, string> = { booked: 'Booked', cancelled: 'Cancelled', moved: 'Moved', swapped: 'Swapped', 'checked-in': 'Checked in', wrapped: 'Wrapped', reported: 'Reported', report: 'Sent a report', explained: 'Explained a missed check-in', 'no-show': 'No-show', 'marked-filmed': 'Marked as filmed' }
   return (
     <BottomSheet open onClose={onClose} title={mine ? 'Your shoot' : shoot.creatorName}>
       <div className="space-y-3">
@@ -378,7 +385,8 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
             </div>
           </div>
         </div>
-        {shoot.status === 'booked' && (
+        {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
+        {shoot.status === 'booked' && !shoot.checkin && (
           <div className="bg-pt-bg rounded-xl p-3 text-sm text-pt-muted">
             Props, gear and more will be added right from this shoot in the next update. For now, book props and gear for this day in Props and Gear.
           </div>
@@ -660,5 +668,98 @@ function CalendarSheet({ team, onClose }: { team: boolean; onClose: () => void }
         </div>
       )}
     </BottomSheet>
+  )
+}
+
+// On the day: progress, check in (set photo + report the slot before), wrap; missed check-ins.
+function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: boolean }) {
+  const s = useScheduleSettings()
+  const now = nowStamp()
+  const days = useScheduleDays(shoot.date, shoot.date)
+  const [photos, setPhotos] = useState<string[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [over, setOver] = useState(0)
+  const [mess, setMess] = useState(false)
+  const [messPhotos, setMessPhotos] = useState<string[]>([])
+  const [title, setTitle] = useState('')
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const win = checkinWindow(shoot, now, s)
+  const missed = isMissed(shoot, now)
+  const prev = shoot.place !== 'offsite' ? days?.[shoot.date]?.[shoot.place]?.[slotKey(shoot.start - s.slotMinutes)] : undefined
+  const prevOther = prev && prev.shootId !== shoot.id ? prev : undefined
+  async function run(f: () => Promise<unknown>) { setBusy(true); setErr(''); try { await f() } catch (e) { setErr(errorText(e)) } finally { setBusy(false) } }
+  const stage = shoot.wrap ? 3 : shoot.checkin ? 2 : 1
+  const step = (on: boolean) => `flex-1 h-1 rounded-full ${on ? 'bg-pt-accent' : 'bg-pt-border'}`
+  return (
+    <div className="space-y-3">
+      {shoot.place !== 'offsite' && (
+        <div>
+          <div className="flex gap-1"><span className={step(true)} /><span className={step(stage >= 2)} /><span className={step(stage >= 3)} /></div>
+          <div className="flex justify-between text-[11px] text-pt-muted mt-1"><span>Booked</span><span>Checked in</span><span>Filmed</span></div>
+        </div>
+      )}
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+
+      {mine && !shoot.checkin && win === 'open' && (
+        <div className="bg-pt-bg rounded-xl p-3 space-y-3">
+          <p className="text-pt-text font-semibold">You're up: check in</p>
+          <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the set" hint="Opens your camera" max={3} />
+          {prevOther && (
+            <div className="space-y-2">
+              <p className="text-pt-muted text-sm">The slot before you: <b className="text-pt-text">{prevOther.name}</b>. Anything wrong? The team reviews every report.</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button onClick={() => setOver(over ? 0 : 15)} className={`px-3 py-1.5 rounded-full text-sm border ${over ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-surface text-pt-text'}`}>Ran over into my time</button>
+                <button onClick={() => setMess(!mess)} className={`px-3 py-1.5 rounded-full text-sm border ${mess ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-surface text-pt-text'}`}>House left a mess</button>
+              </div>
+              {over > 0 && <select value={over} onChange={e => setOver(Number(e.target.value))} className={field}>{[10, 15, 20, 30, 45, 60, 90].map(m => <option key={m} value={m}>They left {m} minutes late</option>)}</select>}
+              {mess && <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={messPhotos} onChange={setMessPhotos} onUploading={setUploading} label="Photos of the mess" max={5} />}
+            </div>
+          )}
+          <button disabled={busy || uploading || !photos.length || (mess && !messPhotos.length)} className={btnGold}
+            onClick={() => run(() => checkInShoot({ id: shoot.id, photos, ...((over || mess) ? { report: { overMinutes: over || undefined, mess, photos: messPhotos } } : {}) }))}>
+            {busy ? 'Checking in…' : over || mess ? 'Check in and send report' : 'Check in'}</button>
+        </div>
+      )}
+      {mine && !shoot.checkin && win === 'early' && shoot.from.slice(0, 10) === now.slice(0, 10) && (
+        <p className="text-pt-muted text-sm">Check-in opens {s.checkinBefore} minutes before your shoot. You'll take a photo of the set.</p>
+      )}
+
+      {shoot.checkin && (
+        <div className="bg-pt-bg rounded-xl p-3 space-y-2">
+          <p className="text-pt-text text-sm">Checked in {new Date(shoot.checkin.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}{shoot.wrap ? ` · filmed “${shoot.wrap.title}”` : ''}</p>
+          <PhotoStrip urls={shoot.checkin.photos} title="Set photo" />
+          {mine && !shoot.wrap && (
+            <div className="flex gap-2">
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What did you film?" className={field} />
+              <button disabled={busy} onClick={() => run(() => wrapShoot({ id: shoot.id, title }))} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 disabled:opacity-40">Wrap</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {missed && (
+        <div className="rounded-xl p-3 space-y-2 border border-red-400/40 bg-red-400/10">
+          <p className="text-pt-text text-sm font-semibold">No check-in for this shoot</p>
+          {shoot.explanation && <p className="text-pt-text text-sm">“{shoot.explanation.text}”</p>}
+          {mine && !shoot.explanation && now < explainUntil(shoot, s) && (
+            <>
+              <p className="text-pt-muted text-sm">Did you film? Tell the schedule team what happened before {stampLabel(explainUntil(shoot, s))}. Otherwise it may count as a no-show.</p>
+              <textarea value={text} onChange={e => setText(e.target.value)} rows={2} placeholder="e.g. My phone died, we filmed 1–3 PM" className={field} />
+              <button disabled={busy || !text.trim()} onClick={() => run(() => explainMissedCheckIn({ id: shoot.id, text }))} className={btnGrey}>Send</button>
+            </>
+          )}
+          {mine && !shoot.explanation && now >= explainUntil(shoot, s) && <p className="text-pt-muted text-sm">The schedule team will decide.</p>}
+          {team && (
+            <div className="flex gap-2">
+              <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'filmed' }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">They filmed</button>
+              <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'noshow' }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>
+            </div>
+          )}
+        </div>
+      )}
+      {shoot.outcome && <p className="text-pt-muted text-sm">{shoot.outcome === 'filmed' ? 'Marked as filmed by the team.' : 'Marked as a no-show by the team.'}</p>}
+    </div>
   )
 }

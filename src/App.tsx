@@ -47,6 +47,7 @@ import ScheduleScreen from './screens/ScheduleScreen'
 import ScheduleSettingsScreen from './screens/ScheduleSettingsScreen'
 import ScheduleRulesScreen from './screens/ScheduleRulesScreen'
 import CalendarImportScreen from './screens/CalendarImportScreen'
+import ScheduleTeamScreen from './screens/ScheduleTeamScreen'
 import { CartProvider } from './cart'
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 
@@ -209,6 +210,7 @@ export default function App() {
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
           <Route path="/schedule/settings" element={<GearOnly><ScheduleSettingsScreen /></GearOnly>} />
           <Route path="/schedule/import" element={<GearOnly><CalendarImportScreen /></GearOnly>} />
+          <Route path="/schedule/team" element={<GearOnly><ScheduleTeamScreen /></GearOnly>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />

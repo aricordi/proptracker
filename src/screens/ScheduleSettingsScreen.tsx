@@ -88,6 +88,24 @@ export default function ScheduleSettingsScreen() {
           <button onClick={() => navigate('/schedule/import')} className="block text-pt-accent text-sm">Import what's already in the calendar ›</button>
         </section>
 
+        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2">
+          <h2 className="text-pt-text font-semibold">Check-ins and strikes</h2>
+          {([
+            ['checkinBefore', 'minutes before the shoot, check-in opens', 0, 240, 5],
+            ['explainHours', 'hours to explain a missed check-in', 0, 168, 1],
+            ['strikeCount', 'strikes…', 1, 20, 1],
+            ['strikeDays', '…within this many days…', 1, 365, 1],
+            ['pauseDays', '…pause prop + gear bookings for this many days', 0, 365, 1],
+          ] as const).map(([k, label, min, max, stepBy]) => (
+            <div key={k} className="flex items-center gap-3">
+              <button onClick={() => set({ [k]: Math.max(min, s[k] - stepBy) } as Partial<ScheduleSettings>)} className="w-9 h-9 rounded-xl bg-pt-bg text-pt-text text-lg">−</button>
+              <span className="text-pt-text font-semibold tabular-nums w-9 text-center">{s[k]}</span>
+              <button onClick={() => set({ [k]: Math.min(max, s[k] + stepBy) } as Partial<ScheduleSettings>)} className="w-9 h-9 rounded-xl bg-pt-bg text-pt-text text-lg">+</button>
+              <span className="text-pt-muted text-sm">{label}</span>
+            </div>
+          ))}
+        </section>
+
         <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
           <h2 className="text-pt-text font-semibold">Moving and cancelling</h2>
           <div className="flex items-center gap-3">

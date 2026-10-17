@@ -56,6 +56,20 @@ export default function ScheduleRulesScreen() {
           <Li>Shooting somewhere else? Tap <b>Book a shoot</b> → <b>Somewhere else</b>: pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
         </ul>
 
+        <H>On the day</H>
+        <ul className="list-disc pl-5 space-y-1.5">
+          <Li>Check-in opens <b>{s.checkinBefore} minutes before</b> your shoot: open your shoot, take a photo of the set, tap <b>Check in</b>.</Li>
+          <Li>When you're done, tap <b>Wrap</b> and name what you filmed.</Li>
+          <Li>Finish on time and leave the house clean. When the next creator checks in, they can report an overrun or a mess (with photos). The team reviews every report.</Li>
+          <Li>No check-in by the end of your slot? You have <b>{s.explainHours} hours</b> to explain on your shoot; then the team decides.</Li>
+        </ul>
+
+        <H>Strikes</H>
+        <ul className="list-disc pl-5 space-y-1.5">
+          <Li>A strike is added for a <b>no-show</b>, a <b>cancel inside {s.noticeHours} hours</b>, or a <b>report the team upholds</b>.</Li>
+          <Li><b>{s.strikeCount} strikes within {s.strikeDays} days</b> pause your prop and gear bookings for <b>{s.pauseDays} days</b>. You can still book house slots. The team can lift a pause.</Li>
+        </ul>
+
         <H>Moving, swapping and cancelling</H>
         <ul className="list-disc pl-5 space-y-1.5">
           <Li>More than <b>{s.noticeHours} hours</b> before your shoot, you can <b>move</b> it to any free slot or <b>cancel</b> it for free. A move happens in one step: you keep your slot until the new one is yours.</Li>
