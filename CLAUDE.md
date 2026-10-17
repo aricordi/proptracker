@@ -419,6 +419,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     schedule + rules). Checked in a browser on the emulator (creator books/cancels, Thu locked, team books for
     Kyle, blocks, saves settings).
   - Owner must set the real PRIORITY GROUP in Schedule → Settings after deploy (names need app accounts).
+- OWNER DECISIONS (Oct 17, before deploying step 1):
+  - GOOGLE CALENDAR = app writes every booking/move/cancel/block to the shared calendar (one-way) + one-time import
+    of future events with a REVIEW screen for Maanik (match who/house/slot; non-shoots → blocks) + a private
+    per-person "Add to my calendar" subscribe link (iCal feed of their own shoots). No two-way sync.
+    Owner steps later: share the calendar with the functions' service account ("Make changes to events"), Calendar API on.
+  - MOVING: free with ≥ 48 HOURS notice (move = switch to a free slot atomically, monthly stays monthly). Inside
+    48 h a move or cancel COUNTS AS A NO-SHOW unless it's a SWAP with another creator (request → they accept →
+    both shoots switch in one step). Only swaps save it (owner chose "swap only", not "someone else books it").
+    Team moves/cancels never count.
+  - OFFSITE: one "Book a shoot" entry asks Cliff 1 / Cliff 2 / Somewhere else; offsite = ANY start/end time in
+    half hours (not the 2-hour grid) + where (address or Maps link).
+  - PROFILES: Google photo by default (initials on a colour if none), upload your own (circle crop, shrunk) +
+    CHANNEL NAME/handle shown under your name. Team can remove a photo. Shown on schedule slots, next-shoot card,
+    queues, People.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site
