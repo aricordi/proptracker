@@ -662,7 +662,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       reserveAi also refuses more than 6 uses a minute per person (BURST). Personal props, internal notes and emails are
       never sent to the AI. Tests 345 (tests/unit/aiSafety.test.ts + burst test).
     - AI helpers + AI safety backend deploy started Oct 17 (run 28, owner OK).
-  - RUNNING COSTS + PHOTO CLEAN-UP + HELP (owner, Oct 17; backend run 29):
+  - RUNNING COSTS + PHOTO CLEAN-UP + HELP (owner, Oct 17; backend run 29, weekly clean-up run 30, all green):
     - `functions/src/costs.ts`: `costReport` (owner): lists every Storage file (bytes/files by folder), REAL usage this
       month from Google Cloud Monitoring (Firestore read/write counts, Storage sent bytes; null in the emulator or if
       not permitted), projected to month end at list prices after free amounts, AI spend, clean-up preview, last run.
@@ -675,6 +675,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       WEEKLY AUTOMATIC run (owner OK, Oct 17): `weeklyPhotoCleanup` (onSchedule 'every sunday 04:00' Toronto →
       Cloud Scheduler job, cents/month) does the same as "Clean up now" (logged by 'weekly clean-up'). Scheduled
       functions are NOT in the invoker lists (those are for callables only).
+    - WEBSITE LIVE Oct 17 (website run 8, owner OK): everything through costs/clean-up/help (new creator app Home/Book/
+      Browse/Me, schedule, AI helpers, Prime Capitol name) is on the live site.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
