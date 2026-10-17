@@ -22,6 +22,7 @@ export interface ScheduleSettings {
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
+  googleCalendarId: string // shared Google Calendar the app copies bookings to ('' = off)
 }
 
 // Owner decisions, Oct 16: 9 slots from 7–9 AM to 11 PM–1 AM, 4 monthly Cliff 1 slots,
@@ -38,6 +39,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   priorityWeekdays: [4, 6],
   releaseMinute: 18 * 60,
   noticeHours: 48,
+  googleCalendarId: '',
 }
 export const MONTHLY_HOUSE: House = 'cliff1'
 export const PRIORITY_HOUSE: House = 'cliff1'
@@ -71,6 +73,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     priorityWeekdays: days,
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
+    googleCalendarId: str(x.googleCalendarId, 200),
   }
 }
 

@@ -10,7 +10,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, bookShoot, cancelShoot, moveShoot, requestSwap, answerSwap,
-  addScheduleBlock, removeScheduleBlock, listSchedulePeople, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
+  addScheduleBlock, removeScheduleBlock, listSchedulePeople, myCalendarLink, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot, type SwapRequest,
 } from '../services/schedule'
@@ -27,6 +27,7 @@ interface TheirSlot { shootId: string; name: string; email?: string; date: strin
 
 type SheetState =
   | { kind: 'start' }
+  | { kind: 'calendar' }
   | { kind: 'book'; house: Place; date: string; start: number }
   | { kind: 'offsite'; date: string; move?: Shoot }
   | { kind: 'shoot'; id: string }
@@ -111,6 +112,7 @@ export default function ScheduleScreen() {
         )}
 
         <button onClick={() => setSheet({ kind: 'start' })} className={btnGold}>Book a shoot</button>
+        <button onClick={() => setSheet({ kind: 'calendar' })} className="w-full text-pt-accent text-sm py-1">📅 Add {team ? 'the schedule' : 'my shoots'} to my phone's calendar</button>
 
         <div className="flex items-center justify-between gap-2 pt-1">
           <p className="text-pt-text font-semibold">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })}{date === today ? ' · Today' : ''}</p>
@@ -169,6 +171,7 @@ export default function ScheduleScreen() {
           </div>
         </BottomSheet>
       )}
+      {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
@@ -627,6 +630,35 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick }: {
           </div>
         ))}
       </div>
+    </BottomSheet>
+  )
+}
+
+// "Add to my calendar": a private link phone calendars subscribe to; it updates by itself.
+function CalendarSheet({ team, onClose }: { team: boolean; onClose: () => void }) {
+  const [link, setLink] = useState<{ url: string; webcal: string } | null>(null)
+  const [err, setErr] = useState('')
+  const [msg, setMsg] = useState('')
+  const load = (reset = false) => { setErr(''); setMsg(''); myCalendarLink({ reset }).then(r => { setLink(r.data); if (reset) setMsg('New link made. The old one no longer works.') }).catch(e => setErr(errorText(e))) }
+  useEffect(() => { load() }, [])
+  async function copy() {
+    if (!link) return
+    try { await navigator.clipboard.writeText(link.url); setMsg('Link copied ✓') } catch { setMsg(link.url) }
+  }
+  return (
+    <BottomSheet open onClose={onClose} title="Add to my calendar">
+      <p className="text-pt-muted text-sm">{team ? "Every shoot on the schedule shows up in your phone's calendar" : "Your shoots show up in your phone's calendar"} and update by themselves (within about an hour). This link is private: don't share it.</p>
+      {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
+      {!link && !err && <p className="text-pt-muted text-sm mt-3">Making your link…</p>}
+      {link && (
+        <div className="space-y-2 mt-4">
+          <a href={link.webcal} className={`block text-center ${btnGold}`}>Add to iPhone / Apple Calendar</a>
+          <button onClick={copy} className={btnGrey}>Copy link (for Google Calendar)</button>
+          <p className="text-pt-muted text-xs">Google Calendar: on a computer, open Google Calendar → Other calendars → + → From URL, and paste the link.</p>
+          <button onClick={() => load(true)} className="w-full text-pt-muted text-xs underline py-1">Shared it by mistake? Make a new link</button>
+          {msg && <p className="text-pt-text text-sm break-all">{msg}</p>}
+        </div>
+      )}
     </BottomSheet>
   )
 }

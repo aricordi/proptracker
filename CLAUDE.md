@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 308 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 312 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -463,6 +463,29 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     Settings: "Moving and cancelling" notice hours. How it works updated (moving/swapping/cancelling, offsite, undo).
   - Tests 308. Checked in a browser on the emulator (accept a swap, offsite any hours, move, profile photo + channel).
   - Functions added to deploy/log lists: moveshoot requestswap answerswap.
+
+- STEP 1 + EXTRAS DEPLOY: backend run 25 started Oct 17 (owner OK "yes deploy").
+- STEP 2 (GOOGLE CALENDAR) PART 1 BUILT (Oct 17; NOT deployed — needs a backend deploy, owner OK):
+  `functions/src/calendar.ts`:
+  - PERSONAL FEED: `myCalendarLink` (callable, anyone; reuses one random 36-hex token in `calendar_tokens/{token}`
+    {email, all (team), createdAt}, server-only; `reset: true` makes a new one and kills the old) → https URL +
+    webcal URL of `shootsCalendar` (onRequest, public, ?t=token) = iCal feed (buildIcs: TZID America/Toronto,
+    folded lines, REFRESH 1 h): creators get their own booked shoots ("Shoot · Cliff 1"), team gets everyone's
+    ("Ana · Cliff 1"), −30…+120 days. App: Schedule → "📅 Add … to my phone's calendar" → CalendarSheet (webcal
+    button for iPhone, Copy link for Google Calendar, make a new link).
+  - SHARED GOOGLE CALENDAR (one-way): settings field `googleCalendarId` (Schedule settings, cleanScheduleSettings
+    keeps it); triggers `syncShootToCalendar` (shoots/{id}: booked → upsert event id 's'+hex(shootId); else delete)
+    and `syncBlocksToCalendar` (schedule_days/{date} blocks diff → upsert/delete 'b'+hex(date_blockId)); Calendar
+    REST API with the functions' service account (google-auth-library, scope calendar.events); skipped in the
+    emulator and when no ID. `testCalendarLink` (team) writes + deletes a test event, error names the service
+    account to share with. Settings screen: Calendar ID input + "Test the connection".
+  - OWNER STEPS before it works: Google Cloud → enable "Google Calendar API" on proptracker-9732e; in Google Calendar
+    share the shared calendar with the service account shown by the test ("Make changes to events"); paste the
+    calendar ID in Schedule → Settings → Save → Test.
+  - NOT BUILT YET: one-time IMPORT of existing future events with Maanik's review screen (needs the calendar
+    shared first to see the event title format).
+  - Tests 312 (tests/functions/calendar.test.ts). Functions added to deploy/log lists: mycalendarlink
+    testcalendarlink shootscalendar.
 
 ### Next
 - Oct 13 (owner): owner QAs the PREVIEW internally; beta testers are onboarded ONLY on the LIVE site

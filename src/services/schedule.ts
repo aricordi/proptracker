@@ -89,5 +89,8 @@ export const removeScheduleBlock = httpsCallable<{ date: string; id: string }, {
 export const saveScheduleSettings = httpsCallable<Partial<ScheduleSettings>, ScheduleSettings>(functions, 'saveScheduleSettings')
 export const listSchedulePeople = httpsCallable<Record<string, never>, { people: { email: string; name: string; role: string }[] }>(functions, 'listSchedulePeople')
 
+export const myCalendarLink = httpsCallable<{ reset?: boolean }, { url: string; webcal: string }>(functions, 'myCalendarLink')
+export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boolean; account: string }>(functions, 'testCalendarLink')
+
 // Error text from a server call, in plain words.
 export const errorText = (e: unknown) => (e as { message?: string })?.message || 'Something went wrong. Try again.'

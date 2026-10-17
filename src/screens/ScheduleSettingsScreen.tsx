@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fmtTime } from '../../functions/src/gearBooking'
-import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
+import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, testCalendarLink, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
 
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -81,6 +81,13 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+          <h2 className="text-pt-text font-semibold">Shared Google Calendar</h2>
+          <p className="text-pt-muted text-xs">The app copies every booking, move, cancel and blocked time to this calendar. Changes made in Google Calendar are not copied back. Find the ID in Google Calendar → the calendar's Settings → "Integrate calendar" → Calendar ID.</p>
+          <input value={s.googleCalendarId} onChange={e => set({ googleCalendarId: e.target.value.trim() })} placeholder="e.g. abc123@group.calendar.google.com" className={field} />
+          <CalendarTest />
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
           <h2 className="text-pt-text font-semibold">Moving and cancelling</h2>
           <div className="flex items-center gap-3">
             <button onClick={() => set({ noticeHours: Math.max(0, s.noticeHours - 12) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
@@ -121,6 +128,23 @@ export default function ScheduleSettingsScreen() {
           {busy ? 'Saving…' : msg || 'Save settings'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// Check the app can write to the shared calendar (save the ID first).
+function CalendarTest() {
+  const [msg, setMsg] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function run() {
+    setBusy(true); setMsg('')
+    try { const r = await testCalendarLink({}); setMsg(`Connected ✓ The app writes as ${r.data.account}.`) }
+    catch (e) { setMsg(errorText(e)) } finally { setBusy(false) }
+  }
+  return (
+    <div className="space-y-1.5">
+      <button disabled={busy} onClick={run} className="bg-pt-border text-pt-text rounded-xl px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Testing…' : 'Test the connection (after saving)'}</button>
+      {msg && <p className="text-pt-muted text-xs break-all">{msg}</p>}
     </div>
   )
 }
