@@ -107,6 +107,7 @@ function CreatorLinks({ email }: { email: string }) {
   const rows: [string, string, string][] = [
     ['My prop requests', 'Every props request and where it is', '/reservations'],
     ['My gear', 'Gear held, picked up and returned', '/gear/bookings'],
+    ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
     ['How it works', 'Slots, monthly picks, cutoffs, check-ins, strikes', '/schedule/how'],
   ]
   return (

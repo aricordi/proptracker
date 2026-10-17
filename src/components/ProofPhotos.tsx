@@ -98,15 +98,23 @@ export function PhotoStrip({ urls, title }: { urls?: string[]; title: string }) 
     <div>
       <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">{title}</p>
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
-        {urls.map(u => (
-          <div key={u} className="w-24 shrink-0 space-y-1">
-            <a href={u} target="_blank" rel="noreferrer" className="block w-24 h-24 rounded-xl overflow-hidden bg-pt-border">
-              <img src={u} alt="" className="w-full h-full object-cover" />
-            </a>
-            <PhotoStamp url={u} />
-          </div>
-        ))}
+        {urls.map(u => <StripPhoto key={u} url={u} />)}
       </div>
+    </div>
+  )
+}
+
+// One saved proof photo. Proof photos are cleaned up after about 6 months (owner, Oct 17), so a missing
+// one says so instead of showing a broken image.
+function StripPhoto({ url }: { url: string }) {
+  const [gone, setGone] = useState(false)
+  if (gone) return <div className="w-24 h-24 shrink-0 rounded-xl bg-pt-border grid place-items-center text-center text-pt-muted text-[11px] px-2 leading-tight">Photo removed after 6 months</div>
+  return (
+    <div className="w-24 shrink-0 space-y-1">
+      <a href={url} target="_blank" rel="noreferrer" className="block w-24 h-24 rounded-xl overflow-hidden bg-pt-border">
+        <img src={url} alt="" className="w-full h-full object-cover" onError={() => setGone(true)} />
+      </a>
+      <PhotoStamp url={url} />
     </div>
   )
 }

@@ -112,7 +112,10 @@ export default function CreatorHomeScreen() {
       <div className="pt-safe px-5">
         <div className="flex items-center justify-between py-3">
           <span className="flex items-center gap-2 text-pt-text"><BrandMark className="w-9" title="Prime Capitol" /><b className="text-xs font-extrabold tracking-[0.28em]">PRIME CAPITOL</b></span>
-          <button onClick={() => navigate('/account')} aria-label="Me"><Avatar email={profile.email} name={profile.name || profile.email} size={34} /></button>
+          <span className="flex items-center gap-2.5">
+            <button onClick={() => navigate('/help')} aria-label="Help" className="w-[34px] h-[34px] rounded-full grid place-items-center bg-pt-surface text-pt-muted font-bold">?</button>
+            <button onClick={() => navigate('/account')} aria-label="Me"><Avatar email={profile.email} name={profile.name || profile.email} size={34} /></button>
+          </span>
         </div>
         <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mt-1">{formatDay(today, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         <h1 className="font-display text-[34px] leading-tight font-extrabold tracking-tight">{first ? `Hey ${first}` : 'Home'}</h1>

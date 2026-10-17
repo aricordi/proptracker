@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 345 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 351 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -661,6 +661,25 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       reply may not name times; the phone's `previous` search is rebuilt by cleanAsk (known fields only) before use.
       reserveAi also refuses more than 6 uses a minute per person (BURST). Personal props, internal notes and emails are
       never sent to the AI. Tests 345 (tests/unit/aiSafety.test.ts + burst test).
+    - AI helpers + AI safety backend deploy started Oct 17 (run 28, owner OK).
+  - RUNNING COSTS + PHOTO CLEAN-UP + HELP (owner, Oct 17; NOT deployed yet — new functions + rules):
+    - `functions/src/costs.ts`: `costReport` (owner): lists every Storage file (bytes/files by folder), REAL usage this
+      month from Google Cloud Monitoring (Firestore read/write counts, Storage sent bytes; null in the emulator or if
+      not permitted), projected to month end at list prices after free amounts, AI spend, clean-up preview, last run.
+      `cleanUpPhotos` (owner, manual): `cleanupReason(path, ageDays, referenced)` — removes (1) PROOF photos
+      (reservation-photos/, gear-returns/, shoot-photos/) older than PROOF_KEEP_DAYS = 183 (owner: 6 MONTHS), and (2)
+      photos in items/ thumbs/ gear/ avatars/ request-photos/ (+ proof folders) that NOTHING references, older than
+      UNUSED_KEEP_DAYS = 14. "Referenced" = any download link found by walking EVERY field of EVERY doc in every
+      top-level collection (+ import_items fileId → items/imported/<id>.jpg). Aborts if no links could be read; ≤500
+      deletions per run; logged in `cleanup_runs` (owner read). Bucket soft delete keeps removed files 7 days.
+      Weekly SCHEDULE NOT turned on yet (explained to the owner; would be an onSchedule job, Sunday ~4 AM, a few
+      cents/month) — manual "Clean up now" button only.
+    - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
+      "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
+    - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
+      booking, filming with friends, props/gear incl. cutoffs/changes/returns/✦ Ideas, on the day, moving/swapping/
+      cancelling, strikes, who to ask); numbers from live settings. Links: "?" button on creator Home, Me → Help.
+    - Tests 351 (tests/unit/cleanup.test.ts, tests/functions/costs.test.ts). Checked in a browser on the emulator.
   AI SPEND (owner): don't spend over ~$50/MONTH on AI, limits shouldn't feel restrictive. PLAN (proposed): one monthly AI
   budget $50 (owner can change) covering ALL AI (helpers, import, search words), reserved per call in a transaction like
   the import cap, resets on the 1st; per-person daily limit (~25 helper uses/day); owner notice at 80%; when reached, AI

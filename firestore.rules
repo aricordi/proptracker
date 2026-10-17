@@ -242,15 +242,6 @@ service cloud.firestore {
       allow read: if isGearStaff() || (signedIn() && myEmail() == email);
       allow write: if false;
     }
-    // AI helper usage (monthly spend + per-person daily counts): the owner reads it, only the server writes.
-    match /ai_usage/{month} {
-      allow read: if isOwner();
-      allow write: if false;
-      match /people/{email} {
-        allow read: if isOwner() || (signedIn() && myEmail() == email);
-        allow write: if false;
-      }
-    }
     match /gear_bookings/{id} {
       allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;
@@ -261,9 +252,19 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // AI usage counters are written by the server functions only.
+    // AI usage counters (Health page) + this month's AI helper spend. Written by the server only.
+    // Per-person daily counts: the owner, or that person.
     match /ai_usage/{month} {
       allow read: if isStaff();
+      allow write: if false;
+      match /people/{email} {
+        allow read: if isOwner() || (signedIn() && myEmail() == email);
+        allow write: if false;
+      }
+    }
+    // Photo clean-up log (owner).
+    match /cleanup_runs/{id} {
+      allow read: if isOwner();
       allow write: if false;
     }
 
