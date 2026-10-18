@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fmtTime } from '../../functions/src/gearBooking'
+import { importInfo } from '../services/importer'
 import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, testCalendarLink, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
 
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
@@ -80,13 +81,8 @@ export default function ScheduleSettingsScreen() {
           </div>
         </section>
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
-          <h2 className="text-pt-text font-semibold">Shared Google Calendar</h2>
-          <p className="text-pt-muted text-xs">The app copies every booking, move, cancel and blocked time to this calendar. Changes made in Google Calendar are not copied back. Find the ID in Google Calendar → the calendar's Settings → "Integrate calendar" → Calendar ID.</p>
-          <input value={s.googleCalendarId} onChange={e => set({ googleCalendarId: e.target.value.trim() })} placeholder="e.g. abc123@group.calendar.google.com" className={field} />
-          <CalendarTest />
-          <button onClick={() => navigate('/schedule/import')} className="block text-pt-accent text-sm">Import what's already in the calendar ›</button>
-        </section>
+        <CalendarSetup id={s.googleCalendarId} savedId={live.googleCalendarId}
+          onId={v => set({ googleCalendarId: v })} save={save} onImport={() => navigate('/schedule/import')} />
 
         <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2">
           <h2 className="text-pt-text font-semibold">Check-ins and strikes</h2>
@@ -151,19 +147,62 @@ export default function ScheduleSettingsScreen() {
   )
 }
 
-// Check the app can write to the shared calendar (save the ID first).
-function CalendarTest() {
-  const [msg, setMsg] = useState('')
+// Shared Google Calendar: a numbered checklist, so setting it up needs no guessing.
+// The app's address comes from the server (owner); the test also names it if sharing is missing.
+const CAL_API = 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=proptracker-9732e'
+
+function CalendarSetup({ id, savedId, onId, save, onImport }: { id: string; savedId: string; onId: (v: string) => void; save: () => Promise<void>; onImport: () => void }) {
+  const [account, setAccount] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  async function run() {
-    setBusy(true); setMsg('')
-    try { const r = await testCalendarLink({}); setMsg(`Connected ✓ The app writes as ${r.data.account}.`) }
-    catch (e) { setMsg(errorText(e)) } finally { setBusy(false) }
+  useEffect(() => { importInfo().then(r => setAccount(r.data.serviceAccount)).catch(() => {}) }, [])
+  const connected = msg?.ok === true
+  async function copy() { try { await navigator.clipboard.writeText(account); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* shown on screen anyway */ } }
+  async function test() {
+    setBusy(true); setMsg(null)
+    try {
+      if (id !== savedId) await save()
+      const r = await testCalendarLink({}); setAccount(r.data.account); setMsg({ ok: true, text: 'Connected ✓' })
+    } catch (e) {
+      const t = errorText(e)
+      const acc = (e as { details?: { account?: string } }).details?.account
+      if (acc) setAccount(acc)
+      setMsg({ ok: false, text: /has not been used|SERVICE_DISABLED|disabled/i.test(t) ? 'Step 1 isn\'t done yet: turn on the Google Calendar API.'
+        : /404|notFound|Not Found/i.test(t) ? 'That calendar ID wasn\'t found. Check step 3.'
+        : /403|401|share/i.test(t) ? 'Not shared yet. Do step 2, wait a minute, then test again.' : t })
+    } finally { setBusy(false) }
   }
-  return (
-    <div className="space-y-1.5">
-      <button disabled={busy} onClick={run} className="bg-pt-border text-pt-text rounded-xl px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Testing…' : 'Test the connection (after saving)'}</button>
-      {msg && <p className="text-pt-muted text-xs break-all">{msg}</p>}
+  const step = (n: number, title: string, body: React.ReactNode) => (
+    <div className="flex gap-3">
+      <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-bold shrink-0 ${connected ? 'bg-green-500/20 text-green-400' : 'bg-pt-accent/20 text-pt-accent'}`}>{connected ? '✓' : n}</span>
+      <div className="flex-1 min-w-0 space-y-1.5"><p className="text-pt-text text-[15px] font-medium">{title}</p>{body}</div>
     </div>
   )
+  return (
+    <section className="bg-pt-surface rounded-2xl p-3.5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-pt-text font-semibold">📅 Shared Google Calendar</h2>
+        {connected && <span className="rounded-full px-2.5 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Connected</span>}
+      </div>
+      {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm">Open Google Cloud → tap Enable ›</a>)}
+      {step(2, 'Share the calendar with the app', <>
+        <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → "Make changes to events".</p>
+        {account
+          ? <button onClick={copy} className="w-full text-left bg-pt-bg rounded-xl px-3 py-2 text-[13px] text-pt-text break-all">{account} <span className="text-pt-accent font-semibold">{copied ? ' Copied ✓' : ' Copy'}</span></button>
+          : <p className="text-pt-muted text-xs">Tap Test below to see the address.</p>}
+      </>)}
+      {step(3, 'Paste the calendar ID', <>
+        <p className="text-pt-muted text-xs">Same settings page → Integrate calendar → Calendar ID.</p>
+        <input value={id} onChange={e => { onId(e.target.value.trim()); setMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} />
+      </>)}
+      {step(4, 'Test it', <>
+        <button disabled={busy || !id} onClick={test} className="bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Testing…' : 'Save & test'}</button>
+        {msg && <p className={`text-sm ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>}
+      </>)}
+      <p className="text-pt-muted text-xs border-t border-pt-border pt-3">From then on every booking, move, cancel and blocked time is copied to that calendar. Changes made in Google Calendar aren't copied back.</p>
+      <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-2.5 text-pt-text text-sm font-medium">Bring in what's already in the calendar ›</button>
+    </section>
+  )
 }
+

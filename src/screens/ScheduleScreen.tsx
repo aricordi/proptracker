@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import RoundIcon from '../components/RoundIcon'
+import { useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
@@ -45,7 +46,6 @@ type SheetState =
 
 // The house schedule: Cliff 1, Cliff 2 and offsite shoots, by day, in 2-hour slots.
 export default function ScheduleScreen() {
-  const navigate = useNavigate()
   const { profile, role } = useSession()
   const team = role === 'owner' || role === 'equipment'
   const s = useScheduleSettings()
@@ -89,10 +89,10 @@ export default function ScheduleScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2 border-b border-pt-border">
         <div className="flex items-end justify-between py-2 gap-2">
           <h1 className="font-display text-3xl text-pt-text">Schedule</h1>
-          <div className="flex gap-3 pb-1">
-            <button onClick={() => navigate('/schedule/how')} className="text-pt-accent text-sm">How it works</button>
-            {team && <button onClick={() => navigate('/schedule/team')} className="text-pt-accent text-sm">Team</button>}
-            {team && <button onClick={() => navigate('/schedule/settings')} className="text-pt-accent text-sm">Settings</button>}
+          <div className="flex gap-2 pb-0.5">
+            {team && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
+            {team && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
+            <RoundIcon icon="help" label="Help" to="/help" />
           </div>
         </div>
         <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
@@ -182,7 +182,7 @@ export default function ScheduleScreen() {
 
         <button onClick={() => setSheet({ kind: 'calendar' })} className="!mt-8 w-full flex items-center gap-3 p-3.5 rounded-2xl bg-pt-surface border border-pt-border text-left">
           <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-bg text-lg shrink-0">📅</span>
-          <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">Add {team ? 'the schedule' : 'my shoots'} to my phone's calendar</b><span className="block text-pt-muted text-xs">Updates by itself · Apple or Google Calendar</span></span>
+          <span className="flex-1 min-w-0 text-pt-text text-[15px] font-semibold">{team ? 'Schedule' : 'My shoots'} in my phone's calendar</span>
           <span className="text-pt-muted">›</span>
         </button>
       </div>

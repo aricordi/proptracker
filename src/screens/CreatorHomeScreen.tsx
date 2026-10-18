@@ -1,5 +1,6 @@
 // Creators' home: the next shoot and what it still needs (check in from here), search,
 // your usual props and gear, monthly slots + filming streak, things to do, what's coming up.
+import RoundIcon from '../components/RoundIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
@@ -113,7 +114,7 @@ export default function CreatorHomeScreen() {
         <div className="flex items-center justify-between py-3">
           <span className="flex items-center gap-2 text-pt-text"><BrandMark className="w-9" title="Prime Capitol" /><b className="text-xs font-extrabold tracking-[0.28em]">PRIME CAPITOL</b></span>
           <span className="flex items-center gap-2.5">
-            <button onClick={() => navigate('/help')} aria-label="Help" className="w-[34px] h-[34px] rounded-full grid place-items-center bg-pt-surface text-pt-muted font-bold">?</button>
+            <RoundIcon icon="help" label="Help" to="/help" />
             <button onClick={() => navigate('/account')} aria-label="Me"><Avatar email={profile.email} name={profile.name || profile.email} size={34} /></button>
           </span>
         </div>

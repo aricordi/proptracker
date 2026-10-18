@@ -691,6 +691,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       let pages show through). Book screen: gold "Book a shoot" first, then an "or let AI find a time" divider, then the
       violet Ask-for-a-time card; the phone-calendar link moved to its own card at the BOTTOM of the schedule. AI
       example names use "Alex" (owner), not Jana. LIVE Oct 18 (website run 10, owner OK).
+    - FEWER WORDS (owner, Oct 18: "use visual design language, especially for less-used functions"):
+      `src/components/RoundIcon.tsx` (round icon buttons: help ?, team, settings sliders, calendar; aria-label +
+      tooltip). Schedule header = team / settings / ? icons (was text links; ? → /help); Home's ? uses it too.
+      Phone-calendar card text shortened. GOOGLE CALENDAR SETUP in Schedule settings is now a numbered checklist
+      (CalendarSetup): 1 Enable Calendar API (link to console), 2 share the calendar with the app's address (shown via
+      importInfo for owner/arts, Copy button; the test also returns it), 3 paste Calendar ID, 4 "Save & test" (saves
+      first; friendly errors for API off / not found / not shared), then "Bring in what's already in the calendar".
+      Preview only until the owner says live. Next idea: a wider words-to-icons pass across screens (ask first).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
