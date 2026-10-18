@@ -741,7 +741,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       is never limited; placeShootAsTeam (calendar import) not limited. App: findFree + findOptions skip days you (or a
       friend) already film; askForTime caps a creator's own slots and says so; BookSheet shows an amber note and
       disables Book when you already have your slot that day; How it works + Help explain it.
-      Tests 366 (tests/functions/dayLimit.test.ts + unit). Needs a BACKEND deploy + website deploy (ask).
+      Tests 366 (tests/functions/dayLimit.test.ts + unit). LIVE Oct 18 (backend run 31 + website run 12, owner OK; incl. the slot-count fix).
+    - PUSH NOTIFICATIONS (owner asked Oct 18): explained web push (FCM, free; iPhone only when added to Home Screen,
+      iOS 16.4+; needs a tap to allow). Options given: 1 instant event pushes + Home Screen guide (recommended),
+      2 + timed reminders (Cloud Scheduler OK), 3 wait for email. Waiting for the owner to pick.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
