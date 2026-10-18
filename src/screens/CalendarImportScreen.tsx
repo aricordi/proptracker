@@ -44,7 +44,7 @@ export default function CalendarImportScreen() {
   const counts = todo.reduce((c, e) => ({ ...c, [rows[e.id]?.action ?? 'skip']: (c[rows[e.id]?.action ?? 'skip'] ?? 0) + 1 }), {} as Record<string, number>)
   return (
     <div className="min-h-full bg-pt-bg pb-32">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
         <button onClick={() => navigate('/schedule/settings')} className="text-pt-accent text-[17px] pb-1">‹</button>
         <h1 className="font-display text-3xl text-pt-text">Import calendar</h1>
       </div>

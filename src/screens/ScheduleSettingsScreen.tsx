@@ -34,7 +34,7 @@ export default function ScheduleSettingsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
         <button onClick={() => navigate('/schedule')} className="text-pt-accent text-[17px] pb-1">‹</button>
         <h1 className="font-display text-3xl text-pt-text">Schedule settings</h1>
       </div>

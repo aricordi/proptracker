@@ -195,6 +195,8 @@ export default function App() {
     <ShootDaySync />
     <ActiveShootProvider>
     <Splash />
+    {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
+    <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
     <ViewAsFrame on={!!session.viewingAs}>
       <Routes>
         {/* Full-screen routes outside the shell */}

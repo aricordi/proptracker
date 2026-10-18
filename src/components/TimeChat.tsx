@@ -1,4 +1,4 @@
-// "Ask for a time": type or talk ("I'm filming with Kyle and Jana this week, evenings"). The AI
+// "Ask for a time": type or talk ("I'm filming with Alex and Kyle this week, evenings"). The AI
 // reads it, the schedule finds real open slots, each with a Book button. Booking with friends
 // books your slot and holds theirs for 20 minutes until they confirm.
 import { useEffect, useRef, useState } from 'react'

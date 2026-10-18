@@ -86,7 +86,7 @@ export default function ScheduleScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-8">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-2 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2 border-b border-pt-border">
         <div className="flex items-end justify-between py-2 gap-2">
           <h1 className="font-display text-3xl text-pt-text">Schedule</h1>
           <div className="flex gap-3 pb-1">
@@ -131,15 +131,16 @@ export default function ScheduleScreen() {
           </button>
         )}
 
+        {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
+        <button onClick={() => setSheet({ kind: 'start' })} className={`${btnGold} py-3.5 text-[17px]`}>Book a shoot</button>
+        <div className="flex items-center gap-3 pt-3 pb-1 text-pt-muted text-xs uppercase tracking-wider"><span className="h-px flex-1 bg-pt-border" />or let AI find a time<span className="h-px flex-1 bg-pt-border" /></div>
         <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-3.5 rounded-[20px] text-left border border-[#BF9DFF]/30 bg-gradient-to-br from-[#BF9DFF]/15 to-[#BF9DFF]/[0.04] active:scale-[0.98] transition-transform">
           <span className="w-10 h-10 rounded-xl grid place-items-center text-lg bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
-          <span className="flex-1 min-w-0"><b className="block">Ask for a time</b><span className="text-pt-muted text-[13px]">"4 hours with Jana next week, evenings" · type or talk</span></span>
+          <span className="flex-1 min-w-0"><b className="block">Ask for a time</b><span className="text-pt-muted text-[13px]">"4 hours with Alex next week, evenings" · type or talk</span></span>
           <span className="w-9 h-9 rounded-full grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg></span>
         </button>
-        <button onClick={() => setSheet({ kind: 'start' })} className={btnGold}>Book a shoot</button>
-        <button onClick={() => setSheet({ kind: 'calendar' })} className="w-full text-pt-accent text-sm py-1">📅 Add {team ? 'the schedule' : 'my shoots'} to my phone's calendar</button>
 
-        <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="flex items-center justify-between gap-2 pt-6 mt-2 border-t border-pt-border">
           <p className="text-pt-text font-semibold">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })}{date === today ? ' · Today' : ''}</p>
           {house !== 'offsite' && <button onClick={() => setSheet({ kind: 'find', house: house as House })} className="text-pt-accent text-sm shrink-0">Find a time</button>}
         </div>
@@ -178,6 +179,12 @@ export default function ScheduleScreen() {
             <button onClick={() => setSheet({ kind: 'offsite', date: date })} className={btnGrey}>+ Add an offsite or location shoot</button>
           </div>
         )}
+
+        <button onClick={() => setSheet({ kind: 'calendar' })} className="!mt-8 w-full flex items-center gap-3 p-3.5 rounded-2xl bg-pt-surface border border-pt-border text-left">
+          <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-bg text-lg shrink-0">📅</span>
+          <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">Add {team ? 'the schedule' : 'my shoots'} to my phone's calendar</b><span className="block text-pt-muted text-xs">Updates by itself · Apple or Google Calendar</span></span>
+          <span className="text-pt-muted">›</span>
+        </button>
       </div>
 
       {sheet?.kind === 'start' && (

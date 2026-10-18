@@ -30,7 +30,7 @@ export default function AiSettingsScreen() {
   const field = 'w-24 bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-right focus:outline-none focus:border-pt-accent'
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
         <button onClick={() => navigate('/admin')} className="text-pt-accent text-[17px] pb-1">‹</button>
         <h1 className="font-display text-3xl text-pt-text">AI helpers</h1>
       </div>

@@ -35,7 +35,7 @@ export default function HelpScreen() {
       { q: "Can I add it to my phone's calendar?", words: 'calendar ical google apple', a: <>Yes: on <b>Book</b>, tap "Add my shoots to my phone's calendar". Your shoots then show up in your calendar app and stay up to date.</> },
     ] },
     { title: 'Filming with friends', icon: '🤝', items: [
-      { q: 'How do I book back to back with friends?', words: 'collab together partner invite', a: <>Tap <b>✦ Ask for a time</b> and say who you're filming with ("with Kyle and Jana this week"). Pick an option and tap Book: your slot is booked, and each friend gets the slot right after yours, held for them for <b>{INVITE_HOLD_MINUTES} minutes</b> to confirm.</> },
+      { q: 'How do I book back to back with friends?', words: 'collab together partner invite', a: <>Tap <b>✦ Ask for a time</b> and say who you're filming with ("with Alex and Kyle this week"). Pick an option and tap Book: your slot is booked, and each friend gets the slot right after yours, held for them for <b>{INVITE_HOLD_MINUTES} minutes</b> to confirm.</> },
       { q: 'Someone invited me. What do I do?', words: 'invite confirm held', a: <>You'll see the invite on Home and on Book. Tap <b>Confirm my slot</b> within {INVITE_HOLD_MINUTES} minutes and it's yours. If you can't make it, tap "Can't make it" so the slot opens up.</> },
       { q: 'A slot says "Held for…". Can I book it?', words: 'held amber dashed', a: <>Not yet: it's held for someone's collab for up to {INVITE_HOLD_MINUTES} minutes. If they don't confirm, it opens to everyone at the time shown. Check back then.</> },
     ] },
@@ -71,7 +71,7 @@ export default function HelpScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-end gap-2 py-2">
           <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] pb-1">‹</button>
           <h1 className="font-display text-3xl text-pt-text">Help</h1>

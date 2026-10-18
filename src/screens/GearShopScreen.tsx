@@ -37,7 +37,7 @@ export default function GearShopScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-end justify-between py-2">
           <h1 className="font-display text-3xl text-pt-text">{creator ? 'Browse' : 'Gear'}</h1>
           <span className="flex items-center gap-3 pb-1">{creator && <IdeasButton small onClick={() => setIdeas(true)} />}<button onClick={() => navigate('/gear/bookings')} className="text-pt-accent text-sm font-medium">{creator ? 'My gear' : 'My gear bookings'}</button></span>

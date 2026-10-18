@@ -36,7 +36,7 @@ export default function GearBookingsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-end justify-between py-2">
           {role !== 'equipment' && <button onClick={() => navigate('/gear')} className="text-pt-accent text-[17px] pb-1 mr-2">‹</button>}
           <h1 className="font-display text-3xl text-pt-text flex-1">{isGearStaff ? 'Gear queue' : 'My gear bookings'}</h1>

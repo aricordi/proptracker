@@ -48,7 +48,7 @@ export default function ScheduleTeamScreen() {
   const tabs: [Tab, string][] = [['checkins', `Check-ins${missed.length ? ` (${missed.length})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg/90 backdrop-blur-xl pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <div className="flex items-end gap-2 py-2">
           <button onClick={() => navigate('/schedule')} className="text-pt-accent text-[17px] pb-1">‹</button>
           <h1 className="font-display text-3xl text-pt-text">Schedule team</h1>
