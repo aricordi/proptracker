@@ -18,11 +18,11 @@ export default function GearShopScreen() {
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [cat, setCat] = useState<string | null>(null)
   const [ideas, setIdeas] = useState(false)
-  const { profile, role } = useSession()
+  const { profile, role, shootFlow, isStaff } = useSession()
   // Creators add gear to one of their booked shoots; without one they just browse.
-  const creator = role === 'creator'
+  const creator = shootFlow   // creator layout (creators + the owner)
   const { shoot } = useActiveShoot()
-  const showFree = !creator || !!shoot
+  const showFree = role !== 'creator' || !!shoot
   const [mine, setMine] = useState<GearBooking[]>([])
   useEffect(() => subscribeToGearBookings(profile.email, setMine), [profile.email])
   const lateOnes = mine.filter(b => isGearLate(b, nowStamp()))
@@ -42,7 +42,7 @@ export default function GearShopScreen() {
           <h1 className="font-display text-3xl text-pt-text">{creator ? 'Browse' : 'Gear'}</h1>
           <span className="flex items-center gap-3 pb-1">{creator && <IdeasButton small onClick={() => setIdeas(true)} />}<button onClick={() => navigate('/gear/bookings')} className="text-pt-accent text-sm font-medium">{creator ? 'My gear' : 'My gear bookings'}</button></span>
         </div>
-        {creator ? <div className="space-y-2"><BrowseTabs /><AddingToBar kind="gear" />{shoot && <GearWhenPicker hoursOnly />}</div> : <GearWhenPicker />}
+        {creator ? <div className="space-y-2"><BrowseTabs /><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</div> : <GearWhenPicker />}
       </div>
 
       <div className="p-4 space-y-6">

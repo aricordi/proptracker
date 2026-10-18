@@ -91,10 +91,10 @@ function GearOnly({ children }: { children: ReactNode }) {
 }
 
 // The equipment team works only with gear: their home is the gear queue.
-// Creators' home is their shoots; staff land on prop search.
+// Creators' (and the owner's, who films too) home is their shoots; the arts department lands on prop search.
 function Home() {
-  const { role } = useSession()
-  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'creator' ? <CreatorHomeScreen /> : <HomeScreen />
+  const { role, shootFlow } = useSession()
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
 }
 
 // Booking gear is for creators, the arts department and the owner (the equipment team runs it).

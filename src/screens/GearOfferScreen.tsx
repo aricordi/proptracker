@@ -16,9 +16,9 @@ export default function GearOfferScreen() {
   const cart = useGearCart()
   const w = useGearWhen()
   // Creators add gear to one of their booked shoots (its day; hours can be trimmed).
-  const creator = useSession().role === 'creator'
+  const { role, shootFlow: creator, isStaff } = useSession()   // creator layout: creators + the owner
   const { shoot } = useActiveShoot()
-  const showFree = !creator || !!shoot
+  const showFree = role !== 'creator' || !!shoot
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [zoom, setZoom] = useState<string | null>(null)
@@ -71,7 +71,7 @@ export default function GearOfferScreen() {
           🔋 Batteries are charged when gear comes back, but a bundle can go straight out again, so we can't promise a full charge.
         </p>
 
-        {creator ? <><AddingToBar kind="gear" />{shoot && <GearWhenPicker hoursOnly />}</> : <GearWhenPicker />}
+        {creator ? <><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</> : <GearWhenPicker />}
         {showFree && !w.problem && (
           <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between">

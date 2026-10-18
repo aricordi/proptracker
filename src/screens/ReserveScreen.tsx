@@ -34,7 +34,7 @@ export default function ReserveScreen() {
   const navigate = useNavigate()
   const cart = useCart()
   const gear = useGearCart()
-  const { isStaff, isGearStaff, profile } = useSession()
+  const { isStaff, isGearStaff, profile, shootFlow } = useSession()
   const items = useItems()
   const bookings = useBookings()
   const settings = useBookingSettings()
@@ -109,7 +109,7 @@ export default function ReserveScreen() {
     if (!day) return
     setBusy(true); setError(null); setConflicts({})
     const shootId = hasProps && hasGear && !shoot ? shootIdNew() : undefined
-    const scheduleShootId = shoot && !isStaff ? shoot.id : undefined
+    const scheduleShootId = shoot && shootFlow ? shoot.id : undefined
     let gearId: string | null = null
     try {
       // 1. Hold the gear (instant).
@@ -160,7 +160,9 @@ export default function ReserveScreen() {
 
       <div className="p-4 space-y-5">
         {hasProps && <LateBanner late={late} />}
-        {!isStaff ? <AddingToBar kind="shoot" /> : <DateRangePicker start={cart.start ?? gear.date} end={cart.end ?? gear.date} min={pickerMin} onChange={(s, e) => { cart.setDates(s, e); if (s) gear.setWhen(s, gear.start, gear.end) }}
+        {shootFlow && <AddingToBar kind="shoot" />}
+        {/* Staff can book any day (the owner: when it isn't for one of their shoots) */}
+        {!isStaff || shoot ? null : <DateRangePicker start={cart.start ?? gear.date} end={cart.end ?? gear.date} min={pickerMin} onChange={(s, e) => { cart.setDates(s, e); if (s) gear.setWhen(s, gear.start, gear.end) }}
           maxDays={1}
           leadTimeNote={!isStaff && hasProps && settings.leadTimeDays > 0 ? `Props need ${settings.leadTimeDays} open days' notice: earliest ${formatDay(minStart)}.` : undefined} />}
         {!isStaff && shoot && hasProps && !datesOk && <p className="text-red-300 text-sm -mt-3">It's too late to add props from the inventory to this shoot.</p>}
@@ -180,7 +182,7 @@ export default function ReserveScreen() {
         <div>
           <div className="flex items-baseline justify-between mb-2">
             <p className="text-pt-muted text-xs uppercase tracking-wider">Props ({lines.length}) · arts department</p>
-            <button onClick={() => navigate(isStaff ? '/' : '/browse')} className="text-pt-accent text-sm">+ Add props</button>
+            <button onClick={() => navigate(shootFlow ? '/browse' : '/')} className="text-pt-accent text-sm">+ Add props</button>
           </div>
           {lines.length === 0 && cart.builds.length === 0 && (
             <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No props yet.</p>

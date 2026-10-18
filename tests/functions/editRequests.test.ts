@@ -50,9 +50,9 @@ describe('change held gear', () => {
     expect((await call('editGearBooking', { id, lines: [{ offerId: 'fx3', qty: 1 }, { offerId: 'cst', qty: 2 }], start: 720, end: 900 }, ANA)).ok).toBe(true)
     const b = (await getDoc(`gear_bookings/${id}`))!
     expect(b.offerIds).toEqual(['fx3', 'cst'])
-    expect(b.start).toBe(720); expect(b.from.endsWith("T12:00")).toBe(true)   // closed-day shoots pick up the open day before
+    expect(b.start).toBe(720); expect(b.from.endsWith("T12:00")).toBe(true)   // pickup at the new start (a closed day's shoot: the open day before)
     expect((await getDoc('gear_holds/cst'))!.entries[0].qty).toBe(2)
-    await call('createGearBooking', { title: 'Ben', date: DAY, start: 600, end: 660, lines: [{ offerId: 'cst', qty: 1 }] }, BEN)
+    await call('createGearBooking', { title: 'Ben', date: DAY, start: 780, end: 840, lines: [{ offerId: 'cst', qty: 1 }] }, BEN)   // overlaps Ana's hours, whatever the weekday
     expect((await call('editGearBooking', { id, lines: [{ offerId: 'cst', qty: 3 }] }, ANA)).message).toMatch(/Only 2 "C-stand"/)
     expect((await call('editGearBooking', { id, lines: [{ offerId: 'cst', qty: 1 }] }, ANA)).ok).toBe(true)
     expect((await getDoc('gear_holds/fx3'))!.entries).toEqual([])

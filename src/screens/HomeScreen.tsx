@@ -49,7 +49,7 @@ const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnl
 ]
 
 export default function HomeScreen() {
-  const { isStaff, isOwner } = useSession()
+  const { isStaff, isOwner, shootFlow } = useSession()
   // Owner only: switch between Prime Capitol's props and your own.
   const [collection, setCollection] = useState<PropCollection>(() => {
     try { return localStorage.getItem('pt-collection') === 'personal' ? 'personal' : 'company' } catch { return 'company' }
@@ -161,7 +161,7 @@ export default function HomeScreen() {
   }
 
   // Creators with a shoot picked: + on the photo adds one (tap again to take it out).
-  const quickAdd = (item: Item) => !isStaff && active.shoot && !item.archived && item.condition !== 'damaged' && (freeFor(item) ?? 0) > 0
+  const quickAdd = (item: Item) => shootFlow && active.shoot && !item.archived && item.condition !== 'damaged' && (freeFor(item) ?? 0) > 0
     ? () => cart.setQty(item.id, cart.lines[item.id] ? 0 : 1)
     : undefined
   const card = (item: Item) => (
@@ -180,8 +180,8 @@ export default function HomeScreen() {
       {/* Sticky header + search */}
       <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
         <Collapse open={!folded}>
-          <h1 className="font-display text-3xl text-pt-text py-2 flex items-center gap-2.5"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{isStaff ? 'Props' : 'Browse'}</span>{!isStaff && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
-          {!isStaff && <div className="mb-3"><BrowseTabs /></div>}
+          <h1 className="font-display text-3xl text-pt-text py-2 flex items-center gap-2.5"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{shootFlow ? 'Browse' : 'Props'}</span>{shootFlow && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
+          {shootFlow && <div className="mb-3"><BrowseTabs /></div>}
         </Collapse>
         {folded && <div className="h-3" />}
 
@@ -270,7 +270,9 @@ export default function HomeScreen() {
         </div>
 
         {/* Shoot dates (creators: the shoot they're adding to) */}
-        {!isStaff ? <div className="mt-3"><AddingToBar kind="props" /></div> : showDates || !dates ? (
+        {shootFlow && <div className="mt-3"><AddingToBar kind="props" /></div>}
+        {/* Staff can also pick any day (the owner: when not adding to one of their shoots) */}
+        {!isStaff || active.shoot ? null : showDates || !dates ? (
           showDates ? (
             <div className="mt-3 space-y-2">
               <DateRangePicker start={cart.start} end={cart.end} min={minStart}
@@ -304,7 +306,7 @@ export default function HomeScreen() {
         {nothingAtAll && (
           <p className="text-center mt-16 text-pt-muted text-sm leading-relaxed">
             No props yet.
-            {isStaff && <><br />Tap <strong className="text-pt-text">Add</strong> in the bar below to add your first prop.</>}
+            {isStaff && <><br />{shootFlow ? <>Open <strong className="text-pt-text">Team → Add a prop</strong></> : <>Tap <strong className="text-pt-text">Add</strong> in the bar below</>} to add your first prop.</>}
           </p>
         )}
 
@@ -355,7 +357,7 @@ export default function HomeScreen() {
           </button>
         </div>
       )}
-      {!isStaff && <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />}
+      {shootFlow && <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />}
     </div>
   )
 }

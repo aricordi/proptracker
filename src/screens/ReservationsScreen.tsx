@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToReservations, ACTIVE_STATUSES, type Reservation, type ReservationStatus } from '../services/reservations'
 import { todayInStudio, daysBetween, pickupDay, isLate } from '../../functions/src/booking'
@@ -35,7 +35,10 @@ function whenLabel(start: string, today: string) {
 export default function ReservationsScreen() {
   const settings = useBookingSettings()
   const navigate = useNavigate()
-  const { isStaff, profile } = useSession()
+  const { isStaff: staff, profile } = useSession()
+  // ?mine=1: just your own requests (the owner's "Me" tab), even for staff.
+  const [params] = useSearchParams()
+  const isStaff = staff && params.get('mine') !== '1'
   const [list, setList] = useState<Reservation[] | null>(null)
   const tabs = isStaff ? STAFF_TABS : CREATOR_TABS
   const [tabKey, setTabKey] = useState(tabs[0].key)

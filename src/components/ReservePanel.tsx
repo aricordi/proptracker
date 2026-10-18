@@ -16,7 +16,7 @@ import AddingToBar from './AddingToBar'
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
   const navigate = useNavigate()
   const cart = useCart()
-  const { isStaff } = useSession()
+  const { isStaff, shootFlow } = useSession()
   const settings = useBookingSettings()
   const turnaroundDays = useTurnaround()(item)
   const today = todayInStudio()
@@ -34,7 +34,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const blocked = item.condition === 'damaged' && !isStaff
 
   function pick(day: string) {
-    if (!isStaff) { setNote('Pick one of your shoots below. Its day is used.'); return }
+    if (!isStaff || shoot) { setNote(isStaff ? "You're adding to your shoot, so its day is used. Pick \"Just browsing\" above to choose another day." : 'Pick one of your shoots below. Its day is used.'); return }
     if (day < minStart) { setNote(`The earliest you can book is ${formatDay(minStart)}.`); return }
     setNote(null)
     // One shoot day per booking: tapping a day picks it.
@@ -57,13 +57,14 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
         <AddingToBar kind="props" />
       ) : !dates ? (
         <div className="space-y-2">
+          {shootFlow && <AddingToBar kind="props" />}
           <p className="text-pt-text text-sm">Tap your shoot day on the calendar, or pick it here:</p>
           <DateRangePicker start={cart.start} end={cart.end} min={minStart} onChange={cart.setDates} compact
             maxDays={1} />
         </div>
       ) : (
         <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
-          {isStaff ? (
+          {!shoot ? (
             <div className="flex items-center justify-between gap-2">
               <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
               <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change day</button>
@@ -89,12 +90,12 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
               )}
               {inCart === Math.min(qty, free) ? (
                 <p className="w-full py-3 rounded-xl bg-pt-accent/15 text-pt-accent font-semibold text-center">
-                  ✓ {isStaff ? 'In your reservation' : 'Added to this shoot'}{item.quantity > 1 ? ` (${inCart})` : ''}
+                  ✓ {shoot ? 'Added to this shoot' : 'In your reservation'}{item.quantity > 1 ? ` (${inCart})` : ''}
                 </p>
               ) : (
                 <button onClick={() => cart.setQty(item.id, Math.min(qty, free))}
                   className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold active:opacity-80">
-                  {inCart ? `Change to ${Math.min(qty, free)}` : isStaff ? 'Add to reservation' : 'Add to this shoot'}
+                  {inCart ? `Change to ${Math.min(qty, free)}` : shoot ? 'Add to this shoot' : 'Add to reservation'}
                 </button>
               )}
             </>
@@ -103,7 +104,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
             <div className="flex gap-2">
               <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-2.5 rounded-xl border border-red-500/50 text-red-300 text-sm font-medium active:opacity-70">Remove</button>
               <button onClick={() => navigate('/reserve')} className="flex-1 py-2.5 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium">
-                {isStaff ? 'Review reservation' : 'Review shoot'} ({cart.count})
+                {shoot ? 'Review shoot' : 'Review reservation'} ({cart.count})
               </button>
             </div>
           )}

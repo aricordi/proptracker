@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToGearBookings, fmtHours, fmtTime, nowStamp, isGearLate, type GearBooking } from '../services/gear'
 import { Pill, STATUS_LABEL } from '../components/GearUi'
@@ -10,7 +10,10 @@ type Tab = 'today' | 'out' | 'checkin' | 'upcoming' | 'past'
 // Creators: their gear bookings. Owner + equipment team: the gear queue for everyone.
 export default function GearBookingsScreen() {
   const navigate = useNavigate()
-  const { isGearStaff, profile, role } = useSession()
+  const { isGearStaff: gearStaff, profile, role } = useSession()
+  // ?mine=1: just your own gear (the owner's "Me" tab), even for the gear team.
+  const [params] = useSearchParams()
+  const isGearStaff = gearStaff && params.get('mine') !== '1'
   const [list, setList] = useState<GearBooking[] | null>(null)
   const [tab, setTab] = useState<Tab>(isGearStaff ? 'today' : 'upcoming')
   useEffect(() => subscribeToGearBookings(isGearStaff ? null : profile.email, setList), [isGearStaff, profile.email])

@@ -17,15 +17,15 @@ export const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function AccountScreen() {
-  const { user, profile, realRole, role, setViewAs } = useSession()
+  const { user, profile, realRole, role, setViewAs, shootFlow } = useSession()
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-3xl text-pt-text py-2">{role === 'creator' ? 'Me' : 'Account'}</h1>
+        <h1 className="font-display text-3xl text-pt-text py-2">{shootFlow ? 'Me' : 'Account'}</h1>
       </div>
       <div className="p-4 space-y-4">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
-        {role === 'creator' && <CreatorLinks email={profile.email} />}
+        {shootFlow && <CreatorLinks email={profile.email} />}
         {realRole === 'owner' && (
           <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
             <p className="text-pt-text font-medium">View the app as…</p>
@@ -105,8 +105,8 @@ function CreatorLinks({ email }: { email: string }) {
   const st = useMyStatus(email)
   const paused = !!st?.pausedUntil && st.pausedUntil > todayInStudio()
   const rows: [string, string, string][] = [
-    ['My prop requests', 'Every props request and where it is', '/reservations'],
-    ['My gear', 'Gear held, picked up and returned', '/gear/bookings'],
+    ['My prop requests', 'Every props request and where it is', '/reservations?mine=1'],
+    ['My gear', 'Gear held, picked up and returned', '/gear/bookings?mine=1'],
     ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
     ['How it works', 'Slots, monthly picks, cutoffs, check-ins, strikes', '/schedule/how'],
   ]

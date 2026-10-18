@@ -677,6 +677,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       functions are NOT in the invoker lists (those are for callables only).
     - WEBSITE LIVE Oct 17 (website run 8, owner OK): everything through costs/clean-up/help (new creator app Home/Book/
       Browse/Me, schedule, AI helpers, Prime Capitol name) is on the live site.
+    - OWNER = CREATOR LOOK + EXTRAS (owner, Oct 18: "I'm also a creator"; preview only, live needs OK): session
+      `shootFlow` (role creator OR owner) drives the creator layout. Owner tabs: Home / Book / Browse / Me / TEAM
+      (/admin, renamed "Team" for the owner; top entries Props queue, Add a prop, Schedule team; lights up on all
+      staff screens via BottomNav longest-prefix `also`). Owner's Browse/prop page/Your shoot/gear shop use the
+      AddingToBar like creators, and when NOT adding to one of their shoots still get the staff day picker (book any
+      day), staff filters (Personal/Prime Capitol, archived, bins). Me → "My prop requests"/"My gear" open
+      /reservations?mine=1 and /gear/bookings?mine=1 (own only, even for staff). Arts + equipment unchanged.
+      Fixed a weekday-dependent test (editRequests: Ben's C-stand now overlaps Ana's hours).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

@@ -3,9 +3,15 @@ import { useSession } from '../auth'
 
 export default function AdminScreen() {
   const navigate = useNavigate()
-  const { isOwner } = useSession()
+  const { isOwner, shootFlow } = useSession()
 
   const entries = [
+    // The owner uses the creator tabs, so the staff tabs (Queue, Add) live here.
+    ...(shootFlow ? [
+      { to: '/reservations', title: 'Props queue', detail: 'Every props request: to prepare, ready, out, returns' },
+      { to: '/add', title: 'Add a prop', detail: 'Photo → AI fills the details → you check and save' },
+      { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed' },
+    ] : []),
     { to: '/suggestions', title: 'Suggested edits',  detail: "Creators' corrections to props: apply in one tap or dismiss" },
     { to: '/import',     title: 'Import props',      detail: 'Bring the photo library in from Google Drive; review AI suggestions' },
     { to: '/duplicates', title: 'Find duplicates',   detail: 'After an import: look-alike props side by side, merge or mark as different' },
@@ -30,7 +36,7 @@ export default function AdminScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-3xl text-pt-text py-2">Admin</h1>
+        <h1 className="font-display text-3xl text-pt-text py-2">{shootFlow ? 'Team' : 'Admin'}</h1>
       </div>
       <div className="p-4">
         <div className="bg-pt-surface border border-pt-border rounded-2xl divide-y divide-pt-border overflow-hidden">

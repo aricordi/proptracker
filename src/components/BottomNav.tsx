@@ -89,12 +89,25 @@ const equipmentNav = [
   { to: '/account',      label: 'Account',  icon: accountIcon },
 ]
 
+// The owner films too: the creator tabs, plus "Team" for everything only the owner and staff can do.
+const ownerNav = [
+  ...creatorNav.slice(0, 3),
+  { to: '/account',  label: 'Me',     icon: accountIcon },
+  { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
+    '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
+    '/costs', '/ai', '/bins', '/checkout'] },
+]
+
 export default function BottomNav() {
   const { isStaff, role } = useSession()
-  const nav: { to: string; label: string; icon: JSX.Element; also?: string[] }[] = role === 'equipment' ? equipmentNav : isStaff ? staffNav : creatorNav
+  const nav: { to: string; label: string; icon: JSX.Element; also?: string[] }[] =
+    role === 'equipment' ? equipmentNav : role === 'owner' ? ownerNav : isStaff ? staffNav : creatorNav
   const path = useLocation().pathname
-  // Gear bookings belong to "Me" for creators; the gear shop to "Browse".
-  const alsoActive = (also?: string[]) => !!also?.some(p => path.startsWith(p)) && !(path.startsWith('/gear/bookings') && !also?.includes('/gear/bookings'))
+  // Other screens light up the tab with the longest matching prefix
+  // (e.g. gear bookings belong to "Me" for creators, the gear shop to "Browse").
+  const longest = (also?: string[]) => Math.max(0, ...(also ?? []).filter(p => path.startsWith(p)).map(p => p.length))
+  const best = Math.max(...nav.map(t => longest(t.also)))
+  const alsoActive = (also?: string[]) => best > 0 && longest(also) === best
   return (
     <nav className="flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 border-t border-pt-border pb-tabbar">
       {nav.map(({ to, label, icon, also }) => (
