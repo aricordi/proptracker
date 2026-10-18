@@ -63,11 +63,11 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
             maxDays={1} />
         </div>
       ) : (
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           {!shoot ? (
             <div className="flex items-center justify-between gap-2">
               <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
-              <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs">Change day</button>
+              <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs tap">Change day</button>
             </div>
           ) : <AddingToBar kind="props" />}
           {pickupDay(dates.start, settings) !== dates.start && (
@@ -83,9 +83,9 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
               {item.quantity > 1 && (
                 <div className="flex items-center gap-3">
                   <span className="text-pt-muted text-sm">How many?</span>
-                  <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-10 h-10 rounded-full bg-pt-bg border border-pt-border text-pt-text text-xl">−</button>
+                  <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-11 h-11 rounded-full bg-pt-bg shadow-hairline text-pt-text text-xl">−</button>
                   <span className="text-pt-text text-lg font-semibold w-8 text-center">{Math.min(qty, free)}</span>
-                  <button onClick={() => setQty(q => Math.min(free, q + 1))} className="w-10 h-10 rounded-full bg-pt-bg border border-pt-border text-pt-text text-xl">+</button>
+                  <button onClick={() => setQty(q => Math.min(free, q + 1))} className="w-11 h-11 rounded-full bg-pt-bg shadow-hairline text-pt-text text-xl">+</button>
                 </div>
               )}
               {inCart === Math.min(qty, free) ? (
@@ -94,7 +94,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
                 </p>
               ) : (
                 <button onClick={() => cart.setQty(item.id, Math.min(qty, free))}
-                  className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold active:opacity-80">
+                  className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold active:opacity-80 shadow-gold">
                   {inCart ? `Change to ${Math.min(qty, free)}` : shoot ? 'Add to this shoot' : 'Add to reservation'}
                 </button>
               )}
@@ -102,8 +102,8 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
           )}
           {inCart > 0 && (
             <div className="flex gap-2">
-              <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-2.5 rounded-xl border border-red-500/50 text-red-300 text-sm font-medium active:opacity-70">Remove</button>
-              <button onClick={() => navigate('/reserve')} className="flex-1 py-2.5 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium">
+              <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-3 rounded-xl border border-red-500/50 text-red-300 text-sm font-medium active:opacity-70">Remove</button>
+              <button onClick={() => navigate('/reserve')} className="flex-1 py-3 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium">
                 {shoot ? 'Review shoot' : 'Review reservation'} ({cart.count})
               </button>
             </div>

@@ -105,10 +105,10 @@ export default function ItemDetailScreen() {
     <>
     <div className="min-h-screen bg-pt-bg pb-10">
       {/* Header */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-pt-text text-base font-medium active:text-pt-muted py-1"
+          className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
@@ -118,7 +118,7 @@ export default function ItemDetailScreen() {
         {isStaff && (
           <button
             onClick={() => navigate(`/item/${item.id}/edit`)}
-            className="text-pt-accent text-sm font-medium active:opacity-70 py-1"
+            className="text-pt-accent text-sm font-medium active:opacity-70 py-1 tap"
           >
             Edit
           </button>
@@ -150,7 +150,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
         {item.photos.length > 1 && (
-          <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5 pointer-events-none">
+          <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2 pointer-events-none">
             {item.photos.map((url, i) => (
               <span key={url} className={`w-2 h-2 rounded-full ${i === photoIndex ? 'bg-white' : 'bg-white/40'}`} />
             ))}
@@ -158,7 +158,7 @@ export default function ItemDetailScreen() {
         )}
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {item.collection === 'personal' && (
           <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl px-4 py-3">
             <p className="text-violet-200 text-sm font-medium">Personal</p>
@@ -166,7 +166,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
         {item.archived && (
-          <div className="bg-pt-surface border border-pt-border rounded-xl px-4 py-3">
+          <div className="bg-pt-surface shadow-hairline rounded-xl px-4 py-3">
             <p className="text-pt-text text-sm font-medium">Archived</p>
             <p className="text-pt-muted text-xs mt-0.5">Hidden from search. Its history is kept.</p>
           </div>
@@ -267,7 +267,7 @@ export default function ItemDetailScreen() {
         {item.tags.length > 0 && (
           <div>
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags</p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {item.tags.map(tagId => tagById[tagId] && (
                 <span key={tagId} className="text-sm bg-violet-500/20 text-violet-300 px-3 py-1 rounded-full">
                   {tagById[tagId].label}
@@ -281,7 +281,7 @@ export default function ItemDetailScreen() {
         {isStaff && (characterIds.length > 0 || item.character) && (
           <div>
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character</p>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {characterIds.length > 0
                 ? characterIds.map(cid => (
                     <span key={cid} className="text-sm bg-sky-500/20 text-sky-300 px-3 py-1 rounded-full">
@@ -342,7 +342,7 @@ export default function ItemDetailScreen() {
                   <p className="text-pt-muted text-xs">This can't be undone. Its photo can be imported again later. (Props that were ever booked can't be deleted.)</p>
                   {deleteError && <p className="text-red-300 text-xs">{deleteError}</p>}
                   <div className="flex gap-3">
-                    <button onClick={() => setDeleteState('idle')} className="flex-1 py-2 rounded-lg border border-pt-border text-pt-text text-sm">Keep it</button>
+                    <button onClick={() => setDeleteState('idle')} className="flex-1 py-2 rounded-lg shadow-hairline text-pt-text text-sm">Keep it</button>
                     <button disabled={deleteState === 'busy'} onClick={async () => {
                       setDeleteState('busy'); setDeleteError(null)
                       try { await deleteImportedProp({ itemId: item.id }); navigate('/', { replace: true }) }
@@ -371,11 +371,11 @@ export default function ItemDetailScreen() {
                 <p className="text-pt-muted text-xs">It disappears from search but nothing is deleted. You can restore it any time.</p>
                 <div className="flex gap-3">
                   <button onClick={() => setShowArchiveConfirm(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm active:opacity-70">
+                    className="flex-1 py-3 rounded-xl shadow-hairline text-pt-muted text-sm active:opacity-70">
                     Cancel
                   </button>
                   <button onClick={() => setArchived(true)} disabled={busy}
-                    className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 text-sm font-medium active:opacity-70 disabled:opacity-40">
+                    className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-400 text-sm font-medium active:opacity-70 disabled:opacity-40">
                     {busy ? 'Archiving…' : 'Archive'}
                   </button>
                 </div>

@@ -20,22 +20,22 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/55 fade-in" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="relative bg-pt-surface rounded-t-2xl pb-safe max-h-[85vh] flex flex-col">
+      <div className="relative bg-pt-surface rounded-t-[28px] pb-safe max-h-[85vh] flex flex-col shadow-float sheet-up">
         {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-pt-border" />
+        <div className="flex justify-center pt-2 pb-2 shrink-0">
+          <div className="w-9 h-[5px] rounded-full bg-white/20" />
         </div>
 
         {title && (
-          <div className="px-5 pb-3 pt-1 border-b border-pt-border shrink-0">
-            <h2 className="font-display text-xl text-pt-text">{title}</h2>
+          <div className="px-6 pb-2 pt-2 shrink-0">
+            <h2 className="font-display text-[22px] text-pt-text">{title}</h2>
           </div>
         )}
 
-        <div className="overflow-y-auto p-5">{children}</div>
+        <div className="overflow-y-auto px-6 pt-3 pb-6">{children}</div>
       </div>
     </div>
   )

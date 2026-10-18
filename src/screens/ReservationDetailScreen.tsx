@@ -47,14 +47,14 @@ export default function ReservationDetailScreen() {
 
   return (
     <div className="min-h-screen bg-pt-bg pb-12">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
         <button onClick={() => navigate('/reservations')} className="text-pt-text text-base font-medium py-1">‹ {isStaff ? 'Queue' : 'Bookings'}</button>
-        <span className={`text-xs px-2.5 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
+        <span className={`text-xs px-3 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
           {overdue ? 'Late' : statusLabel(res)}
         </span>
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {params.get('new') && s === 'requested' && (
           <Banner tone="green" title="You're booked ✓">
             These props are held for your dates. You'll see the status change here as the arts department gets them ready.
@@ -86,7 +86,7 @@ export default function ReservationDetailScreen() {
                 <p className="text-pt-text text-sm"><b className="font-medium">{x.itemName}</b> {RISK_WORDS[x.risk]}.</p>
                 {!isStaff && (
                   <button onClick={() => navigate(`/?q=${encodeURIComponent(x.itemName)}`)}
-                    className="shrink-0 px-3 py-1.5 rounded-lg border border-pt-accent text-pt-accent text-xs font-medium">Find similar</button>
+                    className="shrink-0 px-3 py-2 rounded-lg border border-pt-accent text-pt-accent text-xs font-medium">Find similar</button>
                 )}
               </div>
             ))}
@@ -269,7 +269,7 @@ function PickAndPack({ res }: { res: Reservation }) {
       <input value={reason} onChange={e => setReason(e.target.value)} autoFocus maxLength={300}
         placeholder="Why? (the creator sees this)" className="w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
       <div className="flex gap-2">
-        <button onClick={() => { setUnavailableFor(null); setReason('') }} className="flex-1 py-2 rounded-lg border border-pt-border text-pt-muted text-xs">Back</button>
+        <button onClick={() => { setUnavailableFor(null); setReason('') }} className="flex-1 py-2 rounded-lg shadow-hairline text-pt-muted text-xs">Back</button>
         <button onClick={confirmUnavailable} disabled={!reason.trim() || busyKey === key}
           className="flex-1 py-2 rounded-lg bg-red-500/20 text-red-300 text-xs font-semibold disabled:opacity-40">Mark not available</button>
       </div>
@@ -288,13 +288,13 @@ function PickAndPack({ res }: { res: Reservation }) {
 
       {groups.map(([where, lines]) => (
         <div key={where}>
-          <p className="text-pt-accent text-xs uppercase tracking-wider mb-1.5">📍 {where}</p>
+          <p className="text-pt-accent text-xs uppercase tracking-wider mb-2 tap">📍 {where}</p>
           <div className="space-y-2">
             {lines.map(line => {
               const picked = optimistic[line.itemId] ?? line.pick?.state === 'picked'
               const gone = line.pick?.state === 'unavailable'
               return (
-                <div key={line.itemId} className={`rounded-2xl border p-2.5 ${picked ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/5 border-red-500/30' : 'bg-pt-surface border-pt-border'}`}>
+                <div key={line.itemId} className={`rounded-2xl border p-3 ${picked ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/5 border-red-500/30' : 'bg-pt-surface border-pt-border'}`}>
                   <div className="flex items-center gap-3">
                     <button disabled={gone}
                       onClick={() => toggle(line.itemId, picked, next => setLinePick({ id: res.id, itemId: line.itemId, state: next ? 'picked' : 'todo' }))}
@@ -326,7 +326,7 @@ function PickAndPack({ res }: { res: Reservation }) {
 
       {builds.length > 0 && (
         <div>
-          <p className="text-violet-300 text-xs uppercase tracking-wider mb-1.5">🛠️ To build or source</p>
+          <p className="text-violet-300 text-xs uppercase tracking-wider mb-2">🛠️ To build or source</p>
           <div className="space-y-2">
             {builds.map(b => <BuildRow key={b.id} b={b} done={optimistic[b.id] ?? b.state === 'done'}
               onToggle={() => toggle(b.id, optimistic[b.id] ?? b.state === 'done', next => setBuildState({ id: res.id, buildId: b.id, state: next ? 'done' : 'todo' }))}
@@ -336,7 +336,7 @@ function PickAndPack({ res }: { res: Reservation }) {
         </div>
       )}
 
-      <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+      <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
         <ProofPhotos folder={`reservation-photos/${res.id}/pack`} urls={photos} onChange={setPhotos} onUploading={setUploading}
           label="📷 Photo of everything packed (required)"
           hint="Show every prop in the bin before it goes out. This is the proof of what was handed over." />
@@ -345,7 +345,7 @@ function PickAndPack({ res }: { res: Reservation }) {
           className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
         {error && <p className="text-red-300 text-sm">{error}</p>}
         <button onClick={pack} disabled={!ready || packing}
-          className="w-full py-3.5 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          className="w-full py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {packing ? 'Saving…' : 'Mark packed & ready for pickup'}
         </button>
         {!ready && (
@@ -363,7 +363,7 @@ function BuildRow({ b, done, onToggle, onUnavailable, extra }: {
 }) {
   const gone = b.state === 'unavailable'
   return (
-    <div className={`rounded-2xl border p-2.5 ${done ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/5 border-red-500/30' : 'bg-pt-surface border-violet-500/40'}`}>
+    <div className={`rounded-2xl border p-3 ${done ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/5 border-red-500/30' : 'bg-pt-surface border-violet-500/40'}`}>
       <div className="flex items-center gap-3">
         <button disabled={gone} onClick={onToggle} aria-label={done ? 'Untick' : 'Tick as made'}
           className={`w-11 h-11 rounded-xl border-2 shrink-0 flex items-center justify-center text-xl ${done ? 'bg-green-500 border-green-500 text-stone-900' : 'border-pt-muted'} disabled:opacity-50`}>
@@ -394,7 +394,7 @@ function ContentsList({ res }: { res: Reservation }) {
           const gone = l.pick?.state === 'unavailable'
           return (
             <button key={l.itemId} onClick={() => navigate(`/item/${l.itemId}`)}
-              className={`w-full flex items-center gap-3 bg-pt-surface border rounded-2xl p-2.5 text-left active:opacity-75 ${gone ? 'border-red-500/30' : 'border-pt-border'}`}>
+              className={`w-full flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 text-left active:opacity-75 ${gone ? 'border-red-500/30' : 'border-pt-border'}`}>
               <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0">
                 {l.photo && <img src={l.photo} alt="" className="w-full h-full object-cover" />}
               </div>
@@ -408,7 +408,7 @@ function ContentsList({ res }: { res: Reservation }) {
           )
         })}
         {builds.map(b => (
-          <div key={b.id} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-2.5 ${b.state === 'unavailable' ? 'border-red-500/30' : 'border-violet-500/40'}`}>
+          <div key={b.id} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 ${b.state === 'unavailable' ? 'border-red-500/30' : 'border-violet-500/40'}`}>
             <div className="w-12 h-12 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-xl">
               {b.refPhoto ? <img src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
             </div>
@@ -454,10 +454,10 @@ function PickupSignOff({ res }: { res: Reservation }) {
       {error && <p className="text-red-300 text-sm">{error}</p>}
       {mode === 'ask' ? (
         <div className="space-y-2">
-          <button onClick={() => sign(true)} disabled={busy} className="w-full py-3.5 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          <button onClick={() => sign(true)} disabled={busy} className="w-full py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
             {busy ? 'Saving…' : "✓ I've got everything"}
           </button>
-          <button onClick={() => setMode('issue')} className="w-full py-2.5 rounded-xl border border-pt-border text-pt-text text-sm">Something's missing or wrong</button>
+          <button onClick={() => setMode('issue')} className="w-full py-3 rounded-xl shadow-hairline text-pt-text text-sm">Something's missing or wrong</button>
         </div>
       ) : (
         <div className="space-y-2">
@@ -465,8 +465,8 @@ function PickupSignOff({ res }: { res: Reservation }) {
             placeholder="What's missing or wrong? e.g. Only 3 chairs in the bin"
             className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
           <div className="flex gap-2">
-            <button onClick={() => setMode('ask')} className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm">Back</button>
-            <button onClick={() => sign(false)} disabled={busy || !issue.trim()} className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-300 text-sm font-semibold disabled:opacity-40">
+            <button onClick={() => setMode('ask')} className="flex-1 py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</button>
+            <button onClick={() => sign(false)} disabled={busy || !issue.trim()} className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-300 text-sm font-semibold disabled:opacity-40">
               Collect & report it
             </button>
           </div>
@@ -494,12 +494,12 @@ function ReturnForm({ res }: { res: Reservation }) {
   }
 
   if (!open) return (
-    <button onClick={() => setOpen(true)} className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold">
+    <button onClick={() => setOpen(true)} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">
       Return these props
     </button>
   )
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+    <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <p className="text-pt-text font-semibold">Returning</p>
       <ProofPhotos folder={`reservation-photos/${res.id}/return`} urls={photos} onChange={setPhotos} onUploading={setUploading}
         label="📷 Photo of everything you're returning (required)"
@@ -509,9 +509,9 @@ function ReturnForm({ res }: { res: Reservation }) {
         className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
       {error && <p className="text-red-300 text-sm">{error}</p>}
       <div className="flex gap-2">
-        <button onClick={() => setOpen(false)} className="flex-1 py-3 rounded-xl border border-pt-border text-pt-muted text-sm">Back</button>
+        <button onClick={() => setOpen(false)} className="flex-1 py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</button>
         <button onClick={submit} disabled={busy || uploading || photos.length === 0}
-          className="flex-[2] py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          className="flex-[2] py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {busy ? 'Saving…' : uploading ? 'Uploading…' : 'Confirm return'}
         </button>
       </div>
@@ -557,7 +557,7 @@ function CheckInForm({ res }: { res: Reservation }) {
   }
 
   if (!open) return (
-    <button onClick={() => setOpen(true)} className="w-full py-3 rounded-xl border border-pt-border text-pt-muted text-sm">
+    <button onClick={() => setOpen(true)} className="w-full py-3 rounded-xl shadow-hairline text-pt-muted text-sm">
       Dropped off without the app? Check it in anyway
     </button>
   )
@@ -571,7 +571,7 @@ function CheckInForm({ res }: { res: Reservation }) {
       {lines.map(l => {
         const r = results[l.itemId]
         return (
-          <div key={l.itemId} className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-2">
+          <div key={l.itemId} className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-pt-border overflow-hidden shrink-0">{l.photo && <img src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
               <p className="flex-1 text-pt-text text-sm font-medium truncate">{l.itemName}</p>
@@ -585,9 +585,9 @@ function CheckInForm({ res }: { res: Reservation }) {
             {r.result === 'missing' && l.qty > 1 && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-pt-muted">How many missing?</span>
-                <button onClick={() => set(l.itemId, { missingQty: Math.max(1, r.missingQty - 1) })} className="w-8 h-8 rounded-full bg-pt-bg border border-pt-border text-pt-text">−</button>
+                <button onClick={() => set(l.itemId, { missingQty: Math.max(1, r.missingQty - 1) })} className="w-8 h-8 rounded-full bg-pt-bg shadow-hairline text-pt-text">−</button>
                 <span className="text-pt-text w-6 text-center">{r.missingQty}</span>
-                <button onClick={() => set(l.itemId, { missingQty: Math.min(l.qty, r.missingQty + 1) })} className="w-8 h-8 rounded-full bg-pt-bg border border-pt-border text-pt-text">+</button>
+                <button onClick={() => set(l.itemId, { missingQty: Math.min(l.qty, r.missingQty + 1) })} className="w-8 h-8 rounded-full bg-pt-bg shadow-hairline text-pt-text">+</button>
               </div>
             )}
             {r.result && r.result !== 'ok' && (
@@ -608,7 +608,7 @@ function CheckInForm({ res }: { res: Reservation }) {
         label="📷 Check-in photos (optional)" hint="Especially of any damage." />
       {error && <p className="text-red-300 text-sm">{error}</p>}
       <button onClick={submit} disabled={!complete || busy || uploading}
-        className="w-full py-3.5 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+        className="w-full py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
         {busy ? 'Saving…' : 'Complete check-in'}
       </button>
       {!complete && <p className="text-pt-muted text-xs text-center">Choose Fine, Damaged or Missing for every prop (with a note for problems).</p>}
@@ -624,7 +624,7 @@ function CheckInSummary({ res }: { res: Reservation }) {
       {res.returnedWithoutCreatorPhoto && <p className="text-amber-300 text-xs mb-2">Returned without the creator's return photo.</p>}
       {problems.length === 0
         ? <p className="text-green-400 text-sm">✓ Everything came back fine.</p>
-        : <ul className="space-y-1.5">
+        : <ul className="space-y-2">
             {problems.map(l => (
               <li key={l.itemId} className={`text-sm ${l.checkIn!.result === 'missing' ? 'text-red-300' : 'text-amber-300'}`}>
                 {l.itemName}: {l.checkIn!.result === 'missing' ? `${l.checkIn!.missingQty ?? 1} missing` : 'damaged'}. {l.checkIn!.note}
@@ -657,7 +657,7 @@ function EndEarly({ res, mine, isStaff }: { res: Reservation; mine: boolean; isS
   }
 
   if (action) return (
-    <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+    <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <p className="text-pt-text text-sm">{action === 'cancel' ? 'Cancel this booking? The props become available to others.' : 'Decline this booking? The creator will see your reason.'}</p>
       {action === 'decline' && (
         <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} maxLength={500} placeholder="Reason (the creator sees this) *"
@@ -665,16 +665,16 @@ function EndEarly({ res, mine, isStaff }: { res: Reservation; mine: boolean; isS
       )}
       {error && <p className="text-red-300 text-sm">{error}</p>}
       <div className="flex gap-2">
-        <button onClick={() => { setAction(null); setError(null) }} className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm">Back</button>
+        <button onClick={() => { setAction(null); setError(null) }} className="flex-1 py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</button>
         <button onClick={run} disabled={busy || (action === 'decline' && !reason.trim())}
-          className="flex-1 py-2.5 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Confirm'}</button>
+          className="flex-1 py-3 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Saving…' : 'Confirm'}</button>
       </div>
     </div>
   )
   return (
     <div className="flex gap-2">
-      {(mine || isStaff) && <button onClick={() => setAction('cancel')} className="flex-1 py-3 rounded-xl bg-pt-surface border border-pt-border text-pt-muted text-sm font-medium">Cancel booking</button>}
-      {isStaff && !mine && <button onClick={() => setAction('decline')} className="flex-1 py-3 rounded-xl bg-pt-surface border border-pt-border text-red-300 text-sm font-medium">Decline</button>}
+      {(mine || isStaff) && <button onClick={() => setAction('cancel')} className="flex-1 py-3 rounded-xl bg-pt-surface shadow-hairline text-pt-muted text-sm font-medium">Cancel booking</button>}
+      {isStaff && !mine && <button onClick={() => setAction('decline')} className="flex-1 py-3 rounded-xl bg-pt-surface shadow-hairline text-red-300 text-sm font-medium">Decline</button>}
     </div>
   )
 }

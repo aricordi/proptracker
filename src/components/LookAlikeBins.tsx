@@ -43,11 +43,11 @@ function Group({ bins, counts, locationMap }: { bins: Bin[]; counts: Map<string,
   }
 
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-xl p-2 space-y-2">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="bg-pt-surface shadow-hairline rounded-xl p-2 space-y-2">
+      <div className="flex flex-wrap gap-2">
         {bins.map(b => (
           <button key={b.id} onClick={() => setKeepId(b.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm text-left ${b.id === keep.id ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg border border-pt-border text-pt-text'}`}>
+            className={`px-3 py-2 rounded-lg text-sm text-left ${b.id === keep.id ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg shadow-hairline text-pt-text'}`}>
             {b.label} <span className="opacity-70 text-xs">· {counts.get(b.id) ?? 0} props{locationMap[b.locationId] ? ` · ${locationMap[b.locationId].name}` : ''}</span>
           </button>
         ))}

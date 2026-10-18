@@ -42,7 +42,7 @@ export function SuggestionCard({ s, item, showProp }: { s: Suggestion; item?: It
     try { await fn() } catch { setError("Couldn't save. Try again.") } finally { setBusy(false) }
   }
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-xl p-3 space-y-2">
+    <div className="bg-pt-surface shadow-hairline rounded-xl p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <p className="text-pt-text text-sm">
           {showProp && <><button onClick={() => navigate(`/item/${s.itemId}`)} className="font-medium text-pt-accent">{s.itemName}</button> · </>}
@@ -53,7 +53,7 @@ export function SuggestionCard({ s, item, showProp }: { s: Suggestion; item?: It
       <p className="text-pt-text text-sm whitespace-pre-wrap">“{s.message}”</p>
       <ChangesList s={s} item={item} />
       {!!s.photos?.length && (
-        <div className="flex gap-1.5">{s.photos.map(u => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" className="w-16 h-16 rounded-lg object-cover" /></a>)}</div>
+        <div className="flex gap-2">{s.photos.map(u => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" className="w-16 h-16 rounded-lg object-cover" /></a>)}</div>
       )}
       {s.reply && <p className="text-pt-muted text-xs">Reply: {s.reply}</p>}
       {error && <p className="text-red-300 text-xs">{error}</p>}
@@ -62,13 +62,13 @@ export function SuggestionCard({ s, item, showProp }: { s: Suggestion; item?: It
           <input value={reply} onChange={e => setReply(e.target.value)} placeholder="Optional reply to the creator" autoFocus
             className="w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setReplying(false)} className="py-2 rounded-lg border border-pt-border text-pt-text text-sm">Back</button>
-            <button disabled={busy} onClick={() => run(() => resolveSuggestion(s.id, 'dismissed', reply))} className="py-2 rounded-lg bg-pt-bg border border-pt-border text-pt-text text-sm font-medium disabled:opacity-40">Dismiss</button>
+            <button onClick={() => setReplying(false)} className="py-2 rounded-lg shadow-hairline text-pt-text text-sm">Back</button>
+            <button disabled={busy} onClick={() => run(() => resolveSuggestion(s.id, 'dismissed', reply))} className="py-2 rounded-lg bg-pt-bg shadow-hairline text-pt-text text-sm font-medium disabled:opacity-40">Dismiss</button>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          <button disabled={busy} onClick={() => setReplying(true)} className="py-2 rounded-lg border border-pt-border text-pt-muted text-sm">Dismiss…</button>
+          <button disabled={busy} onClick={() => setReplying(true)} className="py-2 rounded-lg shadow-hairline text-pt-muted text-sm">Dismiss…</button>
           {hasChanges(s.changes)
             ? <button disabled={busy} onClick={() => run(() => applySuggestion(s))} className="py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">{busy ? 'Applying…' : 'Apply changes'}</button>
             : <button disabled={busy} onClick={() => run(() => resolveSuggestion(s.id, 'applied'))} className="py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">Fixed it ✓</button>}
@@ -97,14 +97,14 @@ export default function PropSuggestions({ item }: { item: Item }) {
   return (
     <div className="space-y-2">
       {list.map(s => (
-        <div key={s.id} className="bg-pt-surface border border-pt-border rounded-xl px-3 py-2">
+        <div key={s.id} className="bg-pt-surface shadow-hairline rounded-xl px-3 py-2">
           <p className="text-pt-text text-sm">Your suggestion: “{s.message}”</p>
           <p className={`text-xs ${s.status === 'applied' ? 'text-green-400' : 'text-pt-muted'}`}>
             {s.status === 'open' ? 'Waiting for the arts department' : s.status === 'applied' ? 'Fixed, thank you!' : `Not changed${s.reply ? `: ${s.reply}` : ''}`}
           </p>
         </div>
       ))}
-      <button onClick={() => setOpen(true)} className="w-full py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm active:opacity-70">
+      <button onClick={() => setOpen(true)} className="w-full py-3 rounded-xl shadow-hairline text-pt-muted text-sm active:opacity-70">
         Something wrong? Suggest an edit
       </button>
       {open && <SuggestSheet item={item} onClose={() => setOpen(false)} />}
@@ -166,7 +166,7 @@ function SuggestSheet({ item, onClose }: { item: Item; onClose: () => void }) {
           label="Photo (optional)" hint="e.g. show the damage" max={5} />
         {state === 'error' && <p className="text-red-300 text-sm">Couldn't send. Try again.</p>}
         <button onClick={send} disabled={!message.trim() || uploading || state === 'busy'}
-          className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {state === 'busy' ? 'Sending…' : 'Send to the arts department'}
         </button>
       </div>
@@ -198,7 +198,7 @@ export function WrongNameLink({ item }: { item: Item }) {
     <>
       {sent
         ? <p className="text-green-400 text-xs mt-1">Thanks! Sent to the arts department.</p>
-        : <button onClick={() => setOpen(true)} className="text-pt-accent text-xs mt-1 active:opacity-70">Wrong name?</button>}
+        : <button onClick={() => setOpen(true)} className="text-pt-accent text-xs mt-1 active:opacity-70 tap">Wrong name?</button>}
       {open && (
         <BottomSheet open onClose={() => setOpen(false)} title="Suggest the right name">
           <div className="space-y-3">
@@ -209,7 +209,7 @@ export function WrongNameLink({ item }: { item: Item }) {
               <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. it's a cowboy hat, not a top hat" className={input} /></label>
             {state === 'error' && <p className="text-red-300 text-sm">Couldn't send. Try again.</p>}
             <button onClick={send} disabled={!clean || clean === item.name || state === 'busy'}
-              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
               {state === 'busy' ? 'Sending…' : 'Send to the arts department'}
             </button>
           </div>

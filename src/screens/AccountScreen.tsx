@@ -20,14 +20,14 @@ export default function AccountScreen() {
   const { user, profile, realRole, role, setViewAs, shootFlow } = useSession()
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-3xl text-pt-text py-2">{shootFlow ? 'Me' : 'Account'}</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
+        <h1 className="font-display text-[34px] text-pt-text py-2">{shootFlow ? 'Me' : 'Account'}</h1>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
         {shootFlow && <CreatorLinks email={profile.email} />}
         {realRole === 'owner' && (
-          <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
             <p className="text-pt-text font-medium">View the app as…</p>
             <p className="text-pt-muted text-sm">
               See exactly which screens and buttons each role gets. This only changes what you see.
@@ -37,7 +37,7 @@ export default function AccountScreen() {
             <div className="grid grid-cols-2 gap-2">
               {(['owner', 'arts', 'equipment', 'creator'] as const).map(r => (
                 <button key={r} onClick={() => setViewAs(r === 'owner' ? null : r)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium ${role === r ? 'bg-sky-500 text-stone-900' : 'bg-pt-bg border border-pt-border text-pt-muted'}`}>
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium ${role === r ? 'bg-sky-500 text-stone-900' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
                   {ROLE_LABELS[r]}
                 </button>
               ))}
@@ -46,7 +46,7 @@ export default function AccountScreen() {
         )}
         <button
           onClick={() => signOut(auth)}
-          className="w-full py-3 rounded-xl bg-pt-surface border border-pt-border text-pt-text text-sm font-medium active:opacity-70"
+          className="w-full py-3 rounded-xl bg-pt-surface shadow-hairline text-pt-text text-sm font-medium active:opacity-70"
         >
           Sign out
         </button>
@@ -69,7 +69,7 @@ function ProfileCard({ name, email, roleLabel }: { name: string; email: string; 
   }
   const dirty = channel.trim() !== (mine?.channel ?? '')
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+    <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-4">
         <button onClick={() => file.current?.click()} className="relative" aria-label="Change your photo">
           <Avatar email={email} name={name} size={72} />
@@ -79,14 +79,14 @@ function ProfileCard({ name, email, roleLabel }: { name: string; email: string; 
           <p className="text-pt-text font-semibold truncate">{name}</p>
           {mine?.channel && <p className="text-pt-muted text-sm truncate">{mine.channel}</p>}
           <p className="text-pt-muted text-xs break-all">{email}</p>
-          <p className="text-pt-accent text-sm pt-0.5">{roleLabel}</p>
+          <p className="text-pt-accent text-sm pt-0.5 tap">{roleLabel}</p>
         </div>
       </div>
       <input ref={file} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) run('photo', () => uploadProfilePhoto(email, f), 'Photo updated ✓') }} />
       <div className="flex gap-2">
-        <button disabled={!!busy} onClick={() => file.current?.click()} className="flex-1 bg-pt-bg border border-pt-border rounded-xl py-2 text-sm text-pt-text disabled:opacity-40">{busy === 'photo' ? 'Uploading…' : 'Change photo'}</button>
-        {mine?.photoURL && <button disabled={!!busy} onClick={() => run('reset', () => saveProfile(email, { photoURL: '' }), 'Back to your Google photo')} className="flex-1 bg-pt-bg border border-pt-border rounded-xl py-2 text-sm text-pt-muted disabled:opacity-40">Use Google photo</button>}
+        <button disabled={!!busy} onClick={() => file.current?.click()} className="flex-1 bg-pt-bg shadow-hairline rounded-xl py-2 text-sm text-pt-text disabled:opacity-40">{busy === 'photo' ? 'Uploading…' : 'Change photo'}</button>
+        {mine?.photoURL && <button disabled={!!busy} onClick={() => run('reset', () => saveProfile(email, { photoURL: '' }), 'Back to your Google photo')} className="flex-1 bg-pt-bg shadow-hairline rounded-xl py-2 text-sm text-pt-muted disabled:opacity-40">Use Google photo</button>}
       </div>
       <label className="block"><span className="block text-pt-muted text-xs mb-1">Channel name</span>
         <div className="flex gap-2">
@@ -112,11 +112,11 @@ function CreatorLinks({ email }: { email: string }) {
   ]
   return (
     <>
-      <div className={`rounded-2xl p-4 text-sm ${paused ? 'bg-red-500/10 border border-red-500/40' : 'bg-pt-surface border border-pt-border'}`}>
+      <div className={`rounded-2xl p-4 text-sm ${paused ? 'bg-red-500/10 border border-red-500/40' : 'bg-pt-surface shadow-hairline'}`}>
         <p className="text-pt-text font-semibold">{paused ? `Props and gear paused until ${formatDay(st!.pausedUntil!)}` : st?.strikes ? `${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : 'No strikes'}</p>
         <p className="text-pt-muted">{paused ? 'You can still book house time.' : 'Strikes come from no-shows, late cancels and upheld reports.'}</p>
       </div>
-      <div className="bg-pt-surface border border-pt-border rounded-2xl divide-y divide-pt-border">
+      <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
         {rows.map(([t, d, to]) => (
           <button key={to} onClick={() => navigate(to)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
             <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span>

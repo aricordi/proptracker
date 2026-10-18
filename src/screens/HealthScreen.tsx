@@ -129,12 +129,12 @@ export default function HealthScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <BackButton onClick={() => navigate(-1)} />
         <h1 className="font-display text-xl text-pt-text">Health</h1>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
 
         {/* Inventory */}
         <Card title="Inventory">
@@ -186,7 +186,7 @@ export default function HealthScreen() {
                 {dupProps.slice(0, 20).map(p => (
                   <div key={pairKey(p.a.id, p.b.id)} className="bg-pt-bg rounded-xl p-2 space-y-1">
                     {[p.a, p.b].map(i => <ItemRow key={i.id} item={i} onTap={() => navigate(`/item/${i.id}`)} />)}
-                    <button onClick={() => dismissDuplicatePair(p.a.id, p.b.id)} className="w-full text-pt-muted text-xs py-1.5 active:opacity-70">
+                    <button onClick={() => dismissDuplicatePair(p.a.id, p.b.id)} className="w-full text-pt-muted text-xs py-2 active:opacity-70">
                       Not duplicates, hide this pair
                     </button>
                   </div>
@@ -219,7 +219,7 @@ export default function HealthScreen() {
         <Card title="Export">
           <p className="text-pt-muted text-sm">Every prop as a spreadsheet (opens in Excel or Google Sheets), including archived props and internal notes.</p>
           <button onClick={handleExport} disabled={allItems.length === 0 || exporting}
-            className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold text-sm active:opacity-80 disabled:opacity-40">
+            className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold text-sm active:opacity-80 disabled:opacity-40 shadow-gold">
             {exporting ? 'Preparing…' : `Download spreadsheet (${allItems.length} props)`}
           </button>
         </Card>
@@ -242,7 +242,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
 
 function Card({ title, badge, children }: { title: string; badge?: ReactNode; children: ReactNode }) {
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+    <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-pt-muted text-xs uppercase tracking-wider">{title}</p>
         {badge}
@@ -266,7 +266,7 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 function ItemRow({ item, onTap }: { item: Item; onTap: () => void }) {
   return (
-    <button type="button" onClick={onTap} className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg text-left active:opacity-70">
+    <button type="button" onClick={onTap} className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left active:opacity-70">
       <div className="w-9 h-9 rounded-lg bg-pt-border overflow-hidden shrink-0">
         {item.photos[0] && <img src={thumbOf(item, item.photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" />}
       </div>
@@ -289,7 +289,7 @@ function ItemGroup({ title, items, onTap, danger }: { title: string; items: Item
         {shown.map(i => <ItemRow key={i.id} item={i} onTap={() => onTap(i.id)} />)}
       </div>
       {items.length > 3 && (
-        <button type="button" onClick={() => setExpanded(v => !v)} className="mt-1.5 text-pt-accent text-xs active:opacity-70">
+        <button type="button" onClick={() => setExpanded(v => !v)} className="mt-2 text-pt-accent text-xs active:opacity-70 tap">
           {expanded ? 'Show less' : `Show ${items.length - 3} more`}
         </button>
       )}
@@ -316,7 +316,7 @@ function TagMerge({ group, allItems }: { group: TagGroup; allItems: Item[] }) {
 
   return (
     <div className="bg-pt-bg rounded-xl p-3 space-y-2">
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         {group.tags.map(t => (
           <button key={t.id} onClick={() => { setKeepId(t.id); setState('idle') }}
             className={`text-sm px-3 py-1 rounded-full ${t.id === keepId ? 'bg-violet-500 text-white' : 'bg-violet-500/20 text-violet-300'}`}>
@@ -326,14 +326,14 @@ function TagMerge({ group, allItems }: { group: TagGroup; allItems: Item[] }) {
       </div>
       {state === 'confirm' ? (
         <div className="flex gap-2">
-          <button onClick={() => setState('idle')} className="flex-1 py-2 rounded-lg border border-pt-border text-pt-muted text-sm">Cancel</button>
+          <button onClick={() => setState('idle')} className="flex-1 py-2 rounded-lg shadow-hairline text-pt-muted text-sm">Cancel</button>
           <button onClick={merge} className="flex-1 py-2 rounded-lg bg-violet-500 text-white text-sm font-medium">
             Yes, merge into "{keep.label}"
           </button>
         </div>
       ) : (
         <button onClick={() => setState('confirm')} disabled={state === 'busy'}
-          className="w-full py-2 rounded-lg bg-pt-surface border border-pt-border text-pt-text text-sm active:opacity-70 disabled:opacity-40">
+          className="w-full py-2 rounded-lg bg-pt-surface shadow-hairline text-pt-text text-sm active:opacity-70 disabled:opacity-40">
           {state === 'busy' ? 'Merging…' : `Merge ${others.map(t => `"${t.label}"`).join(', ')} into "${keep.label}"`}
         </button>
       )}
@@ -349,7 +349,7 @@ function Tidy({ title, names, action, onAction }: { title: string; names: string
         <p className="text-pt-text text-sm font-medium">{title}: {names.length}</p>
         {names.length > 0 && <p className="text-pt-muted text-xs truncate">{names.slice(0, 6).join(', ')}{names.length > 6 ? '…' : ''}</p>}
       </div>
-      {names.length > 0 && <button onClick={onAction} className="text-pt-accent text-xs shrink-0 py-1 active:opacity-70">{action}</button>}
+      {names.length > 0 && <button onClick={onAction} className="text-pt-accent text-xs shrink-0 py-1 active:opacity-70 tap">{action}</button>}
     </div>
   )
 }
@@ -368,12 +368,12 @@ function UnusedTags({ names, ids }: { names: string[]; ids: string[] }) {
           {names.length > 0 && <p className="text-pt-muted text-xs truncate">{names.slice(0, 8).join(', ')}{names.length > 8 ? '…' : ''}</p>}
         </div>
         {names.length > 0 && state === 'idle' && (
-          <button onClick={() => setState('confirm')} className="text-pt-accent text-xs shrink-0 py-1 active:opacity-70">Remove</button>
+          <button onClick={() => setState('confirm')} className="text-pt-accent text-xs shrink-0 py-1 active:opacity-70 tap">Remove</button>
         )}
       </div>
       {state === 'confirm' && (
         <div className="flex gap-2">
-          <button onClick={() => setState('idle')} className="flex-1 py-2 rounded-lg border border-pt-border text-pt-muted text-sm">Cancel</button>
+          <button onClick={() => setState('idle')} className="flex-1 py-2 rounded-lg shadow-hairline text-pt-muted text-sm">Cancel</button>
           <button onClick={remove} className="flex-1 py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-medium">Remove {names.length} unused</button>
         </div>
       )}
@@ -399,7 +399,7 @@ function RebuildIndex() {
   return (
     <div className="pt-1 space-y-1">
       <button onClick={run} disabled={state === 'busy'}
-        className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
         {state === 'busy' ? 'Rebuilding… (can take a few minutes)' : 'Rebuild smart search'}
       </button>
       <p className="text-pt-muted text-xs">
@@ -450,7 +450,7 @@ function ImproveSearchWords() {
   return (
     <div className="pt-2 space-y-1">
       <button onClick={running ? () => { stop.current = true } : run} disabled={!running && counts.remaining === 0}
-        className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
         {running ? `Improving… ${counts.total - counts.remaining} of ${counts.total} · tap to stop` : counts.remaining ? `Improve search words (${counts.remaining} props)` : 'Search words: all done ✓'}
       </button>
       <p className="text-pt-muted text-xs">
@@ -492,7 +492,7 @@ function SpeedUpPhotos() {
   return (
     <div className="pt-2 space-y-1">
       <button onClick={running ? () => { stop.current = true } : run} disabled={!running && counts.remaining === 0}
-        className="w-full py-2.5 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
         {running ? `Speeding up… ${counts.total - counts.remaining} of ${counts.total} · tap to stop` : counts.remaining ? `Speed up photos (${counts.remaining} props)` : 'Photos: all fast ✓'}
       </button>
       <p className="text-pt-muted text-xs">

@@ -152,13 +152,13 @@ export default function ReserveScreen() {
   return (
     // Bottom padding = height of the floating Reserve button, so nothing hides behind it.
     <div className="min-h-screen bg-pt-bg pb-[calc(9rem+env(safe-area-inset-bottom))]">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
         <button onClick={() => navigate(-1)} className="text-pt-text text-base font-medium py-1">‹ Back</button>
         <h1 className="font-display text-xl text-pt-text">Your shoot</h1>
         <div className="w-12" />
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {hasProps && <LateBanner late={late} />}
         {shootFlow && <AddingToBar kind="shoot" />}
         {/* Staff can book any day (the owner: when it isn't for one of their shoots) */}
@@ -182,14 +182,14 @@ export default function ReserveScreen() {
         <div>
           <div className="flex items-baseline justify-between mb-2">
             <p className="text-pt-muted text-xs uppercase tracking-wider">Props ({lines.length}) · arts department</p>
-            <button onClick={() => navigate(shootFlow ? '/browse' : '/')} className="text-pt-accent text-sm">+ Add props</button>
+            <button onClick={() => navigate(shootFlow ? '/browse' : '/')} className="text-pt-accent text-sm tap">+ Add props</button>
           </div>
           {lines.length === 0 && cart.builds.length === 0 && (
             <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No props yet.</p>
           )}
           <div className="space-y-2">
             {lines.map(({ itemId, qty, item, free, problem }) => (
-              <div key={itemId} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-2.5 ${problem ? 'border-red-500/50' : 'border-pt-border'}`}>
+              <div key={itemId} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 ${problem ? 'border-red-500/50' : 'border-pt-border'}`}>
                 <button onClick={() => navigate(`/item/${itemId}`)} className="w-14 h-14 rounded-xl bg-pt-border overflow-hidden shrink-0">
                   {item?.photos[0] && <img src={thumbOf(item, item.photos[0])} alt="" className="w-full h-full object-cover" />}
                 </button>
@@ -200,9 +200,9 @@ export default function ReserveScreen() {
                     : free !== null && <p className="text-green-400 text-xs">{item!.quantity > 1 ? `${free} free` : 'Free'}</p>}
                   {item && item.quantity > 1 && (
                     <div className="flex items-center gap-2 mt-1">
-                      <button onClick={() => cart.setQty(itemId, Math.max(1, qty - 1))} className="w-7 h-7 rounded-full bg-pt-bg border border-pt-border text-pt-text">−</button>
+                      <button onClick={() => cart.setQty(itemId, Math.max(1, qty - 1))} className="w-7 h-7 rounded-full bg-pt-bg shadow-hairline text-pt-text">−</button>
                       <span className="text-pt-text text-sm w-6 text-center">{qty}</span>
-                      <button onClick={() => cart.setQty(itemId, Math.min(item.quantity, qty + 1))} className="w-7 h-7 rounded-full bg-pt-bg border border-pt-border text-pt-text">+</button>
+                      <button onClick={() => cart.setQty(itemId, Math.min(item.quantity, qty + 1))} className="w-7 h-7 rounded-full bg-pt-bg shadow-hairline text-pt-text">+</button>
                     </div>
                   )}
                 </div>
@@ -217,7 +217,7 @@ export default function ReserveScreen() {
           <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">To build or source ({cart.builds.length})</p>
           <div className="space-y-2">
             {cart.builds.map(b => (
-              <div key={b.key} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-2.5">
+              <div key={b.key} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-3">
                 <div className="w-14 h-14 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-2xl">
                   {b.refPhoto ? <img src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
                 </div>
@@ -230,21 +230,21 @@ export default function ReserveScreen() {
             ))}
           </div>
           {showBuild ? (
-            <div className="mt-2 bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-3">
+            <div className="mt-2 bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-3">
               <textarea value={buildDesc} onChange={e => setBuildDesc(e.target.value)} rows={2} maxLength={500}
                 placeholder="What do you need? e.g. Half-eaten birthday cake, chocolate" className={`${input} resize-none`} />
               <div className="flex items-center gap-3">
                 <span className="text-pt-muted text-sm">How many?</span>
-                <button onClick={() => setBuildQty(q => Math.max(1, q - 1))} className="w-9 h-9 rounded-full bg-pt-bg border border-pt-border text-pt-text">−</button>
+                <button onClick={() => setBuildQty(q => Math.max(1, q - 1))} className="w-9 h-9 rounded-full bg-pt-bg shadow-hairline text-pt-text">−</button>
                 <span className="text-pt-text w-6 text-center">{buildQty}</span>
-                <button onClick={() => setBuildQty(q => Math.min(1000, q + 1))} className="w-9 h-9 rounded-full bg-pt-bg border border-pt-border text-pt-text">+</button>
+                <button onClick={() => setBuildQty(q => Math.min(1000, q + 1))} className="w-9 h-9 rounded-full bg-pt-bg shadow-hairline text-pt-text">+</button>
               </div>
               <ProofPhotos cameraOnly={false} folder={`request-photos/${profile.email}`} urls={buildPhotos} onChange={setBuildPhotos}
                 onUploading={setBuildUploading} max={1} label="Reference photo (optional)" hint="A photo or screenshot of what you have in mind." />
               <div className="flex gap-2">
-                <button onClick={() => setShowBuild(false)} className="flex-1 py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm">Cancel</button>
+                <button onClick={() => setShowBuild(false)} className="flex-1 py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Cancel</button>
                 <button onClick={addBuild} disabled={!buildDesc.trim() || buildUploading}
-                  className="flex-1 py-2.5 rounded-xl bg-violet-500 text-white text-sm font-semibold disabled:opacity-40">Add request</button>
+                  className="flex-1 py-3 rounded-xl bg-violet-500 text-white text-sm font-semibold disabled:opacity-40">Add request</button>
               </div>
             </div>
           ) : (
@@ -259,18 +259,18 @@ export default function ReserveScreen() {
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">
             <p className="text-pt-muted text-xs uppercase tracking-wider">Gear ({gearLines.length}) · equipment team</p>
-            <button onClick={() => navigate('/gear')} className="text-pt-accent text-sm">+ Add gear</button>
+            <button onClick={() => navigate('/gear')} className="text-pt-accent text-sm tap">+ Add gear</button>
           </div>
           {!hasGear && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No gear yet. Cameras, lights and sound come as bundles.</p>}
           {hasGear && (
             <>
               <GearWhenPicker hoursOnly />
               {gearProblem && day && <p className="text-red-300 text-sm">{GEAR_TIME_MESSAGES[gearProblem]}</p>}
-              <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+              <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
                 {gearLines.map(l => {
                   const bad = gearUnavailable.includes(l)
                   return (
-                    <div key={l.id} className="flex items-center gap-3 px-3 py-2.5">
+                    <div key={l.id} className="flex items-center gap-3 px-3 py-3">
                       <GearArt photo={l.offer?.photos?.[0]} category={l.offer?.category} className="w-12 h-12 rounded-xl shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-pt-text text-sm font-medium truncate">{l.offer?.kind === 'extra' ? `${l.qty}× ` : ''}{l.offer?.name ?? 'No longer offered'}</p>
@@ -295,7 +295,7 @@ export default function ReserveScreen() {
 
       <div className="fixed bottom-0 inset-x-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
         <button onClick={submit} disabled={!canSubmit}
-          className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80 mb-3">
+          className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80 mb-3 shadow-gold">
           {busy ? 'Sending…' : hasProps && hasGear ? 'Book props + gear' : hasGear ? 'Hold this gear' : 'Reserve these props'}
         </button>
       </div>

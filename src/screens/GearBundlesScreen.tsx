@@ -29,13 +29,13 @@ export default function GearBundlesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
-        <h1 className="font-display text-3xl text-pt-text flex-1">Bundles</h1>
-        <button onClick={() => navigate('/gear/items')} className="text-pt-muted text-sm px-3 py-1.5 rounded-xl border border-pt-border">All gear</button>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
+        <h1 className="font-display text-[34px] text-pt-text flex-1">Bundles</h1>
+        <button onClick={() => navigate('/gear/items')} className="text-pt-muted text-sm px-3 py-2 rounded-xl shadow-hairline">All gear</button>
       </div>
       <div className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => navigate('/gear/bundles/new')} className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold">+ Bundle</button>
+          <button onClick={() => navigate('/gear/bundles/new')} className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">+ Bundle</button>
           <button onClick={() => navigate('/gear/bundles/new?kind=extra')} className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold">+ Add-on extra</button>
         </div>
         <p className="text-pt-muted text-sm">Creators only see what's here, never the loose pieces in All gear.</p>
@@ -46,7 +46,7 @@ export default function GearBundlesScreen() {
           <div key={s.title} className="space-y-2">
             <p className="text-pt-muted text-xs uppercase tracking-wider">{s.title} <span className="normal-case tracking-normal">· {s.note}</span></p>
         {s.list.map(b => (
-          <div key={b.id} className="bg-pt-surface border border-pt-border rounded-2xl p-3 flex gap-3">
+          <div key={b.id} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
             <button onClick={() => !b.archived && navigate(`/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">
               <GearArt photo={b.photos?.[0]} category={b.category} className="w-16 h-16 rounded-xl shrink-0" />
               <div className="min-w-0">
@@ -59,7 +59,7 @@ export default function GearBundlesScreen() {
                     </>}
               </div>
             </button>
-            {b.archived && <button onClick={() => bringBack(b)} className="text-pt-accent text-sm shrink-0">Bring back</button>}
+            {b.archived && <button onClick={() => bringBack(b)} className="text-pt-accent text-sm shrink-0 tap">Bring back</button>}
           </div>
         ))}
         {s.list.filter(b => b.missing?.length).map(b => (
@@ -69,7 +69,7 @@ export default function GearBundlesScreen() {
               <div key={i} className="flex items-center justify-between text-sm">
                 <span className="text-pt-text">{m.qty}× {m.name} · {new Date(m.at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</span>
                 <button onClick={async () => { setError(null); try { await markGearFound({ offerId: b.id, index: i }) } catch (err) { setError(errText(err)) } }}
-                  className="text-pt-accent text-sm">Found it</button>
+                  className="text-pt-accent text-sm tap">Found it</button>
               </div>
             ))}
           </div>

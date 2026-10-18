@@ -13,8 +13,8 @@ export default function RoundIcon({ icon, label, to, onClick }: { icon: keyof ty
   const navigate = useNavigate()
   return (
     <button onClick={onClick ?? (() => to && navigate(to))} aria-label={label} title={label}
-      className="w-9 h-9 rounded-full grid place-items-center bg-pt-surface border border-pt-border text-pt-text active:scale-95 transition-transform">
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">{ICONS[icon]}</svg>
+      className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface shadow-hairline text-pt-text">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">{ICONS[icon]}</svg>
     </button>
   )
 }

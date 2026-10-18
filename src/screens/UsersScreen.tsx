@@ -42,20 +42,20 @@ export default function UsersScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-pt-text text-base font-medium active:text-pt-muted py-1">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
           </svg>
           Back
         </button>
         <h1 className="font-display text-xl text-pt-text">People</h1>
-        <button onClick={() => setShowInvite(true)} className="text-pt-accent text-sm font-medium active:opacity-70 py-1">
+        <button onClick={() => setShowInvite(true)} className="text-pt-accent text-sm font-medium active:opacity-70 py-1 tap">
           Invite
         </button>
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">
           Only people listed here can sign in. They sign in with Google using the exact email you invite.
           {!isOwner && !viewingAs && ' You can invite and turn off creators; ask the owner to invite arts department or equipment team people.'}
@@ -96,7 +96,7 @@ function Section({ title, empty, children }: { title: string; empty?: string; ch
   return (
     <div>
       <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">{title}</p>
-      <div className="bg-pt-surface border border-pt-border rounded-2xl divide-y divide-pt-border overflow-hidden">
+      <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
         {empty ? <p className="px-4 py-3 text-pt-muted text-sm">{empty}</p> : children}
       </div>
     </div>
@@ -133,7 +133,7 @@ function RolePicker({ value, onChange, isOwner }: { value: Role; onChange: (r: R
       <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Access">
         {options.map(r => (
           <button key={r} type="button" role="radio" aria-checked={value === r} onClick={() => onChange(r)}
-            className={`px-4 py-2 rounded-full text-sm font-medium ${value === r ? 'bg-pt-accent text-stone-900' : 'bg-pt-bg border border-pt-border text-pt-muted'}`}>
+            className={`px-4 py-2 rounded-full text-sm font-medium ${value === r ? 'bg-pt-accent text-stone-900' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
             {ROLE_LABELS[r]}
           </button>
         ))}
@@ -208,8 +208,8 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
           <p className="text-pt-muted text-sm">
             The app doesn't send emails yet, so send them this message (text, WhatsApp, email…):
           </p>
-          <pre className="whitespace-pre-wrap bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[13px] font-sans">{inviteText(done.email, done.role, done.name)}</pre>
-          <button onClick={send} className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold active:opacity-80">
+          <pre className="whitespace-pre-wrap bg-pt-bg shadow-hairline rounded-xl px-3 py-3 text-pt-text text-[13px] font-sans">{inviteText(done.email, done.role, done.name)}</pre>
+          <button onClick={send} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold active:opacity-80 shadow-gold">
             {copied ? 'Copied ✓ Paste it in a message' : 'Send the invite message'}
           </button>
           <p className="text-pt-muted text-xs">
@@ -217,8 +217,8 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
             if it's set up as a Google account.
           </p>
           <div className="flex gap-2">
-            <button onClick={reset} className="flex-1 py-3 rounded-xl bg-pt-bg border border-pt-border text-pt-text font-medium active:opacity-70">Invite another</button>
-            <button onClick={close} className="flex-1 py-3 rounded-xl bg-pt-bg border border-pt-border text-pt-text font-medium active:opacity-70">Done</button>
+            <button onClick={reset} className="flex-1 py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text font-medium active:opacity-70">Invite another</button>
+            <button onClick={close} className="flex-1 py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text font-medium active:opacity-70">Done</button>
           </div>
         </div>
       </BottomSheet>
@@ -237,12 +237,12 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
         </div>
         {message && <p className="text-amber-400 text-sm">{message}</p>}
         {exists && (
-          <button onClick={() => { const e = clean; close(); onOpenExisting(e) }} className="text-pt-accent text-sm font-medium">
+          <button onClick={() => { const e = clean; close(); onOpenExisting(e) }} className="text-pt-accent text-sm font-medium tap">
             Open their access settings ›
           </button>
         )}
         <button onClick={submit} disabled={!valid || busy}
-          className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 active:opacity-80">
+          className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 active:opacity-80 shadow-gold">
           {busy ? 'Saving…' : `Invite as ${ROLE_LABELS[role]}`}
         </button>
       </div>
@@ -272,7 +272,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
       <div className="space-y-4">
         {user.name && <p className="text-pt-muted text-sm break-all">{user.email}</p>}
         <button onClick={() => navigate(`/people/${encodeURIComponent(user.email)}`)}
-          className="w-full py-3 rounded-xl bg-pt-bg border border-pt-border text-pt-text font-medium active:opacity-70">
+          className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text font-medium active:opacity-70">
           Bookings & history ›
         </button>
         {isOwner && (
@@ -281,7 +281,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
             <RolePicker value={role} onChange={setRole} isOwner={isOwner} />
             {role !== user.role && (
               <button onClick={() => save({ role })} disabled={busy}
-                className="mt-3 w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 active:opacity-80">
+                className="mt-3 w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 active:opacity-80 shadow-gold">
                 Change to {ROLE_LABELS[role]}
               </button>
             )}

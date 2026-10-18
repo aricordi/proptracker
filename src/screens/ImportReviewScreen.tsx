@@ -121,7 +121,7 @@ export default function ImportReviewScreen() {
   const shown = items ?? []
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center gap-3 py-2">
           <button onClick={() => navigate('/import')} className="text-pt-text py-1">‹</button>
           <h1 className="font-display text-xl text-pt-text">Review import</h1>
@@ -131,7 +131,7 @@ export default function ImportReviewScreen() {
             const n = job?.counts?.[t.key as keyof ImportJob['counts']] ?? 0
             return (
               <button key={t.key} onClick={() => { setTab(t.key); setMax(PAGE) }}
-                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tab === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>
+                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tab === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
                 {t.label} ({n})
               </button>
             )
@@ -140,8 +140,8 @@ export default function ImportReviewScreen() {
         {selected.size > 0 && (
           <div className="mt-2 flex items-center gap-2 bg-pt-surface border border-pt-accent/50 rounded-xl px-3 py-2">
             <span className="text-pt-text text-sm flex-1">{selected.size} selected</span>
-            {selected.size > 1 && <button onClick={() => setSheet('merge')} className="px-3 py-1.5 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold">Merge into one</button>}
-            <button onClick={() => setSheet('existing')} className="px-3 py-1.5 rounded-lg border border-pt-border text-pt-text text-sm">Add to existing…</button>
+            {selected.size > 1 && <button onClick={() => setSheet('merge')} className="px-3 py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-semibold">Merge into one</button>}
+            <button onClick={() => setSheet('existing')} className="px-3 py-2 rounded-lg shadow-hairline text-pt-text text-sm">Add to existing…</button>
             <button onClick={() => setSelected(new Set())} aria-label="Clear selection" className="text-pt-muted px-1">✕</button>
           </div>
         )}
@@ -154,11 +154,11 @@ export default function ImportReviewScreen() {
         {items?.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing here.</p>}
 
         {tab === 'analyzed' && shown.length > 1 && (
-          <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-2">
+          <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
             <p className="text-pt-muted text-sm">Checked the {shown.length} below? Approve them all at once (with any edits you made).</p>
             {newBinLabels.length > 0 && <p className="text-amber-300 text-xs">This creates new bins: {newBinLabels.map(b => b.slice(4)).join(', ')}.</p>}
             <button onClick={() => act(shown.map(i => i.id), 'approve')} disabled={busy.size > 0}
-              className="w-full py-2.5 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">Approve all {shown.length}</button>
+              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Approve all {shown.length}</button>
           </div>
         )}
 
@@ -166,8 +166,8 @@ export default function ImportReviewScreen() {
         {tab === 'approved' && approvedGroups.map(([itemId, its]) => {
           const prop = allItems.find(i => i.id === itemId)
           return (
-            <div key={itemId} className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-2">
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            <div key={itemId} className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {its.map(it => <img key={it.id} src={it.photoUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
               </div>
               <div className="flex items-center justify-between gap-2">
@@ -175,7 +175,7 @@ export default function ImportReviewScreen() {
                   <p className="text-pt-text text-sm font-medium truncate">{prop?.name ?? its[0].suggestion?.name ?? its[0].fileName}</p>
                   <p className="text-pt-muted text-xs">{prop ? `×${prop.quantity}` : 'Deleted or merged into another prop'}{its.length > 1 ? ` · from ${its.length} photos` : ''}</p>
                 </div>
-                {prop && <button onClick={() => navigate(`/item/${itemId}`)} className="text-pt-accent text-sm shrink-0">Open prop ›</button>}
+                {prop && <button onClick={() => navigate(`/item/${itemId}`)} className="text-pt-accent text-sm shrink-0 tap">Open prop ›</button>}
               </div>
             </div>
           )
@@ -185,7 +185,7 @@ export default function ImportReviewScreen() {
           const d = draftOf(it)
           const working = busy.has(it.id)
           return (
-            <div key={it.id} className={`bg-pt-surface border border-pt-border rounded-2xl overflow-hidden ${working ? 'opacity-50' : ''}`}>
+            <div key={it.id} className={`bg-pt-surface shadow-hairline rounded-2xl overflow-hidden ${working ? 'opacity-50' : ''}`}>
               <div className="flex gap-3 p-3">
                 <div className="relative shrink-0">
                   {it.photoUrl
@@ -196,14 +196,14 @@ export default function ImportReviewScreen() {
                       className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-lg border-2 flex items-center justify-center text-sm font-bold ${selected.has(it.id) ? 'bg-pt-accent border-pt-accent text-stone-900' : 'bg-black/50 border-white/80 text-transparent'}`}>✓</button>
                   )}
                 </div>
-                <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="min-w-0 flex-1 space-y-2">
                   {tab === 'analyzed' ? (
                     <>
                       <input value={d.name} onChange={e => edit(it, { name: e.target.value })} aria-label="Name" className={`${input} font-medium`} />
                       <select value={d.categoryId} onChange={e => edit(it, { categoryId: e.target.value })} aria-label="Category" className={input}>
                         {categories.filter((c: Category) => c.active || c.id === d.categoryId).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                       </select>
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-2">
                         <select value={d.bin} onChange={e => edit(it, { bin: e.target.value })} aria-label="Bin" className={`${input} flex-1 min-w-0`}>
                           <option value="none">No bin</option>
                           {/* suggested-but-unknown bins from other photos on this page, so they can be reused */}
@@ -219,7 +219,7 @@ export default function ImportReviewScreen() {
                     <>
                       <p className="text-pt-text text-sm font-medium">{it.suggestion?.name ?? it.fileName}</p>
                       {it.error && <p className="text-red-300 text-xs">{it.error}</p>}
-                      {it.itemId && <button onClick={() => navigate(`/item/${it.itemId}`)} className="text-pt-accent text-sm">Open prop ›</button>}
+                      {it.itemId && <button onClick={() => navigate(`/item/${it.itemId}`)} className="text-pt-accent text-sm tap">Open prop ›</button>}
                     </>
                   )}
                   {tab === 'analyzed' && (groups.get(lookKey(d))?.length ?? 0) > 1 && (
@@ -230,23 +230,23 @@ export default function ImportReviewScreen() {
                 </div>
               </div>
               {tab === 'analyzed' && (
-                <div className="px-3 pb-3 space-y-1.5">
+                <div className="px-3 pb-3 space-y-2">
                   <input value={d.tags} onChange={e => edit(it, { tags: e.target.value })} aria-label="Tags" placeholder="tags, comma, separated" className={input} />
                   <input value={d.description} onChange={e => edit(it, { description: e.target.value })} aria-label="Description" placeholder="Description" className={input} />
                   <div className="grid grid-cols-2 gap-2 pt-1">
-                    <button onClick={() => act([it.id], 'skip')} disabled={working} className="py-2 rounded-xl border border-pt-border text-pt-muted text-sm">Skip</button>
+                    <button onClick={() => act([it.id], 'skip')} disabled={working} className="py-2 rounded-xl shadow-hairline text-pt-muted text-sm">Skip</button>
                     <button onClick={() => act([it.id], 'approve')} disabled={working || !d.name.trim()} className="py-2 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">Approve</button>
                   </div>
                 </div>
               )}
               {tab === 'failed' && (
-                <div className="px-3 pb-3"><button onClick={() => act([it.id], 'skip')} disabled={working} className="w-full py-2 rounded-xl border border-pt-border text-pt-muted text-sm">Skip this photo</button></div>
+                <div className="px-3 pb-3"><button onClick={() => act([it.id], 'skip')} disabled={working} className="w-full py-2 rounded-xl shadow-hairline text-pt-muted text-sm">Skip this photo</button></div>
               )}
             </div>
           )
         })}
 
-        {shown.length >= max && <button onClick={() => setMax(m => m + PAGE)} className="w-full py-2.5 text-pt-accent text-sm">Show more</button>}
+        {shown.length >= max && <button onClick={() => setMax(m => m + PAGE)} className="w-full py-3 text-pt-accent text-sm">Show more</button>}
         {tab === 'failed' && shown.length > 0 && <p className="text-pt-muted text-xs">To retry failed photos, go back and tap "Try failed again".</p>}
       </div>
 
@@ -303,7 +303,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
   return (
     <BottomSheet open onClose={onClose} title={mode === 'merge' ? `Merge ${picked.length} photos into one prop` : `Add ${picked.length} photo${picked.length > 1 ? 's' : ''} to a prop`}>
       <div className="space-y-3">
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {picked.map(p => <img key={p.it.id} src={p.it.photoUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
         </div>
         {mode === 'merge'
@@ -318,7 +318,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
         <label className="flex items-center justify-between gap-3">
           <span className="text-pt-text text-sm">{mode === 'merge' ? 'How many in total' : 'Units to add'}</span>
           <input type="number" min={mode === 'merge' ? 1 : 0} value={qty} onChange={e => setQty(Math.max(mode === 'merge' ? 1 : 0, Math.floor(Number(e.target.value) || 0)))}
-            className="w-20 bg-pt-bg border border-pt-border rounded-lg px-2 py-2 text-pt-text text-center" />
+            className="w-20 bg-pt-bg shadow-hairline rounded-lg px-2 py-2 text-pt-text text-center" />
         </label>
 
         {mode === 'merge' ? (
@@ -329,18 +329,18 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
             </label>
             <p className="text-pt-muted text-xs">Category, bin, tags and description come from the first photo; you can edit the prop afterwards.</p>
             <button disabled={busy || !name.trim()} onClick={() => onMerge({ item: approvalFrom(first.it.id, { ...first.d, name, quantity: qty }) })}
-              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
               {busy ? 'Saving…' : `Create one prop (${qty})`}
             </button>
           </>
         ) : (
           <>
             <input value={query} onChange={e => { setQuery(e.target.value); setTarget(null) }} placeholder="Search props already in the app" className={input} />
-            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-64 overflow-y-auto">
               {candidates.length === 0 && <p className="text-pt-muted text-sm">No matching props. Try another word.</p>}
               {candidates.map(({ p }) => (
                 <button key={p.id} onClick={() => setTarget(p.id)}
-                  className={`w-full flex items-center gap-2 text-left rounded-xl border px-2 py-1.5 ${target === p.id ? 'border-pt-accent bg-pt-accent/10' : 'border-pt-border'}`}>
+                  className={`w-full flex items-center gap-2 text-left rounded-xl border px-2 py-2 ${target === p.id ? 'border-pt-accent bg-pt-accent/10' : 'border-pt-border'}`}>
                   {p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-10 h-10 rounded-lg object-cover bg-pt-bg" /> : <div className="w-10 h-10 rounded-lg bg-pt-bg" />}
                   <span className="flex-1 min-w-0">
                     <span className="block text-pt-text text-sm truncate">{p.name}</span>
@@ -350,7 +350,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
               ))}
             </div>
             <button disabled={busy || !target} onClick={() => onMerge({ addToItemId: target!, addQuantity: qty })}
-              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
               {busy ? 'Saving…' : target ? `Add to "${props.find(p => p.id === target)?.name}"${qty ? ` (+${qty})` : ''}` : 'Pick a prop above'}
             </button>
           </>

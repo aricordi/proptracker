@@ -48,10 +48,10 @@ export default function ScheduleTeamScreen() {
   const tabs: [Tab, string][] = [['checkins', `Check-ins${missed.length ? ` (${missed.length})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-end gap-2 py-2">
-          <button onClick={() => navigate('/schedule')} className="text-pt-accent text-[17px] pb-1">‹</button>
-          <h1 className="font-display text-3xl text-pt-text">Schedule team</h1>
+          <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+          <h1 className="font-display text-[34px] text-pt-text">Schedule team</h1>
         </div>
         <div className="flex gap-2">
           {tabs.map(([v, l]) => <button key={v} onClick={() => setTab(v)} className={`px-3 py-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>)}
@@ -120,7 +120,7 @@ export default function ScheduleTeamScreen() {
                 <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold truncate">{p.name}</p>
                   <p className="text-pt-muted text-xs">{p.filmed} of {p.booked} filmed{p.missed ? ` · ${p.missed} missed` : ''}{st?.strikes ? ` · ${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : ''}</p></div>
                 {paused
-                  ? <button disabled={!!busy} onClick={() => run(p.email, () => liftPause({ email: p.email }))} className="shrink-0 bg-red-500/15 text-red-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40">Paused · Lift</button>
+                  ? <button disabled={!!busy} onClick={() => run(p.email, () => liftPause({ email: p.email }))} className="shrink-0 bg-red-500/15 text-red-300 rounded-lg px-3 py-2 text-xs disabled:opacity-40">Paused · Lift</button>
                   : st?.strikes ? <Pill tone="warn">{st.strikes} strike</Pill> : <Pill tone="free">Reliable</Pill>}
               </div>
             )

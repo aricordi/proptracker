@@ -28,16 +28,16 @@ export default function GearItemsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center gap-3 py-2">
           <button onClick={() => navigate(-1)} className="text-pt-text py-1" aria-label="Back">‹</button>
           <h1 className="font-display text-xl text-pt-text flex-1">All gear</h1>
-          <button onClick={() => setEditing({ category: 'Camera', have: 1 })} className="text-pt-accent text-sm font-medium">+ Add gear</button>
+          <button onClick={() => setEditing({ category: 'Camera', have: 1 })} className="text-pt-accent text-sm font-medium tap">+ Add gear</button>
         </div>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search gear"
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
       </div>
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">
           Every piece of gear you own. Creators can't book pieces on their own: put them into a <button onClick={() => navigate('/gear/bundles')} className="text-pt-accent">bundle</button>.
         </p>
@@ -52,14 +52,14 @@ export default function GearItemsScreen() {
           const rows = live.filter(i => i.category === cat)
           if (!rows.length) return null
           return (
-            <div key={cat} className="space-y-1.5">
+            <div key={cat} className="space-y-2">
               <p className="text-pt-muted text-xs uppercase tracking-wider">{cat}</p>
               {rows.map(i => {
                 const inB = bundled.get(i.id) ?? 0
                 const loose = looseCount({ id: i.id, name: i.name, have: i.have, archived: i.archived }, bundled)
                 return (
                   <button key={i.id} onClick={() => setEditing(i)}
-                    className="w-full flex items-center gap-3 bg-pt-surface border border-pt-border rounded-xl px-3 py-2 text-left active:opacity-75">
+                    className="w-full flex items-center gap-3 bg-pt-surface shadow-hairline rounded-xl px-3 py-2 text-left active:opacity-75">
                     <div className="w-10 h-10 rounded-lg bg-pt-bg overflow-hidden shrink-0">
                       {i.photos?.[0] && <img src={i.photos[0]} alt="" className="w-full h-full object-cover" />}
                     </div>
@@ -71,7 +71,7 @@ export default function GearItemsScreen() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-pt-text font-semibold tabular-nums">{i.have}</p>
-                      {loose > 0 && <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{loose} loose</span>}
+                      {loose > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{loose} loose</span>}
                     </div>
                   </button>
                 )
@@ -136,7 +136,7 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
         <ProofPhotos cameraOnly={false} folder="gear/items" urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo (optional)" max={3} />
         {error && <p className="text-red-300 text-sm">{error}</p>}
         <button onClick={() => save()} disabled={busy || uploading || !name.trim()}
-          className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Save'}</button>
+          className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Saving…' : 'Save'}</button>
         {item.id && (
           <button onClick={() => save(!item.archived)} disabled={busy}
             className="w-full py-2 text-pt-muted text-sm disabled:opacity-40">{item.archived ? 'Bring it back' : 'Archive (we no longer have it)'}</button>

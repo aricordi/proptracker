@@ -10,7 +10,7 @@ export default function ViewAsBanner() {
     <div className="bg-sky-500 text-stone-900 pt-safe">
       <div className="flex items-center justify-center gap-2 px-3 py-1 text-xs font-semibold">
         <span>👁 Viewing as {ROLE_LABELS[viewingAs]}</span>
-        <button onClick={() => setViewAs(null)} className="bg-stone-900/20 rounded-full px-2.5 py-0.5 active:opacity-70">
+        <button onClick={() => setViewAs(null)} className="bg-stone-900/20 rounded-full px-3 py-0.5 active:opacity-70">
           Exit
         </button>
       </div>

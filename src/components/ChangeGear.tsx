@@ -49,7 +49,7 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
             {n > 0 ? (
               <>
                 {l.kind === 'extra' && (
-                  <div className="flex items-center rounded-xl bg-pt-bg border border-pt-border shrink-0">
+                  <div className="flex items-center rounded-xl bg-pt-bg shadow-hairline shrink-0">
                     <button className="w-9 h-9 text-xl disabled:opacity-30" disabled={n <= 1} onClick={() => setQty({ ...qty, [l.offerId]: n - 1 })} aria-label="One less">−</button>
                     <span className="w-7 text-center font-semibold tabular-nums">{n}</span>
                     <button className="w-9 h-9 text-xl disabled:opacity-30" disabled={n >= offered(l.offerId)} onClick={() => setQty({ ...qty, [l.offerId]: n + 1 })} aria-label="One more">+</button>
@@ -57,7 +57,7 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
                 )}
                 <button onClick={() => setQty({ ...qty, [l.offerId]: 0 })} aria-label={`Remove ${l.name}`} className="text-pt-muted text-2xl w-7">×</button>
               </>
-            ) : <button onClick={() => setQty({ ...qty, [l.offerId]: l.qty })} className="text-pt-accent text-sm">Put back</button>}
+            ) : <button onClick={() => setQty({ ...qty, [l.offerId]: l.qty })} className="text-pt-accent text-sm tap">Put back</button>}
           </div>
         )
       })}
@@ -72,7 +72,7 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
       {err && <p className="text-red-300 text-sm">{err}</p>}
       <div className="flex gap-2">
         <button onClick={() => setEditing(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Never mind</button>
-        <button disabled={busy} onClick={save} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Saving…' : 'Save changes'}</button>
+        <button disabled={busy} onClick={save} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">{busy ? 'Saving…' : 'Save changes'}</button>
       </div>
       <p className="text-pt-muted text-xs">You can change this until you pick it up.</p>
     </div>

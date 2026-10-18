@@ -30,11 +30,11 @@ export default function AiSettingsScreen() {
   const field = 'w-24 bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-right focus:outline-none focus:border-pt-accent'
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
-        <button onClick={() => navigate('/admin')} className="text-pt-accent text-[17px] pb-1">‹</button>
-        <h1 className="font-display text-3xl text-pt-text">AI helpers</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
+        <button onClick={() => navigate('/admin')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <h1 className="font-display text-[34px] text-pt-text">AI helpers</h1>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">Creators use AI to turn a video idea into props and gear, and to find filming times. Each use costs a fraction of a cent. When the budget runs out the helpers pause until the 1st; search, browse and booking always keep working.</p>
         <div className="bg-pt-surface rounded-2xl p-4 space-y-2">
           <p className="text-pt-muted text-xs uppercase tracking-wider">This month</p>
@@ -46,7 +46,7 @@ export default function AiSettingsScreen() {
         <div className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <label className="flex items-center justify-between gap-3"><span className="text-pt-text">Monthly budget (US$)</span><input inputMode="decimal" value={cap} onChange={e => setCap(e.target.value.replace(/[^\d.]/g, ''))} className={field} /></label>
           <label className="flex items-center justify-between gap-3"><span className="text-pt-text">Uses per person per day</span><input inputMode="numeric" value={daily} onChange={e => setDaily(e.target.value.replace(/\D/g, ''))} className={field} /></label>
-          <button disabled={!valid} onClick={save} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40">Save</button>
+          <button disabled={!valid} onClick={save} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">Save</button>
           {msg && <p className="text-pt-muted text-sm">{msg}</p>}
         </div>
         <p className="text-pt-muted text-xs">The prop import and "Improve search words" have their own spending cap on the Import screen.</p>

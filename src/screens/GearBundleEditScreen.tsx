@@ -77,14 +77,14 @@ export default function GearBundleEditScreen() {
   const itemName = new Map(stock.map(i => [i.id, i.name]))
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1" aria-label="Back">‹</button>
         <h1 className="font-display text-xl text-pt-text">{isNew ? (isExtra ? 'Offer an add-on extra' : 'Build a bundle') : (isExtra ? 'Edit add-on extra' : 'Edit bundle')}</h1>
       </div>
       {!loaded ? <p className="text-pt-muted text-sm text-center p-6">Loading…</p> : (
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {isNew && (
-          <div className="grid grid-cols-2 gap-1 p-1 bg-pt-surface border border-pt-border rounded-xl">
+          <div className="grid grid-cols-2 gap-1 p-1 bg-pt-surface shadow-hairline rounded-xl">
             {([['bundle', 'Bundle'], ['extra', 'Add-on extra']] as const).map(([k, l]) => (
               <button key={k} onClick={() => { setKind(k); setPick({}) }}
                 className={`py-2 rounded-lg text-sm font-medium ${kind === k ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>{l}</button>
@@ -96,7 +96,7 @@ export default function GearBundleEditScreen() {
             ? 'One kind of piece creators can add to their booking, like sandbags or spare batteries. You choose how many to offer; they pick how many they need.'
             : 'A case of pieces creators book as a whole. It can never be split.'}
         </p>
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-3">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-3">
           <label className="block space-y-1"><span className={label}>{isExtra ? 'Name creators see' : 'Bundle name'}</span>
             <input value={name} onChange={e => setName(e.target.value)} placeholder={isExtra ? 'e.g. Sandbag' : 'e.g. Sony FX3 Cinema Bundle'} className={input} /></label>
           <label className="block space-y-1"><span className={label}>Type</span>
@@ -108,7 +108,7 @@ export default function GearBundleEditScreen() {
           <ProofPhotos cameraOnly={false} folder="gear/bundles" urls={photos} onChange={setPhotos} onUploading={setUploading} label={isExtra ? 'Photo' : 'Photo of the case'} hint="Creators see this" max={4} />
         </div>
 
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-1">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-1">
           <p className={label}>{isExtra ? `Offered to creators (${pieceTotal(pieces)})` : `In this bundle (${pieceTotal(pieces)} pieces)`}</p>
           {pieces.length === 0 && <p className="text-pt-muted text-sm">{isExtra ? 'Pick the piece below and how many to offer.' : 'Add pieces from the list below.'}</p>}
           {pieces.map(p => (
@@ -124,7 +124,7 @@ export default function GearBundleEditScreen() {
             const rows = shown.filter(i => i.category === cat)
             if (!rows.length) return null
             return (
-              <div key={cat} className="space-y-1.5">
+              <div key={cat} className="space-y-2">
                 <p className="text-pt-muted text-xs font-semibold">{cat}</p>
                 {rows.map(i => {
                   const n = pick[i.id] ?? 0, free = freeFor(i)
@@ -134,7 +134,7 @@ export default function GearBundleEditScreen() {
                         <p className="text-pt-text text-sm truncate">{i.name}{i.serial ? <span className="text-pt-muted"> · {i.serial}</span> : null}</p>
                         <p className="text-pt-muted text-xs">{free - n} of {i.have} still free</p>
                       </div>
-                      <div className="flex items-center border border-pt-border rounded-lg overflow-hidden shrink-0">
+                      <div className="flex items-center shadow-hairline rounded-lg overflow-hidden shrink-0">
                         <button onClick={() => step(i, -1)} disabled={n === 0} aria-label={`One less ${i.name}`} className="w-9 h-9 bg-pt-surface text-pt-text disabled:opacity-30">−</button>
                         <span className="w-8 text-center text-pt-text tabular-nums font-semibold">{n}</span>
                         <button onClick={() => step(i, 1)} disabled={n >= free} aria-label={`One more ${i.name}`} className="w-9 h-9 bg-pt-surface text-pt-text disabled:opacity-30">+</button>
@@ -151,7 +151,7 @@ export default function GearBundleEditScreen() {
           <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error ?? problems.join(' ')}</p>
         )}
         <button onClick={save} disabled={busy || uploading || !name.trim() || problems.length > 0}
-          className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {busy ? 'Saving…' : isNew ? (isExtra ? 'Save add-on extra' : 'Save bundle') : 'Save changes'}
         </button>
         {!isNew && (

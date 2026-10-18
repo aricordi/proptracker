@@ -98,7 +98,7 @@ export function DayTimeline({ holds, date, start, end }: { holds: GearHold[]; da
     .map(h => [toMin(h.from), toMin(h.to)] as const), [holds, date])
   return (
     <div>
-      <div className="relative h-9 rounded-xl bg-pt-bg border border-pt-border overflow-hidden" aria-label="Bookings that day">
+      <div className="relative h-9 rounded-xl bg-pt-bg shadow-hairline overflow-hidden" aria-label="Bookings that day">
         {blocks.map(([a, b], i) => (
           <div key={i} title={`Booked ${fmtHours(a, b)}`} className="absolute inset-y-0 border-x border-red-400/80"
             style={{ left: pct(a), width: `calc(${pct(b)} - ${pct(a)})`, background: 'repeating-linear-gradient(135deg, rgba(248,113,113,.35) 0 6px, rgba(248,113,113,.15) 6px 12px)' }} />
@@ -126,18 +126,18 @@ export function PieceChecklist({ lines, ticked, missing, onTick, onMissing }: {
   onTick: (key: string) => void; onMissing: (key: string) => void
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {lines.map(l => {
         const on = ticked.has(l.key), gone = missing.has(l.key)
         return (
           <div key={l.key} className="flex items-center gap-2">
             <button role="checkbox" aria-checked={on} onClick={() => onTick(l.key)}
-              className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-2.5 text-left border ${on ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/10 border-red-500/40' : 'bg-pt-bg border-pt-border'}`}>
+              className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-3 text-left border ${on ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/10 border-red-500/40' : 'bg-pt-bg border-pt-border'}`}>
               <span className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center font-bold shrink-0 ${on ? 'bg-green-500 border-green-500 text-black' : gone ? 'border-red-400 text-red-300' : 'border-pt-muted'}`}>{on ? '✓' : gone ? '!' : ''}</span>
               <span className="text-pt-text text-[15px]">{l.name}{l.of > 1 ? <span className="text-pt-muted"> · {l.unit} of {l.of}</span> : null}</span>
               {gone && <span className="ml-auto text-xs font-semibold text-red-300">missing</span>}
             </button>
-            {!on && <button onClick={() => onMissing(l.key)} className="text-xs text-pt-accent w-16 shrink-0">{gone ? 'Found' : 'Missing?'}</button>}
+            {!on && <button onClick={() => onMissing(l.key)} className="text-xs text-pt-accent w-16 shrink-0 tap">{gone ? 'Found' : 'Missing?'}</button>}
           </div>
         )
       })}

@@ -178,9 +178,9 @@ export default function HomeScreen() {
   return (
     <div className="min-h-full bg-pt-bg">
       {/* Sticky header + search */}
-      <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <Collapse open={!folded}>
-          <h1 className="font-display text-3xl text-pt-text py-2 flex items-center gap-2.5"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{shootFlow ? 'Browse' : 'Props'}</span>{shootFlow && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
+          <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{shootFlow ? 'Browse' : 'Props'}</span>{shootFlow && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
           {shootFlow && <div className="mb-3"><BrowseTabs /></div>}
         </Collapse>
         {folded && <div className="h-3" />}
@@ -218,10 +218,10 @@ export default function HomeScreen() {
 
         <Collapse open={!folded}>
         {isOwner && (
-          <div className="flex gap-1 mt-3 p-1 bg-pt-surface border border-pt-border rounded-xl">
+          <div className="flex gap-1 mt-3 p-1 bg-pt-surface shadow-hairline rounded-xl">
             {(['company', 'personal'] as PropCollection[]).map(c => (
               <button key={c} onClick={() => pickCollection(c)}
-                className={`flex-1 py-1.5 rounded-lg text-sm font-medium ${shownCollection === c ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>
+                className={`flex-1 py-2 rounded-lg text-sm font-medium ${shownCollection === c ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>
                 {COLLECTION_LABELS[c]}
               </button>
             ))}
@@ -237,7 +237,7 @@ export default function HomeScreen() {
               className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${
                 categoryFilter === id
                   ? 'bg-pt-accent text-stone-900 font-medium'
-                  : 'bg-pt-surface border border-pt-border text-pt-muted'
+                  : 'bg-pt-surface shadow-hairline text-pt-muted'
               }`}
             >
               {label}
@@ -251,7 +251,7 @@ export default function HomeScreen() {
             value={availability}
             onChange={e => setAvailability(e.target.value as AvailabilityFilter)}
             aria-label="Availability"
-            className={`bg-pt-surface border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none ${
+            className={`bg-pt-surface border rounded-lg px-3 py-2 text-sm focus:outline-none ${
               availability === 'all' ? 'border-pt-border text-pt-muted' : 'border-pt-accent text-pt-accent'
             }`}
           >
@@ -287,7 +287,7 @@ export default function HomeScreen() {
             </div>
           ) : (
             <button onClick={() => setShowDates(true)}
-              className="mt-3 w-full py-2.5 rounded-xl border border-dashed border-pt-accent/60 text-pt-accent text-sm font-medium active:opacity-70">
+              className="mt-3 w-full py-3 min-h-[48px] rounded-2xl bg-pt-surface shadow-hairline text-pt-accent text-sm font-medium">
               📅 Pick your shoot day to see what’s free
             </button>
           )
@@ -295,7 +295,7 @@ export default function HomeScreen() {
           <button onClick={() => setShowDates(true)}
             className="mt-3 w-full flex items-center justify-between py-2 px-3 rounded-xl bg-pt-accent/10 border border-pt-accent/40 text-sm active:opacity-70">
             <span className="text-pt-text">📅 {formatRange(dates.start, dates.end)}</span>
-            <span className="text-pt-accent text-xs">Change</span>
+            <span className="text-pt-accent text-xs tap">Change</span>
           </button>
         )}
         </Collapse>
@@ -351,7 +351,7 @@ export default function HomeScreen() {
       {cart.count + gearCart.count > 0 && (
         <div className="sticky bottom-3 px-4">
           <button onClick={() => navigate('/reserve')}
-            className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-3.5 shadow-lg font-semibold active:opacity-90">
+            className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
             <span>Your shoot · {[cart.count && `${cart.count} prop${cart.count !== 1 ? 's' : ''}`, gearCart.count && `${gearCart.count} gear`].filter(Boolean).join(' · ')}</span>
             <span>Review →</span>
           </button>

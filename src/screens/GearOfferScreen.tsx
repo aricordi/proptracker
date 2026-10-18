@@ -56,11 +56,11 @@ export default function GearOfferScreen() {
           </div>
         ) : null}
 
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <p className="text-pt-muted text-xs uppercase tracking-wider px-1">In the case</p>
-          <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+          <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
             {b.pieces.map(p => (
-              <div key={p.itemId} className="flex justify-between px-4 py-2.5 text-[15px]">
+              <div key={p.itemId} className="flex justify-between px-4 py-3 text-[15px]">
                 <span className="text-pt-text">{p.name || 'Piece'}</span><span className="text-pt-muted tabular-nums">{p.qty}</span>
               </div>
             ))}
@@ -94,7 +94,7 @@ export default function GearOfferScreen() {
               <div className="space-y-2">
                 <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Similar bundles free for your hours</p>
                 {similar.map(s => (
-                  <button key={s.id} onClick={() => navigate(`/gear/b/${s.id}`, { replace: true })} className="w-full flex items-center gap-3 bg-pt-surface rounded-2xl p-2.5 text-left active:opacity-80">
+                  <button key={s.id} onClick={() => navigate(`/gear/b/${s.id}`, { replace: true })} className="w-full flex items-center gap-3 bg-pt-surface rounded-2xl p-3 text-left active:opacity-80">
                     <GearArt photo={s.photos?.[0]} category={s.category} className="w-12 h-12 rounded-xl shrink-0" />
                     <div className="min-w-0"><p className="text-pt-text text-[15px] font-medium truncate">{s.name}</p><Pill tone="free">Free {fmtHours(w.start, w.end)}</Pill></div>
                   </button>
@@ -106,12 +106,12 @@ export default function GearOfferScreen() {
 
         {!showFree ? null : inCart ? (
           <div className="space-y-2">
-            <button onClick={() => navigate('/reserve')} className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold">In your shoot ✓ · Review</button>
+            <button onClick={() => navigate('/reserve')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">In your shoot ✓ · Review</button>
             <button onClick={() => cart.setQty(b.id, 0)} className="w-full py-2 text-pt-muted text-sm">Remove from my shoot</button>
           </div>
         ) : (
           <button onClick={() => { cart.setQty(b.id, 1); navigate(-1) }} disabled={!free}
-            className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+            className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
             Add to my shoot · {fmtHours(w.start, w.end)}
           </button>
         )}

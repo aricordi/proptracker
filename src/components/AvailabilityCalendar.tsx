@@ -34,7 +34,7 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
   const label = new Date(`${month}-01T12:00:00`).toLocaleDateString('en-CA', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="bg-pt-surface border border-pt-border rounded-2xl p-3">
+    <div className="bg-pt-surface shadow-hairline rounded-2xl p-3">
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => shift(-1)} disabled={month <= today.slice(0, 7)} aria-label="Previous month"
           className="w-9 h-9 rounded-full text-pt-text disabled:opacity-20 active:bg-pt-bg">‹</button>
@@ -68,7 +68,7 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
         })}
       </div>
       <div className="flex gap-3 mt-3 text-[11px] text-pt-muted flex-wrap">
-        <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-pt-bg border border-pt-border inline-block" /> Free</span>
+        <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-pt-bg shadow-hairline inline-block" /> Free</span>
         {quantity > 1 && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-amber-500/30 inline-block" /> Some booked</span>}
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-red-500/30 inline-block" /> Booked</span>
         {selected && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded ring-2 ring-pt-accent inline-block" /> Your day</span>}

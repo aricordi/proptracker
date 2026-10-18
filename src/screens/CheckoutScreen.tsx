@@ -102,11 +102,11 @@ export default function CheckoutScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border flex items-center justify-between">
-        <h1 className="font-display text-3xl text-pt-text py-2">Checkout</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 flex items-center justify-between">
+        <h1 className="font-display text-[34px] text-pt-text py-2">Checkout</h1>
         <button
           onClick={openNewSheet}
-          className="flex items-center gap-1.5 bg-pt-accent text-stone-900 text-sm font-semibold px-3 py-1.5 rounded-full active:opacity-80"
+          className="flex items-center gap-2 bg-pt-accent text-stone-900 text-sm font-semibold px-3 py-2 rounded-full active:opacity-80"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -131,7 +131,7 @@ export default function CheckoutScreen() {
           const checkedCount  = checked.size
 
           return (
-            <div key={checkout.id} className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+            <div key={checkout.id} className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-pt-text leading-tight">{checkout.label}</p>
@@ -159,7 +159,7 @@ export default function CheckoutScreen() {
                         key={item.id}
                         type="button"
                         onClick={() => toggleCheckedItem(checkout.id, item.id)}
-                        className={`w-full flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors active:opacity-70 ${
+                        className={`w-full flex items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors active:opacity-70 ${
                           isChecked ? 'bg-green-500/10' : ''
                         }`}
                       >
@@ -197,14 +197,14 @@ export default function CheckoutScreen() {
                 {checkedCount > 0 && (
                   <button
                     onClick={() => setReturnConfirm({ checkout, mode: 'selected' })}
-                    className="w-full py-2.5 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium active:opacity-70"
+                    className="w-full py-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-medium active:opacity-70"
                   >
                     Return {checkedCount} selected item{checkedCount !== 1 ? 's' : ''}
                   </button>
                 )}
                 <button
                   onClick={() => setReturnConfirm({ checkout, mode: 'all' })}
-                  className="w-full py-2.5 rounded-xl border border-pt-border text-pt-muted text-sm active:opacity-70"
+                  className="w-full py-3 rounded-xl shadow-hairline text-pt-muted text-sm active:opacity-70"
                 >
                   Return All
                 </button>
@@ -218,7 +218,7 @@ export default function CheckoutScreen() {
       {returnConfirm && (
         <div className="fixed inset-0 z-50 flex items-end">
           <div className="absolute inset-0 bg-black/50" onClick={() => !returning && setReturnConfirm(null)} />
-          <div className="relative w-full bg-pt-surface rounded-t-2xl p-6 space-y-4">
+          <div className="relative w-full bg-pt-surface rounded-t-[28px] p-6 space-y-4">
             <p className="text-pt-text font-semibold">
               {returnConfirm.mode === 'all'
                 ? `Return all ${returnConfirm.checkout.itemIds.length} item${returnConfirm.checkout.itemIds.length !== 1 ? 's' : ''}?`
@@ -235,14 +235,14 @@ export default function CheckoutScreen() {
               <button
                 onClick={() => setReturnConfirm(null)}
                 disabled={returning}
-                className="flex-1 py-3.5 rounded-2xl border border-pt-border text-pt-muted font-medium active:opacity-70 disabled:opacity-40"
+                className="flex-1 py-4 rounded-2xl shadow-hairline text-pt-muted font-medium active:opacity-70 disabled:opacity-40"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReturn}
                 disabled={returning}
-                className="flex-1 py-3.5 rounded-2xl bg-green-500/20 text-green-400 font-semibold active:opacity-70 disabled:opacity-40"
+                className="flex-1 py-4 rounded-2xl bg-green-500/20 text-green-400 font-semibold active:opacity-70 disabled:opacity-40"
               >
                 {returning ? 'Returning…' : 'Yes, Return'}
               </button>
@@ -283,7 +283,7 @@ export default function CheckoutScreen() {
                       key={item.id}
                       type="button"
                       onClick={() => toggleNewItem(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors ${
                         chk ? 'bg-pt-accent/10 border border-pt-accent/30' : 'bg-pt-bg border border-transparent'
                       }`}
                     >
@@ -322,7 +322,7 @@ export default function CheckoutScreen() {
           <button
             onClick={handleCreate}
             disabled={!canCreate}
-            className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80"
+            className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80 shadow-gold"
           >
             {saving ? 'Saving…' : `Check Out ${selectedIds.size > 0 ? selectedIds.size + ' ' : ''}Item${selectedIds.size !== 1 ? 's' : ''}`}
           </button>

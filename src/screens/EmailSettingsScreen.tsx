@@ -60,12 +60,12 @@ export default function EmailSettingsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
         <h1 className="font-display text-xl text-pt-text">Email</h1>
       </div>
-      <div className="p-4 space-y-4">
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+      <div className="px-4 pt-4 pb-8 space-y-6">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           <label className="flex items-center justify-between gap-3">
             <span>
               <span className="block text-pt-text font-medium">Send emails</span>
@@ -76,12 +76,12 @@ export default function EmailSettingsScreen() {
           </label>
         </div>
 
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           <p className="text-pt-text font-medium">Email service</p>
           <div className="flex gap-2 flex-wrap">
             {SERVICES.map(s => (
               <button key={s.key} onClick={() => set({ host: s.host, port: s.port, user: s.user || (form.user === 'resend' ? '' : form.user) })}
-                className={`px-3 py-1.5 rounded-full text-sm ${service?.key === s.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg border border-pt-border text-pt-muted'}`}>
+                className={`px-3 py-2 rounded-full text-sm ${service?.key === s.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
                 {s.label}
               </button>
             ))}
@@ -116,13 +116,13 @@ export default function EmailSettingsScreen() {
         </div>
 
         <button onClick={save} disabled={!changed || state === 'busy'}
-          className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {state === 'busy' ? 'Saving…' : state === 'saved' && !changed ? 'Saved ✓' : 'Save'}
         </button>
         {state === 'error' && <p className="text-red-400 text-sm">Couldn't save. Try again.</p>}
 
         <button onClick={test} disabled={!saved.enabled || changed}
-          className="w-full py-3 rounded-2xl bg-pt-surface border border-pt-border text-pt-text font-medium disabled:opacity-40">
+          className="w-full py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-medium disabled:opacity-40">
           Send me a test email
         </button>
         {testState && <p className="text-pt-muted text-sm">{testState}</p>}
@@ -131,7 +131,7 @@ export default function EmailSettingsScreen() {
           <p className={label}>Recent emails</p>
           {outbox.length === 0 && <p className="text-pt-muted text-sm">None yet.</p>}
           {outbox.map(m => (
-            <div key={m.id} className="bg-pt-surface border border-pt-border rounded-xl px-3 py-2">
+            <div key={m.id} className="bg-pt-surface shadow-hairline rounded-xl px-3 py-2">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-pt-text text-sm min-w-0 truncate">{m.subject}</p>
                 <span className={`text-xs shrink-0 ${STATUS_STYLE[m.status ?? ''] ?? 'text-amber-300'}`}>{m.status ?? 'queued'}</span>

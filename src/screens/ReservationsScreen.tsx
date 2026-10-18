@@ -58,17 +58,17 @@ export default function ReservationsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-3xl text-pt-text py-2">{isStaff ? 'Queue' : 'My bookings'}</h1>
-          <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1">+ New request</button>
+          <h1 className="font-display text-[34px] text-pt-text py-2">{isStaff ? 'Queue' : 'My bookings'}</h1>
+          <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1 tap">+ New request</button>
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {tabs.map(t => {
             const n = byTab[t.key]?.length ?? 0
             return (
               <button key={t.key} onClick={() => setTabKey(t.key)}
-                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>
+                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
                 {t.label}{t.key !== 'done' && t.key !== 'past' && n > 0 ? ` (${n})` : ''}
               </button>
             )
@@ -81,7 +81,7 @@ export default function ReservationsScreen() {
         {list !== null && shown.length === 0 && (
           <div className="text-center mt-12">
             <p className="text-pt-muted text-sm mb-3">Nothing here.</p>
-            {!isStaff && tabKey === 'current' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium">Find props to reserve</button>}
+            {!isStaff && tabKey === 'current' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium tap">Find props to reserve</button>}
           </div>
         )}
         {shown.map(r => {
@@ -110,7 +110,7 @@ export default function ReservationsScreen() {
                 </span>
               </div>
               {atRisk[r.id] && (
-                <p className="text-amber-300 text-xs mt-1.5">
+                <p className="text-amber-300 text-xs mt-2">
                   ⚠ At risk: {atRisk[r.id].map(x => x.itemName).join(', ')} {atRisk[r.id].some(x => x.risk === 'late') ? 'not back yet' : 'may not be usable'}
                 </p>
               )}

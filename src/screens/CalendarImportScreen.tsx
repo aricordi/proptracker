@@ -44,9 +44,9 @@ export default function CalendarImportScreen() {
   const counts = todo.reduce((c, e) => ({ ...c, [rows[e.id]?.action ?? 'skip']: (c[rows[e.id]?.action ?? 'skip'] ?? 0) + 1 }), {} as Record<string, number>)
   return (
     <div className="min-h-full bg-pt-bg pb-32">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
-        <button onClick={() => navigate('/schedule/settings')} className="text-pt-accent text-[17px] pb-1">‹</button>
-        <h1 className="font-display text-3xl text-pt-text">Import calendar</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
+        <button onClick={() => navigate('/schedule/settings')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <h1 className="font-display text-[34px] text-pt-text">Import calendar</h1>
       </div>
       <div className="p-4 space-y-3">
         <p className="text-pt-muted text-sm">Every future event in the shared Google Calendar. For each, choose: a <b>shoot</b> (who, which house and slot), <b>blocked time</b>, or <b>skip</b>. Our guesses are filled in. Imported shoots keep their Google event, so nothing is duplicated.</p>
@@ -68,7 +68,7 @@ export default function CalendarImportScreen() {
                   ))}
                 </div>
                 {r.action === 'shoot' && (
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-3 gap-2">
                     <select value={r.email} onChange={x => set(e.id, { email: x.target.value })} className={field}><option value="">Who?</option>{people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select>
                     <select value={r.house} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option></select>
                     {r.house !== 'offsite'
@@ -77,7 +77,7 @@ export default function CalendarImportScreen() {
                   </div>
                 )}
                 {r.action === 'block' && (
-                  <div className="grid grid-cols-2 gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <select value={r.house === 'cliff2' ? 'cliff2' : 'cliff1'} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option></select>
                     <select value={r.type} onChange={x => set(e.id, { type: x.target.value as BlockType })} className={field}>{(Object.keys(BLOCK_TYPES) as BlockType[]).map(t => <option key={t} value={t}>{BLOCK_TYPES[t]}</option>)}</select>
                   </div>
@@ -89,7 +89,7 @@ export default function CalendarImportScreen() {
       </div>
       {todo.length > 0 && (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
-          <button disabled={busy} onClick={run} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40">
+          <button disabled={busy} onClick={run} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
             {busy ? 'Importing…' : `Import: ${counts.shoot ?? 0} shoots, ${counts.block ?? 0} blocks, skip ${counts.skip ?? 0}`}
           </button>
         </div>

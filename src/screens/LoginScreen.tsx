@@ -89,7 +89,7 @@ export default function LoginScreen() {
       )}
       <button
         onClick={handleSignIn}
-        className="flex items-center gap-3 bg-white text-gray-800 px-6 py-3.5 rounded-2xl font-semibold text-base shadow-lg active:scale-95 transition-transform"
+        className="flex items-center gap-3 bg-white text-gray-800 px-6 py-4 rounded-2xl font-semibold text-base shadow-lg active:scale-95 transition-transform"
       >
         <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -117,7 +117,7 @@ export default function LoginScreen() {
           <p className="text-pt-muted text-xs text-center uppercase tracking-wider">Test mode: sign in as</p>
           {TEST_ACCOUNTS.map(a => (
             <button key={a.email} onClick={() => testSignIn(a.email)}
-              className="w-full bg-pt-surface border border-pt-border text-pt-text py-2.5 rounded-xl text-sm active:opacity-70">
+              className="w-full bg-pt-surface shadow-hairline text-pt-text py-3 rounded-xl text-sm active:opacity-70">
               {a.label}
             </button>
           ))}

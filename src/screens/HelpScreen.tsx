@@ -71,33 +71,33 @@ export default function HelpScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-end gap-2 py-2">
-          <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] pb-1">‹</button>
-          <h1 className="font-display text-3xl text-pt-text">Help</h1>
+          <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+          <h1 className="font-display text-[34px] text-pt-text">Help</h1>
         </div>
         <label htmlFor="helpSearch" className="sr-only">Search help</label>
         <input id="helpSearch" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search: cancel, props, check in…"
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text text-base focus:outline-none focus:border-pt-accent" />
       </div>
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing found. Try another word, or see "Still stuck?" below.</p>}
         {shown.map(t => (
           <section key={t.title} className="space-y-2">
             <h2 className="text-pt-text text-lg font-semibold">{t.icon} {t.title}</h2>
-            <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+            <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {t.items.map(i => {
                 const isOpen = open === i.q || !!q
                 return (
                   <div key={i.q}>
-                    <button onClick={() => setOpen(open === i.q ? null : i.q)} className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left">
+                    <button onClick={() => setOpen(open === i.q ? null : i.q)} className="w-full flex items-center justify-between gap-3 px-4 py-4 text-left">
                       <span className="text-pt-text text-[15px] font-medium">{i.q}</span>
                       <span className={`text-pt-muted transition-transform ${isOpen ? 'rotate-90' : ''}`}>›</span>
                     </button>
                     {isOpen && (
                       <div className="px-4 pb-4 -mt-1 space-y-3">
                         <p className="text-[#D8D8DC] text-[15px] leading-relaxed">{i.a}</p>
-                        {i.go && <button onClick={() => navigate(i.go![0])} className="text-pt-accent text-sm font-semibold">{i.go[1]} ›</button>}
+                        {i.go && <button onClick={() => navigate(i.go![0])} className="text-pt-accent text-sm font-semibold tap">{i.go[1]} ›</button>}
                       </div>
                     )}
                   </div>
@@ -106,7 +106,7 @@ export default function HelpScreen() {
             </div>
           </section>
         ))}
-        <button onClick={() => navigate('/schedule/how')} className="w-full bg-pt-surface rounded-2xl py-3.5 text-pt-text font-medium">All the house rules ›</button>
+        <button onClick={() => navigate('/schedule/how')} className="w-full bg-pt-surface rounded-2xl py-4 text-pt-text font-medium">All the house rules ›</button>
       </div>
     </div>
   )

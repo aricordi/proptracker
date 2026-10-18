@@ -44,7 +44,7 @@ export default function BinQrScreen() {
     return (
       <div className="p-6 pt-safe text-center">
         <p className="text-pt-muted text-sm mb-4">Bin not found. It may have been deleted.</p>
-        <button onClick={() => navigate('/')} className="text-pt-accent text-sm underline">Go home</button>
+        <button onClick={() => navigate('/')} className="text-pt-accent text-sm underline tap">Go home</button>
       </div>
     )
   }
@@ -52,10 +52,10 @@ export default function BinQrScreen() {
   return (
     <div className="min-h-screen bg-pt-bg pb-8">
       {/* Header */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border flex items-center justify-between">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-pt-text text-base font-medium active:text-pt-muted py-2"
+          className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-2"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -68,11 +68,11 @@ export default function BinQrScreen() {
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {/* Add item button */}
         <button
           onClick={() => navigate(`/add?binId=${bin.id}&locationId=${bin.locationId ?? ''}`)}
-          className="w-full bg-pt-accent text-stone-900 py-3.5 rounded-2xl font-semibold active:opacity-80"
+          className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold active:opacity-80 shadow-gold"
         >
           + Add item to this bin
         </button>
@@ -89,7 +89,7 @@ export default function BinQrScreen() {
               <button
                 key={item.id}
                 onClick={() => navigate(`/item/${item.id}`)}
-                className="w-full flex items-center gap-3 bg-pt-surface border border-pt-border rounded-2xl p-3 text-left active:opacity-75"
+                className="w-full flex items-center gap-3 bg-pt-surface shadow-hairline rounded-2xl p-3 text-left active:opacity-75"
               >
                 <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0 flex items-center justify-center">
                   {item.photoUrl

@@ -20,10 +20,10 @@ const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') |
 
 export function IdeasButton({ onClick, small = false }: { onClick: () => void; small?: boolean }) {
   if (small) return (
-    <button onClick={onClick} className="shrink-0 rounded-full px-3 py-1.5 text-[13px] font-bold text-[#140f22] bg-gradient-to-r from-[#BF9DFF] to-[#8FB8FF]">✦ Ideas</button>
+    <button onClick={onClick} className="shrink-0 rounded-full px-3 py-2 text-[13px] font-bold text-[#140f22] bg-[#BF9DFF] shadow-violet">✦ Ideas</button>
   )
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left border border-[#BF9DFF]/30 bg-gradient-to-br from-[#BF9DFF]/15 to-[#BF9DFF]/[0.04] active:scale-[0.98] transition-transform">
+    <button onClick={onClick} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
       <span className="w-[42px] h-[42px] rounded-[13px] grid place-items-center text-xl bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
       <span className="flex-1 min-w-0"><b className="block text-base">Got an idea for a video?</b><span className="text-pt-muted text-[13px]">Tell the AI. It pulls props and gear for it.</span></span>
       <span className="text-pt-muted">›</span>
@@ -69,9 +69,9 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
         <textarea id="ideaText" value={idea} onChange={e => setIdea(e.target.value.slice(0, 600))} rows={3}
           placeholder="e.g. I dress up as a cop and pull my friend over at a diner, then it turns into his surprise birthday"
           className="w-full bg-pt-bg border border-pt-border rounded-2xl px-4 py-3 text-pt-text text-base resize-none focus:outline-none focus:border-[#BF9DFF]" />
-        {!idea && <div className="flex gap-2 overflow-x-auto no-scrollbar">{EXAMPLES.map(t => <button key={t} onClick={() => setIdea(t)} className="shrink-0 rounded-full px-3 py-1.5 text-[13px] bg-pt-border text-pt-text">{t}</button>)}</div>}
+        {!idea && <div className="flex gap-2 overflow-x-auto no-scrollbar">{EXAMPLES.map(t => <button key={t} onClick={() => setIdea(t)} className="shrink-0 rounded-full px-3 py-2 text-[13px] bg-pt-border text-pt-text">{t}</button>)}</div>}
         <button disabled={busy || idea.trim().length < 8} onClick={ask}
-          className="w-full rounded-2xl py-3.5 font-bold text-[#140f22] bg-gradient-to-r from-[#BF9DFF] to-[#8FB8FF] disabled:opacity-40">{busy ? 'Thinking…' : 'Find props for this idea'}</button>
+          className="w-full rounded-2xl py-4 font-bold text-[#140f22] bg-[#BF9DFF] shadow-violet disabled:opacity-40">{busy ? 'Thinking…' : 'Find props for this idea'}</button>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {busy && <div className="space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-16 rounded-2xl bg-pt-surface animate-pulse" />)}</div>}
 
@@ -87,7 +87,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                     const it = itemById.get(p.id); if (!it) return null
                     const free = freeProp(p.id), inCart = !!cart.lines[p.id]
                     return (
-                      <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-2.5">
+                      <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                         <button onClick={() => go(`/item/${p.id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
                           <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{it.photos[0] && <img src={thumbOf(it, it.photos[0])} alt="" className="w-full h-full object-cover" />}</span>
                           <span className="min-w-0"><b className="block text-sm truncate">{it.name}</b><span className="block text-xs text-[#CDB8FF]">{p.why}</span>
@@ -103,7 +103,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                   const b = bundles.find(x => x.id === p.id); if (!b) return null
                   const inCart = !!gearCart.lines[p.id]
                   return (
-                    <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-2.5">
+                    <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                       <button onClick={() => go(`/gear/b/${p.id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
                         <GearArt photo={b.photos?.[0]} category={b.category} className="w-[52px] h-[52px] rounded-xl shrink-0" />
                         <span className="min-w-0"><b className="block text-sm truncate">{b.name}</b><span className="block text-xs text-[#CDB8FF]">{p.why}</span><span className="block text-xs text-pt-muted">Gear · check it ›</span></span>
@@ -123,7 +123,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                 {result.missing.map(m => {
                   const added = cart.builds.some(b => b.description === m.name)
                   return (
-                    <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-2.5">
+                    <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                       <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
                       <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
                       {shoot && <button disabled={added} onClick={() => cart.addBuild({ description: m.name, qty: 1 })} className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 disabled:opacity-50">{added ? 'Asked ✓' : 'Ask for it'}</button>}
@@ -132,7 +132,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                 })}
               </div>
             )}
-            {(cart.count + gearCart.count) > 0 && <button onClick={() => go('/reserve')} className="w-full rounded-2xl py-3.5 font-bold text-stone-900 bg-gradient-to-b from-[#EBD399] to-pt-accent">Review your shoot · {cart.count + gearCart.count}</button>}
+            {(cart.count + gearCart.count) > 0 && <button onClick={() => go('/reserve')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review your shoot · {cart.count + gearCart.count}</button>}
             <p className="text-pt-muted text-xs text-center">Not quite it? Search or browse for the real thing.</p>
           </div>
         )}

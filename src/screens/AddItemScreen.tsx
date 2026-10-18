@@ -312,7 +312,7 @@ export default function AddItemScreen() {
     <>
     <div className="flex flex-col min-h-full bg-pt-bg">
       {/* Header */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
           className="text-pt-text text-base font-medium active:text-pt-muted py-1"
@@ -325,7 +325,7 @@ export default function AddItemScreen() {
         <div className="w-14" />
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {/* Photo */}
         <PhotoPicker
           photos={photos}
@@ -339,7 +339,7 @@ export default function AddItemScreen() {
 
         {/* AI analysis card — visible as soon as photo is picked */}
         {photos.length > 0 && (aiLoading || aiResult || aiError) && (
-          <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
             {aiLoading && (
               <div className="flex items-center gap-2 text-pt-muted text-sm">
                 <svg className="animate-spin w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -355,7 +355,7 @@ export default function AddItemScreen() {
                 <button
                   type="button"
                   onClick={() => lastFileRef.current && runAnalysis(lastFileRef.current)}
-                  className="text-pt-accent text-xs shrink-0 active:opacity-70"
+                  className="text-pt-accent text-xs shrink-0 active:opacity-70 tap"
                 >
                   Retry
                 </button>
@@ -378,7 +378,7 @@ export default function AddItemScreen() {
           value={name}
           onChange={e => { setName(e.target.value); setAiFilled(f => { const n = new Set(f); n.delete('name'); return n }) }}
           placeholder="What is it? *"
-          className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3.5 text-pt-text text-lg placeholder-pt-muted focus:outline-none focus:border-pt-accent"
+          className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-4 text-pt-text text-lg placeholder-pt-muted focus:outline-none focus:border-pt-accent"
         />
         {aiFilled.has('name') && <p className="-mt-3 text-xs text-pt-muted"><AiMark /> suggested name</p>}
 
@@ -394,7 +394,7 @@ export default function AddItemScreen() {
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-colors active:opacity-80 ${
                   categoryId === c.id
                     ? 'bg-pt-accent text-stone-900'
-                    : 'bg-pt-surface border border-pt-border text-pt-muted'
+                    : 'bg-pt-surface shadow-hairline text-pt-muted'
                 }`}
               >
                 {c.label}
@@ -439,7 +439,7 @@ export default function AddItemScreen() {
             <div className="flex gap-2">
               {(['company', 'personal'] as PropCollection[]).map(c => (
                 <button key={c} type="button" onClick={() => setCollection(c)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium border ${collection === c ? 'bg-pt-accent text-stone-900 border-transparent' : 'bg-pt-surface border-pt-border text-pt-muted'}`}>
+                  className={`flex-1 py-3 rounded-xl text-sm font-medium border ${collection === c ? 'bg-pt-accent text-stone-900 border-transparent' : 'bg-pt-surface border-pt-border text-pt-muted'}`}>
                   {COLLECTION_LABELS[c]}
                 </button>
               ))}
@@ -460,7 +460,7 @@ export default function AddItemScreen() {
                 className={`flex-1 py-2 rounded-full text-sm font-medium transition-colors active:opacity-80 ${
                   condition === c
                     ? 'bg-pt-accent text-stone-900'
-                    : 'bg-pt-surface border border-pt-border text-pt-muted'
+                    : 'bg-pt-surface shadow-hairline text-pt-muted'
                 }`}
               >
                 {CONDITION_LABELS[c]}
@@ -591,7 +591,7 @@ export default function AddItemScreen() {
         <button
           onClick={() => !locationId ? setShowNoLocationWarning(true) : handleSave()}
           disabled={!canSave}
-          className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80"
+          className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80 shadow-gold"
         >
           {saving
             ? 'Saving…'
@@ -606,7 +606,7 @@ export default function AddItemScreen() {
     {showNoLocationWarning && (
       <div className="fixed inset-0 z-50 flex items-end">
         <div className="absolute inset-0 bg-black/50" onClick={() => setShowNoLocationWarning(false)} />
-        <div className="relative w-full bg-pt-surface rounded-t-2xl p-6 space-y-4">
+        <div className="relative w-full bg-pt-surface rounded-t-[28px] p-6 space-y-4">
           <h3 className="font-display text-xl text-pt-text">No location set</h3>
           <p className="text-pt-muted text-sm leading-relaxed">
             This item won't be linked to any storage location. You can assign one later by editing the item.
@@ -614,13 +614,13 @@ export default function AddItemScreen() {
           <div className="flex gap-3">
             <button
               onClick={() => setShowNoLocationWarning(false)}
-              className="flex-1 py-3.5 rounded-2xl border border-pt-border text-pt-muted font-medium active:opacity-70"
+              className="flex-1 py-4 rounded-2xl shadow-hairline text-pt-muted font-medium active:opacity-70"
             >
               Go Back
             </button>
             <button
               onClick={() => { setShowNoLocationWarning(false); handleSave() }}
-              className="flex-1 py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold active:opacity-80"
+              className="flex-1 py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold active:opacity-80 shadow-gold"
             >
               Save Anyway
             </button>
@@ -634,7 +634,7 @@ export default function AddItemScreen() {
 
 // Small marker beside a field the AI filled in.
 function AiMark() {
-  return <span className="text-pt-accent normal-case tracking-normal ml-1.5">✦ AI</span>
+  return <span className="text-pt-accent normal-case tracking-normal ml-2">✦ AI</span>
 }
 
 // "president, Civil War,, history" → ['president', 'civil war', 'history'] (undefined if empty).

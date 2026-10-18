@@ -35,14 +35,14 @@ export default function ScheduleSettingsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
-        <button onClick={() => navigate('/schedule')} className="text-pt-accent text-[17px] pb-1">‹</button>
-        <h1 className="font-display text-3xl text-pt-text">Schedule settings</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
+        <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <h1 className="font-display text-[34px] text-pt-text">Schedule settings</h1>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">These rules apply to everyone right away, and the How it works page updates to match.</p>
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Houses</h2>
           {HOUSES.map(h => (
             <div key={h} className="grid grid-cols-[1fr_1.6fr] gap-2">
@@ -52,9 +52,9 @@ export default function ScheduleSettingsScreen() {
           ))}
         </section>
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Slots ({s.slotMinutes / 60} hours each)</h2>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {s.slots.map(t => (
               <span key={t} className="inline-flex items-center gap-1 bg-pt-bg rounded-full pl-3 pr-1 py-1 text-sm text-pt-text">
                 {fmtSlot(t, s.slotMinutes)}
@@ -71,12 +71,12 @@ export default function ScheduleSettingsScreen() {
           <p className="text-pt-muted text-xs">Existing bookings keep their time even if you remove a slot.</p>
         </section>
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Monthly slots at {s.houses.cliff1.name}</h2>
           <div className="flex items-center gap-3">
-            <button onClick={() => set({ monthlySlots: Math.max(0, s.monthlySlots - 1) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+            <button onClick={() => set({ monthlySlots: Math.max(0, s.monthlySlots - 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
             <span className="text-pt-text text-lg font-semibold tabular-nums w-8 text-center">{s.monthlySlots}</span>
-            <button onClick={() => set({ monthlySlots: Math.min(31, s.monthlySlots + 1) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+            <button onClick={() => set({ monthlySlots: Math.min(31, s.monthlySlots + 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
             <span className="text-pt-muted text-sm">per creator, per month</span>
           </div>
         </section>
@@ -84,7 +84,7 @@ export default function ScheduleSettingsScreen() {
         <CalendarSetup id={s.googleCalendarId} savedId={live.googleCalendarId}
           onId={v => set({ googleCalendarId: v })} save={save} onImport={() => navigate('/schedule/import')} />
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2">
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-2">
           <h2 className="text-pt-text font-semibold">Check-ins and strikes</h2>
           {([
             ['checkinBefore', 'minutes before the shoot, check-in opens', 0, 240, 5],
@@ -102,34 +102,34 @@ export default function ScheduleSettingsScreen() {
           ))}
         </section>
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Moving and cancelling</h2>
           <div className="flex items-center gap-3">
-            <button onClick={() => set({ noticeHours: Math.max(0, s.noticeHours - 12) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+            <button onClick={() => set({ noticeHours: Math.max(0, s.noticeHours - 12) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
             <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.noticeHours}</span>
-            <button onClick={() => set({ noticeHours: Math.min(336, s.noticeHours + 12) })} className="w-10 h-10 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+            <button onClick={() => set({ noticeHours: Math.min(336, s.noticeHours + 12) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
             <span className="text-pt-muted text-sm">hours' notice to move or cancel for free</span>
           </div>
           <p className="text-pt-muted text-xs">Closer than that, a creator can only swap with someone; cancelling counts as a no-show. Your own changes never count.</p>
         </section>
 
-        <section className="bg-pt-surface rounded-2xl p-3.5 space-y-2.5">
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Priority days at {s.houses.cliff1.name}</h2>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {WEEKDAYS.map((w, i) => (
               <button key={w} onClick={() => set({ priorityWeekdays: s.priorityWeekdays.includes(i) ? s.priorityWeekdays.filter(x => x !== i) : [...s.priorityWeekdays, i].sort() })}
-                className={`px-3 py-1.5 rounded-full text-sm border ${s.priorityWeekdays.includes(i) ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{w}</button>
+                className={`px-3 py-2 rounded-full text-sm border ${s.priorityWeekdays.includes(i) ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{w}</button>
             ))}
           </div>
-          <label className="block"><span className="block text-pt-muted text-xs mb-1.5">Unclaimed slots open to everyone on the Sunday before, at</span>
+          <label className="block"><span className="block text-pt-muted text-xs mb-2">Unclaimed slots open to everyone on the Sunday before, at</span>
             <select value={s.releaseMinute} onChange={e => set({ releaseMinute: Number(e.target.value) })} className={field}>
               {HALF_HOURS.map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
             </select></label>
           <p className="text-pt-muted text-xs mt-1">Priority group ({s.priority.length})</p>
-          <div className="max-h-72 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-pt-border">
+          <div className="max-h-72 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
             {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
             {[...people, ...outsiders.map(p => ({ ...p, role: '' }))].map(p => (
-              <label key={p.email} className="flex items-center gap-3 px-3 py-2.5">
+              <label key={p.email} className="flex items-center gap-3 px-3 py-3">
                 <input type="checkbox" checked={inGroup(p.email)} onChange={() => toggle(p)} />
                 <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
               </label>
@@ -139,7 +139,7 @@ export default function ScheduleSettingsScreen() {
       </div>
 
       <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
-        <button disabled={busy} onClick={save} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40">
+        <button disabled={busy} onClick={save} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
           {busy ? 'Saving…' : msg || 'Save settings'}
         </button>
       </div>
@@ -176,16 +176,16 @@ function CalendarSetup({ id, savedId, onId, save, onImport }: { id: string; save
   const step = (n: number, title: string, body: React.ReactNode) => (
     <div className="flex gap-3">
       <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-bold shrink-0 ${connected ? 'bg-green-500/20 text-green-400' : 'bg-pt-accent/20 text-pt-accent'}`}>{connected ? '✓' : n}</span>
-      <div className="flex-1 min-w-0 space-y-1.5"><p className="text-pt-text text-[15px] font-medium">{title}</p>{body}</div>
+      <div className="flex-1 min-w-0 space-y-2"><p className="text-pt-text text-[15px] font-medium">{title}</p>{body}</div>
     </div>
   )
   return (
-    <section className="bg-pt-surface rounded-2xl p-3.5 space-y-4">
+    <section className="bg-pt-surface rounded-2xl p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-pt-text font-semibold">📅 Shared Google Calendar</h2>
-        {connected && <span className="rounded-full px-2.5 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Connected</span>}
+        {connected && <span className="rounded-full px-3 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Connected</span>}
       </div>
-      {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm">Open Google Cloud → tap Enable ›</a>)}
+      {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm tap">Open Google Cloud → tap Enable ›</a>)}
       {step(2, 'Share the calendar with the app', <>
         <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → "Make changes to events".</p>
         {account
@@ -201,7 +201,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport }: { id: string; save
         {msg && <p className={`text-sm ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>}
       </>)}
       <p className="text-pt-muted text-xs border-t border-pt-border pt-3">From then on every booking, move, cancel and blocked time is copied to that calendar. Changes made in Google Calendar aren't copied back.</p>
-      <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-2.5 text-pt-text text-sm font-medium">Bring in what's already in the calendar ›</button>
+      <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Bring in what's already in the calendar ›</button>
     </section>
   )
 }

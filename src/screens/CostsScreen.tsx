@@ -50,11 +50,11 @@ export default function CostsScreen() {
   )
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 border-b border-pt-border flex items-end gap-2">
-        <button onClick={() => navigate('/admin')} className="text-pt-accent text-[17px] pb-1">‹</button>
-        <h1 className="font-display text-3xl text-pt-text">Running costs</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
+        <button onClick={() => navigate('/admin')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <h1 className="font-display text-[34px] text-pt-text">Running costs</h1>
       </div>
-      <div className="p-4 space-y-4">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {!r && !err && <p className="text-pt-muted text-sm">Adding it up… (this takes a few seconds)</p>}
         {r && e && <>
@@ -63,7 +63,7 @@ export default function CostsScreen() {
             <p className="text-pt-text text-4xl font-bold mt-1">{money(total)}</p>
             <p className="text-pt-muted text-sm mt-1">{r.measured ? 'From Google\'s usage counts so far this month, projected to the end of the month, at list prices after the free amounts.' : 'Storage and AI only; usage counts weren\'t available.'} Your Google bill is the exact number.</p>
           </div>
-          <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+          <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
             {row('Database reads', money(e.reads), r.usage.reads === null ? undefined : `${r.usage.reads.toLocaleString()} so far · first 50,000 a day free`)}
             {row('Database writes', money(e.writes), r.usage.writes === null ? undefined : `${r.usage.writes.toLocaleString()} so far · first 20,000 a day free`)}
             {row('Photos stored', money(e.storage), `${size(r.storage.bytes)} in ${r.storage.files.toLocaleString()} files`)}
@@ -72,7 +72,7 @@ export default function CostsScreen() {
           </div>
           <div>
             <p className="text-pt-muted text-xs uppercase tracking-wider mb-2 px-1">Where the space goes</p>
-            <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+            <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {Object.entries(r.storage.byFolder).sort((a, b) => b[1].bytes - a[1].bytes).map(([f, v]) => row(FOLDERS[f] ?? f, size(v.bytes), `${v.files.toLocaleString()} files`))}
             </div>
           </div>
@@ -81,7 +81,7 @@ export default function CostsScreen() {
             <p className="text-pt-muted text-sm">Removes proof photos older than 6 months, and photos nothing in the app uses any more (only after 14 days). Photos any prop, booking, shoot or profile still uses are never touched. Removed files can be recovered for 7 days.</p>
             <p className="text-pt-text text-sm">{r.cleanup.wouldRemove ? `Ready to remove ${r.cleanup.wouldRemove} (${size(r.cleanup.wouldFreeBytes)}): ${r.cleanup.oldProof} old proof, ${r.cleanup.unused} unused.` : 'Nothing to remove right now.'}</p>
             {r.cleanup.lastRun && <p className="text-pt-muted text-xs">Last run {new Date(r.cleanup.lastRun.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}: removed {r.cleanup.lastRun.removed} ({size(r.cleanup.lastRun.freedBytes)}).</p>}
-            <button disabled={busy || !r.cleanup.wouldRemove} onClick={clean} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Cleaning up…' : 'Clean up now'}</button>
+            <button disabled={busy || !r.cleanup.wouldRemove} onClick={clean} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">{busy ? 'Cleaning up…' : 'Clean up now'}</button>
             {msg && <p className="text-pt-muted text-sm">{msg}</p>}
           </div>
           <p className="text-pt-muted text-xs">Prices are Google's list prices in US dollars; this region may differ a little. Hosting, backups and server functions cost cents and aren't listed.</p>

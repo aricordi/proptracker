@@ -32,15 +32,15 @@ export default function PersonHistoryScreen() {
   const tile = 'bg-pt-surface border border-pt-border rounded-2xl p-3'
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
         <h1 className="font-display text-xl text-pt-text truncate">{user?.name || email}</h1>
       </div>
 
-      <div className="p-4 space-y-5">
+      <div className="px-4 pt-4 pb-8 space-y-6">
         <div>
           <p className="text-pt-muted text-sm break-all">{email}</p>
-          {user && <p className="text-pt-accent text-sm">{ROLE_LABELS[user.role]}{!user.active && ' · access off'}</p>}
+          {user && <p className="text-pt-accent text-sm tap">{ROLE_LABELS[user.role]}{!user.active && ' · access off'}</p>}
         </div>
 
         {list === null ? <p className="text-pt-muted text-sm text-center">Loading…</p> : (
@@ -64,7 +64,7 @@ export default function PersonHistoryScreen() {
                 <p className="text-pt-muted text-xs uppercase tracking-wider">Damaged or missing</p>
                 {summary.incidents.map((i, n) => (
                   <button key={n} onClick={() => navigate(`/item/${i.line.itemId}`)}
-                    className="w-full text-left bg-pt-surface border border-pt-border rounded-xl px-3 py-2 active:opacity-75">
+                    className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-pt-text text-sm">
                         <b className="font-medium">{i.line.itemName}</b>{' '}
@@ -86,7 +86,7 @@ export default function PersonHistoryScreen() {
               {newestFirst.length === 0 && <p className="text-pt-muted text-sm">No bookings yet.</p>}
               {newestFirst.map(r => (
                 <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
-                  className="w-full text-left bg-pt-surface border border-pt-border rounded-xl px-3 py-2 active:opacity-75">
+                  className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-pt-text text-sm font-medium truncate">{r.title}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${lateNowIds.has(r.id) ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[r.status]}`}>

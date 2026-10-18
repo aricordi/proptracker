@@ -15,7 +15,7 @@ export default function SuggestionsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center gap-3 py-2">
           <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
           <h1 className="font-display text-xl text-pt-text">Suggested edits</h1>
@@ -23,7 +23,7 @@ export default function SuggestionsScreen() {
         <div className="flex gap-2">
           {([[true, 'To check'], [false, 'Done']] as const).map(([v, label]) => (
             <button key={label} onClick={() => setOpen(v)}
-              className={`px-3 py-1 rounded-full text-sm ${open === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
+              className={`px-3 py-1 rounded-full text-sm ${open === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{label}</button>
           ))}
         </div>
       </div>

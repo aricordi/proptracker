@@ -21,7 +21,7 @@ export default function NotAuthorizedScreen({ user }: Props) {
 
       <button
         onClick={() => signOut(auth)}
-        className="bg-pt-surface border border-pt-border text-pt-text px-5 py-3 rounded-2xl text-sm font-medium active:opacity-70"
+        className="bg-pt-surface shadow-hairline text-pt-text px-5 py-3 rounded-2xl text-sm font-medium active:opacity-70"
       >
         Sign out and try another account
       </button>

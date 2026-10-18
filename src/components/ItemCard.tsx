@@ -51,7 +51,7 @@ export default function ItemCard({ item, subtitle, badge: override, inCart, onAd
     <div className="relative w-full h-full">
     <button
       onClick={() => navigate(`/item/${item.id}`)}
-      className="w-full h-full flex flex-col text-left bg-pt-surface border border-pt-border rounded-2xl overflow-hidden active:opacity-75 transition-opacity"
+      className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden"
     >
       <div className="relative aspect-square bg-pt-border flex items-center justify-center">
         {item.photos[0]
@@ -65,20 +65,20 @@ export default function ItemCard({ item, subtitle, badge: override, inCart, onAd
           </span>
         )}
         {item.quantity > 1 && (
-          <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-1.5 py-0.5 rounded-md">
+          <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">
             ×{item.quantity}
           </span>
         )}
       </div>
-      <div className="px-2.5 py-2">
-        <p className="text-pt-text text-sm font-semibold leading-tight line-clamp-2">{item.name}</p>
+      <div className="px-3 pt-2 pb-3">
+        <p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{item.name}</p>
         {subtitle && <p className="text-pt-muted text-xs truncate mt-0.5">{subtitle}</p>}
       </div>
     </button>
     {onAdd && (
       <button onClick={onAdd} aria-label={inCart ? `Remove ${item.name}` : `Add ${item.name}`}
-        className={`absolute top-2 right-2 min-w-9 h-9 px-2 rounded-full grid place-items-center font-bold backdrop-blur-md border transition-colors ${
-          inCart ? 'pop bg-pt-accent text-stone-900 border-pt-accent text-sm' : 'bg-black/60 text-pt-text border-white/20 text-xl'}`}>
+        className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${
+          inCart ? 'pop bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>
         {inCart ? (item.quantity > 1 ? `✓ ${inCart}` : '✓') : '+'}
       </button>
     )}

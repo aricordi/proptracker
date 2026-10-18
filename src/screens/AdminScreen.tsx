@@ -35,14 +35,14 @@ export default function AdminScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
-        <h1 className="font-display text-3xl text-pt-text py-2">{shootFlow ? 'Team' : 'Admin'}</h1>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
+        <h1 className="font-display text-[34px] text-pt-text py-2">{shootFlow ? 'Team' : 'Admin'}</h1>
       </div>
       <div className="p-4">
-        <div className="bg-pt-surface border border-pt-border rounded-2xl divide-y divide-pt-border overflow-hidden">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
           {entries.map(e => (
             <button key={e.to} onClick={() => navigate(e.to)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-pt-bg">
+              className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-pt-bg">
               <div className="flex-1 min-w-0">
                 <p className="text-pt-text font-medium">{e.title}</p>
                 <p className="text-pt-muted text-xs mt-0.5">{e.detail}</p>

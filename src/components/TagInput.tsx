@@ -45,11 +45,11 @@ export default function TagInput({ value, onChange, suggestions }: Props) {
   return (
     <div className="relative">
       <div
-        className="min-h-12 bg-pt-bg border border-pt-border rounded-xl p-2 flex flex-wrap gap-1.5 cursor-text focus-within:border-pt-accent"
+        className="min-h-12 bg-pt-bg shadow-hairline rounded-xl p-2 flex flex-wrap gap-2 cursor-text focus-within:border-pt-accent"
         onClick={() => inputRef.current?.focus()}
       >
         {value.map(tag => (
-          <span key={tag} className="flex items-center gap-1 bg-pt-accent/20 text-pt-accent text-sm px-2.5 py-0.5 rounded-full">
+          <span key={tag} className="flex items-center gap-1 bg-pt-accent/20 text-pt-accent text-sm px-3 py-0.5 rounded-full">
             {tag}
             <button
               type="button"
@@ -73,13 +73,13 @@ export default function TagInput({ value, onChange, suggestions }: Props) {
       </div>
 
       {open && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-pt-surface border border-pt-border rounded-xl overflow-hidden z-20 shadow-xl">
+        <div className="absolute left-0 right-0 top-full mt-1 bg-pt-surface shadow-hairline rounded-xl overflow-hidden z-20 shadow-xl">
           {filtered.map(tag => (
             <button
               key={tag.id}
               type="button"
               onMouseDown={() => addTag(tag.label)}
-              className="w-full text-left px-4 py-2.5 text-sm text-pt-text active:bg-pt-border flex items-center justify-between"
+              className="w-full text-left px-4 py-3 text-sm text-pt-text active:bg-pt-border flex items-center justify-between"
             >
               <span>{tag.label}</span>
               <span className="text-pt-muted text-xs">{tag.usageCount}×</span>

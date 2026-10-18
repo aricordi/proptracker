@@ -79,7 +79,7 @@ export default function DuplicatesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
         <h1 className="font-display text-xl text-pt-text">Find duplicates</h1>
       </div>
@@ -88,7 +88,7 @@ export default function DuplicatesScreen() {
           Groups the Prime Capitol props that look alike. In each group, <b>tap the photos of the ones that are the same prop</b>,
           then merge them or flag them to be gathered into one bin. The others are released and can still match other props.
         </p>
-        <button onClick={scan} disabled={busy} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+        <button onClick={scan} disabled={busy} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {busy ? 'Comparing…' : pairs ? 'Check again' : 'Find duplicates'}
         </button>
         {info && <p className="text-pt-muted text-xs">{info}</p>}
@@ -100,7 +100,7 @@ export default function DuplicatesScreen() {
             ['later', pairs ? `Later (${laterList.length})` : 'Later'],
           ] as const).map(([v, label]) => (
             <button key={v} onClick={() => setView(v)}
-              className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>{label}</button>
+              className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{label}</button>
           ))}
         </div>
 
@@ -127,7 +127,7 @@ export default function DuplicatesScreen() {
                 </li>
               ))}
             </ul>
-            <button onClick={sendList} className="w-full py-2.5 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold">
+            <button onClick={sendList} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold shadow-gold">
               {copied ? 'Copied ✓ Paste it in a text or email' : 'Send this list to the team'}
             </button>
             <p className="text-pt-muted text-xs">When they're done, tap the bin each prop is in now on its card below, then "Copies".</p>
@@ -237,7 +237,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
     const on = selected.has(it.id), isKeeper = on && it.id === keeper?.id
     const v = verdicts[it.id]
     return (
-      <div key={it.id} className={`min-w-0 rounded-xl border-2 p-1.5 ${on ? 'border-pt-accent bg-pt-accent/5' : 'border-transparent'}`}>
+      <div key={it.id} className={`min-w-0 rounded-xl border-2 p-2 ${on ? 'border-pt-accent bg-pt-accent/5' : 'border-transparent'}`}>
         <div className="relative">
           {/* Tap the photo to tick it as "the same prop". The magnifier shows the whole photo. */}
           <button onClick={() => toggle(it.id)} className="block w-full" aria-label={on ? 'Untick' : 'Tick as the same prop'}>
@@ -265,9 +265,9 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
         {it.importedFrom?.fileName && <p className="text-pt-muted text-xs truncate" title={`${it.importedFrom.folder} / ${it.importedFrom.fileName}`}>📄 {it.importedFrom.fileName}</p>}
         {v && <p className={`text-xs ${v.same ? 'text-green-300' : 'text-amber-300'}`}>AI: {v.same ? 'same' : 'different'} ({v.confidence})</p>}
         <div className="flex gap-2 mt-0.5 items-center">
-          <button onClick={() => navigate(`/item/${it.id}`)} className="text-pt-accent text-xs">Open</button>
+          <button onClick={() => navigate(`/item/${it.id}`)} className="text-pt-accent text-xs tap">Open</button>
           {on && chosen.length > 1 && (isKeeper
-            ? <span className="text-pt-accent text-xs">★ Kept</span>
+            ? <span className="text-pt-accent text-xs tap">★ Kept</span>
             : <button onClick={() => setKeepId(it.id)} className="text-pt-muted text-xs underline">Keep this one</button>)}
         </div>
       </div>
@@ -286,22 +286,22 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
 
       {props.length > 1 && Object.keys(verdicts).length < props.length - 1 && (
         <button onClick={() => run('ai', askAi)} disabled={!!busy}
-          className="w-full py-2 rounded-xl border border-pt-border text-pt-text text-sm disabled:opacity-40">
+          className="w-full py-2 rounded-xl shadow-hairline text-pt-text text-sm disabled:opacity-40">
           {busy === 'ai' ? 'Asking AI…' : `Ask AI to compare the photos (${props.length - 1})`}
         </button>
       )}
       {error && <p className="text-red-300 text-xs">{error}</p>}
 
       {ready && split && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 space-y-1.5">
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 space-y-2">
           <p className="text-amber-200 text-sm">
             ⚠ The ticked ones are spread over {spread.length} spots ({spread.map(s => `${s.binId ? binLabel(s.binId) ?? '?' : 'no bin'} ×${s.qty}`).join(', ')}).
             {mode === 'check' ? ' Flag them to be gathered into one bin, or if they\'re already together, tap the bin they\'re in now:' : ' Once they\'re all in one bin, tap it:'}
           </p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {binChoices.map(id => (
               <button key={id} onClick={() => setBin(id)}
-                className={`px-3 py-1 rounded-lg text-sm ${chosenBin === id ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg border border-pt-border text-pt-text'}`}>{binLabel(id) ?? 'Unknown bin'}</button>
+                className={`px-3 py-1 rounded-lg text-sm ${chosenBin === id ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg shadow-hairline text-pt-text'}`}>{binLabel(id) ?? 'Unknown bin'}</button>
             ))}
           </div>
           {mode === 'check' && canMerge && (
@@ -333,7 +333,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
         {mode === 'check' ? (
           <>
             <button disabled={!!busy} onClick={() => run('later', () => setPairsLater(keys, !later))}
-              className="py-2 rounded-xl border border-pt-border text-pt-text text-sm disabled:opacity-40">
+              className="py-2 rounded-xl shadow-hairline text-pt-text text-sm disabled:opacity-40">
               {later ? '↩ Back to the list' : '⏸ Decide later'}
             </button>
             <button disabled={!!busy} onClick={() => run('no', async () => {

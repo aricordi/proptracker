@@ -225,7 +225,7 @@ export default function BinsScreen() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/locations')}
-            className="text-pt-muted text-sm px-3 py-2 rounded-xl border border-pt-border active:opacity-70"
+            className="text-pt-muted text-sm px-3 py-2 rounded-xl shadow-hairline active:opacity-70"
           >
             Locations
           </button>
@@ -246,7 +246,7 @@ export default function BinsScreen() {
           </p>
           <button
             onClick={() => navigate('/locations')}
-            className="bg-pt-accent text-stone-900 px-5 py-2.5 rounded-xl font-semibold text-sm active:opacity-80"
+            className="bg-pt-accent text-stone-900 px-5 py-3 rounded-xl font-semibold text-sm active:opacity-80 shadow-gold"
           >
             Add a Location
           </button>
@@ -271,7 +271,7 @@ export default function BinsScreen() {
               {groupBins.map(bin => (
                 <div
                   key={bin.id}
-                  className="flex items-center bg-pt-surface border border-pt-border rounded-2xl overflow-hidden"
+                  className="flex items-center bg-pt-surface shadow-hairline rounded-2xl overflow-hidden"
                 >
                   {/* Tap to view bin contents */}
                   <button
@@ -318,7 +318,7 @@ export default function BinsScreen() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-1.5">
+            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
               Label *
             </label>
             <input
@@ -332,7 +332,7 @@ export default function BinsScreen() {
           </div>
 
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-1.5">
+            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
               Location *
             </label>
             <select
@@ -353,7 +353,7 @@ export default function BinsScreen() {
           <button
             onClick={handleSave}
             disabled={!label.trim() || !locationId || saving}
-            className="w-full bg-pt-accent text-stone-900 py-3.5 rounded-xl font-semibold disabled:opacity-40 active:opacity-80"
+            className="w-full bg-pt-accent text-stone-900 py-4 rounded-xl font-semibold disabled:opacity-40 active:opacity-80 shadow-gold"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>
@@ -397,14 +397,14 @@ export default function BinsScreen() {
               <button
                 onClick={() => handleSaveImage(qrBin)}
                 disabled={!qrDataUrl}
-                className="flex-1 py-3.5 rounded-xl border border-pt-border text-pt-muted font-medium text-sm active:opacity-70 disabled:opacity-40"
+                className="flex-1 py-4 rounded-xl shadow-hairline text-pt-muted font-medium text-sm active:opacity-70 disabled:opacity-40"
               >
                 Save Image
               </button>
               <button
                 onClick={() => handlePrint(qrBin)}
                 disabled={!qrDataUrl}
-                className="flex-1 py-3.5 rounded-xl bg-pt-accent text-stone-900 font-semibold text-sm active:opacity-80 disabled:opacity-40"
+                className="flex-1 py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold text-sm active:opacity-80 disabled:opacity-40 shadow-gold"
               >
                 Print
               </button>

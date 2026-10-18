@@ -699,6 +699,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       importInfo for owner/arts, Copy button; the test also returns it), 3 paste Calendar ID, 4 "Save & test" (saves
       first; friendly errors for API off / not found / not shared), then "Bring in what's already in the calendar".
       Preview only until the owner says live. Next idea: a wider words-to-icons pass across screens (ask first).
+    - PREMIUM VISUAL LAYER (owner, Oct 18: "Apple-grade" upgrade, styling only, no logic changed; preview only):
+      tailwind tokens: shadow-hairline (0.5px inner light edge, replaces grey outline borders), shadow-card, shadow-float
+      (sheets), shadow-gold / shadow-violet (primary buttons, flat colour + top highlight instead of gradients),
+      ease-spring cubic-bezier(.32,.72,0,1), pt-raised, tracking-title/heading. index.css: every button/link animates
+      250ms on the spring curve, presses scale to .97, gold :focus-visible halo, input focus glow, hover only on
+      mouse devices, `.tap` (invisible 44px tap area for small text links), `.eyebrow`, sheet-up/fade-in/rise-in
+      keyframes, reduced-motion respected. Codemod (/tmp script, one-off): 135 outline borders → hairline, 35 header
+      underlines removed, dividers softened to white/6%, gradients → flat, large titles 34px, x.5 spacing → 4pt grid,
+      steppers + icon buttons 44px, 38 small links got `.tap`. BottomSheet springs up (28px corners, no title line),
+      ItemCard shadow-card + 44px quick-add, AddingToBar + "pick a day" no dashed outlines, back chevrons bigger,
+      page sections 24px apart. Kept on purpose: dashed amber "Held" slots and dashed to-do circles (they mean something).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

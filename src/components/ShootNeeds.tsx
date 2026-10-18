@@ -59,7 +59,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
           </p>
         </div>
         {mine && open && today <= by && (
-          <button onClick={() => add(to)} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-1.5 text-sm">+ Add</button>
+          <button onClick={() => add(to)} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm">+ Add</button>
         )}
       </div>
       {list.map(l => {
@@ -68,10 +68,10 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
         const over = ['cancelled', 'declined'].includes(l.status)
         return (
           <button key={l.id} onClick={() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`)}
-            className="w-full bg-pt-surface rounded-lg px-3 py-2.5 text-left space-y-2">
+            className="w-full bg-pt-surface rounded-lg px-3 py-3 text-left space-y-2">
             <span className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate text-pt-text text-sm">{l.title} · {l.count} {kind === 'props' ? (l.count === 1 ? 'prop' : 'props') : 'item' + (l.count === 1 ? '' : 's')}</span>
-              <span className={`shrink-0 text-xs ${over ? 'text-pt-muted' : 'text-pt-accent'}`}>{(kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
+              <span className={`shrink-0 text-xs ${over ? 'text-pt-muted' : 'text-pt-accent'} tap`}>{(kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
             </span>
             {!over && <span className="flex gap-1">{steps.map((_, i) => <i key={i} className={`flex-1 h-1.5 rounded-full ${i <= at ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>}
             {!over && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}

@@ -17,7 +17,33 @@
     color: #F5F5F7;
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern", "ss01";
+    line-height: 1.4;
   }
+
+  /* Every tap feels physical: a quick spring scale-down while pressed. */
+  button, a, [role="button"], summary {
+    transition-property: transform, opacity, background-color, color, box-shadow, border-color;
+    transition-duration: 250ms;
+    transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+    touch-action: manipulation;
+  }
+  button:not(:disabled):active, [role="button"]:active { transform: scale(0.97); }
+  button:disabled { cursor: default; }
+
+  /* Keyboard focus: a soft gold halo instead of the browser's default outline. */
+  :focus { outline: none; }
+  :focus-visible { outline: none; box-shadow: 0 0 0 2px #000, 0 0 0 4px rgba(201,169,97,0.7); }
+
+  input, textarea, select {
+    transition: border-color 250ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  input:focus, textarea:focus, select:focus { box-shadow: 0 0 0 4px rgba(201,169,97,0.14); }
+  ::placeholder { color: #6E6E73; }
+
+  /* Hover only where there is a mouse (no sticky hover on phones). */
+  @media (hover: hover) { button:not(:disabled):hover { filter: brightness(1.08); } }
 
   #root {
     /* Pinned to the whole screen. On iPhone home-screen apps "height: 100%" came out shorter
@@ -31,8 +57,10 @@
   /* Large titles, Apple style: bold, slightly tight. */
   .font-display {
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.026em;
+    line-height: 1.08;
   }
+  h2 { letter-spacing: -0.012em; }
 }
 
 @layer utilities {
@@ -51,7 +79,21 @@
   /* Sideways-scrolling rows (chips, "Your usuals") without a scrollbar. */
   .no-scrollbar { scrollbar-width: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
+  /* Bigger tap area for small text links, without changing how they look. */
+  .tap { position: relative; }
+  .tap::after { content: ""; position: absolute; inset: -10px -8px; }
+  /* Small-caps section labels (Apple "grouped list" headers). */
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8E8E93; }
 }
+
+/* Sheets slide up on a spring; the backdrop fades. */
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.sheet-up { animation: sheet-up 380ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.fade-in { animation: fade-in 250ms ease-out both; }
+/* Screens settle in instead of popping. */
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise-in { animation: rise-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 
 /* Opening screen (Splash): the eagle rises in, then the name. */
 @keyframes splash-rise { from { opacity: 0; transform: translateY(8px) scale(0.94); } to { opacity: 1; transform: none; } }
@@ -60,4 +102,7 @@
 /* Quick-add pop on a photo's + button. */
 @keyframes pop { 50% { transform: scale(1.2); } }
 .pop { animation: pop 0.35s; }
-@media (prefers-reduced-motion: reduce) { .splash-rise, .splash-rise-late, .pop { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .splash-rise, .splash-rise-late, .pop, .sheet-up, .fade-in, .rise-in { animation: none; }
+  button:active { transform: none !important; }
+}

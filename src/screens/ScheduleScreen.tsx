@@ -24,8 +24,8 @@ const DAYS_SHOWN = 35
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const stampLabel = (s: string) => `${formatDay(s.slice(0, 10))}, ${fmtTime(Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16)))}`
 const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30)
-const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40'
-const btnGrey = 'w-full bg-pt-border text-pt-text font-semibold rounded-xl py-3 disabled:opacity-40'
+const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 disabled:shadow-none'
+const btnGrey = 'w-full bg-pt-raised text-pt-text font-semibold rounded-[14px] py-3 min-h-[48px] shadow-hairline disabled:opacity-40'
 
 // Someone else's booked house slot (what a swap is asked for).
 interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number }
@@ -86,9 +86,9 @@ export default function ScheduleScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-8">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
         <div className="flex items-end justify-between py-2 gap-2">
-          <h1 className="font-display text-3xl text-pt-text">Schedule</h1>
+          <h1 className="font-display text-[34px] text-pt-text">Schedule</h1>
           <div className="flex gap-2 pb-0.5">
             {team && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
             {team && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
@@ -98,15 +98,15 @@ export default function ScheduleScreen() {
         <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
           {([...HOUSES, 'offsite'] as Place[]).map(h => (
             <button key={h} onClick={() => setHouse(h)}
-              className={`flex-1 py-1.5 rounded-[10px] text-sm ${house === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
+              className={`flex-1 py-2 rounded-[10px] text-sm ${house === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
               {h === 'offsite' ? 'Offsite' : s.houses[h].name}
             </button>
           ))}
         </div>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-2.5 pb-1 -mx-4 px-4">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pt-3 pb-1 -mx-4 px-4">
           {Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(today, i)).map(d => (
             <button key={d} onClick={() => setDate(d)}
-              className={`shrink-0 w-[52px] py-1.5 rounded-xl text-center border ${d === date ? 'border-pt-accent bg-pt-surface' : 'border-transparent bg-pt-surface'}`}>
+              className={`shrink-0 w-[52px] py-2 rounded-xl text-center border ${d === date ? 'border-pt-accent bg-pt-surface' : 'border-transparent bg-pt-surface'}`}>
               <span className="block text-[11px] text-pt-muted">{formatDay(d, { weekday: 'short' })}</span>
               <span className="block text-lg font-semibold text-pt-text leading-tight">{Number(d.slice(8))}</span>
               <span className={`block mx-auto mt-0.5 w-1 h-1 rounded-full ${myDays.has(d) ? 'bg-pt-accent' : 'bg-transparent'}`} />
@@ -115,8 +115,8 @@ export default function ScheduleScreen() {
         </div>
       </div>
 
-      <div className="px-4 pt-3 space-y-2">
-        {paused && <div className="rounded-xl px-3 py-2.5 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop and gear bookings paused until {formatDay(status!.pausedUntil!)}</b> because of {status!.strikes ?? 2} strikes (no-shows or reports). You can still book house slots. Ask the schedule team if this looks wrong.</div>}
+      <div className="px-4 pt-4 space-y-3">
+        {paused && <div className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop and gear bookings paused until {formatDay(status!.pausedUntil!)}</b> because of {status!.strikes ?? 2} strikes (no-shows or reports). You can still book house slots. Ask the schedule team if this looks wrong.</div>}
         {!paused && (status?.strikes ?? 0) > 0 && <div className="rounded-xl px-3 py-2 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">{status!.strikes} strike{status!.strikes === 1 ? '' : 's'} in the last {s.strikeDays} days. {s.strikeCount} pause your prop and gear bookings for {s.pauseDays} days.</div>}
         {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}
@@ -124,7 +124,7 @@ export default function ScheduleScreen() {
 
         {!team && next && date === today && (
           <button onClick={() => setSheet({ kind: 'shoot', id: next.id })}
-            className="w-full text-left rounded-2xl p-3.5 border border-pt-accent/40 bg-gradient-to-br from-pt-accent/20 to-pt-surface">
+            className="w-full text-left rounded-2xl p-4 bg-pt-accent/[0.12] shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.4)]">
             <span className="text-[11px] uppercase tracking-wider text-pt-accent font-semibold">{next.date === today ? 'Today' : 'Your next shoot'}</span>
             <p className="text-pt-text text-lg font-semibold">{next.date === today ? '' : `${formatDay(next.date)} · `}{fmtSlot(next.start, next.end - next.start)}</p>
             <p className="text-pt-muted text-sm">{next.place === 'offsite' ? next.where : `${s.houses[next.place].name} · ${s.houses[next.place].address}`}{mine!.length > 1 ? ` · ${mine!.length - 1} more coming up` : ''}</p>
@@ -132,9 +132,9 @@ export default function ScheduleScreen() {
         )}
 
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
-        <button onClick={() => setSheet({ kind: 'start' })} className={`${btnGold} py-3.5 text-[17px]`}>Book a shoot</button>
+        <button onClick={() => setSheet({ kind: 'start' })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
         <div className="flex items-center gap-3 pt-3 pb-1 text-pt-muted text-xs uppercase tracking-wider"><span className="h-px flex-1 bg-pt-border" />or let AI find a time<span className="h-px flex-1 bg-pt-border" /></div>
-        <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-3.5 rounded-[20px] text-left border border-[#BF9DFF]/30 bg-gradient-to-br from-[#BF9DFF]/15 to-[#BF9DFF]/[0.04] active:scale-[0.98] transition-transform">
+        <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
           <span className="w-10 h-10 rounded-xl grid place-items-center text-lg bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
           <span className="flex-1 min-w-0"><b className="block">Ask for a time</b><span className="text-pt-muted text-[13px]">"4 hours with Alex next week, evenings" · type or talk</span></span>
           <span className="w-9 h-9 rounded-full grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg></span>
@@ -142,11 +142,11 @@ export default function ScheduleScreen() {
 
         <div className="flex items-center justify-between gap-2 pt-6 mt-2 border-t border-pt-border">
           <p className="text-pt-text font-semibold">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })}{date === today ? ' · Today' : ''}</p>
-          {house !== 'offsite' && <button onClick={() => setSheet({ kind: 'find', house: house as House })} className="text-pt-accent text-sm shrink-0">Find a time</button>}
+          {house !== 'offsite' && <button onClick={() => setSheet({ kind: 'find', house: house as House })} className="text-pt-accent text-sm shrink-0 tap">Find a time</button>}
         </div>
         {house !== 'offsite' && <p className="text-pt-muted text-xs -mt-1">{s.houses[house].address}</p>}
         {notes.map((n, i) => (
-          <div key={i} className={`rounded-xl px-3 py-2.5 text-sm border ${n.tone === 'gold' ? 'border-pt-accent/50 bg-pt-accent/10 text-pt-text' : n.tone === 'info' ? 'border-sky-400/40 bg-sky-400/10 text-pt-text' : 'border-pt-border bg-pt-surface text-pt-muted'}`}>{n.text}</div>
+          <div key={i} className={`rounded-xl px-3 py-3 text-sm border ${n.tone === 'gold' ? 'border-pt-accent/50 bg-pt-accent/10 text-pt-text' : n.tone === 'info' ? 'border-sky-400/40 bg-sky-400/10 text-pt-text' : 'border-pt-border bg-pt-surface text-pt-muted'}`}>{n.text}</div>
         ))}
 
         {days === null && <p className="text-pt-muted text-sm text-center py-6">Loading…</p>}
@@ -180,7 +180,7 @@ export default function ScheduleScreen() {
           </div>
         )}
 
-        <button onClick={() => setSheet({ kind: 'calendar' })} className="!mt-8 w-full flex items-center gap-3 p-3.5 rounded-2xl bg-pt-surface border border-pt-border text-left">
+        <button onClick={() => setSheet({ kind: 'calendar' })} className="!mt-8 w-full flex items-center gap-3 p-4 rounded-2xl bg-pt-surface shadow-hairline text-left">
           <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-bg text-lg shrink-0">📅</span>
           <span className="flex-1 min-w-0 text-pt-text text-[15px] font-semibold">{team ? 'Schedule' : 'My shoots'} in my phone's calendar</span>
           <span className="text-pt-muted">›</span>
@@ -191,12 +191,12 @@ export default function ScheduleScreen() {
         <BottomSheet open onClose={() => setSheet(null)} title="Where are you shooting?">
           <div className="space-y-2">
             {HOUSES.map(h => (
-              <button key={h} onClick={() => { setHouse(h); setSheet({ kind: 'find', house: h }) }} className="w-full text-left bg-pt-bg rounded-xl p-3.5">
+              <button key={h} onClick={() => { setHouse(h); setSheet({ kind: 'find', house: h }) }} className="w-full text-left bg-pt-bg rounded-xl p-4">
                 <span className="block text-pt-text font-semibold">{s.houses[h].name}</span>
                 <span className="block text-pt-muted text-sm">{s.houses[h].address} · {s.slotMinutes / 60}-hour slots</span>
               </button>
             ))}
-            <button onClick={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: date }) }} className="w-full text-left bg-pt-bg rounded-xl p-3.5">
+            <button onClick={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: date }) }} className="w-full text-left bg-pt-bg rounded-xl p-4">
               <span className="block text-pt-text font-semibold">Somewhere else</span>
               <span className="block text-pt-muted text-sm">An offsite or location shoot · any hours</span>
             </button>
@@ -306,25 +306,25 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
       <p className="text-pt-muted text-sm">No house is held. It goes on the schedule so props, gear and the team know, and so it counts toward production.</p>
       <div className="space-y-3 mt-4">
         {team && !move && (
-          <label className="block"><span className="block text-pt-muted text-xs mb-1.5">Book for</span>
+          <label className="block"><span className="block text-pt-muted text-xs mb-2">Book for</span>
             <select value={forEmail} onChange={e => setForEmail(e.target.value)} className={field}>
               <option value="">Me</option>
               {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
             </select></label>
         )}
-        <label className="block"><span className="block text-pt-muted text-xs mb-1.5">Day</span>
+        <label className="block"><span className="block text-pt-muted text-xs mb-2">Day</span>
           <input type="date" value={day} min={today} onChange={e => e.target.value && setDay(e.target.value)} className={field} /></label>
         <div className="grid grid-cols-2 gap-2">
-          <label className="block"><span className="block text-pt-muted text-xs mb-1.5">From</span>
+          <label className="block"><span className="block text-pt-muted text-xs mb-2">From</span>
             <select value={start} onChange={e => { const v = Number(e.target.value); setStart(v); if (end <= v) setEnd(v + 120) }} className={field}>
               {HALF_HOURS.map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
             </select></label>
-          <label className="block"><span className="block text-pt-muted text-xs mb-1.5">Until</span>
+          <label className="block"><span className="block text-pt-muted text-xs mb-2">Until</span>
             <select value={end} onChange={e => setEnd(Number(e.target.value))} className={field}>
               {ends.map(t => <option key={t} value={t}>{fmtTime(t)}{t >= 1440 ? ' (next day)' : ''}</option>)}
             </select></label>
         </div>
-        <label className="block"><span className="block text-pt-muted text-xs mb-1.5">Where</span>
+        <label className="block"><span className="block text-pt-muted text-xs mb-2">Where</span>
           <input value={where} onChange={e => setWhere(e.target.value)} placeholder="An address, or paste a Maps link" className={field} /></label>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         <button disabled={busy || !where.trim()} onClick={save} className={btnGold}>{busy ? 'Saving…' : move ? 'Move it' : 'Add to the schedule'}</button>
@@ -354,14 +354,14 @@ function BookSheet({ house, date, start, team, mine, onClose, onBooked }: { hous
       <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes)}</p>
       <p className="text-pt-muted text-xs">{s.houses[h].address}</p>
       {team && (
-        <label className="block mt-4"><span className="block text-pt-muted text-xs mb-1.5">Book for</span>
+        <label className="block mt-4"><span className="block text-pt-muted text-xs mb-2">Book for</span>
           <select value={forEmail} onChange={e => setForEmail(e.target.value)} className={field}>
             <option value="">Me</option>
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
       )}
       {house === MONTHLY_HOUSE && (
-        <div className="mt-4"><span className="block text-pt-muted text-xs mb-1.5">Counts as</span>
+        <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Counts as</span>
           <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5">
             <button disabled={!team && left === 0} onClick={() => setKind('monthly')} className={`flex-1 py-2 rounded-[10px] text-sm disabled:opacity-40 ${kind === 'monthly' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
               Monthly slot{team && forEmail ? '' : ` (${left} left)`}</button>
@@ -369,9 +369,9 @@ function BookSheet({ house, date, start, team, mine, onClose, onBooked }: { hous
           </div>
         </div>
       )}
-      {isNoCrewDay(date) && <p className="mt-3 rounded-xl px-3 py-2.5 text-sm border border-sky-400/40 bg-sky-400/10 text-pt-text">Sunday: no crew. You run the shoot yourself.</p>}
+      {isNoCrewDay(date) && <p className="mt-3 rounded-xl px-3 py-3 text-sm border border-sky-400/40 bg-sky-400/10 text-pt-text">Sunday: no crew. You run the shoot yourself.</p>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
-      <button disabled={busy} onClick={book} className="mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Booking…' : 'Book it'}</button>
+      <button disabled={busy} onClick={book} className="mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">{busy ? 'Booking…' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">Confirmed instantly.</p>
     </BottomSheet>
   )
@@ -412,7 +412,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
             <p className="text-pt-text font-semibold">{formatDay(shoot.date, { weekday: 'long', month: 'short', day: 'numeric' })} · {fmtSlot(shoot.start, shoot.end - shoot.start)}</p>
             <p className="text-pt-muted text-sm">{where}</p>
             {!mine && profiles[shoot.creatorEmail]?.channel && <p className="text-pt-muted text-sm">{profiles[shoot.creatorEmail]!.channel}</p>}
-            <div className="flex gap-1.5 mt-2">
+            <div className="flex gap-2 mt-2">
               {shoot.status === 'cancelled' ? <Pill tone="taken">Cancelled</Pill> : <Pill tone="free">Booked</Pill>}
               <Pill tone="muted">{shoot.kind === 'monthly' ? 'Monthly slot' : shoot.kind === 'offsite' ? 'Offsite' : 'Extra slot'}</Pill>
             </div>
@@ -421,7 +421,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
         {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
         {shoot.status === 'booked' && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
         {mine && upcoming && short && !team && (
-          <p className="rounded-xl px-3 py-2.5 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
+          <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
             Less than {s.noticeHours} hours to go. You can still <b>swap</b> with someone; cancelling now counts as a no-show.
           </p>
         )}
@@ -433,7 +433,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
         )}
         <div>
           <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">History</p>
-          <ol className="bg-pt-bg rounded-xl divide-y divide-pt-border">
+          <ol className="bg-pt-bg rounded-xl divide-y divide-white/[0.06]">
             {shoot.history.map((h, i) => (
               <li key={i} className="px-3 py-2 text-sm"><span className="text-pt-muted text-xs block">{new Date(h.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
                 <span className="text-pt-text">{actionLabel[h.action] ?? h.action}{h.note ? ` · ${h.note}` : ''}</span></li>
@@ -481,7 +481,7 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
       <p className="text-pt-muted text-sm">Now: {formatDay(shoot.date)} · {s.houses[shoot.place as House].name} · {fmtSlot(shoot.start, shoot.end - shoot.start)}. You keep it until the new slot is yours.</p>
       <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 mt-3">
         {([...HOUSES, 'any'] as const).map(h => (
-          <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-1.5 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
+          <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-2 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
         ))}
       </div>
       {shoot.kind === 'monthly' && <p className="text-pt-muted text-xs mt-2">Stays a monthly slot at {s.houses.cliff1.name}; at {s.houses.cliff2.name} it becomes an extra slot.</p>}
@@ -492,7 +492,7 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
           <div key={`${r.date}${r.house}${r.start}`} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
             <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold">{formatDay(r.date)}</p>
               <p className="text-pt-muted text-xs">{s.houses[r.house].name} · {fmtSlot(r.start, s.slotMinutes)}{isNoCrewDay(r.date) ? ' · no crew' : ''}</p></div>
-            <button disabled={!!busy} onClick={() => go(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-1.5 text-sm disabled:opacity-40">{busy === `${r.date}${r.house}${r.start}` ? 'Moving…' : 'Move here'}</button>
+            <button disabled={!!busy} onClick={() => go(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm disabled:opacity-40">{busy === `${r.date}${r.house}${r.start}` ? 'Moving…' : 'Move here'}</button>
           </div>
         ))}
       </div>
@@ -528,7 +528,7 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
     <div key={key} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
       {who}
       <p className="flex-1 min-w-0 text-pt-text text-sm">{line}</p>
-      <button disabled={!!busy} onClick={onAsk} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-1.5 text-sm disabled:opacity-40">Ask</button>
+      <button disabled={!!busy} onClick={onAsk} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm disabled:opacity-40">Ask</button>
     </div>
   )
   return (
@@ -570,7 +570,7 @@ function SwapAsk({ r, incoming = false }: { r: SwapRequest; incoming?: boolean }
     try { await answerSwap({ id: r.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
-    <div className="rounded-2xl p-3.5 border border-pt-accent/50 bg-pt-accent/10 space-y-2">
+    <div className="rounded-2xl p-4 border border-pt-accent/50 bg-pt-accent/10 space-y-2">
       <div className="flex items-center gap-3">
         <Avatar email={incoming ? r.fromEmail : r.toEmail} name={incoming ? r.fromName : r.toName} />
         <p className="text-pt-text text-sm flex-1 min-w-0">
@@ -602,8 +602,8 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
   return (
     <BottomSheet open onClose={onClose} title="Book or block">
       <p className="text-pt-muted text-sm">{formatDay(date)} · {s.houses[house].name} · {fmtSlot(start, s.slotMinutes)}</p>
-      <button onClick={onBook} className="mt-4 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3">Book this slot…</button>
-      <div className="mt-5 border-t border-pt-border pt-4 space-y-2.5">
+      <button onClick={onBook} className="mt-4 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Book this slot…</button>
+      <div className="mt-5 border-t border-pt-border pt-4 space-y-3">
         <p className="text-pt-text font-semibold">Or block it</p>
         <p className="text-pt-muted text-sm">Cleaners, maintenance, events, external rentals: anything that affects filming. Nobody can book blocked time.</p>
         <select value={type} onChange={e => setType(e.target.value as BlockType)} className={field}>
@@ -648,12 +648,12 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick }: {
       <p className="text-pt-muted text-sm">The next free slots from {formatDay(from)}. Filming with someone? Pick 4 hours so you can both book back to back.</p>
       <div className="flex gap-2 mt-3">
         {[1, 2, 3].map(n => (
-          <button key={n} onClick={() => setCount(n)} className={`px-3 py-1.5 rounded-full text-sm border ${count === n ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{n * s.slotMinutes / 60} hours</button>
+          <button key={n} onClick={() => setCount(n)} className={`px-3 py-2 rounded-full text-sm border ${count === n ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{n * s.slotMinutes / 60} hours</button>
         ))}
       </div>
       <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 mt-3">
         {([...HOUSES, 'any'] as const).map(h => (
-          <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-1.5 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
+          <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-2 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
         ))}
       </div>
       {count > 1 && <p className="text-pt-muted text-xs mt-3">You book your own {s.slotMinutes / 60} hours; whoever films with you books the slot right after.</p>}
@@ -663,7 +663,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick }: {
           <div key={`${r.date}${r.house}${r.start}`} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
             <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold">{formatDay(r.date)}</p>
               <p className="text-pt-muted text-xs">{s.houses[r.house].name} · {fmtSlot(r.start, count * s.slotMinutes)}{isNoCrewDay(r.date) ? ' · no crew' : ''}</p></div>
-            <button onClick={() => onPick(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-1.5 text-sm">{team ? 'Open' : 'Book'}</button>
+            <button onClick={() => onPick(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm">{team ? 'Open' : 'Book'}</button>
           </div>
         ))}
       </div>
@@ -738,9 +738,9 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
           {prevOther && (
             <div className="space-y-2">
               <p className="text-pt-muted text-sm">The slot before you: <b className="text-pt-text">{prevOther.name}</b>. Anything wrong? The team reviews every report.</p>
-              <div className="flex flex-wrap gap-1.5">
-                <button onClick={() => setOver(over ? 0 : 15)} className={`px-3 py-1.5 rounded-full text-sm border ${over ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-surface text-pt-text'}`}>Ran over into my time</button>
-                <button onClick={() => setMess(!mess)} className={`px-3 py-1.5 rounded-full text-sm border ${mess ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-surface text-pt-text'}`}>House left a mess</button>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => setOver(over ? 0 : 15)} className={`px-3 py-2 rounded-full text-sm border ${over ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-surface text-pt-text'}`}>Ran over into my time</button>
+                <button onClick={() => setMess(!mess)} className={`px-3 py-2 rounded-full text-sm border ${mess ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-surface text-pt-text'}`}>House left a mess</button>
               </div>
               {over > 0 && <select value={over} onChange={e => setOver(Number(e.target.value))} className={field}>{[10, 15, 20, 30, 45, 60, 90].map(m => <option key={m} value={m}>They left {m} minutes late</option>)}</select>}
               {mess && <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={messPhotos} onChange={setMessPhotos} onUploading={setUploading} label="Photos of the mess" max={5} />}
@@ -804,13 +804,13 @@ function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string }) {
     try { await answerInvite({ id: inv.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
-    <div className="rounded-2xl p-3.5 border border-amber-400/40 bg-amber-400/10 space-y-2">
+    <div className="rounded-2xl p-4 border border-amber-400/40 bg-amber-400/10 space-y-2">
       <p className="text-pt-text text-[15px]"><b>{inv.fromName}</b> invited you to film right after them: <b>{formatDay(inv.date)} · {s.houses[inv.place].name} · {fmtSlot(inv.start, inv.end - inv.start)}</b>.</p>
       <p className="text-amber-200 text-sm">Held for you until {until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` (${formatDay(inv.until.slice(0, 10))})` : ''}.</p>
       {err && <p className="text-red-300 text-sm">{err}</p>}
       <div className="flex gap-2">
-        <button disabled={busy} onClick={() => answer(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2.5 disabled:opacity-40">Can't make it</button>
-        <button disabled={busy} onClick={() => answer(true)} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-2.5 disabled:opacity-40">Confirm my slot</button>
+        <button disabled={busy} onClick={() => answer(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3 disabled:opacity-40">Can't make it</button>
+        <button disabled={busy} onClick={() => answer(true)} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">Confirm my slot</button>
       </div>
     </div>
   )

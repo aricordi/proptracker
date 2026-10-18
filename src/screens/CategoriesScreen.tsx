@@ -50,24 +50,24 @@ export default function CategoriesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between border-b border-pt-border">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-pt-text text-base font-medium active:text-pt-muted py-1">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
           </svg>
           Back
         </button>
         <h1 className="font-display text-xl text-pt-text">Categories</h1>
-        <button onClick={() => open('new')} className="text-pt-accent text-sm font-medium active:opacity-70 py-1">Add</button>
+        <button onClick={() => open('new')} className="text-pt-accent text-sm font-medium active:opacity-70 py-1 tap">Add</button>
       </div>
 
       <div className="p-4 space-y-3">
         <p className="text-pt-muted text-sm">
           Every prop belongs to one category. Hidden categories stay on existing props but can't be picked for new ones.
         </p>
-        <div className="bg-pt-surface border border-pt-border rounded-2xl divide-y divide-pt-border overflow-hidden">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
           {categories.map((c, i) => (
-            <div key={c.id} className="flex items-center gap-2 px-3 py-2.5">
+            <div key={c.id} className="flex items-center gap-2 px-3 py-3">
               <div className="flex flex-col">
                 <button aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)} className="text-pt-muted disabled:opacity-20 px-1 leading-none">▲</button>
                 <button aria-label="Move down" disabled={i === categories.length - 1} onClick={() => move(i, 1)} className="text-pt-muted disabled:opacity-20 px-1 leading-none">▼</button>
@@ -92,14 +92,14 @@ export default function CategoriesScreen() {
             onClick={() => run(() => editing === 'new'
               ? addCategory(label, (categories[categories.length - 1]?.order ?? -1) + 1)
               : updateCategory((editing as Category).id, { label: label.trim() }))}
-            className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 active:opacity-80"
+            className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 active:opacity-80 shadow-gold"
           >
             {busy ? 'Saving…' : 'Save'}
           </button>
           {editing && editing !== 'new' && (
             <button disabled={busy}
               onClick={() => run(() => updateCategory(editing.id, { active: !editing.active }))}
-              className="w-full py-3 rounded-xl bg-pt-bg border border-pt-border text-pt-text text-sm font-medium active:opacity-70">
+              className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70">
               {editing.active ? 'Hide this category' : 'Show this category again'}
             </button>
           )}

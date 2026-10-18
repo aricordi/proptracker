@@ -36,10 +36,10 @@ export default function GearBookingsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-end justify-between py-2">
           {role !== 'equipment' && <button onClick={() => navigate('/gear')} className="text-pt-accent text-[17px] pb-1 mr-2">‹</button>}
-          <h1 className="font-display text-3xl text-pt-text flex-1">{isGearStaff ? 'Gear queue' : 'My gear bookings'}</h1>
+          <h1 className="font-display text-[34px] text-pt-text flex-1">{isGearStaff ? 'Gear queue' : 'My gear bookings'}</h1>
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {tabs.map(([v, l]) => (
@@ -56,7 +56,7 @@ export default function GearBookingsScreen() {
           const pickupToday = b.status === 'held' && b.pickupDay === today
           return (
             <button key={b.id} onClick={() => navigate(`/gear/bookings/${b.id}`)}
-              className={`w-full text-left bg-pt-surface rounded-2xl p-3.5 space-y-1 active:opacity-80 ${late ? 'ring-1 ring-red-400/60' : ''}`}>
+              className={`w-full text-left bg-pt-surface rounded-2xl p-4 space-y-1 active:opacity-80 ${late ? 'ring-1 ring-red-400/60' : ''}`}>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-pt-text font-semibold truncate">{b.title}</p>
                 <div className="flex gap-1 shrink-0">

@@ -85,17 +85,17 @@ export default function LocationsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 border-b border-pt-border flex items-center justify-between">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-pt-text text-base font-medium active:text-pt-muted py-2"
+          className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-2"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Back
         </button>
-        <h1 className="font-display text-3xl text-pt-text py-2">Locations</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2">Locations</h1>
         <button
           onClick={openAdd}
           className="bg-pt-accent text-stone-900 px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80"
@@ -115,7 +115,7 @@ export default function LocationsScreen() {
             <button
               key={loc.id}
               onClick={() => openEdit(loc)}
-              className="w-full text-left bg-pt-surface border border-pt-border rounded-2xl p-4 active:opacity-75 transition-opacity"
+              className="w-full text-left bg-pt-surface shadow-hairline rounded-2xl p-4 active:opacity-75 transition-opacity"
             >
               <div className="font-medium text-pt-text">{loc.name}</div>
               {loc.notes && (
@@ -133,7 +133,7 @@ export default function LocationsScreen() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-1.5">
+            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
               Name *
             </label>
             <input
@@ -147,7 +147,7 @@ export default function LocationsScreen() {
           </div>
 
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-1.5">
+            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
               Notes (optional)
             </label>
             <input
@@ -165,7 +165,7 @@ export default function LocationsScreen() {
           <button
             onClick={handleSave}
             disabled={!name.trim() || saving}
-            className="w-full bg-pt-accent text-stone-900 py-3.5 rounded-xl font-semibold disabled:opacity-40 active:opacity-80"
+            className="w-full bg-pt-accent text-stone-900 py-4 rounded-xl font-semibold disabled:opacity-40 active:opacity-80 shadow-gold"
           >
             {saving ? 'Saving…' : 'Save'}
           </button>

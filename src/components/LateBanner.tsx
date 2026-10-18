@@ -16,7 +16,7 @@ export default function LateBanner({ late }: { late: Reservation[] }) {
         <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
           className="w-full text-left flex items-center justify-between gap-2 bg-pt-bg/60 rounded-xl px-3 py-2">
           <span className="text-pt-text text-sm truncate">{r.title} · {formatDay(r.endDate, { month: 'short', day: 'numeric' })}</span>
-          <span className="text-pt-accent text-sm shrink-0">Return ›</span>
+          <span className="text-pt-accent text-sm shrink-0 tap">Return ›</span>
         </button>
       ))}
     </div>

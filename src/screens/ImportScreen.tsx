@@ -104,28 +104,28 @@ export default function ImportScreen() {
   const pct = Math.min(100, (budget.spentUsd / Math.max(budget.capUsd, 0.0001)) * 100)
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
         <h1 className="font-display text-xl text-pt-text">Import props</h1>
       </div>
-      <div className="p-4 space-y-4">
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-2">
+      <div className="px-4 pt-4 pb-8 space-y-6">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-pt-text font-medium">AI spending</p>
-            {isOwner && <button onClick={changeCap} className="text-pt-accent text-sm">Change cap</button>}
+            {isOwner && <button onClick={changeCap} className="text-pt-accent text-sm tap">Change cap</button>}
           </div>
           <div className="h-2 rounded-full bg-pt-bg overflow-hidden"><div className="h-full bg-pt-accent" style={{ width: `${pct}%` }} /></div>
           <p className="text-pt-muted text-sm">{usd(budget.spentUsd)} of {usd(budget.capUsd)} cap. About $0.002 a photo; the import stops by itself at the cap.</p>
         </div>
 
         {isOwner && (
-          <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
             <p className="text-pt-text font-medium">Add photos from Google Drive</p>
             <ol className="text-pt-muted text-sm list-decimal pl-5 space-y-1">
               <li>In Google Drive, share each folder (or one folder that holds them all) with this address as <b>Viewer</b>:</li>
             </ol>
             {account ? (
-              <button onClick={() => navigator.clipboard?.writeText(account)} className="w-full text-left bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm break-all">
+              <button onClick={() => navigator.clipboard?.writeText(account)} className="w-full text-left bg-pt-bg shadow-hairline rounded-xl px-3 py-2 text-pt-text text-sm break-all">
                 {account} <span className="text-pt-accent">· copy</span>
               </button>
             ) : <p className="text-pt-muted text-sm">Loading the address…</p>}
@@ -137,7 +137,7 @@ export default function ImportScreen() {
               className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => start(true)} disabled={busy || !!running || !links.trim()}
-                className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">Dry run (10)</button>
+                className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Dry run (10)</button>
               <button onClick={() => window.confirm('Import every photo in these folders? Photos already imported are skipped.') && start(false)}
                 disabled={busy || !!running || !links.trim()}
                 className="py-3 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent font-semibold disabled:opacity-40">Import all</button>
@@ -162,7 +162,7 @@ export default function ImportScreen() {
             const c = j.counts
             const done = c.analyzed + c.approved + c.skipped + c.failed
             return (
-              <div key={j.id} className="bg-pt-surface border border-pt-border rounded-2xl p-3 space-y-2">
+              <div key={j.id} className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-pt-text text-sm font-medium truncate">{j.folders.map(f => f.name).join(', ')}</p>
@@ -181,15 +181,15 @@ export default function ImportScreen() {
                   {c.failed > 0 && <span className="text-red-300"> · {c.failed} failed</span>}
                 </p>
                 <div className="flex gap-2 flex-wrap">
-                  <button onClick={() => navigate(`/import/${j.id}`)} className="px-3 py-1.5 rounded-lg bg-pt-accent text-stone-900 text-sm font-medium">Review ({c.analyzed})</button>
+                  <button onClick={() => navigate(`/import/${j.id}`)} className="px-3 py-2 rounded-lg bg-pt-accent text-stone-900 text-sm font-medium">Review ({c.analyzed})</button>
                   {isOwner && c.pending > 0 && running !== j.id && (
-                    <button onClick={() => run(j.id)} disabled={!!running} className="px-3 py-1.5 rounded-lg border border-pt-border text-pt-text text-sm disabled:opacity-40">Continue ({c.pending} left)</button>
+                    <button onClick={() => run(j.id)} disabled={!!running} className="px-3 py-2 rounded-lg shadow-hairline text-pt-text text-sm disabled:opacity-40">Continue ({c.pending} left)</button>
                   )}
                   {isOwner && c.failed > 0 && !running && (
-                    <button onClick={() => run(j.id, true)} className="px-3 py-1.5 rounded-lg border border-pt-border text-pt-text text-sm">Try failed again</button>
+                    <button onClick={() => run(j.id, true)} className="px-3 py-2 rounded-lg shadow-hairline text-pt-text text-sm">Try failed again</button>
                   )}
                   {isOwner && !running && (
-                    <button onClick={() => undo(j)} className="px-3 py-1.5 rounded-lg text-red-400 text-sm ml-auto">Undo this import</button>
+                    <button onClick={() => undo(j)} className="px-3 py-2 rounded-lg text-red-400 text-sm ml-auto">Undo this import</button>
                   )}
                 </div>
               </div>

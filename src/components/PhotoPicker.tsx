@@ -44,7 +44,7 @@ export default function PhotoPicker({ photos, onAdd, onRemove, onMakeCover, max 
     <div>
       <div className="grid grid-cols-3 gap-2">
         {photos.map((p, i) => (
-          <div key={p.key} className="relative aspect-square rounded-xl overflow-hidden bg-pt-surface border border-pt-border">
+          <div key={p.key} className="relative aspect-square rounded-xl overflow-hidden bg-pt-surface shadow-hairline">
             <img src={p.preview} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
             {p.url === null && !p.failed && (
               <div className="absolute inset-x-0 bottom-0 h-1 bg-black/40">
@@ -57,9 +57,9 @@ export default function PhotoPicker({ photos, onAdd, onRemove, onMakeCover, max 
               </div>
             )}
             {i === 0
-              ? <span className="absolute top-1 left-1 bg-pt-accent text-stone-900 text-[10px] font-semibold px-1.5 py-0.5 rounded">Cover</span>
+              ? <span className="absolute top-1 left-1 bg-pt-accent text-stone-900 text-[10px] font-semibold px-2 py-0.5 rounded">Cover</span>
               : <button type="button" onClick={() => onMakeCover(p.key)}
-                  className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded active:opacity-70">
+                  className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded active:opacity-70">
                   Make cover
                 </button>
             }

@@ -67,12 +67,12 @@ export default function BookingRulesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3 border-b border-pt-border">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
         <h1 className="font-display text-xl text-pt-text">Booking rules</h1>
       </div>
-      <div className="p-4 space-y-4">
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+      <div className="px-4 pt-4 pb-8 space-y-6">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           <div>
             <p className="text-pt-text font-medium">Days the prop room is closed</p>
             <p className="text-pt-muted text-sm">
@@ -86,7 +86,7 @@ export default function BookingRulesScreen() {
               return (
                 <button key={w} aria-pressed={off}
                   onClick={() => { setWeekdaysOff(o => off ? o.filter(x => x !== i) : o.length >= 6 ? o : [...o, i]); touch() }}
-                  className={`py-2 rounded-xl text-xs font-medium ${off ? 'bg-red-500/25 text-red-200 border border-red-500/40' : 'bg-pt-bg border border-pt-border text-pt-text'}`}>
+                  className={`py-2 rounded-xl text-xs font-medium ${off ? 'bg-red-500/25 text-red-200 border border-red-500/40' : 'bg-pt-bg shadow-hairline text-pt-text'}`}>
                   {w}
                 </button>
               )
@@ -100,19 +100,19 @@ export default function BookingRulesScreen() {
             <div key={d} className="flex items-center justify-between gap-3">
               <span className="text-pt-text text-sm">{formatDay(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
               <button onClick={() => { setDatesOff(o => o.filter(x => x !== d)); touch() }}
-                className="px-3 py-1.5 rounded-lg border border-pt-border text-pt-text text-xs">Remove</button>
+                className="px-3 py-2 rounded-lg shadow-hairline text-pt-text text-xs">Remove</button>
             </div>
           ))}
           <div className="flex gap-2">
             <input type="date" value={newDate} min={today} onChange={e => setNewDate(e.target.value)} aria-label="Closed date"
-              className="flex-1 min-w-0 min-h-[2.75rem] bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text [color-scheme:dark]" />
+              className="flex-1 min-w-0 min-h-[2.75rem] bg-pt-bg shadow-hairline rounded-xl px-3 py-2 text-pt-text [color-scheme:dark]" />
             <button disabled={!newDate || newDate < today || datesOff.includes(newDate)}
               onClick={() => { setDatesOff(o => [...o, newDate]); setNewDate(''); touch() }}
               className="px-4 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium disabled:opacity-40">Add</button>
           </div>
         </div>
 
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-2">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-2">
           <p className="text-pt-text font-medium">Notice needed</p>
           <p className="text-pt-muted text-sm">Creators must ask at least this many open days before the shoot day. The arts department can always book sooner.</p>
           <label className="flex items-center gap-3">
@@ -127,7 +127,7 @@ export default function BookingRulesScreen() {
           </label>
         </div>
 
-        <div className="bg-pt-surface border border-pt-border rounded-2xl p-4 space-y-3">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           <div>
             <p className="text-pt-text font-medium">Turnaround</p>
             <p className="text-pt-muted text-sm">
@@ -159,7 +159,7 @@ export default function BookingRulesScreen() {
 
         {!valid && <p className="text-amber-400 text-sm">Notice can be 0–60 days; turnaround 0–30 days.</p>}
         <button onClick={save} disabled={!valid || !changed || state === 'busy'}
-          className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {state === 'busy' ? 'Saving…' : state === 'saved' && !changed ? 'Saved ✓' : 'Save'}
         </button>
         {state === 'error' && <p className="text-red-400 text-sm">Couldn't save. Try again.</p>}

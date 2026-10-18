@@ -67,7 +67,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
 
   let lastDay = ''
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {shown.map(a => {
         const day = a.at.slice(0, 10)
         const header = day !== lastDay ? (lastDay = day) : null
@@ -83,7 +83,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
         return (
           <div key={a.id}>
             {header && <p className="text-pt-muted text-xs uppercase tracking-wider pt-3 pb-1">{formatDay(day)}</p>}
-            <button onClick={() => go && navigate(go)} className="w-full text-left bg-pt-surface border border-pt-border rounded-xl px-3 py-2 active:opacity-75">
+            <button onClick={() => go && navigate(go)} className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">
               <div className="flex gap-2">
                 <span className="shrink-0">{ICONS[a.action] ?? '•'}</span>
                 <div className="min-w-0 flex-1">
@@ -102,7 +102,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
         )
       })}
       {shown.length >= max && (
-        <button onClick={() => setMax(m => m + pageSize)} className="w-full py-2.5 text-pt-accent text-sm">Show more</button>
+        <button onClick={() => setMax(m => m + pageSize)} className="w-full py-3 text-pt-accent text-sm">Show more</button>
       )}
     </div>
   )

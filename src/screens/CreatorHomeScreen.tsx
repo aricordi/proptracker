@@ -101,7 +101,7 @@ export default function CreatorHomeScreen() {
 
   // A step on the next-shoot card: done (✓) or still to add (+, with the cutoff).
   const step = (title: string, done: boolean, doneText: string, by: string) => (
-    <div className="bg-black/35 rounded-2xl p-2.5 flex flex-col gap-1 min-w-0">
+    <div className="bg-black/35 rounded-2xl p-3 flex flex-col gap-1 min-w-0">
       <span className={`w-[26px] h-[26px] rounded-full grid place-items-center text-sm font-extrabold ${done ? 'bg-pt-accent text-stone-900' : 'border-2 border-dashed border-pt-accent text-pt-accent'}`}>{done ? '✓' : '+'}</span>
       <b className="text-sm">{title}</b>
       <span className="text-xs text-pt-muted truncate">{done ? doneText : today > by ? 'Too late' : by === today ? 'By today' : `By ${formatDay(by)}`}</span>
@@ -113,7 +113,7 @@ export default function CreatorHomeScreen() {
       <div className="pt-safe px-5">
         <div className="flex items-center justify-between py-3">
           <span className="flex items-center gap-2 text-pt-text"><BrandMark className="w-9" title="Prime Capitol" /><b className="text-xs font-extrabold tracking-[0.28em]">PRIME CAPITOL</b></span>
-          <span className="flex items-center gap-2.5">
+          <span className="flex items-center gap-3">
             <RoundIcon icon="help" label="Help" to="/help" />
             <button onClick={() => navigate('/account')} aria-label="Me"><Avatar email={profile.email} name={profile.name || profile.email} size={34} /></button>
           </span>
@@ -138,7 +138,7 @@ export default function CreatorHomeScreen() {
             <BrandMark className="absolute -right-10 top-4 w-56 text-white/[0.06] pointer-events-none" title="" />
             <span className="relative flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#EBD399]">Next shoot</span>
-              <span className="text-xs font-semibold rounded-full px-3 py-1.5 bg-pt-accent/20 text-[#EBD399]">{inDays(next.date, today)}</span>
+              <span className="text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/20 text-[#EBD399]">{inDays(next.date, today)}</span>
             </span>
             <span className="relative block font-display text-[44px] leading-[0.95] font-extrabold tracking-tighter mt-2">{formatDay(next.date, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
             <span className="relative block text-[17px] font-semibold mt-1">{next.place === 'offsite' ? (next.where || 'Offsite') : s.houses[next.place].name} · {fmtSlot(next.start, next.end - next.start)}</span>
@@ -147,7 +147,7 @@ export default function CreatorHomeScreen() {
               {step('Props', !!linked[next.id]?.props, 'Requested', cutoffs(next).props)}
               {step('Gear', !!linked[next.id]?.gear, 'Held', cutoffs(next).gear)}
             </span>
-            <span className="relative block w-full text-center rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-gradient-to-b from-[#EBD399] to-pt-accent shadow-[0_8px_24px_rgba(201,169,97,.22)]">
+            <span className="relative block w-full text-center rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">
               {next.checkin ? 'Checked in ✓' : win === 'open' ? 'Check in' : 'Open this shoot'}
             </span>
           </button>
@@ -155,13 +155,13 @@ export default function CreatorHomeScreen() {
           <div className="bg-pt-surface rounded-[28px] p-5 text-center space-y-3">
             <p className="text-pt-text text-lg font-semibold">No shoots booked</p>
             <p className="text-pt-muted text-sm">Book a time at Cliff 1, Cliff 2 or somewhere else, then add props and gear to it.</p>
-            <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-3.5 font-bold text-stone-900 bg-gradient-to-b from-[#EBD399] to-pt-accent">Book a shoot</button>
+            <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Book a shoot</button>
           </div>
         )}
 
         {/* Search */}
-        <div className="flex items-center gap-2 bg-pt-surface rounded-[14px] pl-3.5 pr-2 py-2">
-          <button onClick={() => navigate('/browse?focus=1')} className="flex-1 flex items-center gap-2.5 py-1.5 text-pt-muted text-left min-w-0">
+        <div className="flex items-center gap-2 bg-pt-surface rounded-[14px] pl-4 pr-2 py-2">
+          <button onClick={() => navigate('/browse?focus=1')} className="flex-1 flex items-center gap-3 py-2 text-pt-muted text-left min-w-0">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="shrink-0"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
             <span className="truncate">Search props, costumes, gear</span>
           </button>
@@ -173,13 +173,13 @@ export default function CreatorHomeScreen() {
       {/* Your usuals */}
       {usuals.length > 0 && (
         <section className="mt-6">
-          <div className="flex items-baseline justify-between px-5 mb-2.5"><h2 className="text-xl font-bold tracking-tight">Your usuals</h2><span className="text-pt-muted text-[13px]">What you book most</span></div>
-          <div className="flex gap-2.5 overflow-x-auto px-5 no-scrollbar">
+          <div className="flex items-baseline justify-between px-5 mb-3"><h2 className="text-xl font-bold tracking-tight">Your usuals</h2><span className="text-pt-muted text-[13px]">What you book most</span></div>
+          <div className="flex gap-3 overflow-x-auto px-5 no-scrollbar">
             {usuals.map(u => (
               <button key={u.key} onClick={() => navigate(u.to)} className="shrink-0 w-32 bg-pt-surface rounded-[18px] overflow-hidden text-left active:opacity-80">
                 {u.gear ? <GearArt photo={u.gear.photos?.[0]} category={u.gear.category} className="w-full aspect-square" />
                   : u.photo ? <img src={u.photo} alt="" className="w-full aspect-square object-cover" loading="lazy" /> : <span className="block w-full aspect-square bg-pt-border" />}
-                <span className="block px-2.5 py-2 text-sm font-semibold leading-tight line-clamp-2">{u.name}</span>
+                <span className="block px-3 py-2 text-sm font-semibold leading-tight line-clamp-2">{u.name}</span>
               </button>
             ))}
           </div>
@@ -188,14 +188,14 @@ export default function CreatorHomeScreen() {
 
       <div className="px-5 mt-6 space-y-6">
         {/* Monthly slots + streak */}
-        <div className="grid grid-cols-2 gap-2.5">
-          <button onClick={() => navigate('/schedule')} className="bg-pt-surface rounded-[20px] p-3.5 flex flex-col gap-2 text-left">
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => navigate('/schedule')} className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2 text-left">
             <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">Monthly slots</span>
             <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{monthlyLeft} left</span>
-            <span className="flex gap-1.5">{Array.from({ length: s.monthlySlots }, (_, i) => <i key={i} className={`flex-1 h-2 rounded ${i < monthlyUsed ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>
+            <span className="flex gap-2">{Array.from({ length: s.monthlySlots }, (_, i) => <i key={i} className={`flex-1 h-2 rounded ${i < monthlyUsed ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>
             <span className="text-pt-muted text-[13px]">at {s.houses.cliff1.name} this month</span>
           </button>
-          <div className="bg-pt-surface rounded-[20px] p-3.5 flex flex-col gap-2">
+          <div className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">Streak</span>
             <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{streak} 🔥</span>
             <span className="text-pt-muted text-[13px]">{streak === 1 ? 'shoot' : 'shoots'} filmed in a row{status?.strikes ? ` · ${status.strikes} strike${status.strikes > 1 ? 's' : ''}` : '. No strikes.'}</span>
@@ -204,13 +204,13 @@ export default function CreatorHomeScreen() {
 
         {/* To do */}
         {todo.length > 0 && (
-          <section className="space-y-2.5">
+          <section className="space-y-3">
             <h2 className="text-xl font-bold tracking-tight">To do</h2>
-            <div className="bg-pt-surface rounded-[20px] divide-y divide-pt-border">
+            <div className="bg-pt-surface rounded-[20px] divide-y divide-white/[0.06]">
               {todo.map(t => (
-                <button key={t.key + t.action} onClick={t.go} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+                <button key={t.key + t.action} onClick={t.go} className="w-full flex items-center gap-3 px-4 py-4 text-left">
                   <span className="flex-1 text-[15px] leading-snug">{t.text}</span>
-                  <span className="shrink-0 text-pt-accent text-sm font-semibold">{t.action} ›</span>
+                  <span className="shrink-0 text-pt-accent text-sm font-semibold tap">{t.action} ›</span>
                 </button>
               ))}
             </div>
@@ -219,11 +219,11 @@ export default function CreatorHomeScreen() {
 
         {/* Coming up */}
         {upcoming.length > 1 && (
-          <section className="space-y-2.5">
+          <section className="space-y-3">
             <h2 className="text-xl font-bold tracking-tight">Coming up</h2>
-            <div className="bg-pt-surface rounded-[20px] divide-y divide-pt-border">
+            <div className="bg-pt-surface rounded-[20px] divide-y divide-white/[0.06]">
               {upcoming.slice(1, 12).map(x => (
-                <button key={x.id} onClick={() => open(x.id)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+                <button key={x.id} onClick={() => open(x.id)} className="w-full flex items-center gap-3 px-4 py-4 text-left">
                   <span className="w-12 text-center shrink-0">
                     <span className="block text-[11px] uppercase tracking-wider text-pt-muted">{formatDay(x.date, { weekday: 'short' })}</span>
                     <b className="block font-display text-xl leading-none font-extrabold">{Number(x.date.slice(8))}</b>
@@ -240,7 +240,7 @@ export default function CreatorHomeScreen() {
           </section>
         )}
         {upcoming.length > 0 && (
-          <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-3.5 font-semibold bg-pt-surface text-pt-text">Book another shoot</button>
+          <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-semibold bg-pt-surface text-pt-text">Book another shoot</button>
         )}
       </div>
       <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />

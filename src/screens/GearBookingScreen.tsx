@@ -78,7 +78,7 @@ export default function GearBookingScreen() {
             {late && <Pill tone="taken">Late</Pill>}
             {b.returnedLate && <Pill tone="warn">Returned late</Pill>}
           </div>
-          <h1 className="font-display text-3xl text-pt-text leading-tight">{b.title}</h1>
+          <h1 className="font-display text-[34px] text-pt-text leading-tight">{b.title}</h1>
           <p className="text-pt-muted">{formatDay(b.date, { weekday: 'long', month: 'long', day: 'numeric' })} · {fmtHours(b.start, b.end)}</p>
           {isGearStaff && <p className="text-pt-muted text-sm">Booked by {b.creatorName || b.creatorEmail}</p>}
         </div>
@@ -102,7 +102,7 @@ export default function GearBookingScreen() {
 
         <ShootLink shootId={b.shootId} creatorEmail={b.creatorEmail} other="props" />
 
-        <div className="bg-pt-surface rounded-2xl divide-y divide-pt-border">
+        <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Pick up</span>
             <span className="text-pt-text">{formatDay(b.pickupDay)} · {fmtTime(b.start)}</span></div>
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Back by</span>
@@ -125,7 +125,7 @@ export default function GearBookingScreen() {
             {missing.size > 0 && <p className="text-red-200 text-sm bg-red-500/10 rounded-xl px-4 py-3">{missing.size} piece{missing.size > 1 ? 's' : ''} reported missing <b>before you took it</b>. The equipment team will see it, and it goes on the record of whoever had it last.</p>}
             <p className="text-amber-200 text-sm">Report anything missing now. Once you sign, the gear is your responsibility until it's back.</p>
             <button disabled={!allDone || busy} onClick={() => run(() => pickUpGear({ id: b.id, missing: [...missing], signed: true }))}
-              className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy ? 'Signing…' : "Sign: I've got it"}</button>
+              className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Signing…' : "Sign: I've got it"}</button>
             {!allDone && <p className="text-pt-muted text-xs text-center">Tick every piece, or mark it missing, to sign.</p>}
           </section>
         ) : (
@@ -146,7 +146,7 @@ export default function GearBookingScreen() {
             </ol>
             <ProofPhotos folder={`gear-returns/${b.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Return photo" hint="Required: case packed, batteries charging" max={4} />
             <button disabled={!photos.length || uploading || busy} onClick={() => run(() => returnGear({ id: b.id, photos }))}
-              className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy ? 'Sending…' : 'Send return'}</button>
+              className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Sending…' : 'Send return'}</button>
           </section>
         )}
 
@@ -161,12 +161,12 @@ export default function GearBookingScreen() {
             <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional), e.g. lens cap scratched"
               className="w-full bg-pt-surface rounded-xl px-4 py-3 text-pt-text text-[15px] placeholder-pt-muted focus:outline-none focus:ring-1 focus:ring-pt-accent" />
             <button disabled={!allDone || busy} onClick={() => run(() => checkInGear({ id: b.id, missing: [...missing], note }))}
-              className="w-full py-3.5 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Checked in'}</button>
+              className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Saving…' : 'Checked in'}</button>
           </section>
         )}
 
         {b.return?.photos?.length ? (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Return photo{b.return.photos.length > 1 ? 's' : ''}</p>
             <div className="flex gap-2">{b.return.photos.map(u => (
               <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)}><img src={u} alt="" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>

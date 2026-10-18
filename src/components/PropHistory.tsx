@@ -33,7 +33,7 @@ export default function PropHistory({ item }: { item: Item }) {
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="w-full py-3 rounded-xl bg-pt-surface border border-pt-border text-pt-text text-sm font-medium active:opacity-75">
+        className="w-full py-3 rounded-xl bg-pt-surface shadow-hairline text-pt-text text-sm font-medium active:opacity-75">
         Show history
       </button>
     )
@@ -45,7 +45,7 @@ export default function PropHistory({ item }: { item: Item }) {
       <div className="flex gap-2">
         {([['bookings', 'Who had it'], ['changes', 'Changes']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`px-3 py-1 rounded-full text-sm ${tab === k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface border border-pt-border text-pt-muted'}`}>
+            className={`px-3 py-1 rounded-full text-sm ${tab === k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
             {label}
           </button>
         ))}
@@ -64,7 +64,7 @@ export default function PropHistory({ item }: { item: Item }) {
             const ci = line?.checkIn
             return (
               <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
-                className="w-full text-left bg-pt-surface border border-pt-border rounded-xl px-3 py-2 active:opacity-75">
+                className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-pt-text text-sm min-w-0">
                     <span className="font-medium">{nameOf(r.creatorEmail)}</span>

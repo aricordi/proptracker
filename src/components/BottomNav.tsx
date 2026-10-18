@@ -109,7 +109,7 @@ export default function BottomNav() {
   const best = Math.max(...nav.map(t => longest(t.also)))
   const alsoActive = (also?: string[]) => best > 0 && longest(also) === best
   return (
-    <nav className="flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 border-t border-pt-border pb-tabbar">
+    <nav className="flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] pb-tabbar">
       {nav.map(({ to, label, icon, also }) => (
         <NavLink
           key={to}
