@@ -6,7 +6,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from './booking.js'
 import { nowStamp } from './gearBooking.js'
-import { roughParse, roughAdjust, cleanAsk, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
+import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings } from './scheduling.js'
 import type { ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
@@ -197,7 +197,7 @@ export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, asy
   const previous: TimeAsk | null = req.data?.previous && typeof req.data.previous === 'object'
     ? cleanAsk(req.data.previous as Record<string, unknown>, today, roughParse('', today, people)) : null
   let ask: TimeAsk = previous ? roughAdjust(previous, text, today, people) : roughParse(text, today, people)
-  let reply = '', cost = 0
+  let reply = '', cost = 0, offTopic = false
   const key = apiKey()
   if (key && !isFakeMode(key)) {
     const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday(today)]
@@ -206,21 +206,39 @@ TASK: turn the creator's message into a search for filming times. You do NOT pic
 schedule with your search and shows only slots that are actually free.
 Today is ${dayName} ${today}, ${now.slice(11)} (Toronto). Weeks run Monday to Sunday.
 Studio facts: houses "cliff1" = ${s.houses.cliff1.name}, "cliff2" = ${s.houses.cliff2.name}. Slots are ${s.slotMinutes / 60} hours each.
-Friends filming together go back to back: the creator first, then each friend gets the next slot at the same house.
+Friends filming together go back to back: the creator first, then each friend gets ONE slot of their own right after,
+at the same house. A length said together with friends is the WHOLE block for everyone, not the creator's share.
 Some days are priority days for a group of creators until the Sunday before; the app handles that.
 People in the app: ${people.map(p => p.name).join(', ') || '(none)'}.
 ${previous ? `Their previous search (they may be adjusting it): ${JSON.stringify(previous)}\n` : ''}Return ONLY JSON:
-{"from":"YYYY-MM-DD","to":"YYYY-MM-DD","people":["exact names from the list"],"mySlots":1,"houses":["cliff1","cliff2"],
- "timeOfDay":"any|morning|afternoon|evening|late","reply":"one short sentence saying what you'll look for"}
+{"from":"YYYY-MM-DD","to":"YYYY-MM-DD","people":["exact names from the list"],"totalHours":null,"myHours":null,
+ "houses":["cliff1","cliff2"],"timeOfDay":"any|morning|afternoon|evening|late"}
 Rules: from >= today; at most 21 days between from and to; "this week" = today to Sunday; "next week" = next Monday to Sunday;
-mySlots = slots the creator needs for themselves (1-3); houses = both unless they name one; keep what they didn't change;
-the reply must not name specific times or promise anything is free. Not about filming times → {"reply":"I can only help find filming times."}.`
+"soonest", "asap", "earliest", "first available" or no dates = from today, to 14 days later; houses = both unless they name one;
+keep what they didn't change. You do NOT count slots: the app does that from the hours.
+totalHours = a length they said for the whole shoot or the whole group (null if none). myHours = ONLY when they clearly
+give their OWN length separately from the friends ("I need 4 hours and Kyle needs 2", "4 hours each", "4 hours myself").
+Examples:
+- "soonest 4 hour spot at cliff 2, filming with Ariel" → people ["Ariel"], totalHours 4, myHours null, houses ["cliff2"]
+- "6 hours with Kyle and Jana this week" → people ["Kyle","Jana"], totalHours 6, myHours null
+- "2 hours with Kyle tomorrow" → people ["Kyle"], totalHours 2, myHours null (each person still gets their own slot)
+- "I need 4 hours myself then Kyle after" → people ["Kyle"], totalHours null, myHours 4
+- "4 hours next week evenings" → people [], totalHours 4, myHours null, timeOfDay "evening"
+- "with Jana on saturday" → people ["Jana"], totalHours null, myHours null
+Not about filming times → {"offTopic":true}.`
     const prompt = { system, user: `<creator_text>${asData(text, 400)}</creator_text>` }
-    try { const r = await askJson(key, prompt, 400, 0.1); cost = r.costUsd; ask = cleanAsk(r.data, today, ask); reply = safeText(r.data.reply, 160) } catch { /* the simple reading is used */ }
+    try {
+      const r = await askJson(key, prompt, 400, 0.1); cost = r.costUsd
+      if (r.data.offTopic) offTopic = true
+      else ask = cleanAsk(r.data, today, ask)
+    } catch { /* the simple reading is used */ }
   }
   await settle(cost)
+  if (offTopic) return { reply: 'I can only help find filming times.', ask, friends: [], options: [] }
 
   const friends = matchPeople(ask.people, people, caller.email)
+  // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
+  ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }
   const unknown = ask.people.filter(n => !friends.some(f => f.name.toLowerCase().split(/\s+/)[0] === n.toLowerCase().split(/\s+/)[0]))
   const dates: string[] = []
   for (let d = ask.from; d <= ask.to; d = addDays(d, 1)) dates.push(d)
@@ -234,8 +252,13 @@ the reply must not name specific times or promise anything is free. Not about fi
   const me = { email: caller.email, name: caller.name }
   const team = caller.role === 'owner' || caller.role === 'equipment'
   const options = findOptions(ask, me, friends, days, friendBusy, s, now, team)
-  const who = friends.length ? `you${friends.map(f => `, ${f.name.split(' ')[0]}`).join('')} back to back` : `${ask.mySlots * s.slotMinutes / 60} hours`
-  if (!reply) reply = `Looking for ${who}.`
+  // Say exactly what is being searched, so a misunderstanding is visible straight away.
+  const h = (n: number) => `${n * s.slotMinutes / 60} h`
+  const where = ask.houses.length === 1 ? s.houses[ask.houses[0]].name : 'either house'
+  const who = friends.length
+    ? `you ${h(ask.mySlots)}, then ${friends.map(f => `${f.name.split(' ')[0]} ${h(1)}`).join(', then ')}, back to back`
+    : `${h(ask.mySlots)} for you`
+  if (!reply) reply = `Looking at ${where}: ${who}. Soonest first.`
   const note = unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : ''
   return {
     reply: options.length ? `${reply}${note}` : `${reply}${note} Nothing is free for that. Try other days, the other house, or a different time of day.`,

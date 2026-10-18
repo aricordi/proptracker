@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 351 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 357 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -723,6 +723,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (opacity/transform) element: it trapped BottomSheets/TimeChat (fixed, z-50) under the tab bar.
       Not done (bigger change): load Firebase Storage (~20 KB) only when uploading.
     - LIVE Oct 18 (website run 11, owner OK): icons + Google Calendar checklist + premium visual layer + animations + speed.
+    - ASK-FOR-A-TIME SLOT COUNT FIX (owner, Oct 18: "soonest 4 hour spot at Cliff 2 with Ariel" offered 4 h for him + 2 h
+      Ariel). RULE: each friend always gets ONE slot; a length said with friends = the WHOLE back-to-back block
+      ("4 h with Ariel" = you 2 h + Ariel 2 h); your own share changes only with an explicit "I need N hours myself" /
+      "N hours each"; min 1, max 3 slots for you. The AI no longer returns mySlots: it reports totalHours / myHours
+      (prompt has worked examples incl. "soonest"/"asap"), and `slotsFor()` in timeFinder.ts does the arithmetic
+      (also after friend matching, and on follow-ups: "just me" after "4 h with Ariel" → 4 h for you). The reply is
+      now written by the app from the actual search ("Looking at Cliff 2: you 2 h, then Ariel 2 h, back to back.
+      Soonest first."), so a misunderstanding shows at once; off-topic → no options. Tests 357. Needs a BACKEND deploy.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { roughParse, roughAdjust, findOptions, matchPeople } from '../../functions/src/timeFinder'
+import { roughParse, roughAdjust, findOptions, matchPeople, slotsFor, cleanAsk } from '../../functions/src/timeFinder'
 import { cleanScheduleSettings } from '../../functions/src/schedule'
 
 const s = cleanScheduleSettings({})
@@ -24,6 +24,41 @@ describe('reading a request without AI', () => {
   it('matches unique first names only', () => {
     expect(matchPeople(['kyle'], people, me.email).map(p => p.email)).toEqual(['kyle@x.com'])
     expect(matchPeople(['bob'], people, me.email)).toEqual([])
+  })
+})
+
+// Owner, Oct 18: "soonest 4 hour spot at Cliff 2, filming with Ariel" offered 4 h for him + 2 h for Ariel.
+// Rule: a length said with friends is the WHOLE block; each friend always gets one slot of their own.
+describe('how many slots are yours', () => {
+  const people3 = [...people, { email: 'ariel@x.com', name: 'Ariel' }]
+  it('a length with a friend is the whole block', () => {
+    expect(roughParse('i want the soonest 4 hour spot for cliff 2 i want to film with ariel', TODAY, people3)).toMatchObject({ people: ['Ariel'], mySlots: 1, houses: ['cliff2'] })
+    expect(roughParse('6 hours with Kyle and Jana', TODAY, people3).mySlots).toBe(1)
+    expect(roughParse('8 hours with Kyle and Jana', TODAY, people3).mySlots).toBe(2)
+  })
+  it('too short for everyone still gives each person their own slot', () => {
+    expect(roughParse('2 hours with Kyle tomorrow', TODAY, people3).mySlots).toBe(1)
+  })
+  it('your own length only when you say so', () => {
+    expect(roughParse('I need 4 hours myself, then Kyle', TODAY, people3).mySlots).toBe(2)
+    expect(roughParse('4 hours each with Kyle', TODAY, people3).mySlots).toBe(2)
+  })
+  it('alone, the length is all yours (and capped at 3 slots)', () => {
+    expect(roughParse('4 hours on friday', TODAY, people3).mySlots).toBe(2)
+    expect(roughParse('6 hours on friday', TODAY, people3).mySlots).toBe(3)
+    expect(slotsFor({ hours: 12, mySlots: 1 }, 0, 120)).toBe(3)
+  })
+  it('the AI only reports hours; the app counts the slots', () => {
+    const fb = roughParse('with ariel', TODAY, people3)
+    expect(cleanAsk({ people: ['Ariel'], totalHours: 4, myHours: null, mySlots: 3 }, TODAY, fb).mySlots).toBe(1)
+    expect(cleanAsk({ people: ['Ariel'], totalHours: null, myHours: 4 }, TODAY, fb).mySlots).toBe(2)
+    expect(cleanAsk({ people: [], totalHours: 4 }, TODAY, fb).mySlots).toBe(2)
+  })
+  it('follow-ups recount: "just me" after a 4-hour group ask gives you the 4 hours', () => {
+    const a = roughParse('4 hours with Ariel', TODAY, people3)
+    expect(a.mySlots).toBe(1)
+    expect(roughAdjust(a, 'just me', TODAY, people3).mySlots).toBe(2)
+    expect(roughAdjust(a, 'only cliff 2', TODAY, people3).mySlots).toBe(1)
   })
 })
 

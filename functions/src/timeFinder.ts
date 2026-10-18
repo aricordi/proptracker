@@ -9,7 +9,9 @@ export type TimeOfDay = 'any' | 'morning' | 'afternoon' | 'evening' | 'late'
 export interface TimeAsk {
   from: string; to: string           // days to look at ('YYYY-MM-DD')
   people: string[]                   // friends filming right after you (names, as in the people list)
-  mySlots: number                    // your own 2-hour slots in a row (1–3)
+  mySlots: number                    // your own 2-hour slots in a row (1–3); always worked out by slotsFor()
+  hours?: number                     // what they asked for IN TOTAL ("4 hours with Ariel" = 4 for the whole block)
+  myHours?: number                   // only when they said their OWN length ("I need 4 hours, Kyle 2")
   houses: House[]
   timeOfDay: TimeOfDay
 }
@@ -40,12 +42,27 @@ export function matchPeople(names: string[], people: Person[], me: string): Pers
   return out.slice(0, 4)
 }
 
+// HOW MANY SLOTS ARE YOURS (owner rule, Oct 18). Each friend always gets ONE slot of their own.
+// A length said together with friends is the WHOLE back-to-back block: "4 hours with Ariel" = you 2 h + Ariel 2 h,
+// not 4 h for you. Only an explicit "I need N hours (myself)" / "N hours each" changes your own share.
+// Never fewer than 1 slot for you, never more than 3.
+export function slotsFor(ask: Pick<TimeAsk, 'hours' | 'myHours' | 'mySlots'>, friendCount: number, slotMinutes: number): number {
+  const per = slotMinutes / 60
+  const clamp = (n: number) => Math.min(3, Math.max(1, Math.round(n)))
+  if (ask.myHours && ask.myHours > 0) return clamp(ask.myHours / per)
+  if (ask.hours && ask.hours > 0) return clamp(ask.hours / per - friendCount)
+  return friendCount ? 1 : clamp(ask.mySlots || 1)
+}
+
 // A simple reading of the request without AI (test mode, or if the AI doesn't answer).
 export function roughParse(text: string, today: string, people: Person[]): TimeAsk {
   const t = ` ${text.toLowerCase()} `
   const names = people.filter(p => new RegExp(`\\b${p.name.toLowerCase().split(/\s+/)[0].replace(/[^a-z0-9]/g, '')}\\b`).test(t)).map(p => p.name)
   const hm = t.match(/(\d+|one|two|three|four|five|six)\s*(h\b|hrs?\b|hours?)/)
-  const hours = hm ? (NUMBERS[hm[1]] ?? Number(hm[1])) : 2
+  const said = hm ? (NUMBERS[hm[1]] ?? Number(hm[1])) : 0
+  const hours = said || 2
+  // "4 hours each" / "I need 4 hours myself": that length is the creator's own.
+  const own = !!said && (/\beach\b/.test(t) || /\b(i|me) (need|want|have)\b[^.]*\b(myself|for me|on my own)\b/.test(t) || /\bmyself\b/.test(t))
   const toSunday = (7 - weekday(today)) % 7
   let from = today, to = addDays(today, 14)
   if (/\btoday\b/.test(t)) { to = today }
@@ -59,8 +76,9 @@ export function roughParse(text: string, today: string, people: Person[]): TimeA
   }
   const houses: House[] = /cliff ?2|2371/.test(t) ? ['cliff2'] : /cliff ?1|2375/.test(t) ? ['cliff1'] : ['cliff1', 'cliff2']
   const timeOfDay: TimeOfDay = /morning/.test(t) ? 'morning' : /afternoon/.test(t) ? 'afternoon' : /evening/.test(t) ? 'evening' : /late|night/.test(t) ? 'late' : 'any'
-  const mySlots = names.length ? 1 : Math.min(3, Math.max(1, Math.round(hours / 2)))
-  return { from, to, people: names, mySlots, houses, timeOfDay }
+  const base = { ...(said && !own ? { hours: said } : {}), ...(own ? { myHours: said } : {}) }
+  const mySlots = slotsFor({ ...base, mySlots: Math.round(hours / 2) }, names.length, 120)
+  return { from, to, people: names, mySlots, houses, timeOfDay, ...base }
 }
 
 // A follow-up without AI ("only Cliff 2", "anything on the weekend?", "just me"): change only what was mentioned.
@@ -70,9 +88,10 @@ export function roughAdjust(prev: TimeAsk, text: string, today: string, people: 
   if (/today|tomorrow|week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday/.test(t)) { next.from = r.from; next.to = r.to }
   if (/cliff|2371|2375/.test(t)) next.houses = r.houses
   if (/morning|afternoon|evening|night|late/.test(t)) next.timeOfDay = r.timeOfDay
-  if (/just me|only me|alone|solo/.test(t)) { next.people = []; next.mySlots = r.mySlots }
+  if (/just me|only me|alone|solo/.test(t)) next.people = []
   else if (r.people.length) next.people = r.people
-  if (/\d+\s*h|hours?/.test(t) && !r.people.length && !next.people.length) next.mySlots = r.mySlots
+  if (r.hours || r.myHours) { delete next.hours; delete next.myHours; Object.assign(next, r.hours ? { hours: r.hours } : { myHours: r.myHours }) }
+  next.mySlots = slotsFor(next, next.people.length, 120)
   return next
 }
 
@@ -84,8 +103,14 @@ export function cleanAsk(v: Record<string, unknown>, today: string, fallback: Ti
   const houses = (Array.isArray(v.houses) ? v.houses : []).filter((h): h is House => h === 'cliff1' || h === 'cliff2')
   const tod = ['any', 'morning', 'afternoon', 'evening', 'late'].includes(String(v.timeOfDay)) ? v.timeOfDay as TimeOfDay : fallback.timeOfDay
   const people = Array.isArray(v.people) ? v.people.filter((p): p is string => typeof p === 'string').slice(0, 4) : fallback.people
-  const mySlots = Number.isInteger(v.mySlots) && (v.mySlots as number) >= 1 && (v.mySlots as number) <= 3 ? v.mySlots as number : fallback.mySlots
-  return { from, to, people, mySlots, houses: houses.length ? [...new Set(houses)] : fallback.houses, timeOfDay: tod }
+  const num = (x: unknown) => typeof x === 'number' && x > 0 && x <= 18 ? x : undefined
+  // Lengths: what the AI heard, else what the simple reading heard. The slot count itself is never taken from the AI.
+  const said = 'totalHours' in v || 'myHours' in v || 'hours' in v
+  const hours = said ? num(v.totalHours ?? v.hours) : fallback.hours
+  const myHours = said ? num(v.myHours) : fallback.myHours
+  const mySlots = slotsFor({ hours, myHours, mySlots: fallback.mySlots }, people.length, 120)
+  return { from, to, people, mySlots, houses: houses.length ? [...new Set(houses)] : fallback.houses, timeOfDay: tod,
+    ...(hours ? { hours } : {}), ...(myHours ? { myHours } : {}) }
 }
 
 // Real open slots: you first (mySlots in a row), then each friend's slot right after, same house.
