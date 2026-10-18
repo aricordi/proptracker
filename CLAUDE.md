@@ -690,7 +690,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       backdrop-blur) and App.tsx has a fixed solid strip behind the iPhone status bar (black-translucent status bar
       let pages show through). Book screen: gold "Book a shoot" first, then an "or let AI find a time" divider, then the
       violet Ask-for-a-time card; the phone-calendar link moved to its own card at the BOTTOM of the schedule. AI
-      example names use "Alex" (owner), not Jana. Preview only until the owner says live.
+      example names use "Alex" (owner), not Jana. LIVE Oct 18 (website run 10, owner OK).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
