@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode } from 'react'
+import { refreshPush } from './services/push'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './firebase'
@@ -72,7 +73,11 @@ function usePrefetchTabs(on: boolean) {
 }
 
 // Signed-in only: warm up the main tabs in the background.
-function Prefetch() { usePrefetchTabs(true); return null }
+function Prefetch() {
+  usePrefetchTabs(true)
+  useEffect(() => { refreshPush() }, [])   // keep this phone's notification sign-up fresh
+  return null
+}
 
 // While a screen's code arrives (usually a few milliseconds): a plain black page, no spinner flash.
 export function ScreenFallback() { return <div className="min-h-full bg-pt-bg" /> }

@@ -57,6 +57,8 @@ export default defineConfig({
         // Never answer Firebase's own pages (/__/auth/handler = Google sign-in) with the app:
         // doing so turned "Sign in with Google" into a new tab of the home page (Oct 15).
         navigateFallbackDenylist: [/^\/__\//],
+        // Phone notifications: show pushes and open the tapped screen (public/push-sw.js).
+        importScripts: ['push-sw.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/firebasestorage\.googleapis\.com\/.*/i,

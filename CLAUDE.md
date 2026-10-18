@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 366 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 381 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -744,7 +744,26 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Tests 366 (tests/functions/dayLimit.test.ts + unit). LIVE Oct 18 (backend run 31 + website run 12, owner OK; incl. the slot-count fix).
     - PUSH NOTIFICATIONS (owner asked Oct 18): explained web push (FCM, free; iPhone only when added to Home Screen,
       iOS 16.4+; needs a tap to allow). Options given: 1 instant event pushes + Home Screen guide (recommended),
-      2 + timed reminders (Cloud Scheduler OK), 3 wait for email. Waiting for the owner to pick.
+      2 + timed reminders (Cloud Scheduler OK), 3 wait for email. OWNER PICKED 2 (instant + timed reminders, Oct 18).
+    - PUSH BUILT (Oct 18; NOT deployed — needs backend + website deploy, ask): FCM web push, free; default FCM VAPID key
+      (optional VITE_FIREBASE_VAPID_KEY). `functions/src/pushMessages.ts` (pure, unit-tested: who gets what) +
+      `functions/src/push.ts`: callables registerPush/unregisterPush/testPush (in deploy/log lists); tokens in
+      `push_tokens/{sha256}` {token,email,platform,lastSeen} (server-only, ≤8 phones/person, dead tokens removed);
+      sendPush resolves 'arts-team' (role arts) / 'gear-team' (role equipment = schedule + gear); the OWNER gets team pings
+      ONLY when that team has nobody yet. Emulator: no sending, messages go to `push_log`. INSTANT (Firestore triggers,
+      no booking code touched): pushOnInvite (friend invited / confirmed / can't), pushOnSwap, pushOnReservation (new →
+      arts; packed / declined / cancelled-by-team → creator; returned → arts), pushOnGearBooking (new → gear team;
+      declined / cancelled-by-team → creator; returned → gear team), pushOnShoot (team booked/moved/cancelled your
+      shoot), pushOnReport (→ gear team), pushOnStrike (→ person). TIMED: `pushReminders` onSchedule every 10 min
+      (Cloud Scheduler, owner OK; 2nd job, within the free 3): an hour before a shoot, check-in open (houses), missed
+      check-in (within the explain window), last day to add props/gear (9 AM, only if nothing linked), props due back
+      (8 AM on the due day) / late, gear due in 30 min / late; each sent once via `push_sent/{key}` create().
+      App: public/push-sw.js (importScripts in the workbox SW: shows pushes, tap opens the url), `src/services/push.ts`
+      (pushState: unsupported / needs-install (iPhone not on Home Screen) / off / on / blocked; turnOnPush from a tap;
+      refreshPush on each start), `src/components/Notifications.tsx`: NotificationsCard on Me (Turn on / Send me a test /
+      Turn off / blocked help), NotificationsNudge on creator Home (dismissable), InstallGuide sheet (iPhone Add to Home
+      Screen, 4 steps). Tests 381 (tests/unit/pushMessages.test.ts, tests/functions/push.test.ts). Checked in a browser.
+      If pushes don't arrive after deploy: check "Firebase Cloud Messaging API" is enabled on proptracker-9732e.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

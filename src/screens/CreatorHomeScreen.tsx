@@ -1,5 +1,6 @@
 // Creators' home: the next shoot and what it still needs (check in from here), search,
 // your usual props and gear, monthly slots + filming streak, things to do, what's coming up.
+import { NotificationsNudge } from '../components/Notifications'
 import RoundIcon from '../components/RoundIcon'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -168,6 +169,7 @@ export default function CreatorHomeScreen() {
           <IdeasButton small onClick={() => setIdeas(true)} />
         </div>
         <IdeasButton onClick={() => setIdeas(true)} />
+        <NotificationsNudge />
       </div>
 
       {/* Your usuals */}

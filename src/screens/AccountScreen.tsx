@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { NotificationsCard } from '../components/Notifications'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { useSession } from '../auth'
@@ -25,6 +26,7 @@ export default function AccountScreen() {
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
+        <NotificationsCard />
         {shootFlow && <CreatorLinks email={profile.email} />}
         {realRole === 'owner' && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">

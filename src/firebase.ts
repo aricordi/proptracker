@@ -38,7 +38,7 @@ function signInDomain() {
   return own.includes(here) ? here : import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
 }
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 
