@@ -764,6 +764,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Turn off / blocked help), NotificationsNudge on creator Home (dismissable), InstallGuide sheet (iPhone Add to Home
       Screen, 4 steps). Tests 381 (tests/unit/pushMessages.test.ts, tests/functions/push.test.ts). Checked in a browser.
       If pushes don't arrive after deploy: check "Firebase Cloud Messaging API" is enabled on proptracker-9732e.
+    - AUTO-UPDATE (owner, Oct 18: "not getting the latest on my phone"): iPhone home-screen apps wake from memory and
+      rarely re-check the service worker. src/main.tsx now registers it via `virtual:pwa-register` (immediate) and calls
+      reg.update() whenever the app becomes visible + every 30 min; registerType 'autoUpdate' (skipWaiting/clientsClaim)
+      then reloads the page onto the new version. (Phones still on the OLD version need one more full close/reopen.)
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
