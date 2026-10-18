@@ -80,4 +80,12 @@ describe('finding real open slots', () => {
     const later = findOptions(ask, me, friends, days, {}, s, '2026-10-21T09:30', false)
     expect(later.some(x => x.slots.some(y => y.start === 660))).toBe(true)
   })
+  it('one house slot a day: skips days you or your friend already film (not for the team)', () => {
+    const two = { ...ask, to: '2026-10-23' }
+    const mine = { '2026-10-22': { date: '2026-10-22', cliff1: { '1260': { shootId: 'm', name: 'Maya', email: me.email, kind: 'extra' as const } } } }
+    expect(findOptions(two, me, friends, mine, {}, s, '2026-10-21T09:00', false).every(o => o.date === '2026-10-23')).toBe(true)
+    const kyles = { '2026-10-22': { date: '2026-10-22', cliff1: { '1260': { shootId: 'k', name: 'Kyle Ray', email: 'kyle@x.com', kind: 'extra' as const } } } }
+    expect(findOptions(two, me, friends, kyles, {}, s, '2026-10-21T09:00', false).every(o => o.date === '2026-10-23')).toBe(true)
+    expect(findOptions(two, me, friends, mine, {}, s, '2026-10-21T09:00', true).some(o => o.date === '2026-10-22')).toBe(true)
+  })
 })

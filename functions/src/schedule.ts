@@ -22,6 +22,7 @@ export interface ScheduleSettings {
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
+  slotsPerDay: number      // house slots a creator may book per day (Cliff 1 + Cliff 2 together); the team can add more
   googleCalendarId: string // shared Google Calendar the app copies bookings to ('' = off)
   checkinBefore: number    // check-in opens this many minutes before the start
   explainHours: number     // a missed check-in can be explained for this many hours after the end
@@ -44,6 +45,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   priorityWeekdays: [4, 6],
   releaseMinute: 18 * 60,
   noticeHours: 48,
+  slotsPerDay: 1,          // owner, Oct 18: one 2-hour house slot a day; more only when the team books it
   googleCalendarId: '',
   checkinBefore: 15,
   explainHours: 12,
@@ -84,6 +86,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     priorityWeekdays: days,
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
+    slotsPerDay: int(x.slotsPerDay, 1, 9, D.slotsPerDay),
     googleCalendarId: str(x.googleCalendarId, 200),
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     explainHours: int(x.explainHours, 0, 168, D.explainHours),
@@ -133,6 +136,20 @@ export function priorityLocked(date: string, house: Place, s: ScheduleSettings, 
   return isPriorityDay(date, house, s) && !inPriorityGroup(email, s) && now < releaseStamp(date, s)
 }
 
+// House slots someone has on a day (both houses, plus slots held for them by a friend's invite).
+// Offsite shoots don't count (owner, Oct 18). `except` leaves out a shoot that is being moved or swapped.
+export function houseSlotsOn(day: ScheduleDay | undefined, email: string, now: string, except: string[] = []) {
+  const e = email.toLowerCase()
+  let n = 0
+  for (const house of ['cliff1', 'cliff2'] as const) {
+    for (const entry of Object.values(day?.[house] ?? {})) {
+      if (entry.email?.toLowerCase() !== e) continue
+      if (entry.hold ? holdActive(entry, now) : entry.shootId && !except.includes(entry.shootId)) n++
+    }
+  }
+  return n
+}
+
 export const blockAt = (day: ScheduleDay | undefined, house: House, start: number, minutes: number) =>
   (day?.blocks ?? []).find(b => b.house === house && b.start < start + minutes && start < b.end)
 
@@ -163,6 +180,8 @@ export function findFree(days: Record<string, ScheduleDay>, fromDate: string, da
   const out: { date: string; house: House; start: number }[] = []
   for (let k = 0; k < dayCount && out.length < max; k++) {
     const date = addDays(fromDate, k)
+    // Creators: skip days where they already have their house slot(s).
+    if (!isTeam && houseSlotsOn(days[date], email, now) >= s.slotsPerDay) continue
     for (const house of houses) {
       for (let i = 0; i + count <= s.slots.length && out.length < max; i++) {
         let ok = true
@@ -178,7 +197,7 @@ export function findFree(days: Record<string, ScheduleDay>, fromDate: string, da
   return out
 }
 
-export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice' | 'held'
+export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice' | 'held' | 'day-limit'
 export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'bad-date': 'Pick a day.',
   'bad-slot': 'Pick one of the 2-hour slots.',
@@ -192,6 +211,7 @@ export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'no-where': 'Say where the offsite shoot is.',
   'short-notice': 'Less than 48 hours to go. Swap with someone instead, or cancel (it counts as a no-show).',
   held: `That slot is held for someone's collab (up to ${INVITE_HOLD_MINUTES} minutes). Check back soon.`,
+  'day-limit': "You already have your house slot that day. Creators can book one 2-hour slot a day; ask the schedule team if you need more time.",
 }
 
 // Checks that don't need the database (the rest happen in the transaction).

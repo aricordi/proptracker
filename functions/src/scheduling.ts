@@ -11,7 +11,7 @@ import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot } from './gearBookings.js'
-import {
+import { houseSlotsOn,
   cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
@@ -98,6 +98,14 @@ async function editDays(tx: Transaction, dates: string[], change: (days: Record<
   }
 }
 
+// One house slot a day per creator (owner, Oct 18; settings.slotsPerDay). The schedule team is never limited, so
+// "manually allowed" = the team books the extra slot for them. Checked on the day doc inside the transaction.
+function assertDayLimit(day: ScheduleDay, email: string, adding: number, s: ScheduleSettings, except: string[] = [], who?: string) {
+  if (houseSlotsOn(day, email, nowStamp(), except) + adding <= s.slotsPerDay) return
+  if (who) throw new HttpsError('failed-precondition', `${who} already has a house slot that day (one 2-hour slot a day each).`, { problem: 'day-limit' })
+  throw fail('day-limit')
+}
+
 async function monthlyUsed(email: string, month: string, exceptId?: string) {
   const mine = await db.collection('shoots').where('creatorEmail', '==', email).where('month', '==', month).get()
   return mine.docs.filter(x => x.id !== exceptId && x.get('status') === 'booked' && x.get('kind') === 'monthly').length
@@ -119,7 +127,10 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
   await db.runTransaction(async tx => {
-    const write = await editDays(tx, [spot.date], days => placeIn(days[spot.date], spot, { shootId: ref.id, name: who.name, email: who.email, kind }, s))
+    const write = await editDays(tx, [spot.date], days => {
+      if (spot.place !== 'offsite' && !isTeam(caller)) assertDayLimit(days[spot.date], who.email, 1, s)
+      placeIn(days[spot.date], spot, { shootId: ref.id, name: who.name, email: who.email, kind }, s)
+    })
     write()
     tx.set(ref, {
       creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date),
@@ -202,6 +213,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started.')
     if (!team && isShortNotice(b.from, now, s)) throw shortNoticeFail(s)
     const write = await editDays(tx, [b.date, spot.date], days => {
+      if (spot.place !== 'offsite' && !team) assertDayLimit(days[spot.date], b.creatorEmail, 1, s, [id])
       takeOut(days[b.date], b as Spot, id)
       placeIn(days[spot.date], spot, { shootId: id, name: b.creatorName, email: b.creatorEmail, kind }, s)
     })
@@ -274,6 +286,10 @@ export const answerSwap = onCall(CALLABLE, async req => {
       return
     }
     const write = await editDays(tx, [a!.date, b!.date], days => {
+      if (!isTeam(caller) && a!.date !== b!.date) {
+        assertDayLimit(days[b!.date], a!.creatorEmail, 1, s, [aS.id, bS.id], a!.creatorName)
+        assertDayLimit(days[a!.date], b!.creatorEmail, 1, s, [aS.id, bS.id], b!.creatorName)
+      }
       takeOut(days[a!.date], a as Spot, aS.id); takeOut(days[b!.date], b as Spot, bS.id)
       const kindAt = (x: any, place: Place): ShootKind => place === MONTHLY_HOUSE ? x.kind : 'extra'
       placeIn(days[b!.date], b as Spot, { shootId: aS.id, name: a!.creatorName, email: a!.creatorEmail, kind: kindAt(a, b!.place) }, s)
@@ -395,6 +411,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   if (spot.place === 'offsite') throw new HttpsError('invalid-argument', 'Back-to-back booking is for the houses.')
   const house = spot.place as House
   const mySlots = Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= 3 ? d.mySlots as number : 1
+  if (!isTeam(caller) && mySlots > s.slotsPerDay) throw fail('day-limit')
   const friendEmails = [...new Set((Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).toLowerCase()).filter(Boolean))]
     .filter(e => e !== caller.email).slice(0, 4) as string[]
   const friends: { email: string; name: string }[] = []
@@ -417,6 +434,10 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   const withNames = friends.map(f => f.name).join(' and ')
   await db.runTransaction(async tx => {
     const write = await editDays(tx, [spot.date], days => {
+      if (!isTeam(caller)) {
+        assertDayLimit(days[spot.date], caller.email, mySlots, s)
+        friends.forEach(f => assertDayLimit(days[spot.date], f.email, 1, s, [], f.name))
+      }
       shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind }, s))
       friends.forEach((f, j) => placeHold(days[spot.date], house, starts[mySlots + j],
         { shootId: '', name: f.name, email: f.email, kind: 'extra', hold: { until, inviteId: inviteRefs[j].id, fromName: caller.name } }, s))
@@ -475,6 +496,7 @@ export const answerInvite = onCall(CALLABLE, async req => {
     const write = await editDays(tx, [inv.date], days => {
       if (!ours(days)) throw fail('taken')
       clear(days)
+      assertDayLimit(days[inv.date], inv.toEmail, 1, s)
       placeIn(days[inv.date], sp, { shootId: shootRef.id, name: inv.toName, email: inv.toEmail, kind: 'extra' }, s)
     })
     write()

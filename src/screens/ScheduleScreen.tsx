@@ -18,6 +18,7 @@ import {
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot, type SwapRequest,
+  houseSlotsOn,
 } from '../services/schedule'
 
 const DAYS_SHOWN = 35
@@ -205,7 +206,8 @@ export default function ScheduleScreen() {
       )}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
       {chat && <TimeChat onClose={() => setChat(false)} />}
-      {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
+      {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []}
+        dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
@@ -333,7 +335,7 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
   )
 }
 
-function BookSheet({ house, date, start, team, mine, onClose, onBooked }: { house: Place; date: string; start: number; team: boolean; mine: Shoot[]; onClose: () => void; onBooked: (id: string) => void }) {
+function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; team: boolean; mine: Shoot[]; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
   const s = useScheduleSettings()
   const usedThatMonth = mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length
   const left = Math.max(0, s.monthlySlots - usedThatMonth)
@@ -376,7 +378,9 @@ function BookSheet({ house, date, start, team, mine, onClose, onBooked }: { hous
       )}
       {isNoCrewDay(date) && <p className="mt-3 rounded-xl px-3 py-3 text-sm border border-sky-400/40 bg-sky-400/10 text-pt-text">Sunday: no crew. You run the shoot yourself.</p>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
-      <button disabled={busy || done} onClick={book} className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? 'Booked ✓' : busy ? 'Booking…' : 'Book it'}</button>
+      {dayFull && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
+        You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
+      <button disabled={busy || done || dayFull} onClick={book} className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? 'Booked ✓' : busy ? 'Booking…' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">Confirmed instantly.</p>
     </BottomSheet>
   )

@@ -3,7 +3,7 @@
 // TimeAsk; the slots themselves always come from findOptions, so a time is never invented.
 import { addDays, weekday, isDay } from './booking.js'
 import { stamp, addMinutes } from './gearBooking.js'
-import { slotState, slotKey, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
+import { slotState, slotKey, houseSlotsOn, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
 
 export type TimeOfDay = 'any' | 'morning' | 'afternoon' | 'evening' | 'late'
 export interface TimeAsk {
@@ -123,6 +123,9 @@ export function findOptions(
   const out: TimeOption[] = []
   const k = ask.mySlots + friends.length
   for (let date = ask.from; date <= ask.to && out.length < max; date = addDays(date, 1)) {
+    // One house slot a day each (settings.slotsPerDay): skip days you or a friend already have theirs. The team isn't limited.
+    if (!isTeam && (houseSlotsOn(days[date], me.email, now) + ask.mySlots > s.slotsPerDay
+      || friends.some(f => houseSlotsOn(days[date], f.email, now) >= s.slotsPerDay))) continue
     let perDay = 0
     for (const house of ask.houses) {
       for (let i = 0; i + k <= s.slots.length && out.length < max && perDay < 2; i++) {

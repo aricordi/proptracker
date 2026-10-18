@@ -36,6 +36,7 @@ export default function ScheduleRulesScreen() {
         <ul className="list-disc pl-5 space-y-2">
           <Li>Every creator is guaranteed <b>{s.monthlySlots} {c1} slots a month</b>. Choose "Monthly slot" when you book.</Li>
           <Li>Anything beyond that is an <b>extra slot</b>, booked the same way whenever it's free.</Li>
+          <Li><b>{s.slotsPerDay === 1 ? 'One house slot' : `${s.slotsPerDay} house slots`} a day</b> ({s.slotsPerDay * s.slotMinutes / 60} hours) per creator, across both houses. Need more? Ask the schedule team; they can book it for you. Offsite shoots don't count.</Li>
         </ul>
 
         {s.priorityWeekdays.length > 0 && <>

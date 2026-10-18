@@ -81,6 +81,17 @@ export default function ScheduleSettingsScreen() {
           </div>
         </section>
 
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <h2 className="text-pt-text font-semibold">House slots a day</h2>
+          <div className="flex items-center gap-3">
+            <button onClick={() => set({ slotsPerDay: Math.max(1, s.slotsPerDay - 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+            <span className="text-pt-text text-lg font-semibold tabular-nums w-8 text-center">{s.slotsPerDay}</span>
+            <button onClick={() => set({ slotsPerDay: Math.min(9, s.slotsPerDay + 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+            <span className="text-pt-muted text-sm">per creator ({s.slotsPerDay * s.slotMinutes / 60} h), both houses</span>
+          </div>
+          <p className="text-pt-muted text-xs">Need more for someone? Book it for them yourself (Book for → their name). Offsite shoots don't count.</p>
+        </section>
+
         <CalendarSetup id={s.googleCalendarId} savedId={live.googleCalendarId}
           onId={v => set({ googleCalendarId: v })} save={save} onImport={() => navigate('/schedule/import')} />
 

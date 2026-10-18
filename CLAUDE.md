@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 357 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 366 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -731,6 +731,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (also after friend matching, and on follow-ups: "just me" after "4 h with Ariel" → 4 h for you). The reply is
       now written by the app from the actual search ("Looking at Cliff 2: you 2 h, then Ariel 2 h, back to back.
       Soonest first."), so a misunderstanding shows at once; off-topic → no options. Tests 357. Needs a BACKEND deploy.
+    - ONE HOUSE SLOT A DAY (owner, Oct 18: "no one can book more than 2 hours per day unless manually allowed"; owner
+      picked: exceptions = the TEAM books it for them (no allowance list); HOUSES ONLY (offsite doesn't count)).
+      Setting `slotsPerDay` (app_settings/schedule, default 1, 1–9; Schedule settings → "House slots a day").
+      `houseSlotsOn(day, email, now, except)` in schedule.ts counts both houses + ACTIVE invite holds for that person.
+      Server (scheduling.ts `assertDayLimit`, inside the day-doc transaction, so two taps can't beat it): bookShoot,
+      moveShoot (except the moving shoot), answerSwap (both people, when the days differ), bookWithFriends (mySlots ≤
+      limit; each friend must have no slot that day; names the friend), answerInvite (the invitee). Team (owner/equipment)
+      is never limited; placeShootAsTeam (calendar import) not limited. App: findFree + findOptions skip days you (or a
+      friend) already film; askForTime caps a creator's own slots and says so; BookSheet shows an amber note and
+      disables Book when you already have your slot that day; How it works + Help explain it.
+      Tests 366 (tests/functions/dayLimit.test.ts + unit). Needs a BACKEND deploy + website deploy (ask).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

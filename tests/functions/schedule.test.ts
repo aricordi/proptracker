@@ -44,16 +44,21 @@ describe('booking a house', () => {
   })
 
   it('4 monthly Cliff 1 slots a month, then extra slots', async () => {
-    const days = [0, 1, 2, 3].map(i => addDays(FRI, i)).filter(d => d.slice(0, 7) === FRI.slice(0, 7))
-    if (days.length < 4) return   // month boundary: skip rather than test the wrong month
-    for (const d of days) {
+    // One house slot a day per creator, so the five slots are on five different days of the same month.
+    // (Thursdays and Saturdays at Cliff 1 are priority days, so those are skipped.)
+    const days: string[] = []
+    for (let d = FRI; days.length < 5; d = addDays(d, 1)) {
+      if (days.length && d.slice(0, 7) !== days[0].slice(0, 7)) days.length = 0
+      if (![4, 6].includes(weekday(d))) days.push(d)
+    }
+    for (const d of days.slice(0, 4)) {
       const r = await book(ANA, { date: d, start: 1260 })
       expect(r.ok, r.message).toBe(true)
     }
-    const fifth = await book(ANA, { date: days[0], start: 1380 })
+    const fifth = await book(ANA, { date: days[4], start: 1380 })
     expect(fifth.error).toBe('FAILED_PRECONDITION')
     expect(fifth.message).toMatch(/monthly slots/)
-    expect((await book(ANA, { date: days[0], start: 1380, kind: 'extra' })).ok).toBe(true)
+    expect((await book(ANA, { date: days[4], start: 1380, kind: 'extra' })).ok).toBe(true)
   })
 
   it('refuses slots that are not on the grid, in the past, or blocked', async () => {
@@ -79,7 +84,7 @@ describe('priority days (Thursdays and Saturdays at Cliff 1)', () => {
     expect(r.error).toBe('FAILED_PRECONDITION')
     expect(r.message).toMatch(/priority/)
     expect((await book(JANA, { date: THU })).ok).toBe(true)
-    expect((await book(MAANIK, { date: THU, start: 900, forEmail: ANA })).ok).toBe(true)
+    expect((await book(MAANIK, { date: THU, start: 900, forEmail: BEN })).ok).toBe(true)
     expect((await book(ANA, { date: THU, place: 'cliff2' })).ok).toBe(true)
   })
 })

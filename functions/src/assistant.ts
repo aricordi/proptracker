@@ -239,6 +239,10 @@ Not about filming times → {"offTopic":true}.`
   const friends = matchPeople(ask.people, people, caller.email)
   // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
   ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }
+  const team = caller.role === 'owner' || caller.role === 'equipment'
+  // Creators get at most settings.slotsPerDay house slots a day (one); only the team can book more.
+  const capped = !team && ask.mySlots > s.slotsPerDay
+  if (capped) ask = { ...ask, mySlots: s.slotsPerDay }
   const unknown = ask.people.filter(n => !friends.some(f => f.name.toLowerCase().split(/\s+/)[0] === n.toLowerCase().split(/\s+/)[0]))
   const dates: string[] = []
   for (let d = ask.from; d <= ask.to; d = addDays(d, 1)) dates.push(d)
@@ -250,7 +254,6 @@ Not about filming times → {"offTopic":true}.`
     friendBusy[f.email] = q.docs.filter(d => d.get('status') === 'booked').map(d => ({ from: d.get('from'), to: d.get('to') }))
   }
   const me = { email: caller.email, name: caller.name }
-  const team = caller.role === 'owner' || caller.role === 'equipment'
   const options = findOptions(ask, me, friends, days, friendBusy, s, now, team)
   // Say exactly what is being searched, so a misunderstanding is visible straight away.
   const h = (n: number) => `${n * s.slotMinutes / 60} h`
@@ -259,7 +262,8 @@ Not about filming times → {"offTopic":true}.`
     ? `you ${h(ask.mySlots)}, then ${friends.map(f => `${f.name.split(' ')[0]} ${h(1)}`).join(', then ')}, back to back`
     : `${h(ask.mySlots)} for you`
   if (!reply) reply = `Looking at ${where}: ${who}. Soonest first.`
-  const note = unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : ''
+  const note = (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
+    + (capped ? ` You can book one ${s.slotMinutes / 60}-hour house slot a day; ask the schedule team if you need more.` : '')
   return {
     reply: options.length ? `${reply}${note}` : `${reply}${note} Nothing is free for that. Try other days, the other house, or a different time of day.`,
     ask: { ...ask, people: friends.map(f => f.name) },
