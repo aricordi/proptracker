@@ -168,7 +168,7 @@ export default function ImportReviewScreen() {
           return (
             <div key={itemId} className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                {its.map(it => <img key={it.id} src={it.photoUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
+                {its.map(it => <img loading="lazy" decoding="async" key={it.id} src={it.photoUrl} alt="" className="w-20 h-20 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
@@ -189,7 +189,7 @@ export default function ImportReviewScreen() {
               <div className="flex gap-3 p-3">
                 <div className="relative shrink-0">
                   {it.photoUrl
-                    ? <a href={it.photoUrl} target="_blank" rel="noreferrer"><img src={it.photoUrl} alt="" className="w-28 h-28 object-cover rounded-xl bg-pt-bg" /></a>
+                    ? <a href={it.photoUrl} target="_blank" rel="noreferrer"><img loading="lazy" decoding="async" src={it.photoUrl} alt="" className="w-28 h-28 object-cover rounded-xl bg-pt-bg" /></a>
                     : <div className="w-28 h-28 rounded-xl bg-pt-bg" />}
                   {tab === 'analyzed' && (
                     <button onClick={() => toggle(it.id)} aria-label="Select" aria-pressed={selected.has(it.id)}
@@ -304,7 +304,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
     <BottomSheet open onClose={onClose} title={mode === 'merge' ? `Merge ${picked.length} photos into one prop` : `Add ${picked.length} photo${picked.length > 1 ? 's' : ''} to a prop`}>
       <div className="space-y-3">
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          {picked.map(p => <img key={p.it.id} src={p.it.photoUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
+          {picked.map(p => <img loading="lazy" decoding="async" key={p.it.id} src={p.it.photoUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 bg-pt-bg" />)}
         </div>
         {mode === 'merge'
           ? <>
@@ -341,7 +341,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
               {candidates.map(({ p }) => (
                 <button key={p.id} onClick={() => setTarget(p.id)}
                   className={`w-full flex items-center gap-2 text-left rounded-xl border px-2 py-2 ${target === p.id ? 'border-pt-accent bg-pt-accent/10' : 'border-pt-border'}`}>
-                  {p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-10 h-10 rounded-lg object-cover bg-pt-bg" /> : <div className="w-10 h-10 rounded-lg bg-pt-bg" />}
+                  {p.photos[0] ? <img loading="lazy" decoding="async" src={thumbOf(p, p.photos[0])} alt="" className="w-10 h-10 rounded-lg object-cover bg-pt-bg" /> : <div className="w-10 h-10 rounded-lg bg-pt-bg" />}
                   <span className="flex-1 min-w-0">
                     <span className="block text-pt-text text-sm truncate">{p.name}</span>
                     <span className="block text-pt-muted text-xs">×{p.quantity} · {p.photos.length} photo{p.photos.length === 1 ? '' : 's'}</span>

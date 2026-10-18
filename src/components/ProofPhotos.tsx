@@ -112,7 +112,7 @@ function StripPhoto({ url }: { url: string }) {
   return (
     <div className="w-24 shrink-0 space-y-1">
       <a href={url} target="_blank" rel="noreferrer" className="block w-24 h-24 rounded-xl overflow-hidden bg-pt-border">
-        <img src={url} alt="" className="w-full h-full object-cover" onError={() => setGone(true)} />
+        <img loading="lazy" decoding="async" src={url} alt="" className="w-full h-full object-cover" onError={() => setGone(true)} />
       </a>
       <PhotoStamp url={url} />
     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './firebase'
@@ -12,50 +12,70 @@ import { ensureDefaultCategories } from './services/categories'
 import ShellLayout from './components/ShellLayout'
 import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
-import HomeScreen from './screens/HomeScreen'
-import AddItemScreen from './screens/AddItemScreen'
-import ItemDetailScreen from './screens/ItemDetailScreen'
-import BinsScreen from './screens/BinsScreen'
-import BinQrScreen from './screens/BinQrScreen'
-import LocationsScreen from './screens/LocationsScreen'
-import CheckoutScreen from './screens/CheckoutScreen'
-import HealthScreen from './screens/HealthScreen'
-import UsersScreen from './screens/UsersScreen'
-import CategoriesScreen from './screens/CategoriesScreen'
-import EmailSettingsScreen from './screens/EmailSettingsScreen'
-import ActivityScreen from './screens/ActivityScreen'
-import PersonHistoryScreen from './screens/PersonHistoryScreen'
-import ImportScreen from './screens/ImportScreen'
-import ImportReviewScreen from './screens/ImportReviewScreen'
-import DuplicatesScreen from './screens/DuplicatesScreen'
-import GearItemsScreen from './screens/GearItemsScreen'
-import GearBundlesScreen from './screens/GearBundlesScreen'
-import GearBundleEditScreen from './screens/GearBundleEditScreen'
-import GearShopScreen from './screens/GearShopScreen'
-import GearOfferScreen from './screens/GearOfferScreen'
-import GearBookingsScreen from './screens/GearBookingsScreen'
-import GearBookingScreen from './screens/GearBookingScreen'
+const HomeScreen = lazy(() => import('./screens/HomeScreen'))
+const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
+const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
+const BinsScreen = lazy(() => import('./screens/BinsScreen'))
+const BinQrScreen = lazy(() => import('./screens/BinQrScreen'))
+const LocationsScreen = lazy(() => import('./screens/LocationsScreen'))
+const CheckoutScreen = lazy(() => import('./screens/CheckoutScreen'))
+const HealthScreen = lazy(() => import('./screens/HealthScreen'))
+const UsersScreen = lazy(() => import('./screens/UsersScreen'))
+const CategoriesScreen = lazy(() => import('./screens/CategoriesScreen'))
+const EmailSettingsScreen = lazy(() => import('./screens/EmailSettingsScreen'))
+const ActivityScreen = lazy(() => import('./screens/ActivityScreen'))
+const PersonHistoryScreen = lazy(() => import('./screens/PersonHistoryScreen'))
+const ImportScreen = lazy(() => import('./screens/ImportScreen'))
+const ImportReviewScreen = lazy(() => import('./screens/ImportReviewScreen'))
+const DuplicatesScreen = lazy(() => import('./screens/DuplicatesScreen'))
+const GearItemsScreen = lazy(() => import('./screens/GearItemsScreen'))
+const GearBundlesScreen = lazy(() => import('./screens/GearBundlesScreen'))
+const GearBundleEditScreen = lazy(() => import('./screens/GearBundleEditScreen'))
+const GearShopScreen = lazy(() => import('./screens/GearShopScreen'))
+const GearOfferScreen = lazy(() => import('./screens/GearOfferScreen'))
+const GearBookingsScreen = lazy(() => import('./screens/GearBookingsScreen'))
+const GearBookingScreen = lazy(() => import('./screens/GearBookingScreen'))
 import { GearCartProvider, ShootDaySync } from './gearCart'
-import SuggestionsScreen from './screens/SuggestionsScreen'
-import AccountScreen from './screens/AccountScreen'
-import AdminScreen from './screens/AdminScreen'
-import ReserveScreen from './screens/ReserveScreen'
-import ReservationsScreen from './screens/ReservationsScreen'
-import ReservationDetailScreen from './screens/ReservationDetailScreen'
-import BookingRulesScreen from './screens/BookingRulesScreen'
-import ScheduleScreen from './screens/ScheduleScreen'
-import ScheduleSettingsScreen from './screens/ScheduleSettingsScreen'
-import ScheduleRulesScreen from './screens/ScheduleRulesScreen'
-import CalendarImportScreen from './screens/CalendarImportScreen'
-import ScheduleTeamScreen from './screens/ScheduleTeamScreen'
+const SuggestionsScreen = lazy(() => import('./screens/SuggestionsScreen'))
+const AccountScreen = lazy(() => import('./screens/AccountScreen'))
+const AdminScreen = lazy(() => import('./screens/AdminScreen'))
+const ReserveScreen = lazy(() => import('./screens/ReserveScreen'))
+const ReservationsScreen = lazy(() => import('./screens/ReservationsScreen'))
+const ReservationDetailScreen = lazy(() => import('./screens/ReservationDetailScreen'))
+const BookingRulesScreen = lazy(() => import('./screens/BookingRulesScreen'))
+const ScheduleScreen = lazy(() => import('./screens/ScheduleScreen'))
+const ScheduleSettingsScreen = lazy(() => import('./screens/ScheduleSettingsScreen'))
+const ScheduleRulesScreen = lazy(() => import('./screens/ScheduleRulesScreen'))
+const CalendarImportScreen = lazy(() => import('./screens/CalendarImportScreen'))
+const ScheduleTeamScreen = lazy(() => import('./screens/ScheduleTeamScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
-import CreatorHomeScreen from './screens/CreatorHomeScreen'
+const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
-import AiSettingsScreen from './screens/AiSettingsScreen'
-import CostsScreen from './screens/CostsScreen'
-import HelpScreen from './screens/HelpScreen'
+const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
+const CostsScreen = lazy(() => import('./screens/CostsScreen'))
+const HelpScreen = lazy(() => import('./screens/HelpScreen'))
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
+
+// Screens load on demand (smaller first download). Right after sign-in, while the phone is idle,
+// the four main tabs are fetched in the background so switching tabs is still instant.
+const MAIN_TABS = [
+  () => import('./screens/CreatorHomeScreen'), () => import('./screens/ScheduleScreen'),
+  () => import('./screens/HomeScreen'), () => import('./screens/AccountScreen'), () => import('./screens/ItemDetailScreen'),
+]
+function usePrefetchTabs(on: boolean) {
+  useEffect(() => {
+    if (!on) return
+    const idle = (window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1200))
+    idle(() => MAIN_TABS.forEach(load => load().catch(() => {})))
+  }, [on])
+}
+
+// Signed-in only: warm up the main tabs in the background.
+function Prefetch() { usePrefetchTabs(true); return null }
+
+// While a screen's code arrives (usually a few milliseconds): a plain black page, no spinner flash.
+export function ScreenFallback() { return <div className="min-h-full bg-pt-bg" /> }
 
 function Loading() {
   return (
@@ -195,9 +215,11 @@ export default function App() {
     <ShootDaySync />
     <ActiveShootProvider>
     <Splash />
+    <Prefetch />
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
     <ViewAsFrame on={!!session.viewingAs}>
+      <Suspense fallback={<ScreenFallback />}>
       <Routes>
         {/* Full-screen routes outside the shell */}
         <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
@@ -246,6 +268,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </ViewAsFrame>
     </ActiveShootProvider>
     </GearCartProvider>

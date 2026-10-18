@@ -255,7 +255,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
           <div className="flex gap-1 mt-1 overflow-x-auto">
             {it.photos.slice(1).map(u => (
               <button key={u} onClick={() => setZoom({ src: u, alt: it.name })} className="shrink-0">
-                <img src={u} alt="" className="w-9 h-9 object-cover rounded" />
+                <img loading="lazy" decoding="async" src={u} alt="" className="w-9 h-9 object-cover rounded" />
               </button>
             ))}
           </div>

@@ -303,7 +303,7 @@ function PickAndPack({ res }: { res: Reservation }) {
                       {picked ? '✓' : gone ? '✕' : ''}
                     </button>
                     <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0">
-                      {line.photo && <img src={line.photo} alt="" className="w-full h-full object-cover" />}
+                      {line.photo && <img loading="lazy" decoding="async" src={line.photo} alt="" className="w-full h-full object-cover" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium truncate ${gone ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{line.itemName}</p>
@@ -369,7 +369,7 @@ function BuildRow({ b, done, onToggle, onUnavailable, extra }: {
           className={`w-11 h-11 rounded-xl border-2 shrink-0 flex items-center justify-center text-xl ${done ? 'bg-green-500 border-green-500 text-stone-900' : 'border-pt-muted'} disabled:opacity-50`}>
           {done ? '✓' : gone ? '✕' : ''}
         </button>
-        {b.refPhoto && <a href={b.refPhoto} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-xl overflow-hidden shrink-0"><img src={b.refPhoto} alt="" className="w-full h-full object-cover" /></a>}
+        {b.refPhoto && <a href={b.refPhoto} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-xl overflow-hidden shrink-0"><img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /></a>}
         <div className="flex-1 min-w-0">
           <p className={`text-sm ${gone ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{b.description}</p>
           {gone && <p className="text-red-300 text-xs">Can't be made: {b.reason}</p>}
@@ -396,7 +396,7 @@ function ContentsList({ res }: { res: Reservation }) {
             <button key={l.itemId} onClick={() => navigate(`/item/${l.itemId}`)}
               className={`w-full flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 text-left active:opacity-75 ${gone ? 'border-red-500/30' : 'border-pt-border'}`}>
               <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0">
-                {l.photo && <img src={l.photo} alt="" className="w-full h-full object-cover" />}
+                {l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium truncate ${gone ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{l.itemName}</p>
@@ -410,7 +410,7 @@ function ContentsList({ res }: { res: Reservation }) {
         {builds.map(b => (
           <div key={b.id} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 ${b.state === 'unavailable' ? 'border-red-500/30' : 'border-violet-500/40'}`}>
             <div className="w-12 h-12 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-xl">
-              {b.refPhoto ? <img src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
+              {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm ${b.state === 'unavailable' ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{b.description}</p>
@@ -573,7 +573,7 @@ function CheckInForm({ res }: { res: Reservation }) {
         return (
           <div key={l.itemId} className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-pt-border overflow-hidden shrink-0">{l.photo && <img src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
+              <div className="w-10 h-10 rounded-lg bg-pt-border overflow-hidden shrink-0">{l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
               <p className="flex-1 text-pt-text text-sm font-medium truncate">{l.itemName}</p>
               <span className="text-pt-text font-bold">×{l.qty}</span>
             </div>

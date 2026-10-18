@@ -89,7 +89,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                     return (
                       <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                         <button onClick={() => go(`/item/${p.id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
-                          <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{it.photos[0] && <img src={thumbOf(it, it.photos[0])} alt="" className="w-full h-full object-cover" />}</span>
+                          <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{it.photos[0] && <img loading="lazy" decoding="async" src={thumbOf(it, it.photos[0])} alt="" className="w-full h-full object-cover" />}</span>
                           <span className="min-w-0"><b className="block text-sm truncate">{it.name}</b><span className="block text-xs text-[#CDB8FF]">{p.why}</span>
                             <span className="block text-xs text-pt-muted">{free === null ? 'Check it ›' : free > 0 ? `Free · check it ›` : 'Taken that day · check it ›'}</span></span>
                         </button>

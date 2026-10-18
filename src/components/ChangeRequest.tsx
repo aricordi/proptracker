@@ -51,7 +51,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
         const n = lines[l.itemId] ?? 0
         return (
           <div key={l.itemId} className={`flex items-center gap-3 ${n ? '' : 'opacity-40'}`}>
-            <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{l.photo && <img src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
+            <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
             <p className={`flex-1 min-w-0 text-sm truncate ${n ? 'text-pt-text' : 'line-through text-pt-muted'}`}>{l.itemName}</p>
             {n > 0 ? (
               <>

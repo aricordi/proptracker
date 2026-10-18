@@ -53,7 +53,7 @@ export function SuggestionCard({ s, item, showProp }: { s: Suggestion; item?: It
       <p className="text-pt-text text-sm whitespace-pre-wrap">“{s.message}”</p>
       <ChangesList s={s} item={item} />
       {!!s.photos?.length && (
-        <div className="flex gap-2">{s.photos.map(u => <a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="" className="w-16 h-16 rounded-lg object-cover" /></a>)}</div>
+        <div className="flex gap-2">{s.photos.map(u => <a key={u} href={u} target="_blank" rel="noreferrer"><img loading="lazy" decoding="async" src={u} alt="" className="w-16 h-16 rounded-lg object-cover" /></a>)}</div>
       )}
       {s.reply && <p className="text-pt-muted text-xs">Reply: {s.reply}</p>}
       {error && <p className="text-red-300 text-xs">{error}</p>}

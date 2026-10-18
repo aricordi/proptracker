@@ -1,6 +1,16 @@
 import { useNavigate } from 'react-router-dom'
+import { flushSync } from 'react-dom'
 import type { Item, Condition } from '../types'
 import { thumbOf } from '../services/itemShape'
+
+// The tapped photo grows into the prop page (browsers with View Transitions: Chrome, Safari 18+;
+// others simply open the page). Both photos share one name so the browser can morph between them.
+export const photoMorphName = (id: string) => `photo-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`
+export function openWithMorph(go: () => void) {
+  const start = (document as any).startViewTransition
+  if (!start || matchMedia('(prefers-reduced-motion: reduce)').matches) { go(); return }
+  start.call(document, () => flushSync(go))
+}
 
 export const CONDITION_LABELS: Record<Condition, string> = {
   good:    'Good',
@@ -50,12 +60,12 @@ export default function ItemCard({ item, subtitle, badge: override, inCart, onAd
   return (
     <div className="relative w-full h-full">
     <button
-      onClick={() => navigate(`/item/${item.id}`)}
+      onClick={() => openWithMorph(() => navigate(`/item/${item.id}`))}
       className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden"
     >
       <div className="relative aspect-square bg-pt-border flex items-center justify-center">
         {item.photos[0]
-          ? <img src={thumbOf(item, item.photos[0])} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+          ? <img src={thumbOf(item, item.photos[0])} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" style={{ viewTransitionName: photoMorphName(item.id) }} />
           : <CameraIcon className="w-10 h-10 text-pt-muted" />
         }
         <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>

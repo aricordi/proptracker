@@ -118,7 +118,7 @@ export default function ReservationsScreen() {
                 <div className="flex -space-x-2">
                   {r.lines.slice(0, 4).map(l => (
                     <div key={l.itemId} className="w-8 h-8 rounded-lg bg-pt-border border-2 border-pt-surface overflow-hidden">
-                      {l.photo && <img src={l.photo} alt="" className="w-full h-full object-cover" />}
+                      {l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}
                     </div>
                   ))}
                   {builds.length > 0 && <div className="w-8 h-8 rounded-lg bg-violet-500/20 border-2 border-pt-surface flex items-center justify-center text-sm">🛠️</div>}

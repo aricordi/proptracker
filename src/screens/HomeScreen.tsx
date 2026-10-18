@@ -164,8 +164,11 @@ export default function HomeScreen() {
   const quickAdd = (item: Item) => shootFlow && active.shoot && !item.archived && item.condition !== 'damaged' && (freeFor(item) ?? 0) > 0
     ? () => cart.setQty(item.id, cart.lines[item.id] ? 0 : 1)
     : undefined
-  const card = (item: Item) => (
-    <ItemCard key={item.id} item={item} subtitle={subtitle(item)} badge={badgeFor(item)} inCart={cart.lines[item.id]} onAdd={quickAdd(item)} />
+  // Cards settle in one after another (first dozen only, 30 ms apart) as the list appears.
+  const card = (item: Item, i: number) => (
+    <div key={item.id} className="rise-in" style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}>
+      <ItemCard item={item} subtitle={subtitle(item)} badge={badgeFor(item)} inCart={cart.lines[item.id]} onAdd={quickAdd(item)} />
+    </div>
   )
 
   const filtersActive = !!categoryFilter || availability !== 'all'

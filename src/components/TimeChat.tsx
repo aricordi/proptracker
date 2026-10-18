@@ -92,11 +92,11 @@ export default function TimeChat({ onClose }: { onClose: () => void }) {
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         {msgs.map((m, i) => m.who === 'me' ? (
-          <p key={i} className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{m.text}</p>
+          <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{m.text}</p>
         ) : m.who === 'bot' ? (
-          <p key={i} className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{m.text}</p>
+          <p key={i} className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{m.text}</p>
         ) : m.who === 'options' ? (
-          <div key={i} className="space-y-2">
+          <div key={i} className="rise-in space-y-2">
             {m.options.map(o => (
               <div key={`${o.date}-${o.place}-${o.start}`} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
                 <span className="w-12 text-center shrink-0"><span className="block text-[11px] uppercase text-pt-muted">{formatDay(o.date, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(o.date.slice(8))}</b></span>
@@ -109,7 +109,7 @@ export default function TimeChat({ onClose }: { onClose: () => void }) {
             ))}
           </div>
         ) : m.who === 'booked' ? (
-          <div key={i} className="rounded-[18px] bg-pt-surface border border-pt-accent/40 p-4 space-y-2">
+          <div key={i} className="rise-in rounded-[18px] bg-pt-surface border border-pt-accent/40 p-4 space-y-2">
             <b className="block">{m.label}</b>
             <div className="flex items-center justify-between text-sm"><span>You</span><span className="rounded-full px-3 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Booked ✓</span></div>
             {m.inviteIds.map(id => {
@@ -124,7 +124,7 @@ export default function TimeChat({ onClose }: { onClose: () => void }) {
             <button onClick={() => { choose(m.shootId); onClose(); navigate('/browse') }} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Add props &amp; gear</button>
           </div>
         ) : null)}
-        {busy && <p className="w-fit rounded-[20px] px-4 py-3 bg-pt-surface text-pt-muted text-sm animate-pulse">Looking at the schedule…</p>}
+        {busy && <p role="status" aria-label="Looking at the schedule" className="rise-in w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>}
         <div ref={end} />
       </div>
 

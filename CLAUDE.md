@@ -710,6 +710,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       steppers + icon buttons 44px, 38 small links got `.tap`. BottomSheet springs up (28px corners, no title line),
       ItemCard shadow-card + 44px quick-add, AddingToBar + "pick a day" no dashed outlines, back chevrons bigger,
       page sections 24px apart. Kept on purpose: dashed amber "Held" slots and dashed to-do circles (they mean something).
+    - ANIMATIONS + SPEED (owner, Oct 18: yes to the animation ideas, NO vibration, "super optimized"; preview only):
+      Photo tile → prop page MORPH (View Transitions: `openWithMorph` + `photoMorphName` in ItemCard.tsx, same name on
+      ItemDetail's first photo; Chrome + Safari 18, others just open). Book sheet: "Booked ✓" + gold swell (650 ms)
+      before the shoot opens. Tab bar: active icon bounces (.tab-bounce). Ask for a time: bubbles rise in, 3 violet
+      typing dots while it thinks. Browse cards rise in 30 ms apart (first 12). All respect reduced-motion.
+      SPEED: every screen except Login is React.lazy (App.tsx) with Suspense (blank black fallback; ShellLayout keeps the
+      tab bar) and the main tabs + prop page are prefetched on idle after sign-in; vite manualChunks split firebase and
+      react into their own long-cached files. First download 343 KB → ~222 KB gzipped, and an app update now re-downloads
+      only the small changed files (~20 KB) instead of everything. 22 more <img> got loading="lazy" decoding="async";
+      index.html preconnects to Firestore/Storage/sign-in servers. LESSON: never wrap the routed screen in an animated
+      (opacity/transform) element: it trapped BottomSheets/TimeChat (fixed, z-50) under the tab bar.
+      Not done (bigger change): load Firebase Storage (~20 KB) only when uploading.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

@@ -191,7 +191,7 @@ export default function ReserveScreen() {
             {lines.map(({ itemId, qty, item, free, problem }) => (
               <div key={itemId} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 ${problem ? 'border-red-500/50' : 'border-pt-border'}`}>
                 <button onClick={() => navigate(`/item/${itemId}`)} className="w-14 h-14 rounded-xl bg-pt-border overflow-hidden shrink-0">
-                  {item?.photos[0] && <img src={thumbOf(item, item.photos[0])} alt="" className="w-full h-full object-cover" />}
+                  {item?.photos[0] && <img loading="lazy" decoding="async" src={thumbOf(item, item.photos[0])} alt="" className="w-full h-full object-cover" />}
                 </button>
                 <div className="flex-1 min-w-0">
                   <p className="text-pt-text text-sm font-medium truncate">{item?.name ?? 'Unknown prop'}</p>
@@ -219,7 +219,7 @@ export default function ReserveScreen() {
             {cart.builds.map(b => (
               <div key={b.key} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-3">
                 <div className="w-14 h-14 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-2xl">
-                  {b.refPhoto ? <img src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
+                  {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-pt-text text-sm">{b.description}</p>

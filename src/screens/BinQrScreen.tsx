@@ -93,7 +93,7 @@ export default function BinQrScreen() {
               >
                 <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0 flex items-center justify-center">
                   {item.photoUrl
-                    ? <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
+                    ? <img loading="lazy" decoding="async" src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
                     : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-5 h-5 text-pt-muted">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z" />
                       </svg>

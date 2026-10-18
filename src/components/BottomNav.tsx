@@ -117,7 +117,7 @@ export default function BottomNav() {
           end={to === '/'}
           className={({ isActive }) =>
             `flex-1 flex flex-col items-center gap-0.5 pt-2 pb-0 text-xs transition-colors ${
-              isActive || alsoActive(also) ? 'text-pt-accent' : 'text-pt-muted'
+              isActive || alsoActive(also) ? 'text-pt-accent tab-bounce' : 'text-pt-muted'
             }`
           }
         >

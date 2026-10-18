@@ -169,7 +169,7 @@ export default function GearBookingScreen() {
           <div className="space-y-2">
             <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Return photo{b.return.photos.length > 1 ? 's' : ''}</p>
             <div className="flex gap-2">{b.return.photos.map(u => (
-              <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)}><img src={u} alt="" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>
+              <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)}><img loading="lazy" decoding="async" src={u} alt="" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>
             ))}</div>
           </div>
         ) : null}

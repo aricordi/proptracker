@@ -16,7 +16,7 @@ import ReservePanel from '../components/ReservePanel'
 import PropHistory from '../components/PropHistory'
 import PropSuggestions, { WrongNameLink } from '../components/Suggestions'
 import { useBookings } from '../hooks/useBookings'
-import { CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
+import { photoMorphName, CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
 import type { Item, Condition } from '../types'
 
 export default function ItemDetailScreen() {
@@ -137,7 +137,7 @@ export default function ItemDetailScreen() {
           >
             {item.photos.map((url, i) => (
               <button key={url} onClick={() => setLightboxIndex(i)} className="w-full h-full shrink-0 snap-center active:opacity-90">
-                <img src={url} alt={`${item.name} photo ${i + 1}`} className="w-full h-full object-cover" />
+                <img src={url} alt={`${item.name} photo ${i + 1}`} className="w-full h-full object-cover" style={i === 0 ? { viewTransitionName: photoMorphName(item.id) } : undefined} />
               </button>
             ))}
           </div>

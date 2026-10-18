@@ -3,6 +3,18 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Big libraries in their own files: they rarely change, so phones keep them cached across updates.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('firebase') || id.includes('@firebase')) return 'firebase'
+          if (/[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) return 'react'
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

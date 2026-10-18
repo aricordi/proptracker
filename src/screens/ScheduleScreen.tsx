@@ -341,11 +341,16 @@ function BookSheet({ house, date, start, team, mine, onClose, onBooked }: { hous
   const [forEmail, setForEmail] = useState('')
   const [people, setPeople] = useState<{ email: string; name: string }[]>([])
   const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
   useEffect(() => { if (team) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team])
   async function book() {
     setBusy(true); setErr('')
-    try { const r = await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}) }); onBooked(r.data.id) }
+    try {
+      const r = await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}) })
+      // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
+      setDone(true); setTimeout(() => onBooked(r.data.id), 650)
+    }
     catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   const h = house as House
@@ -371,7 +376,7 @@ function BookSheet({ house, date, start, team, mine, onClose, onBooked }: { hous
       )}
       {isNoCrewDay(date) && <p className="mt-3 rounded-xl px-3 py-3 text-sm border border-sky-400/40 bg-sky-400/10 text-pt-text">Sunday: no crew. You run the shoot yourself.</p>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
-      <button disabled={busy} onClick={book} className="mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">{busy ? 'Booking…' : 'Book it'}</button>
+      <button disabled={busy || done} onClick={book} className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? 'Booked ✓' : busy ? 'Booking…' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">Confirmed instantly.</p>
     </BottomSheet>
   )
