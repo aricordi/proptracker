@@ -922,6 +922,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       + puts it in the gear basket; "No gear in the app yet" when empty. Review = summary of both baskets + "Review &
       send ›" → /reserve with location state {title} = first idea typed (ReserveScreen pre-fills the video name). The
       creator still confirms on /reserve; the chat never sends a request.
+    - PLAN EXTRAS A+B+C (owner, Oct 19: "build all of them and put it live"; app only, NO server change):
+      (A) `useAssistant().open('plan', shootId)` starts at the props step for that shoot: violet "Plan it with AI" card in
+      ShootNeeds (own booked shoot, before the gear cutoff) + Home To do "Props or gear for…" action "✦ Plan it".
+      (B) `useShootRequests` in Assistant.tsx (live reservations + gear_bookings with shootId, not cancelled/declined):
+      {who:'already'} card "Already on this shoot" at the props step; their item/offer ids join `exclude` for
+      ideaToProps; gear step shows "On this shoot ✓". (C) Review: when the shoot has a props request still 'requested'
+      and the basket has props → "Add the props to my sent request ›" → /reservations/:id with location state
+      {add:{lines,builds}}; ChangeRequest opens in edit mode with them merged (NEW badge on added props), only saved by
+      the person's "Save changes" (editReservation re-checks availability), then removes them from the basket.
+      Gear still goes through /reserve ("Send the gear ›"). Mount effect guarded by a ref (dev StrictMode ran it twice).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

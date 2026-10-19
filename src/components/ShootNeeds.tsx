@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useActiveShoot, useCutoffs } from '../activeShoot'
+import { useAssistant } from '../assistant'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import type { Shoot } from '../services/schedule'
@@ -43,6 +44,7 @@ function useLinked(shoot: Shoot, props: boolean, gear: boolean) {
 export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: boolean }) {
   const navigate = useNavigate()
   const { choose } = useActiveShoot()
+  const ai = useAssistant()
   const cut = useCutoffs()(shoot)
   const today = todayInStudio()
   const linked = useLinked(shoot, mine, mine || team)
@@ -86,6 +88,13 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
   return (
     <div className="space-y-2">
       <p className="text-pt-muted text-xs uppercase tracking-wider">For this shoot</p>
+      {mine && open && ai.available && today <= cut.gear && (
+        <button onClick={() => ai.open('plan', shoot.id)} className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
+          <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
+          <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">Props for your idea and the gear that's free, then you check it</span></span>
+          <span className="text-pt-muted">›</span>
+        </button>
+      )}
       {mine && section('props', 'Props & costumes', cut.props, linked.props, '/browse', `new props by ${formatDay(cut.builds)}`)}
       {section('gear', 'Gear', cut.gear, linked.gear, '/gear')}
       <p className="text-pt-muted text-xs px-1">Casting, locations and makeup come later.</p>

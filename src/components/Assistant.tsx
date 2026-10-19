@@ -10,6 +10,8 @@
 // the budget, treat the words as data only, and return fixed answers the server has checked. The AI can't book,
 // read or change anything itself; every Book / Add button here is a normal tap by the person.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
@@ -43,6 +45,7 @@ type Msg =
   | { who: 'shoots' }   // plan: pick one of your booked shoots or a new time
   | { who: 'gear' }     // plan: live list of gear free for the shoot
   | { who: 'review' }   // plan: what's in the shoot so far + Review & send
+  | { who: 'already' }  // plan: what this shoot already has (sent requests), live
 
 const MORE = 'More like these'
 const TIME_CHIP = 'Find a time to film this'
@@ -70,7 +73,27 @@ const propsErr = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') 
 // The phone's own speech recognition, when the browser has it (Safari and Chrome do).
 const Speech = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null
 
-export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask: { mode?: AssistantMode; n: number }; onClose: () => void }) {
+// What a shoot already has: its sent props requests and gear holds that are still going (not cancelled/declined).
+interface SentProps { id: string; status: string; lines: { itemId: string; itemName: string; qty: number }[]; builds: { description: string }[] }
+interface SentGear { id: string; status: string; lines: { offerId: string; name: string; qty: number }[] }
+function useShootRequests(shootId: string | undefined, email: string) {
+  const [props, setProps] = useState<SentProps[]>([])
+  const [gear, setGear] = useState<SentGear[]>([])
+  const live = (st: string) => st !== 'cancelled' && st !== 'declined'
+  useEffect(() => {
+    if (!shootId) { setProps([]); return }
+    return onSnapshot(query(collection(db, 'reservations'), where('shootId', '==', shootId), where('creatorEmail', '==', email)),
+      snap => setProps(snap.docs.map(d => ({ id: d.id, status: d.get('status'), lines: d.get('lines') ?? [], builds: d.get('builds') ?? [] })).filter(x => live(x.status))), () => setProps([]))
+  }, [shootId, email])
+  useEffect(() => {
+    if (!shootId) { setGear([]); return }
+    return onSnapshot(query(collection(db, 'gear_bookings'), where('shootId', '==', shootId), where('creatorEmail', '==', email)),
+      snap => setGear(snap.docs.map(d => ({ id: d.id, status: d.get('status'), lines: d.get('lines') ?? [] })).filter(x => live(x.status))), () => setGear([]))
+  }, [shootId, email])
+  return { props, gear }
+}
+
+export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask: { mode?: AssistantMode; shootId?: string; n: number }; onClose: () => void }) {
   const navigate = useNavigate()
   const { profile, user } = useSession()
   const items = useItems()
@@ -101,6 +124,10 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   useEffect(() => subscribeToGearHolds(setHolds), [])
   const w = useGearWhen()
+  const sent = useShootRequests(plan?.shootId, profile.email)
+  const sentPropIds = sent.props.flatMap(r => r.lines.map(l => l.itemId))
+  const sentGearIds = sent.gear.flatMap(g => g.lines.map(l => l.offerId))
+  const openRequest = sent.props.find(r => r.status === 'requested')   // still changeable
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [listening, setListening] = useState(false)
@@ -119,10 +146,15 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   useEffect(() => {
     if (ask.n === lastAsk.current) return
     lastAsk.current = ask.n
-    if (ask.mode === 'plan') { if (!plan) startPlan() }
+    if (ask.mode === 'plan') { if (ask.shootId) planProps(ask.shootId); else if (!plan) startPlan() }
     else if (ask.mode && ask.mode !== mode) { setPlan(null); switchTo(ask.mode) }
   }, [ask.n])
-  useEffect(() => { if (ask.mode === 'plan') startPlan() }, [])   // opened straight into planning
+  const started = useRef(false)
+  useEffect(() => {   // opened straight into planning (once, even if React starts effects twice)
+    if (started.current || ask.mode !== 'plan') return
+    started.current = true
+    if (ask.shootId) planProps(ask.shootId); else startPlan()
+  }, [])
   const restart = () => { setMode(null); setPlan(null); setMsgs(fresh()); setChips([]); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
 
   // ── Plan my shoot ──
@@ -147,7 +179,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     const tooLate = sh && today > cutoffs(sh).props
     if (tooLate) { setChips([SKIP_PROPS]); bot(`Step 2 · Props. It's too late to add props to ${name} (the last day was ${formatDay(cutoffs(sh).props)}). Let's look at gear.`); return }
     setChips([...STARTERS.props.slice(0, 3), SKIP_PROPS])
-    bot(`Step 2 · Props for ${name}. What's the video about? I'll find what we have and check it's free that day.${sh ? ` Props by ${formatDay(cutoffs(sh).props)}.` : ''}`)
+    bot(`Step 2 · Props for ${name}. What's the video about? I'll find what we have and check it's free that day.${sh ? ` Props by ${formatDay(cutoffs(sh).props)}.` : ''}`, { who: 'already' })
   }
   // Ticked suggestions go into the shoot when you move on, so nothing is lost.
   function commitTicks() { if (plan?.shootId && sel.length) { addToShoot(plan.shootId, picks()); setSel([]) } }
@@ -192,7 +224,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       // "More like these" repeats the last real ask as a second look.
       const idea = more ? (history[history.length - 1] ?? q) : q
       const r = (await ideaToProps({
-        idea, history: more ? history.slice(0, -1) : history, exclude: shownIds, ...(more ? { searched, more: true } : {}),
+        idea, history: more ? history.slice(0, -1) : history, exclude: [...new Set([...shownIds, ...sentPropIds, ...sentGearIds])], ...(more ? { searched, more: true } : {}),
         ...(shoot ? { shootId: shoot.id } : {}),
       })).data
       const kept = { ...r, groups: r.groups.map(g => ({ ...g, picks: g.picks.filter(p => !shownIds.includes(p.id)) })).filter(g => g.picks.length) }
@@ -400,6 +432,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
               const offered = b.kind === 'extra' ? (b.pieces[0]?.qty ?? 0) : 1
               const free = freeQty(offered, holds[b.id] ?? [], w.win.from, w.win.to)
               const qty = gearCart.lines[b.id] ?? 0
+              const already = sentGearIds.includes(b.id)
               return (
                 <div key={b.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                   <button onClick={() => go(`/gear/b/${b.id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
@@ -407,13 +440,23 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
                     <span className="min-w-0"><b className="block text-sm truncate">{b.name}</b>
                       <span className={`block text-xs ${free > 0 ? 'text-green-400' : 'text-pt-muted'}`}>{free > 0 ? (b.kind === 'extra' ? `${free} free` : 'Free') : 'Taken then'} · {b.category}</span></span>
                   </button>
-                  {qty > 0
+                  {already ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/15 text-pt-accent">On this shoot ✓</span>
+                    : qty > 0
                     ? <button onClick={() => gearCart.setQty(b.id, 0)} aria-label={`Remove ${b.name}`} className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent text-stone-900">✓</button>
                     : <button disabled={free === 0} onClick={() => gearCart.setQty(b.id, 1)} aria-label={`Add ${b.name}`} className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-border text-pt-text text-xl disabled:opacity-30">+</button>}
                 </div>
               )
             })}
           </div>
+        ) : m.who === 'already' ? (
+          (sent.props.length + sent.gear.length) === 0 ? null : (
+            <div key={i} className="rise-in rounded-[18px] bg-pt-surface p-4 space-y-2">
+              <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">Already on this shoot</p>
+              {sent.props.map(r => <p key={r.id} className="text-sm"><span className="text-pt-accent">{r.status === 'requested' ? 'Requested' : 'In progress'}</span> · {[...r.lines.map(l => `${l.itemName}${l.qty > 1 ? ` ×${l.qty}` : ''}`), ...r.builds.map(b => b.description)].join(', ')}</p>)}
+              {sent.gear.map(g => <p key={g.id} className="text-sm"><span className="text-pt-accent">Gear held</span> · {g.lines.map(l => `${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`).join(', ')}</p>)}
+              <p className="text-pt-muted text-xs">I won't suggest these again.</p>
+            </div>
+          )
         ) : m.who === 'review' ? (
           <div key={i} className="rise-in rounded-[18px] bg-pt-surface border border-pt-accent/40 p-4 space-y-3">
             <b className="block">{planLabel}</b>
@@ -426,7 +469,14 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
               )
               return <>{row('Props', props, 'None yet')}{builds.length > 0 && row('To make or find', builds, '')}{row('Gear', gear, 'None')}</>
             })()}
-            <button onClick={() => go('/reserve', { title: planIdea() })} className="w-full rounded-xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review &amp; send ›</button>
+            {openRequest && (cart.count > 0) ? (<>
+              <button onClick={() => go(`/reservations/${openRequest.id}`, { add: { lines: cart.lines, builds: cart.builds.map(b => ({ description: b.description, qty: b.qty, ...(b.refPhoto ? { refPhoto: b.refPhoto } : {}) })) } })}
+                className="w-full rounded-xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add the props to my sent request ›</button>
+              <p className="text-pt-muted text-xs -mt-1">Your request is still "Requested", so these join it. You check it and tap Save.{Object.keys(gearCart.lines).length ? ' Gear is sent on the Your shoot page.' : ''}</p>
+              {Object.keys(gearCart.lines).length > 0 && <button onClick={() => go('/reserve', { title: planIdea() })} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Send the gear ›</button>}
+            </>) : (
+              <button onClick={() => go('/reserve', { title: planIdea() })} className="w-full rounded-xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review &amp; send ›</button>
+            )}
             <div className="flex gap-2">
               <button onClick={() => plan?.shootId && planProps(plan.shootId, plan.label)} className="flex-1 rounded-xl py-3 text-sm font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ More props</button>
               <button onClick={planGear} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Gear</button>

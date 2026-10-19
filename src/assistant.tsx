@@ -8,7 +8,7 @@ import { useSession } from './auth'
 export type AssistantMode = 'props' | 'time' | 'plan'
 const Assistant = lazy(() => import('./components/Assistant'))
 
-const Ctx = createContext<{ open: (mode?: AssistantMode) => void; available: boolean }>({ open: () => {}, available: false })
+const Ctx = createContext<{ open: (mode?: AssistantMode, shootId?: string) => void; available: boolean }>({ open: () => {}, available: false })
 export const useAssistant = () => useContext(Ctx)
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
@@ -16,8 +16,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [shown, setShown] = useState(false)
   const [started, setStarted] = useState(false)
   // Each open() asks for a mode; the counter lets the chat notice a new request even for the same mode.
-  const [ask, setAsk] = useState<{ mode?: AssistantMode; n: number }>({ n: 0 })
-  const open = (mode?: AssistantMode) => { setAsk(a => ({ mode, n: a.n + 1 })); setStarted(true); setShown(true) }
+  const [ask, setAsk] = useState<{ mode?: AssistantMode; shootId?: string; n: number }>({ n: 0 })
+  // shootId (with 'plan'): plan an already-booked shoot, starting at its props.
+  const open = (mode?: AssistantMode, shootId?: string) => { setAsk(a => ({ mode, shootId, n: a.n + 1 })); setStarted(true); setShown(true) }
   return (
     <Ctx.Provider value={{ open, available: canBook }}>
       {children}

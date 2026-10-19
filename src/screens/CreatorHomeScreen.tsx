@@ -100,7 +100,7 @@ export default function CreatorHomeScreen() {
     ...invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => ({ key: i.id, text: `${i.fromName} invited you to film right after them: ${formatDay(i.date)} · ${fmtSlot(i.start, i.end - i.start)}. Held for you for a few minutes.`, action: 'Answer', go: () => navigate('/schedule') })),
     ...swaps.incoming.map(r => ({ key: r.id, text: `${r.fromName} asks to swap shoots with you`, action: 'Answer', go: () => navigate('/schedule') })),
     ...toExplain.map(x => ({ key: x.id, text: `You didn't check in for ${label(x)}. Say what happened.`, action: 'Explain', go: () => open(x.id) })),
-    ...needsStuff.map(x => ({ key: x.id, text: `Props or gear for ${label(x)}? Add by ${formatDay(cutoffs(x).props)}.`, action: 'Open', go: () => open(x.id) })),
+    ...needsStuff.map(x => ({ key: x.id, text: `Props or gear for ${label(x)}? Add by ${formatDay(cutoffs(x).props)}.`, action: '✦ Plan it', go: () => ai.open('plan', x.id) })),
   ]
 
   // A step on the next-shoot card: done (✓) or still to add (+, with the cutoff).
