@@ -28,13 +28,19 @@ export function pushState(): PushState {
   return 'off'
 }
 
+const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<T>((_, no) =>
+  setTimeout(() => no(new Error('The phone took too long to answer. Close the app fully, reopen it and try again.')), ms))])
+
 async function getDeviceToken(): Promise<string> {
   if (USING_EMULATORS) return store.get() ?? `emulator-${crypto.randomUUID()}-test-device`
   const { getMessaging, getToken, isSupported } = await import('firebase/messaging')
   if (!(await isSupported())) throw new Error('This browser can’t get notifications.')
-  const reg = await navigator.serviceWorker.ready
   const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY as string | undefined
-  return getToken(getMessaging(app), { serviceWorkerRegistration: reg, ...(vapidKey ? { vapidKey } : {}) })
+  // Never leave the button spinning: if the phone doesn't answer in 20 s, say so.
+  return withTimeout((async () => {
+    const reg = await navigator.serviceWorker.ready
+    return getToken(getMessaging(app), { serviceWorkerRegistration: reg, ...(vapidKey ? { vapidKey } : {}) })
+  })(), 20_000)
 }
 
 // Must be called from a tap (phones only show the "Allow notifications?" question after one).
@@ -61,7 +67,10 @@ export async function turnOffPush() {
 // On each app start: keep this phone's token fresh (tokens can change); quietly does nothing if it's off.
 export async function refreshPush() {
   try {
-    if (pushState() !== 'on') return
+    // Also finish signing up a phone that allowed notifications but never got its token saved
+    // (e.g. the app was closed or lost signal right after tapping Allow).
+    const st = pushState()
+    if (st !== 'on' && !(st === 'off' && Notification.permission === 'granted')) return
     const token = await getDeviceToken()
     await registerPush({ token, platform: platform() })
     store.set(token)

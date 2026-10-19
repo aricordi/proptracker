@@ -635,16 +635,16 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   const s = useScheduleSettings()
   const [count, setCount] = useState(1)
   const [where, setWhere] = useState<House | 'any'>(house ?? 'any')
-  // Owner (Oct 19): house-agnostic, soonest first. One row per time; when both houses are free it books
-  // Cliff 1 (most people's first choice), otherwise whichever house is free.
+  // Owner (Oct 19): times first, soonest first. One row per time with a button for each house that's free
+  // then, so people pick the house themselves (no default).
   const results = useMemo(() => {
     const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 200)
-    const byTime = new Map<string, { date: string; house: House; start: number }>()
+    const byTime = new Map<string, { date: string; start: number; houses: House[] }>()
     for (const r of found) {
       const k = `${r.date}|${r.start}`
       const had = byTime.get(k)
-      if (!had) byTime.set(k, r)
-      else if (HOUSES.indexOf(r.house) < HOUSES.indexOf(had.house)) had.house = r.house
+      if (!had) byTime.set(k, { date: r.date, start: r.start, houses: [r.house] })
+      else had.houses = HOUSES.filter(h => h === r.house || had.houses.includes(h))
     }
     return [...byTime.values()].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start)
   }, [days, from, count, where, s, email, now, team])
@@ -662,6 +662,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
           <button key={n} onClick={() => setCount(n)} className={`px-3 py-2 rounded-full text-sm border ${count === n ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{n * s.slotMinutes / 60} hours</button>
         ))}
       </div>
+      <p className="text-pt-muted text-xs mt-3">Soonest first. Tap the house you want.</p>
       {count > 1 && <p className="text-pt-muted text-xs mt-2">For filming back to back: you book your {s.slotMinutes / 60} hours, whoever films with you books the slot right after.</p>}
       <div className="mt-4 space-y-4">
         {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try fewer hours{where === 'any' ? '' : ' or any house'}.</p>}
@@ -670,13 +671,13 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
             <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mb-2">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) ? ' · no crew' : ''}</p>
             <div className="space-y-2">
               {(open.includes(d) ? list : list.slice(0, 3)).map(r => (
-                <button key={`${r.date}${r.start}`} onClick={() => onPick(r.date, r.house, r.start)} className="w-full flex items-center gap-3 bg-pt-bg rounded-xl p-3 text-left">
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-pt-text font-semibold">{fmtSlot(r.start, count * s.slotMinutes)}</span>
-                    <span className="block text-pt-muted text-xs">{s.houses[r.house].name}</span>
-                  </span>
-                  <span className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 py-2 text-sm shadow-gold">{team ? 'Open' : 'Book'}</span>
-                </button>
+                <div key={`${r.date}${r.start}`} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">
+                  <span className="flex-1 min-w-0 text-pt-text font-semibold">{fmtSlot(r.start, count * s.slotMinutes)}</span>
+                  {r.houses.map(h => (
+                    <button key={h} onClick={() => onPick(r.date, h, r.start)} aria-label={`${team ? 'Open' : 'Book'} ${s.houses[h].name}`}
+                      className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 min-h-[40px] text-sm shadow-gold shrink-0">{s.houses[h].name}</button>
+                  ))}
+                </div>
               ))}
               {list.length > 3 && !open.includes(d) && (
                 <button onClick={() => setOpen(o => [...o, d])} className="tap text-pt-accent text-sm">{list.length - 3} more {list.length - 3 === 1 ? 'time' : 'times'} this day</button>
