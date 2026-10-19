@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 391 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 396 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -935,6 +935,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Oct 19 (website run 20, owner "build all of them and put it live"): one AI chat, Plan my shoot, extras A+B+C.
     - SLIM AI LINKS (owner, Oct 19: "shrink the AI cards on Home and Book, the ✦ AI button is on top"): both are now one-line violet
       pills (44px): Home "✦ Ask AI: props for an idea, or a time to film ›", Book "✦ Or ask AI to find a time ›" (divider removed). LIVE Oct 19 (website run 21, owner OK).
+    - NO PROPS/TIME TOGGLE (owner, Oct 19: "it should use context to do both"; app only, NO server change; preview only,
+      live needs OK): `src/lib/aiRoute.ts` (pure, unit-tested, no AI) reads each message: a booked shoot named ("props for
+      my Saturday shoot", "the 27th", "my next shoot") → props for THAT shoot (picks it, free/taken for its day); time words
+      (book, slots, lengths, days, dates, am/pm, Cliff 1/2, "filming with") → times; props/video words or a long idea →
+      props; both ("a séance video, filming Friday with Kyle") → props then times in one go; short follow-ups ("evenings
+      only", "anything earlier?") keep what the chat was last doing. The Plan steps still force their helper. The toggle is
+      gone; the opener = "Tell me your video idea, or when you want to film, or both" + Plan my shoot card + mixed example
+      chips (incl. "Props for my <weekday> shoot"). Typing dots say "Looking through the props…" / "Checking the schedule…".
+      When the chat changes direction, a small "Meant a time to film? / Meant props for this?" link re-sends to the other helper.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
