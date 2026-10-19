@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { fmtTime, GEAR_LEAD_TIME_DAYS } from '../../functions/src/gearBooking'
 import { useBookingSettings } from '../hooks/useBookings'
-import { useScheduleSettings, fmtSlot, BOOK_AHEAD_DAYS } from '../services/schedule'
+import { useScheduleSettings, fmtSlot, BOOK_AHEAD_DAYS, MONTHLY_SLOTS_ON } from '../services/schedule'
 
 const WEEKDAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
 const list = (xs: string[]) => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
@@ -29,13 +29,15 @@ export default function ScheduleRulesScreen() {
           <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>: {s.slots.map(t => fmtSlot(t, s.slotMinutes)).join(', ')}.</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
           <Li>Bookings are <b>confirmed instantly</b> when the slot is free and these rules allow it, up to {BOOK_AHEAD_DAYS} days ahead.</Li>
-          <Li>Filming with someone? Book back-to-back slots. "Find a time" looks for 4 or 6 free hours in a row.</Li>
+          <Li>Filming with someone? In <b>Book a shoot</b> pick "+ 1 friend" or "+ 2 friends": you each get a slot back to back, and theirs is held for them to confirm.</Li>
         </ul>
 
-        <H>Your {s.monthlySlots} monthly slots ({c1})</H>
+        <H>{MONTHLY_SLOTS_ON ? `Your ${s.monthlySlots} monthly slots (${c1})` : 'How much you can book'}</H>
         <ul className="list-disc pl-5 space-y-2">
+          {MONTHLY_SLOTS_ON && <>
           <Li>Every creator is guaranteed <b>{s.monthlySlots} {c1} slots a month</b>. Choose "Monthly slot" when you book.</Li>
           <Li>Anything beyond that is an <b>extra slot</b>, booked the same way whenever it's free.</Li>
+          </>}
           <Li><b>{s.slotsPerDay === 1 ? 'One house slot' : `${s.slotsPerDay} house slots`} a day</b> ({s.slotsPerDay * s.slotMinutes / 60} hours) per creator, across both houses. Need more? Ask the schedule team; they can book it for you. Offsite shoots don't count.</Li>
         </ul>
 

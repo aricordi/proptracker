@@ -6,6 +6,9 @@ import { db, functions } from '../firebase'
 import { cleanScheduleSettings, DEFAULT_SCHEDULE, type ScheduleSettings, type ScheduleDay, type Place, type ShootKind, type BlockType, type House } from '../../functions/src/schedule'
 
 export * from '../../functions/src/schedule'
+// Owner (Oct 19, option A): the "monthly vs extra" choice is hidden until the wishlist + fair draw exists.
+// Every booking is just a shoot (saved as 'extra'); the draw will hand out the guaranteed monthly slots.
+export const MONTHLY_SLOTS_ON = false
 
 export interface Shoot {
   id: string

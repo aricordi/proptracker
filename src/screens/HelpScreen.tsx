@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBookingSettings } from '../hooks/useBookings'
-import { useScheduleSettings, fmtSlot, INVITE_HOLD_MINUTES, UNDO_MINUTES } from '../services/schedule'
+import { useScheduleSettings, fmtSlot, INVITE_HOLD_MINUTES, UNDO_MINUTES, MONTHLY_SLOTS_ON } from '../services/schedule'
 import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES } from '../../functions/src/gearBooking'
 
 interface Q { q: string; a: ReactNode; words?: string; go?: [string, string] }
@@ -30,7 +30,7 @@ export default function HelpScreen() {
     { title: 'Booking a shoot', icon: '📅', items: [
       { q: 'How do I book filming time?', words: 'reserve slot house', go: ['/schedule?book=1', 'Book a shoot'], a: <>Go to <b>Book</b> → <b>Book a shoot</b>, say who's filming (just you, or with 1 or 2 friends): the soonest free times show first, with a button for each house that's free then ({c1} or {c2}). Tap the one you want. Filming elsewhere? Tap "Shooting somewhere else?". Houses are booked in {s.slotMinutes / 60}-hour slots from {slots}. It's confirmed instantly. A booking takes the whole house.</> },
       { q: 'Can I book more than one slot a day?', words: 'two slots 4 hours long day limit extra', a: <>Each creator can book <b>{s.slotsPerDay === 1 ? 'one' : s.slotsPerDay} {s.slotMinutes / 60}-hour house slot{s.slotsPerDay === 1 ? '' : 's'} a day</b> ({c1} and {c2} together). Filming with friends? Each of you books your own slot, back to back. Need longer? Ask the schedule team; they can add it for you.</> },
-      { q: 'What are monthly slots?', words: 'guaranteed four 4 cliff', a: <>Everyone gets {s.monthlySlots} monthly slots at {c1}. Your Home screen shows how many you have left this month. Anything else you book is an extra slot, if it's free.</> },
+      ...!MONTHLY_SLOTS_ON ? [] : [{ q: 'What are monthly slots?', words: 'guaranteed four 4 cliff', a: <>Everyone gets {s.monthlySlots} monthly slots at {c1}. Your Home screen shows how many you have left this month. Anything else you book is an extra slot, if it's free.</> }],
       { q: `Why are some ${prio} slots locked?`, words: 'priority locked lock sunday release', a: <>{prio} at {c1} are priority days for the priority group. Slots nobody claimed open to everyone on the Sunday before. The lock shows when it opens.</> },
       { q: 'How do I find a free time quickly?', words: 'find a time search earliest', a: <>On <b>Book</b>, tap <b>Find a time</b> for the next free slots, or <b>✦ Ask for a time</b> and just say what you need ("4 hours next week, evenings").</> },
       { q: "Can I add it to my phone's calendar?", words: 'calendar ical google apple', a: <>Yes: on <b>Book</b>, tap "Add my shoots to my phone's calendar". Your shoots then show up in your calendar app and stay up to date.</> },

@@ -21,6 +21,7 @@ import { nowStamp } from '../../functions/src/gearBooking'
 import { formatDay } from '../lib/dates'
 import {
   useScheduleSettings, useMyShoots, useMySwaps, useMyStatus, useMyInvites, checkinWindow, isMissed, explainUntil, fmtSlot, monthOf, type Shoot,
+  MONTHLY_SLOTS_ON,
 } from '../services/schedule'
 
 const TODO_DAYS = 21   // remind about props/gear for shoots in the next 3 weeks
@@ -89,6 +90,7 @@ export default function CreatorHomeScreen() {
   const paused = !!status?.pausedUntil && status.pausedUntil > today
   const monthlyUsed = (history ?? []).filter(x => x.kind === 'monthly' && x.status === 'booked' && monthOf(x.date) === monthOf(today)).length
   const monthlyLeft = Math.max(0, s.monthlySlots - monthlyUsed)
+  const monthShoots = (history ?? []).filter(x => x.status === 'booked' && monthOf(x.date) === monthOf(today)).length
   const streak = filmedStreak(history ?? [], now)
   const open = (id: string) => navigate(`/schedule?shoot=${id}`)
   const first = (profile.name || user.displayName || '').split(' ')[0]
@@ -191,12 +193,20 @@ export default function CreatorHomeScreen() {
       <div className="px-5 mt-6 space-y-6">
         {/* Monthly slots + streak */}
         <div className="grid grid-cols-2 gap-3">
+          {!MONTHLY_SLOTS_ON ? (
+          <button onClick={() => navigate('/schedule')} className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2 text-left">
+            <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">This month</span>
+            <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{monthShoots} 🎬</span>
+            <span className="text-pt-muted text-[13px]">{monthShoots === 1 ? 'shoot' : 'shoots'} booked</span>
+          </button>
+          ) : (
           <button onClick={() => navigate('/schedule')} className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2 text-left">
             <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">Monthly slots</span>
             <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{monthlyLeft} left</span>
             <span className="flex gap-2">{Array.from({ length: s.monthlySlots }, (_, i) => <i key={i} className={`flex-1 h-2 rounded ${i < monthlyUsed ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>
             <span className="text-pt-muted text-[13px]">at {s.houses.cliff1.name} this month</span>
           </button>
+          )}
           <div className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">Streak</span>
             <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{streak} 🔥</span>
@@ -232,7 +242,7 @@ export default function CreatorHomeScreen() {
                   </span>
                   <span className="flex-1 min-w-0">
                     <b className="block truncate">{x.place === 'offsite' ? (x.where || 'Offsite') : s.houses[x.place].name} · {fmtSlot(x.start, x.end - x.start)}</b>
-                    <span className="block text-pt-muted text-[13px]">{[x.kind === 'monthly' ? 'Monthly slot' : x.kind === 'offsite' ? 'Offsite' : 'Extra slot',
+                    <span className="block text-pt-muted text-[13px]">{[x.kind === 'offsite' ? 'Offsite' : !MONTHLY_SLOTS_ON ? '' : x.kind === 'monthly' ? 'Monthly slot' : 'Extra slot',
                       linked[x.id]?.props ? 'props requested' : '', linked[x.id]?.gear ? 'gear held' : ''].filter(Boolean).join(' · ')}</span>
                   </span>
                   <span className="text-pt-muted">›</span>

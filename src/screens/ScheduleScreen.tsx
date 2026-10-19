@@ -18,7 +18,7 @@ import {
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot, type SwapRequest,
-  houseSlotsOn,
+  houseSlotsOn, MONTHLY_SLOTS_ON,
 } from '../services/schedule'
 
 const DAYS_SHOWN = 35
@@ -247,7 +247,7 @@ function SlotRow({ day, date, house, start, team, email, now, onTap }: {
     face = <Avatar email={st.entry.email} name={st.entry.name} ring={isMine} />
     title = isMine ? 'You' : st.entry.name
     const ch = st.entry.email ? profiles[st.entry.email]?.channel : ''
-    sub = [ch, st.entry.kind === 'monthly' ? 'Monthly slot' : 'Extra slot'].filter(Boolean).join(' · ')
+    sub = [ch, MONTHLY_SLOTS_ON ? (st.entry.kind === 'monthly' ? 'Monthly slot' : 'Extra slot') : ''].filter(Boolean).join(' · ')
     if (isMine) { pill = <Pill tone="info">Yours</Pill>; cls = 'bg-pt-accent/10 border-pt-accent' }
   }
   else if (st.t === 'past') { title = '—'; sub = 'Past'; cls = 'bg-pt-surface border-transparent opacity-45' }
@@ -328,7 +328,7 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
   const s = useScheduleSettings()
   const usedThatMonth = mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length
   const left = Math.max(0, s.monthlySlots - usedThatMonth)
-  const [kind, setKind] = useState<ShootKind>(house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
+  const [kind, setKind] = useState<ShootKind>(MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
   const [forEmail, setForEmail] = useState('')
   const [people, setPeople] = useState<{ email: string; name: string }[]>([])
   const [busy, setBusy] = useState(false)
@@ -356,7 +356,7 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
       )}
-      {house === MONTHLY_HOUSE && (
+      {MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (
         <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Counts as</span>
           <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5">
             <button disabled={!team && left === 0} onClick={() => setKind('monthly')} className={`flex-1 py-2 rounded-[10px] text-sm disabled:opacity-40 ${kind === 'monthly' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
@@ -412,7 +412,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
             {!mine && profiles[shoot.creatorEmail]?.channel && <p className="text-pt-muted text-sm">{profiles[shoot.creatorEmail]!.channel}</p>}
             <div className="flex gap-2 mt-2">
               {shoot.status === 'cancelled' ? <Pill tone="taken">Cancelled</Pill> : <Pill tone="free">Booked</Pill>}
-              <Pill tone="muted">{shoot.kind === 'monthly' ? 'Monthly slot' : shoot.kind === 'offsite' ? 'Offsite' : 'Extra slot'}</Pill>
+              {(MONTHLY_SLOTS_ON || shoot.kind === 'offsite') && <Pill tone="muted">{shoot.kind === 'monthly' ? 'Monthly slot' : shoot.kind === 'offsite' ? 'Offsite' : 'Extra slot'}</Pill>}
             </div>
           </div>
         </div>
@@ -482,7 +482,7 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
           <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-2 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
         ))}
       </div>
-      {shoot.kind === 'monthly' && <p className="text-pt-muted text-xs mt-2">Stays a monthly slot at {s.houses.cliff1.name}; at {s.houses.cliff2.name} it becomes an extra slot.</p>}
+      {MONTHLY_SLOTS_ON && shoot.kind === 'monthly' && <p className="text-pt-muted text-xs mt-2">Stays a monthly slot at {s.houses.cliff1.name}; at {s.houses.cliff2.name} it becomes an extra slot.</p>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       <div className="mt-3 space-y-2">
         {results.length === 0 && <p className="text-pt-muted text-sm">No free slots in the next 60 days.</p>}
@@ -779,7 +779,7 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
 }) {
   const s = useScheduleSettings()
   const left = Math.max(0, s.monthlySlots - mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length)
-  const [kind, setKind] = useState<ShootKind>(house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
+  const [kind, setKind] = useState<ShootKind>(MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
@@ -805,7 +805,7 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
           </div>
         ))}
       </div>
-      {house === MONTHLY_HOUSE && (
+      {MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (
         <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Your slot counts as</span>
           <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5">
             <button disabled={!team && left === 0} onClick={() => setKind('monthly')} className={`flex-1 py-2 rounded-[10px] text-sm disabled:opacity-40 ${kind === 'monthly' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Monthly slot ({left} left)</button>

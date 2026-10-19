@@ -110,7 +110,7 @@ function CreatorLinks({ email }: { email: string }) {
     ['My prop requests', 'Every props request and where it is', '/reservations?mine=1'],
     ['My gear', 'Gear held, picked up and returned', '/gear/bookings?mine=1'],
     ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
-    ['How it works', 'Slots, monthly picks, cutoffs, check-ins, strikes', '/schedule/how'],
+    ['How it works', 'Slots, cutoffs, check-ins, strikes', '/schedule/how'],
   ]
   return (
     <>
