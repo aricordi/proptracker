@@ -9,8 +9,10 @@
 // the real pieces that can't send anything (BottomSheet, PieceChecklist, Pill, PhotoStrip, Avatar, RequestRow,
 // BrandMark, GearArt). When one of those screens changes a lot, update its scene here too.
 // Hands-on and calm (owner, Oct 19): you type, pick and tick yourself; no pop-in or pulsing.
-// SEALED: nothing here writes anything or books anyone. The only server call is the read-only list of creators'
-// names for the friend search. Camera photos stay on the phone. The AI answers are made on the phone from your words.
+// SEALED: nothing here books anyone or sends a request. Server calls: the read-only list of creators' names (friend
+// search) and the REAL AI helper for your video idea (owner, Oct 19: suggestions must have a logic; ~half a cent, counted
+// in the AI budget; it only suggests). If the AI fails or is resting, `ideaMatches` answers on the phone instead.
+// Camera photos stay on the phone. The "find a time" answer is a made-up example.
 // Required once for creators (App.tsx TourGate; can pause and resume); anyone can replay it at /tour.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
@@ -19,6 +21,7 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { useScheduleSettings, fmtSlot, listFilmingFriends, INVITE_HOLD_MINUTES } from '../services/schedule'
 import { subscribeToGearBundles, type GearBundle } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
+import { ideaToProps } from '../services/ai'
 import { GearArt, Pill, PieceChecklist } from '../components/GearUi'
 import { TAB_ICONS } from '../components/BottomNav'
 import BottomSheet from '../components/BottomSheet'
@@ -115,6 +118,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [builds, setBuilds] = useState<{ description: string; qty: number }[]>([])
   const [buildDesc, setBuildDesc] = useState(''), [buildQty, setBuildQty] = useState(1), [showBuild, setShowBuild] = useState(false)
   const [idea, setIdea] = useState(''), [asked, setAsked] = useState(''), [timeAsk, setTimeAsk] = useState('')
+  // The AI's answer: groups of {prop id, why} + things to make or find (null = not asked yet).
+  const [aiResult, setAiResult] = useState<{ reply: string; groups: { title: string; picks: { id: string; why: string }[] }[]; missing: { name: string; why: string }[] } | null>(null)
+  const [aiBusy, setAiBusy] = useState(false)
   const [aiTicks, setAiTicks] = useState<string[]>([]), [aiSheet, setAiSheet] = useState(false), [aiAdded, setAiAdded] = useState(false)
   const [qty, setQty] = useState<Record<string, number>>({}), [editing, setEditing] = useState(false), [newBuild, setNewBuild] = useState('')
   const [over, setOver] = useState(false), [mess, setMess] = useState(false), [reportNote, setReportNote] = useState('')
@@ -137,7 +143,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     // 3 · Find props with AI
     { id: 'planai', scene: 'shoot', target: 'planai', part: PART(3, 'Find props with AI'), tip: <>Not sure what props you need? Tap <b>✦ Plan it with AI</b>. (The ✦ AI button at the top of every screen opens it too.)</> },
     { id: 'aiask', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>Describe your video in your own words (e.g. "a séance that goes wrong") and tap <b>↑</b>.</> },
-    { id: 'aipicks', scene: 'chat', target: 'chatzone', top: true, part: PART(3, 'Find props with AI'), tip: <>Real props from our closet that fit your idea, and if they're free that day. <b>Tick</b> the ones you want (tap +), then tap <b>Add to a shoot</b>.</> },
+    { id: 'aipicks', scene: 'chat', target: 'chatzone', top: true, part: PART(3, 'Find props with AI'), tip: <>That's the real AI: props from our closet for your idea, grouped by scene, each with <b>why</b> it fits. <b>Tick</b> the ones you want (tap +), then tap <b>Add to a shoot</b>. (It only suggests: you decide.)</> },
     { id: 'aishoot', scene: 'chat', target: 'aishoot', part: PART(3, 'Find props with AI'), tip: <>Pick the shoot they're for: tap yours.</> },
     { id: 'aitime', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>It finds times too. Type something like "2 hours with {friendFirst} next Friday" and tap <b>↑</b>.</> },
     { id: 'aioptions', scene: 'chat', target: 'options', next: 'Next', part: PART(3, 'Find props with AI'), tip: <>Real free times, back to back for you and your friend. You'd tap <b>Book</b> to take one (not now: you're already booked).</> },
@@ -205,8 +211,24 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const addBuild = () => { if (step.id !== 'makeform' || !buildDesc.trim()) return; setBuilds(b => [...b, { description: buildDesc.trim(), qty: buildQty }]); setShowBuild(false); setBuildDesc(''); advance() }
   const send = () => {
     if (step.target !== 'composer' || idea.trim().length < 3) return
-    if (step.id === 'aiask') setAsked(idea.trim()); else setTimeAsk(idea.trim())
+    const q = idea.trim()
+    if (step.id === 'aiask') { setAsked(q); askAi(q) } else setTimeAsk(q)
     setIdea(''); advance()
+  }
+  // Real AI first; on the phone if it fails or finds nothing.
+  const askAi = (q: string) => {
+    const local = () => {
+      const { picks, main } = ideaMatches(q)
+      return { reply: picks.length ? "Here's what we have for that." : "We don't have much for that in the closet. The arts team can make or find it.",
+        groups: picks.length ? [{ title: 'For your idea', picks: picks.map(p => ({ id: p.item.id, why: `Matches “${p.why}”` })) }] : [],
+        missing: main ? [{ name: `Something for the ${main}`, why: 'The arts team can make or find it' }] : [] }
+    }
+    setAiBusy(true)
+    ideaToProps({ idea: q }).then(r => {
+      const known = new Set(items.map(i => i.id))
+      const groups = r.data.groups.map(g => ({ title: g.title, picks: g.picks.filter(x => x.kind === 'prop' && known.has(x.id)).map(x => ({ id: x.id, why: x.why })) })).filter(g => g.picks.length)
+      setAiResult(groups.length || r.data.missing.length ? { reply: r.data.note || r.data.reply || "Here's what we have for that.", groups, missing: r.data.missing.slice(0, 3) } : local())
+    }).catch(() => setAiResult(local())).finally(() => setAiBusy(false))
   }
   const aiTick = (id: string) => { if (step.id === 'aipicks') setAiTicks(t => t.includes(id) ? t.filter(x => x !== id) : [...t, id]) }
   const aiAddTo = () => {
@@ -648,8 +670,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       )
     },
     chat: () => {
-      const { picks: ideaHits, main } = ideaMatches(asked)
-      const missingName = main ? `Something for the ${main}` : ''
+      const itemById = new Map(items.map(i => [i.id, i]))
       const tickBtn = (k: string, label: string) => aiAdded && aiTicks.includes(k)
         ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent">✓</span>
         : <button onClick={() => aiTick(k)} aria-pressed={aiTicks.includes(k)} aria-label={`${aiTicks.includes(k) ? 'Untick' : 'Tick'} ${label}`}
@@ -667,29 +688,42 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               <>
                 <p className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{asked}</p>
                 <div {...T('answer')} className="space-y-3">
-                  <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">
-                    {ideaHits.length ? "Here's what we have for that." : "We don't have much for that in the closet. The arts team can make or find it."}</p>
-                  {ideaHits.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">For your idea</p>
-                      {ideaHits.map(({ item: p, why }) => (
-                        <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                          <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}</span>
-                          <span className="flex-1 min-w-0"><b className="block text-sm truncate">{p.name}</b><span className="block text-xs text-[#CDB8FF]">Matches “{why}”</span><span className="block text-xs text-pt-muted">Free · check it ›</span></span>
-                          {tickBtn(p.id, p.name)}
+                  {aiBusy || !aiResult ? (
+                    <div role="status" className="flex items-center gap-3">
+                      <p className="w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>
+                      <span className="text-pt-muted text-[13px]">Looking through the props…</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{aiResult.reply}</p>
+                      {aiResult.groups.map(g => (
+                        <div key={g.title} className="space-y-2">
+                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{g.title}</p>
+                          {g.picks.map(({ id, why }) => {
+                            const p = itemById.get(id)!
+                            return (
+                              <div key={id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
+                                <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}</span>
+                                <span className="flex-1 min-w-0"><b className="block text-sm truncate">{p.name}</b><span className="block text-xs text-[#CDB8FF]">{why}</span><span className="block text-xs text-pt-muted">Check it ›</span></span>
+                                {tickBtn(id, p.name)}
+                              </div>
+                            )
+                          })}
                         </div>
                       ))}
-                    </div>
-                  )}
-                  {missingName && (
-                    <div className="space-y-2">
-                      <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
-                      <div className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                        <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
-                        <span className="flex-1 min-w-0"><b className="block text-sm">{missingName}</b><span className="block text-xs text-[#CDB8FF]">The arts team can make or find it</span></span>
-                        {tickBtn(`b:${missingName}`, missingName)}
-                      </div>
-                    </div>
+                      {aiResult.missing.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
+                          {aiResult.missing.map(m => (
+                            <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
+                              <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
+                              <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
+                              {tickBtn(`b:${m.name}`, m.name)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
                 {aiAdded && <p className="text-pt-accent text-sm text-center">Added to {shootLabel} ✓</p>}

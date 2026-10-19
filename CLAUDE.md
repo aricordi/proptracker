@@ -1002,6 +1002,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       plurals → singular; words matching >25% of the closet ignored; rarer words score higher), each labelled
       Matches "<word>"; never padded. Nothing fits → "We don't have much for that" + one "Something for the <word>"
       make-or-find. Tick any number (≥1) → "Add N to a shoot" (tip docked at the TOP for that step, Step.top).
+      → THEN (owner, Oct 19: "it has to give suggestions… a bit unrelated is fine but there has to be a logic"; owner picked
+      the REAL AI): the tour's idea step calls the real `ideaToProps` (read-only suggestions, ~half a cent per tour, counted
+      in the AI budget/daily limit) and shows its groups + why + make-or-find; `ideaMatches` is only the fallback when the
+      AI fails, is resting, or returns nothing. The "find a time" answer stays a made-up example.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
