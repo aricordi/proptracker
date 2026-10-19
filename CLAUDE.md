@@ -913,6 +913,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       shoot" / "✦ Find props for this shoot" (choose(shoot) → props mode), "New chat". Still only calls ideaToProps and
       askForTime (same budget + safety box); every booking/add is a person's tap. Home card "Ask the AI"; Schedule's
       violet card opens the chat in time mode.
+    - PLAN MY SHOOT (owner, Oct 19: "help people go through booking everything… pre-populate the confirmation page so they
+      confirm or modify… show what equipment is available"; app only, NO server change; preview only): first choice in
+      the AI chat (or open('plan')). Step bar Time · Props · Gear · Review. Time = pick an upcoming shoot or book a new
+      time in the chat (after Book → props step for it). Props = the ideas chat with that shoot chosen (cutoff shown; too
+      late → straight to gear); "Next: gear ›" / "Add N & go to gear ›" puts ticks into the shoot (useAddToShoot).
+      Gear = NOT AI: every non-archived bundle/extra with free/taken from gear_holds + useGearWhen (the shoot's hours),
+      + puts it in the gear basket; "No gear in the app yet" when empty. Review = summary of both baskets + "Review &
+      send ›" → /reserve with location state {title} = first idea typed (ReserveScreen pre-fills the video name). The
+      creator still confirms on /reserve; the chat never sends a request.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

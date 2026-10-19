@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useCart } from '../cart'
 import { useSession } from '../auth'
@@ -46,7 +46,9 @@ export default function ReserveScreen() {
   const { shoot } = useActiveShoot()
   const needShoot = !isStaff && !shoot
 
-  const [title, setTitle] = useState('')
+  // The AI helper's "Plan my shoot" passes the video idea as a starting name.
+  const startName = (useLocation().state as { title?: string } | null)?.title ?? ''
+  const [title, setTitle] = useState(startName)
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

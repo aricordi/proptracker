@@ -1,10 +1,11 @@
 // One AI helper for the whole app (owner, Oct 19: "like YouTube Studio's AI button"). Any screen can open the same
-// chat with useAssistant().open(); 'props' or 'time' starts it on that helper, nothing shows both choices.
+// chat with useAssistant().open(); 'props' or 'time' starts it on that helper, 'plan' walks through a whole shoot
+// (time → props → gear → review), nothing shows the choices.
 // The chat stays alive while the app is open, so closing and reopening keeps the conversation.
 import { createContext, lazy, Suspense, useContext, useState, type ReactNode } from 'react'
 import { useSession } from './auth'
 
-export type AssistantMode = 'props' | 'time'
+export type AssistantMode = 'props' | 'time' | 'plan'
 const Assistant = lazy(() => import('./components/Assistant'))
 
 const Ctx = createContext<{ open: (mode?: AssistantMode) => void; available: boolean }>({ open: () => {}, available: false })
