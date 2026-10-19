@@ -786,7 +786,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Oct 19 (website run 15, owner OK): title spacing + house-agnostic booking (pick the house per time) + notification prompt fixes.
     - WHO'S FILMING (owner, Oct 19: replace the 2/4/6 h chips with "yourself / with a friend / two friends"): FindSheet
       segmented "Just me / + 1 friend / + 2 friends" (count = 1 + friends, one 2-h slot each, back to back). With friends:
-      searchable picker from NEW callable `listFilmingFriends` (anyone; active creators + owner, names only; in deploy/log
+      SEARCH-ONLY picker (owner: partners change; nothing listed until you type a name or channel, top 6) from NEW callable `listFilmingFriends` (anyone; active creators + owner, names only; in deploy/log
       lists) with avatar + channel; days where a picked friend already films are skipped; tapping a house opens
       GroupBookSheet ("Book back to back": You Booked / friend Held 20 min, monthly/extra for your slot) → bookWithFriends
       (holds + invite push). Not picked → books only your slot (friends book the next slot themselves). Test in

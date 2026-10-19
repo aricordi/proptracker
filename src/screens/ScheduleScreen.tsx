@@ -672,7 +672,10 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
     if (last && last[0] === r.date) last[1].push(r); else if (dayGroups.length < 6) dayGroups.push([r.date, [r]])
   }
   const needPick = friendCount > 0 && chosen.length < friendCount
-  const matches = (people ?? []).filter(p => !chosen.some(c => c.email === p.email) && (!q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase())))
+  // Owner (Oct 19): a search, not a list of usual partners (who you film with changes). Name or channel.
+  const term = q.trim().toLowerCase()
+  const matches = term ? (people ?? []).filter(p => !chosen.some(c => c.email === p.email)
+    && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
   const who = ['Just me', '+ 1 friend', '+ 2 friends']
   return (
     <BottomSheet open onClose={onClose} title="Book a shoot">
@@ -693,11 +696,11 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
           </div>
           {needPick && (
             <div className="bg-pt-bg rounded-xl p-2">
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Who? (${friendCount - chosen.length} to pick)`} className={field} />
-              <div className="max-h-48 overflow-y-auto mt-2">
-                {people === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
-                {people !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one found.</p>}
-                {matches.slice(0, 30).map(p => (
+              <input type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
+              <div className="max-h-48 overflow-y-auto mt-1">
+                {term && people === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
+                {term && people !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one called "{q.trim()}".</p>}
+                {matches.slice(0, 6).map(p => (
                   <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
                     <Avatar email={p.email} name={p.name} size={32} />
                     <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
