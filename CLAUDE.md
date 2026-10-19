@@ -935,6 +935,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Oct 19 (website run 20, owner "build all of them and put it live"): one AI chat, Plan my shoot, extras A+B+C.
     - SLIM AI LINKS (owner, Oct 19: "shrink the AI cards on Home and Book, the ✦ AI button is on top"): both are now one-line violet
       pills (44px): Home "✦ Ask AI: props for an idea, or a time to film ›", Book "✦ Or ask AI to find a time ›" (divider removed). LIVE Oct 19 (website run 21, owner OK).
+    - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
+      change; LIVE with owner OK): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
+      Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
+      item.lostFromBin = label; or "I know where it is → set its bin" = edit) + "It's in the app → move it here" (name search,
+      Move here) + "It's not in the app → add it" (/add?binId) + "Done with this bin" (only when all ticked → bins.checkedAt/
+      checkedBy). BinsScreen: "Bin check: N of M bins done" bar, amber "Needs a bin" list (lostFromBin && no binId → edit),
+      each bin row "N props · ✓ Checked <date>". AddItemScreen clears lostFromBin when a bin is set.
+    - SAMPLE PROPS BUTTON (owner OK Oct 20, for demo screenshots): `.github/workflows/sample-props.yml` "Copy sample props for
+      screenshots" = READ-ONLY Firestore REST read of N company props (name, category, qty, bin label, description, tags,
+      thumbnail link) printed in the job log (GitHub masks `{`/`}` as ***). Screenshots are taken on the emulator with those
+      props (scratchpad seed script, never committed); live data is never written.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
