@@ -652,7 +652,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   // Times first, soonest first. One row per time with a button for each house that's free then,
   // so people pick the house themselves (no default).
   const results = useMemo(() => {
-    const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 200)
+    const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 2000)
       // Skip days a picked friend already films at a house (they get one slot a day too).
       .filter(r => team || chosen.every(f => houseSlotsOn(days[r.date], f.email, now) < s.slotsPerDay))
     const byTime = new Map<string, { date: string; start: number; houses: House[] }>()
@@ -664,13 +664,19 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
     }
     return [...byTime.values()].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start)
   }, [days, from, count, where, s, email, now, team, chosen.map(f => f.email).join()])   // eslint-disable-line react-hooks/exhaustive-deps
-  // The next few days with free times; each day shows its first 3 (tap for the rest).
+  // Owner (Oct 19): jump to a day instead of scrolling. "Soonest" = the next days with free times;
+  // a picked day shows all of its times first, then the days after it. Each other day shows 3 (tap for the rest).
+  const [pick, setPick] = useState<string | null>(null)
   const [open, setOpen] = useState<string[]>([])
+  const freeDays = useMemo(() => new Set(results.map(r => r.date)), [results])
+  const strip = useMemo(() => Array.from({ length: 35 }, (_, k) => addDays(from, k)), [from])
   const dayGroups: [string, typeof results][] = []
   for (const r of results) {
+    if (pick && r.date < pick) continue
     const last = dayGroups[dayGroups.length - 1]
     if (last && last[0] === r.date) last[1].push(r); else if (dayGroups.length < 6) dayGroups.push([r.date, [r]])
   }
+  const pickedEmpty = pick && !freeDays.has(pick)
   const needPick = friendCount > 0 && chosen.length < friendCount
   // Owner (Oct 19): a search, not a list of usual partners (who you film with changes). Name or channel.
   const term = q.trim().toLowerCase()
@@ -715,11 +721,25 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
             : 'Each of you gets a 2-hour slot, back to back. Pick who, or they can book the next slot themselves.'}</p>
         </div>
       )}
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 -mx-6 px-6 flex gap-2 overflow-x-auto no-scrollbar">
+        <button onClick={() => setPick(null)} className={`shrink-0 rounded-2xl px-4 min-h-[56px] text-sm font-semibold ${pick === null ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-bg text-pt-text'}`}>Soonest</button>
+        {strip.map(d => {
+          const on = pick === d, free = freeDays.has(d)
+          return (
+            <button key={d} onClick={() => { setPick(d); setOpen(o => o.includes(d) ? o : [...o, d]) }} aria-label={formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}
+              className={`shrink-0 w-12 rounded-2xl min-h-[56px] flex flex-col items-center justify-center ${on ? 'bg-pt-accent text-stone-900 shadow-gold' : free ? 'bg-pt-bg text-pt-text' : 'bg-pt-bg text-pt-muted/50'}`}>
+              <span className="text-[11px] leading-none">{formatDay(d, { weekday: 'short' })}</span>
+              <span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="mt-5 space-y-6">
+        {pickedEmpty && <p className="text-pt-muted text-sm">Nothing free on {formatDay(pick!, { weekday: 'long', month: 'short', day: 'numeric' })}{friendCount ? ' for all of you' : ''}. The next free days are below.</p>}
         {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try {friendCount ? 'fewer friends' : 'another house'}.</p>}
         {dayGroups.map(([d, list]) => (
           <div key={d}>
-            <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mb-2">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) ? ' · no crew' : ''}</p>
+            <p className="text-pt-text text-[19px] font-semibold tracking-heading mb-3">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) && <span className="text-pt-muted text-sm font-normal"> · no crew</span>}</p>
             <div className="space-y-2">
               {(open.includes(d) ? list : list.slice(0, 3)).map(r => (
                 <div key={`${r.date}${r.start}`} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">

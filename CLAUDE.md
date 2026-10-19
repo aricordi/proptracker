@@ -791,6 +791,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       GroupBookSheet ("Book back to back": You Booked / friend Held 20 min, monthly/extra for your slot) → bookWithFriends
       (holds + invite push). Not picked → books only your slot (friends book the next slot themselves). Test in
       invites.test.ts. LIVE Oct 19 (backend run 33 + website run 16, owner OK).
+    - SHEETS + DATES (owner, Oct 19): every BottomSheet now SWIPES DOWN TO CLOSE (drag the handle/title, or pull down when the
+      content is scrolled to the top; >110 px closes, else springs back; sideways swipes ignored; uses CSS `translate` so it
+      doesn't fight the slide-up animation). Book a shoot: DAY STRIP ("Soonest" + next 35 days, greyed when nothing free) →
+      picked day shows all its times first, then later days; day headings bigger (19px white). Preview only; live needs OK.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
