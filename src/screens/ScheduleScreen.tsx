@@ -170,11 +170,9 @@ export default function ScheduleScreen() {
           </button>
         )}
         <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
-        <div className="flex items-center gap-3 pt-3 pb-1 text-pt-muted text-xs uppercase tracking-wider"><span className="h-px flex-1 bg-pt-border" />or let AI find a time<span className="h-px flex-1 bg-pt-border" /></div>
-        <button onClick={() => ai.open('time')} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
-          <span className="w-10 h-10 rounded-xl grid place-items-center text-lg bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
-          <span className="flex-1 min-w-0"><b className="block">Ask for a time</b><span className="text-pt-muted text-[13px]">"4 hours with Alex next week, evenings" · type or talk</span></span>
-          <span className="w-9 h-9 rounded-full grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg></span>
+        {/* Small on purpose (owner, Oct 19): the ✦ AI button at the top is the main way in. */}
+        <button onClick={() => ai.open('time')} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF] active:scale-[0.98] transition-transform">
+          <span className="text-[#BF9DFF]">✦</span><span className="flex-1 min-w-0 truncate">Or ask AI to find a time</span><span className="text-pt-muted">›</span>
         </button>
 
         <div className="flex items-center justify-between gap-2 pt-6 mt-2 border-t border-pt-border">

@@ -171,10 +171,9 @@ export default function CreatorHomeScreen() {
             <span className="truncate">Search props, costumes, gear</span>
           </button>
         </div>
-        <button onClick={() => ai.open()} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
-          <span className="w-[42px] h-[42px] rounded-[13px] grid place-items-center text-xl bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
-          <span className="flex-1 min-w-0"><b className="block text-base">Ask the AI</b><span className="text-pt-muted text-[13px]">Props for your video idea, or a free time to film</span></span>
-          <span className="text-pt-muted">›</span>
+        {/* Small on purpose (owner, Oct 19): the ✦ AI button at the top is the main way in. */}
+        <button onClick={() => ai.open()} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF] active:scale-[0.98] transition-transform">
+          <span className="text-[#BF9DFF]">✦</span><span className="flex-1 min-w-0 truncate">Ask AI: props for an idea, or a time to film</span><span className="text-pt-muted">›</span>
         </button>
         <NotificationsNudge />
       </div>
