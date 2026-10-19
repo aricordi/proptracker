@@ -38,7 +38,7 @@ import { markTourDone, savedStep, saveStep } from './tourState'
 type Scene = 'welcome' | 'home' | 'find' | 'bookit' | 'shoot' | 'invited' | 'invite' | 'chat' | 'browse' | 'gear' | 'review'
   | 'sent' | 'home2' | 'me' | 'requests' | 'request' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'return' | 'gearreturn'
   | 'final' | 'rules' | 'done'
-interface Step { id: string; scene: Scene; target?: string; tip?: ReactNode; next?: string; skip?: boolean; part?: string }
+interface Step { id: string; scene: Scene; target?: string; tip?: ReactNode; next?: string; skip?: boolean; part?: string; top?: boolean }   // top: dock the tip at the top (the step's buttons are at the bottom)
 
 const START = 13 * 60, SLOT = 120, HOLD = INVITE_HOLD_MINUTES
 // Same class strings as the real screens.
@@ -65,7 +65,22 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const hay = (i: Item) => [i.name, i.description, i.notes, ...(i.tags ?? []), ...(Array.isArray(i.searchWords) ? i.searchWords : [i.searchWords ?? ''])].join(' ').toLowerCase()
   const words = (t: string) => t.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1).map(w => w.replace(/s$/, ''))
   const found = (q: string) => { const w = words(q); return w.length ? all.filter(i => w.every(x => hay(i).includes(x))) : [] }
-  const loose = (q: string) => { const w = words(q).filter(x => x.length > 3); return w.length ? all.filter(i => w.some(x => hay(i).includes(x))) : [] }
+  // The practice AI answer (owner, Oct 19: never pad it with props that don't fit, e.g. a Ninja Turtle mask for a
+  // werewolf video). Only props matching the idea's meaningful words; rarer words count more; words that match a big
+  // part of the closet, and filler like "prank" or "video", are ignored. Nothing fits → say so, offer make-or-find.
+  const STOP = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'about', 'video', 'videos', 'prank', 'skit', 'sketch', 'scene', 'idea', 'shoot', 'film', 'filming', 'funny', 'goes', 'wrong', 'some', 'like', 'want', 'need', 'make', 'where', 'what', 'woods', 'house', 'room', 'friend', 'friends', 'people', 'guy', 'girl', 'day', 'night', 'time'])
+  const ideaMatches = (q: string) => {
+    const toks = [...new Set(words(q).filter(w => w.length > 2 && !STOP.has(w) && !STOP.has(`${w}s`)))]   // words() turns plurals into singulars
+    const sets = toks.map(w => ({ w, hits: all.filter(i => hay(i).includes(w)) })).filter(x => x.hits.length && x.hits.length <= Math.max(3, all.length * 0.25))
+    const score = new Map<string, { item: Item; n: number; why: string }>()
+    for (const { w, hits } of sets) for (const i of hits) {
+      const prev = score.get(i.id), add = 1 / Math.log(2 + hits.length)
+      score.set(i.id, { item: i, n: (prev?.n ?? 0) + add, why: prev?.why ?? w })
+    }
+    // main = when nothing fits, the idea's key word, offered as make-or-find
+    const picks = [...score.values()].sort((a, b) => b.n - a.n).slice(0, 4)
+    return { picks, main: picks.length ? '' : toks[0] ?? '' }
+  }
   const [query, setQuery] = useState('')
   const shown = query.trim() ? found(query).slice(0, 8) : props
   const [added, setAdded] = useState<string[]>([])   // props in your shoot (from the AI and from searching)
@@ -122,15 +137,14 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     // 3 · Find props with AI
     { id: 'planai', scene: 'shoot', target: 'planai', part: PART(3, 'Find props with AI'), tip: <>Not sure what props you need? Tap <b>✦ Plan it with AI</b>. (The ✦ AI button at the top of every screen opens it too.)</> },
     { id: 'aiask', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>Describe your video in your own words (e.g. "a séance that goes wrong") and tap <b>↑</b>.</> },
-    { id: 'aipicks', scene: 'chat', target: 'answer', part: PART(3, 'Find props with AI'), tip: <>Real props from our closet for your idea, with why each fits and if it's free that day. <b>Tick 2</b> you like (tap +).</> },
-    { id: 'aiadd', scene: 'chat', target: 'aiaddbtn', part: PART(3, 'Find props with AI'), tip: <>Tap <b>Add 2 to a shoot</b>.</> },
+    { id: 'aipicks', scene: 'chat', target: 'chatzone', top: true, part: PART(3, 'Find props with AI'), tip: <>Real props from our closet that fit your idea, and if they're free that day. <b>Tick</b> the ones you want (tap +), then tap <b>Add to a shoot</b>.</> },
     { id: 'aishoot', scene: 'chat', target: 'aishoot', part: PART(3, 'Find props with AI'), tip: <>Pick the shoot they're for: tap yours.</> },
     { id: 'aitime', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>It finds times too. Type something like "2 hours with {friendFirst} next Friday" and tap <b>↑</b>.</> },
     { id: 'aioptions', scene: 'chat', target: 'options', next: 'Next', part: PART(3, 'Find props with AI'), tip: <>Real free times, back to back for you and your friend. You'd tap <b>Book</b> to take one (not now: you're already booked).</> },
     { id: 'aiback', scene: 'chat', target: 'aiback', part: PART(3, 'Find props with AI'), tip: <>Tap <b>‹ Back</b> to go back to your shoot.</> },
     // 4 · Add more yourself, then send
     { id: 'addprops', scene: 'shoot', target: 'addprops', part: PART(4, 'Add more and send'), tip: <>You can also add things yourself. Tap <b>+ Add</b> next to Props &amp; costumes.</> },
-    { id: 'search', scene: 'browse', target: 'browsezone', part: PART(4, 'Add more and send'), tip: <>Your AI picks are already in (✓). Search for something else (try <b>mask</b>, <b>hat</b> or <b>phone</b>) and tap <b>+</b> on a prop.</> },
+    { id: 'search', scene: 'browse', target: 'browsezone', part: PART(4, 'Add more and send'), tip: <>Your AI picks are already in your shoot. Search for something else (try <b>mask</b>, <b>hat</b> or <b>phone</b>) and tap <b>+</b> on a prop.</> },
     { id: 'geartab', scene: 'browse', target: 'geartab', part: PART(4, 'Add more and send'), tip: <>Cameras, lights and sound are here. Tap <b>Gear</b>.</> },
     { id: 'addgear', scene: 'gear', target: 'gear-add', part: PART(4, 'Add more and send'), tip: <>Gear comes in kits, booked whole, for your shoot's hours. Tap <b>+</b>.</> },
     { id: 'reviewbar', scene: 'gear', target: 'reviewbar', part: PART(4, 'Add more and send'), tip: <>Tap here to check everything before it goes.</> },
@@ -186,7 +200,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     if (step.id !== 'search') return
     const was = added.length
     setAdded(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id])
-    if (!added.includes(id) && was >= 2) advance()
+    if (!added.includes(id) && was >= aiTicks.filter(k => !k.startsWith('b:')).length) advance()
   }
   const addBuild = () => { if (step.id !== 'makeform' || !buildDesc.trim()) return; setBuilds(b => [...b, { description: buildDesc.trim(), qty: buildQty }]); setShowBuild(false); setBuildDesc(''); advance() }
   const send = () => {
@@ -194,13 +208,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     if (step.id === 'aiask') setAsked(idea.trim()); else setTimeAsk(idea.trim())
     setIdea(''); advance()
   }
-  const aiTick = (id: string) => {
-    if (step.id !== 'aipicks') return
-    const next = aiTicks.includes(id) ? aiTicks.filter(x => x !== id) : [...aiTicks, id]
-    setAiTicks(next)
-    if (next.length >= 2) advance()
+  const aiTick = (id: string) => { if (step.id === 'aipicks') setAiTicks(t => t.includes(id) ? t.filter(x => x !== id) : [...t, id]) }
+  const aiAddTo = () => {
+    if (step.id !== 'aishoot') return
+    const ask = aiTicks.filter(k => k.startsWith('b:')).map(k => ({ description: k.slice(2), qty: 1 }))
+    setAdded(a => [...new Set([...a, ...aiTicks.filter(k => !k.startsWith('b:'))])]); setBuilds(b => [...b, ...ask]); setAiAdded(true); setAiSheet(false); advance()
   }
-  const aiAddTo = () => { if (step.id !== 'aishoot') return; setAdded(a => [...new Set([...a, ...aiTicks])]); setAiAdded(true); setAiSheet(false); advance() }
   const startChange = () => { if (step.id !== 'change') return; setQty(Object.fromEntries(picked.map(p => [p.id, 1]))); setEditing(true); advance() }
   const saveChange = () => {
     if (step.id !== 'changeit') return
@@ -635,9 +648,14 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       )
     },
     chat: () => {
-      const ideaHits = [...new Set([...found(asked), ...loose(asked), ...all.slice(2)])].filter(i => !added.includes(i.id) || aiTicks.includes(i.id)).slice(0, 4)
+      const { picks: ideaHits, main } = ideaMatches(asked)
+      const missingName = main ? `Something for the ${main}` : ''
+      const tickBtn = (k: string, label: string) => aiAdded && aiTicks.includes(k)
+        ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent">✓</span>
+        : <button onClick={() => aiTick(k)} aria-pressed={aiTicks.includes(k)} aria-label={`${aiTicks.includes(k) ? 'Untick' : 'Tick'} ${label}`}
+            className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${aiTicks.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-xl'}`}>{aiTicks.includes(k) ? '✓' : '+'}</button>
       return (
-        <div className="min-h-full flex flex-col">
+        <div {...T('chatzone')} className="min-h-full flex flex-col">
           <div className="pt-safe px-5 shrink-0">
             <div className="flex items-center justify-between py-3"><button {...T('aiback')} onClick={tap('aiback')} className="text-pt-accent text-[17px]">‹ Back</button></div>
             <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
@@ -649,22 +667,30 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               <>
                 <p className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{asked}</p>
                 <div {...T('answer')} className="space-y-3">
-                  <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">Here's what we have for that.</p>
-                  <div className="space-y-2">
-                    <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">For your idea</p>
-                    {ideaHits.map(p => {
-                      const on = aiTicks.includes(p.id)
-                      return (
+                  <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">
+                    {ideaHits.length ? "Here's what we have for that." : "We don't have much for that in the closet. The arts team can make or find it."}</p>
+                  {ideaHits.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">For your idea</p>
+                      {ideaHits.map(({ item: p, why }) => (
                         <div key={p.id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                           <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}</span>
-                          <span className="flex-1 min-w-0"><b className="block text-sm truncate">{p.name}</b><span className="block text-xs text-[#CDB8FF]">Could fit your idea</span><span className="block text-xs text-pt-muted">Free · check it ›</span></span>
-                          {aiAdded && on ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent">✓</span>
-                            : <button onClick={() => aiTick(p.id)} aria-pressed={on} aria-label={`${on ? 'Untick' : 'Tick'} ${p.name}`}
-                                className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${on ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-xl'}`}>{on ? '✓' : '+'}</button>}
+                          <span className="flex-1 min-w-0"><b className="block text-sm truncate">{p.name}</b><span className="block text-xs text-[#CDB8FF]">Matches “{why}”</span><span className="block text-xs text-pt-muted">Free · check it ›</span></span>
+                          {tickBtn(p.id, p.name)}
                         </div>
-                      )
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  )}
+                  {missingName && (
+                    <div className="space-y-2">
+                      <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
+                      <div className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
+                        <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
+                        <span className="flex-1 min-w-0"><b className="block text-sm">{missingName}</b><span className="block text-xs text-[#CDB8FF]">The arts team can make or find it</span></span>
+                        {tickBtn(`b:${missingName}`, missingName)}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {aiAdded && <p className="text-pt-accent text-sm text-center">Added to {shootLabel} ✓</p>}
               </>
@@ -686,7 +712,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             )}
           </div>
           <div className="shrink-0 border-t border-pt-border px-5 pt-3 pb-safe bg-pt-bg">
-            {aiTicks.length > 0 && !aiAdded && <button {...T('aiaddbtn')} onClick={() => { if (step.id === 'aiadd') { setAiSheet(true); advance() } }} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {aiTicks.length} to a shoot</button>}
+            {aiTicks.length > 0 && !aiAdded && <button onClick={() => { if (step.id === 'aipicks') { setAiSheet(true); advance() } }} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {aiTicks.length} to a shoot</button>}
             <div {...T('composer')} className="flex items-center gap-2 pb-2">
               <input value={idea} onChange={e => setIdea(e.target.value.slice(0, 200))} onKeyDown={e => { if (e.key === 'Enter') send() }} placeholder="Your video idea, or when to film…"
                 className="flex-1 min-w-0 bg-pt-surface border border-pt-border rounded-2xl px-4 py-3 text-base focus:outline-none focus:border-[#BF9DFF]" />
@@ -1097,7 +1123,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       )}
       <input ref={cam} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { shot(e.target.files?.[0]); e.target.value = '' }} />
       {step.tip && <Spotlight key={step.id} target={step.target} tip={step.tip} part={step.part} step={tipNo} total={tipCount} next={step.next} onNext={advance}
-        nextDisabled={nextDisabled} onSkip={step.skip ? advance : undefined} onClose={required ? undefined : onFinish} />}
+        nextDisabled={nextDisabled} onSkip={step.skip ? advance : undefined} onClose={required ? undefined : onFinish} top={step.top} />}
     </div>
   )
 }

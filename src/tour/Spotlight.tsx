@@ -15,8 +15,8 @@ function keepInView(el: HTMLElement) {
   else if (above > 0) box.scrollTop -= above
 }
 
-export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip, nextDisabled, onClose }: {
-  target?: string; tip: ReactNode; part?: string; step: number; total: number
+export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip, nextDisabled, onClose, top }: {
+  target?: string; tip: ReactNode; part?: string; step: number; total: number; top?: boolean
   next?: string; onNext?: () => void; onSkip?: () => void; nextDisabled?: boolean; onClose?: () => void
 }) {
   const [r, setR] = useState<DOMRect | null>(null)
@@ -79,7 +79,7 @@ export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip
       <div className="fixed z-[70] left-0" style={{ top: hole.top, height: hole.height, width: Math.max(0, hole.left) }} />
       <div className="fixed z-[70] right-0" style={{ top: hole.top, height: hole.height, left: hole.left + hole.width }} />
       {/* Next to the highlight if there's room; a big highlight (search + results) gets the tip docked at the bottom. */}
-      <div className="fixed z-[71] inset-x-4 pointer-events-none" style={dock ? { bottom: 'calc(env(safe-area-inset-bottom) + 12px)' } : below ? { top: hole.top + hole.height + 14 } : { bottom: h - hole.top + 14 }}>
+      <div className="fixed z-[71] inset-x-4 pointer-events-none" style={dock ? (top ? { top: 'calc(env(safe-area-inset-top) + 12px)' } : { bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }) : below ? { top: hole.top + hole.height + 14 } : { bottom: h - hole.top + 14 }}>
         {card}
       </div>
     </>
