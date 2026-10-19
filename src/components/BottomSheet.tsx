@@ -5,12 +5,13 @@ interface Props {
   onClose: () => void
   title?: string
   children: React.ReactNode
+  locked?: boolean   // can't be swiped down (the app tour's practice sheets)
 }
 
 // How far (px) a downward swipe must go before the sheet closes; shorter swipes spring back.
 const CLOSE_AFTER = 110
 
-export default function BottomSheet({ open, onClose, title, children }: Props) {
+export default function BottomSheet({ open, onClose, title, children, locked }: Props) {
   // Prevent body scroll while sheet is open
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -31,6 +32,7 @@ export default function BottomSheet({ open, onClose, title, children }: Props) {
     el.style.translate = y ? `0 ${y}px` : ''
   }
   const onStart = (e: React.TouchEvent) => {
+    if (locked) return
     const inBody = body.current?.contains(e.target as Node)
     if (inBody && (body.current!.scrollTop > 0)) return
     if ((e.target as HTMLElement).closest('input, textarea, select')) return

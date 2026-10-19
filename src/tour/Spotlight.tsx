@@ -1,7 +1,7 @@
 // The tour's highlight: dims everything except one element (found by data-tour="<target>"), blocks taps
 // outside it, and shows a short tip next to it. No target = a centred card with "Next".
 // Calm on purpose (owner, Oct 19: the animations were distracting): no pulsing, no sliding, no pop-in.
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 const PAD = 6
 
@@ -20,6 +20,19 @@ export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip
   next?: string; onNext?: () => void; onSkip?: () => void; nextDisabled?: boolean; onClose?: () => void
 }) {
   const [r, setR] = useState<DOMRect | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  // Owner (Oct 19): scrolling must work anywhere, so nothing covers the screen; instead a tap outside the highlight
+  // (and outside the tip) is simply ignored.
+  useEffect(() => {
+    if (!target) return
+    const stop = (e: Event) => {
+      const el = document.querySelector(`[data-tour="${target}"]`), t = e.target as Node
+      if (el?.contains(t) || cardRef.current?.contains(t)) return
+      e.preventDefault(); e.stopPropagation()
+    }
+    document.addEventListener('click', stop, true)
+    return () => document.removeEventListener('click', stop, true)
+  }, [target])
   useEffect(() => {
     setR(null)
     if (!target) return
@@ -41,7 +54,7 @@ export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip
   }, [target])
 
   const card = (
-    <div className="rounded-[20px] bg-pt-raised shadow-float p-4 space-y-3 pointer-events-auto">
+    <div ref={cardRef} className="rounded-[20px] bg-pt-raised shadow-float p-4 space-y-3 pointer-events-auto">
       <div className="flex items-center gap-2">
         <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-pt-accent">{part ? `Part ${part}` : 'Practice'} <span className="text-pt-muted">· {step}/{total}</span></p>
         {onClose && <button onClick={onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button>}
@@ -62,24 +75,21 @@ export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip
       <div className="w-full max-w-sm">{card}</div>
     </div>
   )
-  if (!r) return <div className="fixed inset-0 z-[70]" />   // still finding it: block taps for a moment
+  if (!r) return null
 
   const h = window.innerHeight
   const hole = { left: r.left - PAD, top: r.top - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 }
   const below = r.top + r.height / 2 < h * 0.55
   const room = below ? h - (hole.top + hole.height) : hole.top
   const dock = room < 190
+  const clamp = (v: number) => Math.max(16, Math.min(h - 230, v))   // keep the tip on screen while scrolling
   return (
     <>
-      {/* The dim with a hole (taps go through the hole only) */}
+      {/* The dim with a hole; taps outside it are ignored (see above), scrolling works everywhere */}
       <div aria-hidden className="fixed z-[70] rounded-2xl pointer-events-none"
         style={{ ...hole, boxShadow: '0 0 0 2px rgba(201,169,97,0.85), 0 0 0 9999px rgba(0,0,0,0.6)' }} />
-      <div className="fixed z-[70] inset-x-0 top-0" style={{ height: Math.max(0, hole.top) }} />
-      <div className="fixed z-[70] inset-x-0 bottom-0" style={{ top: hole.top + hole.height }} />
-      <div className="fixed z-[70] left-0" style={{ top: hole.top, height: hole.height, width: Math.max(0, hole.left) }} />
-      <div className="fixed z-[70] right-0" style={{ top: hole.top, height: hole.height, left: hole.left + hole.width }} />
       {/* Next to the highlight if there's room; a big highlight (search + results) gets the tip docked at the bottom. */}
-      <div className="fixed z-[71] inset-x-4 pointer-events-none" style={dock ? (top ? { top: 'calc(env(safe-area-inset-top) + 12px)' } : { bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }) : below ? { top: hole.top + hole.height + 14 } : { bottom: h - hole.top + 14 }}>
+      <div className="fixed z-[71] inset-x-4 pointer-events-none" style={dock ? (top ? { top: 'calc(env(safe-area-inset-top) + 12px)' } : { bottom: 'calc(env(safe-area-inset-bottom) + 12px)' }) : below ? { top: clamp(hole.top + hole.height + 14) } : { bottom: clamp(h - hole.top + 14) }}>
         {card}
       </div>
     </>

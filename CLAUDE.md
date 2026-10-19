@@ -1007,6 +1007,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       in the AI budget/daily limit) and shows its groups + why + make-or-find; `ideaMatches` is only the fallback when the
       AI fails, is resting, or returns nothing. The "find a time" answer stays a made-up example.
     - LIVE Oct 19 (backend run for the report message + website run 25, owner OK): 8-part tour, report messages, real-AI tour step.
+    - TOUR FIXES (owner, Oct 19: "breaks when I scroll", "zooms when I type a name", "auto skips… should have a continue"):
+      Spotlight no longer covers the screen with tap-blockers (that stopped scrolling): a capture-phase click listener
+      ignores taps outside the highlight/tip, so scrolling works everywhere; the tip is clamped on screen. Practice sheets
+      use BottomSheet `locked` (no swipe-to-close; before, a swipe moved the sheet off screen for good). index.css: on
+      touch screens inputs/textareas/selects are 16px (iPhone zooms on anything smaller; fixes the real app too).
+      Choices no longer auto-advance: friend count (+1 / +2 friends, both work), picking friends (chips, × to remove),
+      the day, adding a prop, ticking gear pieces and photos (tap to Retake) all end with Continue (disabled until done).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

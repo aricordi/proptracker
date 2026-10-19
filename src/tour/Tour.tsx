@@ -98,8 +98,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [people, setPeople] = useState<{ email: string; name: string }[] | null>(null)
   useEffect(() => { listFilmingFriends({}).then(r => setPeople(r.data.people.filter(p => p.email !== profile.email))).catch(() => setPeople([])) }, [profile.email])
   const [friendQ, setFriendQ] = useState('')
-  const [friend, setFriend] = useState<{ email: string; name: string } | null>(null)
-  const friendFirst = friend?.name.split(' ')[0] ?? 'Sam'
+  const [friendCount, setFriendCount] = useState(0)   // + 1 friend / + 2 friends
+  const [friends, setFriends] = useState<{ email: string; name: string }[]>([])
+  const firstOf = (n: string) => n.split(' ')[0]
+  const friendFirst = friends.map(f => firstOf(f.name)).join(' and ') || 'Sam'   // everyone you invited
+  const friend = friends[0] ?? null   // the one who "invites you" in part 2
+  const inviterFirst = friend ? firstOf(friend.name) : 'Sam'
 
   // ── The pretend shoot: Cliff 1, 1–3 PM, on the day you pick (five open days out by default) ──
   const today = todayInStudio()
@@ -130,12 +134,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'welcome', scene: 'welcome' },
     // 1 · Book a time
     { id: 'book', scene: 'home', target: 'book', part: PART(1, 'Book a time'), tip: <>Everything starts with a <b>shoot</b>. Tap <b>Book a shoot</b>.</> },
-    { id: 'friend1', scene: 'find', target: 'who', part: PART(1, 'Book a time'), tip: <>Let's say you're filming with a friend. Tap <b>+ 1 friend</b>.</> },
-    { id: 'friendname', scene: 'find', target: 'friendsearch', part: PART(1, 'Book a time'), tip: <>Type your friend's name (or their channel), then tap them. Try someone you film with.</> },
-    { id: 'days', scene: 'find', target: 'days', part: PART(1, 'Book a time'), tip: <>Tap the day you want to film. A faded day is full.</> },
-    { id: 'slot', scene: 'find', target: 'slot', part: PART(1, 'Book a time'), tip: <>Each row is a time that's free for both of you: you first, then {friendFirst}. Tap a <b>house</b>.</> },
+    { id: 'friend1', scene: 'find', target: 'who', next: 'Continue', part: PART(1, 'Book a time'), tip: <>Let's say you're filming with friends. Tap <b>+ 1 friend</b> or <b>+ 2 friends</b>, then <b>Continue</b>.</> },
+    { id: 'friendname', scene: 'find', target: 'friendzone', next: 'Continue', part: PART(1, 'Book a time'), tip: <>Type {friendCount > 1 ? 'each' : 'your'} friend's name (or their channel) and tap them. Try someone you film with. Then <b>Continue</b>.</> },
+    { id: 'days', scene: 'find', target: 'days', next: 'Continue', part: PART(1, 'Book a time'), tip: <>Tap the day you want to film (a faded day is full), then <b>Continue</b>.</> },
+    { id: 'slot', scene: 'find', target: 'slot', part: PART(1, 'Book a time'), tip: <>Each row is a time that's free for all of you: you first, then {friendFirst}. Tap a <b>house</b>.</> },
     { id: 'bookit', scene: 'bookit', target: 'bookit', part: PART(1, 'Book a time'), tip: <>Tap <b>Book + invite {friendFirst}</b>. (Practice: nobody is booked or told.)</> },
-    { id: 'booked', scene: 'shoot', target: 'shoottop', next: 'Next', part: PART(1, 'Book a time'), tip: <>Booked! Your slot is yours. {friendFirst} gets a notification and has <b>{HOLD} minutes</b> to confirm the slot after yours. If they don't, it opens to everyone.</> },
+    { id: 'booked', scene: 'shoot', target: 'shoottop', next: 'Next', part: PART(1, 'Book a time'), tip: <>Booked! Your slot is yours. {friendFirst} {friends.length > 1 ? 'get' : 'gets'} a notification and {friends.length > 1 ? 'each have' : 'has'} <b>{HOLD} minutes</b> to confirm. A slot nobody confirms opens to everyone.</> },
     // 2 · When a friend invites you
     { id: 'invited', scene: 'invited', target: 'notif', part: PART(2, 'When a friend invites you'), tip: <>Now the other way round: a friend booked and invited <b>you</b>. Your phone shows this. Tap it.</> },
     { id: 'confirm', scene: 'invite', target: 'invitebox', part: PART(2, 'When a friend invites you'), tip: <>The slot after theirs is <b>held for you for {HOLD} minutes</b>. Tap <b>Confirm my slot</b>. (Can't make it? Tap that and it opens to everyone.)</> },
@@ -145,12 +149,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'aiask', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>Describe your video in your own words (e.g. "a séance that goes wrong") and tap <b>↑</b>.</> },
     { id: 'aipicks', scene: 'chat', target: 'chatzone', top: true, part: PART(3, 'Find props with AI'), tip: <>That's the real AI: props from our closet for your idea, grouped by scene, each with <b>why</b> it fits. <b>Tick</b> the ones you want (tap +), then tap <b>Add to a shoot</b>. (It only suggests: you decide.)</> },
     { id: 'aishoot', scene: 'chat', target: 'aishoot', part: PART(3, 'Find props with AI'), tip: <>Pick the shoot they're for: tap yours.</> },
-    { id: 'aitime', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>It finds times too. Type something like "2 hours with {friendFirst} next Friday" and tap <b>↑</b>.</> },
+    { id: 'aitime', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>It finds times too. Type something like "2 hours with {inviterFirst} next Friday" and tap <b>↑</b>.</> },
     { id: 'aioptions', scene: 'chat', target: 'options', next: 'Next', part: PART(3, 'Find props with AI'), tip: <>Real free times, back to back for you and your friend. You'd tap <b>Book</b> to take one (not now: you're already booked).</> },
     { id: 'aiback', scene: 'chat', target: 'aiback', part: PART(3, 'Find props with AI'), tip: <>Tap <b>‹ Back</b> to go back to your shoot.</> },
     // 4 · Add more yourself, then send
     { id: 'addprops', scene: 'shoot', target: 'addprops', part: PART(4, 'Add more and send'), tip: <>You can also add things yourself. Tap <b>+ Add</b> next to Props &amp; costumes.</> },
-    { id: 'search', scene: 'browse', target: 'browsezone', part: PART(4, 'Add more and send'), tip: <>Your AI picks are already in your shoot. Search for something else (try <b>mask</b>, <b>hat</b> or <b>phone</b>) and tap <b>+</b> on a prop.</> },
+    { id: 'search', scene: 'browse', target: 'browsezone', next: 'Continue', part: PART(4, 'Add more and send'), tip: <>Your AI picks are already in your shoot. Search for something else (try <b>mask</b>, <b>hat</b> or <b>phone</b>), tap <b>+</b> on a prop, then <b>Continue</b>.</> },
     { id: 'geartab', scene: 'browse', target: 'geartab', part: PART(4, 'Add more and send'), tip: <>Cameras, lights and sound are here. Tap <b>Gear</b>.</> },
     { id: 'addgear', scene: 'gear', target: 'gear-add', part: PART(4, 'Add more and send'), tip: <>Gear comes in kits, booked whole, for your shoot's hours. Tap <b>+</b>.</> },
     { id: 'reviewbar', scene: 'gear', target: 'reviewbar', part: PART(4, 'Add more and send'), tip: <>Tap here to check everything before it goes.</> },
@@ -171,17 +175,17 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'packed', scene: 'request', target: 'journey', next: 'Next', part: PART(5, 'Follow and change it'), tip: <>When it's ready you get a notification and the line moves to <b>Ready</b>.</> },
     // 6 · Pick up
     { id: 'sign', scene: 'pickup', target: 'sign', part: PART(6, 'Pick up'), tip: <>Shoot day: at the prop room, check you've got everything, then sign. Only you can sign for your props.</> },
-    { id: 'pieces', scene: 'gearpickup', target: 'pieces', part: PART(6, 'Pick up'), tip: <>Gear: open the case and tick <b>every piece</b>. Something missing? Tap <b>Missing?</b> so it isn't blamed on you.</> },
+    { id: 'pieces', scene: 'gearpickup', target: 'pieces', next: 'Continue', part: PART(6, 'Pick up'), tip: <>Gear: open the case and tick <b>every piece</b>. Something missing? Tap <b>Missing?</b> so it isn't blamed on you. Then <b>Continue</b>.</> },
     { id: 'gearsign', scene: 'gearpickup', target: 'gearsign', part: PART(6, 'Pick up'), tip: <>Then sign. The kit is yours until you bring it back.</> },
     // 7 · On the day
-    { id: 'setphoto', scene: 'checkin', target: 'camera', skip: true, part: PART(7, 'On the day'), tip: <>At the house: open your shoot. Check-in opens <b>{s.checkinBefore} minutes</b> before your time. Take a photo of the set. (Practice: it stays on your phone.)</> },
+    { id: 'setphoto', next: 'Continue', scene: 'checkin', target: 'camera', skip: true, part: PART(7, 'On the day'), tip: <>At the house: open your shoot. Check-in opens <b>{s.checkinBefore} minutes</b> before your time. Take a photo of the set. (Practice: it stays on your phone.)</> },
     { id: 'report', scene: 'checkin', target: 'report', next: 'Next', part: PART(7, 'On the day'), tip: <>Did the slot before you run over, or leave a mess? Tap one and <b>write what happened</b> (e.g. "still packing up at 1:20"). The team reviews every report.</> },
     { id: 'checkin', scene: 'checkin', target: 'checkin', part: PART(7, 'On the day'), tip: <>Tap <b>Check in</b>. That's how the team knows you filmed.</> },
     { id: 'wrap', scene: 'wrap', target: 'wrap', part: PART(7, 'On the day'), tip: <>Done filming? Type what you shot, then tap <b>Wrap</b>.</> },
     // 8 · Return everything
-    { id: 'retphoto', scene: 'return', target: 'camera', skip: true, part: PART(8, 'Return everything'), tip: <>Props go back the night of the shoot. Take one photo of <b>everything</b> together, where you leave it.</> },
+    { id: 'retphoto', next: 'Continue', scene: 'return', target: 'camera', skip: true, part: PART(8, 'Return everything'), tip: <>Props go back the night of the shoot. Take one photo of <b>everything</b> together, where you leave it.</> },
     { id: 'returned', scene: 'return', target: 'returned', part: PART(8, 'Return everything'), tip: <>Add a note if you like (where you left them), then tap <b>Confirm return</b>.</> },
-    { id: 'gearphoto', scene: 'gearreturn', target: 'camera', skip: true, part: PART(8, 'Return everything'), tip: <>Gear: every piece back in its case, batteries plugged in to charge, then one photo that shows both.</> },
+    { id: 'gearphoto', next: 'Continue', scene: 'gearreturn', target: 'camera', skip: true, part: PART(8, 'Return everything'), tip: <>Gear: every piece back in its case, batteries plugged in to charge, then one photo that shows both.</> },
     { id: 'gearsend', scene: 'gearreturn', target: 'gearsend', part: PART(8, 'Return everything'), tip: <>Tap <b>Send return</b>.</> },
     { id: 'final', scene: 'final', target: 'card', next: 'Next', part: PART(8, 'Return everything'), tip: <>The teams check each item in. When both say <b>Checked in</b>, you're done. Late returns block new props and gear, so bring things back on time.</> },
     { id: 'rules', scene: 'rules' },
@@ -200,13 +204,13 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   // ── Actions you do yourself ──
   const [flash, setFlash] = useState(false)
   const bookIt = () => { if (step.target !== 'bookit' || flash) return; setFlash(true); setTimeout(() => { setFlash(false); advance() }, 650) }
-  const pickFriend = (p: { email: string; name: string }) => { if (step.id !== 'friendname') return; setFriend(p); setFriendQ(''); advance() }
-  const pickDay = (d: string) => { if (step.id !== 'days') return; setPickedDay(d); advance() }
+  const pickCount = (n: number) => { if (step.id !== 'friend1') return; setFriendCount(n); setFriends(f => f.slice(0, n)) }
+  const pickFriend = (p: { email: string; name: string }) => { if (step.id !== 'friendname') return; setFriends(f => f.some(x => x.email === p.email) || f.length >= friendCount ? f : [...f, p]); setFriendQ('') }
+  const dropFriend = (email: string) => { if (step.id === 'friendname') setFriends(f => f.filter(x => x.email !== email)) }
+  const pickDay = (d: string) => { if (step.id === 'days') setPickedDay(d) }
   const addProp = (id: string) => {
     if (step.id !== 'search') return
-    const was = added.length
     setAdded(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id])
-    if (!added.includes(id) && was >= aiTicks.filter(k => !k.startsWith('b:')).length) advance()
   }
   const addBuild = () => { if (step.id !== 'makeform' || !buildDesc.trim()) return; setBuilds(b => [...b, { description: buildDesc.trim(), qty: buildQty }]); setShowBuild(false); setBuildDesc(''); advance() }
   const send = () => {
@@ -248,11 +252,10 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [photos, setPhotos] = useState<Record<string, string>>({})
   useEffect(() => () => { Object.values(photos).forEach(u => URL.revokeObjectURL(u)) }, [photos])
   const cam = useRef<HTMLInputElement>(null)
-  const shot = (f?: File) => { if (!f) return; setPhotos(p => ({ ...p, [step.id]: URL.createObjectURL(f) })); advance() }
+  const shot = (f?: File) => { if (!f) return; setPhotos(p => ({ ...p, [step.id]: URL.createObjectURL(f) })) }   // retake by tapping the photo; Continue moves on
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const [missing, setMissing] = useState<Set<string>>(new Set())
   const allTicked = pieceLines.every(l => ticked.has(l.key) || missing.has(l.key))
-  useEffect(() => { if (step.id === 'pieces' && allTicked) { const t = setTimeout(advance, 400); return () => clearTimeout(t) } }, [step.id, allTicked])   // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = (set: Set<string>, k: string) => { const n = new Set(set); if (n.has(k)) n.delete(k); else n.add(k); return n }
   const finish = () => { markTourDone(profile.email); onFinish() }
 
@@ -396,7 +399,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       )}
     </div>
   )
-  const sheet = (heading: string, body: ReactNode) => <>{scheduleHeader()}<BottomSheet open onClose={() => {}} title={heading}>{body}</BottomSheet></>
+  const sheet = (heading: string, body: ReactNode) => <>{scheduleHeader()}<BottomSheet open locked onClose={() => {}} title={heading}>{body}</BottomSheet></>
   const homeHeader = (
     <div className="pt-safe px-5">
       <div className="flex items-center justify-between py-3">
@@ -472,7 +475,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <p className="text-pt-text text-sm font-medium">{label}</p>
         {hint && <p className="text-pt-muted text-xs">{hint}</p>}
         <div className="grid grid-cols-3 gap-2">
-          {photo ? <div className="relative aspect-square rounded-xl overflow-hidden bg-pt-border"><img src={photo} alt="" className="w-full h-full object-cover" /></div>
+          {photo ? <button {...(step.id === key ? T('camera') : {})} onClick={() => step.id === key && cam.current?.click()} aria-label="Retake photo" className="relative aspect-square rounded-xl overflow-hidden bg-pt-border"><img src={photo} alt="" className="w-full h-full object-cover" />{step.id === key && <span className="absolute bottom-1 inset-x-1 text-center text-[11px] font-semibold rounded-md bg-black/60 text-white py-0.5">Retake</span>}</button>
             : <button {...T('camera')} onClick={() => step.target === 'camera' && cam.current?.click()}
                 className="aspect-square rounded-xl border-2 border-dashed border-pt-accent/60 text-pt-accent text-sm flex flex-col items-center justify-center gap-1">
                 <span className="text-2xl leading-none">📷</span>Take photo</button>}
@@ -524,27 +527,28 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       </div>
     ),
     find: () => {
-      const withFriend = past('friend1')
       const term = friendQ.trim().toLowerCase()
-      const matches = term ? (people ?? []).filter(p => p.name.toLowerCase().includes(term)).slice(0, 6) : []
+      const matches = term ? (people ?? []).filter(p => p.name.toLowerCase().includes(term) && !friends.some(f => f.email === p.email)).slice(0, 6) : []
+      const need = friends.length < friendCount
       return sheet('Book a shoot', (
         <>
           <p className="text-pt-muted text-xs mb-2">Who's filming?</p>
           <div {...T('who')} className="flex bg-pt-bg rounded-full p-1 gap-1">
             {['Just me', '+ 1 friend', '+ 2 friends'].map((l, n) => {
-              const on = withFriend ? n === 1 : n === 0
-              return <button key={l} onClick={n === 1 ? tap('who') : undefined} className={`flex-1 rounded-full min-h-[40px] text-sm ${on ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{l}</button>
+              const on = friendCount === n
+              return <button key={l} onClick={() => pickCount(n)} className={`flex-1 rounded-full min-h-[40px] text-sm ${on ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{l}</button>
             })}
           </div>
-          {withFriend && (
-            <div className="mt-3 space-y-2">
-              {friend ? (
-                <div className="flex flex-wrap gap-2">
-                  <span className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline"><Avatar email={friend.email} name={friend.name} size={32} />{friendFirst}<span className="text-pt-muted">×</span></span>
-                </div>
-              ) : (
-                <div {...T('friendsearch')} className="bg-pt-bg rounded-xl p-2">
-                  <input type="search" value={friendQ} onChange={e => setFriendQ(e.target.value)} placeholder="Search by name or channel" className={field} />
+          {friendCount > 0 && (
+            <div {...T('friendzone')} className="mt-3 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {friends.map(f => (
+                  <button key={f.email} onClick={() => dropFriend(f.email)} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline"><Avatar email={f.email} name={f.name} size={32} />{firstOf(f.name)}<span className="text-pt-muted">×</span></button>
+                ))}
+              </div>
+              {need && at('friendname') && (
+                <div className="bg-pt-bg rounded-xl p-2">
+                  <input type="search" value={friendQ} onChange={e => setFriendQ(e.target.value)} placeholder={friends.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
                   <div className="max-h-48 overflow-y-auto mt-1">
                     {term && people === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
                     {term && people !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one called "{friendQ.trim()}".</p>}
@@ -555,12 +559,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                       </button>
                     ))}
                     {term && people !== null && matches.length === 0 && (
-                      <button onClick={() => pickFriend({ email: 'practice-friend', name: 'Sam (practice)' })} className="w-full text-left p-2 text-pt-accent text-sm">Practise with "Sam" instead ›</button>
+                      <button onClick={() => pickFriend(friends.some(f => f.email === 'practice-1') ? { email: 'practice-2', name: 'Alex (practice)' } : { email: 'practice-1', name: 'Sam (practice)' })} className="w-full text-left p-2 text-pt-accent text-sm">Practise with "{friends.some(f => f.email === 'practice-1') ? 'Alex' : 'Sam'}" instead ›</button>
                     )}
                   </div>
                 </div>
               )}
-              <p className="text-pt-muted text-xs">{friend ? `You book your slot; theirs is held for ${HOLD} minutes for them to confirm.` : 'Each of you gets a 2-hour slot, back to back. Pick who, or they can book the next slot themselves.'}</p>
+              <p className="text-pt-muted text-xs">{!need ? `You book your slot; ${friends.length > 1 ? 'theirs are' : 'theirs is'} held for ${HOLD} minutes for them to confirm.` : 'Each of you gets a 2-hour slot, back to back. Pick who, or they can book the next slot themselves.'}</p>
             </div>
           )}
           <div {...T('days')} className="mt-5 -mx-6 px-6 flex gap-2 overflow-x-auto no-scrollbar">
@@ -578,8 +582,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               {[START, START + SLOT * 2, START + SLOT * 3].map((t, n) => (
                 <div key={t} {...(n === 0 ? T('slot') : {})} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">
                   <span className="flex-1 min-w-0">
-                    <span className="block text-pt-text font-semibold">{fmtSlot(t, (friend ? 2 : 1) * SLOT)}</span>
-                    {friend && <span className="block text-pt-muted text-xs truncate">You {fmtSlot(t, SLOT)} · then {friendFirst}</span>}
+                    <span className="block text-pt-text font-semibold">{fmtSlot(t, (1 + friendCount) * SLOT)}</span>
+                    {friendCount > 0 && <span className="block text-pt-muted text-xs truncate">You {fmtSlot(t, SLOT)}{friends.length ? ` · then ${friends.map(f => firstOf(f.name)).join(', ')}` : ''}</span>}
                   </span>
                   {[house.name, s.houses.cliff2.name].map(h => <button key={h} onClick={n === 0 ? tap('slot') : undefined} className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 min-h-[40px] text-sm shadow-gold shrink-0">{h}</button>)}
                 </div>
@@ -593,7 +597,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <>
         <p className="text-pt-muted text-sm">{longDay} · {house.name}</p>
         <div className="mt-4 space-y-2">
-          {[{ email: profile.email, label: 'You', note: 'Booked', who: name }, { email: friend?.email ?? 'friend', label: friend?.name ?? 'Sam', note: `Held ${HOLD} min`, who: friend?.name ?? 'Sam' }].map((p, i) => (
+          {[{ email: profile.email, label: 'You', note: 'Booked', who: name }, ...(friends.length ? friends : [{ email: 'practice-1', name: 'Sam' }]).map(f => ({ email: f.email, label: f.name, note: `Held ${HOLD} min`, who: f.name }))].map((p, i) => (
             <div key={i} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
               <Avatar email={p.email} name={p.who} size={36} />
               <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold truncate">{p.label}</span><span className="block text-pt-muted text-xs">{fmtSlot(START + i * SLOT, SLOT)}</span></span>
@@ -601,8 +605,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             </div>
           ))}
         </div>
-        <p className="text-pt-muted text-xs mt-4">{friendFirst} gets a notification to confirm. If they don't within {HOLD} minutes, the slot opens to everyone.</p>
-        <button {...T('bookit')} onClick={bookIt} className={`mt-5 ${btnGold} ${flash ? 'booked-flash' : ''}`}>{flash ? 'Booked ✓' : `Book + invite ${friendFirst}`}</button>
+        <p className="text-pt-muted text-xs mt-4">{friendFirst} {friends.length > 1 ? 'get' : 'gets'} a notification to confirm. If they don't within {HOLD} minutes, the slot opens to everyone.</p>
+        <button {...T('bookit')} onClick={bookIt} className={`mt-5 ${btnGold} ${flash ? 'booked-flash' : ''}`}>{flash ? 'Booked ✓' : `Book + invite ${friends.length > 1 ? 'them' : friendFirst}`}</button>
       </>
     )),
     shoot: () => sheet('Your shoot', (
@@ -631,7 +635,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div className="pb-10">
         {homeHeader}
         <div className="px-5 mt-4 space-y-4">{nextShootCard}{searchAndAi}</div>
-        {notification(`${friendFirst} invited you to film right after them, ${formatDay(inviteDay)}. Held for you for ${HOLD} minutes.`, 'notif')}
+        {notification(`${inviterFirst} invited you to film right after them, ${formatDay(inviteDay)}. Held for you for ${HOLD} minutes.`, 'notif')}
       </div>
     ),
     invite: () => {
@@ -640,7 +644,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         [START - SLOT, <span className="text-pt-accent">Free</span>, null, null, 'bg-pt-surface border-pt-accent/35'],
         [START, friend?.name ?? 'Sam', null, null, 'bg-pt-surface border-transparent', <Avatar email={friend?.email ?? 'friend'} name={friend?.name ?? 'Sam'} />],
         done ? [START + SLOT, 'You', null, <Pill tone="info">Yours</Pill>, 'bg-pt-accent/10 border-pt-accent', <Avatar email={profile.email} name={name} ring />]
-          : [START + SLOT, <span className="text-amber-300">Held for you</span>, `${friendFirst}'s collab · confirm above`, <Pill tone="warn">Held</Pill>, 'bg-amber-400/[0.06] border-dashed border-amber-400/50', <Avatar email={profile.email} name={name} />],
+          : [START + SLOT, <span className="text-amber-300">Held for you</span>, `${inviterFirst}'s collab · confirm above`, <Pill tone="warn">Held</Pill>, 'bg-amber-400/[0.06] border-dashed border-amber-400/50', <Avatar email={profile.email} name={name} />],
         [START + SLOT * 2, <span className="text-pt-accent">Free</span>, null, null, 'bg-pt-surface border-pt-accent/35'],
       ]
       return (
@@ -733,11 +737,11 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               <>
                 <p className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{timeAsk}</p>
                 <div {...T('options')} className="space-y-2">
-                  <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">Looking at either house: you 2 h, then {friendFirst} 2 h, back to back. Soonest first.</p>
+                  <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">Looking at either house: you 2 h, then {inviterFirst} 2 h, back to back. Soonest first.</p>
                   {[addOpenDays(today, 8, settings), addOpenDays(today, 9, settings)].map((d, n) => (
                     <div key={d} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
                       <span className="w-12 text-center shrink-0"><span className="block text-[11px] uppercase text-pt-muted">{formatDay(d, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(d.slice(8))}</b></span>
-                      <span className="flex-1 min-w-0"><b className="block">{n ? s.houses.cliff2.name : house.name} · {fmtSlot(17 * 60, 2 * SLOT)}</b><span className="block text-pt-muted text-[13px]">You {fmtTime(17 * 60)} · {friendFirst} {fmtTime(19 * 60)}</span></span>
+                      <span className="flex-1 min-w-0"><b className="block">{n ? s.houses.cliff2.name : house.name} · {fmtSlot(17 * 60, 2 * SLOT)}</b><span className="block text-pt-muted text-[13px]">You {fmtTime(17 * 60)} · {inviterFirst} {fmtTime(19 * 60)}</span></span>
                       <span className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold">Book</span>
                     </div>
                   ))}
@@ -753,7 +757,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               <button onClick={send} disabled={idea.trim().length < 3} aria-label="Send" className="w-12 h-12 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-xl font-bold disabled:opacity-40">↑</button>
             </div>
           </div>
-          <BottomSheet open={aiSheet || step.id === 'aishoot'} onClose={() => {}} title="Add to which shoot?">
+          <BottomSheet open={aiSheet || step.id === 'aishoot'} locked onClose={() => {}} title="Add to which shoot?">
             <div className="space-y-2">
               <button {...T('aishoot')} onClick={aiAddTo} className="w-full text-left rounded-2xl px-4 py-3 bg-pt-accent/15 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]">
                 <span className="block text-pt-text text-[15px] font-semibold">{shootLabel}</span>
@@ -1140,7 +1144,11 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const lit = TAB[step.scene]
   const tipCount = STEPS.filter(x => x.tip).length
   const tipNo = STEPS.slice(0, idx + 1).filter(x => x.tip).length
+  const aiPropCount = aiTicks.filter(k => !k.startsWith('b:')).length
   const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
+    || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount) || (step.id === 'days' && !pickedDay)
+    || (step.id === 'search' && added.length <= aiPropCount) || (step.id === 'pieces' && !allTicked)
+    || (['setphoto', 'retphoto', 'gearphoto'].includes(step.id) && !photos[step.id])
 
   return (
     <div className="fixed inset-0 z-[60] bg-pt-bg flex flex-col" role="dialog" aria-label="App tour (practice)">
