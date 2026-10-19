@@ -75,12 +75,16 @@ planning a video shoot, return the empty answer. Keep every text field short, fr
 export const ideaToProps = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const idea = str(req.data?.idea, 600)
-  if (idea.length < 8) throw new HttpsError('invalid-argument', 'Tell us a little more about the video idea.')
+  // Brainstorm chat (owner, Oct 19): earlier messages from the creator (the video idea, then follow-ups like
+  // "something for a séance"). The newest message is `idea`; the AI focuses on it, in the context of the rest.
+  const history = (Array.isArray(req.data?.history) ? req.data.history : []).slice(-6).map((x: unknown) => str(x, 400)).filter(Boolean) as string[]
+  if (idea.length < (history.length ? 2 : 8)) throw new HttpsError('invalid-argument', 'Tell us a little more about the video idea.')
   // "See more ideas" (owner, Oct 19): the phone sends what it already shows (ids) and the needs already
   // searched, so this round looks for different, less obvious things and never repeats a pick.
   const exclude = new Set((Array.isArray(req.data?.exclude) ? req.data.exclude : []).slice(0, 200).map((x: unknown) => str(x, 128)).filter(Boolean))
   const searched = (Array.isArray(req.data?.searched) ? req.data.searched : []).slice(0, 60).map((x: unknown) => safeText(x, 50)).filter(Boolean) as string[]
-  const more = exclude.size > 0 || searched.length > 0
+  // A follow-up on a new topic still never repeats picks (exclude), but only "more like these" asks for a second look.
+  const more = req.data?.more === true || (searched.length > 0 && !history.length)
   const settle = await reserveAi(caller.email, 'ideas')
   const key = apiKey(), fake = isFakeMode(key)
   if (!fake && !key) { await settle(0); throw new HttpsError('failed-precondition', 'The AI helper isn\'t set up yet.') }
@@ -88,23 +92,33 @@ export const ideaToProps = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, as
   try {
     // 1. What the video needs, by scene.
     let needs: { scene: string; items: string[] }[] = [{ scene: 'For your idea', items: [idea] }]
+    let reply = fake ? 'Here is what we have for that (test mode).' : ''
+    let chips: string[] = fake ? ['More like these', 'Wardrobe ideas', 'Set dressing'] : []
     if (!fake) {
       const r = await askJson(key!, {
         system: `${APP_CONTEXT}
-TASK: list the physical props, costumes, set dressing and filming gear a video like this would need, grouped by scene,
-character or purpose. Return ONLY {"needs":[{"scene":"For the cop","items":["police uniform","police badge"]}]}:
-2-6 groups, titles start with "For " (one gear group may be "To film it"), 1-6 short concrete item names per group.${more ? `
+TASK: you are a creative producer brainstorming a PROP LIST with a creator, to make their video more engaging: props
+that make the scene read instantly, visual gags, atmosphere, set dressing, wardrobe, small details the camera will catch.
+Focus on the creator's NEWEST message (for example "something for a seance" means candles, a crystal ball, a spirit
+board, a dark tablecloth, incense), using their earlier messages as the context of the video.
+List the physical props, costumes, set dressing and filming gear, grouped by scene, character or purpose.
+Return ONLY {"reply":"...","needs":[{"scene":"For the cop","items":["police uniform","police badge"]}],"chips":["..."]}:
+reply = 1-2 short sentences with ONE creative tip for the scene (do not list the items); 2-6 groups, titles start with
+"For " (one gear group may be "To film it"), 1-6 short concrete item names per group; chips = 3 short follow-up asks the
+creator could tap next to keep brainstorming (max 6 words each, e.g. "Make it spookier", "Props for the ending").${more ? `
 This is a SECOND LOOK: these items were already searched, so list DIFFERENT ones (less obvious props, set dressing,
 background details, wardrobe extras, alternatives, small touches): ${JSON.stringify(searched)}` : ''}
-Empty answer: {"needs":[]}.`,
-        user: `<creator_text>${asData(idea, 600)}</creator_text>`,
-      }, 700)
+Empty answer: {"reply":"","needs":[],"chips":[]}.`,
+        user: `${history.length ? `EARLIER MESSAGES:\n${history.map(h => `<creator_text>${asData(h, 400)}</creator_text>`).join('\n')}\nNEWEST MESSAGE:\n` : ''}<creator_text>${asData(idea, 600)}</creator_text>`,
+      }, 900)
       cost += r.costUsd
+      reply = safeText(r.data.reply, 220)
+      chips = (Array.isArray(r.data.chips) ? r.data.chips : []).map((x: unknown) => safeText(x, 40)).filter(Boolean).slice(0, 3)
       const got = (Array.isArray(r.data.needs) ? r.data.needs : []).slice(0, 6).map((g: any) => ({
         scene: safeText(g?.scene, 40) || 'For your idea',
         items: (Array.isArray(g?.items) ? g.items : []).map((x: unknown) => safeText(x, 50)).filter(Boolean).slice(0, 6),
       })).filter((g: { items: string[] }) => g.items.length)
-      if (!got.length) return { groups: [], missing: [], note: 'That doesn\'t look like a video idea. Describe the scenes, characters or setting.' }
+      if (!got.length) return { groups: [], missing: [], reply: '', chips: [], note: history.length ? 'I couldn\'t turn that into props. Try naming a scene, a character or a moment, like "something for a seance".' : 'That doesn\'t look like a video idea. Describe the scenes, characters or setting.' }
       needs = got
     }
 
@@ -141,7 +155,8 @@ Empty answer: {"needs":[]}.`,
     } else {
       const r = await askJson(key!, {
         system: `${APP_CONTEXT}
-TASK: choose the best props and gear for the creator's video from the SHORTLIST only.
+TASK: choose the best props and gear for the creator's video from the SHORTLIST only (their newest message comes first;
+earlier messages are the video's context).
 SHORTLIST PROPS (id | name | category | tags and search words | how many we have | free on their shoot day):
 ${props.map(p => `${p.id} | ${p.name} | ${p.cat} | ${p.words} | ${p.qty} | ${p.free === undefined ? '?' : p.free > 0 ? 'free' : 'taken'}`).join('\n') || '(none)'}
 SHORTLIST GEAR (id | name | category | type):
@@ -151,7 +166,7 @@ Return ONLY {"groups":[{"title":"For the cop","picks":[{"kind":"prop","id":"<id 
 Rules: use the scene titles above; max 5 picks per group; ONLY ids from the shortlist, kind "prop" for props and "gear"
 for gear; each id once; only clear fits; prefer props that are free; "missing" = important needs with no good match
 on the shortlist (0-4). Empty answer: {"groups":[],"missing":[]}.`,
-        user: `<creator_text>${asData(idea, 600)}</creator_text>`,
+        user: `${history.length ? `EARLIER MESSAGES:\n${history.map(h => `<creator_text>${asData(h, 400)}</creator_text>`).join('\n')}\nNEWEST MESSAGE:\n` : ''}<creator_text>${asData(idea, 600)}</creator_text>`,
       }, 1500, 0.2)
       cost += r.costUsd
       data = r.data
@@ -169,7 +184,7 @@ on the shortlist (0-4). Empty answer: {"groups":[],"missing":[]}.`,
     const missing = (Array.isArray(data.missing) ? data.missing : []).slice(0, 4)
       .map((m: any) => ({ name: safeText(m?.name, 60), why: safeText(m?.why, 90) })).filter((m: { name: string }) => m.name)
     const known = new Set(searched.map(x => x.toLowerCase()))
-    return { groups, missing: missing.filter((m: { name: string }) => !known.has(m.name.toLowerCase())), searched: phrases }
+    return { groups, missing: missing.filter((m: { name: string }) => !known.has(m.name.toLowerCase())), searched: phrases, reply, chips }
   } finally { await settle(cost) }
 })
 

@@ -31,6 +31,13 @@ describe('video idea → props and gear', () => {
     const again = more.result.groups.flatMap((g: any) => g.picks.map((p: any) => p.id))
     expect(again.some((id: string) => shown.includes(id))).toBe(false)
   })
+  it('brainstorm follow-ups: a short ask works with the earlier messages, and gives a tip + next asks', async () => {
+    const r = await call('ideaToProps', { idea: 'seance', history: ['A haunted house prank on my roommate'] }, ANA)
+    expect(r.ok).toBe(true)
+    expect(typeof r.result.reply).toBe('string')
+    expect(Array.isArray(r.result.chips)).toBe(true)
+    expect((await call('ideaToProps', { idea: 'seance' }, ANA)).message).toMatch(/a little more/)
+  })
   it('needs a real idea', async () => {
     expect((await call('ideaToProps', { idea: 'hi' }, ANA)).message).toMatch(/a little more/)
   })

@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 384 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 385 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -824,7 +824,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       = ItemCard look (rounded-20 shadow-card, status badge Available/Free/Taken/Piece missing, "N pcs" corner, + quick add
       when a shoot is picked); same "Your shoot · N props · M gear  Review →" bar. Gear page = prop page header (white
       ‹ Back) + full-width photo; titles 28px on both. "My gear" header link removed (Me → My gear). Bundles/extras
-      sections, hours picker, timeline, battery note kept. Tests 384. NEEDS BACKEND + WEBSITE DEPLOY (ask).
+      sections, hours picker, timeline, battery note kept.
+    - PROP BRAINSTORM CHAT (owner, Oct 19: "help me build a good prop list… like the booking chat"; "something for a séance"
+      → candles): IdeasSheet is now a FULL-SCREEN chat (like TimeChat: bubbles, typing dots, chips, mic, composer). Each
+      message → ideaToProps with `history` (earlier creator messages, ≤6) + `exclude` (everything already shown); the AI
+      acts as a creative producer, focuses on the NEWEST message in the context of the earlier ones, and also returns
+      `reply` (one creative tip, safeText 220) + `chips` (3 follow-up asks). "✦ More like these" chip = second look on the
+      last ask (`more: true` + `searched`). Follow-ups may be short (≥2 chars when there's history; first idea ≥8).
+      Each turn's picks render under the bot bubble with ticks → "Add N to a shoot" (same picker / new-shoot flow).
+      Test in assistant.test.ts. Tests 385.
+    - LIVE Oct 19 (backend + website, owner "go live"): see more ideas, ideas → shoot, arts don't book + calendar, gear
+      looks like props, brainstorm chat.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
