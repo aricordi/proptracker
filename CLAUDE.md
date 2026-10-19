@@ -794,12 +794,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - SHEETS + DATES (owner, Oct 19): every BottomSheet now SWIPES DOWN TO CLOSE (drag the handle/title, or pull down when the
       content is scrolled to the top; >110 px closes, else springs back; sideways swipes ignored; uses CSS `translate` so it
       doesn't fight the slide-up animation). Book a shoot: DAY STRIP ("Soonest" + next 35 days, greyed when nothing free) →
-      picked day shows all its times first, then later days; day headings bigger (19px white). Preview only; live needs OK.
+      picked day shows all its times first, then later days; day headings bigger (19px white).
     - MONTHLY vs EXTRA HIDDEN (owner, Oct 19, option A: "it's just a counter that protects nothing" until the draw exists):
       `MONTHLY_SLOTS_ON = false` in src/services/schedule.ts hides the Monthly/Extra choice (book + back-to-back sheets send
       'extra'), the slot/shoot labels, the Home "Monthly slots" tile (now "This month: N shoots booked"), How it works +
       Help monthly text. Server unchanged (monthlySlots setting kept). Turn it back on when the wishlist + fair draw is built
       (draw-placed shoots = 'monthly').
+    - LIVE Oct 19 (website run 17, owner OK): swipe-to-close sheets, day strip, bigger dates, monthly/extra hidden.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
