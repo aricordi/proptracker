@@ -73,8 +73,10 @@
   .pb-tabbar {
     padding-bottom: max(calc(env(safe-area-inset-bottom) - 18px), 6px);
   }
+  /* Page headers: iPhone softens/fades the strip right under the clock and battery, so titles
+     sit 12px below it (owner, Oct 19: the fade touched the "Team" title at rest). */
   .pt-safe {
-    padding-top: env(safe-area-inset-top);
+    padding-top: calc(env(safe-area-inset-top) + 12px);
   }
   /* Sideways-scrolling rows (chips, "Your usuals") without a scrollbar. */
   .no-scrollbar { scrollbar-width: none; }

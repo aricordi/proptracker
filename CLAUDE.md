@@ -769,6 +769,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       reg.update() whenever the app becomes visible + every 30 min; registerType 'autoUpdate' (skipWaiting/clientsClaim)
       then reloads the page onto the new version. (Phones still on the OLD version need one more full close/reopen.)
     - PUSH + AUTO-UPDATE LIVE Oct 18 (backend run 32, website runs 13 + 14, owner OK). Owner to turn on + test on the phone.
+    - TITLE SPACING (owner, Oct 19: iPhone's fade under the clock touched page titles like "Team" at rest): `.pt-safe`
+      (index.css, every page header) = safe area + 12px. Preview only; live needs OK.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
