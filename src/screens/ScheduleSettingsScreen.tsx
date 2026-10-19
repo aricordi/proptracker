@@ -214,7 +214,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: s
       </>)}
       <p className="text-pt-muted text-xs border-t border-pt-border pt-3">From then on, every booking, move, cancel and blocked time made in the app is added to the calendar right away. The app never moves anything by itself, and events that were already in the calendar (the old ones you import) are never changed or deleted.</p>
       <button onClick={onApprove} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">What the app has added ›</button>
-      <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Bring in what's already in the calendar ›</button>
+      <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Import from the calendar (new + changed) ›</button>
     </section>
   )
 }

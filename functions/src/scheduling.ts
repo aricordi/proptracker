@@ -405,25 +405,34 @@ export async function placeShootAsTeam(spot: Spot, who: { email: string; name: s
 // A shoot from the old Google Calendar (owner, Oct 19): keeps its REAL hours even when they don't match the grid
 // (2:30–5 PM fills the 1–3 and 3–5 slots, so nobody can book over it), ignores blocks, and if another shoot already
 // has one of those slots it is still imported and listed as a clash (old events only; new bookings can never clash).
-export async function importShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}) {
-  if (spot.place === 'offsite') return placeShootAsTeam(spot, who, by, extra)
+export async function importShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}, existingId?: string) {
   const s = await loadScheduleSettings()
   if (!isDay(spot.date)) throw fail('bad-date')
   if (!(spot.end > spot.start)) throw fail('bad-hours')
-  const house = spot.place as House
-  const touched = s.slots.filter(k => k < spot.end && k + s.slotMinutes > spot.start)
-  const keys = (touched.length ? touched : [s.slots.reduce((b, k) => Math.abs(k - spot.start) < Math.abs(b - spot.start) ? k : b, s.slots[0])]).map(slotKey)
+  const keysFor = (sp: Spot) => {
+    const touched = s.slots.filter(k => k < sp.end && k + s.slotMinutes > sp.start)
+    return (touched.length ? touched : [s.slots.reduce((b, k) => Math.abs(k - sp.start) < Math.abs(b - sp.start) ? k : b, s.slots[0])]).map(slotKey)
+  }
   const onGrid = s.slots.includes(spot.start) && spot.end - spot.start === s.slotMinutes
   const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
-  const ref = db.collection('shoots').doc()
+  // existingId: the same Google event was changed there (re-import) → move the app's copy, same shoot.
+  const ref = existingId ? db.doc(`shoots/${existingId}`) : db.collection('shoots').doc()
   let clashWith: string[] = []
   await db.runTransaction(async tx => {
-    const write = await editDays(tx, [spot.date], days => {
+    const old = existingId ? (await tx.get(ref)).data() : undefined
+    if (existingId && !old) throw new HttpsError('not-found', 'That shoot is gone.')
+    const write = await editDays(tx, [...(old && old.status === 'booked' ? [old.date] : []), spot.date], days => {
       clashWith = []
+      if (old && old.status === 'booked') takeOut(days[old.date], old as Spot, ref.id)
       const day = days[spot.date]
+      if (spot.place === 'offsite') {
+        day.offsite = [...(day.offsite ?? []), { shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end, where: spot.where }]
+        return
+      }
+      const house = spot.place as House
       const map = { ...(day[house] ?? {}) }
-      for (const k of keys) {
+      for (const k of keysFor(spot)) {
         const there = map[k]
         if (there && !(there.hold && !holdActive(there, nowStamp())) && there.shootId !== ref.id) {
           clashWith.push(there.name)
@@ -434,13 +443,33 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
     })
     write()
     clashWith = [...new Set(clashWith)]
-    tx.set(ref, {
-      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind: 'extra', status: 'booked',
+    const clash = clashWith.length ? { clash: true, clashWith } : { clash: FieldValue.delete(), clashWith: FieldValue.delete() }
+    const note = `${spotLabel(spot, s)}${clashWith.length ? ` · CLASH with ${clashWith.join(', ')}` : ''}`
+    const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : 'extra'
+    if (old) tx.update(ref, {
+      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked', updatedAt: at, ...extra, ...clash,
+      history: FieldValue.arrayUnion({ at, by, action: 'moved', note: `changed in Google Calendar · now ${note}` }),
+    })
+    else tx.set(ref, {
+      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked',
       bookedBy: by, createdAt: at, updatedAt: at, ...extra, ...(clashWith.length ? { clash: true, clashWith } : {}),
-      history: [{ at, by, action: 'booked', note: `${spotLabel(spot, s)} · imported from Google Calendar${clashWith.length ? ` · CLASH with ${clashWith.join(', ')}` : ''}` }],
+      history: [{ at, by, action: 'booked', note: `${note} · imported from Google Calendar` }],
     })
   })
   return { id: ref.id, clashWith }
+}
+
+// The event was deleted in Google Calendar: take the app's copy off the schedule (the calendar itself is untouched).
+export async function removeImportedShoot(shootId: string, by: string) {
+  const ref = db.doc(`shoots/${shootId}`)
+  await db.runTransaction(async tx => {
+    const sh = (await tx.get(ref)).data()
+    if (!sh || sh.status !== 'booked') return
+    const write = await editDays(tx, [sh.date], days => takeOut(days[sh.date], sh as Spot, shootId))
+    write()
+    const at = new Date().toISOString()
+    tx.update(ref, { status: 'cancelled', updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: 'removed from Google Calendar' }) })
+  })
 }
 
 // ─── Filming back to back with friends ───────────────────────────────────────

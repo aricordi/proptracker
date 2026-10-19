@@ -117,3 +117,34 @@ describe('shared calendar copies', () => {
     expect([...c.sent, ...c.pending].filter((x: { label: string }) => /Ben/.test(x.label))).toHaveLength(0)
   })
 })
+
+describe('importing again', () => {
+  it('shows events changed or deleted in Google Calendar; changes move the app copy, deletes take it off', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    const ev = (start: string, end: string, title = 'Ana - Cliff 2') => ({ id: 'man1', summary: title, start: { dateTime: `${FRI}T${start}:00-04:00` }, end: { dateTime: `${FRI}T${end}:00-04:00` } })
+    await put('test_calendar/events', { items: [ev('13:00', '15:00')] })
+    const p1 = (await call('previewCalendarImport', {}, MAANIK)).result.events
+    expect(p1[0].kind).toBe('new')
+    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 2' }] }, MAANIK)
+    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+    // Someone moves it in Google Calendar to 3:30–5:30.
+    await put('test_calendar/events', { items: [ev('15:30', '17:30')] })
+    const p2 = (await call('previewCalendarImport', {}, MAANIK)).result.events
+    expect(p2[0]).toMatchObject({ kind: 'changed', startMin: 930, was: { startMin: 780 } })
+    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 930, end: 1050, title: 'Ana - Cliff 2' }] }, MAANIK)
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.cliff2['780']).toBeUndefined()
+    const id = d.cliff2['900'].shootId
+    expect(d.cliff2['1020'].shootId).toBe(id)
+    expect((await getDoc(`shoots/${id}`))!.start).toBe(930)
+    // Deleted in Google Calendar.
+    await put('test_calendar/events', { items: [] })
+    const p3 = (await call('previewCalendarImport', {}, MAANIK)).result.events
+    expect(p3[0]).toMatchObject({ kind: 'removed', id: 'man1' })
+    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'remove', date: FRI }] }, MAANIK)
+    expect((await getDoc(`shoots/${id}`))!.status).toBe('cancelled')
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff2['900']).toBeUndefined()
+    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+  })
+})
+

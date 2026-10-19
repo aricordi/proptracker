@@ -13,7 +13,7 @@ import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
-import { importShootAsTeam } from './scheduling.js'
+import { importShootAsTeam, removeImportedShoot } from './scheduling.js'
 import { stamp, addMinutes } from './gearBooking.js'
 
 const TEAM = ['owner', 'equipment', 'admin']
@@ -267,11 +267,15 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const people = (await db.collection('users').where('active', '==', true).get()).docs.map(u => ({ email: u.id, name: String(u.get('name') || u.id) }))
-  const done = new Set((await db.collection('calendar_imports').get()).docs.map(d => d.id))
+  // What was imported before, with a snapshot of the event then (owner, Oct 19: the team keeps adding events straight
+  // in Google Calendar while testing, so the import is re-run: new events, changed ones and deleted ones show up).
+  const imports = new Map((await db.collection('calendar_imports').get()).docs.map(d => [d.id, d.data()]))
   let items: GEvent[] = []
   if (isEmulator()) {
     const d = addDays(todayInStudio(), 3)
-    items = [
+    const fake = (await db.doc('test_calendar/events').get()).data()   // tests can stand in their own events
+    if (fake) items = fake.items as GEvent[]
+    else items = [
       { id: 'demo1', summary: 'Jana - Cliff 1', start: { dateTime: `${d}T13:00:00-04:00` }, end: { dateTime: `${d}T15:00:00-04:00` } },
       { id: 'demo2', summary: 'Cleaners', location: '2375 Cliff Road', start: { dateTime: `${d}T07:00:00-04:00` }, end: { dateTime: `${d}T09:00:00-04:00` } },
     ]
@@ -286,17 +290,42 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
       items.push(...(j.items ?? [])); pageToken = j.nextPageToken ?? ''
     } while (pageToken && items.length < 1500)
   }
-  const events = items
-    .filter(e => e.status !== 'cancelled' && e.start?.dateTime && e.end?.dateTime && !/^[sbt][0-9a-f]+$/.test(e.id) && !done.has(e.id))   // skip the app's own events + already imported
-    .map(e => {
-      const from = torontoStamp(e.start!.dateTime!), to = torontoStamp(e.end!.dateTime!)
-      const date = from.slice(0, 10), startMin = Number(from.slice(11, 13)) * 60 + Number(from.slice(14, 16))
-      const endMin = (to.slice(0, 10) > date ? 1440 : 0) + Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16))
-      const base = { id: e.id, title: e.summary ?? '(no title)', location: e.location ?? '', date, startMin, endMin }
-      return { ...base, guess: guessImport(base, people, s.slots) }
-    })
+  const live = items.filter(e => e.status !== 'cancelled' && e.start?.dateTime && e.end?.dateTime && !/^[sbt][0-9a-f]+$/.test(e.id))   // not the app's own events
+  const seen = new Set(live.map(e => e.id))
+  // Same time, and (when we know them) the same title and place.
+  const same = (a: Record<string, any>, b: Record<string, any>) => a.date === b.date && a.startMin === b.startMin && a.endMin === b.endMin
+    && (!b.title || a.title === b.title) && (!b.location || a.location === b.location)
+  const events: Record<string, unknown>[] = []
+  for (const e of live) {
+    const from = torontoStamp(e.start!.dateTime!), to = torontoStamp(e.end!.dateTime!)
+    const date = from.slice(0, 10), startMin = Number(from.slice(11, 13)) * 60 + Number(from.slice(14, 16))
+    const endMin = (to.slice(0, 10) > date ? 1440 : 0) + Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16))
+    const base = { id: e.id, title: e.summary ?? '(no title)', location: e.location ?? '', date, startMin, endMin }
+    const was = imports.get(e.id)
+    if (!was) { events.push({ ...base, kind: 'new', guess: guessImport(base, people, s.slots) }); continue }
+    // Already imported: only show it again if it was changed in Google Calendar since (skipped ones stay skipped).
+    if (was.action === 'skip' || (was.date && same(base, was))) continue
+    const g = guessImport(base, people, s.slots)
+    events.push({ ...base, kind: 'changed', was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
+      guess: { ...g, action: was.action, email: was.email || g.email, house: was.house || g.house } })
+  }
+  // Deleted (or moved out of view) in Google Calendar: still on the app's schedule.
+  const today = todayInStudio()
+  for (const [id, was] of imports) {
+    if (seen.has(id) || was.action === 'skip' || was.removed || !was.date || was.date < today) continue
+    events.push({ id, title: was.title ?? '(no title)', location: was.location ?? '', date: was.date, startMin: was.startMin, endMin: was.endMin, kind: 'removed',
+      guess: { action: 'remove', email: was.email ?? '', house: was.house ?? 'cliff1', start: was.startMin } })
+  }
   return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)) }
 })
+
+async function removeImportedBlock(date: string, blockId: string) {
+  const ref = db.doc(`schedule_days/${date}`)
+  await db.runTransaction(async tx => {
+    const day = (await tx.get(ref)).data() as ScheduleDay | undefined
+    if (day?.blocks?.some(b => b.id === blockId)) tx.update(ref, { blocks: day.blocks.filter(b => b.id !== blockId) })
+  })
+}
 
 // Import the reviewed events. Each one is a shoot (for a person, at a house slot or offsite hours)
 // or blocked time; skipped ones are just remembered so they don't show up again.
@@ -310,6 +339,22 @@ export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, 
     if (!id) continue
     let clash: string[] = []
     try {
+      const was = (await db.doc(`calendar_imports/${id}`).get()).data()
+      // Take the app's earlier copy off the schedule when the event became something else or was deleted.
+      const dropOld = async () => {
+        if (was?.shootId && (it.action !== 'shoot')) await removeImportedShoot(was.shootId, caller.email)
+        if (was?.blockId && was.date) await removeImportedBlock(was.date, was.blockId)
+      }
+      const startMin = Number(it.start) || 0
+      const snapshot = { title: String(it.title ?? '').slice(0, 200), location: String(it.location ?? '').slice(0, 300), date: String(it.date), startMin,
+        endMin: Number(it.end) > startMin ? Number(it.end) : startMin + s.slotMinutes }
+      if (it.action === 'remove' || it.action === 'keep') {
+        if (it.action === 'remove') await dropOld()
+        await db.doc(`calendar_imports/${id}`).set({ ...(was ?? {}), removed: it.action === 'remove', at: new Date().toISOString(), by: caller.email })
+        results.push({ id, ok: true }); continue
+      }
+      await dropOld()
+      let saved: Record<string, unknown> = {}
       if (it.action === 'shoot') {
         const u = (await db.doc(`users/${String(it.email).toLowerCase()}`).get()).data()
         if (!u?.active) throw new Error('Pick who this shoot is for.')
@@ -317,19 +362,23 @@ export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, 
         // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
         const r = await importShootAsTeam({ place, date: String(it.date), start, end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
-          { email: String(it.email).toLowerCase(), name: u.name || it.email }, caller.email, { calendarEventId: id, importedFrom: 'google-calendar' })
-        if (typeof r !== 'string' && r.clashWith.length) clash = r.clashWith
+          { email: String(it.email).toLowerCase(), name: u.name || it.email }, caller.email, { calendarEventId: id, importedFrom: 'google-calendar' }, was?.shootId)
+        if (r.clashWith.length) clash = r.clashWith
+        saved = { shootId: r.id, email: String(it.email).toLowerCase(), house: place }
       } else if (it.action === 'block') {
         const house = (it.house === 'cliff2' ? 'cliff2' : 'cliff1') as House
         const type = (Object.keys(BLOCK_TYPES).includes(it.type) ? it.type : 'other') as BlockType
         const start = Math.max(0, Number(it.start) || 0), end = Math.max(start + 1, Number(it.end) || 0)
         const ref = db.doc(`schedule_days/${it.date}`)
+        const blockId = `g${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`
         await db.runTransaction(async tx => {
           const day = ((await tx.get(ref)).data() ?? {}) as ScheduleDay
-          tx.set(ref, { date: it.date, blocks: [...(day.blocks ?? []), { id: `g${id.slice(0, 7)}`, house, start, end, type, note: String(it.title ?? '').slice(0, 200), by: caller.email, imported: true }] }, { merge: true })
+          tx.set(ref, { date: it.date, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note: String(it.title ?? '').slice(0, 200), by: caller.email, imported: true }] }, { merge: true })
         })
+        saved = { blockId, house }
       }
-      await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', at: new Date().toISOString(), by: caller.email })
+      // Remember the event as it is now, so the next import can tell if it changed in Google Calendar.
+      await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', ...snapshot, ...saved, at: new Date().toISOString(), by: caller.email })
       results.push({ id, ok: true, ...(clash.length ? { message: `Imported · CLASH with ${clash.join(', ')}` } : {}) })
     } catch (e) { results.push({ id, ok: false, message: (e as Error).message }) }
   }

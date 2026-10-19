@@ -6,13 +6,17 @@ import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 
-interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; guess: { action: string; email: string; house: string; start: number } }
-interface Row { action: 'shoot' | 'block' | 'skip'; email: string; house: string; start: number; type: BlockType }
+// kind: new = not seen before; changed = moved/renamed in Google Calendar since the last import; removed = deleted there.
+interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed'
+  was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; house: string; start: number } }
+interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; email: string; house: string; start: number; type: BlockType }
 const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[] }>(functions, 'previewCalendarImport')
 const apply = httpsCallable<{ items: unknown[] }, { results: { id: string; ok: boolean; message?: string }[] }>(functions, 'applyCalendarImport')
 const field = 'w-full bg-pt-bg border border-pt-border rounded-lg px-2 py-1.5 text-pt-text text-sm'
 
-// One-time import: the team checks every future event in the shared Google Calendar.
+// Import from the shared Google Calendar, as often as needed (owner, Oct 19: while testing, the team keeps adding
+// events straight in Google Calendar). Each run shows new events, ones changed there since, and ones deleted there.
+// The app never changes anything in Google Calendar here; it only updates its own schedule.
 export default function CalendarImportScreen() {
   const navigate = useNavigate()
   const s = useScheduleSettings()
@@ -33,7 +37,7 @@ export default function CalendarImportScreen() {
   async function run() {
     setBusy(true); setErr('')
     try {
-      const items = todo.map(e => { const r = rows[e.id]; return { id: e.id, title: e.title, date: e.date, action: r.action, email: r.email, house: r.house, type: r.type,
+      const items = todo.map(e => { const r = rows[e.id]; return { id: e.id, title: e.title, location: e.location, date: e.date, action: r.action, email: r.email, house: r.house, type: r.type,
         start: e.startMin, end: e.endMin, where: e.location || e.title } })   // always the real hours (owner, Oct 19)
       const res = await apply({ items })
       const next = { ...done }
@@ -56,7 +60,7 @@ export default function CalendarImportScreen() {
         <h1 className="font-display text-[34px] text-pt-text">Import calendar</h1>
       </div>
       <div className="p-4 space-y-3">
-        <p className="text-pt-muted text-sm">Every future event in the shared Google Calendar. For each, choose: a <b>shoot</b> (who and which house), <b>blocked time</b>, or <b>skip</b>. Our guesses are filled in.</p>
+        <p className="text-pt-muted text-sm">Run this whenever someone adds or changes events straight in Google Calendar. It shows <b>new</b> events, ones <b>changed</b> there since the last import, and ones <b>deleted</b> there. For each, choose a shoot (who and which house), blocked time, or skip. Our guesses are filled in.</p>
         <p className="text-pt-muted text-sm">Nothing in Google Calendar is ever changed. Every event keeps its <b>real hours</b> (2:30–5 PM stays 2:30–5 PM and holds the slots it touches). Old events that overlap at the same house are still imported, marked <span className="text-red-300 font-semibold">Clash</span>.</p>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {!events && !err && <p className="text-pt-muted text-sm">Reading the calendar…</p>}
@@ -67,10 +71,18 @@ export default function CalendarImportScreen() {
           return (
             <div key={e.id} className={`bg-pt-surface rounded-2xl p-3 space-y-2 ${d === 'ok' ? 'opacity-50' : ''}`}>
               <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}{d?.startsWith('Imported · CLASH') && <span className="text-red-300 text-xs">Imported · Clash</span>}</div>
-              <p className="text-pt-muted text-xs">{formatDay(e.date)} · {fmtTime(e.startMin)}–{fmtTime(e.endMin)}{e.location ? ` · ${e.location}` : ''}</p>
+              <p className="text-pt-muted text-xs">{e.kind !== 'new' && <span className={`mr-1 font-semibold ${e.kind === 'removed' ? 'text-red-300' : 'text-amber-300'}`}>{e.kind === 'removed' ? 'Deleted in Google Calendar ·' : 'Changed ·'}</span>}{formatDay(e.date)} · {fmtTime(e.startMin)}–{fmtTime(e.endMin)}{e.location ? ` · ${e.location}` : ''}</p>
+              {e.kind === 'changed' && e.was && <p className="text-pt-muted text-xs">Was {formatDay(e.was.date)} · {fmtTime(e.was.startMin)}–{fmtTime(e.was.endMin)}{e.was.title !== e.title ? ` · "${e.was.title}"` : ''}</p>}
               {d && d !== 'ok' && <p className="text-red-300 text-xs">{d}</p>}
               {d !== 'ok' && clashOf(e).length > 0 && <p className="text-red-300 text-xs font-semibold">⚠ Clash: same house and time as {clashOf(e).join(', ')}. Both will be imported.</p>}
-              {d !== 'ok' && <>
+              {d !== 'ok' && e.kind === 'removed' && (
+                <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
+                  {(['remove', 'keep'] as const).map(a => (
+                    <button key={a} onClick={() => set(e.id, { action: a })} className={`flex-1 py-1 rounded-md text-xs ${r.action === a ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{a === 'remove' ? 'Take it off the app\'s schedule' : 'Keep it in the app'}</button>
+                  ))}
+                </div>
+              )}
+              {d !== 'ok' && e.kind !== 'removed' && <>
                 <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
                   {(['shoot', 'block', 'skip'] as const).map(a => (
                     <button key={a} onClick={() => set(e.id, { action: a })} className={`flex-1 py-1 rounded-md text-xs ${r.action === a ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{a === 'shoot' ? 'Shoot' : a === 'block' ? 'Blocked time' : 'Skip'}</button>
@@ -96,7 +108,7 @@ export default function CalendarImportScreen() {
       {todo.length > 0 && (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
           <button disabled={busy} onClick={run} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
-            {busy ? 'Importing…' : `Import: ${counts.shoot ?? 0} shoots, ${counts.block ?? 0} blocks, skip ${counts.skip ?? 0}`}
+            {busy ? 'Importing…' : `Import: ${counts.shoot ?? 0} shoots, ${counts.block ?? 0} blocks${counts.remove ? `, ${counts.remove} removed` : ''}, skip ${counts.skip ?? 0}`}
           </button>
         </div>
       )}

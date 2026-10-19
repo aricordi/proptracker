@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 389 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 390 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -880,6 +880,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       it); if Google refuses (not shared, API off) it waits in `calendar_outbox` with the error and the team retries/drops
       it on the screen (now titled "Google Calendar": "Couldn't send" + "In the calendar from the app" with Remove). The
       Schedule banner only shows failed ones. Imported events are still never touched; the app has no automatic moving.
+    - RE-IMPORT (owner, Oct 19: "while we test, the admin team will add stuff straight in Google Calendar; import every
+      time but don't change them; the app only changes stuff made by the app"): `calendar_imports/{eventId}` now keeps a
+      SNAPSHOT (date, startMin, endMin, title, location) + shootId/blockId/email/house. previewCalendarImport returns
+      kind 'new' (never seen), 'changed' (time/title/place differs from the snapshot; skipped ones stay skipped) with
+      `was`, and 'removed' (imported, future, no longer in Google) → actions remove (take the app copy off: shoot
+      cancelled "removed from Google Calendar", block removed) | keep. Changed shoots MOVE the same shoot
+      (importShootAsTeam(..., existingId): takes out the old slots, places at the new real hours, history "changed in
+      Google Calendar"); changed blocks are replaced (block id g+event id). Google Calendar itself is never written by
+      the import. Emulator: `test_calendar/events` {items} stands in for the calendar in tests. Button: "Import from the
+      calendar (new + changed)". Test in calendar.test.ts. Tests 390.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
