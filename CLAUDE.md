@@ -936,7 +936,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - SLIM AI LINKS (owner, Oct 19: "shrink the AI cards on Home and Book, the ✦ AI button is on top"): both are now one-line violet
       pills (44px): Home "✦ Ask AI: props for an idea, or a time to film ›", Book "✦ Or ask AI to find a time ›" (divider removed). LIVE Oct 19 (website run 21, owner OK).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
-      change; LIVE with owner OK): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
+      change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
       item.lostFromBin = label; or "I know where it is → set its bin" = edit) + "It's in the app → move it here" (name search,
       Move here) + "It's not in the app → add it" (/add?binId) + "Done with this bin" (only when all ticked → bins.checkedAt/
