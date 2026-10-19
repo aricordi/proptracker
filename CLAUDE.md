@@ -790,7 +790,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       lists) with avatar + channel; days where a picked friend already films are skipped; tapping a house opens
       GroupBookSheet ("Book back to back": You Booked / friend Held 20 min, monthly/extra for your slot) → bookWithFriends
       (holds + invite push). Not picked → books only your slot (friends book the next slot themselves). Test in
-      invites.test.ts. NEEDS BACKEND DEPLOY (listFilmingFriends) + website deploy.
+      invites.test.ts. LIVE Oct 19 (backend run 33 + website run 16, owner OK).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
