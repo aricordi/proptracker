@@ -32,7 +32,6 @@ const btnGrey = 'w-full bg-pt-raised text-pt-text font-semibold rounded-[14px] p
 interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number }
 
 type SheetState =
-  | { kind: 'start' }
   | { kind: 'calendar' }
   | { kind: 'book'; house: Place; date: string; start: number }
   | { kind: 'offsite'; date: string; move?: Shoot }
@@ -40,7 +39,7 @@ type SheetState =
   | { kind: 'taken'; slot: TheirSlot }
   | { kind: 'block'; date: string; house: House; start: number }
   | { kind: 'unblock'; date: string; block: Block }
-  | { kind: 'find'; house?: House }
+  | { kind: 'find'; house?: House; fromToday?: boolean }
   | { kind: 'move'; shoot: Shoot }
   | { kind: 'swap'; mine?: Shoot; theirs?: TheirSlot }
   | null
@@ -60,7 +59,7 @@ export default function ScheduleScreen() {
   useEffect(() => {
     const id = params.get('shoot'), book = params.get('book')
     if (id) setSheet({ kind: 'shoot', id })
-    else if (book) setSheet({ kind: 'start' })
+    else if (book) setSheet({ kind: 'find', fromToday: true })
     if (id || book) setParams({}, { replace: true })
   }, [params])   // eslint-disable-line react-hooks/exhaustive-deps
   const [now, setNow] = useState(nowStamp())
@@ -133,7 +132,7 @@ export default function ScheduleScreen() {
         )}
 
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
-        <button onClick={() => setSheet({ kind: 'start' })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
+        <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
         <div className="flex items-center gap-3 pt-3 pb-1 text-pt-muted text-xs uppercase tracking-wider"><span className="h-px flex-1 bg-pt-border" />or let AI find a time<span className="h-px flex-1 bg-pt-border" /></div>
         <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
           <span className="w-10 h-10 rounded-xl grid place-items-center text-lg bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
@@ -143,7 +142,7 @@ export default function ScheduleScreen() {
 
         <div className="flex items-center justify-between gap-2 pt-6 mt-2 border-t border-pt-border">
           <p className="text-pt-text font-semibold">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })}{date === today ? ' · Today' : ''}</p>
-          {house !== 'offsite' && <button onClick={() => setSheet({ kind: 'find', house: house as House })} className="text-pt-accent text-sm shrink-0 tap">Find a time</button>}
+          {house !== 'offsite' && <button onClick={() => setSheet({ kind: 'find' })} className="text-pt-accent text-sm shrink-0 tap">Find a time</button>}
         </div>
         {house !== 'offsite' && <p className="text-pt-muted text-xs -mt-1">{s.houses[house].address}</p>}
         {notes.map((n, i) => (
@@ -188,22 +187,6 @@ export default function ScheduleScreen() {
         </button>
       </div>
 
-      {sheet?.kind === 'start' && (
-        <BottomSheet open onClose={() => setSheet(null)} title="Where are you shooting?">
-          <div className="space-y-2">
-            {HOUSES.map(h => (
-              <button key={h} onClick={() => { setHouse(h); setSheet({ kind: 'find', house: h }) }} className="w-full text-left bg-pt-bg rounded-xl p-4">
-                <span className="block text-pt-text font-semibold">{s.houses[h].name}</span>
-                <span className="block text-pt-muted text-sm">{s.houses[h].address} · {s.slotMinutes / 60}-hour slots</span>
-              </button>
-            ))}
-            <button onClick={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: date }) }} className="w-full text-left bg-pt-bg rounded-xl p-4">
-              <span className="block text-pt-text font-semibold">Somewhere else</span>
-              <span className="block text-pt-muted text-sm">An offsite or location shoot · any hours</span>
-            </button>
-          </div>
-        </BottomSheet>
-      )}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
       {chat && <TimeChat onClose={() => setChat(false)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []}
@@ -224,14 +207,15 @@ export default function ScheduleScreen() {
             </div>
           </div>
           <p className="text-pt-text text-sm mt-4">This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.</p>
-          <button onClick={() => setSheet({ kind: 'find', house: sheet.slot.house })} className={`mt-4 ${btnGold}`}>Find a time</button>
+          <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
           {(mine ?? []).some(x => x.place !== 'offsite' && x.from > now) && (
             <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
           )}
         </BottomSheet>
       )}
       {sheet?.kind === 'find' && days && (
-        <FindSheet days={days} from={date < today ? today : date} house={sheet.house ?? (house === 'offsite' ? 'cliff1' : house)} team={team} email={profile.email} now={now}
+        <FindSheet days={days} from={sheet.fromToday || date < today ? today : date} house={sheet.house} team={team} email={profile.email} now={now}
+          onOffsite={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: sheet.fromToday ? today : date }) }}
           onClose={() => setSheet(null)} onPick={(d, h, st) => { setDate(d); setHouse(h); setSheet(team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st }) }} />
       )}
       {sheet?.kind === 'move' && days && (
@@ -644,38 +628,74 @@ function UnblockSheet({ date, block, onClose }: { date: string; block: Block; on
   )
 }
 
-function FindSheet({ days, from, house, team, email, now, onClose, onPick }: {
-  days: Record<string, ScheduleDay>; from: string; house: House; team: boolean; email: string; now: string
-  onClose: () => void; onPick: (date: string, house: House, start: number) => void
+function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOffsite }: {
+  days: Record<string, ScheduleDay>; from: string; house?: House; team: boolean; email: string; now: string
+  onClose: () => void; onPick: (date: string, house: House, start: number) => void; onOffsite: () => void
 }) {
   const s = useScheduleSettings()
   const [count, setCount] = useState(1)
-  const [where, setWhere] = useState<House | 'any'>(house)
-  const results = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 8)
+  const [where, setWhere] = useState<House | 'any'>(house ?? 'any')
+  // Owner (Oct 19): house-agnostic, soonest first. One row per time; when both houses are free it books
+  // Cliff 1 (most people's first choice), otherwise whichever house is free.
+  const results = useMemo(() => {
+    const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 200)
+    const byTime = new Map<string, { date: string; house: House; start: number }>()
+    for (const r of found) {
+      const k = `${r.date}|${r.start}`
+      const had = byTime.get(k)
+      if (!had) byTime.set(k, r)
+      else if (HOUSES.indexOf(r.house) < HOUSES.indexOf(had.house)) had.house = r.house
+    }
+    return [...byTime.values()].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start)
+  }, [days, from, count, where, s, email, now, team])
+  // The next few days with free times; each day shows its first 3 (tap for the rest).
+  const [open, setOpen] = useState<string[]>([])
+  const dayGroups: [string, typeof results][] = []
+  for (const r of results) {
+    const last = dayGroups[dayGroups.length - 1]
+    if (last && last[0] === r.date) last[1].push(r); else if (dayGroups.length < 6) dayGroups.push([r.date, [r]])
+  }
   return (
-    <BottomSheet open onClose={onClose} title="Find a time">
-      <p className="text-pt-muted text-sm">The next free slots from {formatDay(from)}. Filming with someone? Pick 4 hours so you can both book back to back.</p>
-      <div className="flex gap-2 mt-3">
+    <BottomSheet open onClose={onClose} title="Book a shoot">
+      <div className="flex gap-2">
         {[1, 2, 3].map(n => (
           <button key={n} onClick={() => setCount(n)} className={`px-3 py-2 rounded-full text-sm border ${count === n ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{n * s.slotMinutes / 60} hours</button>
         ))}
       </div>
-      <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 mt-3">
-        {([...HOUSES, 'any'] as const).map(h => (
-          <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-2 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
-        ))}
-      </div>
-      {count > 1 && <p className="text-pt-muted text-xs mt-3">You book your own {s.slotMinutes / 60} hours; whoever films with you books the slot right after.</p>}
-      <div className="mt-4 space-y-2">
-        {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days. Try the other house or fewer hours.</p>}
-        {results.map(r => (
-          <div key={`${r.date}${r.house}${r.start}`} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
-            <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold">{formatDay(r.date)}</p>
-              <p className="text-pt-muted text-xs">{s.houses[r.house].name} · {fmtSlot(r.start, count * s.slotMinutes)}{isNoCrewDay(r.date) ? ' · no crew' : ''}</p></div>
-            <button onClick={() => onPick(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm">{team ? 'Open' : 'Book'}</button>
+      {count > 1 && <p className="text-pt-muted text-xs mt-2">For filming back to back: you book your {s.slotMinutes / 60} hours, whoever films with you books the slot right after.</p>}
+      <div className="mt-4 space-y-4">
+        {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try fewer hours{where === 'any' ? '' : ' or any house'}.</p>}
+        {dayGroups.map(([d, list]) => (
+          <div key={d}>
+            <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mb-2">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) ? ' · no crew' : ''}</p>
+            <div className="space-y-2">
+              {(open.includes(d) ? list : list.slice(0, 3)).map(r => (
+                <button key={`${r.date}${r.start}`} onClick={() => onPick(r.date, r.house, r.start)} className="w-full flex items-center gap-3 bg-pt-bg rounded-xl p-3 text-left">
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-pt-text font-semibold">{fmtSlot(r.start, count * s.slotMinutes)}</span>
+                    <span className="block text-pt-muted text-xs">{s.houses[r.house].name}</span>
+                  </span>
+                  <span className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 py-2 text-sm shadow-gold">{team ? 'Open' : 'Book'}</span>
+                </button>
+              ))}
+              {list.length > 3 && !open.includes(d) && (
+                <button onClick={() => setOpen(o => [...o, d])} className="tap text-pt-accent text-sm">{list.length - 3} more {list.length - 3 === 1 ? 'time' : 'times'} this day</button>
+              )}
+            </div>
           </div>
         ))}
       </div>
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <div className="flex bg-pt-bg rounded-full p-0.5 gap-0.5 text-xs">
+          {(['any', ...HOUSES] as const).map(h => (
+            <button key={h} onClick={() => setWhere(h)} className={`px-3 py-1.5 rounded-full ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Any house' : `Only ${s.houses[h].name}`}</button>
+          ))}
+        </div>
+      </div>
+      <button onClick={onOffsite} className="mt-4 w-full text-left bg-pt-bg rounded-xl p-4 flex items-center gap-3">
+        <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold">Shooting somewhere else?</span><span className="block text-pt-muted text-xs">Offsite or location shoot · any hours</span></span>
+        <span className="text-pt-muted">›</span>
+      </button>
     </BottomSheet>
   )
 }

@@ -771,6 +771,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - PUSH + AUTO-UPDATE LIVE Oct 18 (backend run 32, website runs 13 + 14, owner OK). Owner to turn on + test on the phone.
     - TITLE SPACING (owner, Oct 19: iPhone's fade under the clock touched page titles like "Team" at rest): `.pt-safe`
       (index.css, every page header) = safe area + 12px. Preview only; live needs OK.
+    - BOOKING IS HOUSE-AGNOSTIC (owner, Oct 19: people want Cliff 1 but settle for Cliff 2; "show times based on soonness"):
+      "Book a shoot" (and ?book=1, Find a time, taken slot) opens FindSheet titled "Book a shoot" straight away (the
+      "Where are you shooting?" question is gone): 2/4/6 h chips, the next 6 days with free times, 3 times per day (+ "N more
+      times this day"), ONE row per time = Cliff 1 when both are free, else the free house (small grey label). Small
+      "Any house / Only Cliff 1 / Only Cliff 2" filter at the bottom, then "Shooting somewhere else?" → offsite sheet.
+      Day view tabs (Cliff 1 | Cliff 2 | Offsite) unchanged. Preview only; live needs OK.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
