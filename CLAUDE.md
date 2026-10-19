@@ -6,6 +6,10 @@ creators reserve props, the arts department picks/packs them, everything is logg
 
 ## How to work with the owner (always follow these)
 
+- OWNER'S GUIDE: plain-language manual in `docs/owner-guide.html`, published (private) at
+  https://claude.ai/artifact/EAKCeBrx2mW7h1QxiXDVzR . Whenever a rule, role, setting or automatic job changes, update
+  that file and republish it to the SAME URL (Artifact tool, `url` + file) so the owner never loses track.
+
 - The owner has almost no coding experience. Claude does the technical work; the
   owner makes the decisions.
 - Explain things in plain language. No jargon without a one-line explanation.
@@ -890,6 +894,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Google Calendar"); changed blocks are replaced (block id g+event id). Google Calendar itself is never written by
       the import. Emulator: `test_calendar/events` {items} stands in for the calendar in tests. Button: "Import from the
       calendar (new + changed)". Test in calendar.test.ts. Tests 390.
+    - AUTOMATIC CALENDAR CHECK (owner, Oct 19): `calendarCheck` onSchedule every 15 min (Cloud Scheduler, 3rd job, free)
+      + owner/equipment callable `checkCalendarNow` (in deploy/log lists) = `runCalendarCheck()`: scanCalendar (reads only)
+      → events CHANGED or DELETED in Google that were imported are applied automatically (applyImports by 'calendar
+      check'); NEW events wait for a person; result in `app_settings/calendarCheck` {at, newEvents, changed, removed,
+      failed, error} (rules: readable by gear staff too) → Schedule banner "N new events in Google Calendar to sort" and
+      "Checked automatically every 15 minutes · last … · Check now" on the import screen. Never writes to Google.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

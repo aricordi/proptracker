@@ -1,0 +1,232 @@
+<title>Prime Capitol Owner's Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter+Tight:wght@400;500;600&display=swap">
+<style>
+/* Layout: one readable column like a printed house manual; a sticky chapter bar; gold = the app's own accent. */
+:root {
+  --bg: #f7f5f0; --surface: #ffffff; --ink: #1b1a17; --muted: #6b675e; --line: #e4dfd3; --gold: #9a7a2e; --gold-soft: #f1e8d3;
+  --ok: #2f7d4f; --warn: #a2611a;
+  --display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --body: 'Inter Tight', -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e0e10; --surface: #18181b; --ink: #f2efe8; --muted: #a39f95; --line: #2c2b28; --gold: #d2b46e; --gold-soft: #2a2416;
+  --ok: #6fcf97; --warn: #f0b067; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e0e10; --surface: #18181b; --ink: #f2efe8; --muted: #a39f95; --line: #2c2b28; --gold: #d2b46e; --gold-soft: #2a2416;
+  --ok: #6fcf97; --warn: #f0b067; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.6 var(--body); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg) }
+main { max-width: 680px; margin: 0 auto; padding-block: 32px 80px; }
+header.top h1 { font: 700 clamp(34px, 7vw, 48px)/1.05 var(--display); letter-spacing: -0.02em; margin: 8px 0 12px; text-wrap: balance }
+.kicker { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); font-weight: 600 }
+.lede { color: var(--muted); font-size: 17px; margin: 0 }
+nav.toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); margin: 24px -4px 8px; padding: 10px 4px;
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line) }
+nav.toc::-webkit-scrollbar { display: none }
+nav.toc a { flex: none; font-size: 13px; color: var(--ink); text-decoration: none; padding: 6px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line) }
+nav.toc a:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px }
+section { padding-top: 28px; scroll-margin-top: 64px }
+h2 { font: 600 26px/1.2 var(--display); letter-spacing: -0.01em; margin: 0 0 8px; text-wrap: balance }
+h3 { font-size: 15px; font-weight: 600; margin: 20px 0 6px }
+p { margin: 0 0 12px }
+ul { margin: 0 0 12px; padding-left: 20px } li { margin: 4px 0 }
+.muted { color: var(--muted) }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 12px 0 }
+.rule { background: var(--gold-soft); border-radius: 14px; padding: 14px 16px; margin: 12px 0 }
+.rule strong { color: var(--gold) }
+table { width: 100%; border-collapse: collapse; font-size: 14px }
+.tablewrap { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface) }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600 }
+tr:last-child td { border-bottom: 0 }
+td.num, .num { font-variant-numeric: tabular-nums; white-space: nowrap }
+.yes { color: var(--ok); font-weight: 600 } .no { color: var(--muted) }
+ol.steps { padding-left: 22px } ol.steps li { margin: 8px 0 }
+.path { font-weight: 600 }
+.todo li::marker { content: "☐  "; color: var(--gold) }
+footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth } }
+</style>
+
+<main>
+<header class="top">
+  <div class="kicker">Prime Capitol · how the app works</div>
+  <h1>The Owner's Guide</h1>
+  <p class="lede">Everything the app does, who can do what, what runs by itself, and where to change things. Updated October 19, 2026.</p>
+</header>
+
+<nav class="toc" aria-label="Chapters">
+  <a href="#roles">Who's who</a><a href="#book">Booking shoots</a><a href="#props">Props &amp; gear</a><a href="#day">On the day</a>
+  <a href="#calendar">Google Calendar</a><a href="#ai">AI helpers</a><a href="#notify">Notifications</a><a href="#auto">Runs by itself</a>
+  <a href="#settings">Where to change things</a><a href="#updates">Updates &amp; undo</a><a href="#todo">Your to-do list</a>
+</nav>
+
+<section id="roles">
+  <h2>Who's who</h2>
+  <p>Everyone signs in with Google, and only people you (or the team) invite can get in. You set each person's role on <span class="path">Team → People &amp; access</span>.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Role</th><th>What they do</th><th>Who they can invite</th></tr>
+    <tr><td><b>Owner</b> (you)</td><td>Everything. Plus the things only you see: costs, the AI budget, your personal props, bulk tools (Drive import, rebuild search, photo clean-up), email setup, and the Google Calendar connection.</td><td>Anyone, any role</td></tr>
+    <tr><td><b>Admin</b></td><td>Oversees everything: the props queue, the gear queue, the schedule team tools (check-ins, reports, strikes, blocking time). Can also book their own shoots, props and gear. Can't see your owner-only things or change schedule settings.</td><td>Creators only</td></tr>
+    <tr><td><b>Arts department</b></td><td>Runs the props: adds and edits props, picks and packs requests, checks returns. Has a Calendar tab showing props requests by day. Does not book shoots, props or gear.</td><td>Creators only</td></tr>
+    <tr><td><b>Equipment team</b> (Maanik)</td><td>Runs the gear and the schedule: gear list, bundles, gear queue, check-ins, strikes, blocking time, schedule settings, Google Calendar import.</td><td>No one</td></tr>
+    <tr><td><b>Creator</b></td><td>Books shoot times, then adds props and gear to their shoots. Sees only their own requests.</td><td>No one</td></tr>
+  </table></div>
+  <p class="muted">Tip: on <span class="path">Me → My account</span> you can "View as" another role to see exactly what they see. The server still treats you as the owner while you preview.</p>
+</section>
+
+<section id="book">
+  <h2>Booking shoots</h2>
+  <p>Bookings are <b>confirmed instantly</b> when the time is free. Two people can never get the same slot, even if they tap at the same moment.</p>
+  <h3>The houses and slots</h3>
+  <ul>
+    <li><b>Cliff 1</b> (2375 Cliff Road) and <b>Cliff 2</b> (2371 Cliff Road). A booking takes the whole house.</li>
+    <li>Nine 2-hour slots a day, from <span class="num">7–9 AM</span> to <span class="num">11 PM–1 AM</span>.</li>
+    <li>Creators get <b>one house slot a day</b> (2 hours). The schedule team can book more for someone.</li>
+    <li><b>Offsite shoots</b> can be any hours (in half hours) and don't count toward the daily limit.</li>
+    <li><b>Sundays:</b> open to everyone, but no crew.</li>
+  </ul>
+  <h3>How a creator books</h3>
+  <p><span class="path">Book → Book a shoot</span> → pick "Just me", "+ 1 friend" or "+ 2 friends" → pick a day (or "Soonest") → tap Cliff 1 or Cliff 2 next to a time.</p>
+  <p>With friends, each person gets their own 2-hour slot, back to back. Your friend's slot is <b>held for 20 minutes</b> so they can confirm with one tap. If they don't confirm, it opens to everyone.</p>
+  <p>There's also <span class="path">✦ Ask for a time</span>: type or say "4 hours with Alex next week, evenings" and it finds real free times.</p>
+  <h3>Priority days</h3>
+  <p>Thursdays and Saturdays at Cliff 1 are for the priority group. Unclaimed priority slots open to everyone on the <b>Sunday before, at 6 PM</b>. You set the group in Schedule settings.</p>
+  <h3>Moving, swapping, cancelling</h3>
+  <ul>
+    <li><b>Changed your mind?</b> Cancelling within 10 minutes of booking is always free.</li>
+    <li><b>48 hours or more before:</b> moving or cancelling is free.</li>
+    <li><b>Less than 48 hours:</b> moving isn't possible and cancelling <b>counts as a no-show</b> (a strike). The only free way out is a <b>swap</b> with another creator who accepts.</li>
+    <li>When the team moves or cancels someone's shoot, it never counts against them.</li>
+  </ul>
+  <div class="rule"><strong>Monthly slots are switched off for now.</strong> The plan is that each creator gets 4 guaranteed Cliff 1 slots a month through a fair "wishlist + draw". Until that's built, every booking is just a shoot.</div>
+</section>
+
+<section id="props">
+  <h2>Props &amp; gear</h2>
+  <p>Props and gear always belong to a booked shoot. Creators browse the catalogue any time; to add something they pick which shoot it's for.</p>
+  <h3>Last day to add things</h3>
+  <div class="tablewrap"><table>
+    <tr><th>What</th><th>Notice needed</th></tr>
+    <tr><td>Props we already have</td><td class="num">2 open days before</td></tr>
+    <tr><td>New props (make or find)</td><td class="num">4 open days before</td></tr>
+    <tr><td>Gear</td><td class="num">2 open days before</td></tr>
+  </table></div>
+  <p class="muted">"Open days" skip days the prop room is closed (Sundays by default). The props number is set in Booking rules.</p>
+  <h3>The life of a props request</h3>
+  <p>Requested → Being picked → Packed &amp; ready (with a photo) → Picked up (the creator signs on their phone) → Returned (creator's photo) → Checked in by arts. The creator can <b>change</b> a request until arts starts picking it.</p>
+  <h3>Gear</h3>
+  <p>Creators book whole bundles (and add-on extras) by the hour. At pickup the creator ticks every piece; anything missing is reported to the equipment team. A return photo is required. Gear is late 30 minutes after the booked end.</p>
+  <p>Anyone with late props or gear can't book more until it's back.</p>
+</section>
+
+<section id="day">
+  <h2>On the day, and strikes</h2>
+  <ul>
+    <li><b>Check in:</b> opens 15 minutes before the slot. The creator takes a set photo with the camera.</li>
+    <li>At check-in they can <b>report the slot before</b> (ran over into their time, or left a mess, with photos). Reports go to the team, who dismiss them or turn them into a strike.</li>
+    <li><b>Wrap:</b> "what did you film?" Checked in but no wrap still counts as filmed.</li>
+    <li><b>Missed check-in:</b> the creator has 12 hours to explain. Then the team marks "They filmed" or "No-show".</li>
+    <li><b>Strikes:</b> 2 strikes in 30 days pauses props and gear booking for 14 days. The team can lift a pause early (<span class="path">Schedule → Team → Creators</span>).</li>
+  </ul>
+</section>
+
+<section id="calendar">
+  <h2>Google Calendar</h2>
+  <div class="rule"><strong>The golden rule:</strong> the app only ever changes events it created itself. Events typed straight into Google Calendar, old or new, are never moved, changed or deleted by the app.</div>
+  <h3>What goes where</h3>
+  <ul>
+    <li><b>App → calendar, instantly:</b> when anyone books, moves or cancels a shoot, or the team blocks time in the app, it shows up in the shared Google Calendar right away.</li>
+    <li><b>Calendar → app, every 15 minutes:</b> the app reads the calendar. If an event it imported earlier was <b>moved or deleted</b> in Google Calendar, the app's schedule follows by itself.</li>
+    <li><b>New events typed into Google Calendar</b> need a person to say who it's for and which house. A blue banner on the Schedule screen ("N new events in Google Calendar to sort") opens the import screen.</li>
+  </ul>
+  <h3>Odd times and double bookings from the old calendar</h3>
+  <ul>
+    <li>An event like <span class="num">2:30–5:00 PM</span> keeps its real time. On the app's schedule it shows "Really 2:30–5 PM" and holds every slot it touches (1–3 and 3–5), so nobody can book over it.</li>
+    <li>Two old events at the same house at the same time are both imported and marked <b>Clash</b> on the schedule, so the team can sort it out with the creators. New bookings in the app can never clash.</li>
+  </ul>
+  <h3>Connecting it (one time)</h3>
+  <ol class="steps">
+    <li>On a computer: <span class="path">Book → settings (sliders) → Google Calendar</span>.</li>
+    <li><b>Step 1:</b> tap the link and press Enable (turns on the Google Calendar API; free).</li>
+    <li><b>Step 2:</b> copy the app's email shown there. In Google Calendar open the shared calendar's settings → Share with specific people → add it → "Make changes to events".</li>
+    <li><b>Step 3:</b> same settings page → Integrate calendar → copy the Calendar ID → paste it in the app.</li>
+    <li><b>Step 4:</b> Save &amp; test. "Connected ✓" means it worked.</li>
+    <li>Tap <span class="path">Import from the calendar</span> and sort the existing events.</li>
+  </ol>
+  <p class="muted">The Google Calendar screen (from Schedule settings) also lists everything the app has added, each with a Remove button, and anything Google refused, to try again.</p>
+</section>
+
+<section id="ai">
+  <h2>AI helpers</h2>
+  <ul>
+    <li><b>✦ Ask for a time</b> (Book tab): finds real free times from a sentence. It never makes up a time; the schedule picks them.</li>
+    <li><b>✦ Prop ideas</b> (Home, Browse): a brainstorm chat. Describe the video, then keep going ("something for a séance"). It suggests real props and gear from our catalogue, never repeats, and lets you tick items and add them to a shoot, or book a new shoot for them.</li>
+  </ul>
+  <p><b>Budget:</b> $50 a month in total, and 25 uses per person per day. If either runs out, AI help pauses and search and browse keep working. Change both in <span class="path">Team → AI helpers</span>. A typical use costs well under a cent.</p>
+  <p class="muted">The AI can't book, change or see private things. It only suggests; the app checks everything it says.</p>
+</section>
+
+<section id="notify">
+  <h2>Notifications</h2>
+  <p>Phone notifications are free. On iPhone they only work when the app is added to the Home Screen (Share → Add to Home Screen). Each person turns them on in <span class="path">Me → Notifications</span>.</p>
+  <ul>
+    <li><b>Instant:</b> friend invites and confirmations, swap requests, props packed, requests declined, team changes to your shoot, reports and strikes.</li>
+    <li><b>Reminders:</b> an hour before a shoot, when check-in opens, missed check-ins, the last day to add props or gear, props due back, gear due back or late.</li>
+  </ul>
+  <p class="muted">Email notifications are on hold until you have admin access to the Google Workspace account (alex@primecapitol.ca).</p>
+</section>
+
+<section id="auto">
+  <h2>What runs by itself</h2>
+  <p>The app never moves a booking on its own. These are the only automatic jobs:</p>
+  <div class="tablewrap"><table>
+    <tr><th>Job</th><th>When</th><th>What it does</th></tr>
+    <tr><td>Calendar check</td><td class="num">Every 15 min</td><td>Reads Google Calendar; follows changes and deletions of imported events; counts new ones to sort.</td></tr>
+    <tr><td>Reminders</td><td class="num">Every 10 min</td><td>Sends the phone reminders listed above, each only once.</td></tr>
+    <tr><td>Photo clean-up</td><td class="num">Sundays 4 AM</td><td>Deletes proof photos older than 6 months, and photos nothing uses (after 14 days). Deleted files can be recovered for 7 days.</td></tr>
+    <tr><td>Database backups</td><td class="num">Daily + weekly</td><td>Daily backups kept 14 days, weekly kept 14 weeks, plus a 7-day undo.</td></tr>
+  </table></div>
+</section>
+
+<section id="settings">
+  <h2>Where to change things</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Setting</th><th>Where</th><th>Who</th></tr>
+    <tr><td>Slot times, house slots a day, priority days and group, Sunday release, notice hours, check-in and strike rules, Google Calendar</td><td>Book → settings (sliders)</td><td>You, equipment team</td></tr>
+    <tr><td>Props notice, new props notice, turnaround, closed days</td><td>Team → Booking rules</td><td>You, admin, arts</td></tr>
+    <tr><td>People and roles</td><td>Team → People &amp; access</td><td>You (others: creators only)</td></tr>
+    <tr><td>AI budget and daily limit</td><td>Team → AI helpers</td><td>You</td></tr>
+    <tr><td>What the app costs</td><td>Team → Running costs</td><td>You</td></tr>
+    <tr><td>Categories, bins and storage areas</td><td>Team → Categories / Bins &amp; storage</td><td>You, admin, arts</td></tr>
+  </table></div>
+</section>
+
+<section id="updates">
+  <h2>Updates &amp; undo</h2>
+  <ul>
+    <li><b>Two versions of the app:</b> the <b>preview</b> (for testing new things) and the <b>live</b> site everyone uses, at proptracker.arbcreative.co. Both use the same real data.</li>
+    <li>New work goes to the preview first. It only goes live when you say so.</li>
+    <li><b>Getting the newest version on your phone:</b> close the app fully and reopen it, twice.</li>
+    <li><b>Undo a bad website update:</b> Firebase console → Hosting → Release history → Roll back. Or just ask Claude.</li>
+    <li><b>Something looks wrong?</b> Ask Claude to "read the server logs"; there's a safe, read-only button for that.</li>
+  </ul>
+</section>
+
+<section id="todo">
+  <h2>Your to-do list</h2>
+  <ul class="todo">
+    <li>Connect the Google Calendar (steps above), then run the first import.</li>
+    <li>Set the <b>priority group</b> in Schedule settings (the people need app accounts first).</li>
+    <li>Set <b>"Props we have" = 2</b> in Booking rules (the live setting may still be 3).</li>
+    <li>Turn on notifications on your own phone and send yourself a test.</li>
+    <li>Invite the team with the right roles (Admins, arts, equipment).</li>
+    <li>When you have Workspace admin access: set up email (ask Claude for the steps).</li>
+  </ul>
+</section>
+
+<footer>Kept up to date by Claude whenever the app changes. The full technical notes live in CLAUDE.md in the code.</footer>
+</main>
