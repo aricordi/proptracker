@@ -24,7 +24,7 @@ import { thumbOf } from '../services/itemShape'
 
 export default function HealthScreen() {
   const navigate   = useNavigate()
-  const { isOwner } = useSession()
+  const { isOwner, isAdmin } = useSession()
   const allItems   = useItems()
   const items      = useMemo(() => allItems.filter(i => !i.archived), [allItems])
   const tags       = useTags()
@@ -202,8 +202,8 @@ export default function HealthScreen() {
           <UnusedTags names={noTagProps.map(t => t.label)} ids={noTagProps.map(t => t.id)} />
         </Card>
 
-        {/* AI usage */}
-        <Card title={`AI usage · ${monthLabel}`}>
+        {/* AI usage (money: not shown to admins) */}
+        {!isAdmin && <Card title={`AI usage · ${monthLabel}`}>
           <div className="grid grid-cols-3 gap-2">
             <Stat value={aiUsage?.photoAnalyses ?? 0} label="Photos analyzed" />
             <Stat value={aiUsage?.smartSearches ?? 0} label="Smart searches" />
@@ -213,7 +213,7 @@ export default function HealthScreen() {
           {isOwner && <RebuildIndex />}
           {isOwner && <ImproveSearchWords />}
           {isOwner && <SpeedUpPhotos />}
-        </Card>
+        </Card>}
 
         {/* Export */}
         <Card title="Export">

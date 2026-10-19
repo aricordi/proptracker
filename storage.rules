@@ -18,9 +18,9 @@ service firebase.storage {
         && firestore.get(profilePath()).data.active == true
         && firestore.get(profilePath()).data.role in roles;
     }
-    function isMember() { return isOwner() || hasRole(['owner', 'arts', 'creator']); }
-    function isStaff()  { return isOwner() || hasRole(['owner', 'arts']); }
-    function isGearStaff() { return isOwner() || hasRole(['owner', 'equipment']); }
+    function isMember() { return isOwner() || hasRole(['owner', 'arts', 'creator', 'admin']); }
+    function isStaff()  { return isOwner() || hasRole(['owner', 'arts', 'admin']); }
+    function isGearStaff() { return isOwner() || hasRole(['owner', 'equipment', 'admin']); }
 
     // Gear and bundle photos: creators see bundles, the gear team uploads.
     match /gear/{allPaths=**} {

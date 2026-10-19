@@ -7,7 +7,7 @@ import { nowStamp } from './gearBooking.js'
 import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, slotKey, type ScheduleDay, type House } from './schedule.js'
 import { addStrike } from './strikes.js'
 
-const TEAM = ['owner', 'equipment']
+const TEAM = ['owner', 'equipment', 'admin']
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 const photoList = (v: unknown) => Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 10) : []

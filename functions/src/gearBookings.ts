@@ -14,7 +14,7 @@ import {
 } from './gearBooking.js'
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
-const GEAR_STAFF = ['owner', 'equipment']
+const GEAR_STAFF = ['owner', 'equipment', 'admin']
 
 function minutesNow(now = new Date()) {
   const [h, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -249,7 +249,7 @@ export const pickUpGear = onCall(CALLABLE, async req => {
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
     const b = snap.data()!
-    if (b.creatorEmail !== caller.email && !['owner', 'equipment'].includes(caller.role)) throw new HttpsError('permission-denied', 'Only the creator who booked it (or the equipment team) can pick it up.')
+    if (b.creatorEmail !== caller.email && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Only the creator who booked it (or the equipment team) can pick it up.')
     if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This booking has already been picked up, or was cancelled.')
     const win = pickupWindow(b as { from: string; to: string }, stampNowText)
     if (win === 'early') throw new HttpsError('failed-precondition', `Pickup opens at ${fmtTime(Number(pickupOpensAt(b.from).slice(11, 13)) * 60 + Number(pickupOpensAt(b.from).slice(14, 16)))}.`)
@@ -290,7 +290,7 @@ export const returnGear = onCall(CALLABLE, async req => {
     const snap = await tx.get(ref)
     const b = snap.data()
     if (!b) throw new HttpsError('not-found', 'Booking not found.')
-    if (b.creatorEmail !== caller.email && !['owner', 'equipment'].includes(caller.role)) throw new HttpsError('permission-denied', 'Not allowed')
+    if (b.creatorEmail !== caller.email && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Not allowed')
     if (b.status !== 'out') throw new HttpsError('failed-precondition', "This gear isn't out.")
     const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
     const holds = await tx.getAll(...holdRefs)

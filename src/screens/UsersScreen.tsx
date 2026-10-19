@@ -8,13 +8,14 @@ import BottomSheet from '../components/BottomSheet'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser, Role } from '../types'
 
-const ROLE_ORDER: Role[] = ['owner', 'arts', 'equipment', 'creator']
+const ROLE_ORDER: Role[] = ['owner', 'admin', 'arts', 'equipment', 'creator']
 
 // One line per role, shown under the picker so it's clear what each person will be able to do.
 const ROLE_HELP: Record<Role, string> = {
   creator: 'Books props and gear for their shoots. Sees only their own bookings.',
   arts: 'Runs the props: adds and edits props, the props queue, check-ins. Can invite creators.',
   equipment: 'Runs the gear: gear list, bundles, the gear queue. Sees no props.',
+  admin: 'Oversees everything: props queue, gear, schedule, people (invites creators); books shoots too. No costs, settings or your personal props.',
   owner: 'Full control of everything, including people, settings and costs. Only give this to a partner.',
 }
 
@@ -127,7 +128,7 @@ function Row({ email, name, subtitle, inactive, onTap }: {
 }
 
 function RolePicker({ value, onChange, isOwner }: { value: Role; onChange: (r: Role) => void; isOwner: boolean }) {
-  const options: Role[] = isOwner ? ['creator', 'arts', 'equipment', 'owner'] : ['creator']
+  const options: Role[] = isOwner ? ['creator', 'arts', 'equipment', 'admin', 'owner'] : ['creator']
   return (
     <div className="space-y-2">
       <div className="flex gap-2 flex-wrap" role="radiogroup" aria-label="Access">

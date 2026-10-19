@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 385 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 387 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -835,6 +835,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Test in assistant.test.ts. Tests 385.
     - LIVE Oct 19 (backend run 34 + website run 18, owner "go live"): see more ideas, ideas → shoot, arts don't book + calendar, gear
       looks like props, brainstorm chat.
+    - ADMIN ROLE (owner, Oct 19; NOT deployed — security rules + server → needs owner OK): role 'admin' = everything a
+      creator, the arts department and the equipment team can do, NOTHING owner-only. Owner answers: invites CREATORS
+      only (like arts); owner-only for admins: money + AI budget (costs, /ai, ai_usage reads, Health AI card), personal
+      props, bulk tools (Drive import, undo, rebuild search, search words, photo clean-up), SCHEDULE SETTINGS + any
+      connections (Google Calendar test/import, email); STAFF LAYOUT. Server: auth.ts requireRole lets admin pass wherever
+      creator/arts/equipment may (`ADMIN_COVERS`), `{ noAdmin: true }` on saveScheduleSettings, testCalendarLink,
+      previewCalendarImport, applyCalendarImport; TEAM/GEAR_STAFF lists include admin; owner-only checks unchanged
+      (personal props stay hidden). Rules: isStaff/isMember/isGearStaff include admin, users.role may be 'admin' (only the
+      owner can set it), ai_usage read = owner + arts. App: session `isAdmin` (isStaff + isGearStaff + canBook, shootFlow
+      false); tabs Queue / Gear (/gear/bookings) / Schedule / Props / Admin; home → /reservations; ScheduleSettingsOnly
+      route guard (owner + equipment) on /schedule/settings + /schedule/import; settings icon hidden; Admin menu adds Add a
+      prop, Book gear, Gear bundles & pieces, Schedule team, Requests calendar, hides Import; People can pick "Admin"
+      (owner only); View as Admin. Seed admin@example.com "Sam (Admin)" + test login. FUTURE ROLES: add them to
+      ADMIN_COVERS + the rules helpers so admins see them too. Tests 387 (tests/functions/admin.test.ts).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

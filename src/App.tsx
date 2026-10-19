@@ -110,7 +110,13 @@ function OwnerOnly({ children }: { children: ReactNode }) {
   return isOwner ? <>{children}</> : <Navigate to="/" replace />
 }
 
-// Owner + equipment team (gear).
+// Schedule settings + the Google Calendar connection: owner + equipment team, not admins (owner, Oct 19).
+function ScheduleSettingsOnly({ children }: { children: ReactNode }) {
+  const { role } = useSession()
+  return role === 'owner' || role === 'equipment' ? <>{children}</> : <Navigate to="/schedule" replace />
+}
+
+// Owner + equipment team (gear) + admins.
 function GearOnly({ children }: { children: ReactNode }) {
   const { isGearStaff } = useSession()
   return isGearStaff ? <>{children}</> : <Navigate to="/" replace />
@@ -120,7 +126,7 @@ function GearOnly({ children }: { children: ReactNode }) {
 // Creators' (and the owner's, who films too) home is their shoots; the arts department lands on prop search.
 function Home() {
   const { role, shootFlow } = useSession()
-  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'admin' ? <Navigate to="/reservations" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
 }
 
 // Booking gear is for creators and the owner (the equipment team runs it; the arts department
@@ -255,8 +261,8 @@ export default function App() {
           <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
           <Route path="/calendar" element={<StaffOnly><RequestsCalendarScreen /></StaffOnly>} />
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
-          <Route path="/schedule/settings" element={<GearOnly><ScheduleSettingsScreen /></GearOnly>} />
-          <Route path="/schedule/import" element={<GearOnly><CalendarImportScreen /></GearOnly>} />
+          <Route path="/schedule/settings" element={<ScheduleSettingsOnly><ScheduleSettingsScreen /></ScheduleSettingsOnly>} />
+          <Route path="/schedule/import" element={<ScheduleSettingsOnly><CalendarImportScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/team" element={<GearOnly><ScheduleTeamScreen /></GearOnly>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />

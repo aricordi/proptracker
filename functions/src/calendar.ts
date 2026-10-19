@@ -16,7 +16,7 @@ import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleD
 import { placeShootAsTeam } from './scheduling.js'
 import { stamp, addMinutes } from './gearBooking.js'
 
-const TEAM = ['owner', 'equipment']
+const TEAM = ['owner', 'equipment', 'admin']
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
 
 // ─── 1. Personal calendar feed ───────────────────────────────────────────────
@@ -154,7 +154,7 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
 
 // Schedule team: test the shared-calendar connection (writes and removes one test event).
 export const testCalendarLink = onCall(CALLABLE, async req => {
-  await requireRole(req, TEAM as any)
+  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })   // the connection itself: not admins (owner, Oct 19)
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   if (isEmulator()) return { ok: true, account: 'test-calendar@example.iam.gserviceaccount.com' }
@@ -195,7 +195,7 @@ export function guessImport(e: { title: string; location: string; date: string; 
 }
 
 export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  await requireRole(req, TEAM as any)
+  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -234,7 +234,7 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
 // Import the reviewed events. Each one is a shoot (for a person, at a house slot or offsite hours)
 // or blocked time; skipped ones are just remembered so they don't show up again.
 export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
-  const caller = await requireRole(req, TEAM as any)
+  const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const list = Array.isArray(req.data?.items) ? req.data.items.slice(0, 500) : []
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const results: { id: string; ok: boolean; message?: string }[] = []

@@ -96,6 +96,16 @@ const equipmentNav = [
   { to: '/account',      label: 'Account',  icon: accountIcon },
 ]
 
+// Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
+const adminNav = [
+  { to: '/reservations', label: 'Queue', icon: queueIcon },
+  { to: '/gear/bookings', label: 'Gear', icon: gearIcon, also: ['/gear'] },
+  { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
+  { to: '/',         label: 'Props',    icon: searchIcon, also: ['/item'] },
+  { to: '/admin',    label: 'Admin',    icon: adminIcon, also: ['/add', '/suggestions', '/duplicates', '/activity', '/health', '/users', '/people',
+    '/categories', '/booking-rules', '/bins', '/checkout', '/calendar', '/account'] },
+]
+
 // The owner films too: the creator tabs, plus "Team" for everything only the owner and staff can do.
 const ownerNav = [
   ...creatorNav.slice(0, 3),
@@ -108,7 +118,7 @@ const ownerNav = [
 export default function BottomNav() {
   const { isStaff, role } = useSession()
   const nav: { to: string; label: string; icon: JSX.Element; also?: string[] }[] =
-    role === 'equipment' ? equipmentNav : role === 'owner' ? ownerNav : isStaff ? staffNav : creatorNav
+    role === 'equipment' ? equipmentNav : role === 'owner' ? ownerNav : role === 'admin' ? adminNav : isStaff ? staffNav : creatorNav
   const path = useLocation().pathname
   // Other screens light up the tab with the longest matching prefix
   // (e.g. gear bookings belong to "Me" for creators, the gear shop to "Browse").

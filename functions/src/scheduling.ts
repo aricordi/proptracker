@@ -17,7 +17,7 @@ import { houseSlotsOn,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
 
-const TEAM = ['owner', 'equipment']
+const TEAM = ['owner', 'equipment', 'admin']
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 // Owner (Oct 19): the arts department handles props only; it never books shoots (creators + the schedule team do).
 const BOOKERS = ['owner', 'creator', 'equipment'] as const
@@ -356,7 +356,8 @@ export const removeScheduleBlock = onCall(CALLABLE, async req => {
 })
 
 export const saveScheduleSettings = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'equipment'])
+  // Owner (Oct 19): admins oversee the schedule but don't change its settings.
+  const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const clean = cleanScheduleSettings(req.data)
   await db.doc('app_settings/schedule').set({ ...clean, updatedAt: new Date().toISOString(), updatedBy: caller.email })
   return clean
@@ -376,7 +377,7 @@ export const listSchedulePeople = onCall(CALLABLE, async req => {
 export const listFilmingFriends = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
   const snap = await db.collection('users').where('active', '==', true).get()
-  const people = snap.docs.filter(u => u.id !== caller.email && (u.get('role') === 'creator' || u.get('role') === 'owner' || u.id === OWNER_EMAIL))
+  const people = snap.docs.filter(u => u.id !== caller.email && (['creator', 'owner', 'admin'].includes(u.get('role')) || u.id === OWNER_EMAIL))
     .map(u => ({ email: u.id, name: String(u.get('name') || u.id) }))
   if (caller.email !== OWNER_EMAIL && !people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex' })
   return { people: people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })) }

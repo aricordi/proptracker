@@ -51,7 +51,7 @@ type SheetState =
 // The house schedule: Cliff 1, Cliff 2 and offsite shoots, by day, in 2-hour slots.
 export default function ScheduleScreen() {
   const { profile, role } = useSession()
-  const team = role === 'owner' || role === 'equipment'
+  const team = role === 'owner' || role === 'equipment' || role === 'admin'
   const s = useScheduleSettings()
   const profiles = useProfiles()
   const today = todayInStudio()
@@ -103,7 +103,7 @@ export default function ScheduleScreen() {
           <h1 className="font-display text-[34px] text-pt-text">Schedule</h1>
           <div className="flex gap-2 pb-0.5">
             {team && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
-            {team && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
+            {(role === 'owner' || role === 'equipment') && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
             <RoundIcon icon="help" label="Help" to="/help" />
           </div>
         </div>

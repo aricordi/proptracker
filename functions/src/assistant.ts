@@ -262,7 +262,7 @@ Not about filming times → {"offTopic":true}.`
   const friends = matchPeople(ask.people, people, caller.email)
   // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
   ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }
-  const team = caller.role === 'owner' || caller.role === 'equipment'
+  const team = caller.role === 'owner' || caller.role === 'equipment' || caller.role === 'admin'
   // Creators get at most settings.slotsPerDay house slots a day (one); only the team can book more.
   const capped = !team && ask.mySlots > s.slotsPerDay
   if (capped) ask = { ...ask, mySlots: s.slotsPerDay }

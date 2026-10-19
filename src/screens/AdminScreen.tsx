@@ -3,7 +3,7 @@ import { useSession } from '../auth'
 
 export default function AdminScreen() {
   const navigate = useNavigate()
-  const { isOwner, shootFlow } = useSession()
+  const { isOwner, isAdmin, shootFlow } = useSession()
 
   const entries = [
     // The owner uses the creator tabs, so the staff tabs (Queue, Add) live here.
@@ -13,7 +13,7 @@ export default function AdminScreen() {
       { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed' },
     ] : []),
     { to: '/suggestions', title: 'Suggested edits',  detail: "Creators' corrections to props: apply in one tap or dismiss" },
-    { to: '/import',     title: 'Import props',      detail: 'Bring the photo library in from Google Drive; review AI suggestions' },
+    ...(!isAdmin ? [{ to: '/import', title: 'Import props', detail: 'Bring the photo library in from Google Drive; review AI suggestions' }] : []),
     { to: '/duplicates', title: 'Find duplicates',   detail: 'After an import: look-alike props side by side, merge or mark as different' },
     { to: '/activity',   title: 'Activity',          detail: 'Everything that happened: bookings and prop changes, with who and when' },
     { to: '/health',     title: 'Health',            detail: 'Fix-it list, duplicates, inventory counts, AI usage, export' },
@@ -24,7 +24,10 @@ export default function AdminScreen() {
     ...(isOwner ? [{ to: '/costs', title: 'Running costs', detail: 'What the app costs this month, storage, photo clean-up' }] : []),
     ...(isOwner ? [{ to: '/ai', title: 'AI helpers', detail: 'Monthly AI budget, daily limit per person, what it has cost' }] : []),
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
-    ...(isOwner ? [{ to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' }] : []),
+    ...(isOwner || isAdmin ? [{ to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' }] : []),
+    ...(isAdmin ? [{ to: '/add', title: 'Add a prop', detail: 'Photo → AI fills the details → you check and save' },
+      { to: '/gear/bundles', title: 'Gear bundles & pieces', detail: 'Every piece of gear, and the bundles and extras creators can book' },
+      { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed' }] : []),
     ...(!isOwner ? [{ to: '/calendar', title: 'Requests calendar', detail: 'Every props request by shoot day' }] : []),
     ...(isOwner ? [
       { to: '/gear/bookings', title: 'Gear bookings', detail: "Everyone's gear bookings; decline if something's wrong" },

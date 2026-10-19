@@ -15,6 +15,7 @@ export const ROLE_LABELS: Record<string, string> = {
   arts:    'Arts department',
   creator: 'Creator',
   equipment: 'Equipment team',
+  admin:   'Admin',
 }
 
 export default function AccountScreen() {
@@ -37,7 +38,7 @@ export default function AccountScreen() {
               use a second Google account invited with that role.
             </p>
             <div className="grid grid-cols-2 gap-2">
-              {(['owner', 'arts', 'equipment', 'creator'] as const).map(r => (
+              {(['owner', 'admin', 'arts', 'equipment', 'creator'] as const).map(r => (
                 <button key={r} onClick={() => setViewAs(r === 'owner' ? null : r)}
                   className={`flex-1 py-2 rounded-xl text-sm font-medium ${role === r ? 'bg-sky-500 text-stone-900' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
                   {ROLE_LABELS[r]}

@@ -9,6 +9,8 @@ service cloud.firestore {
     //   arts    — arts department: manages inventory, invites creators
     //   creator — searches and views props
     //   equipment — gear team: manages gear and gear bundles (no props)
+    //   admin   — (owner, Oct 19) oversees everything (creator + arts + equipment) but none of the
+    //             owner's own things: personal props, money/AI budget, bulk tools, settings, connections
     // A person's role lives in /users/{their email, lowercased}.
     // Keep OWNER_EMAIL in sync with src/config.ts and storage.rules.
     // ─────────────────────────────────────────────────────────────
@@ -31,9 +33,9 @@ service cloud.firestore {
         : 'none';
     }
     function isOwner()  { return role() == 'owner'; }
-    function isStaff()  { return role() in ['owner', 'arts']; }
-    function isMember() { return role() in ['owner', 'arts', 'creator']; }
-    function isGearStaff() { return role() in ['owner', 'equipment']; }
+    function isStaff()  { return role() in ['owner', 'arts', 'admin']; }
+    function isMember() { return role() in ['owner', 'arts', 'creator', 'admin']; }
+    function isGearStaff() { return role() in ['owner', 'equipment', 'admin']; }
 
     // ─── Users ──────────────────────────────────────────────────
     function validUser(email) {
@@ -41,7 +43,7 @@ service cloud.firestore {
       return d.keys().hasOnly(['email', 'name', 'role', 'active', 'invitedBy', 'invitedAt', 'updatedAt', 'updatedBy'])
         && d.email == email
         && email == email.lower()
-        && d.role in ['owner', 'arts', 'creator', 'equipment']
+        && d.role in ['owner', 'arts', 'creator', 'equipment', 'admin']
         && d.active is bool;
     }
 
@@ -255,7 +257,7 @@ service cloud.firestore {
     // AI usage counters (Health page) + this month's AI helper spend. Written by the server only.
     // Per-person daily counts: the owner, or that person.
     match /ai_usage/{month} {
-      allow read: if isStaff();
+      allow read: if isOwner() || role() == 'arts';   // not admins: money stays with the owner
       allow write: if false;
       match /people/{email} {
         allow read: if isOwner() || (signedIn() && myEmail() == email);

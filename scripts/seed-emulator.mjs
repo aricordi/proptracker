@@ -35,6 +35,7 @@ const users = [
   { email: 'arts@example.com', name: 'Sam (Arts)', role: 'arts', active: true },
   { email: 'creator@example.com', name: 'Riley (Creator)', role: 'creator', active: true },
   { email: 'gear@example.com', name: 'Dev (Equipment)', role: 'equipment', active: true },
+  { email: 'admin@example.com', name: 'Sam (Admin)', role: 'admin', active: true },
   { email: 'jana@example.com', name: 'Jana', role: 'creator', active: true },
   { email: 'kyle@example.com', name: 'Kyle', role: 'creator', active: true },
   { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false },

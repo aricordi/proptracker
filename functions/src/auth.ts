@@ -13,7 +13,9 @@ export const db = getFirestore()
 // Keep in sync with src/config.ts, firestore.rules and storage.rules.
 export const OWNER_EMAIL = 'alexisricordi@gmail.com'
 
-export type Role = 'owner' | 'arts' | 'creator' | 'equipment'   // equipment = gear team (gear only, no props)
+export type Role = 'owner' | 'arts' | 'creator' | 'equipment' | 'admin'   // equipment = gear team (gear only, no props)
+// admin (owner, Oct 19): everything a creator, the arts department and the equipment team can do, but none of the
+// owner's own things (personal props, money/AI budget, bulk tools, settings, connections). Future roles too.
 
 export interface Caller {
   email: string
@@ -32,13 +34,18 @@ export async function getCaller(req: CallableRequest): Promise<Caller | null> {
   const data = snap.data()
   if (!snap.exists || data?.active !== true) return null
   const role = data.role as Role
-  return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts' }
+  return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts' || role === 'admin' }
 }
 
-export async function requireRole(req: CallableRequest, allowed: Role[]): Promise<Caller> {
+// An admin passes wherever a creator, the arts department or the equipment team may (owner-only stays owner-only).
+// `noAdmin` keeps a team function away from admins (schedule settings, the Google Calendar connection).
+const ADMIN_COVERS: Role[] = ['creator', 'arts', 'equipment']
+export async function requireRole(req: CallableRequest, allowed: Role[], opts: { noAdmin?: boolean } = {}): Promise<Caller> {
   const caller = await getCaller(req)
-  if (!caller || !allowed.includes(caller.role)) throw new HttpsError('permission-denied', 'Not allowed')
-  return caller
+  const ok = !!caller && (allowed.includes(caller.role)
+    || (caller.role === 'admin' && !opts.noAdmin && allowed.some(r => ADMIN_COVERS.includes(r))))
+  if (!ok) throw new HttpsError('permission-denied', 'Not allowed')
+  return caller!
 }
 
 // Options for every function the app calls. "public" only means the app may
