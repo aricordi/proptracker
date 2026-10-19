@@ -50,10 +50,17 @@ const scheduleIcon = (
   </svg>
 )
 
+// Arts department: props only. "Calendar" = props requests by shoot day (they don't book or run the schedule).
+const queueIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+    <path d="M9 6h11M9 12h11M9 18h11" /><path d="m3.5 6 1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2" />
+  </svg>
+)
+
 const staffNav = [
   { to: '/',         label: 'Search',   icon: searchIcon },
-  { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
-  { to: '/reservations', label: 'Queue', icon: reservationsIcon },
+  { to: '/calendar', label: 'Calendar', icon: reservationsIcon },
+  { to: '/reservations', label: 'Queue', icon: queueIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
   { to: '/admin',    label: 'Admin',    icon: adminIcon },
 ]

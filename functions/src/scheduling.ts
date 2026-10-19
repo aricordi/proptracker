@@ -19,6 +19,8 @@ import { houseSlotsOn,
 
 const TEAM = ['owner', 'equipment']
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
+// Owner (Oct 19): the arts department handles props only; it never books shoots (creators + the schedule team do).
+const BOOKERS = ['owner', 'creator', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 const isTeam = (c: Caller) => TEAM.includes(c.role)
 const fail = (problem: ScheduleProblem, message = SCHEDULE_MESSAGES[problem]) =>
@@ -112,7 +114,7 @@ async function monthlyUsed(email: string, month: string, exceptId?: string) {
 }
 
 export const bookShoot = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, [...ANYONE])
+  const caller = await requireRole(req, [...BOOKERS])
   const d = req.data ?? {}
   const s = await loadScheduleSettings()
   const spot = readSpot(d, s)
@@ -187,7 +189,7 @@ export const cancelShoot = onCall(CALLABLE, async req => {
 // Move to another free slot (or other offsite hours) in one step: the old slot is only
 // given up if the new one is free. Creators need the notice period; the team doesn't.
 export const moveShoot = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, [...ANYONE])
+  const caller = await requireRole(req, [...BOOKERS])
   const d = req.data ?? {}
   const id = str(d.id, 100)
   const ref = db.doc(`shoots/${id}`)
@@ -232,7 +234,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
 // and the only way to give up a slot inside the notice period without a no-show. ──
 
 export const requestSwap = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, [...ANYONE])
+  const caller = await requireRole(req, [...BOOKERS])
   const mineId = str(req.data?.myShootId, 100), theirsId = str(req.data?.theirShootId, 100)
   const [mine, theirs] = (await db.getAll(db.doc(`shoots/${mineId}`), db.doc(`shoots/${theirsId}`))).map(x => x.data())
   const now = nowStamp()
@@ -414,7 +416,7 @@ function placeHold(day: ScheduleDay, house: House, start: number, entry: SlotEnt
 }
 
 export const bookWithFriends = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, [...ANYONE])
+  const caller = await requireRole(req, [...BOOKERS])
   const d = req.data ?? {}
   const s = await loadScheduleSettings()
   const spot = readSpot(d, s)

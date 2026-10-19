@@ -9,7 +9,8 @@ import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useTurnaround } from '../hooks/useTurnaround'
 import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
-import { useActiveShoot, useShootLabel } from '../activeShoot'
+import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds } from '../activeShoot'
+import { formatDay } from '../lib/dates'
 import { ideaToProps, type IdeaResult } from '../services/ai'
 import { subscribeToGearBundles, type GearBundle } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
@@ -38,8 +39,26 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
   const settings = useBookingSettings()
   const turnaround = useTurnaround()
   const cart = useCart(), gearCart = useGearCart()
-  const { shoot } = useActiveShoot()
-  const label = useShootLabel()
+  const { shoot, upcoming } = useActiveShoot()
+  const label = useShootLabel(), cutoffs = useCutoffs()
+  const addToShoot = useAddToShoot()
+  // Owner (Oct 19): tick suggestions, then add them all to one of your shoots or a new one.
+  // Keys: 'p:<prop id>', 'g:<gear id>', 'b:<thing to make or find>'.
+  const [sel, setSel] = useState<string[]>([])
+  const [picking, setPicking] = useState(false)
+  const [addedTo, setAddedTo] = useState('')
+  const toggle = (k: string) => { setAddedTo(''); setSel(x => x.includes(k) ? x.filter(y => y !== k) : [...x, k]) }
+  const picks = () => ({ props: sel.filter(k => k.startsWith('p:')).map(k => k.slice(2)), gear: sel.filter(k => k.startsWith('g:')).map(k => k.slice(2)), builds: sel.filter(k => k.startsWith('b:')).map(k => k.slice(2)) })
+  const addTo = (id: string) => {
+    const sh = upcoming.find(x => x.id === id)
+    addToShoot(id, picks()); setSel([]); setPicking(false); setAddedTo(sh ? label(sh) : 'your shoot')
+  }
+  const newShoot = () => { savePendingAdds(picks()); setSel([]); setPicking(false); go('/schedule?book=1') }
+  const tick = (k: string, name: string, done: boolean) => (
+    <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} aria-label={`${sel.includes(k) ? 'Untick' : 'Tick'} ${name}`}
+      className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${sel.includes(k) ? 'pop bg-[#BF9DFF] text-[#140f22]' : done ? 'bg-pt-accent/20 text-pt-accent' : 'bg-pt-border text-pt-text text-xl'}`}>
+      {sel.includes(k) || done ? '✓' : '+'}</button>
+  )
   const [bundles, setBundles] = useState<GearBundle[]>([])
   useEffect(() => subscribeToGearBundles(setBundles), [])
   const [idea, setIdea] = useState('')
@@ -103,7 +122,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
 
         {result && (
           <div className="space-y-4 pt-1">
-            <p className="text-pt-muted text-xs">{shoot ? `Free or taken for ${label(shoot)}.` : 'Pick a shoot in Browse to see what\'s free and add things.'}</p>
+            <p className="text-pt-muted text-xs">{shoot ? `Free or taken for ${label(shoot)}. ` : ''}Tick what you want, then add them to a shoot.</p>
             {result.groups.length === 0 && <p className="text-pt-muted text-sm">{result.note || 'Nothing in the inventory fits that well. Try describing the scenes differently, or search.'}</p>}
             {result.groups.map(g => (
               <div key={g.title} className="space-y-2">
@@ -119,10 +138,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                           <span className="min-w-0"><b className="block text-sm truncate">{it.name}</b><span className="block text-xs text-[#CDB8FF]">{p.why}</span>
                             <span className="block text-xs text-pt-muted">{free === null ? 'Check it ›' : free > 0 ? `Free · check it ›` : 'Taken that day · check it ›'}</span></span>
                         </button>
-                        {shoot && !!free && (
-                          <button onClick={() => cart.setQty(p.id, inCart ? 0 : 1)} aria-label={inCart ? `Remove ${it.name}` : `Add ${it.name}`}
-                            className={`w-10 h-10 rounded-full grid place-items-center font-bold shrink-0 ${inCart ? 'pop bg-pt-accent text-stone-900' : 'bg-pt-border text-pt-text text-xl'}`}>{inCart ? '✓' : '+'}</button>
-                        )}
+                        {(inCart && !sel.includes(`p:${p.id}`) ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent" title="Already in your shoot">✓</span> : tick(`p:${p.id}`, it.name, false))}
                       </div>
                     )
                   }
@@ -134,10 +150,7 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                         <GearArt photo={b.photos?.[0]} category={b.category} className="w-[52px] h-[52px] rounded-xl shrink-0" />
                         <span className="min-w-0"><b className="block text-sm truncate">{b.name}</b><span className="block text-xs text-[#CDB8FF]">{p.why}</span><span className="block text-xs text-pt-muted">Gear · check it ›</span></span>
                       </button>
-                      {shoot && (
-                        <button onClick={() => gearCart.setQty(p.id, inCart ? 0 : 1)} aria-label={inCart ? `Remove ${b.name}` : `Add ${b.name}`}
-                          className={`w-10 h-10 rounded-full grid place-items-center font-bold shrink-0 ${inCart ? 'pop bg-pt-accent text-stone-900' : 'bg-pt-border text-pt-text text-xl'}`}>{inCart ? '✓' : '+'}</button>
-                      )}
+                      {inCart && !sel.includes(`g:${p.id}`) ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent" title="Already in your shoot">✓</span> : tick(`g:${p.id}`, b.name, false)}
                     </div>
                   )
                 })}
@@ -152,7 +165,8 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                     <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                       <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
                       <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
-                      {shoot && <button disabled={added} onClick={() => cart.addBuild({ description: m.name, qty: 1 })} className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 disabled:opacity-50">{added ? 'Asked ✓' : 'Ask for it'}</button>}
+                      {added && !sel.includes(`b:${m.name}`) ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 opacity-60">Asked ✓</span>
+                        : <button onClick={() => toggle(`b:${m.name}`)} aria-pressed={sel.includes(`b:${m.name}`)} className={`shrink-0 text-xs font-semibold rounded-full px-3 min-h-[44px] ${sel.includes(`b:${m.name}`) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-violet-500/20 text-violet-200'}`}>{sel.includes(`b:${m.name}`) ? 'Ticked ✓' : 'Ask for it'}</button>}
                     </div>
                   )
                 })}
@@ -162,11 +176,35 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
               ? <p className="text-pt-muted text-sm text-center">That's everything that fits. Search or browse for more.</p>
               : <button disabled={moreBusy} onClick={seeMore} className="w-full rounded-2xl py-3 min-h-[48px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/[0.12] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] disabled:opacity-60">
                   {moreBusy ? <span className="inline-flex gap-1 items-center">Finding more <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></span> : '✦ See more ideas'}</button>)}
-            {(cart.count + gearCart.count) > 0 && <button onClick={() => go('/reserve')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review your shoot · {cart.count + gearCart.count}</button>}
+            {addedTo && <p className="text-pt-accent text-sm text-center">Added to {addedTo} ✓</p>}
+            {(cart.count + gearCart.count) > 0 && sel.length === 0 && <button onClick={() => go('/reserve')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review your shoot · {cart.count + gearCart.count}</button>}
             <p className="text-pt-muted text-xs text-center">Not quite it? Search or browse for the real thing.</p>
           </div>
         )}
+        {sel.length > 0 && (
+          <div className="sticky bottom-0 pt-2 pb-1 bg-pt-surface">
+            <button onClick={() => setPicking(true)} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} to a shoot</button>
+          </div>
+        )}
       </div>
+      <BottomSheet open={picking} onClose={() => setPicking(false)} title="Add to which shoot?">
+        <div className="space-y-2">
+          {upcoming.length === 0 && <p className="text-pt-muted text-sm">No shoots booked yet. Book one and these come with you.</p>}
+          {[...upcoming].sort((a, b) => (a.id === shoot?.id ? -1 : b.id === shoot?.id ? 1 : a.from.localeCompare(b.from))).map(sh => {
+            const c = cutoffs(sh), late = (d: string) => today > d
+            const p = picks()
+            const warn = [p.props.length && late(c.props) ? 'props' : '', p.builds.length && late(c.builds) ? 'new props' : '', p.gear.length && late(c.gear) ? 'gear' : ''].filter(Boolean)
+            return (
+              <button key={sh.id} onClick={() => addTo(sh.id)} className={`w-full text-left rounded-2xl px-4 py-3 ${shoot?.id === sh.id ? 'bg-pt-accent/15 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]' : 'bg-pt-bg'}`}>
+                <span className="block text-pt-text text-[15px] font-semibold">{label(sh)}</span>
+                <span className={`block text-xs ${warn.length ? 'text-red-300' : 'text-pt-muted'}`}>{warn.length ? `Too late for ${warn.join(' and ')}` : `Props by ${formatDay(c.props)} · Gear by ${formatDay(c.gear)}`}</span>
+              </button>
+            )
+          })}
+          <button onClick={newShoot} className="w-full rounded-2xl py-4 mt-2 font-bold text-stone-900 bg-pt-accent shadow-gold">+ Book a new shoot for these</button>
+          <p className="text-pt-muted text-xs text-center">Your picks wait while you book, then go into the new shoot.</p>
+        </div>
+      </BottomSheet>
     </BottomSheet>
   )
 }

@@ -11,6 +11,7 @@ export interface Session {
   isStaff: boolean    // owner or arts department
   isGearStaff: boolean   // owner or equipment team
   shootFlow: boolean     // creator-style app (Home / Book / Browse / Me): creators and the owner (who films too)
+  canBook: boolean       // may book props and gear (creators + owner). Arts handle requests, they don't book (owner, Oct 19)
   viewingAs: Role | null                 // set while the owner previews another role
   setViewAs: (role: Role | null) => void // owner only
 }
@@ -38,6 +39,7 @@ export function makeSession(user: User, profile: AppUser, viewAs: Role | null, s
     isStaff: role === 'owner' || role === 'arts',
     isGearStaff: role === 'owner' || role === 'equipment',
     shootFlow: role === 'creator' || role === 'owner',
+    canBook: role === 'creator' || role === 'owner',
     viewingAs: role !== realRole ? role : null,
     setViewAs,
   }

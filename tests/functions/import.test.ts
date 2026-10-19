@@ -155,7 +155,7 @@ describe('batch import', () => {
 
     // Booked → kept, and the whole import can't be undone either.
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })
-    expect((await call('createReservation', { title: 'Shoot', startDate: today, endDate: today, lines: [{ itemId: b, qty: 1 }] }, ARTS)).ok).toBe(true)
+    expect((await call('createReservation', { title: 'Shoot', startDate: today, endDate: today, lines: [{ itemId: b, qty: 1 }] }, OWNER)).ok).toBe(true)
     expect((await call('deleteImportedProp', { itemId: b }, OWNER)).error).toBe('FAILED_PRECONDITION')
     expect((await call('undoImport', { jobId: result.jobId }, OWNER)).error).toBe('FAILED_PRECONDITION')
 

@@ -48,7 +48,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       else delete lines[itemId]
       return { ...c, lines }
     }),
-    addBuild: b => setCart(c => ({ ...c, builds: [...c.builds, { ...b, key: `${Date.now()}` }] })),
+    addBuild: b => setCart(c => ({ ...c, builds: [...c.builds, { ...b, key: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}` }] })),
     removeBuild: key => setCart(c => ({ ...c, builds: c.builds.filter(b => b.key !== key) })),
     clear: () => setCart(EMPTY),
   }

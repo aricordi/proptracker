@@ -49,7 +49,7 @@ const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnl
 ]
 
 export default function HomeScreen() {
-  const { isStaff, isOwner, shootFlow } = useSession()
+  const { isStaff, isOwner, shootFlow, canBook } = useSession()
   // Owner only: switch between Prime Capitol's props and your own.
   const [collection, setCollection] = useState<PropCollection>(() => {
     try { return localStorage.getItem('pt-collection') === 'personal' ? 'personal' : 'company' } catch { return 'company' }
@@ -322,7 +322,7 @@ export default function HomeScreen() {
             {q && !similarLoading && similar.length === 0 && (
               <p className="text-pt-muted text-sm">Try a different word.</p>
             )}
-            {q && !similarLoading && (
+            {q && !similarLoading && canBook && (
               <button onClick={() => navigate('/reserve')} className="mt-3 text-violet-300 text-sm font-medium">
                 🛠️ Don't have it? Ask the arts department to make or find it
               </button>
@@ -351,7 +351,7 @@ export default function HomeScreen() {
       </div>
 
       {/* The shoot being put together (props + gear) */}
-      {cart.count + gearCart.count > 0 && (
+      {canBook && cart.count + gearCart.count > 0 && (
         <div className="sticky bottom-3 px-4">
           <button onClick={() => navigate('/reserve')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">

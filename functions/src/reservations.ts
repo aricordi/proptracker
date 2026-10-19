@@ -168,7 +168,7 @@ async function releaseHolds(tx: Transaction, reservationId: string, itemIds: str
 export const shootIdOf = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-]{6,40}$/.test(v) ? v : null
 
 export const createReservation = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  const caller = await requireRole(req, ['owner', 'creator'])   // not arts (owner, Oct 19: arts handle requests, they don't book)
   if (caller.role === 'creator') await assertNotPaused(caller.email)
   const { startDate, endDate } = req.data ?? {}
   const title = text(req.data?.title, 120)

@@ -35,7 +35,7 @@ function whenLabel(start: string, today: string) {
 export default function ReservationsScreen() {
   const settings = useBookingSettings()
   const navigate = useNavigate()
-  const { isStaff: staff, profile } = useSession()
+  const { isStaff: staff, profile, canBook } = useSession()
   // ?mine=1: just your own requests (the owner's "Me" tab), even for staff.
   const [params] = useSearchParams()
   const isStaff = staff && params.get('mine') !== '1'
@@ -61,7 +61,7 @@ export default function ReservationsScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center justify-between">
           <h1 className="font-display text-[34px] text-pt-text py-2">{isStaff ? 'Queue' : 'My bookings'}</h1>
-          <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1 tap">+ New request</button>
+          {canBook && <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1 tap">+ New request</button>}
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {tabs.map(t => {

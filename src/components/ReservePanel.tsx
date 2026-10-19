@@ -16,7 +16,7 @@ import AddingToBar from './AddingToBar'
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
   const navigate = useNavigate()
   const cart = useCart()
-  const { isStaff, shootFlow } = useSession()
+  const { isStaff, shootFlow, canBook } = useSession()
   const settings = useBookingSettings()
   const turnaroundDays = useTurnaround()(item)
   const today = todayInStudio()
@@ -78,7 +78,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
               : item.quantity > 1 ? `${free} of ${item.quantity} free on this day`
               : 'Free on this day'}
           </p>
-          {!!free && (
+          {canBook && !!free && (
             <>
               {item.quantity > 1 && (
                 <div className="flex items-center gap-3">
@@ -100,7 +100,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
               )}
             </>
           )}
-          {inCart > 0 && (
+          {canBook && inCart > 0 && (
             <div className="flex gap-2">
               <button onClick={() => cart.setQty(item.id, 0)} className="flex-1 py-3 rounded-xl border border-red-500/50 text-red-300 text-sm font-medium active:opacity-70">Remove</button>
               <button onClick={() => navigate('/reserve')} className="flex-1 py-3 rounded-xl bg-pt-bg border border-pt-accent text-pt-accent text-sm font-medium">

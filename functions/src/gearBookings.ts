@@ -35,7 +35,7 @@ function tidyLines(v: unknown): LineIn[] {
 }
 
 export const createGearBooking = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator'])
+  const caller = await requireRole(req, ['owner', 'creator'])   // not arts (owner, Oct 19: arts handle requests, they don't book)
   if (caller.role === 'creator') await assertNotPaused(caller.email)
   const d = req.data ?? {}
   const lines = tidyLines(d.lines)

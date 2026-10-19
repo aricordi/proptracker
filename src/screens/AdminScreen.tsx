@@ -24,7 +24,8 @@ export default function AdminScreen() {
     ...(isOwner ? [{ to: '/costs', title: 'Running costs', detail: 'What the app costs this month, storage, photo clean-up' }] : []),
     ...(isOwner ? [{ to: '/ai', title: 'AI helpers', detail: 'Monthly AI budget, daily limit per person, what it has cost' }] : []),
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
-    { to: '/gear',       title: 'Book gear',         detail: 'Hold camera, light and sound bundles for a shoot, by the hour' },
+    ...(isOwner ? [{ to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' }] : []),
+    ...(!isOwner ? [{ to: '/calendar', title: 'Requests calendar', detail: 'Every props request by shoot day' }] : []),
     ...(isOwner ? [
       { to: '/gear/bookings', title: 'Gear bookings', detail: "Everyone's gear bookings; decline if something's wrong" },
       { to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles and extras creators can book' },

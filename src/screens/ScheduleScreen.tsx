@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { takePendingAdds, peekPendingAdds, useEarliestDayFor, useAddToShoot } from '../activeShoot'
 import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
@@ -57,6 +58,14 @@ export default function ScheduleScreen() {
   const [date, setDate] = useState(today)
   const [house, setHouse] = useState<Place>('cliff1')
   const [sheet, setSheet] = useState<SheetState>(null)
+  // After booking: if things were picked for a new shoot (✦ Prop ideas), put them in it and review it.
+  const navigate = useNavigate()
+  const addToShoot = useAddToShoot()
+  const booked = (id: string) => {
+    const pending = takePendingAdds()
+    if (pending && (pending.props.length + pending.gear.length + pending.builds.length)) { addToShoot(id, pending); navigate('/reserve') }
+    else setSheet({ kind: 'shoot', id })
+  }
   // ?shoot=<id> opens that shoot (from Home); ?book=1 opens "Book a shoot".
   const [params, setParams] = useSearchParams()
   useEffect(() => {
@@ -193,9 +202,9 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
       {chat && <TimeChat onClose={() => setChat(false)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []}
-        dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
-      {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
-      {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={id => setSheet({ kind: 'shoot', id })} />}
+        dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={booked} />}
+      {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={booked} />}
+      {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={booked} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} onClose={() => setSheet(null)}
@@ -639,6 +648,11 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
 }) {
   const s = useScheduleSettings()
   const profiles = useProfiles()
+  // Picks from ✦ Prop ideas waiting for this new shoot: start on the first day they can still be added.
+  const pending = useMemo(() => peekPendingAdds(), [])
+  const earliestFor = useEarliestDayFor()
+  const minDay = pending ? earliestFor(pending, from) : from
+  from = minDay > from ? minDay : from
   // Owner (Oct 19): ask WHO is filming (just me / with 1 or 2 friends), not how many hours. Each person gets
   // one slot back to back; picked friends get their slot held for them to confirm.
   const [friendCount, setFriendCount] = useState(0)
@@ -685,6 +699,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   const who = ['Just me', '+ 1 friend', '+ 2 friends']
   return (
     <BottomSheet open onClose={onClose} title="Book a shoot">
+      {pending && <p className="mb-4 rounded-xl px-3 py-3 text-sm bg-[#BF9DFF]/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">✦ The props and gear you picked go into this shoot once it's booked{minDay > todayInStudio() ? `. Times start ${formatDay(minDay, { weekday: 'long', month: 'short', day: 'numeric' })}, the first day there's still time to get them ready` : ''}.</p>}
       <p className="text-pt-muted text-xs mb-2">Who's filming?</p>
       <div className="flex bg-pt-bg rounded-full p-1 gap-1">
         {who.map((label, n) => (

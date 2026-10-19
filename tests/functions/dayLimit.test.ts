@@ -74,3 +74,13 @@ describe('one house slot a day', () => {
     expect((await book(ANA, { start: 1020 })).ok).toBe(false)
   })
 })
+
+describe('arts department does not book', () => {
+  it('arts cannot book shoots, props or gear (they handle the requests)', async () => {
+    await put('users/arts@example.com', { email: 'arts@example.com', role: 'arts', active: true, name: 'Arty' })
+    const day = addDays(todayInStudio(), 9)
+    expect((await call('bookShoot', { place: 'cliff2', date: day, start: 780 }, 'arts@example.com')).error).toBe('PERMISSION_DENIED')
+    expect((await call('createReservation', { title: 'x', startDate: day, endDate: day, lines: [] }, 'arts@example.com')).error).toBe('PERMISSION_DENIED')
+    expect((await call('createGearBooking', { title: 'x', date: day, start: 600, end: 720, lines: [] }, 'arts@example.com')).error).toBe('PERMISSION_DENIED')
+  })
+})

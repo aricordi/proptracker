@@ -45,6 +45,7 @@ const ReservationsScreen = lazy(() => import('./screens/ReservationsScreen'))
 const ReservationDetailScreen = lazy(() => import('./screens/ReservationDetailScreen'))
 const BookingRulesScreen = lazy(() => import('./screens/BookingRulesScreen'))
 const ScheduleScreen = lazy(() => import('./screens/ScheduleScreen'))
+const RequestsCalendarScreen = lazy(() => import('./screens/RequestsCalendarScreen'))
 const ScheduleSettingsScreen = lazy(() => import('./screens/ScheduleSettingsScreen'))
 const ScheduleRulesScreen = lazy(() => import('./screens/ScheduleRulesScreen'))
 const CalendarImportScreen = lazy(() => import('./screens/CalendarImportScreen'))
@@ -122,10 +123,16 @@ function Home() {
   return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
 }
 
-// Booking gear is for creators, the arts department and the owner (the equipment team runs it).
+// Booking gear is for creators and the owner (the equipment team runs it; the arts department
+// handles props requests and doesn't book, owner Oct 19).
 function GearBookers({ children }: { children: ReactNode }) {
   const { role } = useSession()
-  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : <>{children}</>
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'arts' ? <Navigate to="/" replace /> : <>{children}</>
+}
+// Booking props / a shoot: creators, the owner (and the schedule team for shoots). Arts get the requests calendar.
+function NotArts({ children, to = '/' }: { children: ReactNode; to?: string }) {
+  const { role } = useSession()
+  return role === 'arts' ? <Navigate to={to} replace /> : <>{children}</>
 }
 
 function StaffOnly({ children }: { children: ReactNode }) {
@@ -230,7 +237,7 @@ export default function App() {
         <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
         <Route path="/item/:id" element={<ItemDetailScreen />} />
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
-        <Route path="/reserve" element={<ReserveScreen />} />
+        <Route path="/reserve" element={<NotArts><ReserveScreen /></NotArts>} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
         <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
@@ -245,7 +252,8 @@ export default function App() {
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
           <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
-          <Route path="/schedule" element={<ScheduleScreen />} />
+          <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
+          <Route path="/calendar" element={<StaffOnly><RequestsCalendarScreen /></StaffOnly>} />
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
           <Route path="/schedule/settings" element={<GearOnly><ScheduleSettingsScreen /></GearOnly>} />
           <Route path="/schedule/import" element={<GearOnly><CalendarImportScreen /></GearOnly>} />
