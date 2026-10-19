@@ -1,3 +1,4 @@
+import AiButton from '../components/AiButton'
 import { useEffect, useRef, useState } from 'react'
 import { NotificationsCard } from '../components/Notifications'
 import { signOut } from 'firebase/auth'
@@ -23,7 +24,7 @@ export default function AccountScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2">{shootFlow ? 'Me' : 'Account'}</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{shootFlow ? 'Me' : 'Account'}</span>{shootFlow && <AiButton />}</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />

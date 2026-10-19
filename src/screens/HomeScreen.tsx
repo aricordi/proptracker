@@ -25,7 +25,7 @@ import BrandMark from '../components/BrandMark'
 import { useGearCart } from '../gearCart'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
-import IdeasSheet, { IdeasButton } from '../components/IdeasSheet'
+import AiButton from '../components/AiButton'
 
 // Folds part of the header away (smoothly) and makes it untappable while hidden.
 function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -69,7 +69,6 @@ export default function HomeScreen() {
   const turnaround = useTurnaround()
   const navigate   = useNavigate()
   const [showDates, setShowDates] = useState(false)
-  const [ideas, setIdeas] = useState(false)
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
   const active = useActiveShoot()
@@ -183,7 +182,7 @@ export default function HomeScreen() {
       {/* Sticky header + search */}
       <div ref={headerRef} className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <Collapse open={!folded}>
-          <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{shootFlow ? 'Browse' : 'Props'}</span>{shootFlow && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
+          <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{shootFlow ? 'Browse' : 'Props'}</span>{shootFlow && <AiButton mode="props" />}</h1>
           {shootFlow && <div className="mb-3"><BrowseTabs /></div>}
         </Collapse>
         {folded && <div className="h-3" />}
@@ -360,7 +359,6 @@ export default function HomeScreen() {
           </button>
         </div>
       )}
-      {shootFlow && <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />}
     </div>
   )
 }

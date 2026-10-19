@@ -902,6 +902,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "Checked automatically every 15 minutes · last … · Check now" on the import screen. Never writes to Google.
     - LIVE Oct 19 (backend runs 35 + 36, website run 19, owner OK): Admin role, calendar rules (instant app copies, imports
       keep real hours + clashes, re-import, 15-minute check). Owner next: connect the calendar (Schedule settings checklist).
+    - ONE AI CHAT (owner, Oct 19: "unify the AI, like YouTube Studio's AI button"; app only, NO server change; preview
+      only, live needs OK): `src/assistant.tsx` (AssistantProvider in App around ViewAsFrame, `useAssistant().open(mode?)`,
+      canBook users only, chat stays mounted/hidden after first open so the conversation survives) +
+      `src/components/AiButton.tsx` (violet "✦ AI" pill in the headers of creator Home, Book/Schedule (mode time),
+      Browse + Gear (mode props), Me) + `src/components/Assistant.tsx` (replaces IdeasSheet.tsx + TimeChat.tsx, deleted):
+      opener with two choices "Help me find props for my video idea" / "Help me find an available time for my shoot",
+      "Prop ideas | Find a time" switch above the composer, typed text guessed by keywords (TIME_WORDS / STRONG_TIME /
+      STRONG_PROPS), chips "🕒 Find a time to film this" / "🎬 Props for this shoot", booked card "Add the N ticked to this
+      shoot" / "✦ Find props for this shoot" (choose(shoot) → props mode), "New chat". Still only calls ideaToProps and
+      askForTime (same budget + safety box); every booking/add is a person's tap. Home card "Ask the AI"; Schedule's
+      violet card opens the chat in time mode.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

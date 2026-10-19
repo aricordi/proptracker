@@ -9,7 +9,8 @@ import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
 import ShootNeeds from '../components/ShootNeeds'
-import TimeChat from '../components/TimeChat'
+import AiButton from '../components/AiButton'
+import { useAssistant } from '../assistant'
 import { Pill } from '../components/GearUi'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { formatDay } from '../lib/dates'
@@ -93,7 +94,7 @@ export default function ScheduleScreen() {
   const mine = useMyShoots(profile.email, today)
   const swaps = useMySwaps(profile.email)
   const invites = useMyInvites(profile.email)
-  const [chat, setChat] = useState(false)
+  const ai = useAssistant()
   const status = useMyStatus(profile.email)
   const paused = !!status?.pausedUntil && status.pausedUntil > today
   const day = days?.[date]
@@ -115,6 +116,7 @@ export default function ScheduleScreen() {
         <div className="flex items-end justify-between py-2 gap-2">
           <h1 className="font-display text-[34px] text-pt-text">Schedule</h1>
           <div className="flex gap-2 pb-0.5">
+            <AiButton mode="time" />
             {team && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
             {(role === 'owner' || role === 'equipment') && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
             <RoundIcon icon="help" label="Help" to="/help" />
@@ -169,7 +171,7 @@ export default function ScheduleScreen() {
         )}
         <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
         <div className="flex items-center gap-3 pt-3 pb-1 text-pt-muted text-xs uppercase tracking-wider"><span className="h-px flex-1 bg-pt-border" />or let AI find a time<span className="h-px flex-1 bg-pt-border" /></div>
-        <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
+        <button onClick={() => ai.open('time')} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
           <span className="w-10 h-10 rounded-xl grid place-items-center text-lg bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
           <span className="flex-1 min-w-0"><b className="block">Ask for a time</b><span className="text-pt-muted text-[13px]">"4 hours with Alex next week, evenings" · type or talk</span></span>
           <span className="w-9 h-9 rounded-full grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg></span>
@@ -223,7 +225,6 @@ export default function ScheduleScreen() {
       </div>
 
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
-      {chat && <TimeChat onClose={() => setChat(false)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []}
         dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={booked} />}

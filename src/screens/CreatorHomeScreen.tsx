@@ -8,7 +8,8 @@ import { useSession } from '../auth'
 import BrandMark from '../components/BrandMark'
 import Avatar from '../components/Avatar'
 import LateBanner from '../components/LateBanner'
-import IdeasSheet, { IdeasButton } from '../components/IdeasSheet'
+import AiButton from '../components/AiButton'
+import { useAssistant } from '../assistant'
 import { GearArt } from '../components/GearUi'
 import { useMyLateBookings } from '../hooks/useLateBookings'
 import { useItems } from '../hooks/useItems'
@@ -46,7 +47,7 @@ export default function CreatorHomeScreen() {
   const label = useShootLabel(), cutoffs = useCutoffs()
   const { upcoming } = useActiveShoot()
   const today = todayInStudio()
-  const [ideas, setIdeas] = useState(false)
+  const ai = useAssistant()
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 60_000); return () => clearInterval(t) }, [])
   const history = useMyShoots(profile.email, addDays(today, -120))
@@ -117,6 +118,7 @@ export default function CreatorHomeScreen() {
         <div className="flex items-center justify-between py-3">
           <span className="flex items-center gap-2 text-pt-text"><BrandMark className="w-9" title="Prime Capitol" /><b className="text-xs font-extrabold tracking-[0.28em]">PRIME CAPITOL</b></span>
           <span className="flex items-center gap-3">
+            <AiButton />
             <RoundIcon icon="help" label="Help" to="/help" />
             <button onClick={() => navigate('/account')} aria-label="Me"><Avatar email={profile.email} name={profile.name || profile.email} size={34} /></button>
           </span>
@@ -168,9 +170,12 @@ export default function CreatorHomeScreen() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className="shrink-0"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
             <span className="truncate">Search props, costumes, gear</span>
           </button>
-          <IdeasButton small onClick={() => setIdeas(true)} />
         </div>
-        <IdeasButton onClick={() => setIdeas(true)} />
+        <button onClick={() => ai.open()} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
+          <span className="w-[42px] h-[42px] rounded-[13px] grid place-items-center text-xl bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
+          <span className="flex-1 min-w-0"><b className="block text-base">Ask the AI</b><span className="text-pt-muted text-[13px]">Props for your video idea, or a free time to film</span></span>
+          <span className="text-pt-muted">›</span>
+        </button>
         <NotificationsNudge />
       </div>
 
@@ -255,7 +260,6 @@ export default function CreatorHomeScreen() {
           <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-semibold bg-pt-surface text-pt-text">Book another shoot</button>
         )}
       </div>
-      <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />
     </div>
   )
 }

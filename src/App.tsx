@@ -53,6 +53,7 @@ const CalendarImportScreen = lazy(() => import('./screens/CalendarImportScreen')
 const ScheduleTeamScreen = lazy(() => import('./screens/ScheduleTeamScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
+import { AssistantProvider } from './assistant'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
@@ -237,6 +238,7 @@ export default function App() {
     <Prefetch />
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
+    <AssistantProvider>
     <ViewAsFrame on={!!session.viewingAs}>
       <Suspense fallback={<ScreenFallback />}>
       <Routes>
@@ -291,6 +293,7 @@ export default function App() {
       </Routes>
       </Suspense>
     </ViewAsFrame>
+    </AssistantProvider>
     </ActiveShootProvider>
     </GearCartProvider>
     </CartProvider>

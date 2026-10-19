@@ -8,7 +8,7 @@ import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, useGearWhen } from '../components/GearUi'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
-import IdeasSheet, { IdeasButton } from '../components/IdeasSheet'
+import AiButton from '../components/AiButton'
 
 // Creators: pick the shoot day + hours, see which bundles and extras are free, add them.
 export default function GearShopScreen() {
@@ -20,7 +20,6 @@ export default function GearShopScreen() {
   const [cat, setCat] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const propsCart = useCart()
-  const [ideas, setIdeas] = useState(false)
   const { profile, role, shootFlow, isStaff } = useSession()
   // Creators add gear to one of their booked shoots; without one they just browse.
   const creator = shootFlow   // creator layout (creators + the owner)
@@ -46,7 +45,7 @@ export default function GearShopScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-28">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <AiButton mode="props" />}</h1>
         {creator && <div className="mb-3"><BrowseTabs /></div>}
         <div className="relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none">
@@ -157,7 +156,6 @@ export default function GearShopScreen() {
           </button>
         </div>
       )}
-      {creator && <IdeasSheet open={ideas} onClose={() => setIdeas(false)} />}
     </div>
   )
 }
