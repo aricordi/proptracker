@@ -900,6 +900,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       check'); NEW events wait for a person; result in `app_settings/calendarCheck` {at, newEvents, changed, removed,
       failed, error} (rules: readable by gear staff too) → Schedule banner "N new events in Google Calendar to sort" and
       "Checked automatically every 15 minutes · last … · Check now" on the import screen. Never writes to Google.
+    - LIVE Oct 19 (backend runs 35 + 36, website run 19, owner OK): Admin role, calendar rules (instant app copies, imports
+      keep real hours + clashes, re-import, 15-minute check). Owner next: connect the calendar (Schedule settings checklist).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
