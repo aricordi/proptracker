@@ -52,7 +52,7 @@ export default function HelpScreen() {
     ] },
     { title: 'On the day', icon: '🎬', items: [
       { q: 'How do I check in?', words: 'check in photo set arrive', a: <>Check-in opens <b>{s.checkinBefore} minutes</b> before your slot. Open your shoot (Home → your next shoot) and take a photo of the set. That's it.</> },
-      { q: 'The people before me ran over or left a mess', words: 'report mess late previous', a: <>When you check in, tap "Ran over into my time" and/or "House left a mess" (with a photo). The schedule team reviews every report.</> },
+      { q: 'The people before me ran over or left a mess', words: 'report mess late previous', a: <>When you check in, tap "Ran over into my time" and/or "House left a mess" (with a photo), and write a line about what happened. The schedule team reviews every report.</> },
       { q: 'I forgot to check in', words: 'missed forgot no show explain', a: <>Open the shoot and tell us what happened within <b>{s.explainHours} hours</b>. The schedule team then decides whether it counts as filmed.</> },
     ] },
     { title: 'Moving, swapping, cancelling', icon: '🔁', items: [

@@ -100,6 +100,7 @@ export default function ScheduleTeamScreen() {
                   <p className="text-pt-muted text-xs">{formatDay(r.date)} · {r.place === 'offsite' ? 'Offsite' : s.houses[r.place].name}</p></div>
                 <Pill tone="warn">Report</Pill></div>
               <p className="text-pt-text text-sm">{[r.overMinutes ? `Ran over ${r.overMinutes} min` : '', r.mess ? 'Left the house a mess' : ''].filter(Boolean).join(' · ')}</p>
+              {r.note && <p className="text-pt-text text-sm bg-pt-bg rounded-xl px-3 py-2">“{r.note}”</p>}
               {r.photos.length > 0 && <PhotoStrip urls={r.photos} title="Photos" />}
               <div className="flex gap-2">
                 <button disabled={!!busy} onClick={() => run(r.id, () => reviewReport({ id: r.id, uphold: false }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">Dismiss</button>

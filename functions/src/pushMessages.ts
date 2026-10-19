@@ -77,7 +77,8 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
 export function reportCreated(id: string, r: Doc): Push[] {
   if (!r) return []
   const what = [r.overMinutes ? `ran over ${r.overMinutes} min` : '', r.mess ? 'left a mess' : ''].filter(Boolean).join(' and ')
-  return [{ to: ['gear-team'], url: '/schedule/team', tag: `report-${id}`, title: 'New report to review', body: `${first(r.byName)} says ${first(r.onName)} ${what || 'had a problem'} (${dayLabel(r.date)}).` }]
+  const note = typeof r.note === 'string' && r.note ? ` "${r.note.length > 90 ? r.note.slice(0, 89) + '…' : r.note}"` : ''
+  return [{ to: ['gear-team'], url: '/schedule/team', tag: `report-${id}`, title: 'New report to review', body: `${first(r.byName)} says ${first(r.onName)} ${what || 'had a problem'} (${dayLabel(r.date)}).${note}` }]
 }
 
 const STRIKE_WHY: Record<string, string> = { 'late-cancel': 'a late cancel', 'no-show': 'a missed shoot', report: 'a report from another creator' }

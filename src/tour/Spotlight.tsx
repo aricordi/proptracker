@@ -15,8 +15,8 @@ function keepInView(el: HTMLElement) {
   else if (above > 0) box.scrollTop -= above
 }
 
-export function Spotlight({ target, tip, step, total, next, onNext, onSkip, nextDisabled, onClose }: {
-  target?: string; tip: ReactNode; step: number; total: number
+export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip, nextDisabled, onClose }: {
+  target?: string; tip: ReactNode; part?: string; step: number; total: number
   next?: string; onNext?: () => void; onSkip?: () => void; nextDisabled?: boolean; onClose?: () => void
 }) {
   const [r, setR] = useState<DOMRect | null>(null)
@@ -43,7 +43,7 @@ export function Spotlight({ target, tip, step, total, next, onNext, onSkip, next
   const card = (
     <div className="rounded-[20px] bg-pt-raised shadow-float p-4 space-y-3 pointer-events-auto">
       <div className="flex items-center gap-2">
-        <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-pt-accent">Practice · step {step} of {total}</p>
+        <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-pt-accent">{part ? `Part ${part}` : 'Practice'} <span className="text-pt-muted">· {step}/{total}</span></p>
         {onClose && <button onClick={onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button>}
       </div>
       <div className="text-[15px] leading-snug text-pt-text">{tip}</div>

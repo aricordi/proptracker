@@ -39,16 +39,18 @@ export const checkInShoot = onCall(CALLABLE, async req => {
   const r = req.data?.report ?? {}
   const over = Number.isInteger(r.overMinutes) && r.overMinutes > 0 ? Math.min(r.overMinutes, 240) : 0
   const mess = r.mess === true, messPhotos = photoList(r.photos)
+  // A short message in their own words (owner, Oct 19: "ran over" / "mess" alone aren't descriptive enough).
+  const note = typeof r.note === 'string' ? r.note.replace(/[\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) : ''
   let reported: string | null = null
   if ((over || mess) && sh.place !== 'offsite') {
     if (mess && !messPhotos.length) throw new HttpsError('invalid-argument', 'Add a photo of the mess.')
     const day = ((await db.doc(`schedule_days/${sh.date}`).get()).data() ?? {}) as ScheduleDay
     const prev = day[sh.place as House]?.[slotKey(sh.start - s.slotMinutes)]
     if (prev && prev.shootId && prev.shootId !== id) {
-      const what = [over ? `ran over ${over} min` : '', mess ? 'house left a mess' : ''].filter(Boolean).join(', ')
+      const what = [over ? `ran over ${over} min` : '', mess ? 'house left a mess' : ''].filter(Boolean).join(', ') + (note ? `: "${note.length > 80 ? note.slice(0, 79) + '…' : note}"` : '')
       const rep = await db.collection('schedule_reports').add({
         onShootId: prev.shootId, onEmail: prev.email ?? '', onName: prev.name, byShootId: id, byEmail: caller.email, byName: sh.creatorName,
-        date: sh.date, place: sh.place, overMinutes: over, mess, photos: messPhotos, status: 'open', createdAt: at,
+        date: sh.date, place: sh.place, overMinutes: over, mess, note, photos: messPhotos, status: 'open', createdAt: at,
       })
       reported = rep.id
       await db.doc(`shoots/${prev.shootId}`).update({ history: FieldValue.arrayUnion({ at, by: caller.email, action: 'reported', note: `by ${sh.creatorName}: ${what}` }) })

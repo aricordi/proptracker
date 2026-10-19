@@ -46,6 +46,7 @@ describe('instant notifications', () => {
   it('strikes and reports', () => {
     expect(strikeCreated('k', { email: 'c@x.com', reason: 'no-show' }, s)[0].body).toMatch(/missed shoot.*2 strikes in 30 days/)
     expect(reportCreated('r', { byName: 'Ana B', onName: 'Ben C', overMinutes: 20, date: '2026-10-23' })[0]).toMatchObject({ to: ['gear-team'], body: 'Ana says Ben ran over 20 min (Fri Oct 23).' })
+    expect(reportCreated('r', { byName: 'Ana B', onName: 'Ben C', mess: true, note: 'Dishes in the sink', date: '2026-10-23' })[0].body).toBe('Ana says Ben left a mess (Fri Oct 23). "Dishes in the sink"')
   })
   it('dates read like "Fri Oct 23"', () => expect(dayLabel('2026-10-23')).toBe('Fri Oct 23'))
 })

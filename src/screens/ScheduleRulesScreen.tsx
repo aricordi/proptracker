@@ -72,7 +72,7 @@ export default function ScheduleRulesScreen() {
         <ul className="list-disc pl-5 space-y-2">
           <Li>Check-in opens <b>{s.checkinBefore} minutes before</b> your shoot: open your shoot, take a photo of the set, tap <b>Check in</b>.</Li>
           <Li>When you're done, tap <b>Wrap</b> and name what you filmed.</Li>
-          <Li>Finish on time and leave the house clean. When the next creator checks in, they can report an overrun or a mess (with photos). The team reviews every report.</Li>
+          <Li>Finish on time and leave the house clean. When the next creator checks in, they can report an overrun or a mess (with photos and a short note). The team reviews every report.</Li>
           <Li>No check-in by the end of your slot? You have <b>{s.explainHours} hours</b> to explain on your shoot; then the team decides.</Li>
         </ul>
 

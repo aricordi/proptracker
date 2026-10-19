@@ -139,7 +139,7 @@ export const reviewReport = httpsCallable<{ id: string; uphold: boolean }, { ok:
 export const liftPause = httpsCallable<{ email: string }, { ok: boolean }>(functions, 'liftPause')
 
 export interface UserStatus { email: string; name?: string; strikes?: number; pausedUntil?: string | null }
-export interface ScheduleReport { id: string; onShootId: string; onEmail: string; onName: string; byEmail: string; byName: string; date: string; place: Place; overMinutes: number; mess: boolean; photos: string[]; status: string; createdAt: string }
+export interface ScheduleReport { id: string; onShootId: string; onEmail: string; onName: string; byEmail: string; byName: string; date: string; place: Place; overMinutes: number; mess: boolean; note?: string; photos: string[]; status: string; createdAt: string }
 
 // Your strikes / pause, live.
 export function useMyStatus(email: string): UserStatus | null {

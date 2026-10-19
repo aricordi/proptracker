@@ -901,6 +901,7 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
   const [over, setOver] = useState(0)
   const [mess, setMess] = useState(false)
   const [messPhotos, setMessPhotos] = useState<string[]>([])
+  const [reportNote, setReportNote] = useState('')
   const [title, setTitle] = useState('')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -935,10 +936,11 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
               </div>
               {over > 0 && <select value={over} onChange={e => setOver(Number(e.target.value))} className={field}>{[10, 15, 20, 30, 45, 60, 90].map(m => <option key={m} value={m}>They left {m} minutes late</option>)}</select>}
               {mess && <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={messPhotos} onChange={setMessPhotos} onUploading={setUploading} label="Photos of the mess" max={5} />}
+              {(over > 0 || mess) && <textarea value={reportNote} onChange={e => setReportNote(e.target.value.slice(0, 300))} rows={2} placeholder="What happened? e.g. They were still packing up at 3:20, dishes left in the sink" className={field} />}
             </div>
           )}
           <button disabled={busy || uploading || !photos.length || (mess && !messPhotos.length)} className={btnGold}
-            onClick={() => run(() => checkInShoot({ id: shoot.id, photos, ...((over || mess) ? { report: { overMinutes: over || undefined, mess, photos: messPhotos } } : {}) }))}>
+            onClick={() => run(() => checkInShoot({ id: shoot.id, photos, ...((over || mess) ? { report: { overMinutes: over || undefined, mess, photos: messPhotos, ...(reportNote.trim() ? { note: reportNote.trim() } : {}) } } : {}) }))}>
             {busy ? 'Checking in…' : over || mess ? 'Check in and send report' : 'Check in'}</button>
         </div>
       )}

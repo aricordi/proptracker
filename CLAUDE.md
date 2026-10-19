@@ -985,6 +985,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       type the video name (Done enabled once typed), open "+ Request something we don't have", type it + how many → Add
       request → send … report chips toggle, type what you filmed, type your own AI idea (answer = local matches from
       your words, never the AI). 35 steps. Still sealed: the only server call is the read-only friend list.
+      END-TO-END (owner, Oct 19: "trained on the end to end… order should make sense"): 49 steps in 8 parts (tip card shows
+      "Part n of 8 · <name>"): 1 Book a time (friend) → 2 When a friend invites you (phone notification → InviteAsk banner
+      → Confirm my slot within INVITE_HOLD_MINUTES → "Yours" row on the schedule) → 3 Find props with AI (shoot sheet
+      "Plan it with AI" → type idea → tick 2 → "Add 2 to a shoot" → Add to which shoot? → then ask a time → real-looking
+      back-to-back options → ‹ Back) → 4 Add more yourself (search + gear kit + review: name, make-or-find, send) → 5 Follow
+      and change (sent page → Me → My requests → open the request → Change: steppers/×/make-or-find → Save → "Changed ✓" →
+      packed notification) → 6 Pick up (props sign, gear tick every piece) → 7 On the day (set photo, report chips + a
+      WRITTEN MESSAGE (Next needs it), check in, wrap) → 8 Return (props photo + note → Confirm return; gear: steps + photo
+      → Send return; My requests shows Returned / Checked in) → Good to know → done.
+    - REPORT MESSAGE (owner, Oct 19, real app): check-in reports take an optional `report.note` (≤300 chars, cleaned) →
+      schedule_reports.note, both shoots' history ("…: \"note\""), the team push ("… \"note\""), Team → Reports shows it;
+      OnTheDay shows a textarea once "Ran over" or "Mess" is tapped. Needs a BACKEND deploy (attendance.ts, pushMessages.ts).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
