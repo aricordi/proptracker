@@ -256,8 +256,13 @@ function SlotRow({ day, date, house, start, team, email, now, onTap }: {
     face = <Avatar email={st.entry.email} name={st.entry.name} ring={isMine} />
     title = isMine ? 'You' : st.entry.name
     const ch = st.entry.email ? profiles[st.entry.email]?.channel : ''
-    sub = [ch, MONTHLY_SLOTS_ON ? (st.entry.kind === 'monthly' ? 'Monthly slot' : 'Extra slot') : ''].filter(Boolean).join(' · ')
+    // Imported from the old calendar at its real hours (e.g. 2:30–5 PM), and old double bookings (clashes).
+    const real = st.entry.time ? `Really ${fmtTime(st.entry.time.start)}–${fmtTime(st.entry.time.end)}` : ''
+    const clash = (day?.clashes ?? []).filter(c => c.house === house && c.slot === slotKey(start))
+    sub = [real, ch, MONTHLY_SLOTS_ON ? (st.entry.kind === 'monthly' ? 'Monthly slot' : 'Extra slot') : ''].filter(Boolean).join(' · ')
+    if (clash.length) sub = <><span className="text-red-300 font-semibold">Clash · also {clash.map(c => c.name).join(', ')}</span>{sub ? ` · ${sub}` : ''}</>
     if (isMine) { pill = <Pill tone="info">Yours</Pill>; cls = 'bg-pt-accent/10 border-pt-accent' }
+    if (clash.length) { pill = <Pill tone="taken">Clash</Pill>; cls = 'bg-red-500/[0.06] border-red-400/50' }
   }
   else if (st.t === 'past') { title = '—'; sub = 'Past'; cls = 'bg-pt-surface border-transparent opacity-45' }
   else if (st.t === 'held') {

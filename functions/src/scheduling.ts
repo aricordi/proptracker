@@ -81,11 +81,10 @@ function placeIn(day: ScheduleDay, spot: Spot, entry: { shootId: string; name: s
 }
 function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootId: string) {
   if (spot.place === 'offsite') { day.offsite = (day.offsite ?? []).filter(o => o.shootId !== shootId); return }
-  const key = slotKey(spot.start)
-  if (day[spot.place]?.[key]?.shootId === shootId) {
-    const { [key]: _gone, ...rest } = day[spot.place]!
-    day[spot.place] = rest
-  }
+  // Every slot this shoot fills (an imported off-grid shoot can fill two), and any clash listing.
+  const slots = day[spot.place] ?? {}
+  if (Object.values(slots).some(e => e.shootId === shootId)) day[spot.place] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
+  if (day.clashes?.some(c => c.shootId === shootId)) day.clashes = day.clashes.filter(c => c.shootId !== shootId)
 }
 
 // Load the day docs a change touches, let `change` edit them, then write them all back.
@@ -401,6 +400,47 @@ export async function placeShootAsTeam(spot: Spot, who: { email: string; name: s
     })
   })
   return ref.id
+}
+
+// A shoot from the old Google Calendar (owner, Oct 19): keeps its REAL hours even when they don't match the grid
+// (2:30–5 PM fills the 1–3 and 3–5 slots, so nobody can book over it), ignores blocks, and if another shoot already
+// has one of those slots it is still imported and listed as a clash (old events only; new bookings can never clash).
+export async function importShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}) {
+  if (spot.place === 'offsite') return placeShootAsTeam(spot, who, by, extra)
+  const s = await loadScheduleSettings()
+  if (!isDay(spot.date)) throw fail('bad-date')
+  if (!(spot.end > spot.start)) throw fail('bad-hours')
+  const house = spot.place as House
+  const touched = s.slots.filter(k => k < spot.end && k + s.slotMinutes > spot.start)
+  const keys = (touched.length ? touched : [s.slots.reduce((b, k) => Math.abs(k - spot.start) < Math.abs(b - spot.start) ? k : b, s.slots[0])]).map(slotKey)
+  const onGrid = s.slots.includes(spot.start) && spot.end - spot.start === s.slotMinutes
+  const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
+  const at = new Date().toISOString()
+  const ref = db.collection('shoots').doc()
+  let clashWith: string[] = []
+  await db.runTransaction(async tx => {
+    const write = await editDays(tx, [spot.date], days => {
+      clashWith = []
+      const day = days[spot.date]
+      const map = { ...(day[house] ?? {}) }
+      for (const k of keys) {
+        const there = map[k]
+        if (there && !(there.hold && !holdActive(there, nowStamp())) && there.shootId !== ref.id) {
+          clashWith.push(there.name)
+          day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end }]
+        } else map[k] = { shootId: ref.id, name: who.name, email: who.email, kind: 'extra', ...(onGrid ? {} : { time: { start: spot.start, end: spot.end } }) }
+      }
+      day[house] = map
+    })
+    write()
+    clashWith = [...new Set(clashWith)]
+    tx.set(ref, {
+      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind: 'extra', status: 'booked',
+      bookedBy: by, createdAt: at, updatedAt: at, ...extra, ...(clashWith.length ? { clash: true, clashWith } : {}),
+      history: [{ at, by, action: 'booked', note: `${spotLabel(spot, s)} · imported from Google Calendar${clashWith.length ? ` · CLASH with ${clashWith.join(', ')}` : ''}` }],
+    })
+  })
+  return { id: ref.id, clashWith }
 }
 
 // ─── Filming back to back with friends ───────────────────────────────────────

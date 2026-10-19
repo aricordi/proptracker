@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 387 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 388 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -849,6 +849,19 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       prop, Book gear, Gear bundles & pieces, Schedule team, Requests calendar, hides Import; People can pick "Admin"
       (owner only); View as Admin. Seed admin@example.com "Sam (Admin)" + test login. FUTURE ROLES: add them to
       ADMIN_COVERS + the rules helpers so admins see them too. Tests 387 (tests/functions/admin.test.ts).
+    - CALENDAR: NEVER CHANGE THE OLD CALENDAR (owner, Oct 19: app not launched yet; "we shouldn't change anything that's
+      already on there ever"; old overlapping events: "import both anyway and mark it as a clash for these old events
+      only"). NOT deployed (backend + website, ask). Settings `calendarWrite` (default FALSE = read-only: the app never
+      adds/changes/deletes anything in Google Calendar; Schedule settings switch "Copy app bookings to this calendar",
+      confirm, turn on at LAUNCH). syncShootToCalendar / syncBlocksToCalendar use `writeCalendarId()` (needs calendarWrite)
+      and SKIP imported shoots (importedFrom/calendarEventId) and imported blocks (`imported: true`) forever.
+      testCalendarLink while off = read-only check (lists 1 event; sharing "See all event details" is enough).
+      IMPORT keeps the REAL hours: `importShootAsTeam` (scheduling.ts): house shoot fills EVERY grid slot it touches
+      (2:30–5 PM → 1–3 and 3–5 slots, entry.time = real hours, shown "Really 2:30–5 PM" on the schedule), ignores blocks;
+      a slot already taken → still imported, `day.clashes[]` {house, slot, shootId, name, start, end} + shoot.clash/
+      clashWith + history "CLASH with X"; schedule row red "Clash · also X". Blocks keep exact minutes. takeOut now
+      removes every slot of a shoot + its clash listing. Import screen: no slot picker (real hours), red "⚠ Clash" preview
+      between selected events, "Imported · Clash" result. Tests 388 (calendar.test.ts).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

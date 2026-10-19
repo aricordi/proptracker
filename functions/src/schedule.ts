@@ -24,6 +24,9 @@ export interface ScheduleSettings {
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
   slotsPerDay: number      // house slots a creator may book per day (Cliff 1 + Cliff 2 together); the team can add more
   googleCalendarId: string // shared Google Calendar the app copies bookings to ('' = off)
+  // Owner (Oct 19): OFF until the app officially launches. Off = the app only READS the calendar (import); it never
+  // adds, changes or removes anything there. On = new app bookings/blocks are copied in. Imported events are never touched.
+  calendarWrite: boolean
   checkinBefore: number    // check-in opens this many minutes before the start
   explainHours: number     // a missed check-in can be explained for this many hours after the end
   strikeCount: number      // this many strikes…
@@ -47,6 +50,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   noticeHours: 48,
   slotsPerDay: 1,          // owner, Oct 18: one 2-hour house slot a day; more only when the team books it
   googleCalendarId: '',
+  calendarWrite: false,
   checkinBefore: 15,
   explainHours: 12,
   strikeCount: 2,
@@ -88,6 +92,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
     slotsPerDay: int(x.slotsPerDay, 1, 9, D.slotsPerDay),
     googleCalendarId: str(x.googleCalendarId, 200),
+    calendarWrite: x.calendarWrite === true,
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     explainHours: int(x.explainHours, 0, 168, D.explainHours),
     strikeCount: int(x.strikeCount, 1, 20, D.strikeCount),
@@ -99,7 +104,11 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 // ─── What one day of the schedule holds ──────────────────────────────────────
 // A slot can also be HELD for a friend someone invited to film back to back: `hold` is set, shootId is ''.
 // The hold lasts INVITE_HOLD_MINUTES (owner, Oct 17: 20 min); after that the slot is free again for everyone.
-export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string } }
+// `time` = the real hours of a shoot imported from Google Calendar that doesn't match the 2-hour grid (e.g. 2:30–5 PM);
+// it then fills every slot it touches.
+export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number } }
+// Old calendar events that overlap at the same house are imported anyway and listed here (owner, Oct 19: old events only).
+export interface ClashEntry { house: House; slot: string; shootId: string; name: string; email?: string; start: number; end: number }
 export const INVITE_HOLD_MINUTES = 20
 export const holdActive = (e: SlotEntry | undefined, now: string) => !!e?.hold && e.hold.until > now
 export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string }
@@ -114,6 +123,7 @@ export interface ScheduleDay {
   cliff2?: Record<string, SlotEntry>
   offsite?: OffsiteEntry[]
   blocks?: Block[]
+  clashes?: ClashEntry[]
 }
 
 export const slotKey = (start: number) => String(start)

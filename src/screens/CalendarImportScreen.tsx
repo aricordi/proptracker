@@ -4,7 +4,7 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
-import { useScheduleSettings, errorText, fmtSlot, BLOCK_TYPES, type BlockType } from '../services/schedule'
+import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 
 interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; guess: { action: string; email: string; house: string; start: number } }
 interface Row { action: 'shoot' | 'block' | 'skip'; email: string; house: string; start: number; type: BlockType }
@@ -34,12 +34,19 @@ export default function CalendarImportScreen() {
     setBusy(true); setErr('')
     try {
       const items = todo.map(e => { const r = rows[e.id]; return { id: e.id, title: e.title, date: e.date, action: r.action, email: r.email, house: r.house, type: r.type,
-        start: r.action === 'block' || r.house === 'offsite' ? e.startMin : r.start, end: e.endMin, where: e.location || e.title } })
+        start: e.startMin, end: e.endMin, where: e.location || e.title } })   // always the real hours (owner, Oct 19)
       const res = await apply({ items })
       const next = { ...done }
-      for (const x of res.data.results) next[x.id] = x.ok ? 'ok' : (x.message || 'Failed')
+      for (const x of res.data.results) next[x.id] = x.ok ? (x.message?.startsWith('Imported · CLASH') ? x.message : 'ok') : (x.message || 'Failed')
       setDone(next)
     } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
+  }
+  // Two old events at the same house at overlapping times: both are imported, marked as a clash.
+  const clashOf = (e: Ev) => {
+    const r = rows[e.id]
+    if (r?.action !== 'shoot' || r.house === 'offsite') return []
+    return (events ?? []).filter(o => o.id !== e.id && rows[o.id]?.action === 'shoot' && rows[o.id].house === r.house && o.date === e.date
+      && o.startMin < e.endMin && e.startMin < o.endMin).map(o => people.find(p => p.email === rows[o.id].email)?.name || o.title)
   }
   const counts = todo.reduce((c, e) => ({ ...c, [rows[e.id]?.action ?? 'skip']: (c[rows[e.id]?.action ?? 'skip'] ?? 0) + 1 }), {} as Record<string, number>)
   return (
@@ -49,7 +56,8 @@ export default function CalendarImportScreen() {
         <h1 className="font-display text-[34px] text-pt-text">Import calendar</h1>
       </div>
       <div className="p-4 space-y-3">
-        <p className="text-pt-muted text-sm">Every future event in the shared Google Calendar. For each, choose: a <b>shoot</b> (who, which house and slot), <b>blocked time</b>, or <b>skip</b>. Our guesses are filled in. Imported shoots keep their Google event, so nothing is duplicated.</p>
+        <p className="text-pt-muted text-sm">Every future event in the shared Google Calendar. For each, choose: a <b>shoot</b> (who and which house), <b>blocked time</b>, or <b>skip</b>. Our guesses are filled in.</p>
+        <p className="text-pt-muted text-sm">Nothing in Google Calendar is ever changed. Every event keeps its <b>real hours</b> (2:30–5 PM stays 2:30–5 PM and holds the slots it touches). Old events that overlap at the same house are still imported, marked <span className="text-red-300 font-semibold">Clash</span>.</p>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {!events && !err && <p className="text-pt-muted text-sm">Reading the calendar…</p>}
         {events && events.length === 0 && <p className="text-pt-muted text-sm">Nothing left to import.</p>}
@@ -58,9 +66,10 @@ export default function CalendarImportScreen() {
           if (!r) return null
           return (
             <div key={e.id} className={`bg-pt-surface rounded-2xl p-3 space-y-2 ${d === 'ok' ? 'opacity-50' : ''}`}>
-              <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}</div>
+              <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}{d?.startsWith('Imported · CLASH') && <span className="text-red-300 text-xs">Imported · Clash</span>}</div>
               <p className="text-pt-muted text-xs">{formatDay(e.date)} · {fmtTime(e.startMin)}–{fmtTime(e.endMin)}{e.location ? ` · ${e.location}` : ''}</p>
               {d && d !== 'ok' && <p className="text-red-300 text-xs">{d}</p>}
+              {d !== 'ok' && clashOf(e).length > 0 && <p className="text-red-300 text-xs font-semibold">⚠ Clash: same house and time as {clashOf(e).join(', ')}. Both will be imported.</p>}
               {d !== 'ok' && <>
                 <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
                   {(['shoot', 'block', 'skip'] as const).map(a => (
@@ -68,12 +77,9 @@ export default function CalendarImportScreen() {
                   ))}
                 </div>
                 {r.action === 'shoot' && (
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <select value={r.email} onChange={x => set(e.id, { email: x.target.value })} className={field}><option value="">Who?</option>{people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select>
                     <select value={r.house} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option></select>
-                    {r.house !== 'offsite'
-                      ? <select value={r.start} onChange={x => set(e.id, { start: Number(x.target.value) })} className={field}>{s.slots.map(t => <option key={t} value={t}>{fmtSlot(t, s.slotMinutes)}</option>)}</select>
-                      : <span className="text-pt-muted text-xs self-center">Keeps its hours</span>}
                   </div>
                 )}
                 {r.action === 'block' && (

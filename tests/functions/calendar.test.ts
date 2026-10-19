@@ -1,6 +1,6 @@
 // "Add to my calendar" links: a private feed of your shoots (the team's lists everyone's).
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com'
@@ -69,5 +69,31 @@ describe('importing the existing calendar', () => {
     expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
     expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
     expect((await call('previewCalendarImport', {}, ANA)).error).toBe('PERMISSION_DENIED')
+  })
+
+  it('old events keep their real hours (fill every slot they touch) and overlapping ones are imported as a clash', async () => {
+    const day = FRI
+    const r = await call('applyCalendarImport', { items: [
+      { id: 'odd1', action: 'shoot', email: ANA, house: 'cliff2', date: day, start: 870, end: 1020 },   // 2:30–5 PM
+      { id: 'odd2', action: 'shoot', email: BEN, house: 'cliff2', date: day, start: 900, end: 1020 },   // 3–5 PM, same house
+    ] }, MAANIK)
+    expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
+    expect(r.result.results[1].message).toMatch(/CLASH with Ana/)
+    const d = (await getDoc(`schedule_days/${day}`))!
+    expect(d.cliff2['780'].email).toBe(ANA)            // 1–3 slot held: it overlaps 2:30–3
+    expect(d.cliff2['900'].email).toBe(ANA)
+    expect(d.cliff2['900'].time).toEqual({ start: 870, end: 1020 })
+    expect(d.clashes).toHaveLength(1)
+    expect(d.clashes[0]).toMatchObject({ house: 'cliff2', slot: '900', name: 'Ben' })
+    // Nobody can book over the imported shoot.
+    expect((await call('bookShoot', { place: 'cliff2', date: day, start: 780 }, BEN)).ok).toBe(false)
+    // Cancelling it frees both slots; the clash listing for Ben stays until his is sorted out.
+    const ana = (await getDoc(`schedule_days/${day}`))!.cliff2['900'].shootId
+    expect((await call('cancelShoot', { id: ana }, MAANIK)).ok).toBe(true)
+    const after = (await getDoc(`schedule_days/${day}`))!
+    expect(after.cliff2['780']).toBeUndefined()
+    expect(after.cliff2['900']).toBeUndefined()
+    expect(after.clashes).toHaveLength(1)
+    expect((await getDoc(`shoots/${ana}`))!.start).toBe(870)
   })
 })

@@ -13,7 +13,7 @@ import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
-import { placeShootAsTeam } from './scheduling.js'
+import { importShootAsTeam } from './scheduling.js'
 import { stamp, addMinutes } from './gearBooking.js'
 
 const TEAM = ['owner', 'equipment', 'admin']
@@ -88,6 +88,12 @@ async function calendarId(): Promise<string> {
   const d = (await db.doc('app_settings/schedule').get()).data()
   return typeof d?.googleCalendarId === 'string' ? d.googleCalendarId.trim() : ''
 }
+// Owner (Oct 19): the app writes to the shared calendar ONLY after launch (Schedule settings switch), and NEVER
+// touches an event it didn't create itself (imported shoots/blocks keep their original Google event as it is).
+async function writeCalendarId(): Promise<string> {
+  const d = (await db.doc('app_settings/schedule').get()).data()
+  return d?.calendarWrite === true && typeof d?.googleCalendarId === 'string' ? d.googleCalendarId.trim() : ''
+}
 
 async function gcal(method: 'PUT' | 'POST' | 'DELETE', cal: string, path: string, body?: unknown) {
   const token = (await (await auth.getClient()).getAccessToken()).token
@@ -110,10 +116,13 @@ const when = (st: string) => ({ dateTime: `${st}:00`, timeZone: 'America/Toronto
 
 export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event => {
   if (isEmulator()) return
-  const cal = await calendarId()
-  if (!cal) return
   const after = event.data?.after.data()
-  const id = (after ?? event.data?.before.data())?.calendarEventId || shootEventId(event.params.id)
+  const shoot = after ?? event.data?.before.data()
+  // Imported from Google Calendar: that event belongs to the calendar, the app never changes or deletes it.
+  if (shoot?.importedFrom || shoot?.calendarEventId) return
+  const cal = await writeCalendarId()
+  if (!cal) return
+  const id = shootEventId(event.params.id)
   try {
     if (!after || after.status !== 'booked') { await deleteEvent(cal, id); return }
     const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -129,13 +138,14 @@ export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event 
 
 export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', async event => {
   if (isEmulator()) return
-  const before = ((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? [])
-  const after = ((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? [])
+  // Blocks imported from Google Calendar (imported: true) are that calendar's own events: never touched.
+  const before = ((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
+  const after = ((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
   const key = (b: Block) => JSON.stringify([b.id, b.house, b.start, b.end, b.type, b.note ?? ''])
   const added = after.filter(b => !before.some(x => key(x) === key(b)))
   const removed = before.filter(b => !after.some(x => x.id === b.id))
   if (!added.length && !removed.length) return
-  const cal = await calendarId()
+  const cal = await writeCalendarId()
   if (!cal) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const date = event.params.date
@@ -152,19 +162,26 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
   } catch (e) { logger.warn('Calendar copy failed for blocks on', date, String(e)) }
 })
 
-// Schedule team: test the shared-calendar connection (writes and removes one test event).
+// Schedule team: test the shared-calendar connection. Before launch (copying off) it only READS, so nothing is
+// added to the calendar; after launch it writes and removes one test event.
 export const testCalendarLink = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'], { noAdmin: true })   // the connection itself: not admins (owner, Oct 19)
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   if (isEmulator()) return { ok: true, account: 'test-calendar@example.iam.gserviceaccount.com' }
   const account = (await auth.getCredentials()).client_email ?? ''
+  if (!(await writeCalendarId())) {
+    const token = (await (await auth.getClient()).getAccessToken()).token
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events?maxResults=1&timeMin=${encodeURIComponent(new Date().toISOString())}`, { headers: { Authorization: `Bearer ${token}` } })
+    if (!r.ok) throw new HttpsError('failed-precondition', `The app can't read that calendar yet. Share it with ${account} ("See all event details" is enough until launch). (${r.status}: ${(await r.text()).slice(0, 160)})`, { account })
+    return { ok: true, account, mode: 'read' }
+  }
   try {
     const id = `t${hex(String(Date.now()))}`
     const start = new Date(), end = new Date(start.getTime() + 30 * 60_000)
     await upsertEvent(cal, id, { summary: 'Prime Capitol connection test', start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } })
     await deleteEvent(cal, id)
-    return { ok: true, account }
+    return { ok: true, account, mode: 'write' }
   } catch (e) {
     throw new HttpsError('failed-precondition', `The app can't write to that calendar yet. Share it with ${account} ("Make changes to events"). (${String(e).slice(0, 160)})`, { account })
   }
@@ -241,26 +258,29 @@ export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, 
   for (const it of list) {
     const id = String(it?.id ?? '').slice(0, 200)
     if (!id) continue
+    let clash: string[] = []
     try {
       if (it.action === 'shoot') {
         const u = (await db.doc(`users/${String(it.email).toLowerCase()}`).get()).data()
         if (!u?.active) throw new Error('Pick who this shoot is for.')
         const place = (['cliff1', 'cliff2', 'offsite'].includes(it.house) ? it.house : 'cliff1') as Place
-        const end = place === 'offsite' ? Number(it.end) : Number(it.start) + s.slotMinutes
-        await placeShootAsTeam({ place, date: String(it.date), start: Number(it.start), end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
+        // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
+        const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
+        const r = await importShootAsTeam({ place, date: String(it.date), start, end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
           { email: String(it.email).toLowerCase(), name: u.name || it.email }, caller.email, { calendarEventId: id, importedFrom: 'google-calendar' })
+        if (typeof r !== 'string' && r.clashWith.length) clash = r.clashWith
       } else if (it.action === 'block') {
         const house = (it.house === 'cliff2' ? 'cliff2' : 'cliff1') as House
         const type = (Object.keys(BLOCK_TYPES).includes(it.type) ? it.type : 'other') as BlockType
-        const start = Math.max(0, Math.round(Number(it.start) / 30) * 30), end = Math.max(start + 30, Math.round(Number(it.end) / 30) * 30)
+        const start = Math.max(0, Number(it.start) || 0), end = Math.max(start + 1, Number(it.end) || 0)
         const ref = db.doc(`schedule_days/${it.date}`)
         await db.runTransaction(async tx => {
           const day = ((await tx.get(ref)).data() ?? {}) as ScheduleDay
-          tx.set(ref, { date: it.date, blocks: [...(day.blocks ?? []), { id: `g${id.slice(0, 7)}`, house, start, end, type, note: String(it.title ?? '').slice(0, 200), by: caller.email }] }, { merge: true })
+          tx.set(ref, { date: it.date, blocks: [...(day.blocks ?? []), { id: `g${id.slice(0, 7)}`, house, start, end, type, note: String(it.title ?? '').slice(0, 200), by: caller.email, imported: true }] }, { merge: true })
         })
       }
       await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', at: new Date().toISOString(), by: caller.email })
-      results.push({ id, ok: true })
+      results.push({ id, ok: true, ...(clash.length ? { message: `Imported · CLASH with ${clash.join(', ')}` } : {}) })
     } catch (e) { results.push({ id, ok: false, message: (e as Error).message }) }
   }
   return { results }
