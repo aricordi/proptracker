@@ -974,6 +974,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       PickupSignOff + ReturnForm, GearBooking pickup, Me, My requests, AI helper) and reuses BottomSheet, PieceChecklist,
       Pill, PhotoStrip, Avatar, RequestRow (new optional `onOpen`), BrandMark, GearArt. 36 steps. Only a small "Practice ·
       N%" pill under the status bar marks it. When one of those real screens changes a lot, update its tour scene too.
+      LIVE Oct 19 (backend run with the tourDoneAt rule + website run 24, owner OK): app tour on the live site.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
