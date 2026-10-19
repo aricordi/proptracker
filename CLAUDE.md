@@ -1014,6 +1014,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       touch screens inputs/textareas/selects are 16px (iPhone zooms on anything smaller; fixes the real app too).
       Choices no longer auto-advance: friend count (+1 / +2 friends, both work), picking friends (chips, × to remove),
       the day, adding a prop, ticking gear pieces and photos (tap to Retake) all end with Continue (disabled until done).
+      LIVE Oct 19 (website run 26, owner OK).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
