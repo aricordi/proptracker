@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
-import { functions } from '../firebase'
+import { functions, db } from '../firebase'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
@@ -12,6 +13,7 @@ interface Ev { id: string; title: string; location: string; date: string; startM
 interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; email: string; house: string; start: number; type: BlockType }
 const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[] }>(functions, 'previewCalendarImport')
 const apply = httpsCallable<{ items: unknown[] }, { results: { id: string; ok: boolean; message?: string }[] }>(functions, 'applyCalendarImport')
+const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow')
 const field = 'w-full bg-pt-bg border border-pt-border rounded-lg px-2 py-1.5 text-pt-text text-sm'
 
 // Import from the shared Google Calendar, as often as needed (owner, Oct 19: while testing, the team keeps adding
@@ -26,12 +28,19 @@ export default function CalendarImportScreen() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<Record<string, string>>({})
+  // The automatic check (every 15 minutes) already mirrors events changed or deleted in Google Calendar.
+  const [last, setLast] = useState<{ at?: string; changed?: number; removed?: number; error?: string } | null>(null)
+  useEffect(() => onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setLast(d.data() ?? null), () => {}), [])
+  const [checking, setChecking] = useState(false)
+  const [reload, setReload] = useState(0)
+  async function runCheck() { setChecking(true); try { await checkNow({}) } catch (e) { setErr(errorText(e)) } finally { setChecking(false); setReload(n => n + 1) } }
   useEffect(() => {
+    setEvents(null)
     preview({}).then(r => {
       setEvents(r.data.events); setPeople(r.data.people)
       setRows(Object.fromEntries(r.data.events.map(e => [e.id, { action: e.guess.action as Row['action'], email: e.guess.email, house: e.guess.house, start: e.guess.start, type: /clean/i.test(e.title) ? 'cleaners' : /airbnb|rental|guest/i.test(e.title) ? 'rental' : /event|party/i.test(e.title) ? 'event' : /maint|repair|plumb/i.test(e.title) ? 'maintenance' : 'other' }])))
     }).catch(e => setErr(errorText(e)))
-  }, [])
+  }, [reload])
   const set = (id: string, p: Partial<Row>) => setRows(r => ({ ...r, [id]: { ...r[id], ...p } }))
   const todo = (events ?? []).filter(e => !done[e.id])
   async function run() {
@@ -62,6 +71,10 @@ export default function CalendarImportScreen() {
       <div className="p-4 space-y-3">
         <p className="text-pt-muted text-sm">Run this whenever someone adds or changes events straight in Google Calendar. It shows <b>new</b> events, ones <b>changed</b> there since the last import, and ones <b>deleted</b> there. For each, choose a shoot (who and which house), blocked time, or skip. Our guesses are filled in.</p>
         <p className="text-pt-muted text-sm">Nothing in Google Calendar is ever changed. Every event keeps its <b>real hours</b> (2:30–5 PM stays 2:30–5 PM and holds the slots it touches). Old events that overlap at the same house are still imported, marked <span className="text-red-300 font-semibold">Clash</span>.</p>
+        <div className="flex items-center gap-3 bg-pt-surface rounded-2xl px-4 py-3">
+          <span className="flex-1 min-w-0 text-pt-muted text-xs">Checked automatically every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.changed || last?.removed ? ` · followed ${last.changed ?? 0} change${last.changed === 1 ? '' : 's'}, ${last.removed ?? 0} deletion${last.removed === 1 ? '' : 's'}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
+          <button disabled={checking} onClick={runCheck} className="shrink-0 text-pt-accent text-sm tap disabled:opacity-40">{checking ? 'Checking…' : 'Check now'}</button>
+        </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {!events && !err && <p className="text-pt-muted text-sm">Reading the calendar…</p>}
         {events && events.length === 0 && <p className="text-pt-muted text-sm">Nothing left to import.</p>}

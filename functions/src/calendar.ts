@@ -6,6 +6,7 @@
 //    (one-way; the app stays the source of truth). Off until the team pastes the calendar's ID in
 //    Schedule → Settings and shares that calendar with the app's server account.
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https'
+import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
 import { GoogleAuth } from 'google-auth-library'
@@ -265,6 +266,12 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
   await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
+  const { events, people } = await scanCalendar(cal)
+  return { events, people }
+})
+
+// Read the shared calendar (never writes) and compare with what was imported before.
+async function scanCalendar(cal: string) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const people = (await db.collection('users').where('active', '==', true).get()).docs.map(u => ({ email: u.id, name: String(u.get('name') || u.id) }))
   // What was imported before, with a snapshot of the event then (owner, Oct 19: the team keeps adding events straight
@@ -307,17 +314,17 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
     if (was.action === 'skip' || (was.date && same(base, was))) continue
     const g = guessImport(base, people, s.slots)
     events.push({ ...base, kind: 'changed', was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
-      guess: { ...g, action: was.action, email: was.email || g.email, house: was.house || g.house } })
+      guess: { ...g, action: was.action, email: was.email || g.email, house: was.house || g.house, type: was.type } })
   }
   // Deleted (or moved out of view) in Google Calendar: still on the app's schedule.
   const today = todayInStudio()
   for (const [id, was] of imports) {
     if (seen.has(id) || was.action === 'skip' || was.removed || !was.date || was.date < today) continue
     events.push({ id, title: was.title ?? '(no title)', location: was.location ?? '', date: was.date, startMin: was.startMin, endMin: was.endMin, kind: 'removed',
-      guess: { action: 'remove', email: was.email ?? '', house: was.house ?? 'cliff1', start: was.startMin } })
+      guess: { action: 'remove', email: was.email ?? '', house: was.house ?? 'cliff1', start: was.startMin }, wasAction: was.action })
   }
-  return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)) }
-})
+  return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)), imports }
+}
 
 async function removeImportedBlock(date: string, blockId: string) {
   const ref = db.doc(`schedule_days/${date}`)
@@ -332,6 +339,12 @@ async function removeImportedBlock(date: string, blockId: string) {
 export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const list = Array.isArray(req.data?.items) ? req.data.items.slice(0, 500) : []
+  return { results: await applyImports(list, caller.email) }
+})
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function applyImports(list: any[], by: string) {
+  const caller = { email: by }
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const results: { id: string; ok: boolean; message?: string }[] = []
   for (const it of list) {
@@ -375,12 +388,46 @@ export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, 
           const day = ((await tx.get(ref)).data() ?? {}) as ScheduleDay
           tx.set(ref, { date: it.date, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note: String(it.title ?? '').slice(0, 200), by: caller.email, imported: true }] }, { merge: true })
         })
-        saved = { blockId, house }
+        saved = { blockId, house, type }
       }
       // Remember the event as it is now, so the next import can tell if it changed in Google Calendar.
       await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', ...snapshot, ...saved, at: new Date().toISOString(), by: caller.email })
       results.push({ id, ok: true, ...(clash.length ? { message: `Imported · CLASH with ${clash.join(', ')}` } : {}) })
     } catch (e) { results.push({ id, ok: false, message: (e as Error).message }) }
   }
-  return { results }
+  return results
+}
+
+// Every 15 minutes (owner, Oct 19; Cloud Scheduler, 3rd job, within the free 3): read the shared calendar. Events that
+// were imported and then CHANGED or DELETED in Google Calendar (by a person) are mirrored in the app straight away.
+// NEW events need a person to say who/which house, so they only wait on the import screen (counted for the banner).
+// Never writes anything to Google Calendar.
+export async function runCalendarCheck() {
+  const cal = await calendarId()
+  if (!cal) return null
+  const status = db.doc('app_settings/calendarCheck')
+  try {
+    const { events } = await scanCalendar(cal) as { events: any[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
+    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed').map(e => e.kind === 'removed'
+      ? { id: e.id, action: 'remove', date: e.date }
+      : { id: e.id, action: e.guess.action, email: e.guess.email, house: e.guess.house, type: e.guess.type, date: e.date, start: e.startMin, end: e.endMin, title: e.title, location: e.location, where: e.location || e.title })
+    const results = auto.length ? await applyImports(auto, 'calendar check') : []
+    const out = { at: new Date().toISOString(), newEvents: events.filter(e => e.kind === 'new').length,
+      changed: auto.filter(a => a.action !== 'remove').length, removed: auto.filter(a => a.action === 'remove').length,
+      failed: results.filter(r => !r.ok).map(r => `${r.id}: ${r.message ?? ''}`).slice(0, 10), error: '' }
+    await status.set(out)
+    return out
+  } catch (e) {
+    await status.set({ at: new Date().toISOString(), error: String((e as Error).message).slice(0, 300) }, { merge: true })
+    throw e
+  }
+}
+export const calendarCheck = onSchedule({ schedule: 'every 15 minutes', timeZone: 'America/Toronto', timeoutSeconds: 300 }, async () => {
+  try { await runCalendarCheck() } catch (e) { logger.warn('Calendar check failed', String(e)) }
+})
+
+// "Check now" on the import screen (same as the 15-minute check).
+export const checkCalendarNow = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
+  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  return (await runCalendarCheck()) ?? { error: 'Paste the Google Calendar ID in Schedule settings first.' }
 })

@@ -278,7 +278,7 @@ service cloud.firestore {
     }
 
     match /app_settings/{id} {
-      allow read: if isMember() || (id == 'schedule' && isGearStaff());
+      allow read: if isMember() || (id in ['schedule', 'calendarCheck'] && isGearStaff());
       allow write: if isOwner()
         || (isStaff() && id == 'booking'
             && request.resource.data.keys().hasOnly(['leadTimeDays', 'buildLeadDays', 'bufferDays', 'maxDays', 'closedWeekdays', 'closedDates', 'updatedAt', 'updatedBy'])

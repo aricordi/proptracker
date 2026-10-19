@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
-import { functions } from '../firebase'
+import { functions, db } from '../firebase'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { takePendingAdds, peekPendingAdds, useEarliestDayFor, useAddToShoot } from '../activeShoot'
 import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
@@ -66,8 +67,12 @@ export default function ScheduleScreen() {
   const addToShoot = useAddToShoot()
   // Schedule team: changes Google Calendar refused (to retry).
   const [calWaiting, setCalWaiting] = useState(0)
+  const [calNew, setCalNew] = useState(0)
   useEffect(() => {
-    if ((role === 'owner' || role === 'equipment') && s.googleCalendarId) calendarPending({}).then(r => setCalWaiting(r.data.pending.length)).catch(() => {})
+    if (!((role === 'owner' || role === 'equipment') && s.googleCalendarId)) return
+    calendarPending({}).then(r => setCalWaiting(r.data.pending.length)).catch(() => {})
+    // The 15-minute calendar check counts new events added straight in Google Calendar, waiting to be sorted.
+    return onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setCalNew(Number(d.get('newEvents') ?? 0)), () => {})
   }, [role, s.googleCalendarId])
   const booked = (id: string) => {
     const pending = takePendingAdds()
@@ -152,6 +157,11 @@ export default function ScheduleScreen() {
         )}
 
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
+        {calNew > 0 && (
+          <button onClick={() => navigate('/schedule/import')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 bg-sky-400/10 text-left shadow-[inset_0_0_0_0.5px_rgba(56,189,248,0.4)]">
+            <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calNew} new event{calNew === 1 ? '' : 's'} in Google Calendar to sort</span><span className="text-pt-muted">›</span>
+          </button>
+        )}
         {calWaiting > 0 && (
           <button onClick={() => navigate('/schedule/calendar')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 bg-sky-400/10 text-left shadow-[inset_0_0_0_0.5px_rgba(56,189,248,0.4)]">
             <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calWaiting} change{calWaiting === 1 ? '' : 's'} couldn't reach Google Calendar · try again</span><span className="text-pt-muted">›</span>

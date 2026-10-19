@@ -148,3 +148,23 @@ describe('importing again', () => {
   })
 })
 
+describe('automatic calendar check', () => {
+  it('follows changes and deletions of imported events by itself, and counts new ones for a person to sort', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    const ev = (id: string, start: string, end: string) => ({ id, summary: 'Ana - Cliff 1', start: { dateTime: `${FRI}T${start}:00-04:00` }, end: { dateTime: `${FRI}T${end}:00-04:00` } })
+    await put('test_calendar/events', { items: [ev('a1', '13:00', '15:00')] })
+    await call('applyCalendarImport', { items: [{ id: 'a1', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 1' }] }, MAANIK)
+    // Moved in Google Calendar + a brand-new event added there.
+    await put('test_calendar/events', { items: [ev('a1', '17:00', '19:00'), ev('new1', '09:00', '11:00')] })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result).toMatchObject({ changed: 1, removed: 0, newEvents: 1 })
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.cliff1['780']).toBeUndefined()
+    expect(d.cliff1['1020'].email).toBe(ANA)
+    expect(d.cliff1['540']).toBeUndefined()   // the new one waits for a person
+    expect((await getDoc('app_settings/calendarCheck'))!.newEvents).toBe(1)
+    expect((await call('checkCalendarNow', {}, ANA)).error).toBe('PERMISSION_DENIED')
+  })
+})
+
