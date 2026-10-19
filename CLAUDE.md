@@ -968,6 +968,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       App.tsx `TourGate` (realRole creator, not View as) shows the tour until done; `/tour` replays it (✕ closes, ends on
       /account); Me → "App tour"; Help "Can I practise first?". BottomNav exports TAB_ICONS for the tour's tab bar.
       Note: existing creators will also get it once on their next open (they haven't done it).
+      LOOK-ALIKE PASS (owner, Oct 19: "as identical to the current app as possible"): every scene now copies the real
+      screen's markup (Home header + next-shoot card, Schedule + FindSheet / BookSheet "Book it" / ShootSheet + OnTheDay,
+      Browse + ItemCard tile, gear shop tile + hours, ReserveScreen, ReservationDetail "You're booked ✓" + Journey +
+      PickupSignOff + ReturnForm, GearBooking pickup, Me, My requests, AI helper) and reuses BottomSheet, PieceChecklist,
+      Pill, PhotoStrip, Avatar, RequestRow (new optional `onOpen`), BrandMark, GearArt. 36 steps. Only a small "Practice ·
+      N%" pill under the status bar marks it. When one of those real screens changes a lot, update its tour scene too.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

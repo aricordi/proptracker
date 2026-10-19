@@ -42,14 +42,14 @@ function useLinked(shoot: Shoot, props: boolean, gear: boolean) {
 }
 
 // One props request or gear booking with its progress bar; tap opens it. Also used by My requests.
-export function RequestRow({ l, label, late, className = 'bg-pt-surface' }: { l: Linked; label?: string; late?: boolean; className?: string }) {
+export function RequestRow({ l, label, late, className = 'bg-pt-surface', onOpen }: { l: Linked; label?: string; late?: boolean; className?: string; onOpen?: () => void }) {
   const navigate = useNavigate()
   const kind = l.kind
   const steps = kind === 'props' ? PROP_STEPS : GEAR_STEPS
   const at = steps.indexOf(l.status === 'return_pending' ? 'returned' : l.status)
   const over = ['cancelled', 'declined'].includes(l.status)
   return (
-    <button onClick={() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`)}
+    <button onClick={onOpen ?? (() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`))}
       className={`w-full ${className} rounded-lg px-3 py-3 text-left space-y-2`}>
       <span className="flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-pt-text text-sm">{label ?? l.title} · {l.count} {kind === 'props' ? (l.count === 1 ? 'prop' : 'props') : 'item' + (l.count === 1 ? '' : 's')}</span>
