@@ -780,6 +780,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - NOTIFICATIONS NUDGE FIX (owner, Oct 19: "Turn on" stayed after turning on; "Not now" off-centre): Home nudge now shows
       "Turning on…" and the error if it fails (it was hidden before), getToken times out after 20 s with a clear message,
       refreshPush also finishes sign-up for phones that allowed notifications but have no saved token; "Not now" centred.
+      Owner: turning on WORKED but the prompt stayed → pushState trusts the saved token unless permission is 'denied'
+      (iPhone home-screen apps can report 'default' after a relaunch); Home prompt + Me card sync via PUSH_CHANGED event +
+      visibilitychange; once on, the Home prompt is dismissed for good.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

@@ -1,8 +1,8 @@
 // Turning phone notifications on: the card on Me, the short prompt on Home, and the iPhone
 // "Add to Home Screen" guide (iPhone only allows notifications in the app on the Home Screen).
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import BottomSheet from './BottomSheet'
-import { pushState, turnOnPush, turnOffPush, testPush, isIOS, type PushState } from '../services/push'
+import { pushState, turnOnPush, turnOffPush, testPush, isIOS, PUSH_CHANGED, type PushState } from '../services/push'
 import { errorText } from '../services/schedule'
 
 const bell = (
@@ -15,6 +15,13 @@ function usePush() {
   const [state, setState] = useState<PushState>(() => pushState())
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  // Stay in step with the other notification controls and with the phone's settings.
+  useEffect(() => {
+    const sync = () => setState(pushState())
+    window.addEventListener(PUSH_CHANGED, sync)
+    document.addEventListener('visibilitychange', sync)
+    return () => { window.removeEventListener(PUSH_CHANGED, sync); document.removeEventListener('visibilitychange', sync) }
+  }, [])
   async function on() {
     setBusy(true); setMsg('')
     try { setState(await turnOnPush()) } catch (e) { setMsg(errorText(e)) } finally { setBusy(false) }
@@ -68,6 +75,10 @@ export function NotificationsNudge() {
   const p = usePush()
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem(DISMISS) === '1' } catch { return false } })
   const [guide, setGuide] = useState(false)
+  // Once notifications are on, the prompt never comes back (turning them off again is on Me).
+  useEffect(() => {
+    if (p.state === 'on') { try { localStorage.setItem(DISMISS, '1') } catch { /* private mode */ } setHidden(true) }
+  }, [p.state])
   if (hidden || !(p.state === 'off' || p.state === 'needs-install')) return null
   const dismiss = () => { try { localStorage.setItem(DISMISS, '1') } catch { /* private mode */ } setHidden(true) }
   return (

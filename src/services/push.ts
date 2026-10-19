@@ -11,8 +11,13 @@ export const testPush = httpsCallable<void, { sent: number }>(functions, 'testPu
 const KEY = 'pc-push-token'
 const store = {
   get: () => { try { return localStorage.getItem(KEY) } catch { return null } },
-  set: (v: string | null) => { try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY) } catch { /* private mode */ } },
+  set: (v: string | null) => {
+    try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY) } catch { /* private mode */ }
+    window.dispatchEvent(new Event(PUSH_CHANGED))
+  },
 }
+// Fired whenever this phone's notifications change, so the Home prompt and the Me card stay in step.
+export const PUSH_CHANGED = 'pc-push-changed'
 
 export const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
 export const isInstalled = () => matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
@@ -24,7 +29,7 @@ export function pushState(): PushState {
   const hasApi = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window
   if (!hasApi) return isIOS() && !isInstalled() ? 'needs-install' : 'unsupported'
   if (Notification.permission === 'denied') return 'blocked'
-  if (Notification.permission === 'granted' && store.get()) return 'on'
+  if (store.get()) return 'on'
   return 'off'
 }
 
