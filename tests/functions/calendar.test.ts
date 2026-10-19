@@ -98,28 +98,22 @@ describe('importing the existing calendar', () => {
   })
 })
 
-describe('calendar changes need approval', () => {
-  it('a booking only queues a change; send puts it in, cancel queues a removal; imported shoots never queue', async () => {
+describe('shared calendar copies', () => {
+  it('a booking goes in right away, a cancel takes it out; old imported events are never touched', async () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
     const b = await call('bookShoot', { place: 'cliff1', date: FRI, start: 780 }, ANA)
     expect(b.ok, b.message).toBe(true)
-    const pend = async () => (await call('calendarPending', {}, MAANIK)).result
-    await waitFor(async () => (await pend()).pending.length === 1)
-    const p = (await pend()).pending[0]
-    expect(p.change).toBe('add')
+    const cal = async () => (await call('calendarPending', {}, MAANIK)).result
+    await waitFor(async () => (await cal()).sent.length === 1)
+    expect((await cal()).pending).toHaveLength(0)
     expect((await call('calendarPending', {}, ANA)).error).toBe('PERMISSION_DENIED')
-    // Approve it.
-    expect((await call('applyCalendarChanges', { ids: [p.eventId], action: 'send' }, MAANIK)).result.results[0].ok).toBe(true)
-    const after = await pend()
-    expect(after.pending).toHaveLength(0)
-    expect(after.sent.map((x: { eventId: string }) => x.eventId)).toContain(p.eventId)
-    // Cancel → a removal waits for approval.
+    // Cancel → out of the calendar.
     await call('cancelShoot', { id: b.result.id }, MAANIK)
-    await waitFor(async () => (await pend()).pending.some((x: { change: string }) => x.change === 'remove'))
-    // An old imported event never queues anything.
+    await waitFor(async () => (await cal()).sent.length === 0)
+    // An old imported event never goes through the app's copy.
     await call('applyCalendarImport', { items: [{ id: 'old1', action: 'shoot', email: BEN, house: 'cliff2', date: FRI, start: 870, end: 1020 }] }, MAANIK)
     await new Promise(r => setTimeout(r, 2500))
-    expect((await pend()).pending.filter((x: { label: string }) => /Ben/.test(x.label))).toHaveLength(0)
+    const c = await cal()
+    expect([...c.sent, ...c.pending].filter((x: { label: string }) => /Ben/.test(x.label))).toHaveLength(0)
   })
 })
-

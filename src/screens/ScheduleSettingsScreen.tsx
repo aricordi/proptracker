@@ -199,7 +199,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: s
       </div>
       {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm tap">Open Google Cloud → tap Enable ›</a>)}
       {step(2, 'Share the calendar with the app', <>
-        <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → <b>"Make changes to events"</b>. (The app only ever changes events it added itself, and only when you approve.)</p>
+        <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → <b>"Make changes to events"</b>. (The app only ever changes events it added itself.)</p>
         {account
           ? <button onClick={copy} className="w-full text-left bg-pt-bg rounded-xl px-3 py-2 text-[13px] text-pt-text break-all">{account} <span className="text-pt-accent font-semibold">{copied ? ' Copied ✓' : ' Copy'}</span></button>
           : <p className="text-pt-muted text-xs">Tap Test below to see the address.</p>}
@@ -212,8 +212,8 @@ function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: s
         <button disabled={busy || !id} onClick={test} className="bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Testing…' : 'Save & test'}</button>
         {msg && <p className={`text-sm ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>}
       </>)}
-      <p className="text-pt-muted text-xs border-t border-pt-border pt-3">Nothing goes to the calendar by itself: every booking, move, cancel and blocked time made in the app waits in <b>Calendar changes to approve</b> until you send it. Events that were already in the calendar (the old ones you import) are never changed or deleted by the app.</p>
-      <button onClick={onApprove} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Calendar changes to approve ›</button>
+      <p className="text-pt-muted text-xs border-t border-pt-border pt-3">From then on, every booking, move, cancel and blocked time made in the app is added to the calendar right away. The app never moves anything by itself, and events that were already in the calendar (the old ones you import) are never changed or deleted.</p>
+      <button onClick={onApprove} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">What the app has added ›</button>
       <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Bring in what's already in the calendar ›</button>
     </section>
   )

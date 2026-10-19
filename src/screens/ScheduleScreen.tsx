@@ -64,7 +64,7 @@ export default function ScheduleScreen() {
   // After booking: if things were picked for a new shoot (✦ Prop ideas), put them in it and review it.
   const navigate = useNavigate()
   const addToShoot = useAddToShoot()
-  // Schedule team: Google Calendar changes waiting for approval (nothing is sent by itself).
+  // Schedule team: changes Google Calendar refused (to retry).
   const [calWaiting, setCalWaiting] = useState(0)
   useEffect(() => {
     if ((role === 'owner' || role === 'equipment') && s.googleCalendarId) calendarPending({}).then(r => setCalWaiting(r.data.pending.length)).catch(() => {})
@@ -154,7 +154,7 @@ export default function ScheduleScreen() {
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
         {calWaiting > 0 && (
           <button onClick={() => navigate('/schedule/calendar')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 bg-sky-400/10 text-left shadow-[inset_0_0_0_0.5px_rgba(56,189,248,0.4)]">
-            <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calWaiting} calendar change{calWaiting === 1 ? '' : 's'} to approve</span><span className="text-pt-muted">›</span>
+            <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calWaiting} change{calWaiting === 1 ? '' : 's'} couldn't reach Google Calendar · try again</span><span className="text-pt-muted">›</span>
           </button>
         )}
         <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>

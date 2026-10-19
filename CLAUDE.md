@@ -874,6 +874,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Don't send; "In the calendar from the app" → Remove), linked from Schedule settings and a blue "N calendar changes
       to approve" banner on Schedule (owner/equipment). testCalendarLink = write+delete a test event (a tap). Sharing =
       "Make changes to events". Tests 389. NOT deployed (backend + website, ask).
+      → CORRECTED (owner, same day): "bookings don't queue for approval, they're instantly approved; I just mean the app
+      doesn't auto-move stuff without human involvement". So: every change a PERSON makes (book, move, cancel, block) goes
+      to the calendar RIGHT AWAY (`sendNow` → `pushEvent` re-reads the current booking/block; `calendar_sent` records
+      it); if Google refuses (not shared, API off) it waits in `calendar_outbox` with the error and the team retries/drops
+      it on the screen (now titled "Google Calendar": "Couldn't send" + "In the calendar from the app" with Remove). The
+      Schedule banner only shows failed ones. Imported events are still never touched; the app has no automatic moving.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

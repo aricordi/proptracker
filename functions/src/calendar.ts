@@ -107,38 +107,68 @@ async function deleteEvent(cal: string, id: string) {
 
 const when = (st: string) => ({ dateTime: `${st}:00`, timeZone: 'America/Toronto' })
 
-// Owner (Oct 19): the app may add, change and delete ITS OWN events in the shared calendar, but never by itself:
-// every booking, move, cancel or blocked time only queues a change in `calendar_outbox` (one per Google event, the
-// latest state wins). The schedule team reviews the list and taps Send (or Don't send). Events that came from the
-// old calendar (imported shoots and blocks) are never queued, so the app can never touch them. Only event IDs the
-// app makes itself ('s…' / 'b…') are ever written. `calendar_sent/{eventId}` = what's in the calendar from the app.
+// Owner (Oct 19): bookings are instant and so is the calendar: whenever a PERSON books, moves, cancels or blocks time
+// in the app, its own event in the shared calendar is added/changed/removed right away. The app never moves anything
+// by itself, and events that came from the old calendar (imported shoots and blocks) are never touched. Only event IDs
+// the app makes itself ('s…' / 'b…') are ever written. `calendar_sent/{eventId}` = what's in the calendar from the
+// app (the team can take any of them back out); if Google refuses a change it waits in `calendar_outbox` to retry.
 type Pending = { kind: 'shoot'; shootId: string } | { kind: 'block'; date: string; blockId: string }
 const outbox = (eventId: string) => db.doc(`calendar_outbox/${eventId}`)
 const sentDoc = (eventId: string) => db.doc(`calendar_sent/${eventId}`)
-
-async function queue(eventId: string, ref: Pending, label: string, removing: boolean) {
-  const wasSent = (await sentDoc(eventId).get()).exists
-  // Removing something that never reached the calendar: nothing to do.
-  if (removing && !wasSent) { await outbox(eventId).delete(); return }
-  await outbox(eventId).set({ ...ref, eventId, label, change: removing ? 'remove' : wasSent ? 'update' : 'add', at: new Date().toISOString() })
-}
 
 const shootLabel = (sh: Record<string, any>, s: ReturnType<typeof cleanScheduleSettings>) => {
   const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
   return `${sh.creatorName} · ${house ? house.name : sh.where || 'Offsite'} · ${sh.date} ${sh.from?.slice(11, 16)}–${sh.to?.slice(11, 16)}`
 }
 
+// Put the CURRENT state of one app booking/block into the calendar (or take it out if it's gone).
+async function pushEvent(cal: string, eventId: string, ref: Pending, label: string, by: string) {
+  const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  let ev: Record<string, unknown> | null = null
+  if (ref.kind === 'shoot') {
+    const sh = (await db.doc(`shoots/${ref.shootId}`).get()).data()
+    if (sh && (sh.importedFrom || sh.calendarEventId)) return   // an old calendar event: never touched
+    if (sh && sh.status === 'booked') {
+      const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
+      ev = { summary: `${sh.creatorName} · ${house ? house.name : 'Offsite'}`, location: house ? house.address : sh.where,
+        description: `${sh.kind === 'offsite' ? 'Offsite shoot' : 'House slot'} · booked in Prime Capitol (changes made here are not copied back)`,
+        start: when(sh.from), end: when(sh.to) }
+    }
+  } else {
+    const b = (((await db.doc(`schedule_days/${ref.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === ref.blockId) as (Block & { imported?: boolean }) | undefined
+    if (b?.imported) return
+    if (b) {
+      const from = stamp(ref.date, b.start)
+      ev = { summary: `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
+        location: s.houses[b.house].address, description: 'Blocked time · set in Prime Capitol', start: when(from), end: when(addMinutes(from, b.end - b.start)) }
+    }
+  }
+  if (!ev && !(await sentDoc(eventId).get()).exists) { await outbox(eventId).delete(); return }   // never reached the calendar
+  if (!isEmulator()) { if (ev) await upsertEvent(cal, eventId, ev); else await deleteEvent(cal, eventId) }
+  if (ev) await sentDoc(eventId).set({ label, at: new Date().toISOString(), by })
+  else await sentDoc(eventId).delete()
+  await outbox(eventId).delete()
+}
+// Right away; if Google refuses (calendar not shared yet, API off…), keep it to retry from the Calendar screen.
+async function sendNow(eventId: string, ref: Pending, label: string, by: string) {
+  const cal = await calendarId()
+  if (!cal) return
+  try { await pushEvent(cal, eventId, ref, label, by) }
+  catch (e) {
+    logger.warn('Calendar copy failed', eventId, String(e))
+    await outbox(eventId).set({ ...ref, eventId, label, error: String((e as Error).message).slice(0, 200), at: new Date().toISOString() })
+  }
+}
+
 export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event => {
   const after = event.data?.after.data()
   const shoot = after ?? event.data?.before.data()
-  // Imported from Google Calendar: that event belongs to the calendar, the app never changes or deletes it.
-  if (!shoot || shoot.importedFrom || shoot.calendarEventId) return
+  if (!shoot || shoot.importedFrom || shoot.calendarEventId) return   // old calendar event: never touched
   const before = event.data?.before.data()
   const what = (x?: Record<string, any>) => x && x.status === 'booked' ? JSON.stringify([x.place, x.from, x.to, x.where, x.creatorName]) : ''
   if (what(before) === what(after)) return   // nothing the calendar shows has changed (e.g. a check-in)
-  if (!(await calendarId())) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-  await queue(shootEventId(event.params.id), { kind: 'shoot', shootId: event.params.id }, shootLabel(shoot, s), !after || after.status !== 'booked')
+  await sendNow(shootEventId(event.params.id), { kind: 'shoot', shootId: event.params.id }, shootLabel(shoot, s), String(shoot.updatedBy ?? shoot.bookedBy ?? ''))
 })
 
 export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', async event => {
@@ -146,26 +176,24 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
   const before = ((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
   const after = ((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
   const key = (b: Block) => JSON.stringify([b.id, b.house, b.start, b.end, b.type, b.note ?? ''])
-  const added = after.filter(b => !before.some(x => key(x) === key(b)))
-  const removed = before.filter(b => !after.some(x => x.id === b.id))
-  if (!added.length && !removed.length) return
-  if (!(await calendarId())) return
+  const changed = [...after.filter(b => !before.some(x => key(x) === key(b))), ...before.filter(b => !after.some(x => x.id === b.id))]
+  if (!changed.length) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const date = event.params.date
-  const label = (b: Block) => `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name} · ${date}`
-  for (const b of removed) await queue(blockEventId(date, b.id), { kind: 'block', date, blockId: b.id }, label(b), true)
-  for (const b of added) await queue(blockEventId(date, b.id), { kind: 'block', date, blockId: b.id }, label(b), false)
+  for (const b of changed) {
+    await sendNow(blockEventId(date, b.id), { kind: 'block', date, blockId: b.id },
+      `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name} · ${date}`, String((b as Block & { by?: string }).by ?? ''))
+  }
 })
 
-// The changes waiting for approval (oldest first) and what the app has put in the calendar.
+// What the app has put in the calendar, and any change Google refused (to retry).
 export const calendarPending = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const [p, sent] = await Promise.all([db.collection('calendar_outbox').orderBy('at').limit(300).get(), db.collection('calendar_sent').orderBy('at', 'desc').limit(300).get()])
   return { pending: p.docs.map(d => d.data()), sent: sent.docs.map(d => ({ eventId: d.id, label: d.get('label'), at: d.get('at') })) }
 })
 
-// Send (or drop) the chosen changes, or take app events back out of the calendar. Re-reads the CURRENT booking, so
-// what's sent is always up to date. Only the app's own event IDs are ever written.
+// A tap from the team: retry ('send') or drop ('discard') failed changes, or take app events back out ('remove').
 export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
   const action = req.data?.action
@@ -173,39 +201,18 @@ export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 },
   if (!['send', 'discard', 'remove'].includes(action) || !ids.length) throw new HttpsError('invalid-argument', 'Pick what to send.')
   const cal = await calendarId()
   if (!cal && action !== 'discard') throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
-  const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const results: { eventId: string; ok: boolean; message?: string }[] = []
   for (const eventId of ids) {
     try {
-      if (action === 'discard') { await outbox(eventId).delete(); results.push({ eventId, ok: true }); continue }
-      if (action === 'remove') {
+      if (action === 'discard') await outbox(eventId).delete()
+      else if (action === 'remove') {
         if (!isEmulator()) await deleteEvent(cal, eventId)
         await sentDoc(eventId).delete(); await outbox(eventId).delete()
-        results.push({ eventId, ok: true }); continue
-      }
-      const p = (await outbox(eventId).get()).data() as (Pending & { label: string }) | undefined
-      if (!p) { results.push({ eventId, ok: false, message: 'Already handled.' }); continue }
-      let ev: Record<string, unknown> | null = null
-      if (p.kind === 'shoot') {
-        const sh = (await db.doc(`shoots/${p.shootId}`).get()).data()
-        if (sh && sh.status === 'booked' && !sh.importedFrom && !sh.calendarEventId) {
-          const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
-          ev = { summary: `${sh.creatorName} · ${house ? house.name : 'Offsite'}`, location: house ? house.address : sh.where,
-            description: `${sh.kind === 'offsite' ? 'Offsite shoot' : 'House slot'} · booked in Prime Capitol (changes made here are not copied back)`,
-            start: when(sh.from), end: when(sh.to) }
-        }
       } else {
-        const b = (((await db.doc(`schedule_days/${p.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === p.blockId) as (Block & { imported?: boolean }) | undefined
-        if (b && !b.imported) {
-          const from = stamp(p.date, b.start)
-          ev = { summary: `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
-            location: s.houses[b.house].address, description: 'Blocked time · set in Prime Capitol', start: when(from), end: when(addMinutes(from, b.end - b.start)) }
-        }
+        const p = (await outbox(eventId).get()).data() as (Pending & { label: string }) | undefined
+        if (!p) { results.push({ eventId, ok: false, message: 'Already handled.' }); continue }
+        await pushEvent(cal, eventId, p, p.label, caller.email)
       }
-      if (!isEmulator()) { if (ev) await upsertEvent(cal, eventId, ev); else await deleteEvent(cal, eventId) }
-      if (ev) await sentDoc(eventId).set({ label: p.label, at: new Date().toISOString(), by: caller.email })
-      else await sentDoc(eventId).delete()
-      await outbox(eventId).delete()
       results.push({ eventId, ok: true })
     } catch (e) { results.push({ eventId, ok: false, message: String((e as Error).message).slice(0, 200) }) }
   }
