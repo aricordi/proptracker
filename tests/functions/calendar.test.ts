@@ -1,6 +1,6 @@
 // "Add to my calendar" links: a private feed of your shoots (the team's lists everyone's).
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, waitFor, clearDatabase } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com'
@@ -97,3 +97,29 @@ describe('importing the existing calendar', () => {
     expect((await getDoc(`shoots/${ana}`))!.start).toBe(870)
   })
 })
+
+describe('calendar changes need approval', () => {
+  it('a booking only queues a change; send puts it in, cancel queues a removal; imported shoots never queue', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    const b = await call('bookShoot', { place: 'cliff1', date: FRI, start: 780 }, ANA)
+    expect(b.ok, b.message).toBe(true)
+    const pend = async () => (await call('calendarPending', {}, MAANIK)).result
+    await waitFor(async () => (await pend()).pending.length === 1)
+    const p = (await pend()).pending[0]
+    expect(p.change).toBe('add')
+    expect((await call('calendarPending', {}, ANA)).error).toBe('PERMISSION_DENIED')
+    // Approve it.
+    expect((await call('applyCalendarChanges', { ids: [p.eventId], action: 'send' }, MAANIK)).result.results[0].ok).toBe(true)
+    const after = await pend()
+    expect(after.pending).toHaveLength(0)
+    expect(after.sent.map((x: { eventId: string }) => x.eventId)).toContain(p.eventId)
+    // Cancel → a removal waits for approval.
+    await call('cancelShoot', { id: b.result.id }, MAANIK)
+    await waitFor(async () => (await pend()).pending.some((x: { change: string }) => x.change === 'remove'))
+    // An old imported event never queues anything.
+    await call('applyCalendarImport', { items: [{ id: 'old1', action: 'shoot', email: BEN, house: 'cliff2', date: FRI, start: 870, end: 1020 }] }, MAANIK)
+    await new Promise(r => setTimeout(r, 2500))
+    expect((await pend()).pending.filter((x: { label: string }) => /Ben/.test(x.label))).toHaveLength(0)
+  })
+})
+

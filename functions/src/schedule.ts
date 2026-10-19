@@ -24,9 +24,6 @@ export interface ScheduleSettings {
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
   slotsPerDay: number      // house slots a creator may book per day (Cliff 1 + Cliff 2 together); the team can add more
   googleCalendarId: string // shared Google Calendar the app copies bookings to ('' = off)
-  // Owner (Oct 19): OFF until the app officially launches. Off = the app only READS the calendar (import); it never
-  // adds, changes or removes anything there. On = new app bookings/blocks are copied in. Imported events are never touched.
-  calendarWrite: boolean
   checkinBefore: number    // check-in opens this many minutes before the start
   explainHours: number     // a missed check-in can be explained for this many hours after the end
   strikeCount: number      // this many strikes…
@@ -50,7 +47,6 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   noticeHours: 48,
   slotsPerDay: 1,          // owner, Oct 18: one 2-hour house slot a day; more only when the team books it
   googleCalendarId: '',
-  calendarWrite: false,
   checkinBefore: 15,
   explainHours: 12,
   strikeCount: 2,
@@ -92,7 +88,6 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
     slotsPerDay: int(x.slotsPerDay, 1, 9, D.slotsPerDay),
     googleCalendarId: str(x.googleCalendarId, 200),
-    calendarWrite: x.calendarWrite === true,
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     explainHours: int(x.explainHours, 0, 168, D.explainHours),
     strikeCount: int(x.strikeCount, 1, 20, D.strikeCount),

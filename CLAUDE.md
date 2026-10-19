@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 388 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 389 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -862,6 +862,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       clashWith + history "CLASH with X"; schedule row red "Clash · also X". Blocks keep exact minutes. takeOut now
       removes every slot of a shoot + its clash listing. Import screen: no slot picker (real hours), red "⚠ Clash" preview
       between selected events, "Imported · Clash" result. Tests 388 (calendar.test.ts).
+      → REPLACED the read-only switch (owner, Oct 19, same day): "the app is allowed to add to the calendar and read and
+      even change, but ONLY MANUALLY — no automated moving without discrete approval; I want to move/change/delete stuff
+      added by the app but not stuff from the old import". `calendarWrite` setting REMOVED. Triggers syncShootToCalendar /
+      syncBlocksToCalendar now only QUEUE a change in `calendar_outbox/{eventId}` (kind shoot|block, label, change
+      add|update|remove; one per event, latest wins; skipped for imported shoots/blocks; only when a calendar ID is set;
+      shoot changes that don't affect the event, e.g. check-in, are ignored). Callables (owner + equipment, not admins;
+      in deploy/log lists): `calendarPending` (pending + `calendar_sent` = what the app put in the calendar) and
+      `applyCalendarChanges({ids, action: send|discard|remove})` (re-reads the CURRENT booking; only app event ids
+      's…'/'b…' are ever written). Screen /schedule/calendar `CalendarSyncScreen` ("Calendar changes": tick → Send N /
+      Don't send; "In the calendar from the app" → Remove), linked from Schedule settings and a blue "N calendar changes
+      to approve" banner on Schedule (owner/equipment). testCalendarLink = write+delete a test event (a tap). Sharing =
+      "Make changes to events". Tests 389. NOT deployed (backend + website, ask).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

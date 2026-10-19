@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase'
 import { takePendingAdds, peekPendingAdds, useEarliestDayFor, useAddToShoot } from '../activeShoot'
 import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
@@ -22,6 +24,7 @@ import {
   houseSlotsOn, MONTHLY_SLOTS_ON,
 } from '../services/schedule'
 
+const calendarPending = httpsCallable<Record<string, never>, { pending: unknown[] }>(functions, 'calendarPending')
 const DAYS_SHOWN = 35
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const stampLabel = (s: string) => `${formatDay(s.slice(0, 10))}, ${fmtTime(Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16)))}`
@@ -61,6 +64,11 @@ export default function ScheduleScreen() {
   // After booking: if things were picked for a new shoot (✦ Prop ideas), put them in it and review it.
   const navigate = useNavigate()
   const addToShoot = useAddToShoot()
+  // Schedule team: Google Calendar changes waiting for approval (nothing is sent by itself).
+  const [calWaiting, setCalWaiting] = useState(0)
+  useEffect(() => {
+    if ((role === 'owner' || role === 'equipment') && s.googleCalendarId) calendarPending({}).then(r => setCalWaiting(r.data.pending.length)).catch(() => {})
+  }, [role, s.googleCalendarId])
   const booked = (id: string) => {
     const pending = takePendingAdds()
     if (pending && (pending.props.length + pending.gear.length + pending.builds.length)) { addToShoot(id, pending); navigate('/reserve') }
@@ -144,6 +152,11 @@ export default function ScheduleScreen() {
         )}
 
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
+        {calWaiting > 0 && (
+          <button onClick={() => navigate('/schedule/calendar')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 bg-sky-400/10 text-left shadow-[inset_0_0_0_0.5px_rgba(56,189,248,0.4)]">
+            <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calWaiting} calendar change{calWaiting === 1 ? '' : 's'} to approve</span><span className="text-pt-muted">›</span>
+          </button>
+        )}
         <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
         <div className="flex items-center gap-3 pt-3 pb-1 text-pt-muted text-xs uppercase tracking-wider"><span className="h-px flex-1 bg-pt-border" />or let AI find a time<span className="h-px flex-1 bg-pt-border" /></div>
         <button onClick={() => setChat(true)} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">

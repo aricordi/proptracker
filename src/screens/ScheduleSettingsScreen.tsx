@@ -94,7 +94,7 @@ export default function ScheduleSettingsScreen() {
 
         <CalendarSetup id={s.googleCalendarId} savedId={live.googleCalendarId}
           onId={v => set({ googleCalendarId: v })} save={save} onImport={() => navigate('/schedule/import')}
-          write={s.calendarWrite} onWrite={v => set({ calendarWrite: v })} />
+          onApprove={() => navigate('/schedule/calendar')} />
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-2">
           <h2 className="text-pt-text font-semibold">Check-ins and strikes</h2>
@@ -163,7 +163,7 @@ export default function ScheduleSettingsScreen() {
 // The app's address comes from the server (owner); the test also names it if sharing is missing.
 const CAL_API = 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=proptracker-9732e'
 
-function CalendarSetup({ id, savedId, onId, save, onImport, write, onWrite }: { id: string; savedId: string; onId: (v: string) => void; save: () => Promise<void>; onImport: () => void; write: boolean; onWrite: (v: boolean) => void }) {
+function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: string; savedId: string; onId: (v: string) => void; save: () => Promise<void>; onImport: () => void; onApprove: () => void }) {
   const [account, setAccount] = useState('')
   const [copied, setCopied] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -175,7 +175,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport, write, onWrite }: { 
     setBusy(true); setMsg(null)
     try {
       if (id !== savedId) await save()
-      const r = await testCalendarLink({}); setAccount(r.data.account); setMsg({ ok: true, text: (r.data as { mode?: string }).mode === 'read' ? 'Connected ✓ (reading only, nothing was added)' : 'Connected ✓' })
+      const r = await testCalendarLink({}); setAccount(r.data.account); setMsg({ ok: true, text: 'Connected ✓' })
     } catch (e) {
       const t = errorText(e)
       const acc = (e as { details?: { account?: string } }).details?.account
@@ -199,7 +199,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport, write, onWrite }: { 
       </div>
       {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm tap">Open Google Cloud → tap Enable ›</a>)}
       {step(2, 'Share the calendar with the app', <>
-        <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → <b>"See all event details"</b> for now (the app only reads). At launch, change it to "Make changes to events".</p>
+        <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → <b>"Make changes to events"</b>. (The app only ever changes events it added itself, and only when you approve.)</p>
         {account
           ? <button onClick={copy} className="w-full text-left bg-pt-bg rounded-xl px-3 py-2 text-[13px] text-pt-text break-all">{account} <span className="text-pt-accent font-semibold">{copied ? ' Copied ✓' : ' Copy'}</span></button>
           : <p className="text-pt-muted text-xs">Tap Test below to see the address.</p>}
@@ -212,18 +212,8 @@ function CalendarSetup({ id, savedId, onId, save, onImport, write, onWrite }: { 
         <button disabled={busy || !id} onClick={test} className="bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Testing…' : 'Save & test'}</button>
         {msg && <p className={`text-sm ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>}
       </>)}
-      {/* Owner (Oct 19): read-only until the official launch; never changes events that were already there. */}
-      <div className="border-t border-pt-border pt-3 space-y-2">
-        <label className="flex items-center gap-3">
-          <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] font-medium">Copy app bookings to this calendar</span>
-            <span className="block text-pt-muted text-xs">{write ? 'On: new bookings, moves, cancels and blocked time made in the app are added to the calendar.' : 'Off (before launch): the app only reads the calendar. Nothing is added or changed there.'}</span></span>
-          <input type="checkbox" checked={write} onChange={e => {
-            if (e.target.checked && !confirm('Turn this on only at launch: from then on, bookings made in the app are added to the shared Google Calendar. (Events already there are never changed.) Turn it on?')) return
-            onWrite(e.target.checked)
-          }} className="w-6 h-6 accent-[#C9A961]" />
-        </label>
-        <p className="text-pt-muted text-xs">Events that were already in the calendar are never moved, changed or deleted by the app, even when it's on. Changes made in Google Calendar aren't copied back. Remember to Save.</p>
-      </div>
+      <p className="text-pt-muted text-xs border-t border-pt-border pt-3">Nothing goes to the calendar by itself: every booking, move, cancel and blocked time made in the app waits in <b>Calendar changes to approve</b> until you send it. Events that were already in the calendar (the old ones you import) are never changed or deleted by the app.</p>
+      <button onClick={onApprove} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Calendar changes to approve ›</button>
       <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Bring in what's already in the calendar ›</button>
     </section>
   )

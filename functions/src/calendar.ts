@@ -88,13 +88,6 @@ async function calendarId(): Promise<string> {
   const d = (await db.doc('app_settings/schedule').get()).data()
   return typeof d?.googleCalendarId === 'string' ? d.googleCalendarId.trim() : ''
 }
-// Owner (Oct 19): the app writes to the shared calendar ONLY after launch (Schedule settings switch), and NEVER
-// touches an event it didn't create itself (imported shoots/blocks keep their original Google event as it is).
-async function writeCalendarId(): Promise<string> {
-  const d = (await db.doc('app_settings/schedule').get()).data()
-  return d?.calendarWrite === true && typeof d?.googleCalendarId === 'string' ? d.googleCalendarId.trim() : ''
-}
-
 async function gcal(method: 'PUT' | 'POST' | 'DELETE', cal: string, path: string, body?: unknown) {
   const token = (await (await auth.getClient()).getAccessToken()).token
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events${path}`
@@ -114,30 +107,41 @@ async function deleteEvent(cal: string, id: string) {
 
 const when = (st: string) => ({ dateTime: `${st}:00`, timeZone: 'America/Toronto' })
 
+// Owner (Oct 19): the app may add, change and delete ITS OWN events in the shared calendar, but never by itself:
+// every booking, move, cancel or blocked time only queues a change in `calendar_outbox` (one per Google event, the
+// latest state wins). The schedule team reviews the list and taps Send (or Don't send). Events that came from the
+// old calendar (imported shoots and blocks) are never queued, so the app can never touch them. Only event IDs the
+// app makes itself ('s…' / 'b…') are ever written. `calendar_sent/{eventId}` = what's in the calendar from the app.
+type Pending = { kind: 'shoot'; shootId: string } | { kind: 'block'; date: string; blockId: string }
+const outbox = (eventId: string) => db.doc(`calendar_outbox/${eventId}`)
+const sentDoc = (eventId: string) => db.doc(`calendar_sent/${eventId}`)
+
+async function queue(eventId: string, ref: Pending, label: string, removing: boolean) {
+  const wasSent = (await sentDoc(eventId).get()).exists
+  // Removing something that never reached the calendar: nothing to do.
+  if (removing && !wasSent) { await outbox(eventId).delete(); return }
+  await outbox(eventId).set({ ...ref, eventId, label, change: removing ? 'remove' : wasSent ? 'update' : 'add', at: new Date().toISOString() })
+}
+
+const shootLabel = (sh: Record<string, any>, s: ReturnType<typeof cleanScheduleSettings>) => {
+  const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
+  return `${sh.creatorName} · ${house ? house.name : sh.where || 'Offsite'} · ${sh.date} ${sh.from?.slice(11, 16)}–${sh.to?.slice(11, 16)}`
+}
+
 export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event => {
-  if (isEmulator()) return
   const after = event.data?.after.data()
   const shoot = after ?? event.data?.before.data()
   // Imported from Google Calendar: that event belongs to the calendar, the app never changes or deletes it.
-  if (shoot?.importedFrom || shoot?.calendarEventId) return
-  const cal = await writeCalendarId()
-  if (!cal) return
-  const id = shootEventId(event.params.id)
-  try {
-    if (!after || after.status !== 'booked') { await deleteEvent(cal, id); return }
-    const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-    const house = after.place === 'offsite' ? null : s.houses[after.place as 'cliff1' | 'cliff2']
-    await upsertEvent(cal, id, {
-      summary: `${after.creatorName} · ${house ? house.name : 'Offsite'}`,
-      location: house ? house.address : after.where,
-      description: `${after.kind === 'monthly' ? 'Monthly slot' : after.kind === 'offsite' ? 'Offsite shoot' : 'Extra slot'} · booked in Prime Capitol (changes made here are not copied back)`,
-      start: when(after.from), end: when(after.to),
-    })
-  } catch (e) { logger.warn('Calendar copy failed for shoot', event.params.id, String(e)) }
+  if (!shoot || shoot.importedFrom || shoot.calendarEventId) return
+  const before = event.data?.before.data()
+  const what = (x?: Record<string, any>) => x && x.status === 'booked' ? JSON.stringify([x.place, x.from, x.to, x.where, x.creatorName]) : ''
+  if (what(before) === what(after)) return   // nothing the calendar shows has changed (e.g. a check-in)
+  if (!(await calendarId())) return
+  const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  await queue(shootEventId(event.params.id), { kind: 'shoot', shootId: event.params.id }, shootLabel(shoot, s), !after || after.status !== 'booked')
 })
 
 export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', async event => {
-  if (isEmulator()) return
   // Blocks imported from Google Calendar (imported: true) are that calendar's own events: never touched.
   const before = ((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
   const after = ((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
@@ -145,37 +149,76 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
   const added = after.filter(b => !before.some(x => key(x) === key(b)))
   const removed = before.filter(b => !after.some(x => x.id === b.id))
   if (!added.length && !removed.length) return
-  const cal = await writeCalendarId()
-  if (!cal) return
+  if (!(await calendarId())) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const date = event.params.date
-  try {
-    for (const b of removed) await deleteEvent(cal, blockEventId(date, b.id))
-    for (const b of added) {
-      const from = stamp(date, b.start)
-      await upsertEvent(cal, blockEventId(date, b.id), {
-        summary: `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
-        location: s.houses[b.house].address, description: 'Blocked time · set in Prime Capitol',
-        start: when(from), end: when(addMinutes(from, b.end - b.start)),
-      })
-    }
-  } catch (e) { logger.warn('Calendar copy failed for blocks on', date, String(e)) }
+  const label = (b: Block) => `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name} · ${date}`
+  for (const b of removed) await queue(blockEventId(date, b.id), { kind: 'block', date, blockId: b.id }, label(b), true)
+  for (const b of added) await queue(blockEventId(date, b.id), { kind: 'block', date, blockId: b.id }, label(b), false)
 })
 
-// Schedule team: test the shared-calendar connection. Before launch (copying off) it only READS, so nothing is
-// added to the calendar; after launch it writes and removes one test event.
+// The changes waiting for approval (oldest first) and what the app has put in the calendar.
+export const calendarPending = onCall(CALLABLE, async req => {
+  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  const [p, sent] = await Promise.all([db.collection('calendar_outbox').orderBy('at').limit(300).get(), db.collection('calendar_sent').orderBy('at', 'desc').limit(300).get()])
+  return { pending: p.docs.map(d => d.data()), sent: sent.docs.map(d => ({ eventId: d.id, label: d.get('label'), at: d.get('at') })) }
+})
+
+// Send (or drop) the chosen changes, or take app events back out of the calendar. Re-reads the CURRENT booking, so
+// what's sent is always up to date. Only the app's own event IDs are ever written.
+export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+  const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  const action = req.data?.action
+  const ids = (Array.isArray(req.data?.ids) ? req.data.ids : []).map((x: unknown) => String(x)).filter((x: string) => /^[sb][0-9a-f]+$/.test(x)).slice(0, 100) as string[]
+  if (!['send', 'discard', 'remove'].includes(action) || !ids.length) throw new HttpsError('invalid-argument', 'Pick what to send.')
+  const cal = await calendarId()
+  if (!cal && action !== 'discard') throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
+  const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  const results: { eventId: string; ok: boolean; message?: string }[] = []
+  for (const eventId of ids) {
+    try {
+      if (action === 'discard') { await outbox(eventId).delete(); results.push({ eventId, ok: true }); continue }
+      if (action === 'remove') {
+        if (!isEmulator()) await deleteEvent(cal, eventId)
+        await sentDoc(eventId).delete(); await outbox(eventId).delete()
+        results.push({ eventId, ok: true }); continue
+      }
+      const p = (await outbox(eventId).get()).data() as (Pending & { label: string }) | undefined
+      if (!p) { results.push({ eventId, ok: false, message: 'Already handled.' }); continue }
+      let ev: Record<string, unknown> | null = null
+      if (p.kind === 'shoot') {
+        const sh = (await db.doc(`shoots/${p.shootId}`).get()).data()
+        if (sh && sh.status === 'booked' && !sh.importedFrom && !sh.calendarEventId) {
+          const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
+          ev = { summary: `${sh.creatorName} · ${house ? house.name : 'Offsite'}`, location: house ? house.address : sh.where,
+            description: `${sh.kind === 'offsite' ? 'Offsite shoot' : 'House slot'} · booked in Prime Capitol (changes made here are not copied back)`,
+            start: when(sh.from), end: when(sh.to) }
+        }
+      } else {
+        const b = (((await db.doc(`schedule_days/${p.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === p.blockId) as (Block & { imported?: boolean }) | undefined
+        if (b && !b.imported) {
+          const from = stamp(p.date, b.start)
+          ev = { summary: `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
+            location: s.houses[b.house].address, description: 'Blocked time · set in Prime Capitol', start: when(from), end: when(addMinutes(from, b.end - b.start)) }
+        }
+      }
+      if (!isEmulator()) { if (ev) await upsertEvent(cal, eventId, ev); else await deleteEvent(cal, eventId) }
+      if (ev) await sentDoc(eventId).set({ label: p.label, at: new Date().toISOString(), by: caller.email })
+      else await sentDoc(eventId).delete()
+      await outbox(eventId).delete()
+      results.push({ eventId, ok: true })
+    } catch (e) { results.push({ eventId, ok: false, message: String((e as Error).message).slice(0, 200) }) }
+  }
+  return { results }
+})
+
+// Schedule team: test the shared-calendar connection (a tap: writes and removes one test event).
 export const testCalendarLink = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'], { noAdmin: true })   // the connection itself: not admins (owner, Oct 19)
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   if (isEmulator()) return { ok: true, account: 'test-calendar@example.iam.gserviceaccount.com' }
   const account = (await auth.getCredentials()).client_email ?? ''
-  if (!(await writeCalendarId())) {
-    const token = (await (await auth.getClient()).getAccessToken()).token
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events?maxResults=1&timeMin=${encodeURIComponent(new Date().toISOString())}`, { headers: { Authorization: `Bearer ${token}` } })
-    if (!r.ok) throw new HttpsError('failed-precondition', `The app can't read that calendar yet. Share it with ${account} ("See all event details" is enough until launch). (${r.status}: ${(await r.text()).slice(0, 160)})`, { account })
-    return { ok: true, account, mode: 'read' }
-  }
   try {
     const id = `t${hex(String(Date.now()))}`
     const start = new Date(), end = new Date(start.getTime() + 30 * 60_000)

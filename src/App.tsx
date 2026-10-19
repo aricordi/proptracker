@@ -46,6 +46,7 @@ const ReservationDetailScreen = lazy(() => import('./screens/ReservationDetailSc
 const BookingRulesScreen = lazy(() => import('./screens/BookingRulesScreen'))
 const ScheduleScreen = lazy(() => import('./screens/ScheduleScreen'))
 const RequestsCalendarScreen = lazy(() => import('./screens/RequestsCalendarScreen'))
+const CalendarSyncScreen = lazy(() => import('./screens/CalendarSyncScreen'))
 const ScheduleSettingsScreen = lazy(() => import('./screens/ScheduleSettingsScreen'))
 const ScheduleRulesScreen = lazy(() => import('./screens/ScheduleRulesScreen'))
 const CalendarImportScreen = lazy(() => import('./screens/CalendarImportScreen'))
@@ -263,6 +264,7 @@ export default function App() {
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
           <Route path="/schedule/settings" element={<ScheduleSettingsOnly><ScheduleSettingsScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/import" element={<ScheduleSettingsOnly><CalendarImportScreen /></ScheduleSettingsOnly>} />
+          <Route path="/schedule/calendar" element={<ScheduleSettingsOnly><CalendarSyncScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/team" element={<GearOnly><ScheduleTeamScreen /></GearOnly>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />
