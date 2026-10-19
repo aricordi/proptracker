@@ -95,12 +95,12 @@ describe('quantities (10 chairs)', () => {
 })
 
 describe('what can be booked', () => {
-  it('creators must book at least 3 days ahead; arts department can book same-day', async () => {
+  it('creators must book at least 3 days ahead; the owner can book same-day', async () => {
     const tooSoon = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(2), day(2))
     expect(tooSoon.error).toBe('INVALID_ARGUMENT')
     expect(tooSoon.message).toContain(day(3))
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(3), day(3))).ok).toBe(true)
-    expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }], day(0), day(0))).ok).toBe(true)
+    expect((await reserve(OWNER, [{ itemId: 'chairs', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
   it('notice only counts open days', async () => {
     await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [], closedDates: [day(2)] })
@@ -111,13 +111,13 @@ describe('what can be booked', () => {
     await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
-  it('creators are held to the maximum booking length; arts department is not', async () => {
+  it('creators are held to the maximum booking length; the owner is not', async () => {
     await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 1, closedWeekdays: [] })
     const twoDays = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(11))
     expect(twoDays.error).toBe('INVALID_ARGUMENT')
     expect(twoDays.message).toContain('at most 1 day')
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(10), day(10))).ok).toBe(true)
-    expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }], day(10), day(14))).ok).toBe(true)
+    expect((await reserve(OWNER, [{ itemId: 'chairs', qty: 1 }], day(10), day(14))).ok).toBe(true)
   })
   it('creators cannot reserve damaged props', async () => {
     const r = await reserve(ALEX, [{ itemId: 'skull', qty: 1 }])
@@ -164,9 +164,9 @@ describe('late returns', () => {
     await put('reservations/old', { title: 'Old', creatorEmail: ALEX, status: 'returned', startDate: day(-3), endDate: day(-3), lines: [], itemIds: [] })
     expect((await reserve(ALEX, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
   })
-  it('the arts department is never blocked', async () => {
-    await outWith('artsOld', ARTS, day(-3))
-    expect((await reserve(ARTS, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
+  it('the owner is never blocked', async () => {
+    await outWith('artsOld', OWNER, day(-3))
+    expect((await reserve(OWNER, [{ itemId: 'chairs', qty: 1 }])).ok).toBe(true)
   })
 })
 

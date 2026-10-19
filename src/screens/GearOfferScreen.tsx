@@ -38,15 +38,19 @@ export default function GearOfferScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-2 py-2 flex items-center">
-        <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] px-2 py-1">‹ Gear</button>
-      </div>
-      <div className="px-4 space-y-4">
-        <button onClick={() => b.photos?.[0] && setZoom(b.photos[0])} className="block w-full">
-          <GearArt photo={b.photos?.[0]} category={b.category} className="w-full aspect-[4/3] rounded-2xl" />
+      {/* Same header and photo as a prop page (owner, Oct 19: gear and props should feel like one app). */}
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" /></svg>
+          Back
         </button>
+      </div>
+      <button onClick={() => b.photos?.[0] && setZoom(b.photos[0])} className="block w-full h-72 bg-pt-surface">
+        <GearArt photo={b.photos?.[0]} category={b.category} className="w-full h-full" />
+      </button>
+      <div className="px-4 pt-4 space-y-6">
         <div>
-          <h1 className="font-display text-[28px] leading-tight text-pt-text">{b.name}</h1>
+          <h1 className="font-display text-[28px] text-pt-text leading-tight">{b.name}</h1>
           <p className="text-pt-muted text-sm mt-0.5">{b.category} bundle · comes as a whole</p>
           {b.description && <p className="text-pt-text text-[15px] mt-2 leading-relaxed">{b.description}</p>}
         </div>

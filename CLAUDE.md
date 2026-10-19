@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 383 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 384 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -805,7 +805,26 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       + `searched` (needs already looked up, returned by each call as `searched`, + missing names). Server: step 1 asks for
       DIFFERENT, less obvious items; shortlist 10 per need (was 6) minus excluded ids/gear; missing drops repeats. New picks
       join their scene group (or a new one); "That's everything that fits" when a round adds nothing. Each press = 1 AI use
-      (counts in the budget/daily limit). Test in assistant.test.ts. Tests 383. NEEDS BACKEND + WEBSITE DEPLOY (ask).
+      (counts in the budget/daily limit). Test in assistant.test.ts.
+    - IDEAS → SHOOT (owner, Oct 19): suggestions are TICKED (props, gear, "Ask for it" builds; violet ticks; ✓ = already in
+      the basket) → "Add N to a shoot" → "Add to which shoot?" (upcoming shoots, "Too late for props/gear" warnings) or
+      "+ Book a new shoot for these": picks saved on the phone (`savePendingAdds`, 1 h), Book a shoot shows a violet note and
+      STARTS on the first day the picks can still be added (`useEarliestDayFor`); after booking (`booked()` in ScheduleScreen)
+      `takePendingAdds` + `useAddToShoot` put them in the new shoot and open /reserve. activeShoot waits 30 s before
+      dropping a just-booked shoot that hasn't reached the phone's list yet. cart.addBuild keys now unique.
+    - ARTS DON'T BOOK (owner, Oct 19: arts handle props; only the gear/equipment team runs the calendar): server
+      bookShoot/moveShoot/requestSwap/bookWithFriends = BOOKERS (owner, creator, equipment); createReservation +
+      createGearBooking = owner + creator. Session `canBook` (creator/owner) hides ReservePanel add buttons, the basket
+      bar, "+ New request", "make or find" link; routes /schedule → /calendar and /reserve, /gear → / for arts; Admin
+      "Book gear" owner only. Arts tab "Calendar" (/calendar, `RequestsCalendarScreen`): day strip (7 days back, 6 weeks
+      ahead, request counts), props requests for the day with creator, house + time from schedule_days (via
+      scheduleShootId), status, items; tap → request page. Tests updated (owner instead of arts) + new arts test.
+    - GEAR LOOKS LIKE PROPS (owner, Oct 19): gear Browse = same header (eagle + Browse + Ideas), search box (name, category,
+      description, piece names), category chips (bundles + extras) under it, count line, then Adding-to bar; bundle tiles
+      = ItemCard look (rounded-20 shadow-card, status badge Available/Free/Taken/Piece missing, "N pcs" corner, + quick add
+      when a shoot is picked); same "Your shoot · N props · M gear  Review →" bar. Gear page = prop page header (white
+      ‹ Back) + full-width photo; titles 28px on both. "My gear" header link removed (Me → My gear). Bundles/extras
+      sections, hours picker, timeline, battery note kept. Tests 384. NEEDS BACKEND + WEBSITE DEPLOY (ask).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

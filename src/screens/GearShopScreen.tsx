@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGearCart } from '../gearCart'
+import { useCart } from '../cart'
+import BrandMark from '../components/BrandMark'
 import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, freeQty, pieceTotal, fmtHours, nowStamp, isGearLate, type GearBundle, type GearHold, type GearBooking } from '../services/gear'
 import { useSession } from '../auth'
-import { GearWhenPicker, GearArt, Pill, useGearWhen } from '../components/GearUi'
-import { formatDay } from '../lib/dates'
+import { GearWhenPicker, GearArt, useGearWhen } from '../components/GearUi'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
 import IdeasSheet, { IdeasButton } from '../components/IdeasSheet'
@@ -17,6 +18,8 @@ export default function GearShopScreen() {
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [cat, setCat] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const propsCart = useCart()
   const [ideas, setIdeas] = useState(false)
   const { profile, role, shootFlow, isStaff } = useSession()
   // Creators add gear to one of their booked shoots; without one they just browse.
@@ -29,20 +32,40 @@ export default function GearShopScreen() {
   useEffect(() => subscribeToGearBundles(setOffers), [])
   useEffect(() => subscribeToGearHolds(setHolds), [])
 
-  const live = (offers ?? []).filter(o => !o.archived)
+  // Owner (Oct 19): gear browses like props: search box, category chips, photo tiles with a status badge and +.
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const matches = (o: GearBundle) => (!cat || o.category === cat) && words.every(wd =>
+    [o.name, o.category, o.description ?? '', ...o.pieces.map(p => p.name ?? '')].join(' ').toLowerCase().includes(wd))
+  const all = (offers ?? []).filter(o => !o.archived)
+  const live = all.filter(matches)
   const bundles = live.filter(o => (o.kind ?? 'bundle') === 'bundle')
   const extras = live.filter(o => o.kind === 'extra')
-  const cats = useMemo(() => [...new Set(bundles.map(b => b.category))], [bundles])
+  const cats = useMemo(() => [...new Set(all.map(b => b.category))].sort(), [all.map(o => o.category).join()])   // eslint-disable-line react-hooks/exhaustive-deps
   const free = (o: GearBundle) => freeQty(o.kind === 'extra' ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], w.win.from, w.win.to)
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-end justify-between py-2">
-          <h1 className="font-display text-[34px] text-pt-text">{creator ? 'Browse' : 'Gear'}</h1>
-          <span className="flex items-center gap-3 pb-1">{creator && <IdeasButton small onClick={() => setIdeas(true)} />}<button onClick={() => navigate('/gear/bookings')} className="text-pt-accent text-sm font-medium tap">{creator ? 'My gear' : 'My gear bookings'}</button></span>
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <IdeasButton small onClick={() => setIdeas(true)} />}</h1>
+        {creator && <div className="mb-3"><BrowseTabs /></div>}
+        <div className="relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search cameras, lights, sound…" enterKeyHint="search" aria-label="Search gear"
+            className="w-full bg-pt-surface border border-pt-border rounded-xl pl-10 pr-10 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base" />
+          {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-pt-muted text-xl leading-none">×</button>}
         </div>
-        {creator ? <div className="space-y-2"><BrowseTabs /><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</div> : <GearWhenPicker />}
+        {cats.length > 1 && (
+          <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
+            {[null, ...cats].map(c => (
+              <button key={c ?? 'all'} onClick={() => setCat(c)}
+                className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c ?? 'All'}</button>
+            ))}
+          </div>
+        )}
+        <p className="text-pt-muted text-sm text-right mt-2">{bundles.length} bundle{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} extra${extras.length === 1 ? '' : 's'}` : ''}</p>
+        {creator ? <div className="mt-3 space-y-2"><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</div> : <div className="mt-3"><GearWhenPicker /></div>}
       </div>
 
       <div className="p-4 space-y-6">
@@ -52,7 +75,8 @@ export default function GearShopScreen() {
           </button>
         )}
         {offers === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {offers && live.length === 0 && <p className="text-pt-muted text-sm text-center py-10">No gear to book yet. The equipment team is setting it up.</p>}
+        {offers && all.length === 0 && <p className="text-pt-muted text-sm text-center py-10">No gear to book yet. The equipment team is setting it up.</p>}
+        {offers && all.length > 0 && live.length === 0 && <p className="text-pt-muted text-sm text-center py-10">No gear matches{query ? ` "${query.trim()}"` : ''}. Try another word{cat ? ' or All' : ''}.</p>}
 
         {bundles.length > 0 && (
           <section className="space-y-3">
@@ -60,30 +84,34 @@ export default function GearShopScreen() {
               <h2 className="text-pt-text text-xl font-semibold tracking-tight">Bundles</h2>
               <span className="text-pt-muted text-xs">Booked as a whole</span>
             </div>
-            {cats.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                {[null, ...cats].map(c => (
-                  <button key={c ?? 'all'} onClick={() => setCat(c)}
-                    className={`shrink-0 px-3 py-1 rounded-full text-sm ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{c ?? 'All'}</button>
-                ))}
-              </div>
-            )}
             <div className="grid grid-cols-2 gap-3">
-              {bundles.filter(b => !cat || b.category === cat).map(b => {
+              {bundles.map(b => {
                 const ok = !w.problem && free(b) > 0, inCart = !!cart.lines[b.id]
+                // Same badge colours as props: green = free/available, red = taken, amber = something missing.
+                const badge = showFree && !w.problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
+                  : b.missing?.length ? { label: 'Piece missing', style: 'bg-amber-500/90 text-stone-900' } : { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
+                const canAdd = creator && !!shoot && ok
                 return (
-                  <button key={b.id} onClick={() => navigate(`/gear/b/${b.id}`)} className="text-left bg-pt-surface rounded-2xl overflow-hidden active:opacity-80">
-                    <div className="relative">
-                      <GearArt photo={b.photos?.[0]} category={b.category} className="w-full aspect-square" />
-                      {inCart && <span className="absolute top-2 left-2 bg-pt-accent text-stone-900 text-xs font-bold px-2 py-0.5 rounded-full">✓ Added</span>}
-                    </div>
-                    <div className="p-3 space-y-1">
-                      <p className="text-pt-text text-sm font-semibold leading-tight">{b.name}</p>
-                      <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
-                      {b.missing?.length ? <p className="text-amber-200 text-xs">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
-                      {showFree && !w.problem && (ok ? <Pill tone="free">Free {fmtHours(w.start, w.end)}</Pill> : <Pill tone="taken">Taken</Pill>)}
-                    </div>
-                  </button>
+                  <div key={b.id} className="relative w-full h-full">
+                    <button onClick={() => navigate(`/gear/b/${b.id}`)} className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
+                      <div className="relative aspect-square">
+                        <GearArt photo={b.photos?.[0]} category={b.category} className="w-full h-full" />
+                        <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${badge.style}`}>{badge.label}</span>
+                        {inCart && !canAdd && <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-[11px] font-bold px-2 py-0.5 rounded-full">✓ Added</span>}
+                        <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">{pieceTotal(b.pieces)} pcs</span>
+                      </div>
+                      <div className="px-3 pt-2 pb-3">
+                        <p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{b.name}</p>
+                        <p className="text-pt-muted text-xs truncate mt-0.5">{b.category}{showFree && ok && !w.problem ? ` · free ${fmtHours(w.start, w.end)}` : ''}</p>
+                        {b.missing?.length ? <p className="text-amber-200 text-xs mt-0.5">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
+                      </div>
+                    </button>
+                    {canAdd && (
+                      <button onClick={() => cart.setQty(b.id, inCart ? 0 : 1)} aria-label={inCart ? `Remove ${b.name}` : `Add ${b.name}`}
+                        className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${
+                          inCart ? 'pop bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{inCart ? '✓' : '+'}</button>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -119,11 +147,13 @@ export default function GearShopScreen() {
         )}
       </div>
 
-      {cart.count > 0 && (
+      {/* The shoot being put together (props + gear): the same bar as on Props. */}
+      {cart.count + propsCart.count > 0 && (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
           <button onClick={() => navigate('/reserve')}
-            className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-lg shadow-black/50 shadow-gold">
-            Review your shoot ({cart.count}) · {formatDay(w.date)}
+            className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
+            <span>Your shoot · {[propsCart.count && `${propsCart.count} prop${propsCart.count !== 1 ? 's' : ''}`, cart.count && `${cart.count} gear`].filter(Boolean).join(' · ')}</span>
+            <span>Review →</span>
           </button>
         </div>
       )}

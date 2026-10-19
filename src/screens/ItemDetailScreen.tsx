@@ -175,7 +175,7 @@ export default function ItemDetailScreen() {
         {/* Name + category + condition */}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl text-pt-text leading-tight">{item.name}</h1>
+            <h1 className="font-display text-[28px] text-pt-text leading-tight">{item.name}</h1>
             {!isStaff && !item.archived && <WrongNameLink item={item} />}
             <p className="text-pt-muted text-sm mt-0.5">
               {categoryLabel}
