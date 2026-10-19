@@ -833,7 +833,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       last ask (`more: true` + `searched`). Follow-ups may be short (≥2 chars when there's history; first idea ≥8).
       Each turn's picks render under the bot bubble with ticks → "Add N to a shoot" (same picker / new-shoot flow).
       Test in assistant.test.ts. Tests 385.
-    - LIVE Oct 19 (backend + website, owner "go live"): see more ideas, ideas → shoot, arts don't book + calendar, gear
+    - LIVE Oct 19 (backend run 34 + website run 18, owner "go live"): see more ideas, ideas → shoot, arts don't book + calendar, gear
       looks like props, brainstorm chat.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
