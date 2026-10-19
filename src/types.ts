@@ -33,6 +33,9 @@ export interface Item {
   condition: Condition;
   locationId?: string;
   binId?: string;
+  // Bin-by-bin check (owner, Oct 20): ticked "Here" while checking a bin, or taken out as "Not here".
+  binCheck?: { binId: string; at: string; by: string };
+  lostFromBin?: string;     // label of the bin it was missing from; cleared when it gets a bin again
   status: ItemStatus;
   checkedOutInfo?: CheckedOutInfo;
   replacementCost?: number; // what it would cost to replace one unit
@@ -94,6 +97,9 @@ export interface Bin {
   label: string;
   locationId: string;
   qrSlug: string;           // unique string encoded in the bin's QR code
+  checkStartedAt?: string;  // bin-by-bin check: when the current check started (ticks before this don't count)
+  checkedAt?: string;       // when someone finished checking it ("Done with this bin")
+  checkedBy?: string;
 }
 
 export interface ActiveCheckout {

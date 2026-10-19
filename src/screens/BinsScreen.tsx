@@ -2,6 +2,9 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { useBins } from '../hooks/useBins'
+import { useItems } from '../hooks/useItems'
+import { thumbOf } from '../services/itemShape'
+import { formatDay } from '../lib/dates'
 import { useLocations } from '../hooks/useLocations'
 import { addBin, updateBin, deleteBin, canDeleteBin } from '../services/bins'
 import BottomSheet from '../components/BottomSheet'
@@ -14,6 +17,11 @@ export default function BinsScreen() {
   const navigate = useNavigate()
   const bins = useBins()
   const locations = useLocations()
+  const items = useItems()
+  // Bin-by-bin check (owner, Oct 20): how many bins are done, how many props each holds, and props taken out as "Not here".
+  const perBin = useMemo(() => { const m: Record<string, number> = {}; for (const i of items) if (!i.archived && i.binId) m[i.binId] = (m[i.binId] ?? 0) + 1; return m }, [items])
+  const needsBin = items.filter(i => !i.archived && !i.binId && i.lostFromBin)
+  const checkedBins = bins.filter(b => b.checkedAt).length
 
   const [sheet, setSheet] = useState<SheetMode | null>(null)
   const [qrBin, setQrBin] = useState<Bin | null>(null)
@@ -259,6 +267,27 @@ export default function BinsScreen() {
         </p>
       )}
 
+      {bins.length > 0 && (
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 mb-4 space-y-2">
+          <div className="flex justify-between items-baseline"><p className="text-pt-text font-semibold">Bin check</p><p className="text-pt-muted text-sm">{checkedBins} of {bins.length} bins done</p></div>
+          <div className="h-1.5 rounded-full bg-pt-border overflow-hidden"><div className="h-full bg-green-400" style={{ width: `${checkedBins / bins.length * 100}%` }} /></div>
+          <p className="text-pt-muted text-xs">Take a bin out, tap it below (or scan its QR sticker), and tick what's really in it.</p>
+        </div>
+      )}
+      {needsBin.length > 0 && (
+        <div className="bg-amber-400/10 shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)] rounded-2xl p-4 mb-4 space-y-2">
+          <p className="text-amber-300 font-semibold">Needs a bin · {needsBin.length}</p>
+          <p className="text-pt-muted text-xs">Marked "Not here" during a check. Found one? Tap it and set its bin, or use "move it here" while checking that bin.</p>
+          {needsBin.map(i => (
+            <button key={i.id} onClick={() => navigate(`/item/${i.id}/edit`)} className="w-full flex items-center gap-3 text-left bg-pt-bg rounded-xl p-2">
+              <span className="w-10 h-10 rounded-lg bg-pt-border overflow-hidden shrink-0">{i.photos?.[0] && <img loading="lazy" decoding="async" src={thumbOf(i, i.photos[0])} alt="" className="w-full h-full object-cover" />}</span>
+              <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{i.name}</span><span className="block text-pt-muted text-xs">Was in {i.lostFromBin}</span></span>
+              <span className="text-pt-accent text-sm">Set bin ›</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <LookAlikeBins bins={bins} locationMap={locationMap} />
 
       <div className="space-y-6">
@@ -279,6 +308,9 @@ export default function BinsScreen() {
                     className="flex-1 text-left px-4 py-4 active:opacity-75"
                   >
                     <span className="font-medium text-pt-text">{bin.label}</span>
+                    <span className={`block text-xs mt-0.5 ${bin.checkedAt ? 'text-green-400' : 'text-pt-muted'}`}>
+                      {perBin[bin.id] ?? 0} prop{perBin[bin.id] === 1 ? '' : 's'} · {bin.checkedAt ? `✓ Checked ${formatDay(bin.checkedAt.slice(0, 10))}` : 'Not checked'}
+                    </span>
                   </button>
                   {/* Edit bin */}
                   <button

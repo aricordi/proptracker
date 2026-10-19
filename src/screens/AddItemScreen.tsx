@@ -272,6 +272,8 @@ export default function AddItemScreen() {
           notes: common.notes ?? deleteField(),
           locationId: common.locationId ?? deleteField(),
           binId: common.binId ?? deleteField(),
+          // Given a bin again: off the "Needs a bin" list.
+          ...(common.binId ? { lostFromBin: deleteField() } : {}),
           whereToRebuy: common.whereToRebuy ?? deleteField(),
           replacementCost: common.replacementCost ?? deleteField(),
           // Clearing the cost also clears the legacy field it used to be read from.
