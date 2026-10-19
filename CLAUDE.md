@@ -1006,6 +1006,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the REAL AI): the tour's idea step calls the real `ideaToProps` (read-only suggestions, ~half a cent per tour, counted
       in the AI budget/daily limit) and shows its groups + why + make-or-find; `ideaMatches` is only the fallback when the
       AI fails, is resting, or returns nothing. The "find a time" answer stays a made-up example.
+    - LIVE Oct 19 (backend run for the report message + website run 25, owner OK): 8-part tour, report messages, real-AI tour step.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
