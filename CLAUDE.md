@@ -783,6 +783,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Owner: turning on WORKED but the prompt stayed → pushState trusts the saved token unless permission is 'denied'
       (iPhone home-screen apps can report 'default' after a relaunch); Home prompt + Me card sync via PUSH_CHANGED event +
       visibilitychange; once on, the Home prompt is dismissed for good.
+    - LIVE Oct 19 (website run 15, owner OK): title spacing + house-agnostic booking (pick the house per time) + notification prompt fixes.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
