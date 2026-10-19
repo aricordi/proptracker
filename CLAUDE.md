@@ -784,6 +784,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (iPhone home-screen apps can report 'default' after a relaunch); Home prompt + Me card sync via PUSH_CHANGED event +
       visibilitychange; once on, the Home prompt is dismissed for good.
     - LIVE Oct 19 (website run 15, owner OK): title spacing + house-agnostic booking (pick the house per time) + notification prompt fixes.
+    - WHO'S FILMING (owner, Oct 19: replace the 2/4/6 h chips with "yourself / with a friend / two friends"): FindSheet
+      segmented "Just me / + 1 friend / + 2 friends" (count = 1 + friends, one 2-h slot each, back to back). With friends:
+      searchable picker from NEW callable `listFilmingFriends` (anyone; active creators + owner, names only; in deploy/log
+      lists) with avatar + channel; days where a picked friend already films are skipped; tapping a house opens
+      GroupBookSheet ("Book back to back": You Booked / friend Held 20 min, monthly/extra for your slot) → bookWithFriends
+      (holds + invite push). Not picked → books only your slot (friends book the next slot themselves). Test in
+      invites.test.ts. NEEDS BACKEND DEPLOY (listFilmingFriends) + website deploy.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

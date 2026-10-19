@@ -122,6 +122,7 @@ export const askForTime = httpsCallable<{ text: string; previous?: Record<string
 export const addScheduleBlock = httpsCallable<{ date: string; house: House; start?: number; end?: number; allDay?: boolean; type: BlockType; note?: string }, { id: string }>(functions, 'addScheduleBlock')
 export const removeScheduleBlock = httpsCallable<{ date: string; id: string }, { ok: boolean }>(functions, 'removeScheduleBlock')
 export const saveScheduleSettings = httpsCallable<Partial<ScheduleSettings>, ScheduleSettings>(functions, 'saveScheduleSettings')
+export const listFilmingFriends = httpsCallable<Record<string, never>, { people: { email: string; name: string }[] }>(functions, 'listFilmingFriends')
 export const listSchedulePeople = httpsCallable<Record<string, never>, { people: { email: string; name: string; role: string }[] }>(functions, 'listSchedulePeople')
 
 export const myCalendarLink = httpsCallable<{ reset?: boolean }, { url: string; webcal: string }>(functions, 'myCalendarLink')

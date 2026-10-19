@@ -370,6 +370,16 @@ export const listSchedulePeople = onCall(CALLABLE, async req => {
   }
 })
 
+// People you can film with (Book a shoot → "+ 1 friend"): active creators and the owner, names only.
+export const listFilmingFriends = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, [...ANYONE])
+  const snap = await db.collection('users').where('active', '==', true).get()
+  const people = snap.docs.filter(u => u.id !== caller.email && (u.get('role') === 'creator' || u.get('role') === 'owner' || u.id === OWNER_EMAIL))
+    .map(u => ({ email: u.id, name: String(u.get('name') || u.id) }))
+  if (caller.email !== OWNER_EMAIL && !people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex' })
+  return { people: people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })) }
+})
+
 // Place a shoot for someone with no rule checks except "the slot is free" (used by the calendar import).
 export async function placeShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}) {
   const s = await loadScheduleSettings()

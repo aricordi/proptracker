@@ -14,7 +14,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, answerInvite, type ScheduleInvite, bookShoot, cancelShoot, moveShoot, requestSwap, answerSwap,
-  addScheduleBlock, removeScheduleBlock, listSchedulePeople, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
+  addScheduleBlock, removeScheduleBlock, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot, type SwapRequest,
@@ -28,6 +28,8 @@ const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30)
 const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 disabled:shadow-none'
 const btnGrey = 'w-full bg-pt-raised text-pt-text font-semibold rounded-[14px] py-3 min-h-[48px] shadow-hairline disabled:opacity-40'
 
+type Friend = { email: string; name: string }
+
 // Someone else's booked house slot (what a swap is asked for).
 interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number }
 
@@ -40,6 +42,7 @@ type SheetState =
   | { kind: 'block'; date: string; house: House; start: number }
   | { kind: 'unblock'; date: string; block: Block }
   | { kind: 'find'; house?: House; fromToday?: boolean }
+  | { kind: 'group'; house: House; date: string; start: number; friends: Friend[] }
   | { kind: 'move'; shoot: Shoot }
   | { kind: 'swap'; mine?: Shoot; theirs?: TheirSlot }
   | null
@@ -191,6 +194,7 @@ export default function ScheduleScreen() {
       {chat && <TimeChat onClose={() => setChat(false)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []}
         dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
+      {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={id => setSheet({ kind: 'shoot', id })} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
@@ -216,7 +220,8 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'find' && days && (
         <FindSheet days={days} from={sheet.fromToday || date < today ? today : date} house={sheet.house} team={team} email={profile.email} now={now}
           onOffsite={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: sheet.fromToday ? today : date }) }}
-          onClose={() => setSheet(null)} onPick={(d, h, st) => { setDate(d); setHouse(h); setSheet(team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st }) }} />
+          onClose={() => setSheet(null)} onPick={(d, h, st, friends) => { setDate(d); setHouse(h)
+            setSheet(friends.length ? { kind: 'group', house: h, date: d, start: st, friends } : team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st }) }} />
       )}
       {sheet?.kind === 'move' && days && (
         <MoveSheet shoot={sheet.shoot} days={days} team={team} now={now} onClose={() => setSheet(null)} onMoved={sh => { setDate(sh.date); setHouse(sh.place); setSheet({ kind: 'shoot', id: sh.id }) }} />
@@ -630,15 +635,26 @@ function UnblockSheet({ date, block, onClose }: { date: string; block: Block; on
 
 function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOffsite }: {
   days: Record<string, ScheduleDay>; from: string; house?: House; team: boolean; email: string; now: string
-  onClose: () => void; onPick: (date: string, house: House, start: number) => void; onOffsite: () => void
+  onClose: () => void; onPick: (date: string, house: House, start: number, friends: Friend[]) => void; onOffsite: () => void
 }) {
   const s = useScheduleSettings()
-  const [count, setCount] = useState(1)
+  const profiles = useProfiles()
+  // Owner (Oct 19): ask WHO is filming (just me / with 1 or 2 friends), not how many hours. Each person gets
+  // one slot back to back; picked friends get their slot held for them to confirm.
+  const [friendCount, setFriendCount] = useState(0)
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [people, setPeople] = useState<Friend[] | null>(null)
+  const [q, setQ] = useState('')
+  useEffect(() => { if (friendCount && !people) listFilmingFriends({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [friendCount, people])
+  const chosen = friends.slice(0, friendCount)
+  const count = 1 + friendCount
   const [where, setWhere] = useState<House | 'any'>(house ?? 'any')
-  // Owner (Oct 19): times first, soonest first. One row per time with a button for each house that's free
-  // then, so people pick the house themselves (no default).
+  // Times first, soonest first. One row per time with a button for each house that's free then,
+  // so people pick the house themselves (no default).
   const results = useMemo(() => {
     const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 200)
+      // Skip days a picked friend already films at a house (they get one slot a day too).
+      .filter(r => team || chosen.every(f => houseSlotsOn(days[r.date], f.email, now) < s.slotsPerDay))
     const byTime = new Map<string, { date: string; start: number; houses: House[] }>()
     for (const r of found) {
       const k = `${r.date}|${r.start}`
@@ -647,7 +663,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
       else had.houses = HOUSES.filter(h => h === r.house || had.houses.includes(h))
     }
     return [...byTime.values()].sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start)
-  }, [days, from, count, where, s, email, now, team])
+  }, [days, from, count, where, s, email, now, team, chosen.map(f => f.email).join()])   // eslint-disable-line react-hooks/exhaustive-deps
   // The next few days with free times; each day shows its first 3 (tap for the rest).
   const [open, setOpen] = useState<string[]>([])
   const dayGroups: [string, typeof results][] = []
@@ -655,26 +671,61 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
     const last = dayGroups[dayGroups.length - 1]
     if (last && last[0] === r.date) last[1].push(r); else if (dayGroups.length < 6) dayGroups.push([r.date, [r]])
   }
+  const needPick = friendCount > 0 && chosen.length < friendCount
+  const matches = (people ?? []).filter(p => !chosen.some(c => c.email === p.email) && (!q.trim() || p.name.toLowerCase().includes(q.trim().toLowerCase())))
+  const who = ['Just me', '+ 1 friend', '+ 2 friends']
   return (
     <BottomSheet open onClose={onClose} title="Book a shoot">
-      <div className="flex gap-2">
-        {[1, 2, 3].map(n => (
-          <button key={n} onClick={() => setCount(n)} className={`px-3 py-2 rounded-full text-sm border ${count === n ? 'border-pt-accent text-pt-accent bg-pt-accent/10' : 'border-transparent bg-pt-bg text-pt-text'}`}>{n * s.slotMinutes / 60} hours</button>
+      <p className="text-pt-muted text-xs mb-2">Who's filming?</p>
+      <div className="flex bg-pt-bg rounded-full p-1 gap-1">
+        {who.map((label, n) => (
+          <button key={n} onClick={() => { setFriendCount(n); setFriends(f => f.slice(0, n)) }} className={`flex-1 rounded-full min-h-[40px] text-sm ${friendCount === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{label}</button>
         ))}
       </div>
-      <p className="text-pt-muted text-xs mt-3">Soonest first. Tap the house you want.</p>
-      {count > 1 && <p className="text-pt-muted text-xs mt-2">For filming back to back: you book your {s.slotMinutes / 60} hours, whoever films with you books the slot right after.</p>}
-      <div className="mt-4 space-y-4">
-        {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try fewer hours{where === 'any' ? '' : ' or any house'}.</p>}
+      {friendCount > 0 && (
+        <div className="mt-3 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {chosen.map(f => (
+              <button key={f.email} onClick={() => setFriends(x => x.filter(y => y.email !== f.email))} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                <Avatar email={f.email} name={f.name} size={32} />{f.name.split(' ')[0]}<span className="text-pt-muted">×</span>
+              </button>
+            ))}
+          </div>
+          {needPick && (
+            <div className="bg-pt-bg rounded-xl p-2">
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Who? (${friendCount - chosen.length} to pick)`} className={field} />
+              <div className="max-h-48 overflow-y-auto mt-2">
+                {people === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
+                {people !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one found.</p>}
+                {matches.slice(0, 30).map(p => (
+                  <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
+                    <Avatar email={p.email} name={p.name} size={32} />
+                    <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
+                      {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className="text-pt-muted text-xs">{chosen.length === friendCount
+            ? `You book your slot; ${chosen.length > 1 ? 'theirs are' : 'theirs is'} held for ${INVITE_HOLD_MINUTES} minutes for them to confirm.`
+            : 'Each of you gets a 2-hour slot, back to back. Pick who, or they can book the next slot themselves.'}</p>
+        </div>
+      )}
+      <div className="mt-5 space-y-4">
+        {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try {friendCount ? 'fewer friends' : 'another house'}.</p>}
         {dayGroups.map(([d, list]) => (
           <div key={d}>
             <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mb-2">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) ? ' · no crew' : ''}</p>
             <div className="space-y-2">
               {(open.includes(d) ? list : list.slice(0, 3)).map(r => (
                 <div key={`${r.date}${r.start}`} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">
-                  <span className="flex-1 min-w-0 text-pt-text font-semibold">{fmtSlot(r.start, count * s.slotMinutes)}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-pt-text font-semibold">{fmtSlot(r.start, count * s.slotMinutes)}</span>
+                    {friendCount > 0 && <span className="block text-pt-muted text-xs truncate">You {fmtSlot(r.start, s.slotMinutes)}{chosen.length ? ` · then ${chosen.map(f => f.name.split(' ')[0]).join(', ')}` : ''}</span>}
+                  </span>
                   {r.houses.map(h => (
-                    <button key={h} onClick={() => onPick(r.date, h, r.start)} aria-label={`${team ? 'Open' : 'Book'} ${s.houses[h].name}`}
+                    <button key={h} onClick={() => onPick(r.date, h, r.start, chosen.length === friendCount ? chosen : [])} aria-label={`${team ? 'Open' : 'Book'} ${s.houses[h].name}`}
                       className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 min-h-[40px] text-sm shadow-gold shrink-0">{s.houses[h].name}</button>
                   ))}
                 </div>
@@ -686,17 +737,62 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
           </div>
         ))}
       </div>
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <div className="flex bg-pt-bg rounded-full p-0.5 gap-0.5 text-xs">
-          {(['any', ...HOUSES] as const).map(h => (
-            <button key={h} onClick={() => setWhere(h)} className={`px-3 py-1.5 rounded-full ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Any house' : `Only ${s.houses[h].name}`}</button>
-          ))}
-        </div>
+      <div className="mt-5 flex bg-pt-bg rounded-full p-0.5 gap-0.5 text-xs w-fit">
+        {(['any', ...HOUSES] as const).map(h => (
+          <button key={h} onClick={() => setWhere(h)} className={`px-3 py-1.5 rounded-full ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Any house' : `Only ${s.houses[h].name}`}</button>
+        ))}
       </div>
       <button onClick={onOffsite} className="mt-4 w-full text-left bg-pt-bg rounded-xl p-4 flex items-center gap-3">
         <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold">Shooting somewhere else?</span><span className="block text-pt-muted text-xs">Offsite or location shoot · any hours</span></span>
         <span className="text-pt-muted">›</span>
       </button>
+    </BottomSheet>
+  )
+}
+
+// Book your slot and hold the next one(s) for the friends you picked (they confirm within 20 minutes).
+function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBooked }: {
+  house: House; date: string; start: number; friends: Friend[]; team: boolean; mine: Shoot[]; onClose: () => void; onBooked: (id: string) => void
+}) {
+  const s = useScheduleSettings()
+  const left = Math.max(0, s.monthlySlots - mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length)
+  const [kind, setKind] = useState<ShootKind>(house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(false)
+  const [err, setErr] = useState('')
+  async function book() {
+    setBusy(true); setErr('')
+    try {
+      const r = await bookWithFriends({ place: house, date, start, friends: friends.map(f => f.email), mySlots: 1, kind })
+      setDone(true); setTimeout(() => onBooked(r.data.shootIds[0]), 650)
+    } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
+  }
+  const { profile } = useSession()
+  const rows = [{ email: profile.email, name: 'You', note: 'Booked' }, ...friends.map(f => ({ email: f.email, name: f.name, note: `Held ${INVITE_HOLD_MINUTES} min` }))]
+  return (
+    <BottomSheet open onClose={onClose} title="Book back to back">
+      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[house].name}</p>
+      <div className="mt-4 space-y-2">
+        {rows.map((p, i) => (
+          <div key={p.email} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
+            <Avatar email={p.email} name={i === 0 ? (profile.name || 'You') : p.name} size={36} />
+            <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold truncate">{p.name}</span>
+              <span className="block text-pt-muted text-xs">{fmtSlot(start + i * s.slotMinutes, s.slotMinutes)}</span></span>
+            <span className={`text-xs ${i === 0 ? 'text-pt-accent' : 'text-amber-300'}`}>{p.note}</span>
+          </div>
+        ))}
+      </div>
+      {house === MONTHLY_HOUSE && (
+        <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Your slot counts as</span>
+          <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5">
+            <button disabled={!team && left === 0} onClick={() => setKind('monthly')} className={`flex-1 py-2 rounded-[10px] text-sm disabled:opacity-40 ${kind === 'monthly' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Monthly slot ({left} left)</button>
+            <button onClick={() => setKind('extra')} className={`flex-1 py-2 rounded-[10px] text-sm ${kind === 'extra' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Extra slot</button>
+          </div>
+        </div>
+      )}
+      <p className="text-pt-muted text-xs mt-4">{friends.map(f => f.name.split(' ')[0]).join(' and ')} {friends.length > 1 ? 'get' : 'gets'} a notification to confirm. If they don't within {INVITE_HOLD_MINUTES} minutes, the slot opens to everyone.</p>
+      {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
+      <button disabled={busy || done} onClick={book} className={`mt-5 ${btnGold} ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? 'Booked ✓' : busy ? 'Booking…' : `Book + invite ${friends.length > 1 ? 'them' : friends[0].name.split(' ')[0]}`}</button>
     </BottomSheet>
   )
 }

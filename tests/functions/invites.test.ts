@@ -57,3 +57,17 @@ describe('ask for a time', () => {
     expect(o.slots[0].start).toBeGreaterThanOrEqual(1020)
   })
 })
+
+describe('people you can film with', () => {
+  it('lists active creators (not yourself, not other teams), names only', async () => {
+    await put('users/arts@example.com', { email: 'arts@example.com', role: 'arts', active: true, name: 'Arty' })
+    await put('users/gone@example.com', { email: 'gone@example.com', role: 'creator', active: false, name: 'Gone' })
+    const r = await call('listFilmingFriends', {}, ANA)
+    const emails = r.result.people.map((p: { email: string }) => p.email)
+    expect(emails).toEqual(expect.arrayContaining([KYLE, JANA, BEN]))
+    expect(emails).not.toContain(ANA)
+    expect(emails).not.toContain('arts@example.com')
+    expect(emails).not.toContain('gone@example.com')
+    expect(Object.keys(r.result.people[0]).sort()).toEqual(['email', 'name'])
+  })
+})
