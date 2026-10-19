@@ -934,7 +934,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Gear still goes through /reserve ("Send the gear ›"). Mount effect guarded by a ref (dev StrictMode ran it twice).
     - LIVE Oct 19 (website run 20, owner "build all of them and put it live"): one AI chat, Plan my shoot, extras A+B+C.
     - SLIM AI LINKS (owner, Oct 19: "shrink the AI cards on Home and Book, the ✦ AI button is on top"): both are now one-line violet
-      pills (44px): Home "✦ Ask AI: props for an idea, or a time to film ›", Book "✦ Or ask AI to find a time ›" (divider removed). Preview only.
+      pills (44px): Home "✦ Ask AI: props for an idea, or a time to film ›", Book "✦ Or ask AI to find a time ›" (divider removed). LIVE Oct 19 (website run 21, owner OK).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
