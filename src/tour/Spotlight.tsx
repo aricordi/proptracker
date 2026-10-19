@@ -21,6 +21,32 @@ export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip
 }) {
   const [r, setR] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
+  // Owner (Oct 19): on iPhone the keyboard slides the whole page up, so the dim and tip landed in the wrong place.
+  // While a text box is focused the dim and tip step aside; only a slim Continue/Done bar shows, just above the keyboard
+  // (visualViewport = the part of the screen you can see). When the keyboard closes the page is put back and the
+  // highlight returns.
+  const [typing, setTyping] = useState(false)
+  const [vv, setVv] = useState({ top: 0, height: typeof window !== 'undefined' ? window.innerHeight : 800 })
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setVv({ top: vv.offsetTop, height: vv.height })
+    update()
+    vv.addEventListener('resize', update); vv.addEventListener('scroll', update)
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
+  }, [])
+  useEffect(() => {
+    const isText = (el: Element | null) => !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'file'].includes((el as HTMLInputElement).type)))
+    const on = (e: FocusEvent) => { if (isText(e.target as Element)) setTyping(true) }
+    const off = () => setTimeout(() => {
+      if (isText(document.activeElement)) return
+      setTyping(false)
+      window.scrollTo(0, 0)
+    }, 50)
+    document.addEventListener('focusin', on)
+    document.addEventListener('focusout', off)
+    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off) }
+  }, [])
   // Owner (Oct 19): scrolling must work anywhere, so nothing covers the screen; instead a tap outside the highlight
   // (and outside the tip) is simply ignored.
   useEffect(() => {
@@ -75,6 +101,11 @@ export function Spotlight({ target, tip, part, step, total, next, onNext, onSkip
       <div className="w-full max-w-sm">{card}</div>
     </div>
   )
+  if (typing) return next ? (
+    <div ref={cardRef} className="fixed z-[71] inset-x-4" style={{ top: vv.top + vv.height - 64 }}>
+      <button onClick={onNext} disabled={nextDisabled} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40 disabled:shadow-none">{next}</button>
+    </div>
+  ) : null
   if (!r) return null
 
   const h = window.innerHeight

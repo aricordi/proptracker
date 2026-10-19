@@ -1015,6 +1015,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Choices no longer auto-advance: friend count (+1 / +2 friends, both work), picking friends (chips, × to remove),
       the day, adding a prop, ticking gear pieces and photos (tap to Retake) all end with Continue (disabled until done).
       LIVE Oct 19 (website run 26, owner OK).
+      KEYBOARD (owner, Oct 19, iPhone screenshot: "when I tap the box to type… it all gets skewed"): iOS slides the page up
+      for the keyboard, so the fixed dim/tip landed in the wrong place. Spotlight: while a text box is focused, no dim and
+      no tip, only a slim Continue/Done bar placed with window.visualViewport just above the keyboard (nothing on steps
+      without a button); on blur → window.scrollTo(0, 0) and the highlight comes back.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
