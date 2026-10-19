@@ -10,7 +10,7 @@ import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import type { Shoot } from '../services/schedule'
 
-interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear' }
+export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear' }
 
 const PROP_WORDS: Record<string, string> = {
   requested: 'Requested', preparing: 'Being prepared', packed: 'Packed & ready', collected: 'Picked up',
@@ -41,6 +41,26 @@ function useLinked(shoot: Shoot, props: boolean, gear: boolean) {
   return { props: p, gear: g }
 }
 
+// One props request or gear booking with its progress bar; tap opens it. Also used by My requests.
+export function RequestRow({ l, label, late, className = 'bg-pt-surface' }: { l: Linked; label?: string; late?: boolean; className?: string }) {
+  const navigate = useNavigate()
+  const kind = l.kind
+  const steps = kind === 'props' ? PROP_STEPS : GEAR_STEPS
+  const at = steps.indexOf(l.status === 'return_pending' ? 'returned' : l.status)
+  const over = ['cancelled', 'declined'].includes(l.status)
+  return (
+    <button onClick={() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`)}
+      className={`w-full ${className} rounded-lg px-3 py-3 text-left space-y-2`}>
+      <span className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-pt-text text-sm">{label ?? l.title} · {l.count} {kind === 'props' ? (l.count === 1 ? 'prop' : 'props') : 'item' + (l.count === 1 ? '' : 's')}</span>
+        <span className={`shrink-0 text-xs ${late ? 'text-red-300 font-semibold' : over ? 'text-pt-muted' : 'text-pt-accent'} tap`}>{late ? 'Late · bring it back' : (kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
+      </span>
+      {!over && <span className="flex gap-1">{steps.map((_, i) => <i key={i} className={`flex-1 h-1.5 rounded-full ${late && i === at ? 'bg-red-400' : i <= at ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>}
+      {!over && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}
+    </button>
+  )
+}
+
 export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: boolean }) {
   const navigate = useNavigate()
   const { choose } = useActiveShoot()
@@ -51,7 +71,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
   const open = shoot.status === 'booked'
   function add(to: string) { choose(shoot.id); navigate(to) }
 
-  const section = (kind: 'props' | 'gear', title: string, by: string, list: Linked[], to: string, extra?: string) => (
+  const section = (_kind: 'props' | 'gear', title: string, by: string, list: Linked[], to: string, extra?: string) => (
     <div className="bg-pt-bg rounded-xl p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
@@ -64,22 +84,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
           <button onClick={() => add(to)} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm">+ Add</button>
         )}
       </div>
-      {list.map(l => {
-        const steps = kind === 'props' ? PROP_STEPS : GEAR_STEPS
-        const at = steps.indexOf(l.status === 'return_pending' ? 'returned' : l.status)
-        const over = ['cancelled', 'declined'].includes(l.status)
-        return (
-          <button key={l.id} onClick={() => navigate(kind === 'props' ? `/reservations/${l.id}` : `/gear/bookings/${l.id}`)}
-            className="w-full bg-pt-surface rounded-lg px-3 py-3 text-left space-y-2">
-            <span className="flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate text-pt-text text-sm">{l.title} · {l.count} {kind === 'props' ? (l.count === 1 ? 'prop' : 'props') : 'item' + (l.count === 1 ? '' : 's')}</span>
-              <span className={`shrink-0 text-xs ${over ? 'text-pt-muted' : 'text-pt-accent'} tap`}>{(kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
-            </span>
-            {!over && <span className="flex gap-1">{steps.map((_, i) => <i key={i} className={`flex-1 h-1.5 rounded-full ${i <= at ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>}
-            {!over && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}
-          </button>
-        )
-      })}
+      {list.map(l => <RequestRow key={l.id} l={l} />)}
       {list.length === 0 && <p className="text-pt-muted text-xs">Nothing yet.</p>}
     </div>
   )

@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 396 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 399 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -944,6 +944,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       gone; the opener = "Tell me your video idea, or when you want to film, or both" + Plan my shoot card + mixed example
       chips (incl. "Props for my <weekday> shoot"). Typing dots say "Looking through the props…" / "Checking the schedule…".
       When the chat changes direction, a small "Meant a time to film? / Meant props for this?" link re-sends to the other helper.
+    - MY REQUESTS BY SHOOT (owner, Oct 19: "combine my gear and prop requests, lump by shoot"; app only, preview only):
+      Me → "My requests" (/requests, `MyRequestsScreen`) replaces "My prop requests" + "My gear". `src/lib/requestGroups.ts`
+      (pure, unit-tested) groups your reservations + gear_bookings by their booked shoot (scheduleShootId/shootId matched
+      to your shoots), else by shoot DAY (old requests, cancelled shoots). Tabs Upcoming (day not passed OR something still
+      out/not checked in; soonest first) / Past. Card = date + shoot label + video names (tap → the shoot), then a
+      `RequestRow` (now exported from ShootNeeds.tsx, shared) per props request and gear booking with progress bar,
+      "Late · bring it back" in red, and "+ Add props or gear · by <cutoff>" until the gear cutoff. Staff lists
+      (/reservations, /gear/bookings) unchanged; request page "‹ Back" now goes back. Help has "Where do I see what I asked for?".
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

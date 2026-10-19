@@ -14,6 +14,7 @@ import ShellLayout from './components/ShellLayout'
 import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 const HomeScreen = lazy(() => import('./screens/HomeScreen'))
+const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
 const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
 const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
 const BinsScreen = lazy(() => import('./screens/BinsScreen'))
@@ -261,6 +262,7 @@ export default function App() {
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
           <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
+          <Route path="/requests" element={<MyRequestsScreen />} />
           <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
           <Route path="/calendar" element={<StaffOnly><RequestsCalendarScreen /></StaffOnly>} />
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />

@@ -76,7 +76,7 @@ const creatorNav = [
   { to: '/',         label: 'Home',   icon: homeIcon },
   { to: '/schedule', label: 'Book',   icon: scheduleIcon },
   { to: '/browse',   label: 'Browse', icon: searchIcon, also: ['/gear', '/item'] },
-  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/reservations', '/gear/bookings'] },
+  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/reservations', '/gear/bookings', '/requests'] },
 ]
 
 const gearIcon = (
@@ -109,7 +109,7 @@ const adminNav = [
 // The owner films too: the creator tabs, plus "Team" for everything only the owner and staff can do.
 const ownerNav = [
   ...creatorNav.slice(0, 3),
-  { to: '/account',  label: 'Me',     icon: accountIcon },
+  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests'] },
   { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
     '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
     '/costs', '/ai', '/bins', '/checkout'] },

@@ -67,6 +67,7 @@ export interface GearBooking {
   date: string; start: number; end: number; from: string; to: string; pickupDay: string; closedDay?: boolean
   lines: GearBookingLine[]; offerIds: string[]
   shootId?: string   // set when booked together with props (one shoot)
+  scheduleShootId?: string   // the booked shoot (Schedule) it belongs to
   status: 'held' | 'out' | 'returned' | 'checked_in' | 'cancelled' | 'declined'
   declineReason?: string
   pickup?: { at: string; by: string; missing: GearMissing[] }

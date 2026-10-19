@@ -109,8 +109,7 @@ function CreatorLinks({ email }: { email: string }) {
   const st = useMyStatus(email)
   const paused = !!st?.pausedUntil && st.pausedUntil > todayInStudio()
   const rows: [string, string, string][] = [
-    ['My prop requests', 'Every props request and where it is', '/reservations?mine=1'],
-    ['My gear', 'Gear held, picked up and returned', '/gear/bookings?mine=1'],
+    ['My requests', 'Props and gear for each shoot, and where they are', '/requests'],
     ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
     ['How it works', 'Slots, cutoffs, check-ins, strikes', '/schedule/how'],
   ]

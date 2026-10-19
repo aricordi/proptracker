@@ -27,6 +27,7 @@ export interface Reservation {
   creatorEmail: string
   creatorName: string
   shootId?: string   // set when booked together with gear (one shoot)
+  scheduleShootId?: string   // the booked shoot (Schedule) it belongs to
   startDate: string
   endDate: string
   status: ReservationStatus
