@@ -25,6 +25,7 @@ export default function HelpScreen() {
     { title: 'Getting started', icon: '👋', items: [
       { q: 'How do I put the app on my home screen?', words: 'install icon iphone android', a: <>On iPhone, open the app in <b>Safari</b>, tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>. On Android, open it in Chrome and tap <b>⋮ → Add to Home screen</b>. It then opens like a normal app.</> },
       { q: "I can't sign in / nothing happens when I tap Sign in with Google", words: 'login google blank error', a: <>Open the link in <b>Safari or Chrome</b>, not inside Instagram, Messenger or Gmail (Google blocks sign-in there). Turn off ad blockers or Private Browsing for this page. On the sign-in screen, "Trouble signing in? Sign in another way" also helps. Still stuck? Ask the team to check you've been invited with the right email.</> },
+      { q: 'Can I practise first?', words: 'tour tutorial practice demo learn walkthrough', go: ['/tour', 'App tour'], a: <>Yes. <b>Me → App tour</b> walks you through booking a pretend shoot, adding real props and gear, sending it, picking it up, checking in and returning it. Nothing in the tour is real: nothing is booked or sent.</> },
       { q: 'How is the app laid out?', words: 'tabs home book browse me', a: <><b>Home</b>: your next shoot and what it still needs. <b>Book</b>: the house schedule. <b>Browse</b>: every prop, costume and piece of gear. <b>Me</b>: your profile, requests and these help pages.</> },
     ] },
     { title: 'Booking a shoot', icon: '📅', items: [

@@ -79,6 +79,9 @@ const creatorNav = [
   { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/reservations', '/gear/bookings', '/requests'] },
 ]
 
+// The app tour draws the same tab bar.
+export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon }
+
 const gearIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
     <path d="M3 8l9-5 9 5v8l-9 5-9-5z" />

@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 399 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 400 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -952,6 +952,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       `RequestRow` (now exported from ShootNeeds.tsx, shared) per props request and gear booking with progress bar,
       "Late · bring it back" in red, and "+ Add props or gear · by <cutoff>" until the gear cutoff. Staff lists
       (/reservations, /gear/bookings) unchanged; request page "‹ Back" now goes back. Help has "Where do I see what I asked for?".
+    - LIVE Oct 19 (website run 23, owner "go live"): no props/time toggle + My requests by shoot.
+    - APP TOUR (owner, Oct 19; owner picked: sealed practice screens, must finish but can pause, real camera with the photo
+      kept on the phone, creators only; preview only, live needs OK; the tourDoneAt rules change needs a BACKEND deploy):
+      `src/tour/Tour.tsx` = 34 steps of practice screens that look like the real ones (Home → Book a shoot → who's filming /
+      day strip / tap a house → Booked + cutoffs → Browse with REAL company prop photos (useItems, read only) + a real gear
+      kit (gear_bundles) → Your shoot review (video name, make-or-find, Send) → Me → My requests (live-looking card, fake
+      "packed" phone notification) → props pickup sign → gear pickup tick every piece → check-in with REAL camera
+      (capture=environment; object URL only, never uploaded; "No camera? Skip") + "the slot before you" report → wrap →
+      return photo → ✦ AI → "Good to know" (live numbers from Booking rules + Schedule settings) → done). SEALED: no
+      callables, no writes except marking it done. `src/tour/Spotlight.tsx` dims everything but [data-tour="<target>"]
+      (box-shadow hole + 4 tap blockers, rAF re-measure, pulsing gold `.tour-ring`), tip card "Step n of N" with Next
+      for info steps. `src/tour/tourState.ts`: progress step in localStorage (resume), done = localStorage + profiles/{email}
+      .tourDoneAt (rules: validProfile allows tourDoneAt string ≤40; until the rules deploy the phone still remembers).
+      App.tsx `TourGate` (realRole creator, not View as) shows the tour until done; `/tour` replays it (✕ closes, ends on
+      /account); Me → "App tour"; Help "Can I practise first?". BottomNav exports TAB_ICONS for the tour's tab bar.
+      Note: existing creators will also get it once on their next open (they haven't done it).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

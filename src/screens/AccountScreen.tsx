@@ -111,6 +111,7 @@ function CreatorLinks({ email }: { email: string }) {
   const rows: [string, string, string][] = [
     ['My requests', 'Props and gear for each shoot, and where they are', '/requests'],
     ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
+    ['App tour', 'Practise booking a shoot again, step by step', '/tour'],
     ['How it works', 'Slots, cutoffs, check-ins, strikes', '/schedule/how'],
   ]
   return (

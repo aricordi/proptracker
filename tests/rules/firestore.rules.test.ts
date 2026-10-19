@@ -411,4 +411,9 @@ describe('swap requests and profiles', () => {
     await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { channel: 'x'.repeat(61) }))
     await assertFails(getDoc(doc(as(STRANGER), 'profiles', CREATOR)))
   })
+  it('you can mark the app tour done on your own profile (a short date only)', async () => {
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: '2026-10-19T21:00:00.000Z' }, { merge: true }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: 'x'.repeat(41) }, { merge: true }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: true }, { merge: true }))
+  })
 })

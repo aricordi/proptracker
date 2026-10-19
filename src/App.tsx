@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode } from 'react'
 import { refreshPush } from './services/push'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './firebase'
 import { OWNER_EMAIL } from './config'
@@ -15,6 +15,7 @@ import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 const HomeScreen = lazy(() => import('./screens/HomeScreen'))
 const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
+const Tour = lazy(() => import('./tour/Tour'))
 const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
 const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
 const BinsScreen = lazy(() => import('./screens/BinsScreen'))
@@ -57,6 +58,7 @@ import { ActiveShootProvider } from './activeShoot'
 import { AssistantProvider } from './assistant'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
+import { useTourDone } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
@@ -85,6 +87,21 @@ function Prefetch() {
 
 // While a screen's code arrives (usually a few milliseconds): a plain black page, no spinner flash.
 export function ScreenFallback() { return <div className="min-h-full bg-pt-bg" /> }
+
+// New creators do the practice tour once before using the app (they can close it and carry on later).
+function TourGate({ children }: { children: ReactNode }) {
+  const { realRole, viewingAs, profile } = useSession()
+  const required = realRole === 'creator' && !viewingAs
+  const [done, setDone] = useTourDone(profile.email, required)
+  if (!required || done) return <>{children}</>
+  if (done === undefined) return <ScreenFallback />
+  return <Suspense fallback={<ScreenFallback />}><Tour required onFinish={setDone} /></Suspense>
+}
+// Replaying the tour (Me → App tour, Help).
+function TourReplay() {
+  const navigate = useNavigate()
+  return <Tour onFinish={() => navigate('/account')} />
+}
 
 function Loading() {
   return (
@@ -240,6 +257,7 @@ export default function App() {
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
     <AssistantProvider>
+    <TourGate>
     <ViewAsFrame on={!!session.viewingAs}>
       <Suspense fallback={<ScreenFallback />}>
       <Routes>
@@ -249,6 +267,7 @@ export default function App() {
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
         <Route path="/reserve" element={<NotArts><ReserveScreen /></NotArts>} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
+        <Route path="/tour" element={<TourReplay />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
         <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
         <Route path="/gear/review" element={<Navigate to="/reserve" replace />} />
@@ -295,6 +314,7 @@ export default function App() {
       </Routes>
       </Suspense>
     </ViewAsFrame>
+    </TourGate>
     </AssistantProvider>
     </ActiveShootProvider>
     </GearCartProvider>

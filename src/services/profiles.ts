@@ -4,7 +4,7 @@ import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../firebase'
 
-export interface Profile { photoURL?: string; googlePhoto?: string; channel?: string }
+export interface Profile { photoURL?: string; googlePhoto?: string; channel?: string; tourDoneAt?: string }
 export type Profiles = Record<string, Profile>
 
 // Everyone's profiles, live (a few dozen small docs). Empty until loaded or if not allowed.
