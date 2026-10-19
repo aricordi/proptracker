@@ -21,6 +21,16 @@ describe('video idea → props and gear', () => {
     expect(m.calls).toBe(1)
     expect((await getDoc(`ai_usage/${month}/people/${ANA}`))!.count).toBe(1)
   })
+  it('"see more" never repeats what is already shown', async () => {
+    await put('gear_bundles/light', { name: 'Light kit', kind: 'bundle', archived: false, category: 'Light', pieces: [] })
+    const first = await call('ideaToProps', { idea: 'A cop pulls over his friend at a diner' }, ANA)
+    expect(first.result.searched.length).toBeGreaterThan(0)
+    const shown = first.result.groups.flatMap((g: any) => g.picks.map((p: any) => p.id))
+    const more = await call('ideaToProps', { idea: 'A cop pulls over his friend at a diner', exclude: shown, searched: first.result.searched }, ANA)
+    expect(more.ok).toBe(true)
+    const again = more.result.groups.flatMap((g: any) => g.picks.map((p: any) => p.id))
+    expect(again.some((id: string) => shown.includes(id))).toBe(false)
+  })
   it('needs a real idea', async () => {
     expect((await call('ideaToProps', { idea: 'hi' }, ANA)).message).toMatch(/a little more/)
   })

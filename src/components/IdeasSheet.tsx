@@ -50,8 +50,34 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
   const today = todayInStudio()
 
   async function ask() {
-    setBusy(true); setErr(''); setResult(null)
+    setBusy(true); setErr(''); setResult(null); setNoMore(false)
     try { setResult((await ideaToProps({ idea: idea.trim(), ...(shoot ? { shootId: shoot.id } : {}) })).data) } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  // "See more ideas" (owner, Oct 19): ask again for different things, never repeating what's shown; new
+  // picks join their scene (or a new one) below.
+  const [moreBusy, setMoreBusy] = useState(false)
+  const [noMore, setNoMore] = useState(false)
+  async function seeMore() {
+    if (!result) return
+    setMoreBusy(true); setErr('')
+    try {
+      const exclude = result.groups.flatMap(g => g.picks.map(p => p.id))
+      const searched = [...(result.searched ?? []), ...result.missing.map(m => m.name)]
+      const r = (await ideaToProps({ idea: idea.trim(), exclude, searched, ...(shoot ? { shootId: shoot.id } : {}) })).data
+      const groups = result.groups.map(g => ({ ...g, picks: [...g.picks] }))
+      let added = 0
+      for (const g of r.groups) {
+        const fresh = g.picks.filter(p => !exclude.includes(p.id))
+        if (!fresh.length) continue
+        added += fresh.length
+        const same = groups.find(x => x.title.toLowerCase() === g.title.toLowerCase())
+        if (same) same.picks.push(...fresh); else groups.push({ title: g.title, picks: fresh })
+      }
+      const have = new Set(result.missing.map(m => m.name.toLowerCase()))
+      const missing = [...result.missing, ...r.missing.filter(m => !have.has(m.name.toLowerCase()))]
+      setResult({ ...result, groups, missing, searched: [...searched, ...(r.searched ?? [])] })
+      if (!added && missing.length === result.missing.length) setNoMore(true)
+    } catch (e) { setErr(errText(e)) } finally { setMoreBusy(false) }
   }
   const freeProp = (id: string) => {
     const i = itemById.get(id)
@@ -132,6 +158,10 @@ export default function IdeasSheet({ open, onClose }: { open: boolean; onClose: 
                 })}
               </div>
             )}
+            {result.groups.length > 0 && (noMore
+              ? <p className="text-pt-muted text-sm text-center">That's everything that fits. Search or browse for more.</p>
+              : <button disabled={moreBusy} onClick={seeMore} className="w-full rounded-2xl py-3 min-h-[48px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/[0.12] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] disabled:opacity-60">
+                  {moreBusy ? <span className="inline-flex gap-1 items-center">Finding more <span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></span> : '✦ See more ideas'}</button>)}
             {(cart.count + gearCart.count) > 0 && <button onClick={() => go('/reserve')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review your shoot · {cart.count + gearCart.count}</button>}
             <p className="text-pt-muted text-xs text-center">Not quite it? Search or browse for the real thing.</p>
           </div>

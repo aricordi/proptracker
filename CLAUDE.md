@@ -199,7 +199,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 382 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 383 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -801,6 +801,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Help monthly text. Server unchanged (monthlySlots setting kept). Turn it back on when the wishlist + fair draw is built
       (draw-placed shoots = 'monthly').
     - LIVE Oct 19 (website run 17, owner OK): swipe-to-close sheets, day strip, bigger dates, monthly/extra hidden.
+    - IDEAS "SEE MORE" (owner, Oct 19): IdeasSheet "✦ See more ideas" → ideaToProps again with `exclude` (ids already shown)
+      + `searched` (needs already looked up, returned by each call as `searched`, + missing names). Server: step 1 asks for
+      DIFFERENT, less obvious items; shortlist 10 per need (was 6) minus excluded ids/gear; missing drops repeats. New picks
+      join their scene group (or a new one); "That's everything that fits" when a round adds nothing. Each press = 1 AI use
+      (counts in the budget/daily limit). Test in assistant.test.ts. Tests 383. NEEDS BACKEND + WEBSITE DEPLOY (ask).
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,

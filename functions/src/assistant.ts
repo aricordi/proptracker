@@ -76,6 +76,11 @@ export const ideaToProps = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, as
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const idea = str(req.data?.idea, 600)
   if (idea.length < 8) throw new HttpsError('invalid-argument', 'Tell us a little more about the video idea.')
+  // "See more ideas" (owner, Oct 19): the phone sends what it already shows (ids) and the needs already
+  // searched, so this round looks for different, less obvious things and never repeats a pick.
+  const exclude = new Set((Array.isArray(req.data?.exclude) ? req.data.exclude : []).slice(0, 200).map((x: unknown) => str(x, 128)).filter(Boolean))
+  const searched = (Array.isArray(req.data?.searched) ? req.data.searched : []).slice(0, 60).map((x: unknown) => safeText(x, 50)).filter(Boolean) as string[]
+  const more = exclude.size > 0 || searched.length > 0
   const settle = await reserveAi(caller.email, 'ideas')
   const key = apiKey(), fake = isFakeMode(key)
   if (!fake && !key) { await settle(0); throw new HttpsError('failed-precondition', 'The AI helper isn\'t set up yet.') }
@@ -88,7 +93,9 @@ export const ideaToProps = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, as
         system: `${APP_CONTEXT}
 TASK: list the physical props, costumes, set dressing and filming gear a video like this would need, grouped by scene,
 character or purpose. Return ONLY {"needs":[{"scene":"For the cop","items":["police uniform","police badge"]}]}:
-2-6 groups, titles start with "For " (one gear group may be "To film it"), 1-6 short concrete item names per group.
+2-6 groups, titles start with "For " (one gear group may be "To film it"), 1-6 short concrete item names per group.${more ? `
+This is a SECOND LOOK: these items were already searched, so list DIFFERENT ones (less obvious props, set dressing,
+background details, wardrobe extras, alternatives, small touches): ${JSON.stringify(searched)}` : ''}
 Empty answer: {"needs":[]}.`,
         user: `<creator_text>${asData(idea, 600)}</creator_text>`,
       }, 700)
@@ -105,9 +112,9 @@ Empty answer: {"needs":[]}.`,
     const phrases = [...new Set(needs.flatMap(n => n.items))].slice(0, 24)
     const near = await Promise.all(phrases.map(async q => {
       const v = await embedText(key, q, 'RETRIEVAL_QUERY')
-      return (await db.collection('item_vectors').findNearest({ vectorField: 'embedding', queryVector: FieldValue.vector(v), limit: 6, distanceMeasure: 'COSINE' }).get()).docs.map(d => d.id)
+      return (await db.collection('item_vectors').findNearest({ vectorField: 'embedding', queryVector: FieldValue.vector(v), limit: more ? 10 : 6, distanceMeasure: 'COSINE' }).get()).docs.map(d => d.id)
     }))
-    const ids = [...new Set(near.flat())].slice(0, 90)
+    const ids = [...new Set(near.flat())].filter(id => !exclude.has(id)).slice(0, 90)
     const snaps = ids.length ? await db.getAll(...ids.map(id => db.doc(`items/${id}`))) : []
     const [catSnap, tagSnap] = await Promise.all([db.collection('categories').get(), db.collection('tags').get()])
     const cats = Object.fromEntries(catSnap.docs.map(d => [d.id, String(d.get('label') ?? '')]))
@@ -119,7 +126,7 @@ Empty answer: {"needs":[]}.`,
         words: [...((x.get('tags') ?? []) as string[]).map(t => tags[t]).filter(Boolean), ...((x.get('searchWords') ?? []) as string[]).slice(0, 8)].slice(0, 12).join(', '),
         qty: Number(x.get('quantity') ?? 1), free: freeOn[x.id],
       }))
-    const gear = (await db.collection('gear_bundles').get()).docs.filter(d => d.get('archived') !== true)
+    const gear = (await db.collection('gear_bundles').get()).docs.filter(d => d.get('archived') !== true && !exclude.has(d.id))
       .map(d => ({ id: d.id, name: String(d.get('name') ?? ''), cat: String(d.get('category') ?? ''), kind: d.get('kind') === 'extra' ? 'add-on' : 'bundle' }))
     const propIds = new Set(props.map(p => p.id)), gearIds = new Set(gear.map(g => g.id))
 
@@ -161,7 +168,8 @@ on the shortlist (0-4). Empty answer: {"groups":[],"missing":[]}.`,
     })).filter((g: { picks: Pick[] }) => g.picks.length)
     const missing = (Array.isArray(data.missing) ? data.missing : []).slice(0, 4)
       .map((m: any) => ({ name: safeText(m?.name, 60), why: safeText(m?.why, 90) })).filter((m: { name: string }) => m.name)
-    return { groups, missing }
+    const known = new Set(searched.map(x => x.toLowerCase()))
+    return { groups, missing: missing.filter((m: { name: string }) => !known.has(m.name.toLowerCase())), searched: phrases }
   } finally { await settle(cost) }
 })
 
