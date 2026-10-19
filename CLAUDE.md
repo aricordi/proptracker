@@ -975,6 +975,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Pill, PhotoStrip, Avatar, RequestRow (new optional `onOpen`), BrandMark, GearArt. 36 steps. Only a small "Practice ·
       N%" pill under the status bar marks it. When one of those real screens changes a lot, update its tour scene too.
       LIVE Oct 19 (backend run with the tourDoneAt rule + website run 24, owner OK): app tour on the live site.
+      HANDS-ON + CALM (owner, Oct 19: "animations too distracting… go into more detail like actually typing in a friend's
+      name"): Spotlight is still (static gold edge, no pulse/slide/pop-in; tip docks at the bottom when the highlight is
+      big; `keepInView` scrolls the nearest .overflow-y-auto box so the step clears headers and bottom bars; "Practice ·
+      step n of N" + ✕ (replay only) live in the tip card, no floating tag). Steps now make you DO it: + 1 friend → type a
+      name (real `listFilmingFriends`, names only; "Practise with Sam" if nobody matches) → tap a day (any free day in
+      the strip) → house → "Book back to back" (You Booked / friend Held 20 min, "Book + invite X") → shoot → Browse with
+      a REAL search over company props (name/description/tags/search words) and + on anything (2 props) → gear → review:
+      type the video name (Done enabled once typed), open "+ Request something we don't have", type it + how many → Add
+      request → send … report chips toggle, type what you filmed, type your own AI idea (answer = local matches from
+      your words, never the AI). 35 steps. Still sealed: the only server call is the read-only friend list.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
