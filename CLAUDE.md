@@ -932,6 +932,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       {add:{lines,builds}}; ChangeRequest opens in edit mode with them merged (NEW badge on added props), only saved by
       the person's "Save changes" (editReservation re-checks availability), then removes them from the basket.
       Gear still goes through /reserve ("Send the gear ›"). Mount effect guarded by a ref (dev StrictMode ran it twice).
+    - LIVE Oct 19 (website run 20, owner "build all of them and put it live"): one AI chat, Plan my shoot, extras A+B+C.
     - App: Admin → "Running costs" (`CostsScreen`, owner only, /costs). Proof photos that were cleaned up show
       "Photo removed after 6 months" (PhotoStrip StripPhoto onError).
     - HELP (`src/screens/HelpScreen.tsx`, /help, everyone): searchable FAQ by topic (getting started + sign-in trouble,
