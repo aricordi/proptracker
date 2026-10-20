@@ -3,7 +3,7 @@ import { beforeEach, describe, it, expect } from 'vitest'
 import { put, call, getDoc, waitFor, clearDatabase } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
-const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com'
+const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com', OWNER = 'alexisricordi@gmail.com'
 let FRI = addDays(todayInStudio(), 8); while (weekday(FRI) !== 5) FRI = addDays(FRI, 1)
 
 beforeEach(async () => {
@@ -48,7 +48,8 @@ describe('calendar links', () => {
   })
 
   it('the connection test needs a calendar ID first, and only the team can run it', async () => {
-    expect((await call('testCalendarLink', {}, MAANIK)).message).toMatch(/Calendar ID/)
+    expect((await call('testCalendarLink', {}, MAANIK)).error).toBe('PERMISSION_DENIED')   // calendar connection = the owner's (Oct 20)
+    expect((await call('testCalendarLink', {}, OWNER)).message).toMatch(/Calendar ID/)
     expect((await call('testCalendarLink', {}, ANA)).error).toBe('PERMISSION_DENIED')
   })
 })
@@ -57,7 +58,7 @@ describe('importing the existing calendar', () => {
   it('previews events with guesses, then imports a shoot (keeping its Google event) and a block; imported ones disappear', async () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
     await put('users/jana@example.com', { email: 'jana@example.com', role: 'creator', active: true, name: 'Jana' })
-    const p = await call('previewCalendarImport', {}, MAANIK)
+    const p = await call('previewCalendarImport', {}, OWNER)
     expect(p.ok, p.message).toBe(true)
     const [shoot, block] = p.result.events
     expect(shoot.guess).toMatchObject({ action: 'shoot', email: 'jana@example.com', house: 'cliff1', start: 780 })
@@ -65,9 +66,9 @@ describe('importing the existing calendar', () => {
     const r = await call('applyCalendarImport', { items: [
       { id: shoot.id, action: 'shoot', email: 'jana@example.com', house: 'cliff1', date: shoot.date, start: 780 },
       { id: block.id, action: 'block', house: 'cliff1', type: 'cleaners', date: block.date, start: block.startMin, end: block.endMin, title: block.title },
-    ] }, MAANIK)
+    ] }, OWNER)
     expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
-    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+    expect((await call('previewCalendarImport', {}, OWNER)).result.events).toHaveLength(0)
     expect((await call('previewCalendarImport', {}, ANA)).error).toBe('PERMISSION_DENIED')
   })
 
@@ -76,7 +77,7 @@ describe('importing the existing calendar', () => {
     const r = await call('applyCalendarImport', { items: [
       { id: 'odd1', action: 'shoot', email: ANA, house: 'cliff2', date: day, start: 870, end: 1020 },   // 2:30–5 PM
       { id: 'odd2', action: 'shoot', email: BEN, house: 'cliff2', date: day, start: 900, end: 1020 },   // 3–5 PM, same house
-    ] }, MAANIK)
+    ] }, OWNER)
     expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
     expect(r.result.results[1].message).toMatch(/CLASH with Ana/)
     const d = (await getDoc(`schedule_days/${day}`))!
@@ -103,7 +104,7 @@ describe('shared calendar copies', () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
     const b = await call('bookShoot', { place: 'cliff1', date: FRI, start: 780 }, ANA)
     expect(b.ok, b.message).toBe(true)
-    const cal = async () => (await call('calendarPending', {}, MAANIK)).result
+    const cal = async () => (await call('calendarPending', {}, OWNER)).result
     await waitFor(async () => (await cal()).sent.length === 1)
     expect((await cal()).pending).toHaveLength(0)
     expect((await call('calendarPending', {}, ANA)).error).toBe('PERMISSION_DENIED')
@@ -111,7 +112,7 @@ describe('shared calendar copies', () => {
     await call('cancelShoot', { id: b.result.id }, MAANIK)
     await waitFor(async () => (await cal()).sent.length === 0)
     // An old imported event never goes through the app's copy.
-    await call('applyCalendarImport', { items: [{ id: 'old1', action: 'shoot', email: BEN, house: 'cliff2', date: FRI, start: 870, end: 1020 }] }, MAANIK)
+    await call('applyCalendarImport', { items: [{ id: 'old1', action: 'shoot', email: BEN, house: 'cliff2', date: FRI, start: 870, end: 1020 }] }, OWNER)
     await new Promise(r => setTimeout(r, 2500))
     const c = await cal()
     expect([...c.sent, ...c.pending].filter((x: { label: string }) => /Ben/.test(x.label))).toHaveLength(0)
@@ -123,15 +124,15 @@ describe('importing again', () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
     const ev = (start: string, end: string, title = 'Ana - Cliff 2') => ({ id: 'man1', summary: title, start: { dateTime: `${FRI}T${start}:00-04:00` }, end: { dateTime: `${FRI}T${end}:00-04:00` } })
     await put('test_calendar/events', { items: [ev('13:00', '15:00')] })
-    const p1 = (await call('previewCalendarImport', {}, MAANIK)).result.events
+    const p1 = (await call('previewCalendarImport', {}, OWNER)).result.events
     expect(p1[0].kind).toBe('new')
-    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 2' }] }, MAANIK)
-    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 2' }] }, OWNER)
+    expect((await call('previewCalendarImport', {}, OWNER)).result.events).toHaveLength(0)
     // Someone moves it in Google Calendar to 3:30–5:30.
     await put('test_calendar/events', { items: [ev('15:30', '17:30')] })
-    const p2 = (await call('previewCalendarImport', {}, MAANIK)).result.events
+    const p2 = (await call('previewCalendarImport', {}, OWNER)).result.events
     expect(p2[0]).toMatchObject({ kind: 'changed', startMin: 930, was: { startMin: 780 } })
-    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 930, end: 1050, title: 'Ana - Cliff 2' }] }, MAANIK)
+    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 930, end: 1050, title: 'Ana - Cliff 2' }] }, OWNER)
     const d = (await getDoc(`schedule_days/${FRI}`))!
     expect(d.cliff2['780']).toBeUndefined()
     const id = d.cliff2['900'].shootId
@@ -139,12 +140,12 @@ describe('importing again', () => {
     expect((await getDoc(`shoots/${id}`))!.start).toBe(930)
     // Deleted in Google Calendar.
     await put('test_calendar/events', { items: [] })
-    const p3 = (await call('previewCalendarImport', {}, MAANIK)).result.events
+    const p3 = (await call('previewCalendarImport', {}, OWNER)).result.events
     expect(p3[0]).toMatchObject({ kind: 'removed', id: 'man1' })
-    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'remove', date: FRI }] }, MAANIK)
+    await call('applyCalendarImport', { items: [{ id: 'man1', action: 'remove', date: FRI }] }, OWNER)
     expect((await getDoc(`shoots/${id}`))!.status).toBe('cancelled')
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff2['900']).toBeUndefined()
-    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+    expect((await call('previewCalendarImport', {}, OWNER)).result.events).toHaveLength(0)
   })
 })
 
@@ -153,10 +154,10 @@ describe('automatic calendar check', () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
     const ev = (id: string, start: string, end: string) => ({ id, summary: 'Ana - Cliff 1', start: { dateTime: `${FRI}T${start}:00-04:00` }, end: { dateTime: `${FRI}T${end}:00-04:00` } })
     await put('test_calendar/events', { items: [ev('a1', '13:00', '15:00')] })
-    await call('applyCalendarImport', { items: [{ id: 'a1', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 1' }] }, MAANIK)
+    await call('applyCalendarImport', { items: [{ id: 'a1', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 1' }] }, OWNER)
     // Moved in Google Calendar + a brand-new event added there.
     await put('test_calendar/events', { items: [ev('a1', '17:00', '19:00'), ev('new1', '09:00', '11:00')] })
-    const r = await call('checkCalendarNow', {}, MAANIK)
+    const r = await call('checkCalendarNow', {}, OWNER)
     expect(r.ok, r.message).toBe(true)
     expect(r.result).toMatchObject({ changed: 1, removed: 0, newEvents: 1 })
     const d = (await getDoc(`schedule_days/${FRI}`))!

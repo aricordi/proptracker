@@ -27,7 +27,8 @@ describe('batch import', () => {
   it('only the owner can start or run an import', async () => {
     expect((await call('startImport', { links: ['test:3'], dryRun: true }, ARTS)).error).toBe('PERMISSION_DENIED')
     expect((await call('startImport', { links: ['test:3'], dryRun: true }, ALEX)).error).toBe('PERMISSION_DENIED')
-    expect((await call('importInfo', {}, ARTS)).result.serviceAccount).toMatch(/@/)
+    expect((await call('importInfo', {}, ARTS)).error).toBe('PERMISSION_DENIED')
+    expect((await call('importInfo', {}, OWNER)).result.serviceAccount).toMatch(/@/)
   })
 
   it('rejects links that are not Drive folders', async () => {
@@ -60,11 +61,11 @@ describe('batch import', () => {
       { id: 'test0001x4', name: 'Red Rotary Phone', tags: ['phone', 'Phones', 'vintage'], quantity: 2, newBinLabel: 'bin a1' },
       { id: 'test0002x4', newBinLabel: 'C7' },
       { id: 'test0003x4', binId: null },
-    ] }, ARTS)
+    ] }, OWNER)
     expect(r.result.results.every((x: { itemId?: string }) => x.itemId)).toBe(true)
 
     const [a, b, c] = await Promise.all(r.result.results.map((x: { itemId: string }) => getDoc(`items/${x.itemId}`)))
-    expect(a).toMatchObject({ name: 'Red Rotary Phone', quantity: 2, binId: 'b1', locationId: 'loc-main', createdBy: ARTS, condition: 'good', archived: false })
+    expect(a).toMatchObject({ name: 'Red Rotary Phone', quantity: 2, binId: 'b1', locationId: 'loc-main', createdBy: OWNER, condition: 'good', archived: false })
     expect(a!.tags).toHaveLength(2)   // "phone" and "Phones" are one tag
     expect(a!.photos[0]).toMatch(/test0001x4/)
     expect(a!.searchWords).toContain('sample word')   // hidden extra search words from the AI
@@ -73,12 +74,12 @@ describe('batch import', () => {
     expect((await getDoc('locations/imported'))!.name).toMatch(/Imported/)
     expect(c!.binId).toBeUndefined()
 
-    const twice = await call('approveImports', { items: [{ id: 'test0001x4' }] }, ARTS)
+    const twice = await call('approveImports', { items: [{ id: 'test0001x4' }] }, OWNER)
     expect(twice.result.results[0].itemId).toBe(r.result.results[0].itemId)
 
-    expect((await call('skipImports', { ids: ['test0004x4'] }, ARTS)).result.skipped).toBe(1)
+    expect((await call('skipImports', { ids: ['test0004x4'] }, OWNER)).result.skipped).toBe(1)
     expect((await getDoc(`import_jobs/${result.jobId}`))!.counts).toMatchObject({ analyzed: 0, approved: 3, skipped: 1 })
-    expect((await call('approveImports', { items: [{ id: 'test0004x4' }] }, ARTS)).result.results[0].error).toBeTruthy()
+    expect((await call('approveImports', { items: [{ id: 'test0004x4' }] }, OWNER)).result.results[0].error).toBeTruthy()
   })
 
   it('signs saying "bin 5", "BIN 5" or "Bin  5" all become one bin called "Bin 5"', async () => {
@@ -86,7 +87,7 @@ describe('batch import', () => {
     await runToEnd(result.jobId)
     const r = await call('approveImports', { items: [
       { id: 'test0001x3', newBinLabel: 'bin 5' }, { id: 'test0002x3', newBinLabel: 'BIN 5' }, { id: 'test0003x3', newBinLabel: 'Bin  5' },
-    ] }, ARTS)
+    ] }, OWNER)
     const items = await Promise.all(r.result.results.map((x: { itemId: string }) => getDoc(`items/${x.itemId}`)))
     expect(new Set(items.map(i => i!.binId)).size).toBe(1)
     expect((await getDoc(`bins/${items[0]!.binId}`))!.label).toBe('Bin 5')
@@ -96,28 +97,28 @@ describe('batch import', () => {
     const { result } = await call('startImport', { links: ['test:6'], dryRun: true }, OWNER)
     await runToEnd(result.jobId)
     expect((await call('mergeImports', { ids: ['test0001x6', 'test0002x6'] }, ALEX)).error).toBe('PERMISSION_DENIED')
-    expect((await call('mergeImports', { ids: ['test0001x6'] }, ARTS)).error).toBe('INVALID_ARGUMENT')
+    expect((await call('mergeImports', { ids: ['test0001x6'] }, OWNER)).error).toBe('INVALID_ARGUMENT')
 
     // Three photos of identical chairs → one prop, quantity 3, all three photos.
-    const m = await call('mergeImports', { ids: ['test0001x6', 'test0002x6', 'test0003x6'], item: { name: 'Wooden Chair', quantity: 3 } }, ARTS)
+    const m = await call('mergeImports', { ids: ['test0001x6', 'test0002x6', 'test0003x6'], item: { name: 'Wooden Chair', quantity: 3 } }, OWNER)
     const chair = (await getDoc(`items/${m.result.itemId}`))!
     expect(chair).toMatchObject({ name: 'Wooden Chair', quantity: 3, collection: 'company' })
     expect(chair.photos).toHaveLength(3)
     expect((await getDoc('import_items/test0002x6'))).toMatchObject({ status: 'approved', itemId: m.result.itemId })
 
     // A later photo of the same chair → added to it: one more unit, one more photo.
-    const add = await call('mergeImports', { ids: ['test0004x6'], addToItemId: m.result.itemId, addQuantity: 1 }, ARTS)
+    const add = await call('mergeImports', { ids: ['test0004x6'], addToItemId: m.result.itemId, addQuantity: 1 }, OWNER)
     expect(add.result.itemId).toBe(m.result.itemId)
     const after = (await getDoc(`items/${m.result.itemId}`))!
     expect(after.quantity).toBe(4)
     expect(after.photos).toHaveLength(4)
 
     // Same prop from another angle → photo only, quantity unchanged.
-    await call('mergeImports', { ids: ['test0005x6'], addToItemId: m.result.itemId }, ARTS)
+    await call('mergeImports', { ids: ['test0005x6'], addToItemId: m.result.itemId }, OWNER)
     expect((await getDoc(`items/${m.result.itemId}`))!.quantity).toBe(4)
 
     // Already handled photos can't be merged again; personal props can't receive imports.
-    expect((await call('mergeImports', { ids: ['test0001x6', 'test0006x6'] }, ARTS)).error).toBe('FAILED_PRECONDITION')
+    expect((await call('mergeImports', { ids: ['test0001x6', 'test0006x6'] }, OWNER)).error).toBe('FAILED_PRECONDITION')
     await put('items/mine', { name: 'My lamp', tags: [] })
     expect((await call('mergeImports', { ids: ['test0006x6'], addToItemId: 'mine' }, OWNER)).error).toBe('FAILED_PRECONDITION')
     expect((await getDoc(`import_jobs/${result.jobId}`))!.counts).toMatchObject({ analyzed: 1, approved: 5 })
@@ -126,7 +127,7 @@ describe('batch import', () => {
   it('owner can undo a test import; the same photos can then be imported again', async () => {
     const { result } = await call('startImport', { links: ['test:4'], dryRun: true }, OWNER)
     await runToEnd(result.jobId)
-    const ok = await call('approveImports', { items: [{ id: 'test0001x4' }, { id: 'test0002x4' }] }, ARTS)
+    const ok = await call('approveImports', { items: [{ id: 'test0001x4' }, { id: 'test0002x4' }] }, OWNER)
     const itemIds = ok.result.results.map((x: { itemId: string }) => x.itemId)
     expect((await call('undoImport', { jobId: result.jobId }, ARTS)).error).toBe('PERMISSION_DENIED')
 
@@ -144,7 +145,7 @@ describe('batch import', () => {
     await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
     const { result } = await call('startImport', { links: ['test:3'], dryRun: true }, OWNER)
     await runToEnd(result.jobId)
-    const ok = await call('approveImports', { items: [{ id: 'test0001x3' }, { id: 'test0002x3' }] }, ARTS)
+    const ok = await call('approveImports', { items: [{ id: 'test0001x3' }, { id: 'test0002x3' }] }, OWNER)
     const [a, b] = ok.result.results.map((x: { itemId: string }) => x.itemId)
 
     expect((await call('deleteImportedProp', { itemId: a }, ALEX)).error).toBe('PERMISSION_DENIED')

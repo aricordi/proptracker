@@ -5,7 +5,7 @@ import { subscribeToReservations, ACTIVE_STATUSES, type Reservation, type Reserv
 import { todayInStudio, daysBetween, pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useAtRisk } from '../hooks/useAtRisk'
-import { formatRange } from '../lib/dates'
+import { formatRange, formatDay } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { Pill } from '../components/GearUi'
 
@@ -98,7 +98,7 @@ export default function ReservationsScreen() {
           const total = r.lines.length + builds.length
           const done = r.lines.filter(l => l.pick).length + builds.filter(b => b.state !== 'todo').length
           const items = [...r.lines.map(l => l.qty > 1 ? `${l.qty}× ${l.itemName}` : l.itemName), ...builds.map(b => `${b.qty > 1 ? `${b.qty}× ` : ''}${b.description} (to make)`)]
-          const todayLine = tabKey === 'today' && (r.status === 'collected' ? `Due back by ${RETURN_DEADLINE_HOUR} AM` : pickup < today ? 'Pickup was due' : 'Pickup today')
+          const todayLine = tabKey === 'today' && (r.status === 'collected' ? (returnDueDay(r.endDate, settings) < today ? `Was due back ${formatDay(returnDueDay(r.endDate, settings))}` : `Due back by ${RETURN_DEADLINE_HOUR} AM`) : pickup < today ? 'Pickup was due' : 'Pickup today')
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
               className={`w-full text-left bg-pt-surface rounded-2xl p-4 space-y-1 active:opacity-80 ${overdue || urgent ? 'ring-1 ring-red-400/60' : atRisk[r.id] ? 'ring-1 ring-amber-400/60' : ''}`}>

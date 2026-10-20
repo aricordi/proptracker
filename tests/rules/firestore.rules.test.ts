@@ -459,3 +459,24 @@ describe('swap requests and profiles', () => {
     await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: true }, { merge: true }))
   })
 })
+
+describe('admin (a viewer who manages creators)', () => {
+  it('sees props, internal notes, every request and the gear, but cannot change them', async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'item_private', 'cop'), { internalNotes: 'x' })
+      await setDoc(doc(db, 'reservations', 'r1'), { creatorEmail: CREATOR, status: 'requested' })
+      await setDoc(doc(db, 'gear_bookings', 'g1'), { creatorEmail: CREATOR, status: 'held' })
+      await setDoc(doc(db, 'gear_items', 'cam'), { name: 'FX3', have: 1 })
+    })
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'items', 'cop')))
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'item_private', 'cop')))
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'reservations', 'r1')))
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'gear_bookings', 'g1')))
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'gear_items', 'cam')))
+    await assertFails(updateDoc(doc(as(ADMIN), 'items', 'cop'), { archived: true, ...by(ADMIN) }))
+    await assertFails(setDoc(doc(as(ADMIN), 'item_private', 'cop'), { internalNotes: 'changed' }))
+    await assertFails(setDoc(doc(as(ADMIN), 'items', 'new'), { ...item, ...by(ADMIN) }))
+    await assertFails(setDoc(doc(as(ADMIN), 'health', 'dismissed'), { pairs: [] }))
+  })
+})

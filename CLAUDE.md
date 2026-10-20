@@ -94,8 +94,8 @@ The old UID-based users (Keanu, friend #3) do not need access; only the owner do
 ### Phase 1 (Foundation)
 - Roles in Firestore `users/{lowercase email}` (`role`, `active`):
   owner (full admin; `alexisricordi@gmail.com` hard-coded in `src/config.ts`,
-  `firestore.rules`, `storage.rules`, `functions/src/index.ts`), arts (inventory
-  + invite creators), creator (search + view only).
+  `firestore.rules`, `storage.rules`, `functions/src/index.ts`), arts (inventory;
+  no invites since Oct 20), creator (search + book), equipment (gear + schedule), admin (viewer + manages creators, Oct 20).
 - Invite-only Google sign-in; People screen at `/users`.
 - Nothing is deleted: props are archived, users deactivated. Rules block deletes.
 - Prop fields: name, photos[], tags, categoryId, quantity, condition
@@ -839,7 +839,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Test in assistant.test.ts. Tests 385.
     - LIVE Oct 19 (backend run 34 + website run 18, owner "go live"): see more ideas, ideas → shoot, arts don't book + calendar, gear
       looks like props, brainstorm chat.
-    - ADMIN ROLE (owner, Oct 19; NOT deployed — security rules + server → needs owner OK): role 'admin' = everything a
+    - ADMIN ROLE (SUPERSEDED Oct 20 by ROLES TIGHTENED: admin is now a viewer) (owner, Oct 19; NOT deployed — security rules + server → needs owner OK): role 'admin' = everything a
       creator, the arts department and the equipment team can do, NOTHING owner-only. Owner answers: invites CREATORS
       only (like arts); owner-only for admins: money + AI budget (costs, /ai, ai_usage reads, Health AI card), personal
       props, bulk tools (Drive import, undo, rebuild search, search words, photo clean-up), SCHEDULE SETTINGS + any
@@ -1203,6 +1203,34 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Tour ch1 tabs text mentions it.
     - LIVE Oct 20 (owner "ok on all"): backend run 39 + website run 32 (everything through shared gear, who used it, hand-over,
       gear team tour, big feedback round) + "Add test gear" run 1 (FX3, 2× A7S III, Mavic Air + Mini 5 kits on the live app).
+    - ROLES TIGHTENED (owner, Oct 20: "people aren't tech savvy; maintenance and anything that could break the app = owner only;
+      everyone else only what their job needs"; NOT deployed: SECURITY RULES + server → backend deploy needs owner OK, then website):
+      ADMIN = a VIEWER who MANAGES CREATORS (was "everything arts + equipment do", Oct 19). Server: ADMIN_COVERS = ['creator']
+      (books own shoots/props/gear like a creator, `booksLikeCreator`), isStaff = owner/arts only; admin taken out of every
+      TEAM / GEAR_STAFF list. Rules: canSee() = owner/arts/admin, canSeeGear() = owner/equipment/admin for READS; writes stay
+      isStaff / isGearStaff (no admin). Admin powers (DISCIPLINE = owner/equipment/admin: decideShoot, reviewReport, liftPause;
+      MANAGERS = owner/admin, new callables in deploy/log lists: `giveStrike` {email, about props|gear|schedule|behaviour|other,
+      note ≥3} → strikes reason 'manual' (counts toward the automatic pause), `removeStrike` {id, note} (kept on record with
+      removedAt/removedBy/removeNote; countStrikes skips removed; lifts an automatic pause if below the limit, never a manual
+      one), `pauseCreator` {email, days 1–90, note} → manualPause). INVITES: owner (any role) + admin (creators only, and only
+      creator records); ARTS NO LONGER INVITE. BOOKING RULES (app_settings/booking + category turnaroundDays): owner + admin only.
+      OWNER-ONLY maintenance: Import (+ approve/merge/skip; deleteImportedProp stays owner+arts), Categories (add/rename),
+      Schedule settings, Google Calendar (test/import/changes/check), AI usage (ai_usage, Health AI card, /ai), costs. Arts keep
+      Find duplicates + merge and Merge look-alike bins; equipment keep gear/bundles, blocks, moving others' shoots, check-in
+      decisions. AI/server costs never shown or mentioned to anyone but the owner (prop replacement costs + gear values stay).
+      App: session canSeeStaff / canSeeGear / canManagePeople; guards SeeStaff, SeeGear, PeopleOnly; admin tabs Queue / Gear /
+      Schedule / Props / Admin (admin menu: Creators, Props queue, Gear queue, Requests calendar, Schedule team, Activity, Invite
+      creators, Booking rules, Book gear, Help, My account). NEW `/creators` (CreatorsScreen, owner + admin): period chips (30
+      days / this month / 90 days), totals (filmed, no-shows, late returns, strikes), per creator filmed-of-booked bar + flag pills,
+      sort Most filming / Most flags; flags from `src/lib/creatorStats.ts` (pure, unit-tested): no-show, missed check-in, late
+      cancel, started late (check-in > 15 min after start), ran over / mess (reports not dismissed), late props, late gear
+      (whoever used/held it), strikes. `/people/:email` deep dive: same period, tiles, every flag listed, strikes with Remove,
+      `ManageCreator` buttons Give a strike / Pause bookings (or Lift) with required reasons. QUICK CHECKOUT REMOVED (screen,
+      hook, service deleted; /checkout → /admin; a prop still marked out there shows "It's back: mark it in" on its page).
+      PROPS QUEUE looks like the gear queue (title "Props queue", first tab TODAY = pickups due today/overdue + props due back
+      today or late, counted chip tabs, cards with Late / At risk / Pickup issue / n of N picked / status pills). Gear tour
+      practice stock = camera bodies, lenses, lights, mics, gorilla pods only (no batteries, drones, handles, cards); its Admin
+      menu no longer lists schedule settings / calendar import. Help: admins give strikes / invite. Tests 423.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

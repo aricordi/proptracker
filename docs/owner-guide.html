@@ -66,13 +66,13 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 
 <section id="roles">
   <h2>Who's who</h2>
-  <p>Everyone signs in with Google, and only people you (or the team) invite can get in. You set each person's role on <span class="path">Team → People &amp; access</span>.</p>
+  <p>Everyone signs in with Google, and only people you (or an admin) invite can get in. <b>Your rule (Oct 20):</b> anything that could break the app (maintenance, settings, connections, bulk tools) is yours alone; everyone else gets only what their job needs. You set each person's role on <span class="path">Team → People &amp; access</span>.</p>
   <div class="tablewrap"><table>
     <tr><th>Role</th><th>What they do</th><th>Who they can invite</th></tr>
-    <tr><td><b>Owner</b> (you)</td><td>Everything. Plus the things only you see: costs, the AI budget, your personal props, bulk tools (Drive import, rebuild search, photo clean-up), email setup, and the Google Calendar connection.</td><td>Anyone, any role</td></tr>
-    <tr><td><b>Admin</b></td><td>Oversees everything: the props queue, the gear queue, the schedule team tools (check-ins, reports, strikes, blocking time). Can also book their own shoots, props and gear. Can't see your owner-only things or change schedule settings.</td><td>Creators only</td></tr>
-    <tr><td><b>Arts department</b></td><td>Runs the props: adds and edits props, picks and packs requests, checks returns. Has a Calendar tab showing props requests by day. Does not book shoots, props or gear.</td><td>Creators only</td></tr>
-    <tr><td><b>Equipment team</b> (Maanik)</td><td>Runs the gear and the schedule: gear list, bundles, gear queue, check-ins, strikes, blocking time, schedule settings, Google Calendar import.</td><td>No one</td></tr>
+    <tr><td><b>Owner</b> (you)</td><td>Everything. Only you: AI and server costs (never shown or mentioned to anyone else), the AI budget, your personal props, the Drive import, categories, schedule settings, the Google Calendar connection and import, rebuild search, photo clean-up and email setup.</td><td>Anyone, any role</td></tr>
+    <tr><td><b>Admin</b></td><td><b>Manages the creators.</b> Can look at everything (props, both queues, the schedule, activity) but can't change props, gear, the queues or the schedule. Has the <b>Creators</b> dashboard (how much each creator films, and every flag), can <b>give and remove strikes</b>, <b>pause or un-pause</b> someone's prop and gear bookings, decide missed check-ins and reports, invite creators and change the <b>booking rules</b>. Books their own shoots like a creator.</td><td>Creators only</td></tr>
+    <tr><td><b>Arts department</b></td><td>Runs the props: adds and edits props, picks and packs requests, checks returns. Has a Calendar tab showing props requests by day. Also finds and merges duplicate props and look-alike bins. Does not book shoots, props or gear, and no longer invites people.</td><td>No one</td></tr>
+    <tr><td><b>Equipment team</b> (Maanik)</td><td>Runs the gear and the schedule: gear list, bundles, gear queue, blocking time, moving or cancelling shoots, deciding check-ins and reports, lifting pauses. (Schedule settings and Google Calendar are yours now.)</td><td>No one</td></tr>
     <tr><td><b>Creator</b></td><td>Books shoot times, then adds props and gear to their shoots. Sees only their own requests.</td><td>No one</td></tr>
   </table></div>
   <p><b>App tour (new creators):</b> the first time a creator opens the app, they do a hands-on practice run before anything else (about 8 minutes). A guide called <b>Cap</b> (the Prime Capitol eagle) talks them through it in a friendly, playful voice. It starts with a welcome that explains what the app is for, with Stromedy-style examples (like "If You See This, RUN"). Then come 10 short chapters, each opened by a title card, with a badge to collect for each one: find your way around, book a shoot with a friend, add props and gear (a practice gear room with the Sony FX3 and A7S III kits, the DJI Mavic Air and Mini 5 drones, and add-ons like extra batteries, LED lights and a wireless mic), keep tabs on the request (and change it), try the AI, accept a friend's invite, pickup day, check in and film, bring everything back in one go, and finally <b>turn on notifications</b> (this last step is real; on an iPhone that hasn't added the app to the Home Screen yet it shows the steps and lets them finish, and Home keeps reminding them). Four quick pop quizzes check they actually learned the important rules (deadlines, invite hold time, missing gear, returns). Everything else is practice: nothing is booked, nobody gets a request, and camera photos stay on their phone. If they close it halfway, it picks up where they left off. Anyone (you included) can replay it from <span class="path">Me → App tour</span>. The <b>equipment team</b> gets its own tour on their first open, also with Cap: adding gear, building kits, running the gear queue, the pickup check, checking returns in (with damage notes), finding who had what (Problems, History, Found it), and running the house schedule (booking or blocking slots, moving or cancelling without strikes, deciding missed check-ins, reports and pauses), then turning on notifications. Anyone on the gear side can replay it from <span class="path">Account → Gear team tour</span> (you: Team → Gear team tour). Arts and admins aren't asked to do either. When the tour ends, everyone lands on the Home page.</p>
@@ -121,7 +121,8 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <h3>The life of a props request</h3>
   <p>Requested → Being picked → Packed &amp; ready (with a photo) → Picked up (the creator signs on their phone) → Returned (creator's photo) → Checked in by arts. The creator can <b>change</b> a request until arts starts picking it, including searching the closet to add more props.</p>
   <p><b>Browse and requests (Oct 20):</b> the Browse page keeps only the search box and one row of chips pinned at the top (the shoot you're adding to, status, categories); the title scrolls away. Props with more than one free get − and + right on the photo. Coming back from a prop page keeps your search and your spot. "My requests" is now a button next to the ✦ AI button on Book and Browse, and a row on Home (no longer inside Me). Changing a sent request can open the whole closet ("See all results"), and new props show as NEW with Save changes in view. After sending from a shoot you land back on that shoot. Gear always uses your shoot's hours; there are no times to pick.</p>
-  <p><b>Equipment team tabs:</b> Queue, Schedule, Bundles, All gear and an Admin menu (like the arts department has): schedule team, schedule settings, Google Calendar import, the gear tour, help and their account. <b>Test gear:</b> the GitHub button "Add test gear" adds an FX3 kit, two A7S III kits and two drone kits to the live app (only what isn't there yet).</p>
+  <p><b>Props queue (Oct 20):</b> looks like the gear queue now. The arts department starts on it, with a <b>Today</b> tab first (pickups due today or overdue, and props due back today or late), then To prepare, Ready, Out, Returns and Done, each with a count. Cards show Late, At risk, Pickup issue and how much is picked. Nothing it does changed. <b>Quick checkout is gone</b>; a prop still marked out there shows "It's back: mark it in" on its page.</p>
+  <p><b>Equipment team tabs:</b> Queue, Schedule, Bundles, All gear and an Admin menu: schedule team, the gear tour, help and their account. Their practice tour now only uses camera bodies, lenses, lights, mics and gorilla pods. <b>Test gear:</b> the GitHub button "Add test gear" adds an FX3 kit, two A7S III kits and two drone kits to the live app (only what isn't there yet).</p>
   <p><b>Returning props and gear together:</b> on <span class="path">Me → My requests</span>, a shoot with things still out shows a gold <b>Return everything</b> button. Everything starts ticked; the creator takes one photo of it all (props together, gear in its case, batteries charging) and taps Return all. That one photo goes on both the props request and the gear booking, and each team then checks its own part in. Keeping something for later? Untick it, and return it on its own afterwards. Each props request and gear booking can still be returned separately from its own page.</p>
   <h3>Gear</h3>
   <p>Creators book whole bundles (and add-on extras) by the hour. At pickup the creator ticks every piece; anything missing is reported to the equipment team. A return photo is required. Gear is late 30 minutes after the booked end.</p>
@@ -139,7 +140,8 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
     <li>At check-in they can <b>report the slot before</b> (ran over into their time, or left a mess, with photos and a short message in their own words, shown to the team on the report). Reports go to the team, who dismiss them or turn them into a strike.</li>
     <li><b>Wrap:</b> "what did you film?" Checked in but no wrap still counts as filmed.</li>
     <li><b>Missed check-in:</b> the creator has 12 hours to explain. Then the team marks "They filmed" or "No-show".</li>
-    <li><b>Strikes:</b> 2 strikes in 30 days pauses props and gear booking for 14 days. The team can lift a pause early (<span class="path">Schedule → Team → Creators</span>).</li>
+    <li><b>Strikes:</b> 2 strikes in 30 days pauses props and gear booking for 14 days. The equipment team or an admin can lift a pause early (<span class="path">Schedule → Team → Creators</span>).</li>
+    <li><b>Admins (Oct 20):</b> on <span class="path">Admin → Creators</span>, tap a person to see every flag in the last 30 days, this month or 90 days: no-shows, missed check-ins, late cancels, starting more than 15 minutes late, running over, leaving a mess, late props, late gear, strikes. From there an admin (or you) can <b>Give a strike</b> (props, gear, schedule, behaviour or other, with a reason; it counts toward the automatic pause), <b>Remove</b> a strike (stays on the record as removed, with the reason; an automatic pause lifts if they drop below the limit), or <b>Pause bookings</b> for 3 to 30 days with a reason (stays until it ends or is lifted).</li>
   </ul>
 </section>
 
@@ -224,12 +226,14 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <h2>Where to change things</h2>
   <div class="tablewrap"><table>
     <tr><th>Setting</th><th>Where</th><th>Who</th></tr>
-    <tr><td>Slot times, house slots a day, priority days and group, Sunday release, notice hours, check-in and strike rules, Google Calendar</td><td>Book → settings (sliders)</td><td>You, equipment team</td></tr>
-    <tr><td>Props notice, new props notice, turnaround, closed days</td><td>Team → Booking rules</td><td>You, admin, arts</td></tr>
-    <tr><td>People and roles</td><td>Team → People &amp; access</td><td>You (others: creators only)</td></tr>
+    <tr><td>Slot times, house slots a day, priority days and group, Sunday release, notice hours, check-in and strike rules, Google Calendar</td><td>Book → settings (sliders)</td><td>You</td></tr>
+    <tr><td>Props notice, new props notice, turnaround, closed days</td><td>Team → Booking rules</td><td>You, admins</td></tr>
+    <tr><td>People and roles</td><td>Team → People &amp; access</td><td>You (admins: creators only)</td></tr>
     <tr><td>AI budget and daily limit</td><td>Team → AI helpers</td><td>You</td></tr>
     <tr><td>What the app costs</td><td>Team → Running costs</td><td>You</td></tr>
-    <tr><td>Categories, bins and storage areas</td><td>Team → Categories / Bins &amp; storage</td><td>You, admin, arts</td></tr>
+    <tr><td>Categories</td><td>Team → Categories</td><td>You</td></tr>
+    <tr><td>Bins and storage areas</td><td>Team → Bins &amp; storage</td><td>You, arts</td></tr>
+    <tr><td>Strikes and pauses</td><td>Admin → Creators → a person</td><td>You, admins (equipment team: lift a pause, decide check-ins)</td></tr>
   </table></div>
 </section>
 
@@ -247,6 +251,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 <section id="todo">
   <h2>Your to-do list</h2>
   <ul class="todo">
+    <li><b>New roles (Oct 20) are on the preview only:</b> say OK to put them live (backend, then website). Until then the live app still has the old admin and arts permissions.</li>
     <li>Connect the Google Calendar (steps above), then run the first import.</li>
     <li>Set the <b>priority group</b> in Schedule settings (the people need app accounts first).</li>
     <li>Set <b>"Props we have" = 2</b> in Booking rules (the live setting may still be 3).</li>

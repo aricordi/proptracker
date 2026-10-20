@@ -127,10 +127,12 @@ describe('schedule team', () => {
     expect((await getDoc(`schedule_days/${FRI}`))!.blocks).toEqual([])
   })
 
-  it('saves settings (cleaned) and lists people; creators cannot', async () => {
-    const r = await call('saveScheduleSettings', { monthlySlots: 5, slots: [480, 600], priority: [{ email: ANA, name: 'Ana' }] }, MAANIK)
+  it('the owner saves settings (cleaned); the team lists people; creators cannot', async () => {
+    // Schedule settings are the owner's (owner, Oct 20); the gear team runs the schedule but can't change its rules.
+    expect((await call('saveScheduleSettings', { monthlySlots: 5 }, MAANIK)).error).toBe('PERMISSION_DENIED')
+    const r = await call('saveScheduleSettings', { monthlySlots: 5, slots: [480, 600], priority: [{ email: ANA, name: 'Ana' }] }, OWNER)
     expect(r.ok).toBe(true)
-    expect((await getDoc('app_settings/schedule'))!).toMatchObject({ monthlySlots: 5, slots: [480, 600], updatedBy: MAANIK })
+    expect((await getDoc('app_settings/schedule'))!).toMatchObject({ monthlySlots: 5, slots: [480, 600], updatedBy: OWNER })
     expect((await call('saveScheduleSettings', { monthlySlots: 1 }, ANA)).error).toBe('PERMISSION_DENIED')
     const people = await call('listSchedulePeople', {}, OWNER)
     expect(people.result.people.map((p: { email: string }) => p.email)).toContain(BEN)

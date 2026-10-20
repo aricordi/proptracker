@@ -22,13 +22,13 @@ async function countStrikes(email: string, settings: ReturnType<typeof cleanSche
 export async function addStrike(email: string, name: string, reason: StrikeReason, shootId: string, by: string, extra: { note?: string; about?: string } = {}) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const at = new Date().toISOString()
-  await db.collection('strikes').add({ email, name, reason, shootId, by, at, ...(extra.note ? { note: extra.note } : {}), ...(extra.about ? { about: extra.about } : {}) })
+  const doc = await db.collection('strikes').add({ email, name, reason, shootId, by, at, ...(extra.note ? { note: extra.note } : {}), ...(extra.about ? { about: extra.about } : {}) })
   const statusRef = db.doc(`user_status/${email}`)
   const status = (await statusRef.get()).data() ?? {}
   const recent = await countStrikes(email, s, status.liftedAt)
   const paused = recent >= s.strikeCount && s.pauseDays > 0
   await statusRef.set({ email, name, strikes: recent, ...(paused ? { pausedUntil: addDays(todayInStudio(), s.pauseDays), pausedAt: at, manualPause: false } : {}), updatedAt: at }, { merge: true })
-  return { strikes: recent, paused }
+  return { strikes: recent, paused, id: doc.id }
 }
 
 // Take a strike off (kept on record as removed, with who and why). If that drops the person below the limit,

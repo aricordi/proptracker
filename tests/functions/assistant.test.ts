@@ -55,6 +55,6 @@ describe('limits', () => {
   })
   it('monthly budget', async () => {
     await put('app_settings/ai', { monthlyCapUsd: 0.01, perPersonDaily: 25 })
-    expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).message).toMatch(/budget is used up/)
+    expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).message).toMatch(/resting until the 1st/)
   })
 })
