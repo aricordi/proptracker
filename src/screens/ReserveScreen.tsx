@@ -18,7 +18,7 @@ import {
   subscribeToGearBundles, subscribeToGearHolds, createGearBooking, cancelGearBooking,
   freeQty, holdWindow, checkGearTimes, earliestGearDay, fmtHours, fmtTime, GEAR_TIME_MESSAGES, type GearBundle, type GearHold,
 } from '../services/gear'
-import { GearArt, GearWhenPicker, Pill, nowMinutes } from '../components/GearUi'
+import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes } from '../components/GearUi'
 import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar from '../components/AddingToBar'
@@ -142,7 +142,9 @@ export default function ReserveScreen() {
       }
       if (hasProps) cart.clear()
       if (hasGear) gear.clear()
-      navigate(resId ? `/reservations/${resId}?new=1` : `/gear/bookings/${gearId}`, { replace: true })
+      // Adding to one of your shoots: back to that shoot, so you can add the gear (or props) next (owner, Oct 20).
+      if (scheduleShootId) navigate(`/schedule?shoot=${scheduleShootId}&sent=${hasProps && hasGear ? 'both' : hasProps ? 'props' : 'gear'}`, { replace: true })
+      else navigate(resId ? `/reservations/${resId}?new=1` : `/gear/bookings/${gearId}`, { replace: true })
     } catch (err) {
       setError(errMsg(err))
     } finally {
@@ -267,7 +269,7 @@ export default function ReserveScreen() {
           {!hasGear && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No gear yet. Cameras, lights and sound come as bundles.</p>}
           {hasGear && (
             <>
-              <GearWhenPicker hoursOnly />
+              {shoot ? <GearShootHours /> : <GearWhenPicker hoursOnly />}
               {gearProblem && day && <p className="text-red-300 text-sm">{GEAR_TIME_MESSAGES[gearProblem]}</p>}
               <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
                 {gearLines.map(l => {

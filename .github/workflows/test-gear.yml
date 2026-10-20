@@ -1,0 +1,60 @@
+# "Add test gear" button (owner, Oct 20): puts the test gear from scripts/test-gear.json into the LIVE app
+# (an FX3 kit, two A7S III kits, a Mavic Air and a Mini 5 drone kit). It only ADDS what isn't there yet:
+# anything with the same id already in the app is left exactly as it is. Run from GitHub → Actions.
+name: Add test gear
+
+on:
+  workflow_dispatch:
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Google Cloud as the deploy account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Add the test gear (new documents only)
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          python3 - "$TOKEN" <<'PY'
+          import json, sys, urllib.request, urllib.error, datetime
+          token = sys.argv[1]
+          base = 'https://firestore.googleapis.com/v1/projects/proptracker-9732e/databases/(default)/documents'
+          now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+          def v(x):
+              if x is None: return {'nullValue': None}
+              if isinstance(x, bool): return {'booleanValue': x}
+              if isinstance(x, int): return {'integerValue': str(x)}
+              if isinstance(x, list): return {'arrayValue': {'values': [v(i) for i in x]}}
+              if isinstance(x, dict): return {'mapValue': {'fields': {k: v(i) for k, i in x.items()}}}
+              return {'stringValue': str(x)}
+          def create(path, data):
+              # currentDocument.exists=false: refuses (and changes nothing) if it's already there.
+              req = urllib.request.Request(f'{base}/{path}?currentDocument.exists=false', method='PATCH',
+                  data=json.dumps({'fields': {k: v(i) for k, i in data.items()}}).encode(),
+                  headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'})
+              try:
+                  urllib.request.urlopen(req); print('added', path)
+              except urllib.error.HTTPError as e:
+                  body = e.read().decode()
+                  if 'FAILED_PRECONDITION' in body or e.code == 409 or 'already exists' in body.lower(): print('already there, left alone:', path)
+                  else: print('FAILED', path, e.code, body[:300]); sys.exit(1)
+          d = json.load(open('scripts/test-gear.json'))
+          meta = {'createdAt': now, 'updatedAt': now, 'createdBy': 'test-gear button', 'updatedBy': 'test-gear button'}
+          names = {i['id']: i['name'] for i in d['items']}
+          for i in d['items']:
+              create(f"gear_items/{i['id']}", {'name': i['name'], 'category': i['category'], 'have': i['have'], 'serial': None, 'value': None,
+                  'notes': 'Test gear', 'photos': [], 'archived': False, **meta})
+          for b in d['bundles']:
+              create(f"gear_bundles/{b['id']}", {'name': b['name'], 'category': b['category'], 'description': b['description'], 'photos': [],
+                  'archived': False, 'kind': 'bundle', 'pieces': [{'itemId': i, 'qty': q, 'name': names[i]} for i, q in b['pieces']], **meta})
+          print('Done.')
+          PY

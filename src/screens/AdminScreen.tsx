@@ -3,9 +3,21 @@ import { useSession } from '../auth'
 
 export default function AdminScreen() {
   const navigate = useNavigate()
-  const { isOwner, isAdmin, shootFlow } = useSession()
+  const { isOwner, isAdmin, shootFlow, role } = useSession()
 
-  const entries = [
+  // Equipment team (owner, Oct 20): the same kind of menu the arts department has, for gear and the schedule.
+  const gearEntries = [
+    { to: '/gear/bookings', title: 'Gear queue', detail: "Today's pickups and returns, what's out, what to check in" },
+    { to: '/gear/bundles', title: 'Bundles & add-on extras', detail: 'What creators can book; build a new kit' },
+    { to: '/gear/items', title: 'All gear', detail: 'Every piece you own: add gear, serial numbers, values, archive' },
+    { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed, pauses' },
+    { to: '/schedule/settings', title: 'Schedule settings', detail: 'Houses, slots, priority days, strikes, Google Calendar' },
+    { to: '/schedule/import', title: 'Google Calendar import', detail: 'Sort events added straight in the shared calendar' },
+    { to: '/tour/gear', title: 'Gear team tour', detail: 'Practise the gear room again, step by step' },
+    { to: '/help', title: 'Help', detail: 'How do I…? Gear, check-ins, the schedule, sign-in' },
+    { to: '/account', title: 'My account', detail: 'Your photo, notifications; sign out' },
+  ]
+  const entries = role === 'equipment' ? gearEntries : [
     // The owner uses the creator tabs, so the staff tabs (Queue, Add) live here.
     ...(shootFlow ? [
       { to: '/reservations', title: 'Props queue', detail: 'Every props request: to prepare, ready, out, returns' },

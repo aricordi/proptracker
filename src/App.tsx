@@ -175,6 +175,11 @@ function StaffOnly({ children }: { children: ReactNode }) {
   const { isStaff } = useSession()
   return isStaff ? <>{children}</> : <Navigate to="/" replace />
 }
+// The Admin menu: the arts department and the equipment team each get their own list.
+function TeamOnly({ children }: { children: ReactNode }) {
+  const { isStaff, isGearStaff } = useSession()
+  return isStaff || isGearStaff ? <>{children}</> : <Navigate to="/" replace />
+}
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -307,7 +312,7 @@ export default function App() {
           <Route path="/bins" element={<StaffOnly><BinsScreen /></StaffOnly>} />
           <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
           <Route path="/checkout" element={<StaffOnly><CheckoutScreen /></StaffOnly>} />
-          <Route path="/admin" element={<StaffOnly><AdminScreen /></StaffOnly>} />
+          <Route path="/admin" element={<TeamOnly><AdminScreen /></TeamOnly>} />
           <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
           <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
           <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />

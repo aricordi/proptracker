@@ -50,10 +50,14 @@ interface Props {
   badge?: Badge         // overrides the status badge (e.g. "3 free" for chosen dates)
   inCart?: number       // quantity already in the reservation being built
   onAdd?: () => void    // creators adding to a shoot: a + on the photo adds one straight away
+  // With more than one free (owner, Oct 20: "select more than 1 without going into its page"): once added, the
+  // + becomes − n + right on the photo. onQty(n) sets how many (0 takes it out); max = how many can be added.
+  onQty?: (n: number) => void
+  max?: number
 }
 
 // One tile in the 2-across search grid: big photo, name, status.
-export default function ItemCard({ item, subtitle, badge: override, inCart, onAdd }: Props) {
+export default function ItemCard({ item, subtitle, badge: override, inCart, onAdd, onQty, max = 1 }: Props) {
   const navigate = useNavigate()
   const { label, style } = override ?? badge(item)
 
@@ -69,7 +73,7 @@ export default function ItemCard({ item, subtitle, badge: override, inCart, onAd
           : <CameraIcon className="w-10 h-10 text-pt-muted" />
         }
         <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>
-        {!!inCart && !onAdd && (
+        {!!inCart && !onAdd && !onQty && (
           <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-xs font-bold px-2 py-0.5 rounded-full">
             ✓ {item.quantity > 1 ? inCart : 'Added'}
           </span>
@@ -85,7 +89,18 @@ export default function ItemCard({ item, subtitle, badge: override, inCart, onAd
         {subtitle && <p className="text-pt-muted text-xs truncate mt-0.5">{subtitle}</p>}
       </div>
     </button>
-    {onAdd && (
+    {onQty && (inCart && max > 1 ? (
+      <div className="pop absolute top-2 right-2 flex items-center h-11 rounded-full bg-pt-accent text-stone-900 font-bold shadow-hairline">
+        <button onClick={() => onQty(inCart - 1)} aria-label={`One less ${item.name}`} className="w-10 h-11 text-[20px] leading-none">−</button>
+        <span className="min-w-4 text-center text-sm tabular-nums">{inCart}</span>
+        <button onClick={() => onQty(inCart + 1)} disabled={inCart >= max} aria-label={`One more ${item.name}`} className="w-10 h-11 text-[20px] leading-none disabled:opacity-35">+</button>
+      </div>
+    ) : (
+      <button onClick={() => onQty(inCart ? 0 : 1)} aria-label={inCart ? `Remove ${item.name}` : `Add ${item.name}`}
+        className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${
+          inCart ? 'pop bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{inCart ? '✓' : '+'}</button>
+    ))}
+    {onAdd && !onQty && (
       <button onClick={onAdd} aria-label={inCart ? `Remove ${item.name}` : `Add ${item.name}`}
         className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${
           inCart ? 'pop bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>

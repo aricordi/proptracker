@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useGearCart } from '../gearCart'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, nextFreeStart, fmtHours, type GearBundle, type GearHold } from '../services/gear'
-import { GearWhenPicker, GearArt, Pill, DayTimeline, useGearWhen } from '../components/GearUi'
+import { GearWhenPicker, GearShootHours, GearArt, Pill, DayTimeline, useGearWhen } from '../components/GearUi'
 import { useSession } from '../auth'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar from '../components/AddingToBar'
@@ -76,7 +76,7 @@ export default function GearOfferScreen() {
           <Icon name="battery" className="w-4 h-4 inline -mt-0.5 mr-1" />Batteries are charged when gear comes back, but a bundle can go straight out again, so we can't promise a full charge.
         </p>
 
-        {creator ? <><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</> : <GearWhenPicker />}
+        {creator ? <><AddingToBar kind="gear" />{shoot ? <GearShootHours /> : isStaff && <GearWhenPicker />}</> : <GearWhenPicker />}
         {showFree && !w.problem && (
           <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between">
@@ -92,7 +92,7 @@ export default function GearOfferScreen() {
             <div className="bg-red-500/10 rounded-2xl px-4 py-3 text-[15px] text-red-200">
               Someone has it for part of those hours.
               {next !== null
-                ? <> It's free from <b>{fmtHours(next, next + (w.end - w.start))}</b>. <button onClick={() => cart.setWhen(w.date, next, next + (w.end - w.start))} className="text-pt-accent font-semibold">Use those hours</button></>
+                ? <> It's free from <b>{fmtHours(next, next + (w.end - w.start))}</b>.{!shoot && <> <button onClick={() => cart.setWhen(w.date, next, next + (w.end - w.start))} className="text-pt-accent font-semibold">Use those hours</button></>}</>
                 : ' It isn\'t free for that long later that day.'}
             </div>
             {similar.length > 0 && (

@@ -1,0 +1,29 @@
+{
+  "_about": "Test gear for the equipment team (owner, Oct 20). Used by the emulator seed and the 'Add test gear' GitHub button (adds only what isn't there yet; never changes existing gear).",
+  "items": [
+    { "id": "tg-fx3", "name": "Sony FX3 body", "category": "Camera", "have": 1 },
+    { "id": "tg-a7s", "name": "Sony A7S III body", "category": "Camera", "have": 2 },
+    { "id": "tg-1635", "name": "Sony Zeiss 16-35mm f/4 lens", "category": "Lens", "have": 3 },
+    { "id": "tg-npfz", "name": "Sony NP-FZ100 battery", "category": "Power", "have": 9 },
+    { "id": "tg-mcpro", "name": "Aputure MC Pro light", "category": "Lighting", "have": 3 },
+    { "id": "tg-rode", "name": "Rode shotgun mic", "category": "Audio", "have": 3 },
+    { "id": "tg-mavic", "name": "DJI Mavic Air drone", "category": "Drones", "have": 1 },
+    { "id": "tg-mavic-rc", "name": "DJI Mavic Air controller", "category": "Drones", "have": 1 },
+    { "id": "tg-mavic-bat", "name": "DJI Mavic Air battery", "category": "Power", "have": 3 },
+    { "id": "tg-mini5", "name": "DJI Mini 5 drone", "category": "Drones", "have": 1 },
+    { "id": "tg-mini5-rc", "name": "DJI Mini 5 controller", "category": "Drones", "have": 1 },
+    { "id": "tg-mini5-bat", "name": "DJI Mini 5 battery", "category": "Power", "have": 3 }
+  ],
+  "bundles": [
+    { "id": "tb-fx3", "name": "Sony FX3 kit", "category": "Camera", "description": "FX3 with a 16-35 lens, 3 batteries, an MC Pro light and a shotgun mic",
+      "pieces": [["tg-fx3", 1], ["tg-1635", 1], ["tg-npfz", 3], ["tg-mcpro", 1], ["tg-rode", 1]] },
+    { "id": "tb-a7s-1", "name": "Sony A7S III kit #1", "category": "Camera", "description": "A7S III with a 16-35 lens, 3 batteries, an MC Pro light and a shotgun mic",
+      "pieces": [["tg-a7s", 1], ["tg-1635", 1], ["tg-npfz", 3], ["tg-mcpro", 1], ["tg-rode", 1]] },
+    { "id": "tb-a7s-2", "name": "Sony A7S III kit #2", "category": "Camera", "description": "A7S III with a 16-35 lens, 3 batteries, an MC Pro light and a shotgun mic",
+      "pieces": [["tg-a7s", 1], ["tg-1635", 1], ["tg-npfz", 3], ["tg-mcpro", 1], ["tg-rode", 1]] },
+    { "id": "tb-mavic", "name": "DJI Mavic Air drone kit", "category": "Drones", "description": "Drone, controller and 3 batteries",
+      "pieces": [["tg-mavic", 1], ["tg-mavic-rc", 1], ["tg-mavic-bat", 3]] },
+    { "id": "tb-mini5", "name": "DJI Mini 5 drone kit", "category": "Drones", "description": "Drone, controller and 3 batteries",
+      "pieces": [["tg-mini5", 1], ["tg-mini5-rc", 1], ["tg-mini5-bat", 3]] }
+  ]
+}

@@ -61,14 +61,15 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
           </div>
         )
       })}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Gear for a booked shoot keeps the shoot's own hours (owner, Oct 20). */}
+      {b.scheduleShootId ? <p className="text-pt-muted text-sm">Hours: {fmtTime(b.start)}–{fmtTime(b.end)}, the same as your shoot.</p> : <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1"><span className="block text-pt-muted text-xs">Gear from</span>
           <select value={start} onChange={e => { const v = Number(e.target.value); setStart(v); if (end <= v) setEnd(v + GEAR_STEP) }} className={field}>
             {TIMES.slice(0, -1).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}</select></label>
         <label className="space-y-1"><span className="block text-pt-muted text-xs">Until</span>
           <select value={end} onChange={e => setEnd(Number(e.target.value))} className={field}>
             {TIMES.filter(t => t > start).map(t => <option key={t} value={t}>{t === GEAR_DAY_END ? 'Midnight' : fmtTime(t)}</option>)}</select></label>
-      </div>
+      </div>}
       {err && <p className="text-red-300 text-sm">{err}</p>}
       <div className="flex gap-2">
         <button onClick={() => setEditing(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Never mind</button>

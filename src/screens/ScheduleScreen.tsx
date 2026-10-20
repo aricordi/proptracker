@@ -1,6 +1,7 @@
 import { Icon } from '../components/Icon'
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
+import MyRequestsButton from '../components/MyRequestsButton'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions, db } from '../firebase'
@@ -82,13 +83,22 @@ export default function ScheduleScreen() {
     else setSheet({ kind: 'shoot', id })
   }
   // ?shoot=<id> opens that shoot (from Home); ?book=1 opens "Book a shoot".
+  // The open shoot stays in the address (owner, Oct 20), so Back from a request page lands on the shoot again.
+  // ?sent=props|gear|both: just sent from "Your shoot", say so on the shoot.
   const [params, setParams] = useSearchParams()
+  const [sent, setSent] = useState<string | null>(null)
   useEffect(() => {
     const id = params.get('shoot'), book = params.get('book')
-    if (id) setSheet({ kind: 'shoot', id })
-    else if (book) setSheet({ kind: 'find', fromToday: true })
-    if (id || book) setParams({}, { replace: true })
+    if (params.get('sent')) { setSent(params.get('sent')); const n = new URLSearchParams(params); n.delete('sent'); setParams(n, { replace: true }); return }
+    if (id) { if (!(sheet?.kind === 'shoot' && sheet.id === id)) setSheet({ kind: 'shoot', id }) }
+    else if (book) { setSheet({ kind: 'find', fromToday: true }); setParams({}, { replace: true }) }
   }, [params])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const want = sheet?.kind === 'shoot' ? sheet.id : null, has = params.get('shoot')
+    if (params.get('sent') || want === has) return
+    if (want) setParams({ shoot: want }, { replace: true })
+    else if (has) { setParams({}, { replace: true }); setSent(null) }
+  }, [sheet])   // eslint-disable-line react-hooks/exhaustive-deps
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 60_000); return () => clearInterval(t) }, [])
   const days = useScheduleDays(today, addDays(today, 120))
@@ -118,6 +128,7 @@ export default function ScheduleScreen() {
           <h1 className="font-display text-[34px] text-pt-text">Schedule</h1>
           <div className="flex gap-2 pb-0.5">
             <AiButton mode="time" />
+            <MyRequestsButton />
             {team && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
             {(role === 'owner' || role === 'equipment') && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
             <RoundIcon icon="help" label="Help" to="/help" />
@@ -230,7 +241,7 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={booked} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
-      {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} onClose={() => setSheet(null)}
+      {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} sent={sent} onClose={() => setSheet(null)}
         onMove={sh => setSheet(sh.place === 'offsite' ? { kind: 'offsite', date: sh.date, move: sh } : { kind: 'move', shoot: sh })}
         onSwap={sh => setSheet({ kind: 'swap', mine: sh })} />}
       {sheet?.kind === 'taken' && (
@@ -412,7 +423,7 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
   )
 }
 
-function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: boolean; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void }) {
+function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; team: boolean; sent?: string | null; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void }) {
   const s = useScheduleSettings()
   const { profile } = useSession()
   const profiles = useProfiles()
@@ -453,6 +464,11 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
             </div>
           </div>
         </div>
+        {sent && mine && (
+          <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text">
+            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : 'The arts team has your props request. Add gear below if you need it.'}
+          </div>
+        )}
         {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
         {shoot.status === 'booked' && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
         {mine && upcoming && short && !team && (

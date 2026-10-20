@@ -171,7 +171,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     // 1 · Find your way around
     intro(1, 'home', 'Quick lay of the land before the fun stuff. Two things you will use every single day.'),
     { id: 'tabs', scene: 'home', part: 1, target: 'tabbar', look: true, next: C, title: 'These four tabs are your whole world',
-      body: ul([['Home', 'your next shoot and what it still needs'], ['Book', 'grab a time at the house'], ['Browse', 'every prop, costume and gear kit'], ['Me', 'your requests, profile and help']]) },
+      body: ul([['Home', 'your next shoot and what it still needs'], ['Book', 'grab a time at the house'], ['Browse', 'every prop, costume and gear kit'], ['Me', 'your profile, help and this tour']]) },
+    { id: 'reqrow', scene: 'home', part: 1, target: 'myreqrow', look: true, next: C, title: 'Everything you asked for: My requests',
+      body: 'Every props request and gear booking, one card per shoot. On Book and Browse it is the box button next to ✦ AI.' },
     { id: 'aibtn', scene: 'home', part: 1, target: 'ai', look: true, next: C, title: "See this purple button? That's the AI", body: "It finds props for a video idea, or a free time to film. We'll take it for a spin in chapter 5." },
     // 2 · Book your first shoot
     intro(2, 'home', "Every great video starts with a time slot. Let's grab one at the house, and bring a friend along for the ride."),
@@ -188,47 +190,49 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     // 3 · Stock up for your shoot
     intro(3, 'shoot', 'Props, costumes, cameras, lights. Pick what you need and send it to the teams in one go. Like shopping, but free.'),
     { id: 'addprops', scene: 'shoot', part: 3, target: 'addprops', title: <>Tap <b>+ Add</b> next to Props &amp; costumes</>, body: 'The closet opens with this shoot already picked, so everything lands in the right place.' },
-    { id: 'addingbar', scene: 'browse', part: 3, target: 'adding', look: true, next: C, title: "This bar shows which shoot you're shopping for", body: '"Free" on a photo means it is free that day. Tap Change to switch shoots.' },
-    { id: 'search', scene: 'browse', part: 3, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Search the closet and tap + on something', body: <>Try <b>mask</b>, <b>hat</b> or <b>phone</b>. Add as many as you like, then Continue.</> },
+    { id: 'addingbar', scene: 'browse', part: 3, target: 'adding', look: true, next: C, title: "This chip shows which shoot you're shopping for", body: '"Free" on a photo means it is free that day. Tap the chip to switch shoots.' },
+    { id: 'search', scene: 'browse', part: 3, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Search the closet and tap + on something', body: <>Try <b>mask</b>, <b>hat</b> or <b>phone</b>. Need more than one? Tap <b>+</b> again on the photo. Add as many as you like, then Continue.</> },
     { id: 'geartab', scene: 'browse', part: 3, target: 'geartab', title: <>Now the gear. Tap <b>Gear</b></>, body: 'Cameras, lights and sound live here.' },
-    { id: 'addgear', scene: 'gear', part: 3, target: 'gearkits', top: true, next: C, hint: 'Add a camera kit first', title: <>Pick a camera: tap <b>+</b> on the FX3 or the A7S</>, body: "Each kit is one case with every piece inside, booked for your shoot's hours. Want aerial shots? Add the Mavic Air or the Mini 5 too." },
+    { id: 'addgear', scene: 'gear', part: 3, target: 'gearkits', top: true, next: C, hint: 'Add a camera kit first', title: <>Pick a camera: tap <b>+</b> on the FX3 or the A7S</>, body: "Each kit is one case with every piece inside. No times to pick: gear is booked for your shoot's hours. Want aerial shots? Add the Mavic Air or the Mini 5 too." },
     { id: 'addextras', scene: 'gear', part: 3, target: 'gearextras', next: C, title: 'Need add-ons? Use + and −', body: 'Extra batteries, lights or a wireless mic go on top of your kit. None needed? Just Continue.' },
     { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'Quick check before it goes to the teams.' },
     { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
     { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake" or "a pirate hat". Use − and + for how many.' },
-    { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Book props + gear</b></>, body: "Props go to the arts team, gear to the equipment team. (Practice, so nothing's really sent.)" },
-    { id: 'quiz3', scene: 'sent', part: 3, title: '', quiz: {
+    { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Book props + gear</b></>, body: "Props go to the arts team, gear to the equipment team, and you land back on your shoot. (Practice, so nothing's really sent.)" },
+    { id: 'quiz3', scene: 'shoot', part: 3, title: '', quiz: {
       q: <>Pop quiz! Your shoot is on {formatDay(day)}. What's the last day to ask the arts team to <b>make something new</b>?</>,
       options: [formatDay(sameCut ? day : cut.props), `${formatDay(cut.builds)}${cut.builds === today ? ' (today!)' : ''}`, 'The morning of the shoot'], correct: 1,
       explain: <>New things need {settings.buildLeadDays} open days of notice.{sameCut ? '' : <> Props already in the closet can wait until {formatDay(cut.props)}.</>}</> } },
     // 4 · Keep tabs on it
-    intro(4, 'sent', 'You sent it, now what? Here is where you watch it get packed, and change your mind if you need to.'),
-    { id: 'sent', scene: 'sent', part: 4, target: 'journey', next: C, title: "That line is your request's journey", body: 'Requested, being prepared, ready, collected, returned, checked in. It moves as the team works.' },
-    { id: 'back', scene: 'sent', part: 4, target: 'back', title: <>Tap <b>Back</b></>, body: "Let's find this again the way you would tomorrow." },
-    { id: 'navme', scene: 'home2', part: 4, target: 'nav-me', title: <>Tap <b>Me</b></>, body: 'Everything you asked for lives here. (Spot the ticks on your Home card? Time, props, gear: done.)' },
-    { id: 'myreq', scene: 'me', part: 4, target: 'myrequests', title: <>Tap <b>My requests</b></>, body: 'One card per shoot, with its props and gear together.' },
-    { id: 'openreq', scene: 'requests', part: 4, target: 'propsrow', title: 'Tap your props request', body: 'To see it in full, or to change it.' },
+    intro(4, 'shoot', 'You sent it, now what? Here is where you watch it get packed, and change your mind if you need to.'),
+    { id: 'sentlook', scene: 'shoot', part: 4, target: 'shootreqs', look: true, next: C, title: 'Back on your shoot, with both requests',
+      body: 'Each one has a little progress bar. Your Home card ticks Props and Gear too.' },
+    { id: 'openreq', scene: 'shoot', part: 4, target: 'shootreq', title: 'Tap your props request', body: 'To see it in full, or to change it.' },
+    { id: 'sent', scene: 'request', part: 4, target: 'journey', next: C, title: "That line is your request's journey", body: 'Requested, being prepared, ready, collected, returned, checked in. It moves as the team works.' },
     { id: 'change', scene: 'request', part: 4, target: 'changebtn', title: <>Changed your mind? Tap <b>Change</b></>, body: 'You can edit it until the arts team starts picking.' },
-    { id: 'changeadd', scene: 'request', part: 4, target: 'changesearch', next: C, hint: 'Add a prop from the search first', title: 'Forgot something? Search the closet', body: <>Type in the search box (try <b>mask</b> or <b>hat</b>) and tap <b>+ Add</b>. It joins this request.</> },
-    { id: 'changeit', scene: 'request', part: 4, target: 'changebox', top: true, title: <>Tweak it, then <b>Save changes</b></>, body: '− and + for amounts, × to take something out, or type a new thing to make.' },
-    { id: 'saved', scene: 'request', part: 4, target: 'addmore', look: true, next: C, title: 'Saved!', body: 'Once the team starts picking, Change disappears. You can still use + Add more for this shoot.' },
+    { id: 'changeq', scene: 'request', part: 4, target: 'changesearch', next: C, hint: 'Type a word first', title: 'Forgot something? Search the closet', body: <>Type in the search box, like <b>mask</b> or <b>hat</b>.</> },
+    { id: 'seeall', scene: 'request', part: 4, target: 'seeall', title: <>Tap <b>See all results</b></>, body: 'It opens the whole closet for this request, not just the top few.' },
+    { id: 'reqadd', scene: 'reqbrowse', part: 4, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Tap + on anything to add it', body: 'Same closet, same photos. Everything you add goes into this request.' },
+    { id: 'backtoreq', scene: 'reqbrowse', part: 4, target: 'backtoreq', title: <>Tap <b>Back to your request</b></> },
+    { id: 'changeit', scene: 'request', part: 4, target: 'changebox', top: true, title: <>New ones say NEW. Now <b>Save changes</b></>, body: '− and + for amounts, × to take something out, or type a new thing to make.' },
+    { id: 'saved', scene: 'request', part: 4, target: 'addmore', look: true, next: C, title: 'Saved!', body: 'Once the team starts picking, Change disappears. You can still use + Add more for this shoot. Find it again any time with My requests.' },
     { id: 'packed', scene: 'request', part: 4, target: 'journey', next: C, notif: `Your props for ${title} are packed and ready ✓`, title: 'Ding! Your props are ready', body: "You get a notification, and the line jumps to Ready. That's your cue to pick up." },
     // 5 · Meet the AI
     intro(5, 'request', "Using AI you can plan a shoot, find props that suit your idea, or find a free time when the schedule looks jam-packed. Let's start a brand-new shoot with it."),
-    { id: 'reqback', scene: 'request', part: 5, target: 'back', title: <>Tap <b>Back</b></>, body: "Let's head back to Me." },
-    { id: 'tome', scene: 'requests', part: 5, target: 'tome', title: <>Tap <b>‹ Me</b></> },
-    { id: 'openai', scene: 'me', part: 5, target: 'ai', title: <>Tap the <b>✦ AI</b> button</>, body: "It's in the top corner of every main screen." },
+    { id: 'reqback', scene: 'request', part: 5, target: 'back', title: <>Tap <b>Back</b></>, body: 'Back takes you to wherever you came from: your shoot.' },
+    { id: 'closesheet', scene: 'shoot', part: 5, target: 'sheettop', title: 'Tap above the sheet to close it', body: 'Or swipe it down. Underneath is the schedule.' },
+    { id: 'openai', scene: 'booked', part: 5, target: 'ai', title: <>Tap the <b>✦ AI</b> button</>, body: "It's in the top corner of every main screen." },
     { id: 'aiask', scene: 'chat', part: 5, target: 'composer', title: 'Pitch it your video idea', body: <>A full plan or just a vibe. Tap the suggestion or type your own, then tap <b>↑</b>.</> },
     { id: 'aipicks', scene: 'chat', part: 5, target: 'answer', top: true, next: C, hint: 'Tick at least one first', title: 'Tick the ones you like', body: 'Real props from our closet, grouped by scene, each with a reason it fits.' },
     { id: 'aitime', scene: 'chat', part: 5, target: 'composer', title: 'Now ask it for a time', body: <>Tap the suggestion or say when you'd like to film, then tap <b>↑</b>.</> },
     { id: 'aioptions', scene: 'chat', part: 5, target: 'optbook', title: <>Tap <b>Book</b> on a time</>, body: 'It only suggests times that are actually free.' },
     { id: 'aiadd', scene: 'chat', part: 5, target: 'aiaddbooked', title: <>Tap <b>Add the {aiTicks.length} ticked to this shoot</b></>, body: 'Your picks jump straight into the new shoot.' },
     { id: 'aidone', scene: 'chat', part: 5, target: 'aiaddedmsg', look: true, next: C, title: 'Two shoots planned. Look at you go', body: 'Idea first then a time, or a time first then props. Both work, whatever suits your brain.' },
-    { id: 'aiback', scene: 'chat', part: 5, target: 'aiback', title: <>Tap <b>Back</b></>, body: 'Back to Me.' },
+    { id: 'aiback', scene: 'chat', part: 5, target: 'aiback', title: <>Tap <b>Back</b></>, body: 'Back to the schedule.' },
     // 6 · When a friend invites you
-    intro(6, 'me', <>Your friends can save you the slot right after theirs. You get {HOLD} minutes to claim it, so no snoozing.</>),
-    { id: 'invited', scene: 'me', part: 6, target: 'notif', notif: `${inviterFirst} invited you to film right after them, ${formatDay(inviteDay)}. Held for you for ${HOLD} minutes.`, title: 'Ooh, an invite. Tap it', body: <>Pretend {inviterFirst} just booked and saved you the next slot. Tapping takes you straight there.</> },
+    intro(6, 'booked', <>Your friends can save you the slot right after theirs. You get {HOLD} minutes to claim it, so no snoozing.</>),
+    { id: 'invited', scene: 'booked', part: 6, target: 'notif', notif: `${inviterFirst} invited you to film right after them, ${formatDay(inviteDay)}. Held for you for ${HOLD} minutes.`, title: 'Ooh, an invite. Tap it', body: <>Pretend {inviterFirst} just booked and saved you the next slot. Tapping takes you straight there.</> },
     { id: 'confirm', scene: 'invite', part: 6, target: 'invitebox', title: <>Tap <b>Confirm my slot</b></>, body: <>It's held just for you for {HOLD} minutes. Can't make it? Tap that instead and it opens to everyone.</> },
     { id: 'confirmed', scene: 'invite', part: 6, target: 'myrow', look: true, next: C, title: "It's yours", body: 'It shows as Yours on the schedule. That was a different shoot, so now back to your first one.' },
     { id: 'quiz6', scene: 'invite', part: 6, title: '', quiz: {
@@ -254,8 +258,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'wrap', scene: 'wrap', part: 8, target: 'wrap', title: <>Done filming? Say what you shot, then <b>Wrap</b></>, body: "Type a few words, then tap Wrap. It's a wrap, literally." },
     // 9 · Bring it all back
     intro(9, 'wrap', "That's a wrap! Bring everything back so the next creator gets it in one piece."),
-    { id: 'gotome', scene: 'booked', part: 9, target: 'nav-me', title: <>Tap <b>Me</b></>, body: 'Your slot now says Filmed. Returns start from your request on Me.' },
-    { id: 'myreq2', scene: 'me', part: 9, target: 'myrequests', title: <>Tap <b>My requests</b></> },
+    { id: 'gotome', scene: 'booked', part: 9, target: 'myrequests', title: <>Tap the <b>My requests</b> button</>, body: 'Top right, next to ✦ AI. Your slot now says Filmed; returns start from your requests.' },
     { id: 'returnall', scene: 'requests', part: 9, target: 'returnall', title: <>Tap <b>Return everything</b></>, body: 'Props and gear usually go back together, so it is one step for both.' },
     { id: 'retlist', scene: 'returnall', part: 9, target: 'retlist', next: C, hint: 'Tick both back to return them together', title: 'Everything starts ticked', body: <>Keeping something for later? Tap it to untick it, and return it on its own from My requests. Try it, then tick it back.</> },
     { id: 'retphoto', scene: 'returnall', part: 9, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'One photo of it all', body: "Props together, gear in its case, batteries charging. It's your receipt if anything is questioned." },
@@ -280,6 +283,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   // A tap only counts when it's the highlighted thing (everything else is ignored by the spotlight anyway).
   const tap = (t: string) => () => { if (step.target === t) advance() }
   const T = (t: string) => ({ 'data-tour': t })
+  const sentAll = past('send')
 
   // ── Actions you do yourself ──
   const [flash, setFlash] = useState(false)
@@ -344,6 +348,19 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       className="shrink-0 h-11 rounded-full pl-3 pr-4 flex items-center gap-1.5 text-[14px] font-bold text-[#140f22] bg-[#BF9DFF] shadow-violet">
       <span className="text-[16px] leading-none">✦</span>AI
     </button>
+  )
+  // The real MyRequestsButton (right of ✦ AI on Book and Browse) and MyRequestsRow (Home).
+  const reqBtn = (t?: string) => (
+    <button {...(t ? T(t) : {})} onClick={t ? tap(t) : undefined} aria-label="My requests" className="relative shrink-0 w-11 h-11 rounded-full grid place-items-center bg-pt-surface shadow-hairline text-pt-text">
+      <Icon name="box" className="w-5 h-5" />{sentAll && <span className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 rounded-full bg-pt-accent text-stone-900 text-xs font-bold grid place-items-center">2</span>}
+    </button>
+  )
+  const reqRow = (
+    <div {...T('myreqrow')} className="w-full flex items-center gap-3 bg-pt-surface shadow-hairline rounded-2xl px-4 py-3 text-left">
+      <span className="w-10 h-10 rounded-full grid place-items-center bg-pt-accent/15 text-pt-accent shrink-0"><Icon name="box" className="w-5 h-5" /></span>
+      <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">My requests</b><span className="block text-pt-muted text-xs">Props and gear for each shoot, and where they are</span></span>
+      <span className="text-pt-muted">›</span>
+    </div>
   )
   const roundHelp = <span className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface shadow-hairline text-pt-muted text-lg">?</span>
   const backBar = (right?: ReactNode, mid?: string) => (
@@ -415,22 +432,40 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           </div>
           <div className="px-3 pt-2 pb-3"><p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{i.name}</p></div>
         </div>
-        <button onClick={() => addProp(i.id)} aria-label={`${on ? 'Remove' : 'Add'} ${i.name}`}
-          className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${on ? 'bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{on ? '✓' : '+'}</button>
+        {on && i.quantity > 1 ? (
+          <div className="absolute top-2 right-2 flex items-center h-11 rounded-full bg-pt-accent text-stone-900 font-bold shadow-hairline">
+            <button onClick={() => (qty[i.id] ?? 1) <= 1 ? addProp(i.id) : setQty(q => ({ ...q, [i.id]: (q[i.id] ?? 1) - 1 }))} aria-label={`One less ${i.name}`} className="w-10 h-11 text-[20px] leading-none">−</button>
+            <span className="min-w-4 text-center text-sm tabular-nums">{qty[i.id] ?? 1}</span>
+            <button onClick={() => step.id === 'search' && setQty(q => ({ ...q, [i.id]: Math.min(i.quantity, (q[i.id] ?? 1) + 1) }))} aria-label={`One more ${i.name}`} className="w-10 h-11 text-[20px] leading-none">+</button>
+          </div>
+        ) : (
+          <button onClick={() => addProp(i.id)} aria-label={`${on ? 'Remove' : 'Add'} ${i.name}`}
+            className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${on ? 'bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{on ? '✓' : '+'}</button>
+        )}
       </div>
     )
   }
-  const browseHeader = (gear: boolean) => (
+  // The real Browse header (owner, Oct 20: compressed): title + tabs, then search and one row of chips.
+  const browseHeader = (gear: boolean, toRequest = false) => (
     <>
-      <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">Browse</span>{aiPill()}</h1>
-      <div className="mb-3 flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
-        <span className={`flex-1 py-2 rounded-lg text-sm text-center ${!gear ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Props &amp; costumes</span>
-        <button {...T('geartab')} onClick={tap('geartab')} className={`flex-1 py-2 rounded-lg text-sm ${gear ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Gear</button>
+      <div className="pt-safe px-4">
+        <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5"><BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{toRequest ? 'Add to your request' : 'Browse'}</span>{!toRequest && <>{aiPill()}{reqBtn()}</>}</h1>
+        {!toRequest && <div className="mt-2.5 flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
+          <span className={`flex-1 py-1.5 rounded-lg text-sm text-center ${!gear ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Props &amp; costumes</span>
+          <button {...T('geartab')} onClick={tap('geartab')} className={`flex-1 py-1.5 rounded-lg text-sm ${gear ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Gear</button>
+        </div>}
       </div>
-      <div className="relative">{searchIcon}{gear
-        ? <div className={`${input} pl-10 text-pt-muted`}>Search cameras, lights, sound…</div>
-        : <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search props, costumes, set dressing…" enterKeyHint="search" className={`${input} pl-10 pr-10 text-base`} />}
-        {!gear && query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-pt-muted text-xl leading-none">×</button>}
+      <div className="sticky z-10 bg-pt-bg px-4 pt-2.5 pb-2" style={{ top: 'env(safe-area-inset-top)' }}>
+        <div className="relative">{searchIcon}{gear
+          ? <div className={`${input} py-2.5 pl-10 text-pt-muted`}>Search cameras, lights, sound…</div>
+          : <input value={toRequest ? changeQ : query} onChange={e => (toRequest ? setChangeQ : setQuery)(e.target.value)} placeholder="Search props, costumes, set dressing…" enterKeyHint="search" className={`${input} py-2.5 pl-10 pr-10 text-base`} />}
+          {!gear && (toRequest ? changeQ : query) && <button onClick={() => (toRequest ? setChangeQ : setQuery)('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-pt-muted text-xl leading-none">×</button>}
+        </div>
+        <div className="flex gap-2 mt-2 overflow-hidden">
+          {!toRequest && <span {...T('adding')} className="shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm bg-pt-accent/15 text-pt-accent font-medium shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]"><Icon name="calendar" className="w-4 h-4" />{formatDay(day)} · {fmtSlot(START, SLOT)} <span className="text-xs">▾</span></span>}
+          {!gear && <span className="shrink-0 px-3 py-1 rounded-full text-sm bg-pt-surface shadow-hairline text-pt-muted">Status <span className="text-xs">▾</span></span>}
+          {(gear ? ['All', 'Camera', 'Drones', 'Audio'] : ['All', 'Prop', 'Costume', 'Set Dressing']).map((c, n) => <span key={c} className={`shrink-0 px-3 py-1 rounded-full text-sm ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c}</span>)}
+        </div>
       </div>
     </>
   )
@@ -455,7 +490,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   // The Schedule screen (behind the booking sheets, and the day view).
   const scheduleHeader = (dayStrip?: string) => (
     <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
-      <div className="flex items-end justify-between py-2 gap-2"><h1 className="font-display text-[34px] text-pt-text">Schedule</h1><div className="flex gap-2 pb-0.5">{aiPill()}{roundHelp}</div></div>
+      <div className="flex items-end justify-between py-2 gap-2"><h1 className="font-display text-[34px] text-pt-text">Schedule</h1><div className="flex gap-2 pb-0.5">{aiPill(step.id === 'openai' ? 'ai' : undefined)}{reqBtn(step.id === 'gotome' ? 'myrequests' : undefined)}{roundHelp}</div></div>
       <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
         {[house.name, s.houses.cliff2.name, 'Offsite'].map((h, n) => <span key={h} className={`flex-1 py-2 rounded-[10px] text-sm text-center ${n === 0 ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h}</span>)}
       </div>
@@ -503,6 +538,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF]">
         <span className="text-[#BF9DFF]">✦</span><span className="flex-1 min-w-0 truncate">Ask AI: props for an idea, or a time to film</span><span className="text-pt-muted">›</span>
       </div>
+      {reqRow}
     </>
   )
   const homeStep = (t: string, done: boolean, doneText: string, by: string) => (
@@ -511,7 +547,6 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <b className="text-sm">{t}</b><span className="text-xs text-pt-muted truncate">{done ? doneText : `By ${formatDay(by)}`}</span>
     </div>
   )
-  const sentAll = past('send')
   const shootDay = at('part7')   // chapter 7 on: it's the day of the shoot
   const nextShootCard = (
     <button {...T('shootcard')} onClick={tap('shootcard')} className="relative overflow-hidden w-full text-left rounded-[28px] p-5 border border-pt-accent/35"
@@ -823,18 +858,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     )),
     browse: () => (
       <div {...T('browsezone')}>
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-          {browseHeader(false)}
-          <div className="flex gap-2 mt-3 overflow-hidden">
-            {['All', 'Prop', 'Costume', 'Set Dressing', 'Tech props'].map((c, n) => <span key={c} className={`shrink-0 px-3 py-1 rounded-full text-sm ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c}</span>)}
-          </div>
-          <div className="flex items-center justify-between gap-3 mt-2">
-            <span className="bg-pt-surface border border-pt-border rounded-lg px-3 py-2 text-sm text-pt-muted">Any status ▾</span>
-            <span className="text-pt-muted text-xs">{query.trim() ? found(query).length : all.length} props</span>
-          </div>
-          <div className="mt-3">{addingTo('props')}</div>
-        </div>
+        {browseHeader(false)}
         <div className="px-4 pt-1">
+          <p className="text-pt-muted text-xs mb-3">{query.trim() ? found(query).length : all.length} props · Add props by {formatDay(cut.props)}</p>
           {query.trim() && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing called "{query.trim()}". Try another word, like mask, hat or phone.</p>}
           <div className="grid grid-cols-2 gap-3">{shown.map(tile)}</div><div className="h-20" />
         </div>
@@ -843,16 +869,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     ),
     gear: () => (
       <>
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-          {browseHeader(true)}
-          <div className="mt-3 space-y-2">
-            {addingTo('gear')}
-            <div className="bg-pt-surface rounded-2xl p-3"><div className="grid gap-2 grid-cols-2">
-              {[['Gear from', fmtTime(START)], ['Until', fmtTime(START + SLOT)]].map(([l, v]) => <span key={l} className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">{l}</span><span className="block w-full bg-pt-bg border border-pt-border rounded-xl px-2.5 py-2 text-pt-text text-[15px]">{v}</span></span>)}
-            </div></div>
-          </div>
-        </div>
-        <div className="p-4 space-y-3">
+        {browseHeader(true)}
+        <div className="px-4 pt-1 pb-4 space-y-3">
+          <p className="text-pt-muted text-xs">4 bundles · 3 extras · Gear for your shoot's hours · Add gear by {formatDay(cut.gear)}</p>
           <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Bundles</h2><span className="text-pt-muted text-xs">Booked as a whole</span></div>
           <div {...T('gearkits')} className="grid grid-cols-2 gap-3">
             {PRACTICE_GEAR.filter(g => g.kind === 'bundle').map(g => {
@@ -1367,6 +1386,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
 
   return (
     <div className="fixed inset-0 z-[60] bg-pt-bg flex flex-col" role="dialog" aria-label="App tour (practice)">
+      <div aria-hidden className="fixed top-0 inset-x-0 z-[61] bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
       <div className="flex-1 overflow-y-auto">{scenes[step.scene]()}</div>
       {lit && (
         <nav {...T('tabbar')} className="shrink-0 flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] pb-tabbar">

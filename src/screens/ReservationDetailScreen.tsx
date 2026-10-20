@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
@@ -229,16 +229,18 @@ function PickAndPack({ res }: { res: Reservation }) {
     try { await fn() } catch (err) { setError(errText(err)) } finally { setBusyKey(null) }
   }
 
-  // Tick/untick with instant feedback. Taps while saving are ignored, so a
-  // double-tap can't accidentally untick.
+  // Tick/untick with instant feedback, and tick the next one straight away (owner, Oct 20: no waiting for the last
+  // one to save). Only a second tap on the SAME row while it saves is ignored, so a double-tap can't untick it.
+  const saving = useRef(new Set<string>())
   async function toggle(key: string, ticked: boolean, save: (next: boolean) => Promise<unknown>) {
-    if (busyKey) return
+    if (saving.current.has(key)) return
+    saving.current.add(key)
     setOptimistic(o => ({ ...o, [key]: !ticked }))
-    try { setBusyKey(key); setError(null); await save(!ticked) }
+    try { setError(null); await save(!ticked) }
     catch (err) {
       setError(errText(err))
       setOptimistic(o => { const n = { ...o }; delete n[key]; return n })   // undo the instant tick
-    } finally { setBusyKey(null) }
+    } finally { saving.current.delete(key) }
   }
 
   // Drop instant ticks once the server's copy agrees.
@@ -314,7 +316,7 @@ function PickAndPack({ res }: { res: Reservation }) {
                     </div>
                     <span className="text-pt-text text-lg font-bold shrink-0">×{line.qty}</span>
                   </div>
-                  {!line.pick && !unavailableFor && (
+                  {!line.pick && !picked && !unavailableFor && (
                     <button onClick={() => setUnavailableFor({ kind: 'line', key: line.itemId })} className="mt-1 text-pt-muted text-xs underline">
                       Can't find it / broken?
                     </button>
@@ -333,7 +335,7 @@ function PickAndPack({ res }: { res: Reservation }) {
           <div className="space-y-2">
             {builds.map(b => <BuildRow key={b.id} b={b} done={optimistic[b.id] ?? b.state === 'done'}
               onToggle={() => toggle(b.id, optimistic[b.id] ?? b.state === 'done', next => setBuildState({ id: res.id, buildId: b.id, state: next ? 'done' : 'todo' }))}
-              onUnavailable={!unavailableFor && b.state === 'todo' ? () => setUnavailableFor({ kind: 'build', key: b.id }) : undefined}
+              onUnavailable={!unavailableFor && b.state === 'todo' && !optimistic[b.id] ? () => setUnavailableFor({ kind: 'build', key: b.id }) : undefined}
               extra={unavailableForm(b.id)} />)}
           </div>
         </div>

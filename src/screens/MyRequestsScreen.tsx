@@ -79,7 +79,7 @@ export default function MyRequestsScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => navigate('/account')} className="text-pt-accent text-[17px] py-1">‹ Me</button>
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1">‹ Back</button>
         <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
         <div className="flex gap-2">
           {(['upcoming', 'past'] as const).map(t => (

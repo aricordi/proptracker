@@ -34,6 +34,17 @@ export function useGearWhen() {
   return { date, start: cart.start, end: cart.end, earliest, problem, message: problem ? GEAR_TIME_MESSAGES[problem] : null, win, settings, closed: !isOpen(date, settings) }
 }
 
+// Adding to one of your shoots (owner, Oct 20): gear hours are the shoot's own slot, nothing to pick.
+export function GearShootHours() {
+  const cart = useGearCart()
+  return (
+    <div className="bg-pt-surface rounded-2xl px-4 py-3 flex items-center gap-3">
+      <span className="text-pt-accent"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></span>
+      <span className="flex-1 min-w-0 text-[15px] text-pt-text">Gear for your shoot · <b>{fmtTime(cart.start)}–{cart.end >= GEAR_DAY_END ? 'midnight' : fmtTime(cart.end)}</b></span>
+    </div>
+  )
+}
+
 export function GearWhenPicker({ hoursOnly = false }: { hoursOnly?: boolean } = {}) {
   const cart = useGearCart()
   const w = useGearWhen()

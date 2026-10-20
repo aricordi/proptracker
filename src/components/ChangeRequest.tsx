@@ -3,7 +3,9 @@
 // from Browse (a new request for the same shoot).
 // The AI helper's "Plan my shoot" can open it with props already added (location state `add`): they show here
 // marked "New", and only join the request when the creator taps Save.
-import { useEffect, useMemo, useState } from 'react'
+// "See all results" (owner, Oct 20) opens the whole closet in Browse for this request (src/lib/requestDraft.ts); coming
+// back (location state `draft`) carries on editing with the new props. Either way it scrolls down to Save changes.
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../cart'
 import { useItems } from '../hooks/useItems'
@@ -13,6 +15,7 @@ import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
 import { editReservation, type Reservation } from '../services/reservations'
 import { Icon } from './Icon'
+import { readRequestDraft, writeRequestDraft, clearRequestDraft } from '../lib/requestDraft'
 
 const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'That didn\'t work. Try again.'
 
@@ -38,8 +41,21 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
   const max = (id: string) => items.find(i => i.id === id)?.quantity ?? 99
   const location = useLocation()
   const cart = useCart()
-  const add = (location.state as { add?: { lines: Record<string, number>; builds: { description: string; qty: number; refPhoto?: string }[] } } | null)?.add
+  const st = location.state as { add?: { lines: Record<string, number>; builds: { description: string; qty: number; refPhoto?: string }[] }; draft?: boolean } | null
+  const add = st?.add
   const [fromAi, setFromAi] = useState(false)
+  const saveRef = useRef<HTMLDivElement>(null)
+  const [jump, setJump] = useState(0)
+  // New props just came in: show the list and bring Save changes into view.
+  useEffect(() => { if (jump) setTimeout(() => saveRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 120) }, [jump])
+  // Back from Browse with the closet's picks: carry on editing.
+  useEffect(() => {
+    if (!st?.draft) return
+    const d = readRequestDraft(res.id)
+    if (d) { setLines(d.lines); setBuilds(d.builds); setEditing(true); setErr(''); setJump(j => j + 1) }
+    clearRequestDraft(res.id)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   // Opened from the AI helper with extra props: start editing with them already in.
   useEffect(() => {
     if (!add) return
@@ -47,7 +63,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
     for (const [id, q] of Object.entries(add.lines)) mine[id] = Math.min(max(id), (mine[id] ?? 0) + q)
     const have = (res.builds ?? []).map(b => ({ description: b.description, qty: b.qty, ...(b.refPhoto ? { refPhoto: b.refPhoto } : {}) }))
     setLines(mine); setBuilds([...have, ...add.builds.filter(b => !have.some(h => h.description === b.description))])
-    setFromAi(true); setErr(''); setEditing(true)
+    setFromAi(true); setErr(''); setEditing(true); setJump(j => j + 1)
     navigate(location.pathname, { replace: true, state: null })   // don't add them twice on a refresh
   }, [])   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -68,6 +84,11 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
       }
       setEditing(false)
     } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  // The whole closet, for this request: Browse adds straight into this edit.
+  function seeAll() {
+    writeRequestDraft(res.id, { lines, orig: Object.fromEntries(res.lines.map(l => [l.itemId, l.qty])), builds })
+    navigate(`/browse?toRequest=${res.id}&day=${res.startDate}${query.trim() ? `&q=${encodeURIComponent(query.trim())}` : ''}`)
   }
   function addMore() {
     if (res.shootId) choose(res.shootId)
@@ -127,7 +148,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
       <div className="space-y-2 pt-1">
         <div className="relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none" aria-hidden><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the closet to add a prop" enterKeyHint="search" aria-label="Search props to add"
+          <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && query.trim()) seeAll() }} placeholder="Search the closet to add a prop" enterKeyHint="search" aria-label="Search props to add"
             className="w-full bg-pt-bg border border-pt-border rounded-xl pl-9 pr-9 py-2.5 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
           {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 text-pt-muted text-lg">×</button>}
         </div>
@@ -138,6 +159,9 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
             <button onClick={() => { setLines({ ...lines, [it.id]: 1 }); setQuery('') }} className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</button>
           </div>
         )) : <p className="text-pt-muted text-sm">Nothing matches "{query.trim()}". Try another word, or ask for it below.</p>)}
+        <button onClick={seeAll} className="w-full rounded-xl py-2.5 text-sm font-semibold text-pt-accent bg-pt-accent/10">
+          {query.trim().length >= 2 ? `See all results for "${query.trim()}"` : 'Browse the whole closet'} ›
+        </button>
       </div>
       {builds.map((b, i) => (
         <div key={i} className="flex items-center gap-3">
@@ -153,7 +177,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
           className="shrink-0 bg-pt-border text-pt-text rounded-xl px-3 text-sm disabled:opacity-40">Add</button>
       </div>
       {err && <p className="text-red-300 text-sm">{err}</p>}
-      <div className="flex gap-2">
+      <div ref={saveRef} className="flex gap-2 scroll-mb-28">
         <button onClick={() => setEditing(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Never mind</button>
         <button disabled={busy} onClick={save} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">{busy ? 'Saving…' : 'Save changes'}</button>
       </div>

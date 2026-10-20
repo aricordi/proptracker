@@ -89,18 +89,19 @@ const gearIcon = (
 )
 
 
-// Equipment team: gear only (the gear queue arrives with gear bookings).
+// Equipment team: gear only. Same shape as the arts department (owner, Oct 20: "unify that design"):
+// the queue first, then their screens, then an Admin menu (AdminScreen) with everything else, incl. their account.
 const equipmentNav = [
+  { to: '/gear/bookings', label: 'Queue', icon: queueIcon },
   { to: '/schedule',      label: 'Schedule', icon: scheduleIcon },
-  { to: '/gear/bookings', label: 'Bookings', icon: reservationsIcon },
   { to: '/gear/bundles', label: 'Bundles',  icon: gearIcon },
   { to: '/gear/items',   label: 'All gear', icon: cameraIcon },
-  { to: '/account',      label: 'Account',  icon: accountIcon },
+  { to: '/admin',        label: 'Admin',    icon: adminIcon, also: ['/account', '/help', '/tour'] },
 ]
 
 // For the practice tours' pretend tab bars.
 export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
-  Schedule: scheduleIcon, Bookings: reservationsIcon, Bundles: gearIcon, 'All gear': cameraIcon, Account: accountIcon }
+  Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon }
 
 // Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
 const adminNav = [

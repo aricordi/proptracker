@@ -34,7 +34,7 @@ export interface GearBundle {
   missing?: { itemId: string; name: string; qty: number; at: string; bookingId: string }[]   // reported missing, until found
 }
 
-const byName = <T extends { name: string }>(a: T, b: T) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base', numeric: true })
+const byName = <T extends { name: string }>(a: T, b: T) => (a.name ?? '').localeCompare(b.name ?? '', 'en', { sensitivity: 'base', numeric: true })
 
 export function subscribeToGearItems(cb: (items: GearItem[]) => void) {
   return onSnapshot(collection(db, 'gear_items'),

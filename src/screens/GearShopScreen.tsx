@@ -7,7 +7,8 @@ import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, 
 import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, useGearWhen } from '../components/GearUi'
 import { useActiveShoot } from '../activeShoot'
-import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
+import { BrowseTabs, AddingToChip, useAddingNote } from '../components/AddingToBar'
+import MyRequestsButton from '../components/MyRequestsButton'
 import AiButton from '../components/AiButton'
 
 // Creators: pick the shoot day + hours, see which bundles and extras are free, add them.
@@ -40,34 +41,40 @@ export default function GearShopScreen() {
   const bundles = live.filter(o => (o.kind ?? 'bundle') === 'bundle')
   const extras = live.filter(o => o.kind === 'extra')
   const cats = useMemo(() => [...new Set(all.map(b => b.category))].sort(), [all.map(o => o.category).join()])   // eslint-disable-line react-hooks/exhaustive-deps
+  const note = useAddingNote('gear')
   const free = (o: GearBundle) => freeQty(o.kind === 'extra' ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], w.win.from, w.win.to)
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><BrandMark className="w-10 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <AiButton mode="props" />}</h1>
-        {creator && <div className="mb-3"><BrowseTabs /></div>}
+      {/* Same as Browse → Props: title and tabs scroll away; search, chips and the hours stay pinned. */}
+      <div className="pt-safe px-4">
+        <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5"><BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <><AiButton mode="props" /><MyRequestsButton /></>}</h1>
+        {creator && <div className="mt-2.5"><BrowseTabs /></div>}
+      </div>
+      <div className="sticky z-10 bg-pt-bg px-4 pt-2.5 pb-2" style={{ top: 'env(safe-area-inset-top)' }}>
         <div className="relative">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none">
             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
           </svg>
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search cameras, lights, sound…" enterKeyHint="search" aria-label="Search gear"
-            className="w-full bg-pt-surface border border-pt-border rounded-xl pl-10 pr-10 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base" />
+            className="w-full bg-pt-surface border border-pt-border rounded-xl pl-10 pr-10 py-2.5 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base" />
           {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-pt-muted text-xl leading-none">×</button>}
         </div>
-        {cats.length > 1 && (
-          <div className="flex gap-2 mt-3 overflow-x-auto no-scrollbar">
-            {[null, ...cats].map(c => (
+        {(creator || cats.length > 1) && (
+          <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+            {creator && <AddingToChip kind="gear" />}
+            {cats.length > 1 && [null, ...cats].map(c => (
               <button key={c ?? 'all'} onClick={() => setCat(c)}
                 className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c ?? 'All'}</button>
             ))}
           </div>
         )}
-        <p className="text-pt-muted text-sm text-right mt-2">{bundles.length} bundle{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} extra${extras.length === 1 ? '' : 's'}` : ''}</p>
-        {creator ? <div className="mt-3 space-y-2"><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</div> : <div className="mt-3"><GearWhenPicker /></div>}
+        {creator ? (shoot ? null : isStaff && <div className="mt-2"><GearWhenPicker /></div>) : <div className="mt-2"><GearWhenPicker /></div>}
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="px-4 pb-4 pt-1 space-y-6">
+        <p className="text-xs flex gap-2 -mb-3"><span className="text-pt-muted shrink-0">{bundles.length} bundle{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} extra${extras.length === 1 ? '' : 's'}` : ''}</span>
+          {creator && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {shoot ? `Gear for your shoot's hours · ${note.text}` : note.text}</span>}</p>
         {lateOnes.length > 0 && (
           <button onClick={() => navigate(`/gear/bookings/${lateOnes[0].id}`)} className="w-full text-left bg-red-500/10 rounded-2xl px-4 py-3 text-red-200 text-[15px]">
             You have gear that's late coming back ({lateOnes.map(b => b.title).join(', ')}). Return it before booking more. <span className="text-pt-accent font-medium">Open ›</span>

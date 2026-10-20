@@ -138,6 +138,8 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   const [listening, setListening] = useState(false)
   const [previous, setPrevious] = useState<Record<string, unknown> | undefined>()
   const rec = useRef<any>(null)
+  const [heard, setHeard] = useState(''), [micErr, setMicErr] = useState('')
+  const stopped = useRef(false), quiet = useRef<ReturnType<typeof setTimeout>>()
   const end = useRef<HTMLDivElement>(null)
   useEffect(() => { if (shown) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown])
 
@@ -213,6 +215,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   const lastBot = msgs.reduce((n, x, i) => x.who === 'bot' ? i : n, -1)   // "Meant … instead?" only under the newest answer
 
   async function send(t = text, more = false, force?: Helper) {
+    if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
     // Which helper(s): a forced one ("Meant a time instead?"), the plan's current step, or read from the words.
     const route: Route = force ? { helpers: [force] } : more || plan?.step === 'props' ? { helpers: ['props'] }
@@ -294,20 +297,38 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     send(c, c === MORE)
   }
 
+  // Talking (owner, Oct 20: it got stuck on "Listening"): the words show as they're heard, in the box and above it.
+  // Stop (or 6 s of quiet) ends it and keeps the words to edit; Send ends it and sends. Never sends on its own.
+  function stopTalk() {
+    stopped.current = true; clearTimeout(quiet.current)
+    const r = rec.current; rec.current = null; setListening(false)
+    try { r?.stop() } catch { /* already stopped */ }
+    setTimeout(() => { try { r?.abort() } catch { /* gone */ } }, 700)   // iPhone sometimes ignores stop()
+  }
   function talk() {
     if (!Speech) return
-    if (listening) { rec.current?.stop(); return }
+    if (listening) { stopTalk(); return }
     const r = new Speech()
-    r.lang = 'en-CA'; r.interimResults = true; r.maxAlternatives = 1
+    r.lang = 'en-CA'; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1
+    const before = text.trim() ? `${text.trim()} ` : ''
+    stopped.current = false
     r.onresult = (e: any) => {
-      const said = Array.from(e.results as ArrayLike<any>).map((x: any) => x[0].transcript).join('')
-      setText(said)
-      if (e.results[e.results.length - 1].isFinal) { r.stop(); send(said) }
+      if (stopped.current) return
+      const said = Array.from(e.results as ArrayLike<any>).map((x: any) => x[0].transcript).join('').trimStart()
+      setHeard(said); setText((before + said).slice(0, 600))
+      clearTimeout(quiet.current); quiet.current = setTimeout(stopTalk, 6000)
     }
-    r.onend = () => setListening(false)
-    r.onerror = () => setListening(false)
-    rec.current = r; setListening(true); r.start()
+    r.onend = () => { if (rec.current === r) { rec.current = null; setListening(false) } }
+    r.onerror = (e: any) => {
+      if (rec.current === r) { rec.current = null; setListening(false) }
+      if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') setMicErr('The microphone is blocked for this app. Allow it in your phone settings, or just type.')
+    }
+    rec.current = r; setHeard(''); setMicErr(''); setListening(true)
+    try { r.start() } catch { rec.current = null; setListening(false) }
+    quiet.current = setTimeout(stopTalk, 8000)
   }
+  useEffect(() => () => stopTalk(), [])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!shown && rec.current) stopTalk() }, [shown])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tick suggestions, then add them all to one of your shoots or a new one.
   // Keys: 'p:<prop id>', 'g:<gear id>', 'b:<thing to make or find>'.
@@ -553,6 +574,14 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
             })}
           </div>
         )}
+        {listening && (
+          <div className="mb-2 flex items-start gap-3 rounded-2xl bg-[#BF9DFF]/10 px-4 py-3 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.4)]" aria-live="polite">
+            <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" aria-hidden />
+            <p className={`flex-1 min-w-0 text-[15px] ${heard ? 'text-pt-text' : 'text-[#CDB8FF]'}`}>{heard || 'Listening… just say it.'}</p>
+            <button onClick={stopTalk} className="shrink-0 text-[#CDB8FF] text-sm font-semibold tap">Stop</button>
+          </div>
+        )}
+        {micErr && <p className="mb-2 text-amber-300 text-xs">{micErr}</p>}
         <div className="flex items-center gap-2 pb-2">
           <label htmlFor="aiAsk" className="sr-only">Message</label>
           <input id="aiAsk" value={text} onChange={e => setText(e.target.value.slice(0, 600))} onKeyDown={e => { if (e.key === 'Enter') send() }}
@@ -560,8 +589,10 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
             className="flex-1 min-w-0 bg-pt-surface border border-pt-border rounded-2xl px-4 py-3 text-base focus:outline-none focus:border-[#BF9DFF]" />
           {Speech && (
             <button onClick={talk} aria-label={listening ? 'Stop listening' : 'Talk'}
-              className={`w-12 h-12 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white animate-pulse' : 'bg-[#BF9DFF]/20 text-[#BF9DFF]'}`}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
+              className={`w-12 h-12 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white' : 'bg-[#BF9DFF]/20 text-[#BF9DFF]'}`}>
+              {listening
+                ? <span className="w-4 h-4 rounded-[3px] bg-white" aria-hidden />
+                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>}
             </button>
           )}
           <button onClick={() => send()} disabled={!text.trim() || busy} aria-label="Send" className="w-12 h-12 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-xl font-bold disabled:opacity-40">↑</button>

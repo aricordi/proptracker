@@ -56,8 +56,9 @@ export function ActiveShootProvider({ children }: { children: ReactNode }) {
     if (!shoot) return
     if (cart.start !== shoot.date || cart.end !== shoot.date) cart.setDates(shoot.date, shoot.date)
     const h = gearHoursFor(shoot)
-    if (gear.date !== shoot.date) gear.setWhen(shoot.date, h.start, h.end)
-  }, [shoot?.id, shoot?.date, shoot?.start])   // eslint-disable-line react-hooks/exhaustive-deps
+    // Gear always matches the shoot's slot (owner, Oct 20: no picking times).
+    if (gear.date !== shoot.date || gear.start !== h.start || gear.end !== h.end) gear.setWhen(shoot.date, h.start, h.end)
+  }, [shoot?.id, shoot?.date, shoot?.start, shoot?.end, gear.date, gear.start, gear.end])   // eslint-disable-line react-hooks/exhaustive-deps
   return <Ctx.Provider value={{ shoot, upcoming, loaded: mine !== null, choose }}>{children}</Ctx.Provider>
 }
 

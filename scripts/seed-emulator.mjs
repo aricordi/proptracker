@@ -84,22 +84,13 @@ items.push({ id: 'my-lamp', name: "Grandma's brass lamp", categoryId: 'set-dress
 for (const { id, ...i } of items) await put(`items/${id}`, { collection: 'company', ...i, ...meta })
 await put('checkouts/co1', { label: 'Bar fight shoot', startedAt: now, itemIds: ['legacy-bottle'] })
 
-// Gear: pieces the company owns, and one bundle built from some of them.
-const gearItems = [
-  { id: 'g-fx3', name: 'Sony FX3 body', category: 'Camera', have: 1, serial: 'FX3-001' },
-  { id: 'g-2470', name: '24–70mm f/2.8 lens', category: 'Lens', have: 2 },
-  { id: 'g-npfz', name: 'NP-FZ100 battery', category: 'Power', have: 6 },
-  { id: 'g-chg', name: 'Dual battery charger', category: 'Power', have: 3 },
-  { id: 'g-cfx', name: '128 GB CFexpress card', category: 'Camera', have: 4 },
-  { id: 'g-cst', name: 'C-stand', category: 'Grip', have: 8 },
-  { id: 'g-600d', name: 'Aputure 600d light', category: 'Lighting', have: 1, value: 1700 },
-]
-for (const { id, ...g } of gearItems) await put(`gear_items/${id}`, { serial: null, value: null, notes: '', photos: [], archived: false, ...g, ...meta })
-await put('gear_bundles/b-fx3', { name: 'Sony FX3 Cinema Bundle', category: 'Camera', description: 'Run-and-gun cinema kit', photos: [], archived: false,
-  kind: 'bundle', pieces: [{ itemId: 'g-fx3', qty: 1, name: 'Sony FX3 body' }, { itemId: 'g-2470', qty: 1, name: '24–70mm f/2.8 lens' },
-    { itemId: 'g-npfz', qty: 2, name: 'NP-FZ100 battery' }, { itemId: 'g-chg', qty: 1, name: 'Dual battery charger' }, { itemId: 'g-cfx', qty: 2, name: '128 GB CFexpress card' }], ...meta })
-await put('gear_bundles/b-600d', { name: 'Aputure 600d Light Bundle', category: 'Lighting', description: 'One big soft key light', photos: [], archived: false,
-  kind: 'bundle', pieces: [{ itemId: 'g-600d', qty: 1, name: 'Aputure 600d light' }, { itemId: 'g-cst', qty: 1, name: 'C-stand' }], ...meta })
+// Gear: the owner's test gear (scripts/test-gear.json, also the live "Add test gear" button), plus a C-stand extra.
+const testGear = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./test-gear.json', import.meta.url), 'utf8'))
+const gearName = Object.fromEntries(testGear.items.map(i => [i.id, i.name]))
+for (const { id, ...g } of testGear.items) await put(`gear_items/${id}`, { serial: null, value: null, notes: '', photos: [], archived: false, ...g, ...meta })
+for (const { id, pieces, ...b } of testGear.bundles) await put(`gear_bundles/${id}`, { photos: [], archived: false, kind: 'bundle', ...b,
+  pieces: pieces.map(([itemId, qty]) => ({ itemId, qty, name: gearName[itemId] })), ...meta })
+await put('gear_items/g-cst', { name: 'C-stand', category: 'Grip', have: 4, serial: null, value: null, notes: '', photos: [], archived: false, ...meta })
 await put('gear_bundles/x-cst', { name: 'C-stand', category: 'Grip', description: '', photos: [], archived: false,
   kind: 'extra', pieces: [{ itemId: 'g-cst', qty: 4, name: 'C-stand' }], ...meta })
 

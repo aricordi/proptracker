@@ -31,7 +31,11 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
       setSlots(s => [...s, { key, preview: URL.createObjectURL(file), url: null }])
       onUploading?.(true)
       // Read when it was taken first: shrinking drops that information.
-      void photoTakenAt(file).then(async takenAt => {
+      void photoTakenAt(file).then(async exif => {
+      // iPhone camera photos taken from the app often come without the camera's date inside (owner, Oct 20: "No date
+      // on this photo" on pack and return photos). The camera opened just now, so its file time is when it was taken.
+      const fresh = cameraOnly && file.lastModified && Math.abs(Date.now() - file.lastModified) < 10 * 60_000
+      const takenAt = exif ?? (fresh ? new Date(file.lastModified).toISOString() : null)
       setSlots(s => s.map(x => x.key === key ? { ...x, takenAt } : x))
       const blob = await shrinkPhoto(file)
       const type = blob === file ? (file.type || 'image/jpeg') : 'image/jpeg'

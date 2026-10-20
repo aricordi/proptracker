@@ -10,6 +10,7 @@ import BrandMark from '../components/BrandMark'
 import Avatar from '../components/Avatar'
 import LateBanner from '../components/LateBanner'
 import AiButton from '../components/AiButton'
+import { MyRequestsRow } from '../components/MyRequestsButton'
 import { useAssistant } from '../assistant'
 import { GearArt } from '../components/GearUi'
 import { useMyLateBookings } from '../hooks/useLateBookings'
@@ -176,6 +177,7 @@ export default function CreatorHomeScreen() {
         <button onClick={() => ai.open()} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF] active:scale-[0.98] transition-transform">
           <span className="text-[#BF9DFF]">✦</span><span className="flex-1 min-w-0 truncate">Ask AI: props for an idea, or a time to film</span><span className="text-pt-muted">›</span>
         </button>
+        <MyRequestsRow />
         <NotificationsNudge />
       </div>
 
