@@ -1054,7 +1054,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       LIVE Oct 20 (website run 28, owner OK). OPTION C (fresh identity) = MOCKUP ONLY, owner expects to reject:
       https://claude.ai/artifact/VJzyBxLEzeKJLbBPdByEDe ("Slate & Tungsten": slate #1E2430, chalk #EDEAE2, tungsten
       #F2A33A actions, daylight #8FB8F0 AI/info; Big Shoulders Display + Atkinson Hyperlegible; next shoot = clapperboard
-      slate; Book = stripboard). Nothing in the app changed for it.
+      slate; Book = stripboard). Nothing in the app changed for it. OWNER REJECTED IT (Oct 20: "I hate option C"):
+      the current Black & Gold card look + polish A is FINAL. Don't propose a new identity again unless the owner asks.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
