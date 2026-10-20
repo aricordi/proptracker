@@ -1,7 +1,7 @@
 // Gear team tour (owner, Oct 20: "a tutorial just like this but for the gear department… the story of their
 // responsibilities"). Same coach, chapter cards, quizzes and badges as the creator tour (Spotlight + Fun.tsx), with
 // GEAR_CHAPTERS:
-//   1 Find your way around (5 tabs)  2 Stock the shelves (All gear → + Add gear → name, type, serial → Save)
+//   1 Find your way around (5 tabs: Queue / Schedule / Bundles / All gear / Admin, a look at the Admin menu)  2 Stock the shelves (All gear → + Add gear → name, type, serial → Save)
 //   3 Build a kit (Bundles → + Bundle → name → pieces → Save; add-on extras) + quiz  4 Run the queue (Today / Out /
 //   To check in…, open a booking, decline with a reason)  5 Hand it over (the pickup check: tick every piece, Missing?,
 //   sign) + quiz  6 Check it back in (late, To check in, return photo, tick, damage note, Checked in)
@@ -43,8 +43,8 @@ export const GEAR_CHAPTERS: Chapter[] = [
 ]
 
 type Scene = 'hello' | 'meet' | 'queue' | 'booking' | 'items' | 'itemsheet' | 'bundles' | 'bundleedit' | 'schedule' | 'slotsheet'
-  | 'shootsheet' | 'team' | 'notify' | 'rules' | 'done'
-type Tab = 'Schedule' | 'Bookings' | 'Bundles' | 'All gear' | 'Account'
+  | 'shootsheet' | 'team' | 'admin' | 'notify' | 'rules' | 'done'
+type Tab = 'Queue' | 'Schedule' | 'Bundles' | 'All gear' | 'Admin'
 interface Step { id: string; scene: Scene; part?: number; target?: string; title: ReactNode; body?: ReactNode; next?: string; hint?: string; top?: boolean; look?: boolean
   quiz?: { q: ReactNode; options: string[]; correct: number; explain: ReactNode } }
 
@@ -109,8 +109,11 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     // 1 · Find your way around
     intro(1, 'queue', "This is your corner of Prime Capitol. Five tabs, one job: the right gear, in the right hands, back in one piece."),
     { id: 'tabs', scene: 'queue', part: 1, target: 'tabbar', look: true, next: C, title: 'Your five tabs',
-      body: ul([['Schedule', 'the house calendar'], ['Bookings', 'the gear queue'], ['Bundles', 'the kits creators can book'], ['All gear', 'every piece you own'], ['Account', 'you, notifications, help']]) },
-    { id: 'toitems', scene: 'queue', part: 1, target: 'nav-allgear', title: <>Start with the shelves: tap <b>All gear</b></> },
+      body: ul([['Queue', 'who picks up what, and what is due back'], ['Schedule', 'the house calendar'], ['Bundles', 'the kits creators can book'], ['All gear', 'every piece you own'], ['Admin', 'everything else, like the arts department has']]) },
+    { id: 'toadmin', scene: 'queue', part: 1, target: 'nav-admin', title: <>Peek at <b>Admin</b></> },
+    { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your Admin menu',
+      body: 'Schedule team, schedule settings, the Google Calendar import, help, this tour again, and your account. Same idea as the arts department.' },
+    { id: 'toitems', scene: 'admin', part: 1, target: 'nav-allgear', title: <>Start with the shelves: tap <b>All gear</b></> },
     // 2 · Stock the shelves
     intro(2, 'items', 'Every lens, battery and drone lives in All gear. If it isn\'t in here, it doesn\'t exist (as far as the app knows).'),
     { id: 'itemslook', scene: 'items', part: 2, target: 'itemlist', look: true, next: C, title: 'Every piece you own, by type',
@@ -136,7 +139,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
       explain: 'A piece lives in one place at a time, so a kit can never be promised twice. Archiving a bundle frees its pieces again.' } },
     // 4 · Run the queue
     intro(4, 'bundles', "Creators book gear themselves, instantly. Your queue is where you see it all coming and going."),
-    { id: 'tobookings', scene: 'bundles', part: 4, target: 'nav-bookings', title: <>Tap <b>Bookings</b></> },
+    { id: 'tobookings', scene: 'bundles', part: 4, target: 'nav-queue', title: <>Tap <b>Queue</b></> },
     { id: 'queuetabs', scene: 'queue', part: 4, target: 'queuetabs', look: true, next: C, title: 'Your queue, in five piles',
       body: ul([['Today', 'pickups today and gear due back'], ['Out', 'with a creator (late first)'], ['To check in', 'returned, waiting for you'], ['Upcoming', 'held for later'], ['Past', 'done']]) },
     { id: 'openheld', scene: 'queue', part: 4, target: 'heldcard', title: "Tap Riley's booking", body: 'Picking up today at 1 PM.' },
@@ -211,7 +214,9 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
       q: "The house floods and you cancel Riley's shoot. Does Riley get a strike?", options: ['Yes', 'No, team cancels never count', 'Only if it was a Thursday'], correct: 1,
       explain: 'Strikes are only for no-shows, late cancels by the creator, and reports you uphold.' } },
     // 9 · Stay in the loop (real)
-    intro(9, 'notify', "Last one, and it's real: turn on notifications so you hear about new bookings, returns, missing pieces and reports."),
+    intro(9, 'team', "Last one, and it's real: turn on notifications so you hear about new bookings, returns, missing pieces and reports."),
+    { id: 'toadmin9', scene: 'schedule', part: 9, target: 'nav-admin', title: <>Tap <b>Admin</b></> },
+    { id: 'toaccount', scene: 'admin', part: 9, target: 'myaccount', title: <>Tap <b>My account</b></> },
     { id: 'notify', scene: 'notify', part: 9, target: 'notifycard', look: true, next: C, hint: 'Turn them on first', title: 'Turn on notifications',
       body: push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (steps on the card).' : 'Tap the gold button, then Allow when your phone asks.' },
     { id: 'rules', scene: 'rules', title: '' },
@@ -267,11 +272,11 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
         : push === 'needs-install' ? (
           <ol className="space-y-2 text-[14px] text-pt-text list-decimal list-inside">
             <li>Tap <b>Share</b> at the bottom of Safari</li><li>Tap <b>Add to Home Screen</b>, then Add</li>
-            <li>Open <b>Prime Capitol</b> from your Home Screen</li><li>Account → Notifications → <b>Turn on</b></li>
+            <li>Open <b>Prime Capitol</b> from your Home Screen</li><li>Admin → My account → <b>Turn on</b></li>
           </ol>
         ) : push === 'blocked' ? <p className="text-pt-muted text-sm">Notifications are blocked for this app. {isIOS() ? 'iPhone Settings → Notifications → Prime Capitol → Allow Notifications.' : 'Tap the lock or ⓘ next to the web address → Notifications → Allow.'}</p>
         : <p className="text-pt-muted text-sm">This browser can't show notifications. Open the app on your phone to turn them on.</p>}
-      {pushMsg && <p className="text-amber-300 text-xs">Couldn't turn them on: {pushMsg} You can try again later from Account → Notifications.</p>}
+      {pushMsg && <p className="text-amber-300 text-xs">Couldn't turn them on: {pushMsg} You can try again later from Admin → My account.</p>}
     </div>
   )
   const slotRow = (start: number, kind: 'free' | 'booked' | 'block' | 'mine', who?: string, target?: string) => {
@@ -717,6 +722,24 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
         </div>
       )
     },
+    admin: () => (
+      <div className="pb-6">
+        {header('Admin')}
+        <div className="p-4">
+          <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
+            {[['Gear queue', "Today's pickups and returns, what's out, what to check in"], ['Bundles & add-on extras', 'What creators can book; build a new kit'],
+              ['All gear', 'Every piece you own: add gear, serial numbers, values, archive'], ['Schedule team', 'Check-ins, reports to review, creators booked vs filmed, pauses'],
+              ['Schedule settings', 'Houses, slots, priority days, strikes, Google Calendar'], ['Google Calendar import', 'Sort events added straight in the shared calendar'],
+              ['Gear team tour', 'Practise the gear room again, step by step'], ['Help', 'How do I…? Gear, check-ins, the schedule, sign-in'], ['My account', 'Your photo, notifications; sign out']].map(([t, d]) => (
+              <button key={t} {...(t === 'My account' ? T('myaccount') : {})} onClick={t === 'My account' ? tap('myaccount') : undefined} className="w-full flex items-center gap-3 px-4 py-4 text-left">
+                <div className="flex-1 min-w-0"><p className="text-pt-text font-medium">{t}</p><p className="text-pt-muted text-xs mt-0.5">{d}</p></div>
+                <span className="text-pt-muted">›</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
     notify: () => (
       <div className="pb-6">
         {header('Account')}
@@ -732,7 +755,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     rules: () => (
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
-        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">The gear room in six lines. Replay this from Account any time.</p></div>
+        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">The gear room in six lines. Replay it from Admin → Gear team tour any time.</p></div>
         {([
           ['box', 'Every piece goes in All gear first. Loose pieces are invisible to creators until they are in a bundle or an add-on extra.'],
           ['tools', 'A piece lives in one bundle at a time. Bundles are booked whole. Pieces are locked while a bundle is booked or out.'],
@@ -759,8 +782,8 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     ),
   }
 
-  // The equipment team's real tab bar (Schedule / Bookings / Bundles / All gear / Account).
-  const TAB: Partial<Record<Scene, Tab>> = { queue: 'Bookings', items: 'All gear', itemsheet: 'All gear', bundles: 'Bundles', schedule: 'Schedule', slotsheet: 'Schedule', shootsheet: 'Schedule', notify: 'Account' }
+  // The equipment team's real tab bar (Queue / Schedule / Bundles / All gear / Admin).
+  const TAB: Partial<Record<Scene, Tab>> = { queue: 'Queue', items: 'All gear', itemsheet: 'All gear', bundles: 'Bundles', schedule: 'Schedule', slotsheet: 'Schedule', shootsheet: 'Schedule', admin: 'Admin', notify: 'Admin' }
   const lit = TAB[step.scene]
   const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part') && !x.quiz)
   const stepInPart = inPart.findIndex(x => x.id === step.id) + 1
@@ -774,7 +797,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
       <div className="flex-1 overflow-y-auto">{scenes[step.scene]()}</div>
       {lit && (
         <nav {...T('tabbar')} className="shrink-0 flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] pb-tabbar">
-          {(['Schedule', 'Bookings', 'Bundles', 'All gear', 'Account'] as Tab[]).map(t => (
+          {(['Queue', 'Schedule', 'Bundles', 'All gear', 'Admin'] as Tab[]).map(t => (
             <button key={t} {...T(navKey(t))} onClick={tap(navKey(t))}
               className={`flex-1 flex flex-col items-center gap-0.5 pt-2 pb-0 text-xs ${lit === t ? 'text-pt-accent' : 'text-pt-muted'}`}>
               {TAB_ICONS[t]}<span>{t}</span>

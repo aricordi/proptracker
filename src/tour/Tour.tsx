@@ -2,8 +2,9 @@
 // the story… nobody has used this before"). Welcome (what the app is for) → meet Cap (the Prime Capitol eagle) → 10 chapters (CHAPTERS in Fun.tsx), each opened by a ChapterCard with the badge
 // just earned, plus 4 pop quizzes (QuizCard) so people learn instead of tapping Continue:
 //   1 Find your way around  2 Book your first shoot (with a friend → find it again: Home → your shoot card)
-//   3 Stock up for your shoot (+ Add → search → gear → review → send) + quiz  4 Keep tabs on it (Me → My requests → Change,
-//   search the closet to add a prop, Save)
+//   3 Stock up for your shoot (+ Add → search, − n + on photos → gear (no times: the shoot's hours) → review → send → back on
+//   the shoot) + quiz  4 Keep tabs on it (shoot → request → Change → search → See all results → the closet for this request → + →
+//   Back to your request → NEW → Save). My requests = Home row + the box button next to ✦ AI (ch1, ch9).
 //   5 Meet the AI (idea → tick → ask a time → Book → add the ticked)  6 When a friend invites you + quiz
 //   7 Pickup day (props sign, gear pieces) + quiz  8 Showtime (check in, report, wrap)  9 Bring it all back (Return everything: props + gear together, untick to keep one) + quiz
 //   10 Stay in the loop (REAL: turnOnPush; required unless the phone can't yet). Then the cheat sheet and every badge.
@@ -44,7 +45,7 @@ import { CHAPTERS, Cap, Confetti, ChapterCard, QuizCard, BadgeWall } from './Fun
 import { markTourDone, savedStep, saveStep } from './tourState'
 
 type Scene = 'hello' | 'meet' | 'home' | 'find' | 'bookit' | 'booked' | 'home2' | 'shoot' | 'browse' | 'gear' | 'review' | 'sent'
-  | 'me' | 'requests' | 'request' | 'chat' | 'invite' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'returnall'
+  | 'me' | 'requests' | 'request' | 'reqbrowse' | 'chat' | 'invite' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'returnall'
   | 'notify' | 'rules' | 'done'
 // A step: what's on screen (scene), what to use (target), the coach panel's text, and how you move on (a tap on the
 // target, or Continue = next). hint = why Continue is greyed out. top = panel at the top. look = nothing dimmed (you're
@@ -151,7 +152,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [aiBusy, setAiBusy] = useState(false)
   const [aiTicks, setAiTicks] = useState<string[]>([]), [aiBooked, setAiBooked] = useState(false), [aiAdded, setAiAdded] = useState(false)
   const [qty, setQty] = useState<Record<string, number>>({}), [editing, setEditing] = useState(false), [newBuild, setNewBuild] = useState('')
-  const [changeQ, setChangeQ] = useState(''), [changeAdded, setChangeAdded] = useState(0)
+  const [changeQ, setChangeQ] = useState(''), [changeAdded, setChangeAdded] = useState(0), [changeNew, setChangeNew] = useState<string[]>([])
   const [over, setOver] = useState(false), [mess, setMess] = useState(false), [reportNote, setReportNote] = useState('')
   const [wrapText, setWrapText] = useState(''), [retNote, setRetNote] = useState(''), [retOff, setRetOff] = useState<string[]>([])
 
@@ -193,7 +194,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'addingbar', scene: 'browse', part: 3, target: 'adding', look: true, next: C, title: "This chip shows which shoot you're shopping for", body: '"Free" on a photo means it is free that day. Tap the chip to switch shoots.' },
     { id: 'search', scene: 'browse', part: 3, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Search the closet and tap + on something', body: <>Try <b>mask</b>, <b>hat</b> or <b>phone</b>. Need more than one? Tap <b>+</b> again on the photo. Add as many as you like, then Continue.</> },
     { id: 'geartab', scene: 'browse', part: 3, target: 'geartab', title: <>Now the gear. Tap <b>Gear</b></>, body: 'Cameras, lights and sound live here.' },
-    { id: 'addgear', scene: 'gear', part: 3, target: 'gearkits', top: true, next: C, hint: 'Add a camera kit first', title: <>Pick a camera: tap <b>+</b> on the FX3 or the A7S</>, body: "Each kit is one case with every piece inside. No times to pick: gear is booked for your shoot's hours. Want aerial shots? Add the Mavic Air or the Mini 5 too." },
+    { id: 'addgear', scene: 'gear', part: 3, target: 'gearkits', next: C, hint: 'Add a camera kit first', title: <>Pick a camera: tap <b>+</b> on the FX3 or the A7S</>, body: "Each kit is one case with every piece inside. No times to pick: gear is booked for your shoot's hours. Want aerial shots? Scroll down for the Mavic Air and the Mini 5." },
     { id: 'addextras', scene: 'gear', part: 3, target: 'gearextras', next: C, title: 'Need add-ons? Use + and −', body: 'Extra batteries, lights or a wireless mic go on top of your kit. None needed? Just Continue.' },
     { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'Quick check before it goes to the teams.' },
     { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
@@ -516,7 +517,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     </div>
   )
   const freeRow = (t: number): Row => ({ t, title: <span className="text-pt-accent">Free</span>, cls: 'bg-pt-surface border-pt-accent/35' })
-  const sheet = (heading: string, body: ReactNode) => <>{scheduleHeader()}<BottomSheet open locked onClose={() => {}} title={heading}>{body}</BottomSheet></>
+  const sheet = (heading: string, body: ReactNode) => <>{scheduleHeader()}<BottomSheet open locked onClose={() => {}} title={heading}>{body}</BottomSheet>
+    {step.id === 'closesheet' && <button {...T('sheettop')} onClick={tap('sheettop')} aria-label="Close the sheet" className="fixed top-0 inset-x-0 h-[22vh] z-[55]" />}</>
   const homeHeader = (
     <div className="pt-safe px-5">
       <div className="flex items-center justify-between py-3">
@@ -604,7 +606,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   )
   const requestsHeader = (
     <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-      <button {...T('tome')} onClick={tap('tome')} className="block text-pt-accent text-[17px] py-1">‹ Me</button>
+      <span className="block text-pt-accent text-[17px] py-1">‹ Back</span>
       <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
       <div className="flex gap-2"><span className="px-3 py-1 rounded-full text-sm bg-pt-accent text-stone-900 font-medium">Upcoming (1)</span><span className="px-3 py-1 rounded-full text-sm bg-pt-surface shadow-hairline text-pt-muted">Past</span></div>
     </div>
@@ -659,8 +661,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         {step.scene === 'notify' && notifyCard}
         <div className="rounded-2xl p-4 text-sm bg-pt-surface shadow-hairline"><p className="text-pt-text font-semibold">No strikes</p><p className="text-pt-muted">Strikes come from no-shows, late cancels and upheld reports.</p></div>
         <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
-          {[['My requests', 'Props and gear for each shoot, and where they are'], ['Help', 'How do I…? Booking, props, gear, check-in, sign-in'], ['App tour', 'Practise booking a shoot again, step by step'], ['How it works', 'Slots, cutoffs, check-ins, strikes']].map(([t, d], n) => (
-            <button key={t} {...(n === 0 ? T('myrequests') : {})} onClick={n === 0 ? tap('myrequests') : undefined} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+          {[['Help', 'How do I…? Booking, props, gear, check-in, sign-in'], ['App tour', 'Practise booking a shoot again, step by step'], ['How it works', 'Slots, cutoffs, check-ins, strikes']].map(([t, d]) => (
+            <button key={t} className="w-full flex items-center gap-3 px-4 py-3 text-left">
               <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span><span className="text-pt-muted">›</span>
             </button>
           ))}
@@ -844,15 +846,23 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">Props for your idea and the gear that's free, then you check it</span></span>
             <span className="text-pt-muted">›</span>
           </div>
-          {([['Props & costumes', cut.props, `new props by ${formatDay(cut.builds)}`, 'addprops'], ['Gear', cut.gear, '', '']] as const).map(([t, by, extra, tg]) => (
+          {sentAll && !past('openreq') && <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text"><b className="text-green-400">Sent ✓</b> Props went to the arts team, gear to the equipment team.</div>}
+          <div {...T('shootreqs')} className="space-y-2">
+          {([['Props & costumes', cut.props, `new props by ${formatDay(cut.builds)}`, 'addprops', 'props'], ['Gear', cut.gear, '', '', 'gear']] as const).map(([t, by, extra, tg, kind]) => (
             <div key={t} className="bg-pt-bg rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0"><p className="text-pt-text font-semibold">{t}</p><p className="text-pt-muted text-xs">Add by {formatDay(by)}{extra ? ` · ${extra}` : ''}</p></div>
                 <button {...(tg ? T(tg) : {})} onClick={tg ? tap(tg) : undefined} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm">+ Add</button>
               </div>
-              <p className="text-pt-muted text-xs">Nothing yet.</p>
+              {sentAll ? (
+                <div {...(kind === 'props' ? T('shootreq') : {})}>
+                  <RequestRow className="bg-pt-surface" onOpen={kind === 'props' ? tap('shootreq') : undefined}
+                    l={kind === 'props' ? { id: 'p', kind: 'props', title, status: propsStatus, count: propCount } : { id: 'g', kind: 'gear', title, status: gearStatus, count: Math.max(1, gearCount) }} />
+                </div>
+              ) : <p className="text-pt-muted text-xs">Nothing yet.</p>}
             </div>
           ))}
+          </div>
         </div>
       </div>
     )),
@@ -873,8 +883,10 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <div className="px-4 pt-1 pb-4 space-y-3">
           <p className="text-pt-muted text-xs">4 bundles · 3 extras · Gear for your shoot's hours · Add gear by {formatDay(cut.gear)}</p>
           <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Bundles</h2><span className="text-pt-muted text-xs">Booked as a whole</span></div>
-          <div {...T('gearkits')} className="grid grid-cols-2 gap-3">
-            {PRACTICE_GEAR.filter(g => g.kind === 'bundle').map(g => {
+          <div {...T('gearkits')} className="space-y-3">
+          {(['Camera', 'Drones'] as const).map(cat => (
+          <div key={cat} className="grid grid-cols-2 gap-3">
+            {PRACTICE_GEAR.filter(g => g.kind === 'bundle' && g.category === cat).map(g => {
               const on = (gearPick[g.id] ?? 0) > 0, can = step.id === 'addgear'
               return (
                 <div key={g.id} className="relative w-full h-full">
@@ -894,6 +906,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                 </div>
               )
             })}
+          </div>
+          ))}
           </div>
           <section {...T('gearextras')} className="space-y-3 pt-3">
             <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Add-on extras</h2><span className="text-pt-muted text-xs">Pick how many</span></div>
@@ -1000,6 +1014,40 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         </div>
       </div>
     ),
+    reqbrowse: () => {
+      const list = changeQ.trim() ? found(changeQ).slice(0, 12) : props
+      return (
+        <div {...T('browsezone')}>
+          {browseHeader(false, true)}
+          <div className="px-4 pt-1">
+            <p className="text-pt-muted text-xs mb-3">{list.length} props · free on {formatDay(day)}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {list.map(i => {
+                const on = added.includes(i.id)
+                return (
+                  <div key={i.id} className="relative w-full h-full">
+                    <div className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
+                      <div className="relative aspect-square bg-pt-border">{thumb(i) && <img src={thumb(i)} alt={i.name} className="w-full h-full object-cover" />}
+                        <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span></div>
+                      <div className="px-3 pt-2 pb-3"><p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{i.name}</p></div>
+                    </div>
+                    <button onClick={() => { if (step.id !== 'reqadd' || on) return; setAdded(a => [...a, i.id]); setQty(q => ({ ...q, [i.id]: 1 })); setChangeNew(x => [...x, i.id]); setChangeAdded(n => n + 1) }}
+                      aria-label={`${on ? 'Added' : 'Add'} ${i.name}`}
+                      className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${on ? 'bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{on ? '✓' : '+'}</button>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="h-24" />
+          </div>
+          <div className="sticky bottom-3 px-4">
+            <button {...T('backtoreq')} onClick={tap('backtoreq')} className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 font-semibold shadow-gold">
+              <span>{changeNew.length ? `${changeNew.length} new prop${changeNew.length !== 1 ? 's' : ''}` : 'Your request'}</span><span>Back to your request</span>
+            </button>
+          </div>
+        </div>
+      )
+    },
     me: () => meScreen,
     notify: () => meScreen,
     requests: () => <div className="pb-6">{requestsHeader}<div className="px-4 space-y-3">{requestsCard}</div></div>,
@@ -1012,14 +1060,15 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           <div className="px-4 pt-4 pb-8 space-y-6">
             {past('changeit') && st === 'requested' && banner('green', 'Changed ✓', 'The arts department sees your new list straight away.')}
             {titleBlock}{shootLink('gear')}{journey(st)}{contents(false)}
-            {st === 'requested' && (editing || step.id === 'changeit' || step.id === 'changeadd' ? (
+            {st === 'requested' && (editing || ['changeq', 'seeall', 'changeit'].includes(step.id) ? (
               <div {...T('changebox')} className="bg-pt-surface border border-pt-accent/40 rounded-2xl p-3 space-y-3">
                 <p className="text-pt-text font-semibold">Change your request</p>
                 {picked.map(p => {
                   const n = qty[p.id] ?? 1
                   return (
                     <div key={p.id} className={`flex items-center gap-3 ${n ? '' : 'opacity-40'}`}>
-                      <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}</div>
+                      <div className="relative w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}
+                        {changeNew.includes(p.id) && <span className="absolute bottom-0 inset-x-0 text-center text-xs font-bold bg-[#BF9DFF] text-[#140f22]">NEW</span>}</div>
                       <p className={`flex-1 min-w-0 text-sm truncate ${n ? 'text-pt-text' : 'line-through text-pt-muted'}`}>{p.name}</p>
                       {n > 0 ? (
                         <>
@@ -1045,10 +1094,13 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                       <div key={it.id} className="flex items-center gap-3">
                         <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(it) && <img src={thumb(it)} alt="" className="w-full h-full object-cover" />}</div>
                         <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it.name}</p>
-                        <button onClick={() => { setAdded(a => [...a, it.id]); setQty(q => ({ ...q, [it.id]: 1 })); setChangeQ(''); setChangeAdded(n => n + 1) }} className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</button>
+                        <span className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</span>
                       </div>
                     )) : <p className="text-pt-muted text-sm">Nothing matches "{changeQ.trim()}". Try mask or hat.</p>
                   })()}
+                  <button {...T('seeall')} onClick={tap('seeall')} className="w-full rounded-xl py-2.5 text-sm font-semibold text-pt-accent bg-pt-accent/10">
+                    {changeQ.trim().length >= 2 ? `See all results for "${changeQ.trim()}"` : 'Browse the whole closet'} ›
+                  </button>
                 </div>
                 <input value={newBuild} onChange={e => setNewBuild(e.target.value.slice(0, 200))} placeholder="Something we don't have (make or find)"
                   className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
@@ -1373,7 +1425,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   }
 
   // Which tab is lit (as in the real app). Full-screen pages (review, request pages, AI) have no tab bar.
-  const TAB: Partial<Record<Scene, string>> = { home: 'Home', home2: 'Home', find: 'Book', bookit: 'Book', booked: 'Book', shoot: 'Book', invite: 'Book', checkin: 'Book', wrap: 'Book', browse: 'Browse', gear: 'Browse', me: 'Me', notify: 'Me', requests: 'Me' }
+  const TAB: Partial<Record<Scene, string>> = { home: 'Home', home2: 'Home', find: 'Book', bookit: 'Book', booked: 'Book', shoot: 'Book', invite: 'Book', checkin: 'Book', wrap: 'Book', browse: 'Browse', gear: 'Browse', reqbrowse: 'Browse', me: 'Me', notify: 'Me', requests: 'Me' }
   const lit = TAB[step.scene]
   // Progress within the part (intro cards don't count).
   const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part') && !x.quiz)
@@ -1381,7 +1433,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const back = idx > 0 ? () => setIdx(n => { const m = Math.max(0, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
   const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
     || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount)
-    || (step.id === 'search' && added.length === 0) || (step.id === 'changeadd' && changeAdded === 0) || (step.id === 'retlist' && retOff.length > 0) || (step.id === 'addgear' && !hasCamera) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
+    || (step.id === 'search' && added.length === 0) || (step.id === 'changeq' && changeQ.trim().length < 2) || (step.id === 'reqadd' && changeAdded === 0) || (step.id === 'retlist' && retOff.length > 0) || (step.id === 'addgear' && !hasCamera) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
     || (['setphoto', 'retphoto'].includes(step.id) && !photos[step.id]) || (step.id === 'notify' && push === 'off' && !pushMsg)
 
   return (

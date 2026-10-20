@@ -1115,6 +1115,42 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       equipment only ever gets this tour); replay /tour/gear from Account ("Gear team tour", gear staff not in the creator
       layout) and the owner's Team menu. Ends on '/' (= gear queue for equipment). Gear has NO "damaged" state: the tour
       teaches the check-in note (possible follow-up: a real Damaged button, needs server + owner OK). Checked: 75 screens.
+    - BIG FEEDBACK ROUND (owner, Oct 20; preview only, live needs OK; app only, NO server/rules change):
+      BROWSE (HomeScreen + GearShopScreen): useHideOnScroll fold REMOVED (choppy). Title (30px, eagle, ✦ AI + My requests
+      button) and Props|Gear tabs scroll away natively; search (py-2.5) + ONE chip row stay sticky at top:
+      env(safe-area-inset-top): `AddingToChip` (shoot date · slot, opens the shoot picker; AddingToBar.tsx also exports
+      `useAddingNote`), Status chip (BottomSheet), categories; staff get a "Pick a day" chip instead. Count + cutoff on one
+      small line above the grid. q + cat live in the URL (replace, 250 ms) and the main scroller's scrollTop is saved in
+      sessionStorage 'pc.browseScroll' and restored on POP (Back from a prop page lands on the same search + spot).
+      ItemCard `onQty`/`max`: once added, + becomes − n + on the photo when more than one is free.
+      CHANGE A REQUEST → WHOLE CLOSET: ChangeRequest "See all results for …" / "Browse the whole closet" (or Enter) writes
+      the edit to `src/lib/requestDraft.ts` (sessionStorage) and opens /browse?toRequest=<id>&day=<date>&q=… ("Add to your
+      request" mode: + adds to the draft, free on that day, bar "N new props · Back to your request") → /reservations/:id
+      with state {draft:true} → editing resumes with NEW badges. Arriving with new props (AI `add` or draft) scrolls Save
+      changes into view. BACK TO THE SHOOT: ScheduleScreen keeps ?shoot=<id> in the URL while the shoot sheet is open
+      (Back from a request page reopens it); ReserveScreen with a schedule shoot → /schedule?shoot=<id>&sent=props|gear|both
+      → green "Sent ✓" on the sheet. GEAR HOURS = THE SHOOT'S: `GearShootHours` (GearUi) replaces the hours pickers when
+      adding to a shoot (gear shop, gear page, /reserve; "Use those hours" hidden); activeShoot always forces the gear cart
+      to the shoot's hours; ChangeGear hides hours for scheduleShootId bookings. AI MIC (Assistant.tsx): continuous
+      recognition, live transcript strip ("Listening… just say it." + words) + Stop; mic button = red stop square while
+      listening; Send while talking stops and sends; 6 s of quiet stops (never auto-sends); stop() + abort() fallback;
+      "microphone blocked" note; stops when the chat is hidden. ARTS PICKING: ticks only lock the SAME row while saving
+      (any other row can be ticked at once); "Can't find it" hides as soon as a row is ticked. PHOTO DATES: ProofPhotos
+      falls back to the file's time for camera-only photos taken within 10 min (iPhone strips the date) → no more "No date
+      on this photo" on pack/return photos. TEST GEAR: `scripts/test-gear.json` (FX3 kit, A7S III kit #1/#2 = body + Zeiss
+      16-35 f/4 + 3 NP-FZ100 + Aputure MC Pro + Rode shotgun; Mavic Air + Mini 5 drone kits = drone + controller + 3
+      batteries; ids tg-*/tb-*, every piece used exactly), seeded in the emulator, and `.github/workflows/test-gear.yml`
+      "Add test gear" (LIVE, creates only missing docs with currentDocument.exists=false; never overwrites; ASK before running).
+      EQUIPMENT ADMIN TAB: equipment tabs = Queue / Schedule / Bundles / All gear / Admin (AdminScreen gearEntries: gear queue,
+      bundles, all gear, schedule team, schedule settings, calendar import, gear tour, help, my account; route guard TeamOnly).
+      MY REQUESTS: `src/components/MyRequestsButton.tsx` (round box button + open-count badge right of ✦ AI on Schedule,
+      Browse props + gear; `MyRequestsRow` on creator Home); removed from Me; /requests "‹ Back". Tours: creator ch1 adds the
+      My requests row step; ch3 compact Browse (chip), − n +, gear "no times" (kits area target, coach docks bottom), send
+      lands on the shoot (quiz there); ch4 = shoot → request → Change → type → See all results → closet → + → Back to your
+      request → NEW → Save; ch5 = Back → shoot → tap above sheet → ✦ AI on Book; ch6 on Book; ch9 = My requests button.
+      Gear tour: Queue/Admin tabs, Admin menu look in ch1, ch9 via Admin → My account. Checked: creator tour 97 screens,
+      gear tour 79, real app flows on the emulator. Tests 400. OPEN QUESTION to the owner: friends filming back to back
+      sharing the same gear (avoid return + pickup in between).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
