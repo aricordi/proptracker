@@ -1076,7 +1076,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       confetti), all off under reduced motion. FIX: the keyboard Continue bar now counts as part of the coach (barRef);
       before, its tap could be swallowed. Checked: 95 screens on a 390×844 touch screen in the emulator, no errors. Tests 400.
       LIVE Oct 20 (website run 29, owner OK).
-    - TOUR + RETURNS ROUND (owner, Oct 20; preview only, live needs OK; app only, NO server/rules change):
+    - TOUR + RETURNS ROUND (owner, Oct 20; LIVE Oct 20, website run 30, owner OK; app only, NO server/rules change):
       (1) Vibe question REMOVED (everyone shoots Stromedy style); examples = EX in Tour.tsx (title "If You See This, RUN").
       (2) CHANGE A REQUEST CAN SEARCH: ChangeRequest.tsx has "Search the closet to add a prop" (matchesQuery, 6 results,
       + Add → NEW row); tour ch4 step `changeadd` (target changesearch) does the same; `changeit` coach docks at the top.
