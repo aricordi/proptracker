@@ -1028,6 +1028,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       points)) open each of the 8 parts. Welcome explains how the tour works (dim, tip, do it yourself, Back, practice,
       pause). keepInView keeps the target clear of the panel and of sticky headers / bottom button bars. Day step:
       Soonest is a valid choice (tap a day to jump). Checked by walking all 77 screens on an iPhone-sized touch emulator.
+      LIVE Oct 20 (website run 27, owner OK): keyboard fix + UX pass.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
