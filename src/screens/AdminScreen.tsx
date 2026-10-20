@@ -26,6 +26,7 @@ export default function AdminScreen() {
     { to: '/users', title: 'Invite creators', detail: 'Add creators or turn their access off' },
     { to: '/booking-rules', title: 'Booking rules', detail: 'How far ahead props must be booked; closed days; turnaround days' },
     { to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' },
+    { to: '/tour/admin', title: 'Admin tour', detail: 'Practise all of this again, step by step' },
     { to: '/help', title: 'Help', detail: 'How do I…? Booking, props, gear, check-in, sign-in' },
     { to: '/account', title: 'My account', detail: 'Your photo and channel name; sign out' },
   ]
@@ -56,6 +57,7 @@ export default function AdminScreen() {
       { to: '/gear/bookings', title: 'Gear bookings', detail: "Everyone's gear bookings; decline if something's wrong" },
       { to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles and extras creators can book' },
       { to: '/tour/gear', title: 'Gear team tour', detail: 'The practice tour the equipment team does on their first open' },
+      { to: '/tour/admin', title: 'Admin tour', detail: 'The practice tour admins do on their first open' },
     ] : []),
     { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Your photo and channel name; preview the app as another role; sign out' : 'Your photo and channel name; sign out' },
   ]

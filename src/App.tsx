@@ -19,6 +19,7 @@ const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
 const GearTour = lazy(() => import('./tour/GearTour'))
+const AdminTour = lazy(() => import('./tour/AdminTour'))
 const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
 const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
 const BinsScreen = lazy(() => import('./screens/BinsScreen'))
@@ -94,20 +95,24 @@ export function ScreenFallback() { return <div className="min-h-full bg-pt-bg" /
 // New creators do the practice tour once before using the app (they can close it and carry on later).
 function TourGate({ children }: { children: ReactNode }) {
   const { realRole, viewingAs, profile } = useSession()
-  // Creators do the creator tour; the equipment team does the gear team tour (owner, Oct 20).
-  const required = (realRole === 'creator' || realRole === 'equipment') && !viewingAs
+  // Creators do the creator tour; the equipment team does the gear team tour; admins the admin tour (owner, Oct 20).
+  const required = (realRole === 'creator' || realRole === 'equipment' || realRole === 'admin') && !viewingAs
   const [done, setDone] = useTourDone(profile.email, required)
   const navigate = useNavigate()
   if (!required || done) return <>{children}</>
   if (done === undefined) return <ScreenFallback />
   // Finished (or paused with Not now): land on Home (owner, Oct 20).
   const finished = () => { setDone(); navigate('/', { replace: true }) }
-  return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' ? <GearTour required onFinish={finished} /> : <Tour required onFinish={finished} />}</Suspense>
+  return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' ? <GearTour required onFinish={finished} /> : realRole === 'admin' ? <AdminTour required onFinish={finished} /> : <Tour required onFinish={finished} />}</Suspense>
 }
 // Replaying the tour (Me → App tour, Help). Ends on Home, like the first time.
 function TourReplay() {
   const navigate = useNavigate()
   return <Tour onFinish={() => navigate('/', { replace: true })} />
+}
+function AdminTourReplay() {
+  const navigate = useNavigate()
+  return <AdminTour onFinish={() => navigate('/', { replace: true })} />
 }
 function GearTourReplay() {
   const navigate = useNavigate()
@@ -299,6 +304,7 @@ export default function App() {
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/tour" element={<TourReplay />} />
         <Route path="/tour/gear" element={<GearTourReplay />} />
+        <Route path="/tour/admin" element={<AdminTourReplay />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
         <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
         <Route path="/gear/review" element={<Navigate to="/reserve" replace />} />

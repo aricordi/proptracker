@@ -102,7 +102,7 @@ const equipmentNav = [
 
 // For the practice tours' pretend tab bars.
 export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
-  Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon }
+  Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon, Gear: gearIcon, Props: searchIcon }
 
 // Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
 const adminNav = [
