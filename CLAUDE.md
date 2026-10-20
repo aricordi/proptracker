@@ -1075,6 +1075,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       step bar; titles 20px, body 16px. Animations in index.css (coach-*, cap-bob, chapter-rise, badge-pop, ring-fill,
       confetti), all off under reduced motion. FIX: the keyboard Continue bar now counts as part of the coach (barRef);
       before, its tap could be swallowed. Checked: 95 screens on a 390×844 touch screen in the emulator, no errors. Tests 400.
+      LIVE Oct 20 (website run 29, owner OK).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
