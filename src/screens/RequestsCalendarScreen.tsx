@@ -8,6 +8,7 @@ import { todayInStudio, addDays, pickupDay, isLate } from '../../functions/src/b
 import { useBookingSettings } from '../hooks/useBookings'
 import { formatDay } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
+import { Icon } from '../components/Icon'
 
 const BEFORE = 7, AFTER = 42
 
@@ -54,9 +55,9 @@ export default function RequestsCalendarScreen() {
               <button key={d} onClick={() => setDay(d)} {...(d === today ? { 'data-today': '' } : {})}
                 aria-label={`${formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}: ${n} request${n === 1 ? '' : 's'}`}
                 className={`shrink-0 w-12 rounded-2xl min-h-[64px] flex flex-col items-center justify-center ${on ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-surface text-pt-text'} ${d < today && !on ? 'opacity-50' : ''}`}>
-                <span className="text-[11px] leading-none">{formatDay(d, { weekday: 'short' })}</span>
+                <span className="text-xs leading-none">{formatDay(d, { weekday: 'short' })}</span>
                 <span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
-                <span className={`mt-1 h-4 text-[11px] font-semibold ${n ? '' : 'invisible'}`}>{n || 0}</span>
+                <span className={`mt-1 h-4 text-xs font-semibold ${n ? '' : 'invisible'}`}>{n || 0}</span>
               </button>
             )
           })}
@@ -64,7 +65,7 @@ export default function RequestsCalendarScreen() {
       </div>
 
       <div className="px-4 space-y-3">
-        <p className="text-pt-text text-[19px] font-semibold tracking-heading">{day === today ? 'Today' : formatDay(day, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+        <p className="text-pt-text text-[20px] font-semibold tracking-heading">{day === today ? 'Today' : formatDay(day, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         {pickup !== day && shown.length > 0 && <p className="text-amber-300 text-sm -mt-2">The prop room is closed that day: these are picked up {formatDay(pickup, { weekday: 'long' })}.</p>}
         {list === null && <p className="text-pt-muted text-sm">Loading…</p>}
         {list !== null && shown.length === 0 && <p className="text-pt-muted text-sm">No props requests for this day.</p>}
@@ -88,7 +89,7 @@ export default function RequestsCalendarScreen() {
                       {l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}
                     </div>
                   ))}
-                  {(r.builds ?? []).length > 0 && <div className="w-8 h-8 rounded-lg bg-violet-500/20 border-2 border-pt-surface grid place-items-center text-sm">🛠️</div>}
+                  {(r.builds ?? []).length > 0 && <div className="w-8 h-8 rounded-lg bg-violet-500/20 border-2 border-pt-surface grid place-items-center text-sm"><Icon name="tools" className="w-4 h-4 text-violet-300" /></div>}
                 </div>
                 <span className="text-pt-muted text-xs">{total} item{total === 1 ? '' : 's'}</span>
               </div>

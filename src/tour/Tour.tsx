@@ -18,6 +18,7 @@
 // (friend search) and the real AI helper for the video idea (~half a cent, counted in the AI budget; falls back to
 // `ideaMatches` on the phone). Camera photos stay on the phone. The "find a time" options are made-up examples.
 // Required once for creators (App.tsx TourGate; can pause and resume); anyone can replay it at /tour.
+import { Icon, IconText, type IconName } from '../components/Icon'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
@@ -336,16 +337,16 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${i < n ? 'bg-pt-accent' : i === n ? 'bg-pt-accent ring-4 ring-pt-accent/30' : 'bg-pt-border'}`} />
               <div className={`flex-1 h-0.5 ${i === JOURNEY.length - 1 ? 'opacity-0' : i < n ? 'bg-pt-accent' : 'bg-pt-border'}`} />
             </div>
-            <span className={`text-[10px] mt-1 leading-tight ${i === n ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>{j.label}</span>
+            <span className={`text-xs mt-1 leading-tight ${i === n ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>{j.label}</span>
           </div>
         ))}
       </div>
     )
   }
-  const titleBlock = <div><h1 className="font-display text-2xl text-pt-text leading-tight">{title}</h1><p className="text-pt-text mt-1">📅 {formatDay(day)}</p></div>
+  const titleBlock = <div><h1 className="font-display text-2xl text-pt-text leading-tight">{title}</h1><p className="text-pt-text mt-1"><IconText name="calendar">{formatDay(day)}</IconText></p></div>
   // The request page's "Props" list (ContentsList).
   const contents = (done: boolean) => (
-    <div><p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Props</p>
+    <div><p className="text-pt-muted text-xs mb-2">Props</p>
       <div className="space-y-2">
         {picked.map(p => (
           <div key={p.id} className="w-full flex items-center gap-3 bg-pt-surface border border-pt-border rounded-2xl p-3 text-left">
@@ -356,7 +357,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         ))}
         {builds.map((b, n) => (
           <div key={n} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-3">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 shrink-0 flex items-center justify-center text-xl">🛠️</div>
+            <div className="w-12 h-12 rounded-xl bg-violet-500/10 shrink-0 flex items-center justify-center text-xl"><Icon name="tools" className="w-6 h-6 text-violet-300" /></div>
             <div className="flex-1 min-w-0"><p className="text-sm text-pt-text">{b.description}</p><p className={`text-xs ${done ? 'text-green-400' : 'text-violet-300'}`}>{done ? '✓ Ready' : 'To build or source'} · ×{b.qty}</p></div>
           </div>
         ))}
@@ -376,7 +377,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <div className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
           <div className="relative aspect-square bg-pt-border flex items-center justify-center">
             {thumb(i) ? <img src={thumb(i)} alt={i.name} className="w-full h-full object-cover" /> : <span className="text-3xl">🎭</span>}
-            <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span>
+            <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span>
             {i.quantity > 1 && <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">×{i.quantity}</span>}
           </div>
           <div className="px-3 pt-2 pb-3"><p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{i.name}</p></div>
@@ -403,7 +404,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const addingTo = (kind: 'props' | 'gear' | 'shoot') => (
     <div {...(kind === 'props' ? T('adding') : {})} className="w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm bg-pt-accent/10 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.45)]">
       <span className="flex-1 min-w-0">
-        <span className="block text-pt-muted text-[11px] uppercase tracking-wider">Adding to</span>
+        <span className="block text-pt-muted text-xs">Adding to</span>
         <span className="block text-pt-text truncate">{shootLabel}</span>
         <span className="block text-xs text-pt-muted">{kind === 'shoot' ? `Props by ${formatDay(cut.props)} · new props by ${formatDay(cut.builds)} · gear by ${formatDay(cut.gear)}` : `Add ${kind} by ${formatDay(kind === 'props' ? cut.props : cut.gear)}`}</span>
       </span>
@@ -414,7 +415,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const basket = (propCount + nGear > 0) && (
     <div className="sticky bottom-3 px-4">
       <button {...T('reviewbar')} onClick={tap('reviewbar')} className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 font-semibold shadow-gold">
-        <span>Your shoot · {[propCount && `${propCount} prop${propCount !== 1 ? 's' : ''}`, nGear && `${nGear} gear`].filter(Boolean).join(' · ')}</span><span>Review →</span>
+        <span>Your shoot · {[propCount && `${propCount} prop${propCount !== 1 ? 's' : ''}`, nGear && `${nGear} gear`].filter(Boolean).join(' · ')}</span><span>Review</span>
       </button>
     </div>
   )
@@ -429,7 +430,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <div className="flex gap-2 overflow-hidden pt-3 pb-1">
           {Array.from({ length: 7 }, (_, n) => addOpenDays(today, n + 4, settings)).map(d => (
             <span key={d} className={`shrink-0 w-12 rounded-2xl min-h-[56px] flex flex-col items-center justify-center ${d === dayStrip ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-surface text-pt-text'}`}>
-              <span className="text-[11px] leading-none">{formatDay(d, { weekday: 'short' })}</span><span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
+              <span className="text-xs leading-none">{formatDay(d, { weekday: 'short' })}</span><span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
             </span>
           ))}
         </div>
@@ -454,7 +455,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <span className="flex items-center gap-2 text-pt-text"><BrandMark className="w-9" title="Prime Capitol" /><b className="text-xs font-extrabold tracking-[0.28em]">PRIME CAPITOL</b></span>
         <span className="flex items-center gap-3">{aiPill(step.scene === 'home' || step.scene === 'home2' ? 'ai' : undefined)}{roundHelp}<Avatar email={profile.email} name={name} size={34} /></span>
       </div>
-      <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mt-1">{formatDay(today, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+      <p className="text-pt-muted text-xs font-semibold mt-1">{formatDay(today, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
       <h1 className="font-display text-[34px] leading-tight font-extrabold tracking-tight">{first ? `Hey ${first}` : 'Home'}</h1>
     </div>
   )
@@ -484,7 +485,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       style={{ background: 'radial-gradient(120% 90% at 100% 0%, rgba(235,211,153,.28), transparent 55%), linear-gradient(160deg, #2b2416, #141210 70%)' }}>
       <BrandMark className="absolute -right-10 top-4 w-56 text-white/[0.06] pointer-events-none" title="" />
       <span className="relative flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-[#EBD399]">Next shoot</span>
+        <span className="text-xs font-semibold text-[#EBD399]">Next shoot</span>
         <span className="text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/20 text-[#EBD399]">{shootDay ? 'today' : 'soon'}</span>
       </span>
       <span className="relative block font-display text-[44px] leading-[0.95] font-extrabold tracking-tighter mt-2">{formatDay(day)}</span>
@@ -506,7 +507,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       </div>
       <div>
         <div className="flex gap-1">{[1, 2, 3].map(n => <span key={n} className={`flex-1 h-1 rounded-full ${stage >= n ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</div>
-        <div className="flex justify-between text-[11px] text-pt-muted mt-1"><span>Booked</span><span>Checked in</span><span>Filmed</span></div>
+        <div className="flex justify-between text-xs text-pt-muted mt-1"><span>Booked</span><span>Checked in</span><span>Filmed</span></div>
       </div>
     </div>
   )
@@ -518,10 +519,10 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <p className="text-pt-text text-sm font-medium">{label}</p>
         {hint && <p className="text-pt-muted text-xs">{hint}</p>}
         <div className="grid grid-cols-3 gap-2">
-          {photo ? <button {...(step.id === key ? T('camera') : {})} onClick={() => step.id === key && cam.current?.click()} aria-label="Retake photo" className="relative aspect-square rounded-xl overflow-hidden bg-pt-border"><img src={photo} alt="" className="w-full h-full object-cover" />{step.id === key && <span className="absolute bottom-1 inset-x-1 text-center text-[11px] font-semibold rounded-md bg-black/60 text-white py-0.5">Retake</span>}</button>
+          {photo ? <button {...(step.id === key ? T('camera') : {})} onClick={() => step.id === key && cam.current?.click()} aria-label="Retake photo" className="relative aspect-square rounded-xl overflow-hidden bg-pt-border"><img src={photo} alt="" className="w-full h-full object-cover" />{step.id === key && <span className="absolute bottom-1 inset-x-1 text-center text-xs font-semibold rounded-md bg-black/60 text-white py-0.5">Retake</span>}</button>
             : <button {...T('camera')} onClick={() => step.target === 'camera' && cam.current?.click()}
                 className="aspect-square rounded-xl border-2 border-dashed border-pt-accent/60 text-pt-accent text-sm flex flex-col items-center justify-center gap-1">
-                <span className="text-2xl leading-none">📷</span>Take photo</button>}
+                <Icon name="camera" className="w-7 h-7" />Take photo</button>}
         </div>
         <p className="text-pt-muted text-xs">{photo ? 'Practice: this photo stays on your phone and is never uploaded.' : 'Opens your camera: take the photo now, on the spot.'}</p>
       </div>
@@ -544,15 +545,15 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const requestsCard = (
     <div {...T('card')} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
       <div className="w-full flex items-center gap-3 text-left px-1">
-        <span className="w-12 shrink-0 text-center"><span className="block text-[11px] font-semibold text-pt-accent">{formatDay(day, { weekday: 'short' }).toUpperCase()}</span><span className="block text-[24px] font-bold leading-none text-pt-text">{Number(day.slice(8))}</span></span>
+        <span className="w-12 shrink-0 text-center"><span className="block text-xs font-semibold text-pt-accent">{formatDay(day, { weekday: 'short' }).toUpperCase()}</span><span className="block text-[22px] font-bold leading-none text-pt-text">{Number(day.slice(8))}</span></span>
         <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px] truncate">{shootLabel}</b><span className="block text-pt-muted text-xs truncate">{title}</span></span>
         <span className="text-pt-muted">›</span>
       </div>
       <div {...T('propsrow')}>
-        <RequestRow className="bg-pt-bg" label="🎬 Props & costumes" onOpen={tap('propsrow')} l={{ id: 'p', kind: 'props', title, status: propsStatus, count: propCount }} />
+        <RequestRow className="bg-pt-bg" label="Props & costumes" onOpen={tap('propsrow')} l={{ id: 'p', kind: 'props', title, status: propsStatus, count: propCount }} />
       </div>
       <div {...T('gearrow')}>
-        <RequestRow className="bg-pt-bg" label={`🎥 Gear · ${fmtSlot(START, SLOT)}`} onOpen={tap('gearrow')} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: 1 }} />
+        <RequestRow className="bg-pt-bg" label={`Gear · ${fmtSlot(START, SLOT)}`} onOpen={tap('gearrow')} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: 1 }} />
       </div>
       {!at('part7') && <div className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10 text-center">+ Add props or gear <span className="font-normal text-pt-muted">· by {formatDay(cut.gear)}</span></div>}
     </div>
@@ -561,7 +562,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const notifyCard = (
     <div {...T('notifycard')} className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-3">
-        <span className="w-10 h-10 rounded-full grid place-items-center bg-pt-accent/15 text-pt-accent text-lg">🔔</span>
+        <span className="w-10 h-10 rounded-full grid place-items-center bg-pt-accent/15 text-pt-accent text-lg"><Icon name="bell" className="w-5 h-5" /></span>
         <span className="flex-1 min-w-0"><b className="block text-pt-text">Notifications</b><span className="block text-pt-muted text-xs">Invites, props ready, shoot reminders, things due back</span></span>
       </div>
       {push === 'on' ? <p className="text-green-400 font-semibold">✓ Notifications are on</p>
@@ -604,12 +605,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div className="min-h-full grid place-items-center text-center px-6 pt-safe">
         <div className="space-y-5 py-6">
           <BrandMark className="w-20 mx-auto text-white" title="" />
-          <h1 className="font-display text-[30px] font-extrabold leading-tight">Welcome to Prime Capitol{first ? `, ${first}` : ''}!</h1>
+          <h1 className="font-display text-[28px] font-extrabold leading-tight">Welcome to Prime Capitol{first ? `, ${first}` : ''}!</h1>
           <p className="text-pt-muted text-[15px]">Let's walk through one shoot from start to finish: book it, get props and gear, film, and bring it all back. About 8 minutes, in 9 short chapters.</p>
           <div className="rounded-2xl bg-pt-surface shadow-hairline px-4 py-3 text-left space-y-2 text-[14px] text-pt-text">
             <p className="font-semibold">How it works</p>
-            {[['🔦', 'The part you use next is outlined in gold.'], ['💬', 'A tip at the top or bottom says what to do, and why.'], ['👆', 'You do it yourself, with the real buttons and tabs. ‹ Back goes back a step.'], ['🧪', "It's all practice: nothing is booked, sent or uploaded."], ['⏸️', "Close the app any time; you'll pick up where you left off."]].map(([i, t]) => (
-              <p key={t} className="flex gap-2.5"><span>{i}</span><span>{t}</span></p>
+            {[['search', 'The part you use next is outlined in gold.'], ['chat', 'A tip at the top or bottom says what to do, and why.'], ['hand', 'You do it yourself, with the real buttons and tabs. ‹ Back goes back a step.'], ['flask', "It's all practice: nothing is booked, sent or uploaded."], ['pause', "Close the app any time; you'll pick up where you left off."]].map(([i, t]) => (
+              <p key={t} className="flex gap-2.5"><Icon name={i as IconName} className="w-5 h-5 text-pt-accent mt-px" /><span>{t}</span></p>
             ))}
           </div>
           <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Let's go</button>
@@ -675,12 +676,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             {strip.map((d, n) => (
               <button key={d} onClick={n === 0 ? undefined : () => pickDay(d)} aria-label={formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}
                 className={`shrink-0 w-12 rounded-2xl min-h-[56px] flex flex-col items-center justify-center ${pickedDay === d ? 'bg-pt-accent text-stone-900 shadow-gold' : n === 0 ? 'bg-pt-bg text-pt-muted/50' : 'bg-pt-bg text-pt-text'}`}>
-                <span className="text-[11px] leading-none">{formatDay(d, { weekday: 'short' })}</span><span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
+                <span className="text-xs leading-none">{formatDay(d, { weekday: 'short' })}</span><span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
               </button>
             ))}
           </div>
           <div className="mt-5">
-            <p className="text-pt-text text-[19px] font-semibold tracking-heading mb-3">{longDay}</p>
+            <p className="text-pt-text text-[20px] font-semibold tracking-heading mb-3">{longDay}</p>
             <div className="space-y-2">
               {[START, START + SLOT * 2, START + SLOT * 3].map((t, n) => (
                 <div key={t} {...(n === 0 ? T('slot') : {})} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">
@@ -734,7 +735,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div {...T('shootsheet')} className="space-y-3">
         {shootTop(1)}
         <div className="space-y-2">
-          <p className="text-pt-muted text-xs uppercase tracking-wider">For this shoot</p>
+          <p className="text-pt-muted text-xs">For this shoot</p>
           <div className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
             <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
             <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">Props for your idea and the gear that's free, then you check it</span></span>
@@ -779,7 +780,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           <div className="mt-3 space-y-2">
             {addingTo('gear')}
             <div className="bg-pt-surface rounded-2xl p-3"><div className="grid gap-2 grid-cols-2">
-              {[['Gear from', fmtTime(START)], ['Until', fmtTime(START + SLOT)]].map(([l, v]) => <span key={l} className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">{l}</span><span className="block w-full bg-pt-bg border border-pt-border rounded-xl px-2.5 py-2 text-pt-text text-[15px]">{v}</span></span>)}
+              {[['Gear from', fmtTime(START)], ['Until', fmtTime(START + SLOT)]].map(([l, v]) => <span key={l} className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">{l}</span><span className="block w-full bg-pt-bg border border-pt-border rounded-xl px-2.5 py-2 text-pt-text text-[15px]">{v}</span></span>)}
             </div></div>
           </div>
         </div>
@@ -790,7 +791,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               <div className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
                 <div className="relative aspect-square">
                   <GearArt photo={kit?.photos?.[0]} category={kit?.category} className="w-full h-full" />
-                  <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span>
+                  <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span>
                   <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">{pcs} pcs</span>
                 </div>
                 <div className="px-3 pt-2 pb-3">
@@ -817,7 +818,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             <div className={`${input} text-pt-muted min-h-[72px]`}>Anything the arts department should know (optional)</div>
           </div>
           <div>
-            <div className="flex items-baseline justify-between mb-2"><p className="text-pt-muted text-xs uppercase tracking-wider">Props ({picked.length}) · arts department</p><span className="text-pt-accent text-sm">+ Add props</span></div>
+            <div className="flex items-baseline justify-between mb-2"><p className="text-pt-muted text-xs">Props ({picked.length}) · arts department</p><span className="text-pt-accent text-sm">+ Add props</span></div>
             <div className="space-y-2">
               {picked.map(p => (
                 <div key={p.id} className="flex items-center gap-3 bg-pt-surface border border-pt-border rounded-2xl p-3">
@@ -829,11 +830,11 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             </div>
           </div>
           <div {...T('make')}>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">To build or source ({builds.length})</p>
+            <p className="text-pt-muted text-xs mb-2">To build or source ({builds.length})</p>
             <div className="space-y-2">
               {builds.map((b, n) => (
                 <div key={n} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-3">
-                  <div className="w-14 h-14 rounded-xl bg-violet-500/10 shrink-0 flex items-center justify-center text-2xl">🛠️</div>
+                  <div className="w-14 h-14 rounded-xl bg-violet-500/10 shrink-0 flex items-center justify-center text-2xl"><Icon name="tools" className="w-6 h-6 text-violet-300" /></div>
                   <div className="flex-1 min-w-0"><p className="text-pt-text text-sm">{b.description}</p><p className="text-violet-300 text-xs">To build or source · ×{b.qty}</p></div>
                   <span className="text-pt-muted text-2xl px-2">×</span>
                 </div>
@@ -858,7 +859,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             )}
           </div>
           <div className="space-y-2">
-            <div className="flex items-baseline justify-between"><p className="text-pt-muted text-xs uppercase tracking-wider">Gear (1) · equipment team</p><span className="text-pt-accent text-sm">+ Add gear</span></div>
+            <div className="flex items-baseline justify-between"><p className="text-pt-muted text-xs">Gear (1) · equipment team</p><span className="text-pt-accent text-sm">+ Add gear</span></div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               <div className="flex items-center gap-3 px-3 py-3">
                 <GearArt photo={kit?.photos?.[0]} category={kit?.category} className="w-12 h-12 rounded-xl shrink-0" />
@@ -967,7 +968,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                       {bubbleAi(aiResult.reply)}
                       {aiResult.groups.map(g => (
                         <div key={g.title} className="space-y-2">
-                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{g.title}</p>
+                          <p className="text-pt-muted text-xs font-semibold">{g.title}</p>
                           {g.picks.map(({ id, why }) => {
                             const p = itemById.get(id)!
                             return (
@@ -982,10 +983,10 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                       ))}
                       {aiResult.missing.length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
+                          <p className="text-pt-muted text-xs font-semibold">We don't have it</p>
                           {aiResult.missing.map(m => (
                             <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                              <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
+                              <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></span>
                               <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
                               {tickBtn(`b:${m.name}`, m.name)}
                             </div>
@@ -1004,7 +1005,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                 <div className="space-y-2">
                   {[aiDay, addOpenDays(today, 9, settings)].map((d, n) => (
                     <div key={d} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
-                      <span className="w-12 text-center shrink-0"><span className="block text-[11px] uppercase text-pt-muted">{formatDay(d, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(d.slice(8))}</b></span>
+                      <span className="w-12 text-center shrink-0"><span className="block text-xs text-pt-muted">{formatDay(d, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(d.slice(8))}</b></span>
                       <span className="flex-1 min-w-0"><b className="block">{n ? s.houses.cliff2.name : s.houses.cliff1.name} · {fmtSlot(17 * 60, SLOT)}</b><span className="block text-pt-muted text-[13px]">You {fmtTime(17 * 60)}</span></span>
                       <button {...(n === 0 ? T('optbook') : {})} onClick={() => { if (n === 0 && step.id === 'aioptions') { setAiBooked(true); advance() } }} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold">Book</button>
                     </div>
@@ -1014,7 +1015,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             )}
             {aiBooked && (
               <>
-                {bubbleAi('Booked. 🎬')}
+                {bubbleAi('Booked.')}
                 <div className="rounded-[18px] bg-pt-surface border border-pt-accent/40 p-4 space-y-3">
                   <p className="font-semibold">{aiLabel}</p>
                   {!aiAdded
@@ -1067,7 +1068,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         {backBar(statusPill(past('sign') ? 'collected' : 'packed'))}
         <div className="px-4 pt-4 pb-8 space-y-6">
           {titleBlock}{journey(past('sign') ? 'collected' : 'packed')}{contents(true)}
-          {picked.length > 0 && <div><p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Packed · {formatDay(today)}</p><PhotoStrip urls={picked.flatMap(p => { const t = thumb(p); return t ? [t] : [] })} title="What was packed" /></div>}
+          {picked.length > 0 && <div><p className="text-pt-muted text-xs mb-2">Packed · {formatDay(today)}</p><PhotoStrip urls={picked.flatMap(p => { const t = thumb(p); return t ? [t] : [] })} title="What was packed" /></div>}
           {past('sign') ? banner('green', 'Collected: you confirmed everything ✓', `Signed by you, ${formatDay(day)}`) : (
             <div className="bg-pt-accent/10 border border-pt-accent/50 rounded-2xl p-4 space-y-3">
               <p className="text-pt-accent font-semibold text-lg">Ready for pickup!</p>
@@ -1121,7 +1122,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         {shootTop(past('wrap') ? 3 : 2)}
         <div className="bg-pt-bg rounded-xl p-3 space-y-2">
           <p className="text-pt-text text-sm">Checked in {fmtTime(START - 5)}{past('wrap') ? ` · filmed “${wrapText.trim() || title}”` : ''}</p>
-          {photos.setphoto && <div><p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Set photo</p><img src={photos.setphoto} alt="" className="w-24 h-24 rounded-xl object-cover" /></div>}
+          {photos.setphoto && <div><p className="text-pt-muted text-xs mb-2">Set photo</p><img src={photos.setphoto} alt="" className="w-24 h-24 rounded-xl object-cover" /></div>}
           {!past('wrap') && (
             <div {...T('wrap')} className="flex gap-2">
               <input value={wrapText} onChange={e => setWrapText(e.target.value.slice(0, 120))} placeholder="What did you film?" className={field} />
@@ -1141,7 +1142,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               {banner('amber', 'Bring these back the night of the shoot', 'They count as late after 10 AM the next open day.')}
               <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
                 <p className="text-pt-text font-semibold">Returning</p>
-                {camTile('retphoto', "📷 Photo of everything you're returning (required)", "Show all the props together where you're leaving them. This protects you if anything is questioned later.")}
+                {camTile('retphoto', "Photo of everything you're returning (required)", "Show all the props together where you're leaving them. This protects you if anything is questioned later.")}
                 <textarea value={retNote} onChange={e => setRetNote(e.target.value.slice(0, 300))} rows={2} placeholder="Where did you leave them? Anything to flag? (optional)"
                   className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
                 <div {...T('returned')} className="flex gap-2">
@@ -1168,13 +1169,13 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Good to know</h1>
         {[
-          ['📅', `Props from the closet: book ${settings.leadTimeDays} open days ahead. To make or find: ${settings.buildLeadDays}. Gear: ${GEAR_LEAD_TIME_DAYS}.`],
-          ['👯', `A friend's invite holds the slot for you for ${HOLD} minutes. Confirm it, or it opens to everyone.`],
-          ['🔁', `Moving or cancelling is free with ${s.noticeHours} hours' notice. Closer than that, swap with someone instead.`],
-          ['📸', `Check in at the house: it opens ${s.checkinBefore} minutes before your time.`],
-          ['⚠️', `No-shows and late cancels give a strike. ${s.strikeCount} in ${s.strikeDays} days pauses props and gear for ${s.pauseDays} days. Late returns block new props and gear.`],
-          ['❓', 'Forgot something? Me → Help, or Me → App tour to do this again.'],
-        ].map(([i, t]) => <div key={t} className="flex gap-3 rounded-2xl bg-pt-surface shadow-hairline p-4"><span className="text-2xl">{i}</span><p className="text-[15px] text-pt-text">{t}</p></div>)}
+          ['calendar', `Props from the closet: book ${settings.leadTimeDays} open days ahead. To make or find: ${settings.buildLeadDays}. Gear: ${GEAR_LEAD_TIME_DAYS}.`],
+          ['people', `A friend's invite holds the slot for you for ${HOLD} minutes. Confirm it, or it opens to everyone.`],
+          ['swap', `Moving or cancelling is free with ${s.noticeHours} hours' notice. Closer than that, swap with someone instead.`],
+          ['camera', `Check in at the house: it opens ${s.checkinBefore} minutes before your time.`],
+          ['stop', `No-shows and late cancels give a strike. ${s.strikeCount} in ${s.strikeDays} days pauses props and gear for ${s.pauseDays} days. Late returns block new props and gear.`],
+          ['help', 'Forgot something? Me → Help, or Me → App tour to do this again.'],
+        ].map(([i, t]) => <div key={t} className="flex gap-3 rounded-2xl bg-pt-surface shadow-hairline p-4"><Icon name={i as IconName} className="w-6 h-6 text-pt-accent shrink-0" /><p className="text-[15px] text-pt-text">{t}</p></div>)}
         <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Got it</button>
       </div>
     ),
@@ -1182,7 +1183,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div className="min-h-full grid place-items-center text-center px-6">
         <div className="space-y-5">
           <p className="text-7xl">🎉</p>
-          <h1 className="font-display text-[30px] font-extrabold">You're ready!</h1>
+          <h1 className="font-display text-[28px] font-extrabold">You're ready!</h1>
           <p className="text-pt-muted text-[15px]">Book a time, add props and gear, follow your request, pick up, check in, bring it back. That's the whole thing.</p>
           <button onClick={finish} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">{required ? 'Start using the app' : 'Done'}</button>
         </div>
@@ -1204,7 +1205,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           </div>
           <div className="space-y-1">
             <div className="grid grid-cols-4 gap-1">{[0, 1, 2, 3].map(i => <div key={i} className={`h-1.5 rounded-full ${i <= n ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</div>
-            <div className="grid grid-cols-4 gap-1 text-[11px] text-center">{['Held', 'Picked up', 'Returned', 'Checked in'].map((x, i) => <span key={x} className={i === n ? 'text-pt-accent' : 'text-pt-muted'}>{x}</span>)}</div>
+            <div className="grid grid-cols-4 gap-1 text-xs text-center">{['Held', 'Picked up', 'Returned', 'Checked in'].map((x, i) => <span key={x} className={i === n ? 'text-pt-accent' : 'text-pt-muted'}>{x}</span>)}</div>
           </div>
           {shootLink('props')}
           <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">

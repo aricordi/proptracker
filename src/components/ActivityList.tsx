@@ -8,6 +8,7 @@ import { useLocations } from '../hooks/useLocations'
 import { useTags } from '../hooks/useTags'
 import { formatDay } from '../lib/dates'
 import type { AppUser } from '../types'
+import { Icon, type IconName } from './Icon'
 
 const FIELD_NAMES: Record<string, string> = {
   name: 'Name', quantity: 'Quantity', condition: 'Condition', replacementCost: 'Replacement cost',
@@ -21,9 +22,9 @@ const BOOKING_WORDS: Record<string, string> = {
   return_pending: 'brought back', returned: 'checked in', declined: 'declined', cancelled: 'cancelled', edited: 'changed',
 }
 
-const ICONS: Record<string, string> = {
-  added: '➕', edited: '✏️', archived: '🗄️', unarchived: '♻️', requested: '📅', preparing: '🧺', packed: '📦',
-  collected: '🤝', return_pending: '↩️', returned: '✅', declined: '⛔', cancelled: '✖️', unavailable: '⚠️',
+const ICONS: Record<string, IconName> = {
+  added: 'plus', edited: 'pencil', archived: 'archive', unarchived: 'restore', requested: 'calendar', preparing: 'basket', packed: 'box',
+  collected: 'handshake', return_pending: 'restore', returned: 'check', declined: 'stop', cancelled: 'x', unavailable: 'stop',
 }
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })
@@ -82,10 +83,10 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
         const go = a.kind === 'booking' && a.reservationId ? `/reservations/${a.reservationId}` : a.itemIds[0] ? `/item/${a.itemIds[0]}` : null
         return (
           <div key={a.id}>
-            {header && <p className="text-pt-muted text-xs uppercase tracking-wider pt-3 pb-1">{formatDay(day)}</p>}
+            {header && <p className="text-pt-muted text-xs pt-3 pb-1">{formatDay(day)}</p>}
             <button onClick={() => go && navigate(go)} className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">
               <div className="flex gap-2">
-                <span className="shrink-0">{ICONS[a.action] ?? '•'}</span>
+                <span className="shrink-0">{ICONS[a.action] ? <Icon name={ICONS[a.action]} className="w-4 h-4 text-pt-muted mt-0.5" /> : '•'}</span>
                 <div className="min-w-0 flex-1">
                   <p className="text-pt-text text-sm">{what}</p>
                   {a.changes?.filter(c => c.field !== 'archived').map(c => (

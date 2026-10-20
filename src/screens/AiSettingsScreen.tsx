@@ -31,13 +31,13 @@ export default function AiSettingsScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/admin')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => navigate('/admin')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">AI helpers</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">Creators use AI to turn a video idea into props and gear, and to find filming times. Each use costs a fraction of a cent. When the budget runs out the helpers pause until the 1st; search, browse and booking always keep working.</p>
         <div className="bg-pt-surface rounded-2xl p-4 space-y-2">
-          <p className="text-pt-muted text-xs uppercase tracking-wider">This month</p>
+          <p className="text-pt-muted text-xs">This month</p>
           <p className="text-pt-text text-3xl font-bold">${spent.toFixed(2)} <span className="text-pt-muted text-base font-normal">of ${settings.monthlyCapUsd}</span></p>
           <div className="h-2 rounded-full bg-pt-border overflow-hidden"><div className={`h-full ${pct >= 80 ? 'bg-amber-400' : 'bg-pt-accent'}`} style={{ width: `${pct}%` }} /></div>
           <p className="text-pt-muted text-sm">{usage?.calls ?? 0} uses{usage?.by ? ` · ${Object.entries(usage.by).map(([k, n]) => `${n} ${k === 'ideas' ? 'video ideas' : k === 'times' ? 'time searches' : k}`).join(' · ')}` : ''}</p>

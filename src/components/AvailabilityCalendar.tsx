@@ -42,7 +42,7 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
         <button onClick={() => shift(1)} aria-label="Next month" className="w-9 h-9 rounded-full text-pt-text active:bg-pt-bg">›</button>
       </div>
       <div className="grid grid-cols-7 gap-1 text-center">
-        {WEEKDAYS.map((w, i) => <span key={i} className="text-pt-muted text-[11px] pb-1">{w}</span>)}
+        {WEEKDAYS.map((w, i) => <span key={i} className="text-pt-muted text-xs pb-1">{w}</span>)}
         {days.map((d, i) => {
           if (!d) return <span key={i} />
           const past = d < today
@@ -59,21 +59,21 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
               className={`relative h-10 rounded-lg text-sm flex flex-col items-center justify-center ${tone} ${inRange ? 'ring-2 ring-pt-accent' : ''} ${d === today ? 'font-bold' : ''}`}>
               {Number(d.slice(8))}
               {!past && quantity > 1 && free > 0 && free < quantity ? (
-                <span className="text-[9px] leading-none">{free} left</span>
+                <span className="text-xs leading-none">{free} left</span>
               ) : !past && off ? (
-                <span className="text-[9px] leading-none text-pt-muted">closed</span>
+                <span className="text-xs leading-none text-pt-muted">closed</span>
               ) : null}
             </button>
           )
         })}
       </div>
-      <div className="flex gap-3 mt-3 text-[11px] text-pt-muted flex-wrap">
+      <div className="flex gap-3 mt-3 text-xs text-pt-muted flex-wrap">
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-pt-bg shadow-hairline inline-block" /> Free</span>
         {quantity > 1 && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-amber-500/30 inline-block" /> Some booked</span>}
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-red-500/30 inline-block" /> Booked</span>
         {selected && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded ring-2 ring-pt-accent inline-block" /> Your day</span>}
       </div>
-      {bufferDays > 0 && <p className="text-pt-muted text-[11px] mt-1">Booked days include {bufferDays} turnaround day{bufferDays > 1 ? 's' : ''} after each shoot{closed.closedWeekdays.length || closed.closedDates.length ? ' (days the prop room is open)' : ''}.</p>}
+      {bufferDays > 0 && <p className="text-pt-muted text-xs mt-1">Booked days include {bufferDays} turnaround day{bufferDays > 1 ? 's' : ''} after each shoot{closed.closedWeekdays.length || closed.closedDates.length ? ' (days the prop room is open)' : ''}.</p>}
     </div>
   )
 }

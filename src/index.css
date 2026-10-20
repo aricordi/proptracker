@@ -85,7 +85,7 @@
   .tap { position: relative; }
   .tap::after { content: ""; position: absolute; inset: -10px -8px; }
   /* Small-caps section labels (Apple "grouped list" headers). */
-  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8E8E93; }
+  .eyebrow { font-size: 13px; font-weight: 600; color: #8E8E93; }
 }
 
 /* Sheets slide up on a spring; the backdrop fades. */

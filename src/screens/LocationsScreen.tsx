@@ -133,7 +133,7 @@ export default function LocationsScreen() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
+            <label className="block text-pt-muted text-xs mb-2">
               Name *
             </label>
             <input
@@ -147,7 +147,7 @@ export default function LocationsScreen() {
           </div>
 
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
+            <label className="block text-pt-muted text-xs mb-2">
               Notes (optional)
             </label>
             <input

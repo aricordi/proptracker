@@ -73,7 +73,7 @@ export default function GearBundleEditScreen() {
   }
 
   const input = 'w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent'
-  const label = 'text-pt-muted text-xs uppercase tracking-wider'
+  const label = 'text-pt-muted text-[13px]'
   const itemName = new Map(stock.map(i => [i.id, i.name]))
   return (
     <div className="min-h-full bg-pt-bg pb-6">

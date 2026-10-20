@@ -197,7 +197,7 @@ export default function ItemDetailScreen() {
           <div className={highValue
             ? 'bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3'
             : ''}>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">
+            <p className="text-pt-muted text-xs mb-1">
               Replacement cost{item.quantity > 1 ? ' (each)' : ''}
             </p>
             <p className={highValue ? 'text-red-300 text-2xl font-bold' : 'text-pt-text'}>
@@ -224,21 +224,21 @@ export default function ItemDetailScreen() {
         {/* Location */}
         {isStaff && locationPath && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Bin / storage</p>
+            <p className="text-pt-muted text-xs mb-1">Bin / storage</p>
             <p className="text-pt-text">{locationPath}</p>
           </div>
         )}
 
         {item.description && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Description</p>
+            <p className="text-pt-muted text-xs mb-1">Description</p>
             <p className="text-pt-text text-sm leading-relaxed whitespace-pre-wrap">{item.description}</p>
           </div>
         )}
 
         {item.notes && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Notes</p>
+            <p className="text-pt-muted text-xs mb-1">Notes</p>
             <p className="text-pt-text text-sm leading-relaxed whitespace-pre-wrap">{item.notes}</p>
           </div>
         )}
@@ -258,7 +258,7 @@ export default function ItemDetailScreen() {
 
         {isStaff && internalNotes && (
           <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl px-4 py-3">
-            <p className="text-sky-300 text-xs uppercase tracking-wider mb-1">Internal notes · arts dept only</p>
+            <p className="text-sky-300 text-xs mb-1">Internal notes · arts dept only</p>
             <p className="text-pt-text text-sm leading-relaxed whitespace-pre-wrap">{internalNotes}</p>
           </div>
         )}
@@ -266,7 +266,7 @@ export default function ItemDetailScreen() {
         {/* Tags */}
         {item.tags.length > 0 && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags</p>
+            <p className="text-pt-muted text-xs mb-2">Tags</p>
             <div className="flex flex-wrap gap-2">
               {item.tags.map(tagId => tagById[tagId] && (
                 <span key={tagId} className="text-sm bg-violet-500/20 text-violet-300 px-3 py-1 rounded-full">
@@ -280,7 +280,7 @@ export default function ItemDetailScreen() {
         {/* Characters — arts department only */}
         {isStaff && (characterIds.length > 0 || item.character) && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character</p>
+            <p className="text-pt-muted text-xs mb-2">Character</p>
             <div className="flex flex-wrap gap-2">
               {characterIds.length > 0
                 ? characterIds.map(cid => (
@@ -296,7 +296,7 @@ export default function ItemDetailScreen() {
 
         {isStaff && item.whereToRebuy && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Where to rebuy</p>
+            <p className="text-pt-muted text-xs mb-1">Where to rebuy</p>
             <p className="text-pt-text text-sm">{item.whereToRebuy}</p>
           </div>
         )}
@@ -309,7 +309,7 @@ export default function ItemDetailScreen() {
         {isStaff && (
           <>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Condition</p>
+              <p className="text-pt-muted text-xs mb-2">Condition</p>
               <div className="flex gap-2">
                 {(['good', 'fair', 'damaged'] as Condition[]).map(c => (
                   <button

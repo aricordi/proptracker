@@ -26,6 +26,7 @@ import { useGearCart } from '../gearCart'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar, { BrowseTabs } from '../components/AddingToBar'
 import AiButton from '../components/AiButton'
+import { Icon, IconText } from '../components/Icon'
 
 // Folds part of the header away (smoothly) and makes it untappable while hidden.
 function Collapse({ open, children }: { open: boolean; children: React.ReactNode }) {
@@ -213,7 +214,7 @@ export default function HomeScreen() {
         {/* Folded: one tappable line saying what's filtered, so nothing is a surprise. */}
         {folded && (dates || filtersActive) && (
           <button onClick={unfold} className="mt-2 w-full text-left text-xs text-pt-muted truncate">
-            {[dates && `📅 ${formatRange(dates.start, dates.end)}`, activeCategory, availability !== 'all' && AVAILABILITY_OPTIONS.find(o => o.value === availability)?.label]
+            {[dates && `${formatRange(dates.start, dates.end)}`, activeCategory, availability !== 'all' && AVAILABILITY_OPTIONS.find(o => o.value === availability)?.label]
               .filter(Boolean).join(' · ')} <span className="text-pt-accent">Show filters</span>
           </button>
         )}
@@ -290,13 +291,13 @@ export default function HomeScreen() {
           ) : (
             <button onClick={() => setShowDates(true)}
               className="mt-3 w-full py-3 min-h-[48px] rounded-2xl bg-pt-surface shadow-hairline text-pt-accent text-sm font-medium">
-              📅 Pick your shoot day to see what’s free
+              <Icon name="calendar" className="w-4 h-4 inline -mt-0.5 mr-1" />Pick your shoot day to see what’s free
             </button>
           )
         ) : (
           <button onClick={() => setShowDates(true)}
             className="mt-3 w-full flex items-center justify-between py-2 px-3 rounded-xl bg-pt-accent/10 border border-pt-accent/40 text-sm active:opacity-70">
-            <span className="text-pt-text">📅 {formatRange(dates.start, dates.end)}</span>
+            <IconText name="calendar" className="text-pt-text">{formatRange(dates.start, dates.end)}</IconText>
             <span className="text-pt-accent text-xs tap">Change</span>
           </button>
         )}
@@ -323,7 +324,7 @@ export default function HomeScreen() {
             )}
             {q && !similarLoading && canBook && (
               <button onClick={() => navigate('/reserve')} className="mt-3 text-violet-300 text-sm font-medium">
-                🛠️ Don't have it? Ask the arts department to make or find it
+                <Icon name="tools" className="w-4 h-4 inline -mt-0.5 mr-1" />Don't have it? Ask the arts department to make or find it
               </button>
             )}
           </div>
@@ -355,7 +356,7 @@ export default function HomeScreen() {
           <button onClick={() => navigate('/reserve')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
             <span>Your shoot · {[cart.count && `${cart.count} prop${cart.count !== 1 ? 's' : ''}`, gearCart.count && `${gearCart.count} gear`].filter(Boolean).join(' · ')}</span>
-            <span>Review →</span>
+            <span>Review</span>
           </button>
         </div>
       )}

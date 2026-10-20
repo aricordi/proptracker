@@ -39,7 +39,7 @@ export default function CalendarSyncScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-32">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/schedule/settings')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => navigate('/schedule/settings')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">Google Calendar</h1>
       </div>
       <div className="px-4 space-y-6">
@@ -50,7 +50,7 @@ export default function CalendarSyncScreen() {
         {data && all.length > 0 && (
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-pt-text text-[19px] font-semibold">Couldn't send · {all.length}</h2>
+              <h2 className="text-pt-text text-[20px] font-semibold">Couldn't send · {all.length}</h2>
               {all.length > 1 && <button onClick={() => setSel(sel.length === all.length ? [] : all.map(p => p.eventId))} className="tap text-pt-accent text-sm">{sel.length === all.length ? 'Untick all' : 'Tick all'}</button>}
             </div>
             {all.map(p => (
@@ -65,7 +65,7 @@ export default function CalendarSyncScreen() {
         {data && data.sent.length === 0 && all.length === 0 && <p className="text-pt-muted text-sm">Nothing from the app in the calendar yet.</p>}
         {data && data.sent.length > 0 && (
           <section className="space-y-2">
-            <h2 className="text-pt-text text-[19px] font-semibold">In the calendar from the app</h2>
+            <h2 className="text-pt-text text-[20px] font-semibold">In the calendar from the app</h2>
             {data.sent.map(x => (
               <div key={x.eventId} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                 <span className="flex-1 min-w-0 text-pt-text text-sm">{x.label}</span>

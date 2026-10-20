@@ -18,6 +18,7 @@ import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
 import ShootLink from '../components/ShootLink'
+import { Icon, IconText } from '../components/Icon'
 
 function errText(err: unknown) {
   return err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Try again."
@@ -63,7 +64,7 @@ export default function ReservationDetailScreen() {
 
         <div>
           <h1 className="font-display text-2xl text-pt-text leading-tight">{res.title}</h1>
-          <p className="text-pt-text mt-1">📅 {formatRange(res.startDate, res.endDate)}</p>
+          <p className="text-pt-text mt-1"><IconText name="calendar">{formatRange(res.startDate, res.endDate)}</IconText></p>
           {active && pickup !== res.startDate && (
             <p className="text-amber-300 text-sm mt-0.5">Pick up {formatDay(pickup)}: the prop room is closed on the shoot day.</p>
           )}
@@ -114,7 +115,7 @@ export default function ReservationDetailScreen() {
         {res.packPhotos && (
           <Section title={`Packed ${res.packedAt ? `· ${formatDay(res.packedAt.slice(0, 10))}` : ''}`}>
             <PhotoStrip urls={res.packPhotos} title="What was packed" />
-            {res.packNote && <p className="text-pt-text text-sm mt-2">📝 {res.packNote}</p>}
+            {res.packNote && <p className="text-pt-text text-sm mt-2"><IconText name="note">{res.packNote}</IconText></p>}
           </Section>
         )}
         {s === 'packed' && mine && <PickupSignOff res={res} />}
@@ -142,7 +143,7 @@ export default function ReservationDetailScreen() {
         {res.returnInfo && (
           <Section title={`Returned ${formatDay(res.returnInfo.at.slice(0, 10))} at ${time(res.returnInfo.at)}`}>
             <PhotoStrip urls={res.returnInfo.photos} title={res.returnInfo.byStaff ? 'Return photos (taken by arts dept)' : 'How the creator left it'} />
-            {res.returnInfo.note && <p className="text-pt-text text-sm mt-2">📝 {res.returnInfo.note}</p>}
+            {res.returnInfo.note && <p className="text-pt-text text-sm mt-2"><IconText name="note">{res.returnInfo.note}</IconText></p>}
           </Section>
         )}
         {s === 'return_pending' && !isStaff && <Banner tone="teal" title="Thanks! Being checked in">The arts department will check everything and let you know.</Banner>}
@@ -173,7 +174,7 @@ function Journey({ res }: { res: Reservation }) {
             <div className={`w-3.5 h-3.5 rounded-full shrink-0 ${i < at ? 'bg-pt-accent' : i === at ? 'bg-pt-accent ring-4 ring-pt-accent/30' : 'bg-pt-border'}`} />
             <div className={`flex-1 h-0.5 ${i === JOURNEY.length - 1 ? 'opacity-0' : i < at ? 'bg-pt-accent' : 'bg-pt-border'}`} />
           </div>
-          <span className={`text-[10px] mt-1 leading-tight ${i === at ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>{j.label}</span>
+          <span className={`text-xs mt-1 leading-tight ${i === at ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>{j.label}</span>
         </div>
       ))}
     </div>
@@ -288,7 +289,7 @@ function PickAndPack({ res }: { res: Reservation }) {
 
       {groups.map(([where, lines]) => (
         <div key={where}>
-          <p className="text-pt-accent text-xs uppercase tracking-wider mb-2 tap">📍 {where}</p>
+          <p className="text-pt-accent text-xs mb-2 tap"><IconText name="pin">{where}</IconText></p>
           <div className="space-y-2">
             {lines.map(line => {
               const picked = optimistic[line.itemId] ?? line.pick?.state === 'picked'
@@ -326,7 +327,7 @@ function PickAndPack({ res }: { res: Reservation }) {
 
       {builds.length > 0 && (
         <div>
-          <p className="text-violet-300 text-xs uppercase tracking-wider mb-2">🛠️ To build or source</p>
+          <p className="text-violet-300 text-xs mb-2">To build or source</p>
           <div className="space-y-2">
             {builds.map(b => <BuildRow key={b.id} b={b} done={optimistic[b.id] ?? b.state === 'done'}
               onToggle={() => toggle(b.id, optimistic[b.id] ?? b.state === 'done', next => setBuildState({ id: res.id, buildId: b.id, state: next ? 'done' : 'todo' }))}
@@ -338,7 +339,7 @@ function PickAndPack({ res }: { res: Reservation }) {
 
       <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
         <ProofPhotos folder={`reservation-photos/${res.id}/pack`} urls={photos} onChange={setPhotos} onUploading={setUploading}
-          label="📷 Photo of everything packed (required)"
+          label="Photo of everything packed (required)"
           hint="Show every prop in the bin before it goes out. This is the proof of what was handed over." />
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} maxLength={1000}
           placeholder="Note for the creator (optional), e.g. 'Chairs are stacked by the door'"
@@ -410,7 +411,7 @@ function ContentsList({ res }: { res: Reservation }) {
         {builds.map(b => (
           <div key={b.id} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 ${b.state === 'unavailable' ? 'border-red-500/30' : 'border-violet-500/40'}`}>
             <div className="w-12 h-12 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-xl">
-              {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
+              {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : <Icon name="tools" className="w-6 h-6 text-violet-300" />}
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm ${b.state === 'unavailable' ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{b.description}</p>
@@ -502,7 +503,7 @@ function ReturnForm({ res }: { res: Reservation }) {
     <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <p className="text-pt-text font-semibold">Returning</p>
       <ProofPhotos folder={`reservation-photos/${res.id}/return`} urls={photos} onChange={setPhotos} onUploading={setUploading}
-        label="📷 Photo of everything you're returning (required)"
+        label="Photo of everything you're returning (required)"
         hint="Show all the props together where you're leaving them. This protects you if anything is questioned later." />
       <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} maxLength={1000}
         placeholder="Where did you leave them? Anything to flag? (optional)"
@@ -605,7 +606,7 @@ function CheckInForm({ res }: { res: Reservation }) {
         </label>
       ))}
       <ProofPhotos folder={`reservation-photos/${res.id}/checkin`} urls={photos} onChange={setPhotos} onUploading={setUploading}
-        label="📷 Check-in photos (optional)" hint="Especially of any damage." />
+        label="Check-in photos (optional)" hint="Especially of any damage." />
       {error && <p className="text-red-300 text-sm">{error}</p>}
       <button onClick={submit} disabled={!complete || busy || uploading}
         className="w-full py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
@@ -701,7 +702,7 @@ function time(iso: string) {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <div><p className="text-pt-muted text-xs uppercase tracking-wider mb-2">{title}</p>{children}</div>
+  return <div><p className="text-pt-muted text-xs mb-2">{title}</p>{children}</div>
 }
 
 const BANNER_TONES = {

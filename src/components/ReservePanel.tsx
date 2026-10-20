@@ -11,6 +11,7 @@ import { formatDay, formatRange } from '../lib/dates'
 import type { Item } from '../types'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar from './AddingToBar'
+import { IconText } from './Icon'
 
 // On a prop's page: when it's booked, and adding it to the reservation being built.
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
@@ -43,7 +44,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
 
   return (
     <div className="space-y-3">
-      <p className="text-pt-muted text-xs uppercase tracking-wider">Availability</p>
+      <p className="text-pt-muted text-xs">Availability</p>
       <AvailabilityCalendar quantity={Math.max(0, item.quantity - (item.missingQty ?? 0))} entries={entries} today={today}
         bufferDays={turnaroundDays} closed={settings} unavailable={legacyOut} selected={dates} onPick={pick} />
       {note && <p className="text-amber-400 text-xs">{note}</p>}
@@ -66,7 +67,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           {!shoot ? (
             <div className="flex items-center justify-between gap-2">
-              <p className="text-pt-text text-sm">📅 {formatRange(dates.start, dates.end)}</p>
+              <p className="text-pt-text text-sm"><IconText name="calendar">{formatRange(dates.start, dates.end)}</IconText></p>
               <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs tap">Change day</button>
             </div>
           ) : <AddingToBar kind="props" />}

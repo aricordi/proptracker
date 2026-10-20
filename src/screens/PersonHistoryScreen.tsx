@@ -61,7 +61,7 @@ export default function PersonHistoryScreen() {
 
             {summary.incidents.length > 0 && (
               <div className="space-y-2">
-                <p className="text-pt-muted text-xs uppercase tracking-wider">Damaged or missing</p>
+                <p className="text-pt-muted text-xs">Damaged or missing</p>
                 {summary.incidents.map((i, n) => (
                   <button key={n} onClick={() => navigate(`/item/${i.line.itemId}`)}
                     className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">
@@ -82,7 +82,7 @@ export default function PersonHistoryScreen() {
             )}
 
             <div className="space-y-2">
-              <p className="text-pt-muted text-xs uppercase tracking-wider">Bookings</p>
+              <p className="text-pt-muted text-xs">Bookings</p>
               {newestFirst.length === 0 && <p className="text-pt-muted text-sm">No bookings yet.</p>}
               {newestFirst.map(r => (
                 <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}

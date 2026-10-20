@@ -293,7 +293,7 @@ export default function BinsScreen() {
       <div className="space-y-6">
         {orderedGroups.map(({ location, bins: groupBins }) => (
           <div key={location?.id ?? '__none__'}>
-            <h2 className="text-pt-muted text-xs uppercase tracking-wider mb-2 px-1">
+            <h2 className="text-pt-muted text-xs mb-2 px-1">
               {location?.name ?? 'No location'}
             </h2>
             <div className="space-y-2">
@@ -350,7 +350,7 @@ export default function BinsScreen() {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
+            <label className="block text-pt-muted text-xs mb-2">
               Label *
             </label>
             <input
@@ -364,7 +364,7 @@ export default function BinsScreen() {
           </div>
 
           <div>
-            <label className="block text-pt-muted text-xs uppercase tracking-wider mb-2">
+            <label className="block text-pt-muted text-xs mb-2">
               Location *
             </label>
             <select

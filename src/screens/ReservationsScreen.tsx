@@ -7,6 +7,7 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { useAtRisk } from '../hooks/useAtRisk'
 import { formatRange } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
+import { Icon } from '../components/Icon'
 
 interface Tab { key: string; label: string; statuses: ReservationStatus[]; newestFirst?: boolean; byEnd?: boolean }
 
@@ -121,7 +122,7 @@ export default function ReservationsScreen() {
                       {l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}
                     </div>
                   ))}
-                  {builds.length > 0 && <div className="w-8 h-8 rounded-lg bg-violet-500/20 border-2 border-pt-surface flex items-center justify-center text-sm">🛠️</div>}
+                  {builds.length > 0 && <div className="w-8 h-8 rounded-lg bg-violet-500/20 border-2 border-pt-surface flex items-center justify-center text-sm"><Icon name="tools" className="w-4 h-4 text-violet-300" /></div>}
                 </div>
                 <p className="text-pt-muted text-xs truncate flex-1">
                   {total} item{total !== 1 ? 's' : ''}{isStaff && ` · ${r.creatorName}`}

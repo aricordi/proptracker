@@ -95,8 +95,8 @@ export default function GearShopScreen() {
                     <button onClick={() => navigate(`/gear/b/${b.id}`)} className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
                       <div className="relative aspect-square">
                         <GearArt photo={b.photos?.[0]} category={b.category} className="w-full h-full" />
-                        <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${badge.style}`}>{badge.label}</span>
-                        {inCart && !canAdd && <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-[11px] font-bold px-2 py-0.5 rounded-full">✓ Added</span>}
+                        <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${badge.style}`}>{badge.label}</span>
+                        {inCart && !canAdd && <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-xs font-bold px-2 py-0.5 rounded-full">✓ Added</span>}
                         <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">{pieceTotal(b.pieces)} pcs</span>
                       </div>
                       <div className="px-3 pt-2 pb-3">
@@ -152,7 +152,7 @@ export default function GearShopScreen() {
           <button onClick={() => navigate('/reserve')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
             <span>Your shoot · {[propsCart.count && `${propsCart.count} prop${propsCart.count !== 1 ? 's' : ''}`, cart.count && `${cart.count} gear`].filter(Boolean).join(' · ')}</span>
-            <span>Review →</span>
+            <span>Review</span>
           </button>
         </div>
       )}

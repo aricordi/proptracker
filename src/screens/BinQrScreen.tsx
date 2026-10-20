@@ -115,7 +115,7 @@ export default function BinQrScreen() {
         )}
         {checking && <p className="text-pt-muted text-sm">Look in the bin. Tick <b className="text-pt-text">Here</b> for what you see, <b className="text-pt-text">Not here</b> for what's missing.</p>}
 
-        <p className="text-pt-muted text-xs uppercase tracking-wider px-1">{binItems.length} prop{binItems.length === 1 ? '' : 's'} in the app</p>
+        <p className="text-pt-muted text-xs px-1">{binItems.length} prop{binItems.length === 1 ? '' : 's'} in the app</p>
         {binItems.length === 0 && <p className="text-pt-muted text-sm text-center py-4">Nothing in this bin in the app yet.</p>}
         {binItems.map(i => {
           const ok = isChecked(i)
@@ -140,7 +140,7 @@ export default function BinQrScreen() {
 
         {checking && (
           <div className="space-y-2 pt-2">
-            <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Something in the bin that isn't listed?</p>
+            <p className="text-pt-muted text-xs px-1">Something in the bin that isn't listed?</p>
             <button onClick={() => setFinding(true)} className="w-full bg-pt-surface shadow-hairline text-pt-text rounded-2xl py-4 font-semibold">It's in the app → move it here</button>
             <button onClick={() => navigate(`/add?binId=${bin.id}&locationId=${bin.locationId ?? ''}`)} className="w-full bg-pt-surface shadow-hairline text-pt-text rounded-2xl py-4 font-semibold">It's not in the app → add it</button>
           </div>

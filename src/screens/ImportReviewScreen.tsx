@@ -226,7 +226,7 @@ export default function ImportReviewScreen() {
                     <button onClick={() => setSelected(s => new Set([...s, ...groups.get(lookKey(d))!]))}
                       className="text-amber-300 text-xs">⧉ {groups.get(lookKey(d))!.length} look-alikes · select them</button>
                   )}
-                  <p className="text-pt-muted text-[11px] truncate">{it.folder} / {it.fileName}</p>
+                  <p className="text-pt-muted text-xs truncate">{it.folder} / {it.fileName}</p>
                 </div>
               </div>
               {tab === 'analyzed' && (
@@ -324,7 +324,7 @@ function MergeSheet({ mode, picked, props, busy, onClose, onMerge }: {
         {mode === 'merge' ? (
           <>
             <label className="block space-y-1">
-              <span className="text-pt-muted text-xs uppercase tracking-wider">Name</span>
+              <span className="text-pt-muted text-xs">Name</span>
               <input value={name} onChange={e => setName(e.target.value)} className={input} />
             </label>
             <p className="text-pt-muted text-xs">Category, bin, tags and description come from the first photo; you can edit the prop afterwards.</p>

@@ -115,7 +115,7 @@ export default function LoginScreen() {
 
       {USING_EMULATORS && (
         <div className="mt-10 w-full max-w-xs space-y-2">
-          <p className="text-pt-muted text-xs text-center uppercase tracking-wider">Test mode: sign in as</p>
+          <p className="text-pt-muted text-xs text-center">Test mode: sign in as</p>
           {TEST_ACCOUNTS.map(a => (
             <button key={a.email} onClick={() => testSignIn(a.email)}
               className="w-full bg-pt-surface shadow-hairline text-pt-text py-3 rounded-xl text-sm active:opacity-70">

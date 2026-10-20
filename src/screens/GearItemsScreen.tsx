@@ -53,7 +53,7 @@ export default function GearItemsScreen() {
           if (!rows.length) return null
           return (
             <div key={cat} className="space-y-2">
-              <p className="text-pt-muted text-xs uppercase tracking-wider">{cat}</p>
+              <p className="text-pt-muted text-xs">{cat}</p>
               {rows.map(i => {
                 const inB = bundled.get(i.id) ?? 0
                 const loose = looseCount({ id: i.id, name: i.name, have: i.have, archived: i.archived }, bundled)
@@ -71,7 +71,7 @@ export default function GearItemsScreen() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-pt-text font-semibold tabular-nums">{i.have}</p>
-                      {loose > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{loose} loose</span>}
+                      {loose > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{loose} loose</span>}
                     </div>
                   </button>
                 )
@@ -112,7 +112,7 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
   }
 
   const input = 'w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent'
-  const label = 'text-pt-muted text-xs uppercase tracking-wider'
+  const label = 'text-pt-muted text-[13px]'
   return (
     <BottomSheet open onClose={onClose} title={item.id ? 'Edit gear' : 'Add gear'}>
       <div className="space-y-3">

@@ -68,9 +68,9 @@ export default function ItemCard({ item, subtitle, badge: override, inCart, onAd
           ? <img src={thumbOf(item, item.photos[0])} alt={item.name} className="w-full h-full object-cover" loading="lazy" decoding="async" style={{ viewTransitionName: photoMorphName(item.id) }} />
           : <CameraIcon className="w-10 h-10 text-pt-muted" />
         }
-        <span className={`absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>
+        <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${style}`}>{label}</span>
         {!!inCart && !onAdd && (
-          <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-[11px] font-bold px-2 py-0.5 rounded-full">
+          <span className="absolute top-2 right-2 bg-pt-accent text-stone-900 text-xs font-bold px-2 py-0.5 rounded-full">
             ✓ {item.quantity > 1 ? inCart : 'Added'}
           </span>
         )}

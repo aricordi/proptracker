@@ -96,7 +96,7 @@ export default function DuplicatesScreen() {
         <div className="flex gap-2 flex-wrap">
           {([
             ['check', pairs ? `To check (${toCheck.length})` : 'To check'],
-            ['gather', `📦 To gather (${gatherLive.length})`],
+            ['gather', `To gather (${gatherLive.length})`],
             ['later', pairs ? `Later (${laterList.length})` : 'Later'],
           ] as const).map(([v, label]) => (
             <button key={v} onClick={() => setView(v)}
@@ -107,7 +107,7 @@ export default function DuplicatesScreen() {
         {view === 'gather' && (gatherProps.length ? (
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 space-y-3">
             <div>
-              <p className="text-amber-200 font-medium">📦 {gatherProps.length} prop{gatherProps.length === 1 ? '' : 's'} to gather</p>
+              <p className="text-amber-200 font-medium">{gatherProps.length} prop{gatherProps.length === 1 ? '' : 's'} to gather</p>
               <p className="text-pt-muted text-xs">Each one is split between bins. Ask the arts department to put all copies of each prop in one bin.</p>
             </div>
             <ul className="space-y-2">
@@ -278,7 +278,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
     <div className={`bg-pt-surface border rounded-2xl p-3 space-y-2 ${mode === 'gather' ? 'border-amber-500/40' : 'border-pt-border'}`}>
       <div className="flex items-center justify-between">
         <span className="text-pt-muted text-xs">
-          {mode === 'gather' ? '📦 Same prop, different bins' : props.length > 2 ? `${props.length} look-alikes` : `${Math.round((score ?? 0) * 100)}% alike`}
+          {mode === 'gather' ? 'Same prop, different bins' : props.length > 2 ? `${props.length} look-alikes` : `${Math.round((score ?? 0) * 100)}% alike`}
         </span>
         <span className="text-pt-muted text-xs">{chosen.length ? `${chosen.length} ticked` : 'Tap the ones that are the same'}</span>
       </div>
@@ -307,7 +307,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
           {mode === 'check' && canMerge && (
             <button disabled={!!busy} onClick={() => run('flag', flagToGather)}
               className="w-full py-2 rounded-lg bg-amber-400 text-stone-900 text-sm font-semibold disabled:opacity-40">
-              {busy === 'flag' ? 'Flagging…' : `📦 Flag ${chosen.length} to gather into one bin`}
+              {busy === 'flag' ? 'Flagging…' : `Flag ${chosen.length} to gather into one bin`}
             </button>
           )}
         </div>
@@ -326,7 +326,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
         </div>
       )}
       {ready && released.length > 0 && (
-        <p className="text-pt-muted text-[11px]">The {released.length} not ticked will be released: they stay in the search for duplicates, just not with these.</p>
+        <p className="text-pt-muted text-xs">The {released.length} not ticked will be released: they stay in the search for duplicates, just not with these.</p>
       )}
 
       <div className="grid grid-cols-2 gap-2">
@@ -346,7 +346,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
         )}
       </div>
       {zoom && <ImageLightbox src={zoom.src} alt={zoom.alt} onClose={() => setZoom(null)} />}
-      {canMerge && ready && <p className="text-pt-muted text-[11px]">
+      {canMerge && ready && <p className="text-pt-muted text-xs">
         "Copies" adds up the quantities; "Same one" just adds the extra photos. The others are then removed (archived if they were ever booked).
       </p>}
     </div>

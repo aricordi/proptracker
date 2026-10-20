@@ -35,6 +35,7 @@ import {
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
 import { fmtTime, fmtHours } from '../../functions/src/gearBooking'
+import { Icon } from './Icon'
 
 type Msg =
   | { who: 'me'; text: string; mode: Helper }
@@ -337,7 +338,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     <div className="rise-in space-y-4">
       {result.groups.map(g => (
         <div key={g.title} className="space-y-2">
-          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{g.title}</p>
+          <p className="text-pt-muted text-xs font-semibold">{g.title}</p>
           {g.picks.map(p => {
             if (p.kind === 'prop') {
               const it = itemById.get(p.id); if (!it) return null
@@ -368,12 +369,12 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       ))}
       {result.missing.length > 0 && (
         <div className="space-y-2">
-          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
+          <p className="text-pt-muted text-xs font-semibold">We don't have it</p>
           {result.missing.map(m => {
             const k = `b:${m.name}`, asked = cart.builds.some(b => b.description === m.name)
             return (
               <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
+                <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></span>
                 <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
                 {asked && !sel.includes(k) ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 opacity-60">Asked ✓</span>
                   : <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} className={`shrink-0 text-xs font-semibold rounded-full px-3 min-h-[44px] ${sel.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-violet-500/20 text-violet-200'}`}>{sel.includes(k) ? 'Ticked ✓' : 'Ask for it'}</button>}
@@ -405,7 +406,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
           <div className="flex gap-1.5 mt-1" aria-label="Plan my shoot steps">
             {STEPS.map(([k, t], n) => {
               const at = STEPS.findIndex(x => x[0] === plan.step), done = n < at, now = n === at
-              return <span key={k} className="flex-1"><span className={`block h-1 rounded-full ${done || now ? 'bg-[#BF9DFF]' : 'bg-pt-border'}`} /><span className={`block text-[11px] mt-1 ${now ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{done ? '✓ ' : ''}{t}</span></span>
+              return <span key={k} className="flex-1"><span className={`block h-1 rounded-full ${done || now ? 'bg-[#BF9DFF]' : 'bg-pt-border'}`} /><span className={`block text-xs mt-1 ${now ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{done ? '✓ ' : ''}{t}</span></span>
             })}
           </div>
         ) : <p className="text-pt-muted text-[13px]">Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</p>}
@@ -420,7 +421,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
             {m.result && renderResult(m.result)}
             {m.alt && i === lastBot && !busy && !plan && (
               <button onClick={() => send(m.alt!.q, false, m.alt!.to)} className="tap text-[13px] text-[#CDB8FF] underline underline-offset-2">
-                {m.alt.to === 'time' ? '🕒 Meant a time to film? Find one' : '🎬 Meant props for this? Find some'}</button>
+                {m.alt.to === 'time' ? 'Meant a time to film? Find one' : 'Meant props for this? Find some'}</button>
             )}
           </div>
         ) : m.who === 'choose' ? (
@@ -431,7 +432,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
           <div key={i} className="rise-in space-y-2">
             {m.options.map(o => (
               <div key={`${o.date}-${o.place}-${o.start}`} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
-                <span className="w-12 text-center shrink-0"><span className="block text-[11px] uppercase text-pt-muted">{formatDay(o.date, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(o.date.slice(8))}</b></span>
+                <span className="w-12 text-center shrink-0"><span className="block text-xs text-pt-muted">{formatDay(o.date, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(o.date.slice(8))}</b></span>
                 <span className="flex-1 min-w-0">
                   <b className="block">{house(o.place)} · {fmtSlot(o.start, o.slots.length * s.slotMinutes)}</b>
                   <span className="block text-pt-muted text-[13px]">{o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ')}</span>
@@ -477,7 +478,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
         ) : m.who === 'already' ? (
           (sent.props.length + sent.gear.length) === 0 ? null : (
             <div key={i} className="rise-in rounded-[18px] bg-pt-surface p-4 space-y-2">
-              <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">Already on this shoot</p>
+              <p className="text-pt-muted text-xs font-semibold">Already on this shoot</p>
               {sent.props.map(r => <p key={r.id} className="text-sm"><span className="text-pt-accent">{r.status === 'requested' ? 'Requested' : 'In progress'}</span> · {[...r.lines.map(l => `${l.itemName}${l.qty > 1 ? ` ×${l.qty}` : ''}`), ...r.builds.map(b => b.description)].join(', ')}</p>)}
               {sent.gear.map(g => <p key={g.id} className="text-sm"><span className="text-pt-accent">Gear held</span> · {g.lines.map(l => `${l.name}${l.qty > 1 ? ` ×${l.qty}` : ''}`).join(', ')}</p>)}
               <p className="text-pt-muted text-xs">I won't suggest these again.</p>
@@ -491,7 +492,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
               const builds = cart.builds.map(b => b.description)
               const gear = Object.entries(gearCart.lines).map(([id, q]) => `${bundles.find(b => b.id === id)?.name ?? 'Gear'}${q > 1 ? ` ×${q}` : ''}`)
               const row = (t: string, list: string[], empty: string) => (
-                <div><p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{t} · {list.length}</p><p className="text-sm">{list.length ? list.join(', ') : empty}</p></div>
+                <div><p className="text-pt-muted text-xs font-semibold">{t} · {list.length}</p><p className="text-sm">{list.length ? list.join(', ') : empty}</p></div>
               )
               return <>{row('Props', props, 'None yet')}{builds.length > 0 && row('To make or find', builds, '')}{row('Gear', gear, 'None')}</>
             })()}
@@ -548,7 +549,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
             {chips.map(c => {
               const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW
-              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3 py-2 text-[13px] ${special ? 'bg-[#BF9DFF]/20 text-[#CDB8FF] font-semibold' : 'bg-pt-border'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? '🕒 ' + c : c === PROPS_CHIP ? '🎬 ' + c : c}</button>
+              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3 py-2 text-[13px] ${special ? 'bg-[#BF9DFF]/20 text-[#CDB8FF] font-semibold' : 'bg-pt-border'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
             })}
           </div>
         )}

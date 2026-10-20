@@ -1,3 +1,4 @@
+import { Icon } from '../components/Icon'
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -134,7 +135,7 @@ export default function ScheduleScreen() {
           {Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(today, i)).map(d => (
             <button key={d} onClick={() => setDate(d)}
               className={`shrink-0 w-[52px] py-2 rounded-xl text-center border ${d === date ? 'border-pt-accent bg-pt-surface' : 'border-transparent bg-pt-surface'}`}>
-              <span className="block text-[11px] text-pt-muted">{formatDay(d, { weekday: 'short' })}</span>
+              <span className="block text-xs text-pt-muted">{formatDay(d, { weekday: 'short' })}</span>
               <span className="block text-lg font-semibold text-pt-text leading-tight">{Number(d.slice(8))}</span>
               <span className={`block mx-auto mt-0.5 w-1 h-1 rounded-full ${myDays.has(d) ? 'bg-pt-accent' : 'bg-transparent'}`} />
             </button>
@@ -152,7 +153,7 @@ export default function ScheduleScreen() {
         {!team && next && date === today && (
           <button onClick={() => setSheet({ kind: 'shoot', id: next.id })}
             className="w-full text-left rounded-2xl p-4 bg-pt-accent/[0.12] shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.4)]">
-            <span className="text-[11px] uppercase tracking-wider text-pt-accent font-semibold">{next.date === today ? 'Today' : 'Your next shoot'}</span>
+            <span className="text-xs text-pt-accent font-semibold">{next.date === today ? 'Today' : 'Your next shoot'}</span>
             <p className="text-pt-text text-lg font-semibold">{next.date === today ? '' : `${formatDay(next.date)} · `}{fmtSlot(next.start, next.end - next.start)}</p>
             <p className="text-pt-muted text-sm">{next.place === 'offsite' ? next.where : `${s.houses[next.place].name} · ${s.houses[next.place].address}`}{mine!.length > 1 ? ` · ${mine!.length - 1} more coming up` : ''}</p>
           </button>
@@ -161,12 +162,12 @@ export default function ScheduleScreen() {
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}
         {calNew > 0 && (
           <button onClick={() => navigate('/schedule/import')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 bg-sky-400/10 text-left shadow-[inset_0_0_0_0.5px_rgba(56,189,248,0.4)]">
-            <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calNew} new event{calNew === 1 ? '' : 's'} in Google Calendar to sort</span><span className="text-pt-muted">›</span>
+            <Icon name="calendar" className="w-5 h-5 text-sky-300" /><span className="flex-1 text-pt-text text-sm">{calNew} new event{calNew === 1 ? '' : 's'} in Google Calendar to sort</span><span className="text-pt-muted">›</span>
           </button>
         )}
         {calWaiting > 0 && (
           <button onClick={() => navigate('/schedule/calendar')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 bg-sky-400/10 text-left shadow-[inset_0_0_0_0.5px_rgba(56,189,248,0.4)]">
-            <span className="text-lg">📅</span><span className="flex-1 text-pt-text text-sm">{calWaiting} change{calWaiting === 1 ? '' : 's'} couldn't reach Google Calendar · try again</span><span className="text-pt-muted">›</span>
+            <Icon name="calendar" className="w-5 h-5 text-sky-300" /><span className="flex-1 text-pt-text text-sm">{calWaiting} change{calWaiting === 1 ? '' : 's'} couldn't reach Google Calendar · try again</span><span className="text-pt-muted">›</span>
           </button>
         )}
         <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
@@ -216,7 +217,7 @@ export default function ScheduleScreen() {
         )}
 
         <button onClick={() => setSheet({ kind: 'calendar' })} className="!mt-8 w-full flex items-center gap-3 p-4 rounded-2xl bg-pt-surface shadow-hairline text-left">
-          <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-bg text-lg shrink-0">📅</span>
+          <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-bg text-lg shrink-0"><Icon name="calendar" className="w-5 h-5 text-pt-accent" /></span>
           <span className="flex-1 min-w-0 text-pt-text text-[15px] font-semibold">{team ? 'Schedule' : 'My shoots'} in my phone's calendar</span>
           <span className="text-pt-muted">›</span>
         </button>
@@ -294,7 +295,7 @@ function SlotRow({ day, date, house, start, team, email, now, onTap }: {
     sub = `${st.entry.hold?.fromName}'s collab · ${forMe ? 'confirm above' : `opens at ${fmtTime(Number(st.until.slice(11, 13)) * 60 + Number(st.until.slice(14, 16)))} if not confirmed`}`
     pill = <Pill tone="warn">Held</Pill>; cls = 'bg-amber-400/[0.06] border-dashed border-amber-400/50'
   }
-  else if (st.t === 'locked') { title = <span className="text-pt-muted">Priority only</span>; sub = `Opens ${stampLabel(st.opens)}`; pill = <Pill tone="muted">🔒</Pill> }
+  else if (st.t === 'locked') { title = <span className="text-pt-muted">Priority only</span>; sub = `Opens ${stampLabel(st.opens)}`; pill = <Pill tone="muted"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" /></Pill> }
   else { title = <span className="text-pt-accent">{team ? 'Free · book or block' : 'Free'}</span>; sub = isNoCrewDay(date) ? 'No crew' : null; cls = 'bg-pt-surface border-pt-accent/35' }
   const tappable = st.t === 'free' || st.t === 'booked' || (st.t === 'block' && team)
   return (
@@ -466,7 +467,7 @@ function ShootSheet({ id, team, onClose, onMove, onSwap }: { id: string; team: b
           </div>
         )}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-1">History</p>
+          <p className="text-pt-muted text-xs mb-1">History</p>
           <ol className="bg-pt-bg rounded-xl divide-y divide-white/[0.06]">
             {shoot.history.map((h, i) => (
               <li key={i} className="px-3 py-2 text-sm"><span className="text-pt-muted text-xs block">{new Date(h.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
@@ -770,7 +771,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
           return (
             <button key={d} onClick={() => { setPick(d); setOpen(o => o.includes(d) ? o : [...o, d]) }} aria-label={formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}
               className={`shrink-0 w-12 rounded-2xl min-h-[56px] flex flex-col items-center justify-center ${on ? 'bg-pt-accent text-stone-900 shadow-gold' : free ? 'bg-pt-bg text-pt-text' : 'bg-pt-bg text-pt-muted/50'}`}>
-              <span className="text-[11px] leading-none">{formatDay(d, { weekday: 'short' })}</span>
+              <span className="text-xs leading-none">{formatDay(d, { weekday: 'short' })}</span>
               <span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
             </button>
           )
@@ -781,7 +782,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
         {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try {friendCount ? 'fewer friends' : 'another house'}.</p>}
         {dayGroups.map(([d, list]) => (
           <div key={d}>
-            <p className="text-pt-text text-[19px] font-semibold tracking-heading mb-3">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) && <span className="text-pt-muted text-sm font-normal"> · no crew</span>}</p>
+            <p className="text-pt-text text-[20px] font-semibold tracking-heading mb-3">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) && <span className="text-pt-muted text-sm font-normal"> · no crew</span>}</p>
             <div className="space-y-2">
               {(open.includes(d) ? list : list.slice(0, 3)).map(r => (
                 <div key={`${r.date}${r.start}`} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">
@@ -918,7 +919,7 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
       {shoot.place !== 'offsite' && (
         <div>
           <div className="flex gap-1"><span className={step(true)} /><span className={step(stage >= 2)} /><span className={step(stage >= 3)} /></div>
-          <div className="flex justify-between text-[11px] text-pt-muted mt-1"><span>Booked</span><span>Checked in</span><span>Filmed</span></div>
+          <div className="flex justify-between text-xs text-pt-muted mt-1"><span>Booked</span><span>Checked in</span><span>Filmed</span></div>
         </div>
       )}
       {err && <p className="text-red-300 text-sm">{err}</p>}

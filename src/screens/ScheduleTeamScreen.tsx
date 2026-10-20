@@ -50,7 +50,7 @@ export default function ScheduleTeamScreen() {
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-end gap-2 py-2">
-          <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+          <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
           <h1 className="font-display text-[34px] text-pt-text">Schedule team</h1>
         </div>
         <div className="flex gap-2">

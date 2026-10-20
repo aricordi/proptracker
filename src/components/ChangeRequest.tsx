@@ -8,6 +8,7 @@ import { useCart } from '../cart'
 import { useItems } from '../hooks/useItems'
 import { useActiveShoot } from '../activeShoot'
 import { editReservation, type Reservation } from '../services/reservations'
+import { Icon } from './Icon'
 
 const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'That didn\'t work. Try again.'
 
@@ -95,7 +96,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
         return (
           <div key={id} className={`flex items-center gap-3 ${n ? '' : 'opacity-40'}`}>
             <div className="relative w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{it?.photos[0] && <img loading="lazy" decoding="async" src={it.photos[0]} alt="" className="w-full h-full object-cover" />}
-              <span className="absolute bottom-0 inset-x-0 text-center text-[9px] font-bold bg-[#BF9DFF] text-[#140f22]">NEW</span></div>
+              <span className="absolute bottom-0 inset-x-0 text-center text-xs font-bold bg-[#BF9DFF] text-[#140f22]">NEW</span></div>
             <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it?.name ?? 'Prop'}</p>
             {n > 0 ? (
               <>
@@ -112,7 +113,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
       })}
       {builds.map((b, i) => (
         <div key={i} className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-violet-500/10 grid place-items-center shrink-0">🛠️</div>
+          <div className="w-11 h-11 rounded-xl bg-violet-500/10 grid place-items-center shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></div>
           <p className="flex-1 min-w-0 text-sm text-pt-text">{b.description} <span className="text-violet-300">×{b.qty}</span></p>
           <button onClick={() => setBuilds(builds.filter((_, j) => j !== i))} aria-label="Remove" className="text-pt-muted text-2xl w-7">×</button>
         </div>

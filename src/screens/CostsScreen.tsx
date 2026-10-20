@@ -51,7 +51,7 @@ export default function CostsScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/admin')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => navigate('/admin')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">Running costs</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
@@ -59,7 +59,7 @@ export default function CostsScreen() {
         {!r && !err && <p className="text-pt-muted text-sm">Adding it up… (this takes a few seconds)</p>}
         {r && e && <>
           <div className="bg-pt-surface rounded-2xl p-4">
-            <p className="text-pt-muted text-xs uppercase tracking-wider">Estimated for this month</p>
+            <p className="text-pt-muted text-xs">Estimated for this month</p>
             <p className="text-pt-text text-4xl font-bold mt-1">{money(total)}</p>
             <p className="text-pt-muted text-sm mt-1">{r.measured ? 'From Google\'s usage counts so far this month, projected to the end of the month, at list prices after the free amounts.' : 'Storage and AI only; usage counts weren\'t available.'} Your Google bill is the exact number.</p>
           </div>
@@ -71,7 +71,7 @@ export default function CostsScreen() {
             {row('AI helpers', money(e.ai), `$${r.ai.spentUsd.toFixed(2)} so far · cap in Admin → AI helpers`)}
           </div>
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2 px-1">Where the space goes</p>
+            <p className="text-pt-muted text-xs mb-2 px-1">Where the space goes</p>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {Object.entries(r.storage.byFolder).sort((a, b) => b[1].bytes - a[1].bytes).map(([f, v]) => row(FOLDERS[f] ?? f, size(v.bytes), `${v.files.toLocaleString()} files`))}
             </div>

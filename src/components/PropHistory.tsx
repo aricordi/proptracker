@@ -41,7 +41,7 @@ export default function PropHistory({ item }: { item: Item }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-pt-muted text-xs uppercase tracking-wider">History</p>
+      <p className="text-pt-muted text-xs">History</p>
       <div className="flex gap-2">
         {([['bookings', 'Who had it'], ['changes', 'Changes']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}

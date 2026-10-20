@@ -89,7 +89,7 @@ export default function PropSuggestions({ item }: { item: Item }) {
     if (!list.length) return null
     return (
       <div className="space-y-2">
-        <p className="text-amber-300 text-xs uppercase tracking-wider">Suggested edits from creators ({list.length})</p>
+        <p className="text-amber-300 text-xs">Suggested edits from creators ({list.length})</p>
         {list.map(s => <SuggestionCard key={s.id} s={s} item={item} />)}
       </div>
     )
@@ -138,7 +138,7 @@ function SuggestSheet({ item, onClose }: { item: Item; onClose: () => void }) {
   }
 
   const input = 'w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent'
-  const label = 'text-pt-muted text-xs uppercase tracking-wider'
+  const label = 'text-pt-muted text-[13px]'
   return (
     <BottomSheet open onClose={onClose} title="Suggest an edit">
       <div className="space-y-3">
@@ -203,9 +203,9 @@ export function WrongNameLink({ item }: { item: Item }) {
         <BottomSheet open onClose={() => setOpen(false)} title="Suggest the right name">
           <div className="space-y-3">
             <p className="text-pt-muted text-sm">Now called: <span className="text-pt-text">{item.name}</span></p>
-            <label className="block space-y-1"><span className="text-pt-muted text-xs uppercase tracking-wider">Correct name</span>
+            <label className="block space-y-1"><span className="text-pt-muted text-xs">Correct name</span>
               <input value={name} onChange={e => setName(e.target.value)} autoFocus placeholder="e.g. Cowboy hat" className={input} /></label>
-            <label className="block space-y-1"><span className="text-pt-muted text-xs uppercase tracking-wider">Note (optional)</span>
+            <label className="block space-y-1"><span className="text-pt-muted text-xs">Note (optional)</span>
               <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. it's a cowboy hat, not a top hat" className={input} /></label>
             {state === 'error' && <p className="text-red-300 text-sm">Couldn't send. Try again.</p>}
             <button onClick={send} disabled={!clean || clean === item.name || state === 'busy'}

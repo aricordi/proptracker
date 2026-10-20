@@ -3,6 +3,7 @@ import { ref as storageRef, uploadBytesResumable, getDownloadURL, getMetadata } 
 import { storage } from '../firebase'
 import { shrinkPhoto } from '../lib/shrinkPhoto'
 import { photoTakenAt, photoAge } from '../lib/photoTakenAt'
+import { Icon } from './Icon'
 
 interface Slot { key: string; preview: string; url: string | null; failed?: boolean; why?: string; takenAt?: string | null }
 
@@ -79,7 +80,7 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
         {slots.length < max && (
           <button onClick={() => input.current?.click()}
             className="aspect-square rounded-xl border-2 border-dashed border-pt-accent/60 text-pt-accent text-sm flex flex-col items-center justify-center gap-1 active:opacity-70">
-            <span className="text-2xl leading-none">📷</span>
+            <Icon name="camera" className="w-7 h-7" />
             {slots.length ? 'Add' : 'Take photo'}
           </button>
         )}
@@ -96,7 +97,7 @@ export function PhotoStrip({ urls, title }: { urls?: string[]; title: string }) 
   if (!urls?.length) return null
   return (
     <div>
-      <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">{title}</p>
+      <p className="text-pt-muted text-xs mb-2">{title}</p>
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         {urls.map(u => <StripPhoto key={u} url={u} />)}
       </div>
@@ -108,7 +109,7 @@ export function PhotoStrip({ urls, title }: { urls?: string[]; title: string }) 
 // one says so instead of showing a broken image.
 function StripPhoto({ url }: { url: string }) {
   const [gone, setGone] = useState(false)
-  if (gone) return <div className="w-24 h-24 shrink-0 rounded-xl bg-pt-border grid place-items-center text-center text-pt-muted text-[11px] px-2 leading-tight">Photo removed after 6 months</div>
+  if (gone) return <div className="w-24 h-24 shrink-0 rounded-xl bg-pt-border grid place-items-center text-center text-pt-muted text-xs px-2 leading-tight">Photo removed after 6 months</div>
   return (
     <div className="w-24 shrink-0 space-y-1">
       <a href={url} target="_blank" rel="noreferrer" className="block w-24 h-24 rounded-xl overflow-hidden bg-pt-border">
@@ -124,7 +125,7 @@ const STAMP_STYLE: Record<Stamp['tone'], string> = { ok: 'text-pt-muted', warn: 
 
 function StampBadge({ stamp }: { stamp: Stamp }) {
   return (
-    <span className={`absolute bottom-0 inset-x-0 bg-black/70 px-1 py-0.5 text-[10px] leading-tight ${STAMP_STYLE[stamp.tone]}`}>
+    <span className={`absolute bottom-0 inset-x-0 bg-black/70 px-1 py-0.5 text-xs leading-tight ${STAMP_STYLE[stamp.tone]}`}>
       {stamp.tone === 'ok' ? '' : '⚠ '}{stamp.text}
     </span>
   )
@@ -143,5 +144,5 @@ export function PhotoStamp({ url }: { url: string }) {
     return () => { on = false }
   }, [url])
   if (!stamp) return null
-  return <p className={`text-[10px] leading-tight ${STAMP_STYLE[stamp.tone]}`}>{stamp.tone === 'ok' ? '' : '⚠ '}{stamp.text}</p>
+  return <p className={`text-xs leading-tight ${STAMP_STYLE[stamp.tone]}`}>{stamp.tone === 'ok' ? '' : '⚠ '}{stamp.text}</p>
 }

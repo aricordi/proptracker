@@ -8,6 +8,7 @@ import { useActiveShoot } from '../activeShoot'
 import AddingToBar from '../components/AddingToBar'
 import ImageLightbox from '../components/ImageLightbox'
 import { formatDay } from '../lib/dates'
+import { Icon } from '../components/Icon'
 
 // One bundle: what's in the case, when it's free, and "Add to my shoot".
 export default function GearOfferScreen() {
@@ -61,7 +62,7 @@ export default function GearOfferScreen() {
         ) : null}
 
         <div className="space-y-2">
-          <p className="text-pt-muted text-xs uppercase tracking-wider px-1">In the case</p>
+          <p className="text-pt-muted text-xs px-1">In the case</p>
           <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
             {b.pieces.map(p => (
               <div key={p.itemId} className="flex justify-between px-4 py-3 text-[15px]">
@@ -72,14 +73,14 @@ export default function GearOfferScreen() {
         </div>
 
         <p className="text-pt-muted text-[13px] leading-snug px-1">
-          🔋 Batteries are charged when gear comes back, but a bundle can go straight out again, so we can't promise a full charge.
+          <Icon name="battery" className="w-4 h-4 inline -mt-0.5 mr-1" />Batteries are charged when gear comes back, but a bundle can go straight out again, so we can't promise a full charge.
         </p>
 
         {creator ? <><AddingToBar kind="gear" />{shoot ? <GearWhenPicker hoursOnly /> : isStaff && <GearWhenPicker />}</> : <GearWhenPicker />}
         {showFree && !w.problem && (
           <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-pt-muted text-xs uppercase tracking-wider">{formatDay(w.date)}</p>
+              <p className="text-pt-muted text-xs">{formatDay(w.date)}</p>
               {free ? <Pill tone="free">Free {fmtHours(w.start, w.end)}</Pill> : <Pill tone="taken">Taken</Pill>}
             </div>
             <DayTimeline holds={mine} date={w.date} start={w.start} end={w.end} />
@@ -96,7 +97,7 @@ export default function GearOfferScreen() {
             </div>
             {similar.length > 0 && (
               <div className="space-y-2">
-                <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Similar bundles free for your hours</p>
+                <p className="text-pt-muted text-xs px-1">Similar bundles free for your hours</p>
                 {similar.map(s => (
                   <button key={s.id} onClick={() => navigate(`/gear/b/${s.id}`, { replace: true })} className="w-full flex items-center gap-3 bg-pt-surface rounded-2xl p-3 text-left active:opacity-80">
                     <GearArt photo={s.photos?.[0]} category={s.category} className="w-12 h-12 rounded-xl shrink-0" />

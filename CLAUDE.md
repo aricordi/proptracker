@@ -1043,6 +1043,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "must turn on unless the phone can't yet"). Every move uses the scene's real-looking tabs/buttons (data-tour nav-home/
       nav-book/nav-browse/nav-me, back, tome…); each chapter starts with a "what's next and why" card. Spotlight `dim={false}`
       for look-around steps. Checked on a 390×844 touch screen in the emulator (86 screens, no errors). Tests 400.
+    - DESIGN POLISH A (owner, Oct 20, after a frontend-design audit; look kept: Black & Gold, cards, white eagle):
+      (1) NO ALL-CAPS labels: `uppercase` + wide tracking removed everywhere (.eyebrow = 13px sentence case); only the
+      typed "PRIME CAPITOL" wordmark stays in capitals. (2) TYPE SCALE: nothing under 12px (9–11px → text-xs), odd sizes
+      snapped (13.5→13, 19→20, 24→22, 30→28, 32→34). (3) No "→" on buttons ("Review →" → "Review"); arrows kept only in
+      real sequences/menu paths ("Me → Notifications"). (4) EMOJI → LINE ICONS: `src/components/Icon.tsx` (Icon name=…,
+      IconText; tab-bar style, 2px stroke, currentColor) for calendar/tools/camera/clock/flame/battery/pin/note/lock/bell,
+      Help topics, Activity log types, tour bullets; ✓ ✦ ⚠ ✕ stay as symbols. Use Icon for any NEW icon, never emoji.
+      Middle-dot info lines ("Cliff 1 · 1 PM–3 PM") kept on purpose. Tour scenes updated to match.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

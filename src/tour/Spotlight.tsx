@@ -34,15 +34,15 @@ function Panel({ c, nudge, innerRef }: { c: Coach; nudge: boolean; innerRef: Rea
       {c.part ? (
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-pt-accent">Part {c.part} of {PART_NAMES.length} · {PART_NAMES[c.part - 1]}</p>
-            {c.stepsInPart && c.stepsInPart > 1 ? <span className="text-[11px] text-pt-muted tabular-nums">{c.stepInPart} of {c.stepsInPart}</span> : null}
+            <p className="flex-1 text-xs font-semibold text-pt-accent">Part {c.part} of {PART_NAMES.length} · {PART_NAMES[c.part - 1]}</p>
+            {c.stepsInPart && c.stepsInPart > 1 ? <span className="text-xs text-pt-muted tabular-nums">{c.stepInPart} of {c.stepsInPart}</span> : null}
             {c.onClose && <button onClick={c.onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button>}
           </div>
           <div className="flex gap-1" aria-hidden>{PART_NAMES.map((_, i) => <i key={i} className={`flex-1 h-1 rounded-full ${i < (c.part ?? 0) ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</div>
         </div>
       ) : c.onClose && <div className="flex justify-end"><button onClick={c.onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button></div>}
       <p className="text-[16px] font-semibold leading-snug text-pt-text">{c.title}</p>
-      {c.body && <div className="text-[13.5px] leading-snug text-pt-muted">{c.body}</div>}
+      {c.body && <div className="text-[13px] leading-snug text-pt-muted">{c.body}</div>}
       <div className="flex items-center gap-3 pt-1">
         {c.onBack && <button onClick={c.onBack} className="shrink-0 rounded-xl px-3 py-3 text-[15px] text-pt-text bg-pt-border">‹ Back</button>}
         {c.next

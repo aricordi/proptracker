@@ -244,7 +244,7 @@ function Card({ title, badge, children }: { title: string; badge?: ReactNode; ch
   return (
     <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-pt-muted text-xs uppercase tracking-wider">{title}</p>
+        <p className="text-pt-muted text-xs">{title}</p>
         {badge}
       </div>
       {children}

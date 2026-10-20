@@ -255,7 +255,7 @@ export default function CheckoutScreen() {
       <BottomSheet open={showNewSheet} onClose={() => setShowNewSheet(false)} title="New Checkout">
         <div className="space-y-4">
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">What's this for?</p>
+            <p className="text-pt-muted text-xs mb-2">What's this for?</p>
             <input
               value={label}
               onChange={e => setLabel(e.target.value)}
@@ -266,7 +266,7 @@ export default function CheckoutScreen() {
           </div>
 
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">
+            <p className="text-pt-muted text-xs mb-2">
               Select items ({selectedIds.size} selected)
             </p>
             {checkoutCandidates.length === 0 ? (

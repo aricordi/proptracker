@@ -41,13 +41,13 @@ export function GearWhenPicker({ hoursOnly = false }: { hoursOnly?: boolean } = 
   return (
     <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
       <div className={`grid gap-2 ${hoursOnly ? 'grid-cols-2' : 'grid-cols-[1.35fr_1fr_1fr]'}`}>
-        {!hoursOnly && <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">Shoot day</span>
+        {!hoursOnly && <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">Shoot day</span>
           <input type="date" value={w.date} min={w.earliest} onChange={e => e.target.value && cart.setWhen(e.target.value, cart.start, cart.end)} className={field} /></label>}
-        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">{hoursOnly ? 'Gear from' : 'From'}</span>
+        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">{hoursOnly ? 'Gear from' : 'From'}</span>
           <select value={cart.start} onChange={e => { const s = Number(e.target.value); cart.setWhen(w.date, s, Math.max(cart.end, s + GEAR_STEP)) }} className={field}>
             {TIMES.slice(0, -1).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
           </select></label>
-        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-[11px] uppercase tracking-wider">Until</span>
+        <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">Until</span>
           <select value={cart.end} onChange={e => cart.setWhen(w.date, cart.start, Number(e.target.value))} className={field}>
             {TIMES.filter(t => t > cart.start).map(t => <option key={t} value={t}>{t === GEAR_DAY_END ? 'Midnight' : fmtTime(t)}</option>)}
           </select></label>
@@ -105,7 +105,7 @@ export function DayTimeline({ holds, date, start, end }: { holds: GearHold[]; da
         ))}
         <div className="absolute top-1 bottom-1 rounded-lg border-2 border-pt-accent bg-pt-accent/15" style={{ left: pct(start), width: `calc(${pct(end)} - ${pct(start)})` }} />
       </div>
-      <div className="flex justify-between text-pt-muted text-[10.5px] mt-1 tabular-nums"><span>7 AM</span><span>11 AM</span><span>3 PM</span><span>7 PM</span><span>11 PM</span></div>
+      <div className="flex justify-between text-pt-muted text-xs mt-1 tabular-nums"><span>7 AM</span><span>11 AM</span><span>3 PM</span><span>7 PM</span><span>11 PM</span></div>
     </div>
   )
 }

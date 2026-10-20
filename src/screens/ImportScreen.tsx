@@ -155,7 +155,7 @@ export default function ImportScreen() {
         )}
 
         <div className="space-y-2">
-          <p className="text-pt-muted text-xs uppercase tracking-wider">Imports</p>
+          <p className="text-pt-muted text-xs">Imports</p>
           {jobs === null && <p className="text-pt-muted text-sm">Loading…</p>}
           {jobs?.length === 0 && <p className="text-pt-muted text-sm">None yet.</p>}
           {jobs?.map(j => {

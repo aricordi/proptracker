@@ -386,7 +386,7 @@ export default function AddItemScreen() {
 
         {/* Category */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Category{aiFilled.has('category') && <AiMark />}</p>
+          <p className="text-pt-muted text-xs mb-2">Category{aiFilled.has('category') && <AiMark />}</p>
           <div className="flex gap-2 flex-wrap">
             {categories.filter(c => c.active || c.id === categoryId).map(c => (
               <button
@@ -408,7 +408,7 @@ export default function AddItemScreen() {
         {/* Quantity + replacement cost */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Quantity</p>
+            <p className="text-pt-muted text-xs mb-2">Quantity</p>
             <input
               value={quantity}
               onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
@@ -419,7 +419,7 @@ export default function AddItemScreen() {
             <p className="text-pt-muted text-xs mt-1">1 = one-of-a-kind</p>
           </div>
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Replacement cost</p>
+            <p className="text-pt-muted text-xs mb-2">Replacement cost</p>
             <input
               value={replacementCost}
               onChange={e => setReplacementCost(e.target.value)}
@@ -437,7 +437,7 @@ export default function AddItemScreen() {
         {/* Which inventory (owner only; the arts department only adds Prime Capitol props) */}
         {isOwner && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Belongs to</p>
+            <p className="text-pt-muted text-xs mb-2">Belongs to</p>
             <div className="flex gap-2">
               {(['company', 'personal'] as PropCollection[]).map(c => (
                 <button key={c} type="button" onClick={() => setCollection(c)}
@@ -452,7 +452,7 @@ export default function AddItemScreen() {
 
         {/* Condition */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Condition</p>
+          <p className="text-pt-muted text-xs mb-2">Condition</p>
           <div className="flex gap-2">
             {(['good', 'fair', 'damaged'] as Condition[]).map(c => (
               <button
@@ -473,7 +473,7 @@ export default function AddItemScreen() {
 
         {/* Location */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Storage area</p>
+          <p className="text-pt-muted text-xs mb-2">Storage area</p>
           <select
             value={locationId}
             onChange={e => { setLocationId(e.target.value); setBinId('') }}
@@ -489,7 +489,7 @@ export default function AddItemScreen() {
         {/* Bin — only shown when location has bins */}
         {locationId && filteredBins.length > 0 && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Bin</p>
+            <p className="text-pt-muted text-xs mb-2">Bin</p>
             <select
               value={binId}
               onChange={e => setBinId(e.target.value)}
@@ -505,14 +505,14 @@ export default function AddItemScreen() {
 
         {/* Tags */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Tags{aiFilled.has('tags') && <AiMark />}</p>
+          <p className="text-pt-muted text-xs mb-2">Tags{aiFilled.has('tags') && <AiMark />}</p>
           <TagInput value={tagLabels} onChange={setTagLabels} suggestions={tags} />
 
         </div>
 
         {/* Character */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Character (optional, arts dept only)</p>
+          <p className="text-pt-muted text-xs mb-2">Character (optional, arts dept only)</p>
           <CharacterInput value={characterLabels} onChange={setCharacterLabels} suggestions={characters} />
         </div>
 
@@ -531,7 +531,7 @@ export default function AddItemScreen() {
         {showMore && (
           <div className="space-y-4">
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Description{aiFilled.has('description') && <AiMark />}</p>
+              <p className="text-pt-muted text-xs mb-2">Description{aiFilled.has('description') && <AiMark />}</p>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
@@ -541,7 +541,7 @@ export default function AddItemScreen() {
               />
             </div>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Extra search words{aiFilled.has('searchWords') && <AiMark />}</p>
+              <p className="text-pt-muted text-xs mb-2">Extra search words{aiFilled.has('searchWords') && <AiMark />}</p>
               <textarea
                 value={searchWords}
                 onChange={e => setSearchWords(e.target.value)}
@@ -552,7 +552,7 @@ export default function AddItemScreen() {
               <p className="text-pt-muted text-xs mt-1">Not shown on the prop page. Search uses them to find this prop.</p>
             </div>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Notes for creators</p>
+              <p className="text-pt-muted text-xs mb-2">Notes for creators</p>
               <textarea
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
@@ -562,7 +562,7 @@ export default function AddItemScreen() {
               />
             </div>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Internal notes (arts dept only)</p>
+              <p className="text-pt-muted text-xs mb-2">Internal notes (arts dept only)</p>
               <textarea
                 value={internalNotes}
                 onChange={e => setInternalNotes(e.target.value)}
@@ -572,7 +572,7 @@ export default function AddItemScreen() {
               />
             </div>
             <div>
-              <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Where to rebuy (optional)</p>
+              <p className="text-pt-muted text-xs mb-2">Where to rebuy (optional)</p>
               <input
                 value={whereToRebuy}
                 onChange={e => setWhereToRebuy(e.target.value)}

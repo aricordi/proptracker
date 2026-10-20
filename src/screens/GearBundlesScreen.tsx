@@ -44,7 +44,7 @@ export default function GearBundlesScreen() {
         {bundles && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">{showArchived ? 'Nothing archived.' : 'Nothing offered to creators yet.'}</p>}
         {sections.filter(s => s.list.length).map(s => (
           <div key={s.title} className="space-y-2">
-            <p className="text-pt-muted text-xs uppercase tracking-wider">{s.title} <span className="normal-case tracking-normal">· {s.note}</span></p>
+            <p className="text-pt-muted text-xs">{s.title} <span className="normal-case tracking-normal">· {s.note}</span></p>
         {s.list.map(b => (
           <div key={b.id} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
             <button onClick={() => !b.archived && navigate(`/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">

@@ -12,6 +12,7 @@ import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
 import { formatDay } from '../lib/dates'
+import { Icon } from '../components/Icon'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
 const ACTIONS: Record<string, string> = { edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
@@ -86,7 +87,7 @@ export default function GearBookingScreen() {
         {step !== undefined && (
           <div className="space-y-1">
             <div className="grid grid-cols-4 gap-1">{STEPS.map((_, i) => <div key={i} className={`h-1.5 rounded-full ${i <= step ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</div>
-            <div className="grid grid-cols-4 gap-1 text-[11px] text-center">{STEPS.map((s, i) => <span key={s} className={i === step ? 'text-pt-accent' : 'text-pt-muted'}>{s}</span>)}</div>
+            <div className="grid grid-cols-4 gap-1 text-xs text-center">{STEPS.map((s, i) => <span key={s} className={i === step ? 'text-pt-accent' : 'text-pt-muted'}>{s}</span>)}</div>
           </div>
         )}
 
@@ -113,7 +114,7 @@ export default function GearBookingScreen() {
         {/* ── Pickup check (creator, in the pickup window) ── */}
         {b.status === 'held' && (mine || isGearStaff) && (win === 'early' ? (
           <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">
-            🕓 At pickup you'll open the case and tick every piece. It opens at {fmtTime(stampMin(pickupOpensAt(b.from)))} on {formatDay(b.pickupDay)}.
+            <Icon name="clock" className="w-4 h-4 inline -mt-0.5 mr-1" />At pickup you'll open the case and tick every piece. It opens at {fmtTime(stampMin(pickupOpensAt(b.from)))} on {formatDay(b.pickupDay)}.
           </p>
         ) : win === 'open' ? (
           <section className="space-y-3">
@@ -167,7 +168,7 @@ export default function GearBookingScreen() {
 
         {b.return?.photos?.length ? (
           <div className="space-y-2">
-            <p className="text-pt-muted text-xs uppercase tracking-wider px-1">Return photo{b.return.photos.length > 1 ? 's' : ''}</p>
+            <p className="text-pt-muted text-xs px-1">Return photo{b.return.photos.length > 1 ? 's' : ''}</p>
             <div className="flex gap-2">{b.return.photos.map(u => (
               <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)}><img loading="lazy" decoding="async" src={u} alt="" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>
             ))}</div>
@@ -201,7 +202,7 @@ export default function GearBookingScreen() {
 
         {b.status === 'held' && mine && <ChangeGear b={b} />}
 
-        {b.notes && <div className="bg-pt-surface rounded-2xl px-4 py-3"><p className="text-pt-muted text-xs uppercase tracking-wider mb-1">Notes</p><p className="text-pt-text text-[15px] whitespace-pre-wrap">{b.notes}</p></div>}
+        {b.notes && <div className="bg-pt-surface rounded-2xl px-4 py-3"><p className="text-pt-muted text-xs mb-1">Notes</p><p className="text-pt-text text-[15px] whitespace-pre-wrap">{b.notes}</p></div>}
 
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
 
@@ -231,7 +232,7 @@ export default function GearBookingScreen() {
         ))}
 
         <div className="space-y-1 pt-2">
-          <p className="text-pt-muted text-xs uppercase tracking-wider px-1">History</p>
+          <p className="text-pt-muted text-xs px-1">History</p>
           {b.history.map((h, i) => (
             <p key={i} className="text-pt-muted text-sm px-1">{new Date(h.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {ACTIONS[h.action] ?? h.action}{h.note && h.action !== 'held' ? ` · ${h.note}` : ''}</p>
           ))}

@@ -17,7 +17,7 @@ interface Props {
 export default function DateRangePicker({ start, end, min, onChange, leadTimeNote, compact, maxDays }: Props) {
   // min-h keeps the box full-size even while empty (phones shrink empty date fields).
   const input = 'block w-full min-w-0 min-h-[3.25rem] appearance-none bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text text-lg focus:outline-none focus:border-pt-accent [color-scheme:dark]'
-  const label = 'text-pt-muted text-xs uppercase tracking-wider'
+  const label = 'text-pt-muted text-[13px]'
   const single = maxDays === 1
   const settings = useBookingSettings()
   const pickup = start ? pickupDay(start, settings) : null

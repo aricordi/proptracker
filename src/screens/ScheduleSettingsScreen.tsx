@@ -36,7 +36,7 @@ export default function ScheduleSettingsScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-28">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[32px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">Schedule settings</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
@@ -194,7 +194,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: s
   return (
     <section className="bg-pt-surface rounded-2xl p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-pt-text font-semibold">📅 Shared Google Calendar</h2>
+        <h2 className="text-pt-text font-semibold">Shared Google Calendar</h2>
         {connected && <span className="rounded-full px-3 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Connected</span>}
       </div>
       {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm tap">Open Google Cloud → tap Enable ›</a>)}

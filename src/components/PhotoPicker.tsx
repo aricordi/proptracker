@@ -57,9 +57,9 @@ export default function PhotoPicker({ photos, onAdd, onRemove, onMakeCover, max 
               </div>
             )}
             {i === 0
-              ? <span className="absolute top-1 left-1 bg-pt-accent text-stone-900 text-[10px] font-semibold px-2 py-0.5 rounded">Cover</span>
+              ? <span className="absolute top-1 left-1 bg-pt-accent text-stone-900 text-xs font-semibold px-2 py-0.5 rounded">Cover</span>
               : <button type="button" onClick={() => onMakeCover(p.key)}
-                  className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded active:opacity-70">
+                  className="absolute top-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded active:opacity-70">
                   Make cover
                 </button>
             }

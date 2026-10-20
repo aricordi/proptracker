@@ -56,7 +56,7 @@ export default function EmailSettingsScreen() {
   }
 
   const input = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent'
-  const label = 'text-pt-muted text-xs uppercase tracking-wider'
+  const label = 'text-pt-muted text-[13px]'
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">

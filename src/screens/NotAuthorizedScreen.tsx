@@ -1,5 +1,6 @@
 import { signOut, User } from 'firebase/auth'
 import { auth } from '../firebase'
+import { Icon } from '../components/Icon'
 
 interface Props {
   user: User
@@ -8,7 +9,7 @@ interface Props {
 export default function NotAuthorizedScreen({ user }: Props) {
   return (
     <div className="min-h-screen bg-pt-bg flex flex-col items-center justify-center p-8 text-center pt-safe">
-      <div className="text-5xl mb-4">🔒</div>
+      <Icon name="lock" className="w-12 h-12 mb-4 text-pt-muted mx-auto" />
       <h1 className="font-display text-2xl text-pt-text mb-2">You're not on the list yet</h1>
       <p className="text-pt-muted text-sm mb-6 max-w-sm">
         You're signed in as <span className="text-pt-text break-all">{user.email}</span>,

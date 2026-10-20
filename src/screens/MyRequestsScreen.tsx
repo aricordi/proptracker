@@ -44,8 +44,8 @@ export default function MyRequestsScreen() {
       <div key={g.key} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
         <button onClick={() => sh && navigate(`/schedule?shoot=${sh.id}`)} disabled={!sh} className="w-full flex items-center gap-3 text-left px-1">
           <span className="w-12 shrink-0 text-center">
-            <span className="block text-[11px] font-semibold text-pt-accent">{WEEKDAY[d.getDay()]}</span>
-            <span className="block text-[24px] font-bold leading-none text-pt-text">{d.getDate()}</span>
+            <span className="block text-xs font-semibold text-pt-accent">{WEEKDAY[d.getDay()]}</span>
+            <span className="block text-[22px] font-bold leading-none text-pt-text">{d.getDate()}</span>
           </span>
           <span className="flex-1 min-w-0">
             <b className="block text-pt-text text-[15px] truncate">{sh ? label(sh) : `${formatDay(g.date)} · shoot day`}</b>
@@ -54,11 +54,11 @@ export default function MyRequestsScreen() {
           {sh && <span className="text-pt-muted">›</span>}
         </button>
         {g.props.map(r => (
-          <RequestRow key={r.id} className="bg-pt-bg" label="🎬 Props & costumes" late={isLate(r.status, r.endDate, settings)}
+          <RequestRow key={r.id} className="bg-pt-bg" label="Props & costumes" late={isLate(r.status, r.endDate, settings)}
             l={{ id: r.id, kind: 'props', title: r.title, status: r.status, count: r.lines.length + (r.builds ?? []).length }} />
         ))}
         {g.gear.map(b => (
-          <RequestRow key={b.id} className="bg-pt-bg" label={`🎥 Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`} late={isGearLate(b, now)}
+          <RequestRow key={b.id} className="bg-pt-bg" label={`Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`} late={isGearLate(b, now)}
             l={{ id: b.id, kind: 'gear', title: b.title, status: b.status, count: b.lines.length }} />
         ))}
         {canAdd && (

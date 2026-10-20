@@ -23,6 +23,7 @@ import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar from '../components/AddingToBar'
 import { addOpenDays } from '../../functions/src/booking'
+import { Icon } from '../components/Icon'
 
 const shootIdNew = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 const errMsg = (err: unknown) => err instanceof FirebaseError ? (err.message.replace(/^.*?:\s*/, '') || 'Could not book.') : "Couldn't reach the server. Check your connection and try again."
@@ -183,7 +184,7 @@ export default function ReserveScreen() {
 
         <div>
           <div className="flex items-baseline justify-between mb-2">
-            <p className="text-pt-muted text-xs uppercase tracking-wider">Props ({lines.length}) · arts department</p>
+            <p className="text-pt-muted text-xs">Props ({lines.length}) · arts department</p>
             <button onClick={() => navigate(shootFlow ? '/browse' : '/')} className="text-pt-accent text-sm tap">+ Add props</button>
           </div>
           {lines.length === 0 && cart.builds.length === 0 && (
@@ -216,12 +217,12 @@ export default function ReserveScreen() {
 
         {/* Things to build or source */}
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">To build or source ({cart.builds.length})</p>
+          <p className="text-pt-muted text-xs mb-2">To build or source ({cart.builds.length})</p>
           <div className="space-y-2">
             {cart.builds.map(b => (
               <div key={b.key} className="flex items-center gap-3 bg-pt-surface border border-violet-500/40 rounded-2xl p-3">
                 <div className="w-14 h-14 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-2xl">
-                  {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : '🛠️'}
+                  {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : <Icon name="tools" className="w-6 h-6 text-violet-300" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-pt-text text-sm">{b.description}</p>
@@ -260,7 +261,7 @@ export default function ReserveScreen() {
         {/* Gear (equipment team) */}
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">
-            <p className="text-pt-muted text-xs uppercase tracking-wider">Gear ({gearLines.length}) · equipment team</p>
+            <p className="text-pt-muted text-xs">Gear ({gearLines.length}) · equipment team</p>
             <button onClick={() => navigate('/gear')} className="text-pt-accent text-sm tap">+ Add gear</button>
           </div>
           {!hasGear && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No gear yet. Cameras, lights and sound come as bundles.</p>}

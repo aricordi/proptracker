@@ -96,7 +96,7 @@ export default function UsersScreen() {
 function Section({ title, empty, children }: { title: string; empty?: string; children?: React.ReactNode }) {
   return (
     <div>
-      <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">{title}</p>
+      <p className="text-pt-muted text-xs mb-2">{title}</p>
       <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
         {empty ? <p className="px-4 py-3 text-pt-muted text-sm">{empty}</p> : children}
       </div>
@@ -233,7 +233,7 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
           type="email" inputMode="email" autoCapitalize="none" className={inputClass} />
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Name (optional)" className={inputClass} />
         <div>
-          <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Access</p>
+          <p className="text-pt-muted text-xs mb-2">Access</p>
           <RolePicker value={role} onChange={setRole} isOwner={isOwner} />
         </div>
         {message && <p className="text-amber-400 text-sm">{message}</p>}
@@ -278,7 +278,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
         </button>
         {isOwner && (
           <div>
-            <p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Access</p>
+            <p className="text-pt-muted text-xs mb-2">Access</p>
             <RolePicker value={role} onChange={setRole} isOwner={isOwner} />
             {role !== user.role && (
               <button onClick={() => save({ role })} disabled={busy}

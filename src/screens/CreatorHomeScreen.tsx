@@ -1,3 +1,4 @@
+import { Icon } from '../components/Icon'
 // Creators' home: the next shoot and what it still needs (check in from here), search,
 // your usual props and gear, monthly slots + filming streak, things to do, what's coming up.
 import { NotificationsNudge } from '../components/Notifications'
@@ -123,7 +124,7 @@ export default function CreatorHomeScreen() {
             <button onClick={() => navigate('/account')} aria-label="Me"><Avatar email={profile.email} name={profile.name || profile.email} size={34} /></button>
           </span>
         </div>
-        <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mt-1">{formatDay(today, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+        <p className="text-pt-muted text-xs font-semibold mt-1">{formatDay(today, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         <h1 className="font-display text-[34px] leading-tight font-extrabold tracking-tight">{first ? `Hey ${first}` : 'Home'}</h1>
       </div>
 
@@ -142,7 +143,7 @@ export default function CreatorHomeScreen() {
             style={{ background: 'radial-gradient(120% 90% at 100% 0%, rgba(235,211,153,.28), transparent 55%), linear-gradient(160deg, #2b2416, #141210 70%)' }}>
             <BrandMark className="absolute -right-10 top-4 w-56 text-white/[0.06] pointer-events-none" title="" />
             <span className="relative flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#EBD399]">Next shoot</span>
+              <span className="text-xs font-semibold text-[#EBD399]">Next shoot</span>
               <span className="text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/20 text-[#EBD399]">{inDays(next.date, today)}</span>
             </span>
             <span className="relative block font-display text-[44px] leading-[0.95] font-extrabold tracking-tighter mt-2">{formatDay(next.date, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
@@ -199,21 +200,21 @@ export default function CreatorHomeScreen() {
         <div className="grid grid-cols-2 gap-3">
           {!MONTHLY_SLOTS_ON ? (
           <button onClick={() => navigate('/schedule')} className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2 text-left">
-            <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">This month</span>
-            <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{monthShoots} 🎬</span>
+            <span className="text-xs font-semibold text-pt-muted">This month</span>
+            <span className="font-display text-[28px] leading-none font-extrabold tracking-tight">{monthShoots}</span>
             <span className="text-pt-muted text-[13px]">{monthShoots === 1 ? 'shoot' : 'shoots'} booked</span>
           </button>
           ) : (
           <button onClick={() => navigate('/schedule')} className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2 text-left">
-            <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">Monthly slots</span>
-            <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{monthlyLeft} left</span>
+            <span className="text-xs font-semibold text-pt-muted">Monthly slots</span>
+            <span className="font-display text-[28px] leading-none font-extrabold tracking-tight">{monthlyLeft} left</span>
             <span className="flex gap-2">{Array.from({ length: s.monthlySlots }, (_, i) => <i key={i} className={`flex-1 h-2 rounded ${i < monthlyUsed ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>
             <span className="text-pt-muted text-[13px]">at {s.houses.cliff1.name} this month</span>
           </button>
           )}
           <div className="bg-pt-surface rounded-[20px] p-4 flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-pt-muted">Streak</span>
-            <span className="font-display text-[30px] leading-none font-extrabold tracking-tight">{streak} 🔥</span>
+            <span className="text-xs font-semibold text-pt-muted">Streak</span>
+            <span className="font-display text-[28px] leading-none font-extrabold tracking-tight">{streak}<Icon name="flame" className="w-6 h-6 inline ml-1 -mt-1 text-pt-accent" /></span>
             <span className="text-pt-muted text-[13px]">{streak === 1 ? 'shoot' : 'shoots'} filmed in a row{status?.strikes ? ` · ${status.strikes} strike${status.strikes > 1 ? 's' : ''}` : '. No strikes.'}</span>
           </div>
         </div>
@@ -241,7 +242,7 @@ export default function CreatorHomeScreen() {
               {upcoming.slice(1, 12).map(x => (
                 <button key={x.id} onClick={() => open(x.id)} className="w-full flex items-center gap-3 px-4 py-4 text-left">
                   <span className="w-12 text-center shrink-0">
-                    <span className="block text-[11px] uppercase tracking-wider text-pt-muted">{formatDay(x.date, { weekday: 'short' })}</span>
+                    <span className="block text-xs text-pt-muted">{formatDay(x.date, { weekday: 'short' })}</span>
                     <b className="block font-display text-xl leading-none font-extrabold">{Number(x.date.slice(8))}</b>
                   </span>
                   <span className="flex-1 min-w-0">
