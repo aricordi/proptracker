@@ -15,6 +15,7 @@ import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 const HomeScreen = lazy(() => import('./screens/HomeScreen'))
 const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
+const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
 const GearTour = lazy(() => import('./tour/GearTour'))
@@ -298,6 +299,7 @@ export default function App() {
           <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/requests" element={<MyRequestsScreen />} />
+          <Route path="/shoots" element={<MyShootsScreen />} />
           <Route path="/return" element={<ReturnAllScreen />} />
           <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
           <Route path="/calendar" element={<StaffOnly><RequestsCalendarScreen /></StaffOnly>} />

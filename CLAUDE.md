@@ -1191,6 +1191,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       → HOURS SHRINK: leaveCrew (friend leaves or their shoot is cancelled) recomputes crewHours of the booker + remaining crew;
       if smaller (the leaver was at the start/end), the booking's start/end/from/to and its gear_holds entries shrink so that
       slot frees up. History "… · gear now 1 PM–3 PM". Tests 417.
+    - MY SHOOTS (owner, Oct 20: "a shortlist of just my shoots… when they're coming up and how I can get prepped"; app only,
+      NO server change; preview only, live needs OK): `/shoots` = `src/screens/MyShootsScreen.tsx`: tabs Coming up (n) / Past
+      (120 days, Filmed ✓ / No-show / Not checked in). Coming up grouped Today / This week / Later, soonest first; card = date
+      block, place · slot, "Today/Tomorrow/In N days" (`whenLabel` in src/lib/dates.ts) + the request's video name; prep chips
+      Props / Gear: gold "✓ Props: Packed & ready" (status words exported from ShootNeeds.tsx; gear incl. a friend's shared
+      gear) or dashed "+ Props by <cutoff>" (choose(shoot) → /browse or /gear) or one muted "too late" line; Check in button
+      when the window is open; violet "Plan props and gear with AI" when nothing is added yet. Entry: Book screen "Your shoots"
+      strip (replaced the today-only next-shoot card; up to 6 cards, tap opens the shoot sheet on its day/house; "All my
+      shoots ›"), Home "Coming up" header "All my shoots ›", Me → My shoots, Help entry. Book tab lights up on /shoots.
+      Tour ch1 tabs text mentions it.
     - LIVE Oct 20 (owner "ok on all"): backend run 39 + website run 32 (everything through shared gear, who used it, hand-over,
       gear team tour, big feedback round) + "Add test gear" run 1 (FX3, 2× A7S III, Mavic Air + Mini 5 kits on the live app).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules

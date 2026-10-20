@@ -237,10 +237,14 @@ export default function CreatorHomeScreen() {
         )}
 
         {/* Coming up */}
-        {upcoming.length > 1 && (
+        {upcoming.length > 0 && (
           <section className="space-y-3">
-            <h2 className="text-xl font-bold tracking-tight">Coming up</h2>
-            <div className="bg-pt-surface rounded-[20px] divide-y divide-white/[0.06]">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-xl font-bold tracking-tight">Coming up</h2>
+              <button onClick={() => navigate('/shoots')} className="text-pt-accent text-sm font-semibold tap">All my shoots ›</button>
+            </div>
+            {upcoming.length === 1 && <p className="text-pt-muted text-sm">Just the one above. Book another below.</p>}
+            {upcoming.length > 1 && <div className="bg-pt-surface rounded-[20px] divide-y divide-white/[0.06]">
               {upcoming.slice(1, 12).map(x => (
                 <button key={x.id} onClick={() => open(x.id)} className="w-full flex items-center gap-3 px-4 py-4 text-left">
                   <span className="w-12 text-center shrink-0">
@@ -255,7 +259,7 @@ export default function CreatorHomeScreen() {
                   <span className="text-pt-muted">›</span>
                 </button>
               ))}
-            </div>
+            </div>}
           </section>
         )}
         {upcoming.length > 0 && (

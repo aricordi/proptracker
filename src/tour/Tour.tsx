@@ -177,7 +177,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     // 1 · Find your way around
     intro(1, 'home', 'Quick lay of the land before the fun stuff. Two things you will use every single day.'),
     { id: 'tabs', scene: 'home', part: 1, target: 'tabbar', look: true, next: C, title: 'These four tabs are your whole world',
-      body: ul([['Home', 'your next shoot and what it still needs'], ['Book', 'grab a time at the house'], ['Browse', 'every prop, costume and gear kit'], ['Me', 'your profile, help and this tour']]) },
+      body: ul([['Home', 'your next shoot and what it still needs ("All my shoots" lists every one)'], ['Book', 'grab a time at the house; your own shoots sit at the top'], ['Browse', 'every prop, costume and gear kit'], ['Me', 'your profile, help and this tour']]) },
     { id: 'reqrow', scene: 'home', part: 1, target: 'myreqrow', look: true, next: C, title: 'Everything you asked for: My requests',
       body: 'Every props request and gear booking, one card per shoot. On Book and Browse it is the box button next to ✦ AI.' },
     { id: 'aibtn', scene: 'home', part: 1, target: 'ai', look: true, next: C, title: "See this purple button? That's the AI", body: "It finds props for a video idea, or a free time to film. We'll take it for a spin in chapter 5." },

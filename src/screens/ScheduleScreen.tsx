@@ -15,7 +15,7 @@ import AiButton from '../components/AiButton'
 import { useAssistant } from '../assistant'
 import { Pill } from '../components/GearUi'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
-import { formatDay } from '../lib/dates'
+import { whenLabel, formatDay } from '../lib/dates'
 import { useProfiles } from '../services/profiles'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
@@ -161,13 +161,24 @@ export default function ScheduleScreen() {
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}
         {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
 
-        {!team && next && date === today && (
-          <button onClick={() => setSheet({ kind: 'shoot', id: next.id })}
-            className="w-full text-left rounded-2xl p-4 bg-pt-accent/[0.12] shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.4)]">
-            <span className="text-xs text-pt-accent font-semibold">{next.date === today ? 'Today' : 'Your next shoot'}</span>
-            <p className="text-pt-text text-lg font-semibold">{next.date === today ? '' : `${formatDay(next.date)} · `}{fmtSlot(next.start, next.end - next.start)}</p>
-            <p className="text-pt-muted text-sm">{next.place === 'offsite' ? next.where : `${s.houses[next.place].name} · ${s.houses[next.place].address}`}{mine!.length > 1 ? ` · ${mine!.length - 1} more coming up` : ''}</p>
-          </button>
+        {/* Your own shoots at a glance (owner, Oct 20): soonest first, tap one to open it, "All" for the full list. */}
+        {next && (
+          <section className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-pt-text text-[15px] font-semibold">Your shoots</h2>
+              <button onClick={() => navigate('/shoots')} className="text-pt-accent text-sm tap">All my shoots ›</button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+              {(mine ?? []).filter(x => x.to > now).slice(0, 6).map(x => (
+                <button key={x.id} onClick={() => { setDate(x.date); if (x.place !== house) setHouse(x.place); setSheet({ kind: 'shoot', id: x.id }) }}
+                  className={`shrink-0 w-[148px] text-left rounded-2xl px-3 py-3 ${x.date === today ? 'bg-pt-accent/[0.16] shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]' : 'bg-pt-surface shadow-hairline'}`}>
+                  <span className={`block text-xs font-semibold ${x.date === today ? 'text-pt-accent' : 'text-pt-muted'}`}>{whenLabel(x.date, today)}</span>
+                  <span className="block text-pt-text font-semibold leading-tight mt-0.5">{formatDay(x.date, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                  <span className="block text-pt-muted text-xs truncate mt-0.5">{fmtSlot(x.start, x.end - x.start)} · {x.place === 'offsite' ? (x.where || 'Offsite') : s.houses[x.place].name}</span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* Three clearly separate things: book (gold), the AI helper (violet), and the calendar link (at the bottom) */}

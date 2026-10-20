@@ -12,11 +12,11 @@ import type { Shoot } from '../services/schedule'
 
 export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear'; sharedBy?: string; sharedWith?: string }
 
-const PROP_WORDS: Record<string, string> = {
+export const PROP_WORDS: Record<string, string> = {
   requested: 'Requested', preparing: 'Being prepared', packed: 'Packed & ready', collected: 'Picked up',
   return_pending: 'Returned, being checked', returned: 'Returned', declined: 'Declined', cancelled: 'Cancelled',
 }
-const GEAR_WORDS: Record<string, string> = {
+export const GEAR_WORDS: Record<string, string> = {
   held: 'Held', out: 'Picked up', returned: 'Returned', checked_in: 'Checked in', declined: 'Declined', cancelled: 'Cancelled',
 }
 

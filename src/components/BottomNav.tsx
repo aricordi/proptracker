@@ -74,7 +74,7 @@ const homeIcon = (
 // Creators: everything revolves around the shoot (Home → Book a time → Browse props + gear → Me).
 const creatorNav = [
   { to: '/',         label: 'Home',   icon: homeIcon },
-  { to: '/schedule', label: 'Book',   icon: scheduleIcon },
+  { to: '/schedule', label: 'Book',   icon: scheduleIcon, also: ['/shoots'] },
   { to: '/browse',   label: 'Browse', icon: searchIcon, also: ['/gear', '/item'] },
   { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/reservations', '/gear/bookings', '/requests'] },
 ]
