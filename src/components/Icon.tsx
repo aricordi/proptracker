@@ -36,6 +36,10 @@ const PATHS = {
   party: <path d="M4 20 8.5 8.5l7 7zM14 4.5l.5 2M18.5 9.5l2 .5M16.5 6.5 19 4M11 7c1-1 1.5-2.5 1-4M17 13c1-1 2.5-1.5 4-1" />,
   search: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></>,
   file: <><path d="M6.5 3.5H14L19 8.5v10.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V5a1.5 1.5 0 0 1 1.5-1.5z" /><path d="M14 3.5v5h5" /></>,
+  filter: <path d="M4 5.5h16l-6.2 7.3v5.4l-3.6 1.8v-7.2z" />,
+  table: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10" /></>,
+  download: <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />,
+  chart: <path d="M4 19.5h16M7 16v-5M12 16V7M17 16v-3" />,
   star: <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />,
 }
 export type IconName = keyof typeof PATHS

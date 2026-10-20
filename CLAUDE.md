@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 400 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 432 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1272,6 +1272,31 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       photos) with what it means + "Changed by", edit links (booking rules for admins, schedule settings for the owner), and what
       each flag means. Admin tour: dashboard scene + steps dashlook / analyticslook / adminlook, tabs Dashboard first. Tests 427.
       Not built (say if wanted): flag for reused/undated proof photos (needs Storage metadata per photo), per-staff queue screens.
+    - ANALYTICS V2, YOUTUBE STUDIO STYLE (owner, Oct 20: "like a famous app… simple at every level of drill down, dive deep and zoom
+      out without getting confusing"; app only, NO server/rules change; preview only, live needs OK). Engine `src/lib/insights.ts`
+      (pure, tests/unit/insights.test.ts) on top of analytics.ts: PRESETS 7d/28d/12w (default)/6m/12m/this month/last month
+      (rangeFor; compared with the SAME NUMBER OF DAYS just before, last month vs the month before), customRange (zoomed: a column,
+      week/month row), grainsFor/defaultGrain (3–31 columns; day/week/month), slice(scope: email/house/kinds), METRICS (filmed,
+      booked, showRate, creators, perCreator, flags, serious, flagged, open, packed, packOnTime, packTime, propsChecked,
+      propsCheckTime, gearChecked, gearCheckTime; fmt + better up/down + plain "means"), compare ("↑ 12%", "↓ 6 pts", "About the
+      same" under 5%/3 pts, "New"), seriesOf, rowsBy(DIMS creator/house/period/theme/kind/staff), sortRows, toCsv. Data hook
+      `src/hooks/useAnalytics.ts`. Parts `src/components/analytics/Parts.tsx`: MetricCards (YouTube metric strip; the selected
+      card drives the chart), ColumnChart (SVG, ResizeObserver, dashed AVERAGE line, tap a column → details line + "Zoom in"),
+      SectionHead, RankList (bars), NeedsYou + needsYouItems (live: missed check-ins, reports, late out, props to pack, returns to
+      check, paused). AnalyticsScreen: header ‹ Back + Advanced view (table icon) + Settings sheet icon, date-range pill (sheet:
+      presets + "Show the chart by"), "Zoom out" pill when zoomed; sticky underline tabs Overview / Creators / Flags / Teams +
+      scope row (Filter sheet: house, flag type, creator; chips with × and "›" between). EVERY TAB = headline sentence ("5 creators
+      filmed 98 shoots in the last 12 weeks" + "Up 11% on…") → metric cards → chart → ranked lists with See more. Every drill is a
+      PUSHED history entry (phone Back = zoom out one step); tab/metric/sort changes replace. Overview: Needs you now, Top creators,
+      Flags by type, Where they film. Creators: every creator (sort Most filming / Lowest show-up / Most flags) → person view (Record ›,
+      what they filmed, their flags by kind, every shoot; lists capped at 5 + Show all). Flags: By type → kinds → every flag (opens
+      the shoot/request), Who has the most, Latest. Teams: headline, cards, chart, Right now tiles, arts + equipment per person.
+      ADVANCED VIEW (?view=table&dim&sort&dir): Break down by chips, chart of the sorted metric, table (sticky first column, Total
+      row, tap a column title to sort, bar under the sorted value, tap a row to drill: creator → flag type → flag → creator; house →
+      creator; week/month → zoom + creator), "Download as a spreadsheet" (CSV), "What these columns mean". Dashboard
+      (CreatorDashboard) now uses the same engine + parts (7 days / 28 days default / 12 weeks, headline, cards, chart, Open
+      analytics / Settings sheet, Needs you now, Needs attention, Top creators; rows open Analytics narrowed). Admin tour dashboard
+      scene + texts updated. creatorStats.ts still drives /creators and /people. Tests 432.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

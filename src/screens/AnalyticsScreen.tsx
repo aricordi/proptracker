@@ -1,346 +1,481 @@
-// Analytics (owner + admins; owner, Oct 20: "track what each creator is producing weekly and monthly, averages over time,
-// what kind of flags, drill down like Power BI, and the props + equipment teams' work"). View only.
-// Drill-down: tap a bar to focus on that week/month, a creator row to focus on that person, a theme or flag type to see
-// every incident; the chips at the top show what's focused and clear it with ×. Numbers come from src/lib/analytics.ts.
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+// Analytics v2 (owner + admins, view only). Owner, Oct 20: "like a famous app… simple to read at every level of drill
+// down, dive deep and zoom out without getting confusing". Modelled on YouTube Studio's analytics:
+// - ONE date range at a time (Last 7 days … Last 12 months, This/Last month), every number compared with the same
+//   length of time just before ("↑ 12% vs the 12 weeks before").
+// - Tabs Overview / Creators / Flags / Teams, each the same shape: headline sentence → metric cards (pick what the chart
+//   shows) → one column chart with a dashed average → ranked lists with "See more".
+// - Drill-down by tapping: a column zooms into that week/month, a person/house/flag type narrows everything to it.
+//   Every drill is a new page in the history, so the phone's Back (or ‹ Back) zooms out one step; the chips under the
+//   tabs show what's narrowed and clear it with ×.
+// - "Advanced view" (table icon / See more) = the Power BI part: break any number down by creator, house, week or month,
+//   flag type, flag or staff member, sort any column, tap a row to drill in, export as a spreadsheet (CSV).
+// Numbers come from src/lib/analytics.ts (what happened) and src/lib/insights.ts (ranges, metrics, breakdowns).
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
-import { subscribeToUsers } from '../services/users'
-import { subscribeToReservations, type Reservation } from '../services/reservations'
-import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useShootsSince, useReportsSince, useStrikesSince, useInvitesSince } from '../services/schedule'
-import { useBookingSettings } from '../hooks/useBookings'
-import { todayInStudio, addDays } from '../../functions/src/booking'
-import { nowStamp } from '../../functions/src/gearBooking'
+import BottomSheet from '../components/BottomSheet'
+import { Icon } from '../components/Icon'
+import { MetricCards, ColumnChart, SectionHead, RankList, NeedsYou, needsYouItems, showRateTone } from '../components/analytics/Parts'
+import { useAnalyticsData } from '../hooks/useAnalytics'
 import { formatDay } from '../lib/dates'
-import { analyze, periods as periodList, periodOf, periodLabel, filterAll, series, creatorRows, staffRows, median, KIND, THEMES, SERIOUS_KINDS,
-  type Grain, type House, type Kind, type CreatorRow, type AShoot, type AProps, type AGear, type AReport, type AStrike, type AInvite } from '../lib/analytics'
-import type { AppUser } from '../types'
+import { KIND, THEMES, type House, type Kind } from '../lib/analytics'
+import { PRESETS, rangeFor, customRange, grainsFor, defaultGrain, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, shift,
+  METRICS, DIMS, HOUSE_LABEL, type Preset, type Grain, type Metric, type Dim, type Data, type Range, type Row } from '../lib/insights'
 
-type Tab = 'creators' | 'flags' | 'teams'
-const RANGES: Record<Grain, number[]> = { week: [4, 8, 12], month: [3, 6, 12] }
-const HOUSES: [House | '', string][] = [['', 'Any house'], ['cliff1', 'Cliff 1'], ['cliff2', 'Cliff 2'], ['offsite', 'Offsite']]
-const pct = (x: number | null) => x === null ? '–' : `${Math.round(x * 100)}%`
-const one = (x: number) => (Math.round(x * 10) / 10).toString()
-const hrs = (h: number | null) => h === null ? '–' : h < 24 ? `${Math.round(h)} h` : `${one(h / 24)} days`
+type Tab = 'overview' | 'creators' | 'flags' | 'teams'
+const TABS: [Tab, string][] = [['overview', 'Overview'], ['creators', 'Creators'], ['flags', 'Flags'], ['teams', 'Teams']]
+const DIM_ORDER: Dim[] = ['creator', 'house', 'period', 'theme', 'kind', 'staff']
+const CAP = 5
+const cap = <T,>(xs: T[], all: boolean) => all ? xs : xs.slice(0, CAP)
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 
 export default function AnalyticsScreen() {
   const navigate = useNavigate()
   const [qs, setQs] = useSearchParams()
-  const today = todayInStudio(), now = nowStamp()
-  const closed = useBookingSettings()
-  // Everything lives in the address bar, so Back returns to the same view.
-  const tab = (qs.get('tab') as Tab) || 'creators'
-  const grain = (qs.get('grain') as Grain) || 'week'
-  const n = Number(qs.get('n')) || (grain === 'week' ? 8 : 6)
-  const email = qs.get('who') || '', house = (qs.get('house') as House) || '', focus = qs.get('p') || ''
-  const theme = qs.get('theme') || '', kind = (qs.get('kind') as Kind) || ''
-  const set = (patch: Record<string, string | number | null>) => {
+  const set = (patch: Record<string, string | number | null>, push = false) => {
     const next = new URLSearchParams(qs)
     for (const [k, v] of Object.entries(patch)) { if (v === null || v === '') next.delete(k); else next.set(k, String(v)) }
-    setQs(next, { replace: true })
+    setQs(next, { replace: !push })
   }
+  const drill = (patch: Record<string, string | number | null>) => set(patch, true)
 
-  const all = periodList(grain, today, n)
-  const since = grain === 'month' ? `${all[0]}-01` : all[0]
-  const loadFrom = addDays(today, -370) < since ? since : addDays(today, -370)
-  const shoots = useShootsSince(loadFrom, true)
-  const reports = useReportsSince(loadFrom, true)
-  const strikes = useStrikesSince(loadFrom, true)
-  const invites = useInvitesSince(loadFrom, true)
-  const [users, setUsers] = useState<AppUser[]>([])
-  const [props, setProps] = useState<Reservation[]>([])
-  const [gear, setGear] = useState<GearBooking[]>([])
-  useEffect(() => subscribeToUsers(setUsers), [])
-  useEffect(() => subscribeToReservations({ email: '', all: true }, setProps), [])
-  useEffect(() => subscribeToGearBookings(null, setGear), [])
+  const tab = (qs.get('tab') as Tab) || 'overview'
+  const preset = (PRESETS.some(p => p[0] === qs.get('period')) ? qs.get('period') : '12w') as Preset
+  const zoomFrom = qs.get('from'), zoomTo = qs.get('to')
+  const who = qs.get('who') || '', house = (qs.get('house') as House) || ''
+  const theme = qs.get('theme') || '', kind = (qs.get('kind') as Kind) || ''
+  const table = qs.get('view') === 'table'
 
-  const people = useMemo(() => users.filter(u => u.active && (u.role === 'creator' || u.role === 'admin')).map(u => ({ email: u.email, name: u.name || u.email })), [users])
-  const staffName = (e: string) => users.find(u => u.email === e)?.name || e.split('@')[0]
-  const a = useMemo(() => analyze({ now, closed, shoots: (shoots ?? []) as unknown as AShoot[], props: props as unknown as AProps[], gear: gear as unknown as AGear[],
-    reports: reports as unknown as AReport[], strikes: strikes as unknown as AStrike[], invites: invites as unknown as AInvite[] }), [now, closed, shoots, props, gear, reports, strikes, invites])
-  const shown = focus ? [focus] : all
-  const base = { grain, periods: all, email: email || undefined, house: (house || undefined) as House | undefined }
-  const range = filterAll(a, base)                       // whole range (for the charts)
-  const sel = filterAll(a, { ...base, periods: shown })  // the focused period, or the whole range
-  const chart = series(range.facts, range.incidents, base)
-  const rows = creatorRows(sel.facts, sel.incidents, shown.length, email ? [] : people)
-  const unit = grain === 'week' ? 'week' : 'month'
+  // Load two years back at most: the longest range (12 months) plus the 12 months it's compared with.
+  const { a, people, staffName, pausedNow, loading, today } = useAnalyticsData(shift(today0(), -740))
+  const range: Range = zoomFrom && zoomTo ? customRange(zoomFrom, zoomTo) : rangeFor(preset, today)
+  const grains = grainsFor(range)
+  const grain = (grains.includes(qs.get('g') as Grain) ? qs.get('g') : defaultGrain(range)) as Grain
+  const kinds = kind ? [kind] : theme ? THEMES.find(t => t.key === theme)?.kinds : undefined
+  const scope = { email: who || undefined, house: (house || undefined) as House | undefined, kinds }
+  const cur = useMemo(() => slice(a, range.from, range.to, scope), [a, range.from, range.to, who, house, theme, kind])   // eslint-disable-line react-hooks/exhaustive-deps
+  const prev = useMemo(() => slice(a, range.prevFrom, range.prevTo, scope), [a, range.prevFrom, range.prevTo, who, house, theme, kind])   // eslint-disable-line react-hooks/exhaustive-deps
+  const nameOf = (e: string) => a.names.get(e) ?? people.find(p => p.email === e)?.name ?? e.split('@')[0]
 
-  const chips: [string, () => void][] = [
-    ...(focus ? [[periodLabel(focus, grain, true), () => set({ p: null })] as [string, () => void]] : []),
-    ...(email ? [[a.names.get(email) ?? people.find(p => p.email === email)?.name ?? email, () => set({ who: null })] as [string, () => void]] : []),
-    ...(house ? [[HOUSES.find(h => h[0] === house)![1], () => set({ house: null })] as [string, () => void]] : []),
-    ...(theme ? [[THEMES.find(t => t.key === theme)?.label ?? theme, () => set({ theme: null, kind: null })] as [string, () => void]] : []),
-    ...(kind ? [[KIND[kind].label, () => set({ kind: null })] as [string, () => void]] : []),
+  const [periodOpen, setPeriodOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
+
+  const chips: { label: string; clear: () => void }[] = [
+    ...(who ? [{ label: nameOf(who), clear: () => set({ who: null }) }] : []),
+    ...(house ? [{ label: HOUSE_LABEL[house], clear: () => set({ house: null }) }] : []),
+    ...(theme ? [{ label: THEMES.find(t => t.key === theme)?.label ?? theme, clear: () => set({ theme: null, kind: null }) }] : []),
+    ...(kind ? [{ label: KIND[kind].label, clear: () => set({ kind: null }) }] : []),
   ]
+  const zoomTo_ = (bucket: string) => { const [f, t] = bucketSpan(bucket, grain, range); drill({ from: f, to: t, g: null }) }
+  const ctx: Ctx = { a, cur, prev, range, grain, scope, who, house, theme, kind, people, staffName, nameOf, set, drill, navigate, zoom: zoomTo_, tab, pausedNow }
 
-  if (shoots === null) return <div className="min-h-full bg-pt-bg pt-safe px-4"><p className="text-pt-muted text-sm pt-10 text-center">Loading analytics…</p></div>
+  if (loading) return <div className="min-h-full bg-pt-bg pt-safe px-4"><p className="text-pt-muted text-sm pt-10 text-center">Loading analytics…</p></div>
 
   return (
-    <div className="min-h-full bg-pt-bg pb-12">
-      <div className="pt-safe px-4 pb-3 space-y-2">
-        <div className="flex items-center gap-3">
-          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1">‹ Back</button>
+    <div className="min-h-full bg-pt-bg pb-16">
+      <div className="pt-safe px-4">
+        <div className="flex items-center gap-2">
+          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1 tap">‹ Back</button>
           <span className="flex-1" />
-          <button onClick={() => navigate('/rules-sheet')} className="text-pt-accent text-sm tap">Settings sheet ›</button>
+          <button onClick={() => table ? set({ view: null }) : drill({ view: 'table' })} aria-label={table ? 'Close the advanced view' : 'Advanced view'} title="Advanced view"
+            className={`w-11 h-11 rounded-full grid place-items-center ${table ? 'bg-pt-accent text-stone-900' : 'bg-pt-surface text-pt-text'}`}><Icon name="table" /></button>
+          <button onClick={() => navigate('/rules-sheet')} aria-label="Settings sheet" title="Settings sheet" className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="note" /></button>
         </div>
-        <h1 className="font-display text-[34px] text-pt-text">Analytics</h1>
-        <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
-          {([['creators', 'Creators'], ['flags', 'Flags'], ['teams', 'Teams']] as [Tab, string][]).map(([v, l]) => (
-            <button key={v} onClick={() => set({ tab: v === 'creators' ? null : v })} className={`flex-1 py-2 rounded-[10px] text-sm ${tab === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>
-          ))}
+        <h1 className="font-display text-[34px] text-pt-text leading-tight">{table ? 'Advanced view' : 'Analytics'}</h1>
+        <div className="flex items-center gap-2 mt-1 mb-3 flex-wrap">
+          <button onClick={() => setPeriodOpen(true)} data-tour="period" className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-full bg-pt-surface shadow-hairline text-pt-text text-[15px]">
+            <Icon name="calendar" className="w-4 h-4 text-pt-accent" />{range.label}<span className="text-pt-muted">▾</span>
+          </button>
+          {range.zoomed
+            ? <button onClick={() => set({ from: null, to: null, g: null })} className="px-3 py-2 rounded-full bg-pt-accent/15 text-pt-accent text-sm">Zoom out to {PRESETS.find(p => p[0] === preset)![1].toLowerCase()}</button>
+            : <span className="text-pt-muted text-sm">{range.dates}</span>}
         </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          <div className="flex bg-pt-surface rounded-full p-0.5 text-sm shrink-0">
-            {(['week', 'month'] as Grain[]).map(g => <button key={g} onClick={() => set({ grain: g === 'week' ? null : g, n: null, p: null })} className={`px-3 py-1 rounded-full ${grain === g ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{g === 'week' ? 'Weekly' : 'Monthly'}</button>)}
-          </div>
-          {RANGES[grain].map(r => <button key={r} onClick={() => set({ n: r === (grain === 'week' ? 8 : 6) ? null : r, p: null })} className={`shrink-0 px-3 py-1 rounded-full text-sm ${n === r ? 'bg-pt-border text-pt-text font-medium' : 'bg-pt-surface text-pt-muted'}`}>{r} {grain === 'week' ? 'wks' : 'mos'}</button>)}
-        </div>
-        <div className="flex gap-2">
-          <select value={email} onChange={e => set({ who: e.target.value })} aria-label="Creator" className="flex-1 min-w-0 bg-pt-surface rounded-xl px-3 py-2 text-pt-text text-sm">
-            <option value="">Every creator</option>
-            {[...people].sort((x, y) => x.name.localeCompare(y.name)).map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
-          </select>
-          <select value={house} onChange={e => set({ house: e.target.value })} aria-label="House" className="bg-pt-surface rounded-xl px-3 py-2 text-pt-text text-sm">
-            {HOUSES.map(([v, l]) => <option key={l} value={v}>{l}</option>)}
-          </select>
-        </div>
-        {chips.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {chips.map(([l, clear]) => <button key={l} onClick={clear} className="px-3 py-1 rounded-full text-sm bg-pt-accent/15 text-pt-accent">{l} ×</button>)}
+      </div>
+
+      <div className="sticky z-10 bg-pt-bg px-4 border-b border-white/[0.06]" style={{ top: 'env(safe-area-inset-top)' }}>
+        {!table && (
+          <div role="tablist" className="flex gap-5 overflow-x-auto no-scrollbar">
+            {TABS.map(([v, l]) => (
+              <button key={v} role="tab" aria-selected={tab === v} onClick={() => set({ tab: v === 'overview' ? null : v, m: null })}
+                className={`relative py-3 text-[15px] shrink-0 ${tab === v ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>
+                {l}{tab === v && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}
+              </button>
+            ))}
           </div>
         )}
+        <div className="flex items-center gap-2 py-2 overflow-x-auto no-scrollbar" data-tour="scope">
+          <button onClick={() => setFilterOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</button>
+          {chips.length === 0 && <span className="text-pt-muted text-sm whitespace-nowrap">Everyone · every house</span>}
+          {chips.map((c, i) => <span key={c.label} className="shrink-0 flex items-center gap-1">{i > 0 && <span className="text-pt-muted">›</span>}
+            <button onClick={c.clear} aria-label={`Remove ${c.label}`} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-pt-accent/15 text-pt-accent text-sm whitespace-nowrap">{c.label}<span aria-hidden>×</span></button></span>)}
+          {chips.length > 1 && <button onClick={() => set({ who: null, house: null, theme: null, kind: null })} className="shrink-0 text-pt-muted text-sm px-1">Clear all</button>}
+        </div>
       </div>
 
-      <div className="px-4 space-y-5">
-        {tab === 'creators' && <CreatorsTab {...{ chart, rows, sel, grain, unit, focus, email, shown, set, navigate }} />}
-        {tab === 'flags' && <FlagsTab {...{ chart, sel, range, grain, focus, theme, kind, set, navigate }} />}
-        {tab === 'teams' && <TeamsTab {...{ a, grain, shown, all, focus, set, navigate, staffName }} />}
+      <div className="px-4 pt-4 space-y-4">
+        {table ? <AdvancedView {...ctx} qs={qs} /> : <>
+          {tab === 'overview' && <OverviewTab {...ctx} m={qs.get('m') as Metric} />}
+          {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(qs.get('sort') as 'filmed' | 'showRate' | 'flags') || 'filmed'} />}
+          {tab === 'flags' && <FlagsTab {...ctx} m={qs.get('m') as Metric} />}
+          {tab === 'teams' && <TeamsTab {...ctx} m={qs.get('m') as Metric} />}
+        </>}
       </div>
+
+      <BottomSheet open={periodOpen} onClose={() => setPeriodOpen(false)} title="Date range">
+        <div className="space-y-4 pb-4">
+          <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+            {PRESETS.map(([p, l]) => {
+              const on = !range.zoomed && p === preset
+              return (
+                <button key={p} onClick={() => { set({ period: p === '12w' ? null : p, from: null, to: null, g: null }); setPeriodOpen(false) }} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                  <span className="flex-1"><span className="block text-pt-text text-[15px]">{l}</span><span className="block text-pt-muted text-xs">{rangeFor(p, today).dates}</span></span>
+                  {on && <Icon name="check" className="w-5 h-5 text-pt-accent" />}
+                </button>
+              )
+            })}
+          </div>
+          {grains.length > 1 && <div>
+            <p className="text-pt-muted text-sm mb-2">Show the chart by</p>
+            <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
+              {grains.map(g => <button key={g} onClick={() => set({ g })} className={`flex-1 py-2 rounded-[10px] text-sm ${grain === g ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{g === 'day' ? 'Day' : g === 'week' ? 'Week' : 'Month'}</button>)}
+            </div>
+          </div>}
+          <p className="text-pt-muted text-xs">Every number is compared with {range.prevLabel}. Tap a column in a chart to zoom into it.</p>
+        </div>
+      </BottomSheet>
+
+      <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} {...{ people, who, house, theme, set }} />
     </div>
   )
 }
+// Today in the studio, before the data hook (the hook needs a fixed start date).
+const today0 = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' })
 
-// ── Shared pieces ──
-function Tile({ label, value, sub, tone = 'text-pt-text' }: { label: string; value: string | number; sub?: string; tone?: string }) {
-  return <div className="bg-pt-surface rounded-2xl p-3"><p className={`text-[26px] font-bold leading-none tabular-nums ${tone}`}>{value}</p><p className="text-pt-muted text-xs mt-1">{label}</p>{sub && <p className="text-pt-muted text-xs">{sub}</p>}</div>
+interface Ctx {
+  a: ReturnType<typeof useAnalyticsData>['a']; cur: Data; prev: Data; range: Range; grain: Grain; scope: { email?: string; house?: House; kinds?: Kind[] }
+  who: string; house: string; theme: string; kind: string; people: { email: string; name: string }[]; staffName: (e: string) => string; nameOf: (e: string) => string
+  set: (p: Record<string, string | number | null>, push?: boolean) => void; drill: (p: Record<string, string | number | null>) => void
+  navigate: ReturnType<typeof useNavigate>; zoom: (bucket: string) => void; tab: Tab; pausedNow: string[]
 }
-function H2({ children, right }: { children: ReactNode; right?: ReactNode }) {
-  return <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-[20px] font-semibold tracking-tight">{children}</h2>{right}</div>
-}
-// One bar per period: gold = the measure, grey = the rest of the total. Tap a bar to focus on that period.
-function Bars({ data, grain, focus, onPick, label }: { data: { period: string; value: number; total?: number }[]; grain: Grain; focus: string; onPick: (p: string) => void; label: string }) {
-  const max = Math.max(1, ...data.map(d => d.total ?? d.value))
+
+function FilterSheet({ open, onClose, people, who, house, theme, set }: { open: boolean; onClose: () => void; people: { email: string; name: string }[]; who: string; house: string; theme: string
+  set: Ctx['set'] }) {
+  const [q, setQ] = useState('')
+  const list = [...people].sort((x, y) => x.name.localeCompare(y.name)).filter(p => !q || p.name.toLowerCase().includes(q.toLowerCase()))
   return (
-    <div className="bg-pt-surface rounded-2xl p-4" role="img" aria-label={`${label}: ${data.map(d => `${periodLabel(d.period, grain)} ${d.value}${d.total !== undefined ? ` of ${d.total}` : ''}`).join('; ')}`}>
-      <div className="flex items-end gap-1 h-36">
-        {data.map(d => {
-          const t = d.total ?? d.value, dim = focus && focus !== d.period
-          return (
-            <button key={d.period} onClick={() => onPick(focus === d.period ? '' : d.period)} className={`flex-1 h-full flex flex-col justify-end items-center gap-1 ${dim ? 'opacity-40' : ''}`}
-              title={`${periodLabel(d.period, grain, true)}: ${d.value}${d.total !== undefined ? ` of ${d.total}` : ''}`}>
-              <span className="text-pt-text text-xs tabular-nums">{t ? d.value : ''}</span>
-              <span className="w-full flex flex-col justify-end rounded-t-[4px] overflow-hidden" style={{ height: `${(t / max) * 100}%`, minHeight: t ? 4 : 0 }}>
-                {d.total !== undefined && <span className="w-full bg-pt-border" style={{ height: `${t ? ((t - d.value) / t) * 100 : 0}%` }} />}
-                <span className={`w-full ${focus === d.period ? 'bg-amber-300' : 'bg-pt-accent'}`} style={{ height: `${t ? (d.value / t) * 100 : 0}%` }} />
-              </span>
-            </button>
-          )
-        })}
+    <BottomSheet open={open} onClose={onClose} title="Filter">
+      <div className="space-y-4 pb-4">
+        <div>
+          <p className="text-pt-muted text-sm mb-2">House</p>
+          <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
+            {([['', 'All'], ['cliff1', 'Cliff 1'], ['cliff2', 'Cliff 2'], ['offsite', 'Offsite']] as [string, string][]).map(([v, l]) =>
+              <button key={l} onClick={() => set({ house: v || null })} className={`flex-1 py-2 rounded-[10px] text-sm ${house === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
+          </div>
+        </div>
+        <div>
+          <p className="text-pt-muted text-sm mb-2">Flag type</p>
+          <div className="flex flex-wrap gap-2">
+            {[{ key: '', label: 'Any' }, ...THEMES].map(t => <button key={t.key} onClick={() => set({ theme: t.key || null, kind: null })} className={`px-3 py-1.5 rounded-full text-sm ${theme === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{t.label}</button>)}
+          </div>
+        </div>
+        <div>
+          <p className="text-pt-muted text-sm mb-2">Creator</p>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search a name" className="w-full bg-pt-surface rounded-xl px-3 py-2.5 text-pt-text mb-2" />
+          <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06] max-h-[40vh] overflow-y-auto">
+            {!q && <button onClick={() => set({ who: null })} className="w-full flex items-center gap-3 px-3 py-2.5 text-left"><span className="w-8 h-8 rounded-full bg-pt-border grid place-items-center"><Icon name="people" className="w-4 h-4" /></span><span className="flex-1 text-pt-text">Everyone</span>{!who && <Icon name="check" className="w-5 h-5 text-pt-accent" />}</button>}
+            {list.map(p => <button key={p.email} onClick={() => set({ who: p.email })} className="w-full flex items-center gap-3 px-3 py-2.5 text-left"><Avatar email={p.email} name={p.name} size={32} /><span className="flex-1 text-pt-text truncate">{p.name}</span>{who === p.email && <Icon name="check" className="w-5 h-5 text-pt-accent" />}</button>)}
+          </div>
+        </div>
+        <button onClick={onClose} className="w-full py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Done</button>
       </div>
-      <div className="flex gap-1 mt-1">{data.map(d => <span key={d.period} className="flex-1 text-center text-pt-muted text-[11px] leading-tight">{periodLabel(d.period, grain)}</span>)}</div>
-      <p className="text-pt-muted text-xs mt-2">Tap a bar to focus on that {grain}.</p>
-    </div>
+    </BottomSheet>
   )
 }
-function KindChips({ byKind }: { byKind: Partial<Record<Kind, number>> }) {
-  const ks = (Object.keys(byKind) as Kind[]).sort((x, y) => Number(SERIOUS_KINDS.includes(y)) - Number(SERIOUS_KINDS.includes(x)) || byKind[y]! - byKind[x]!)
-  if (!ks.length) return <span className="text-xs rounded-full px-2 py-1 bg-green-500/15 text-green-300">No flags ✓</span>
-  return <span className="flex flex-wrap gap-1">{ks.map(k => <span key={k} className={`text-xs rounded-full px-2 py-1 ${SERIOUS_KINDS.includes(k) ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-200'}`}>{byKind[k]} {KIND[k].label.toLowerCase()}</span>)}</span>
-}
-type Setter = (patch: Record<string, string | number | null>) => void
-type Nav = ReturnType<typeof useNavigate>
 
-// ── Creators: production ──
-function CreatorsTab({ chart, rows, sel, grain, unit, focus, email, shown, set, navigate }: {
-  chart: ReturnType<typeof series>; rows: CreatorRow[]; sel: ReturnType<typeof filterAll>; grain: Grain; unit: string; focus: string; email: string; shown: string[]; set: Setter; navigate: Nav }) {
-  const [sort, setSort] = useState<'filmed' | 'rate' | 'flags'>('filmed')
-  const filmed = sel.facts.filter(f => f.filmed).length, booked = sel.facts.length
-  const active = new Set(sel.facts.filter(f => f.filmed).map(f => f.email)).size
-  const perPeriod = filmed / shown.length
-  const perCreator = active ? filmed / active / shown.length : 0
-  const sorted = [...rows].sort((x, y) => sort === 'rate' ? (x.rate ?? 2) - (y.rate ?? 2) : sort === 'flags' ? y.flags - x.flags || y.serious - x.serious : y.filmed - x.filmed || x.name.localeCompare(y.name))
-  const me = email ? rows.find(r => r.email === email) : undefined
-  const prev = !focus && chart.length >= 2 ? chart.slice(0, -1) : []
-  const trend = prev.length ? perPeriod - prev.reduce((s, c) => s + c.filmed, 0) / prev.length : null
+// ── The same top half on every tab: headline → metric cards → chart ──
+function Top({ c, metrics, m, headline, sub, tourId }: { c: Ctx; metrics: Metric[]; m?: Metric; headline: ReactNode; sub?: ReactNode; tourId?: string }) {
+  const sel = m && metrics.includes(m) ? m : metrics[0]
+  const cv = (x: Metric) => value(x, c.cur), pv = (x: Metric) => value(x, c.prev)
+  const data = seriesOf(sel, c.a, c.range, c.grain, c.scope)
+  const cmp = compare(sel, cv(sel), pv(sel))
   return <>
-    <div className="grid grid-cols-3 gap-2">
-      <Tile label="Shoots filmed" value={filmed} />
-      <Tile label={`Avg per ${unit}`} value={one(perPeriod)} />
-      <Tile label="Filmed of booked" value={pct(booked ? filmed / booked : null)} tone={booked && filmed / booked < 0.7 ? 'text-red-300' : 'text-pt-text'} />
-      <Tile label="Creators filming" value={active} />
-      <Tile label={`Avg per creator / ${unit}`} value={one(perCreator)} />
-      <Tile label={`This ${unit} so far vs avg`} value={trend === null ? '–' : `${trend >= 0 ? '+' : ''}${one(chart[chart.length - 1].filmed - (prev.reduce((s, c) => s + c.filmed, 0) / prev.length))}`} tone={trend !== null && trend < 0 ? 'text-amber-200' : 'text-pt-text'} />
+    <div data-tour={tourId}>
+      <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">{headline}</p>
+      {sub && <p className="text-pt-muted text-[15px] mt-1">{sub}</p>}
     </div>
-    <H2>Filming per {unit}</H2>
-    <Bars data={chart.map(c => ({ period: c.period, value: c.filmed, total: c.booked }))} grain={grain} focus={focus} onPick={p => set({ p })} label="Shoots filmed out of booked" />
-    <div className="flex gap-4 text-xs text-pt-muted -mt-3"><span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm bg-pt-accent" />Filmed</span><span className="flex items-center gap-1.5"><i className="w-3 h-3 rounded-sm bg-pt-border" />Booked, not filmed</span></div>
-    <H2>Creators filming per {unit}</H2>
-    <Bars data={chart.map(c => ({ period: c.period, value: c.creators }))} grain={grain} focus={focus} onPick={p => set({ p })} label="Creators who filmed" />
+    <MetricCards metrics={metrics} cur={cv} prev={pv} selected={sel} onSelect={x => c.set({ m: x === metrics[0] ? null : x })} tourId="cards" />
+    <div>
+      <p className="text-pt-text text-[15px] font-medium mb-2">{METRICS[sel].label} by {c.grain}{cmp && cmp.text !== 'New' && <span className="text-pt-muted font-normal"> · {cmp.tone === 'flat' ? 'about the same as' : `${cmp.text} vs`} {c.range.prevLabel}</span>}</p>
+      <ColumnChart data={data} grain={c.grain} m={sel} onZoom={c.zoom} avgWord={`per ${c.grain}`} />
+      <p className="text-pt-muted text-xs mt-2">{METRICS[sel].means}</p>
+    </div>
+  </>
+}
+const vsLine = (c: Ctx, m: Metric) => {
+  const cmp = compare(m, value(m, c.cur), value(m, c.prev))
+  if (!cmp) return null
+  if (cmp.text === 'New') return `None in ${c.range.prevLabel} to compare with.`
+  return cmp.tone === 'flat' ? `About the same as ${c.range.prevLabel}.` : `${cmp.text.replace('↑', 'Up').replace('↓', 'Down')} on ${c.range.prevLabel}.`
+}
 
-    {me ? <>
-      <H2 right={<button onClick={() => navigate(`/people/${encodeURIComponent(me.email)}`)} className="text-pt-accent text-sm tap">Open record ›</button>}>{me.name}</H2>
-      <div className="grid grid-cols-3 gap-2">
-        <Tile label="Filmed" value={me.filmed} sub={`of ${me.booked} booked`} />
-        <Tile label={`Avg per ${unit}`} value={one(me.perPeriod)} />
-        <Tile label="Showed up" value={pct(me.rate)} tone={me.rate !== null && me.rate < 0.7 ? 'text-red-300' : 'text-pt-text'} />
-      </div>
-      <KindChips byKind={me.byKind} />
-      <div className="bg-pt-surface rounded-2xl p-3 space-y-1">
-        <p className="text-pt-muted text-xs">What they filmed (from their wraps)</p>
-        {me.videos.length ? me.videos.map((v, i) => <p key={i} className="text-pt-text text-[15px]">“{v}”</p>) : <p className="text-pt-muted text-sm">No wraps in this period.</p>}
-      </div>
-      <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
-        {sel.facts.filter(f => f.email === me.email).sort((x, y) => y.date.localeCompare(x.date)).map(f => (
-          <button key={f.id} onClick={() => navigate(f.to)} className="w-full flex items-center gap-3 px-3 py-3 text-left">
-            <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px]">{formatDay(f.date)} · {f.house === 'offsite' ? 'Offsite' : f.house === 'cliff1' ? 'Cliff 1' : 'Cliff 2'}</span>{f.title && <span className="block text-pt-muted text-xs truncate">“{f.title}”</span>}</span>
-            <span className={`text-xs rounded-full px-2 py-1 ${f.filmed ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>{f.filmed ? 'Filmed' : 'Not filmed'}</span>
-          </button>
-        ))}
-      </div>
-    </> : <>
-      <H2 right={<select value={sort} onChange={e => setSort(e.target.value as typeof sort)} aria-label="Sort" className="bg-pt-surface rounded-lg px-2 py-1 text-pt-text text-sm"><option value="filmed">Most filming</option><option value="rate">Lowest show-up</option><option value="flags">Most flags</option></select>}>Every creator</H2>
-      <p className="text-pt-muted text-xs -mt-3">{focus ? periodLabel(focus, grain, true) : `Last ${shown.length} ${unit}s`}. Tap someone to focus on them.</p>
-      <div className="space-y-2">
-        {sorted.map(r => (
-          <button key={r.email} onClick={() => set({ who: r.email })} className="w-full text-left bg-pt-surface rounded-2xl p-3 space-y-2">
-            <span className="flex items-center gap-3">
-              <Avatar email={r.email} name={r.name} size={36} />
-              <span className="flex-1 min-w-0"><b className="block text-pt-text truncate">{r.name}</b><span className="block text-pt-muted text-xs">{r.filmed} filmed of {r.booked} · {one(r.perPeriod)} per {unit}</span></span>
-              <span className={`text-sm font-semibold tabular-nums ${r.rate === null ? 'text-pt-muted' : r.rate < 0.7 ? 'text-red-300' : r.rate < 0.9 ? 'text-amber-200' : 'text-green-300'}`}>{pct(r.rate)}</span>
-            </span>
-            <KindChips byKind={r.byKind} />
-          </button>
-        ))}
-      </div>
-    </>}
+// ── Overview: the whole picture ──
+function OverviewTab(c: Ctx & { m: Metric }) {
+  const filmed = value('filmed', c.cur)!, creators = value('creators', c.cur)!
+  const people = rowsBy('creator', c.cur, { grain: c.grain, people: c.who ? [] : c.people })
+  const top = sortRows(people, 'filmed').filter(r => value('filmed', r.data)! > 0).slice(0, 5)
+  const topMax = Math.max(1, ...top.map(r => value('filmed', r.data)!))
+  const themes = sortRows(rowsBy('theme', c.cur, { grain: c.grain }), 'flags').filter(r => value('flags', r.data)! > 0)
+  const themeMax = Math.max(1, ...themes.map(r => value('flags', r.data)!))
+  const houses = rowsBy('house', c.cur, { grain: c.grain })
+  const houseMax = Math.max(1, ...houses.map(r => value('filmed', r.data)!))
+  const subject = c.who ? c.nameOf(c.who) : plural(creators, 'creator')
+  return <>
+    <Top c={c} m={c.m} metrics={['filmed', 'showRate', 'creators', 'flags']} tourId="headline"
+      headline={<>{subject} filmed {plural(filmed, 'shoot')} {c.range.phrase}</>} sub={vsLine(c, 'filmed')} />
+    <SectionHead title="Needs you now" sub="Live, whatever the date range" />
+    <NeedsYou items={needsYouItems(c.a, c.pausedNow, to => c.navigate(to))} />
+    <SectionHead title="Top creators" sub="Most shoots filmed" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: 'filmed' })} />
+    <RankList tourId="topcreators" empty="Nobody filmed in this range." rows={top.map(r => ({ key: r.key, label: r.label, email: r.email, value: fmt('filmed', value('filmed', r.data)),
+      share: value('filmed', r.data)! / topMax, sub: `${fmt('showRate', value('showRate', r.data))} showed up · ${plural(value('flags', r.data)!, 'flag')}`, onClick: () => c.drill({ who: r.key, tab: 'creators', m: null }) }))} />
+    <SectionHead title="Flags by type" onMore={() => c.drill({ view: 'table', dim: 'theme', sort: 'flags' })} />
+    <RankList empty="No flags in this range. Nice." rows={themes.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / themeMax,
+      tone: 'text-amber-200', sub: [...new Set(r.data.incidents.map(i => i.name))].slice(0, 3).join(', '), onClick: () => c.drill({ theme: r.key, tab: 'flags', m: null }) }))} />
+    <SectionHead title="Where they film" onMore={() => c.drill({ view: 'table', dim: 'house', sort: 'filmed' })} />
+    <RankList rows={houses.map(r => ({ key: r.key, label: r.label, value: fmt('filmed', value('filmed', r.data)), share: value('filmed', r.data)! / houseMax,
+      sub: `${fmt('showRate', value('showRate', r.data))} showed up`, onClick: () => c.drill({ house: r.key }) }))} />
+  </>
+}
+
+// ── Creators: production per person ──
+function CreatorsTab(c: Ctx & { m: Metric; sort: 'filmed' | 'showRate' | 'flags' }) {
+  if (c.who) return <PersonView {...c} />
+  const filmed = value('filmed', c.cur)!, creators = value('creators', c.cur)!
+  const rows = rowsBy('creator', c.cur, { grain: c.grain, people: c.people })
+  const sorted = sortRows(rows, c.sort, c.sort === 'showRate' ? 'asc' : 'desc')
+  const max = Math.max(c.sort === 'showRate' ? 1 : 1, ...rows.map(r => value(c.sort, r.data) ?? 0))
+  const idle = rows.filter(r => !value('filmed', r.data)).length
+  return <>
+    <Top c={c} m={c.m} metrics={['filmed', 'perCreator', 'showRate', 'creators']}
+      headline={<>{plural(creators, 'creator')} filmed {plural(filmed, 'shoot')} {c.range.phrase}</>}
+      sub={<>{vsLine(c, 'filmed')}{idle ? ` ${plural(idle, 'creator')} didn't film.` : ''}</>} />
+    <SectionHead title="Every creator" sub="Tap someone to see just them" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: c.sort })} more="Table" />
+    <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
+      {([['filmed', 'Most filming'], ['showRate', 'Lowest show-up'], ['flags', 'Most flags']] as const).map(([v, l]) =>
+        <button key={v} onClick={() => c.set({ sort: v === 'filmed' ? null : v })} className={`flex-1 py-2 rounded-[10px] text-sm ${c.sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
+    </div>
+    <RankList rows={sorted.map(r => {
+      const v = value(c.sort, r.data)
+      return { key: r.key, label: r.label, email: r.email, value: fmt(c.sort, v), share: (v ?? 0) / max,
+        tone: c.sort === 'showRate' ? showRateTone(v) : c.sort === 'flags' && v ? 'text-amber-200' : undefined,
+        sub: `${value('filmed', r.data)} filmed of ${value('booked', r.data)} · ${plural(value('flags', r.data)!, 'flag')}${c.pausedNow.includes(r.key) ? ' · Paused' : ''}`,
+        onClick: () => c.drill({ who: r.key, m: null }) }
+    })} />
+  </>
+}
+function PersonView(c: Ctx & { m: Metric }) {
+  const name = c.nameOf(c.who), filmed = value('filmed', c.cur)!
+  const kinds = sortRows(rowsBy('kind', c.cur, { grain: c.grain }), 'flags')
+  const kMax = Math.max(1, ...kinds.map(r => value('flags', r.data)!))
+  const videos = c.cur.facts.filter(f => f.filmed && f.title).sort((x, y) => y.date.localeCompare(x.date))
+  const shoots = [...c.cur.facts].sort((x, y) => y.date.localeCompare(x.date))
+  const [showAll, setShowAll] = useState({ videos: false, shoots: false })
+  const more = (k: 'videos' | 'shoots', n: number) => !showAll[k] && n > CAP && <button onClick={() => setShowAll({ ...showAll, [k]: true })} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">Show all {n}</button>
+  return <>
+    <div className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
+      <Avatar email={c.who} name={name} size={52} />
+      <span className="flex-1 min-w-0"><b className="block text-pt-text text-[17px] truncate">{name}</b>
+        <span className="block text-pt-muted text-xs">{c.pausedNow.includes(c.who) ? 'Paused right now · ' : ''}Numbers below are just theirs</span></span>
+      <button onClick={() => c.navigate(`/people/${encodeURIComponent(c.who)}`)} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">Record ›</button>
+    </div>
+    <Top c={c} m={c.m} metrics={['filmed', 'booked', 'showRate', 'flags']} headline={<>{name} filmed {plural(filmed, 'shoot')} {c.range.phrase}</>} sub={vsLine(c, 'filmed')} />
+    <SectionHead title="What they filmed" sub="From their wraps" />
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {videos.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">No wraps in this range.</p>}
+      {cap(videos, showAll.videos).map(f => <button key={f.id} onClick={() => c.navigate(f.to)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left"><Icon name="video" className="w-5 h-5 text-pt-accent" /><span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] truncate">“{f.title}”</span><span className="block text-pt-muted text-xs">{formatDay(f.date)} · {HOUSE_LABEL[f.house]}</span></span><span className="text-pt-muted">›</span></button>)}
+    </div>
+    {more('videos', videos.length)}
+    <SectionHead title="Their flags" onMore={() => c.drill({ tab: 'flags', m: null })} more="All their flags" />
+    <RankList empty="No flags in this range." rows={kinds.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / kMax, tone: 'text-amber-200',
+      onClick: () => c.drill({ tab: 'flags', kind: r.key, theme: null, m: null }) }))} />
+    <SectionHead title="Every shoot" sub={`${shoots.length} in this range`} />
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {shoots.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">No shoots in this range.</p>}
+      {cap(shoots, showAll.shoots).map(f => (
+        <button key={f.id} onClick={() => c.navigate(f.to)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+          <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px]">{formatDay(f.date)} · {HOUSE_LABEL[f.house]}</span>{f.title && <span className="block text-pt-muted text-xs truncate">“{f.title}”</span>}</span>
+          <span className={`text-xs rounded-full px-2 py-1 ${f.filmed ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>{f.filmed ? 'Filmed' : 'Not filmed'}</span>
+        </button>
+      ))}
+    </div>
+    {more('shoots', shoots.length)}
   </>
 }
 
 // ── Flags: what kind, who, when ──
-function FlagsTab({ chart, sel, range, grain, focus, theme, kind, set, navigate }: {
-  chart: ReturnType<typeof series>; sel: ReturnType<typeof filterAll>; range: ReturnType<typeof filterAll>; grain: Grain; focus: string; theme: string; kind: Kind | ''; set: Setter; navigate: Nav }) {
-  const per = (ks: Kind[]) => chart.map(c => ({ period: c.period, value: range.incidents.filter(i => ks.includes(i.kind) && periodOf(i.date, grain) === c.period).length }))
-  const kindsShown: Kind[] = kind ? [kind] : theme ? THEMES.find(t => t.key === theme)!.kinds : []
-  const list = kindsShown.length ? sel.incidents.filter(i => kindsShown.includes(i.kind)).sort((x, y) => y.date.localeCompare(x.date)) : []
-  const who = new Map<string, { name: string; n: number }>()
-  for (const i of sel.incidents) { const w = who.get(i.email) ?? { name: i.name, n: 0 }; w.n++; who.set(i.email, w) }
+function FlagsTab(c: Ctx & { m: Metric }) {
+  const n = value('flags', c.cur)!, serious = value('serious', c.cur)!
+  const what = c.kind ? KIND[c.kind as Kind].label.toLowerCase() : c.theme ? `"${THEMES.find(t => t.key === c.theme)?.label.toLowerCase()}"` : ''
+  const subject = c.who ? `${c.nameOf(c.who)} had` : 'There were'
+  const themes = sortRows(rowsBy('theme', c.cur, { grain: c.grain }), 'flags')
+  const tMax = Math.max(1, ...themes.map(r => value('flags', r.data)!))
+  const kinds = sortRows(rowsBy('kind', c.cur, { grain: c.grain }), 'flags')
+  const people = sortRows(rowsBy('creator', c.cur, { grain: c.grain }), 'flags').filter(r => value('flags', r.data)! > 0)
+  const pMax = Math.max(1, ...people.map(r => value('flags', r.data)!))
+  const list = [...c.cur.incidents].sort((x, y) => y.date.localeCompare(x.date))
+  const narrowed = !!(c.who || c.theme || c.kind)
   return <>
-    {(() => { const n = kindsShown.length ? list.length : sel.incidents.length
-      return <Tile label={`${kind ? KIND[kind].label : theme ? THEMES.find(t => t.key === theme)!.label : 'Flags'} · ${focus ? periodLabel(focus, grain, true) : 'this range'}`} value={n} tone={n ? 'text-amber-200' : 'text-pt-text'} /> })()}
-    <H2>Flags per {grain}</H2>
-    <Bars data={kindsShown.length ? per(kindsShown) : chart.map(c => ({ period: c.period, value: c.flags }))} grain={grain} focus={focus} onPick={p => set({ p })} label="Flags" />
-    {!theme && <>
-      <H2>By type</H2>
-      <div className="space-y-2">
-        {THEMES.map(t => {
-          const items = sel.incidents.filter(i => t.kinds.includes(i.kind))
-          const top = [...new Set(items.map(i => i.name))].slice(0, 3)
-          return (
-            <button key={t.key} onClick={() => set({ theme: t.key })} className="w-full text-left bg-pt-surface rounded-2xl p-3 flex items-center gap-3">
-              <span className={`w-10 text-center text-[22px] font-bold tabular-nums ${items.length ? 'text-amber-200' : 'text-pt-muted'}`}>{items.length}</span>
-              <span className="flex-1 min-w-0"><b className="block text-pt-text">{t.label}</b><span className="block text-pt-muted text-xs truncate">{items.length ? top.join(', ') : 'Nobody'}</span></span>
-              <span className="text-pt-muted">›</span>
-            </button>
-          )
-        })}
-      </div>
-      <H2>Who has the most</H2>
-      <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
-        {[...who.entries()].sort((x, y) => y[1].n - x[1].n).slice(0, 8).map(([e, w]) => (
-          <button key={e} onClick={() => set({ tab: null, who: e })} className="w-full flex items-center gap-3 px-3 py-3 text-left"><Avatar email={e} name={w.name} size={32} /><span className="flex-1 text-pt-text text-[15px]">{w.name}</span><span className="text-amber-200 font-semibold tabular-nums">{w.n}</span></button>
-        ))}
-        {!who.size && <p className="text-pt-muted text-sm p-3">No flags. Nice.</p>}
-      </div>
+    <Top c={c} m={c.m} metrics={['flags', 'serious', 'flagged', 'open']}
+      headline={<>{subject} {n} {what ? what + ' ' : ''}{n === 1 ? 'flag' : 'flags'} {c.range.phrase}</>}
+      sub={<>{serious ? `${serious} serious. ` : ''}{vsLine(c, 'flags')}</>} />
+    {!c.theme && !c.kind && <>
+      <SectionHead title="By type" sub="Tap a type to see what's in it" onMore={() => c.drill({ view: 'table', dim: 'theme', sort: 'flags' })} />
+      <RankList tourId="themes" rows={themes.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / tMax, tone: value('flags', r.data) ? 'text-amber-200' : 'text-pt-muted',
+        sub: [...new Set(r.data.incidents.map(i => i.name))].slice(0, 3).join(', ') || 'Nobody', onClick: () => c.drill({ theme: r.key, m: null }) }))} />
     </>}
-    {theme && !kind && <>
-      <H2>{THEMES.find(t => t.key === theme)!.label}</H2>
-      <div className="space-y-2">
-        {THEMES.find(t => t.key === theme)!.kinds.map(k => (
-          <button key={k} onClick={() => set({ kind: k })} className="w-full text-left bg-pt-surface rounded-2xl p-3 flex items-center gap-3">
-            <span className="w-10 text-center text-[22px] font-bold tabular-nums text-amber-200">{sel.incidents.filter(i => i.kind === k).length}</span>
-            <span className="flex-1 min-w-0"><b className="block text-pt-text">{KIND[k].label}</b><span className="block text-pt-muted text-xs">{KIND[k].means}</span></span>
-            <span className="text-pt-muted">›</span>
-          </button>
-        ))}
-      </div>
+    {c.theme && !c.kind && <>
+      <SectionHead title="In this type" />
+      <RankList rows={(THEMES.find(t => t.key === c.theme)?.kinds ?? []).map(k => { const r = kinds.find(x => x.key === k); const v = r ? value('flags', r.data)! : 0
+        return { key: k, label: KIND[k].label, value: String(v), share: v / Math.max(1, ...kinds.map(x => value('flags', x.data)!)), tone: v ? 'text-amber-200' : 'text-pt-muted', sub: KIND[k].means, onClick: () => c.drill({ kind: k, m: null }) } })} />
     </>}
-    {kindsShown.length > 0 && <>
-      <H2>{kind ? KIND[kind].label : 'Every incident'} · {list.length}</H2>
-      {kind && <p className="text-pt-muted text-xs -mt-3">{KIND[kind].means}</p>}
-      <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
-        {list.map((i, n) => (
-          <button key={n} onClick={() => i.to && navigate(i.to)} className="w-full flex items-center gap-3 px-3 py-3 text-left">
-            <Avatar email={i.email} name={i.name} size={32} />
-            <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px]">{i.name} · {KIND[i.kind].label}</span><span className="block text-pt-muted text-xs">{formatDay(i.date)} · {i.text}</span></span>
-            {i.open && <span className="text-xs rounded-full px-2 py-1 bg-amber-500/15 text-amber-200 shrink-0">Open</span>}
-          </button>
-        ))}
-        {!list.length && <p className="text-pt-muted text-sm p-3">None in this view.</p>}
-      </div>
+    {c.kind && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-3 py-3"><b className="text-pt-text">{KIND[c.kind as Kind].label}:</b> {KIND[c.kind as Kind].means}</p>}
+    {!c.who && <>
+      <SectionHead title="Who has the most" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: 'flags' })} />
+      <RankList empty="Nobody. Nice." rows={people.slice(0, 8).map(r => ({ key: r.key, label: r.label, email: r.email, value: String(value('flags', r.data)), share: value('flags', r.data)! / pMax, tone: 'text-amber-200',
+        sub: `${value('serious', r.data)} serious`, onClick: () => c.drill({ who: r.key, m: null }) }))} />
     </>}
+    <SectionHead title={narrowed ? `Every flag · ${list.length}` : 'Latest flags'} sub="Tap one to open the shoot or request" />
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {list.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">None in this view.</p>}
+      {(narrowed ? list : list.slice(0, 8)).map((i, n) => (
+        <button key={n} onClick={() => i.to && c.navigate(i.to)} disabled={!i.to} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+          <Avatar email={i.email} name={i.name} size={32} />
+          <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] truncate">{i.name} · {KIND[i.kind].label}</span><span className="block text-pt-muted text-xs">{formatDay(i.date)} · {i.text}</span></span>
+          {i.open && <span className="text-xs rounded-full px-2 py-1 bg-amber-500/15 text-amber-200 shrink-0">Open</span>}
+        </button>
+      ))}
+    </div>
+    {!narrowed && list.length > 8 && <button onClick={() => c.drill({ view: 'table', dim: 'kind', sort: 'flags' })} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">See all {list.length} by flag</button>}
   </>
 }
 
 // ── Teams: the arts department and the equipment team ──
-function TeamsTab({ a, grain, shown, all, focus, set, navigate, staffName }: {
-  a: ReturnType<typeof analyze>; grain: Grain; shown: string[]; all: string[]; focus: string; set: Setter; navigate: Nav; staffName: (e: string) => string }) {
-  const b = a.backlog
-  const props = staffRows(a.jobs, { grain, periods: shown }, 'props'), gear = staffRows(a.jobs, { grain, periods: shown }, 'gear')
-  const packedSeries = all.map(p => ({ period: p, value: a.jobs.filter(j => j.team === 'props' && j.kind === 'packed' && j.onTime && periodOf(j.date, grain) === p).length,
-    total: a.jobs.filter(j => j.team === 'props' && j.kind === 'packed' && periodOf(j.date, grain) === p).length }))
-  const checkSeries = all.map(p => ({ period: p, value: a.jobs.filter(j => j.team === 'gear' && periodOf(j.date, grain) === p).length }))
-  const jobs = (team: 'props' | 'gear', kind: 'packed' | 'checked-in') => a.jobs.filter(j => j.team === team && j.kind === kind && shown.includes(periodOf(j.date, grain)))
-  const packed = jobs('props', 'packed'), propsIn = jobs('props', 'checked-in'), gearIn = jobs('gear', 'checked-in')
+function TeamsTab(c: Ctx & { m: Metric }) {
+  const b = c.a.backlog
+  const packed = value('packed', c.cur)!, gear = value('gearChecked', c.cur)!
+  const staff = rowsBy('staff', c.cur, { grain: c.grain, staffName: c.staffName })
+  const arts = sortRows(staff.filter(r => r.data.jobs.some(j => j.team === 'props')), 'packed')
+  const eq = sortRows(staff.filter(r => r.data.jobs.some(j => j.team === 'gear')), 'gearChecked')
+  const aMax = Math.max(1, ...arts.map(r => value('packed', r.data)! + value('propsChecked', r.data)!))
+  const eMax = Math.max(1, ...eq.map(r => value('gearChecked', r.data)!))
+  const tile = (n: number, label: string, to: string, bad = false) => (
+    <button onClick={() => c.navigate(to)} className="bg-pt-surface rounded-2xl p-3 text-left">
+      <span className={`block text-[26px] font-bold leading-none tabular-nums ${bad && n ? 'text-red-300' : 'text-pt-text'}`}>{n}</span>
+      <span className="block text-pt-muted text-xs mt-1">{label}</span>
+    </button>
+  )
   return <>
-    <H2>Right now</H2>
+    <Top c={c} m={c.m} metrics={['packed', 'packOnTime', 'packTime', 'propsCheckTime', 'gearChecked', 'gearCheckTime']}
+      headline={<>The arts department packed {plural(packed, 'request')} and the equipment team checked in {plural(gear, 'return')} {c.range.phrase}</>} sub={vsLine(c, 'packed')} />
+    <SectionHead title="Right now" sub="Live queues, whatever the date range" />
     <div className="grid grid-cols-3 gap-2">
-      <button onClick={() => navigate('/reservations')} className="text-left [&>div]:h-full"><Tile label="Props to pack" value={b.propsToPack} sub={b.propsPackLate ? `${b.propsPackLate} due today or overdue` : 'none overdue'} tone={b.propsPackLate ? 'text-red-300' : 'text-pt-text'} /></button>
-      <button onClick={() => navigate('/reservations')} className="text-left [&>div]:h-full"><Tile label="Props returns to check" value={b.propsToCheckIn} /></button>
-      <button onClick={() => navigate('/reservations')} className="text-left [&>div]:h-full"><Tile label="Props out late" value={b.propsOutLate} tone={b.propsOutLate ? 'text-amber-200' : 'text-pt-text'} /></button>
-      <button onClick={() => navigate('/gear/bookings')} className="text-left [&>div]:h-full"><Tile label="Gear returns to check" value={b.gearToCheckIn} /></button>
-      <button onClick={() => navigate('/gear/bookings')} className="text-left [&>div]:h-full"><Tile label="Gear out late" value={b.gearOutLate} tone={b.gearOutLate ? 'text-amber-200' : 'text-pt-text'} /></button>
+      {tile(b.propsToPack, 'Props to pack', '/reservations')}
+      {tile(b.propsPackLate, 'Due or overdue', '/reservations', true)}
+      {tile(b.propsToCheckIn, 'Props to check', '/reservations')}
+      {tile(b.gearToCheckIn, 'Gear to check', '/gear/bookings')}
+      {tile(b.propsOutLate, 'Props out late', '/reservations', true)}
+      {tile(b.gearOutLate, 'Gear out late', '/gear/bookings', true)}
     </div>
-
-    <H2>Arts department</H2>
-    <div className="grid grid-cols-3 gap-2">
-      <Tile label="Requests packed" value={packed.length} />
-      <Tile label="Packed before pickup" value={pct(packed.length ? packed.filter(j => j.onTime).length / packed.length : null)} tone={packed.length && packed.filter(j => j.onTime).length / packed.length < 0.9 ? 'text-amber-200' : 'text-pt-text'} />
-      <Tile label="Typical check-in time" value={hrs(median(propsIn.map(j => j.hours)))} sub="return → checked" />
-    </div>
-    <Bars data={packedSeries} grain={grain} focus={focus} onPick={p => set({ p })} label="Requests packed on time, out of packed" />
-    <StaffTable rows={props.map(r => ({ by: r.by, cells: [r.packed, pct(r.packed ? r.onTime / r.packed : null), hrs(median(r.packHours)), r.checkedIn, hrs(median(r.checkHours))] }))}
-      head={['Packed', 'On time', 'Request → packed', 'Checked in', 'Check-in time']} staffName={staffName} />
-
-    <H2>Equipment team</H2>
-    <div className="grid grid-cols-2 gap-2">
-      <Tile label="Gear returns checked in" value={gearIn.length} />
-      <Tile label="Typical check-in time" value={hrs(median(gearIn.map(j => j.hours)))} sub="return → checked" />
-    </div>
-    <Bars data={checkSeries} grain={grain} focus={focus} onPick={p => set({ p })} label="Gear returns checked in" />
-    <StaffTable rows={gear.map(r => ({ by: r.by, cells: [r.checkedIn, hrs(median(r.checkHours))] }))} head={['Checked in', 'Check-in time']} staffName={staffName} />
-    <p className="text-pt-muted text-xs">Counted from each request's history: who packed it and when, who checked returns in. "Packed before pickup" = packed by the pickup day.</p>
+    {(c.who || c.house) && <p className="text-pt-muted text-xs">Team numbers count all of their work; the creator and house filters don't change them.</p>}
+    <SectionHead title="Arts department" sub="Packed + returns checked, per person" onMore={() => c.drill({ view: 'table', dim: 'staff', sort: 'packed' })} more="Table" />
+    <RankList empty="Nothing done in this range yet." rows={arts.map(r => ({ key: r.key, label: r.label, value: String(value('packed', r.data)! + value('propsChecked', r.data)!),
+      share: (value('packed', r.data)! + value('propsChecked', r.data)!) / aMax,
+      sub: `${value('packed', r.data)} packed (${fmt('packOnTime', value('packOnTime', r.data))} on time, typical ${fmt('packTime', value('packTime', r.data))}) · ${value('propsChecked', r.data)} checked in` }))} />
+    <SectionHead title="Equipment team" sub="Gear returns checked, per person" onMore={() => c.drill({ view: 'table', dim: 'staff', sort: 'gearChecked' })} more="Table" />
+    <RankList empty="Nothing done in this range yet." rows={eq.map(r => ({ key: r.key, label: r.label, value: String(value('gearChecked', r.data)), share: value('gearChecked', r.data)! / eMax,
+      sub: `Typical check-in ${fmt('gearCheckTime', value('gearCheckTime', r.data))}` }))} />
+    <p className="text-pt-muted text-xs">Counted from each request's history: who packed it and when, who checked returns in. "On time" = packed by the pickup day.</p>
   </>
 }
-function StaffTable({ rows, head, staffName }: { rows: { by: string; cells: (string | number)[] }[]; head: string[]; staffName: (e: string) => string }) {
-  if (!rows.length) return <p className="text-pt-muted text-sm">Nothing done in this period yet.</p>
-  return (
-    <div className="bg-pt-surface rounded-2xl overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead><tr className="text-pt-muted text-xs text-left"><th className="px-3 py-2 font-normal">Who</th>{head.map(h => <th key={h} className="px-2 py-2 font-normal text-right">{h}</th>)}</tr></thead>
-        <tbody>{rows.map(r => <tr key={r.by} className="border-t border-white/[0.06]"><td className="px-3 py-2 text-pt-text whitespace-nowrap">{staffName(r.by)}</td>{r.cells.map((c, i) => <td key={i} className="px-2 py-2 text-right text-pt-text tabular-nums whitespace-nowrap">{c}</td>)}</tr>)}</tbody>
-      </table>
+
+// ── Advanced view: the Power BI part ──
+function AdvancedView(c: Ctx & { qs: URLSearchParams }) {
+  const dim = (DIM_ORDER.includes(c.qs.get('dim') as Dim) ? c.qs.get('dim') : 'creator') as Dim
+  const cols = DIMS[dim].metrics
+  const sort = (cols.includes(c.qs.get('sort') as Metric) ? c.qs.get('sort') : cols[0]) as Metric
+  const dir = c.qs.get('dir') === 'asc' ? 'asc' : 'desc'
+  const rows = sortRows(rowsBy(dim, c.cur, { grain: c.grain, people: c.who ? [] : c.people, staffName: c.staffName, range: c.range }), sort, dir)
+    .filter(r => dim !== 'kind' || r.data.incidents.length)
+  const max = Math.max(1e-9, ...rows.map(r => value(sort, r.data) ?? 0))
+  const pct = METRICS[sort].fmt === 'pct'
+  const open = (r: Row) => {
+    if (dim === 'creator') c.drill({ who: r.key, dim: DIMS.creator.drill!, sort: null, dir: null })
+    else if (dim === 'house') c.drill({ house: r.key, dim: 'creator', sort: null, dir: null })
+    else if (dim === 'theme') c.drill({ theme: r.key, kind: null, dim: 'kind', sort: null, dir: null })
+    else if (dim === 'kind') c.drill({ kind: r.key, dim: 'creator', sort: 'flags', dir: null })
+    else if (dim === 'period') { const [f, t] = bucketSpan(r.key, c.grain, c.range); c.drill({ from: f, to: t, g: null, dim: 'creator', sort: null, dir: null }) }
+  }
+  const download = () => {
+    const blob = new Blob([toCsv(dim, rows, cols, c.cur)], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob), el = document.createElement('a')
+    el.href = url; el.download = `prime-capitol-${dim}-${c.range.from}-to-${c.range.to}.csv`; el.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  return <>
+    <p className="text-pt-muted text-[15px] -mt-1">Break any number down. Tap a column title to sort, tap a row to drill into it.</p>
+    <div>
+      <p className="text-pt-muted text-sm mb-2">Break down by</p>
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4" data-tour="dims">
+        {DIM_ORDER.map(d => <button key={d} onClick={() => c.set({ dim: d, sort: null, dir: null })} className={`shrink-0 px-3 py-1.5 rounded-full text-sm ${dim === d ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{d === 'period' ? (c.grain === 'month' ? 'Month' : c.grain === 'week' ? 'Week' : 'Day') : DIMS[d].label}</button>)}
+      </div>
     </div>
-  )
+    <ColumnChart data={seriesOf(sort, c.a, c.range, c.grain, c.scope)} grain={c.grain} m={sort} onZoom={c.zoom} avgWord={`per ${c.grain}`} />
+    <div className="bg-pt-surface rounded-2xl overflow-x-auto">
+      <table className="w-full text-sm border-separate border-spacing-0">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-[1] bg-pt-surface text-left font-normal text-pt-muted text-xs px-3 py-2.5 min-w-[140px]">{dim === 'period' ? (c.grain === 'month' ? 'Month' : c.grain === 'week' ? 'Week' : 'Day') : DIMS[dim].label}</th>
+            {cols.map(m => (
+              <th key={m} className="px-2 py-1 text-right align-bottom">
+                <button onClick={() => c.set({ sort: m === cols[0] ? null : m, dir: sort === m && dir === 'desc' ? 'asc' : null })} aria-sort={sort === m ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className={`text-xs leading-tight py-1.5 min-h-[36px] ${sort === m ? 'text-pt-accent font-semibold' : 'text-pt-muted font-normal'}`}>{METRICS[m].label}{sort === m ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}</button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr className="bg-white/[0.03]">
+            <td className="sticky left-0 z-[1] bg-[#232325] px-3 py-2.5 text-pt-text font-semibold border-t border-white/[0.06]">Total</td>
+            {cols.map(m => <td key={m} className="px-2 py-2.5 text-right tabular-nums text-pt-text font-semibold border-t border-white/[0.06] whitespace-nowrap">{fmt(m, value(m, c.cur))}</td>)}
+          </tr>
+          {rows.map(r => {
+            const can = dim !== 'staff'
+            return (
+              <tr key={r.key} onClick={can ? () => open(r) : undefined} className={can ? 'cursor-pointer active:bg-white/[0.04]' : ''}>
+                <td className="sticky left-0 z-[1] bg-pt-surface px-3 py-2.5 border-t border-white/[0.06]">
+                  <span className="flex items-center gap-2 min-w-0">{r.email && <Avatar email={r.email} name={r.label} size={24} />}<span className="text-pt-text truncate max-w-[130px]">{r.label}</span>{can && <span className="text-pt-muted ml-auto">›</span>}</span>
+                </td>
+                {cols.map(m => {
+                  const v = value(m, r.data)
+                  return (
+                    <td key={m} className="px-2 py-2.5 text-right border-t border-white/[0.06] whitespace-nowrap">
+                      <span className={`tabular-nums ${m === sort ? 'text-pt-text font-medium' : 'text-pt-text/80'} ${m === 'showRate' ? showRateTone(v) : ''}`}>{fmt(m, v)}</span>
+                      {m === sort && v !== null && <span className="block h-1 rounded-full bg-white/[0.06] mt-1 ml-auto w-14 overflow-hidden"><i className="block h-full bg-pt-accent/80 ml-auto" style={{ width: `${(pct ? v : v / max) * 100}%` }} /></span>}
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      {rows.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">Nothing in this view.</p>}
+    </div>
+    <div className="flex gap-2">
+      <button onClick={download} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-pt-surface text-pt-text text-[15px]"><Icon name="download" className="w-5 h-5" />Download as a spreadsheet</button>
+    </div>
+    <details className="bg-pt-surface rounded-2xl px-3 py-2">
+      <summary className="text-pt-text text-[15px] py-1 cursor-pointer">What these columns mean</summary>
+      <div className="space-y-2 py-2">{cols.map(m => <p key={m} className="text-pt-muted text-sm"><b className="text-pt-text">{METRICS[m].label}:</b> {METRICS[m].means}</p>)}</div>
+    </details>
+  </>
 }
