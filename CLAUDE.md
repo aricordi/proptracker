@@ -1204,7 +1204,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Oct 20 (owner "ok on all"): backend run 39 + website run 32 (everything through shared gear, who used it, hand-over,
       gear team tour, big feedback round) + "Add test gear" run 1 (FX3, 2× A7S III, Mavic Air + Mini 5 kits on the live app).
     - ROLES TIGHTENED (owner, Oct 20: "people aren't tech savvy; maintenance and anything that could break the app = owner only;
-      everyone else only what their job needs"; NOT deployed: SECURITY RULES + server → backend deploy needs owner OK, then website):
+      everyone else only what their job needs"; LIVE Oct 20: backend run 40 + website run 33, owner OK):
       ADMIN = a VIEWER who MANAGES CREATORS (was "everything arts + equipment do", Oct 19). Server: ADMIN_COVERS = ['creator']
       (books own shoots/props/gear like a creator, `booksLikeCreator`), isStaff = owner/arts only; admin taken out of every
       TEAM / GEAR_STAFF list. Rules: canSee() = owner/arts/admin, canSeeGear() = owner/equipment/admin for READS; writes stay
