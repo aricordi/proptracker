@@ -1324,6 +1324,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       StandingRow (rank, pills, "7 filmed · 1 more than typical", red reasons line), TypicalKey. Creators tab headline "X filmed the most
       this month: N shoots" + "The typical creator filmed N". Report card "#1 of 7 · 7 shoots filmed", month by month vs typical
       ("above typical X of the last 6 months"). Settings sheet section "Comparing creators" (no minimum). Tests 435.
+      → ADMIN TOUR UPDATED (owner, Oct 20: "update the tutorial to reflect the current state of the admin role"): ch3 "Your creators"
+      = Dashboard scoreboard (tap Posting less = filter, look, tap again, Open analytics) → Analytics scene (tabs Creators / Flags /
+      Teams / Trends, date pill, sort Least filmed, rows, table icon = Advanced view); ch4 "Read a record" = Devon's REPORT CARD
+      (rank, typical/needs-attention pills, month by month vs typical) → Record › → the person record (flags, strikes; ch5/6 tools
+      unchanged). Practice data: typical 4; Jordan 7 (more), Maya 4, Devon 4 + needs attention, Riley 1 (less). Scenes 'analytics' +
+      'report' replace 'creators'. Checked: 81 tour screens on a 390×844 touch screen, no errors.
+      LIVE Oct 20 (website run 35, owner "yes put it live"): analytics v2 + accountability + no minimum + updated admin tour.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

@@ -1,12 +1,12 @@
 // Admin tour (owner, Oct 20: "build out the tutorial for the admin role"). Same coach, chapter cards, quizzes and badges
 // as the creator and gear team tours (Spotlight + Fun.tsx), with ADMIN_CHAPTERS:
 //   1 Find your way around (Dashboard / Queue / Gear / Schedule / Props, a look at the Dashboard + tools)  2 Watch the queues (props
-//   queue, a request page, the gear queue: all view only)  3 Your creators (Dashboard → All creators: totals, periods, sort)
-//   4 Read a record (one creator: tiles + every flag)  5 Give a strike (about + reason, the automatic pause) + quiz
+//   queue, a request page, the gear queue: all view only)  3 Your creators (Dashboard scoreboard: posting more / typical / less
+//   + needs attention, then Analytics: tabs, sort, Advanced view)  4 Read a record (report card in Analytics, then the full record)  5 Give a strike (about + reason, the automatic pause) + quiz
 //   6 Second chances (remove a strike, pause by hand, lift) + quiz  7 On the day (Schedule → team: missed check-ins,
 //   reports) + quiz  8 Hold the door (invite a creator, booking rules) + quiz  9 Stay in the loop (REAL notifications).
 // Scenes copy the real screens (ReservationsScreen, ReservationDetailScreen, GearBookingsScreen, AdminScreen,
-// CreatorsScreen, PersonHistoryScreen + ManageCreator, ScheduleScreen, ScheduleTeamScreen, UsersScreen + invite sheet,
+// CreatorDashboard, AnalyticsScreen (Creators tab + report card), PersonHistoryScreen + ManageCreator, ScheduleScreen, ScheduleTeamScreen, UsersScreen + invite sheet,
 // BookingRulesScreen, AccountScreen). When one of those screens changes a lot, update its scene here too.
 // SEALED: practice data only (made-up creators, requests and strikes). Nothing is saved, given or sent, except turning on
 // notifications in chapter 9 and marking the tour done. Required once for admins (App.tsx TourGate); replay at /tour/admin.
@@ -40,7 +40,7 @@ export const ADMIN_CHAPTERS: Chapter[] = [
   { name: 'Stay in the loop', badge: 'In the loop', icon: 'bell' },
 ]
 
-type Scene = 'hello' | 'meet' | 'queue' | 'request' | 'gearq' | 'admin' | 'creators' | 'person' | 'strikesheet' | 'removesheet'
+type Scene = 'hello' | 'meet' | 'queue' | 'request' | 'gearq' | 'admin' | 'analytics' | 'report' | 'person' | 'strikesheet' | 'removesheet'
   | 'pausesheet' | 'schedule' | 'team' | 'users' | 'invitesheet' | 'rules' | 'notify' | 'cheat' | 'done'
 type Tab = 'Dashboard' | 'Queue' | 'Gear' | 'Schedule' | 'Props'
 interface Step { id: string; scene: Scene; part?: number; target?: string; title: ReactNode; body?: ReactNode; next?: string; hint?: string; top?: boolean; look?: boolean
@@ -87,7 +87,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'analyticslook', scene: 'admin', part: 1, target: 'dashlinks', look: true, next: C, title: 'Go deeper: Analytics',
       body: ul([['Creators', 'who films more and who films less, then tap anyone for their report card: rank, month by month against the typical creator, flags, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Advanced view', 'the table icon: break any number down by person, house, week, flag or staff, sort it, download it'], ['Trends', 'the whole studio over time, last'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
     { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your tools, further down',
-      body: "All creators, the schedule team, activity, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
+      body: "Analytics, every creator's record, the schedule team, activity, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
     { id: 'toqueue', scene: 'admin', part: 1, target: 'nav-queue', title: <>Now tap <b>Queue</b></>, body: 'Every props request, live.' },
     // 2 · Watch the queues
     intro(2, 'queue', "The arts department and the equipment team do the picking, packing and checking. You can see all of it, so you always know what's going on."),
@@ -103,20 +103,31 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'gearlook', scene: 'gearq', part: 2, target: 'gearlist', look: true, next: C, title: 'Same idea for gear',
       body: "The equipment team runs it. A Late pill means it's 30 minutes past the booked end. Late creators can't book more gear until it's back." },
     // 3 · Your creators
-    intro(3, 'gearq', "This is the big one. One screen that shows who's filming, and who's slipping."),
+    intro(3, 'gearq', "This is the big one: who's filming a lot, who's filming a little, and who needs a word."),
     { id: 'toadmin3', scene: 'gearq', part: 3, target: 'nav-dashboard', title: <>Tap <b>Dashboard</b></> },
-    { id: 'tocreators', scene: 'admin', part: 3, target: 'row-creators', title: <>Tap <b>All creators</b></>, body: 'The full list, one row per creator.' },
-    { id: 'tiles', scene: 'creators', part: 3, target: 'tiles', look: true, next: C, title: 'The whole team in four numbers',
-      body: 'Shoots filmed, no-shows, late returns and strikes, for everyone together.' },
-    { id: 'period', scene: 'creators', part: 3, target: 'period-90', title: <>Tap <b>Last 90 days</b></>, body: 'Every number on the page follows the period you pick.' },
-    { id: 'sortflags', scene: 'creators', part: 3, target: 'sort-flags', title: <>Tap <b>Most flags</b></>, body: 'The people who need a chat float to the top.' },
-    { id: 'rowslook', scene: 'creators', part: 3, target: 'creatorlist', look: true, next: C, title: 'One row per creator',
-      body: <>"<b>3 filmed of 5 booked</b>" and a bar: green is great, gold is fine, red needs attention. The tags are their flags. Paused means they can't book props or gear right now.</> },
+    { id: 'tilesless', scene: 'admin', part: 3, target: 'tile-less', title: <>Tap <b>Posting less</b></>, body: 'The tiles are filters. There is no minimum: everyone is compared with the typical creator.' },
+    { id: 'lesslook', scene: 'admin', part: 3, target: 'dashlist', look: true, next: C, title: 'Only the quiet ones',
+      body: "Riley filmed 1 this month; the typical creator filmed 4 (the white tick on the bar). The light part of the bar is shoots they've booked but not filmed yet." },
+    { id: 'tilesall', scene: 'admin', part: 3, target: 'tile-less', title: <>Tap <b>Posting less</b> again</>, body: 'Back to everyone.' },
+    { id: 'openanalytics', scene: 'admin', part: 3, target: 'openanalytics', title: <>Tap <b>Open analytics</b></>, body: 'The full picture, one creator at a time.' },
+    { id: 'antabs', scene: 'analytics', part: 3, target: 'antabs', look: true, next: C, title: 'Four tabs, creators first',
+      body: ul([['Creators', 'everyone ranked by shoots filmed'], ['Flags', 'who has the most, and what kind'], ['Teams', 'the arts department and equipment team, per person'], ['Trends', 'the whole studio over time']]) },
+    { id: 'anperiod', scene: 'analytics', part: 3, target: 'anperiod', look: true, next: C, title: 'Pick the dates once',
+      body: "This month, last month, 12 weeks… everything on every tab follows it. Every time you tap into something, the phone's Back takes you one step out." },
+    { id: 'sortleast', scene: 'analytics', part: 3, target: 'sort-least', title: <>Tap <b>Least filmed</b></>, body: 'The people filming the least float to the top.' },
+    { id: 'anrows', scene: 'analytics', part: 3, target: 'anlist', look: true, next: C, title: 'One row per creator',
+      body: <>Rank, shoots filmed, and <b>"3 fewer than typical"</b>. Green ↑ posting more, amber ↓ posting less. Red <b>Needs attention</b> is about behaviour (no-shows, strikes, damage), with the reason underneath.</> },
+    { id: 'tablelook', scene: 'analytics', part: 3, target: 'tableicon', look: true, next: C, title: 'Want a spreadsheet?',
+      body: 'The table button opens the Advanced view: break any number down by creator, house, week, flag or staff member, sort any column, and download it.' },
     // 4 · Read a record
-    intro(4, 'creators', "Numbers tell you something's off. The record tells you what happened."),
-    { id: 'opendevon', scene: 'creators', part: 4, target: 'row-devon', title: <>Tap <b>Devon</b></> },
-    { id: 'persontiles', scene: 'person', part: 4, target: 'persontiles', look: true, next: C, title: "Devon's numbers", body: 'Filmed, booked and coming up, for the same period.' },
-    { id: 'flaglist', scene: 'person', part: 4, target: 'flaglist', look: true, next: C, title: 'Every flag, with the day',
+    intro(4, 'analytics', "Numbers tell you something's off. The report card and the record tell you what happened."),
+    { id: 'opendevon', scene: 'analytics', part: 4, target: 'row-devon', title: <>Tap <b>Devon</b></> },
+    { id: 'cardlook', scene: 'report', part: 4, target: 'reportcard', look: true, next: C, title: "Devon's report card",
+      body: 'Where they rank, how they compare with the typical creator, and why they need attention.' },
+    { id: 'monthslook', scene: 'report', part: 4, target: 'months', look: true, next: C, title: 'Month by month',
+      body: 'Gold columns are Devon; the white lines are the typical creator that month. One slow month is normal; a pattern is worth a chat.' },
+    { id: 'torecord', scene: 'report', part: 4, target: 'recordbtn', title: <>Tap <b>Record ›</b></>, body: 'Strikes and pauses live on their record.' },
+    { id: 'flaglist', scene: 'person', part: 4, target: 'flaglist', look: true, next: C, title: 'The full record: every flag, with the day',
       body: ul([['No-show', 'booked, never came'], ['Started late', 'checked in 15+ min after the start'], ['Ran over / mess', 'reported by the next creator'], ['Late props / gear', 'brought back late'], ['Strike', 'on their record, with the reason']]) },
     // 5 · Give a strike
     intro(5, 'person', "Devon brought the A7S kit back a day late. That's worth a strike. Here's how to give one fairly."),
@@ -194,7 +205,6 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
   const step = STEPS[idx]
   const I = (id: string) => STEPS.findIndex(x => x.id === id)
   const past = (id: string) => idx > I(id)
-  const at = (id: string) => idx >= I(id)
   const advance = () => setIdx(n => { const m = Math.min(n + 1, STEPS.length - 1); if (required) saveStep(profile.email, m); return m })
   const back = idx > 0 ? () => setIdx(n => { const m = Math.max(0, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
   const tap = (t: string) => () => { if (step.target === t) advance() }
@@ -202,8 +212,8 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
   const finish = () => { if (required) markTourDone(profile.email); onFinish() }
 
   // ── Where the story is ──
-  const period = at('period') && past('period') ? '90' : '30'
-  const byFlags = past('sortflags')
+  const lessOnly = past('tilesless') && !past('tilesall')
+  const leastFirst = past('sortleast')
   const struck = past('strikesave')            // strike 2 given
   const removed = past('removesave')           // that strike taken back
   const handPaused = past('pausesave')
@@ -261,19 +271,44 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     </div>
   )
 
-  // Practice creators. Devon is the one who needs attention.
+  // Practice creators, this month. The typical creator (the middle value) filmed 4. Devon needs attention (behaviour).
+  const TYPICAL = 4
   const people = [
-    { key: 'devon', name: 'Devon', filmed: 3, booked: 5, up: 1, flags: [['1 no-show', true], ['1 late gear', false], ['1 ran over', false], [`${strikes} strike${strikes > 1 ? 's' : ''}`, true]] as [string, boolean][], paused },
-    { key: 'jordan', name: 'Jordan', filmed: period === '90' ? 9 : 4, booked: period === '90' ? 10 : 5, up: 2, flags: [['1 no check-in', false]] as [string, boolean][], paused: false },
-    { key: 'riley', name: 'Riley', filmed: period === '90' ? 14 : 6, booked: period === '90' ? 14 : 6, up: 3, flags: [] as [string, boolean][], paused: false },
-    { key: 'maya', name: 'Maya', filmed: 2, booked: 2, up: 1, flags: [] as [string, boolean][], paused: false },
+    { key: 'jordan', name: 'Jordan', filmed: 7, coming: 0, out: 'more' as const, why: '' },
+    { key: 'maya', name: 'Maya', filmed: 4, coming: 1, out: 'typical' as const, why: '' },
+    { key: 'devon', name: 'Devon', filmed: 4, coming: 0, out: 'typical' as const, why: `${paused ? 'Paused · ' : ''}1 no-show · ${strikes} strike${strikes > 1 ? 's' : ''}` },
+    { key: 'riley', name: 'Riley', filmed: 1, coming: 2, out: 'less' as const, why: '' },
   ]
-  const ordered = byFlags ? people : [...people].sort((a, b) => b.filmed - a.filmed)
-  const flagPills = (f: [string, boolean][]) => !f.length ? <span className="text-xs rounded-full px-2 py-1 bg-green-500/15 text-green-300">No flags ✓</span>
-    : <span className="flex flex-wrap gap-1">{f.map(([t, serious]) => <span key={t} className={`text-xs rounded-full px-2 py-1 ${serious ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-200'}`}>{t}</span>)}</span>
-  const periodChips = (
-    <div className="flex gap-2 overflow-x-auto no-scrollbar">
-      {[['30', 'Last 30 days'], ['month', 'This month'], ['90', 'Last 90 days']].map(([v, l]) => <button key={v} {...T(`period-${v}`)} onClick={tap(`period-${v}`)} className={`shrink-0 px-3 py-1 rounded-full text-sm ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
+  const devonFlags: [string, boolean][] = [['1 no-show', true], ['1 late gear', false], ['1 ran over', false], [`${strikes} strike${strikes > 1 ? 's' : ''}`, true]]
+  const flagPills = (f: [string, boolean][]) => <span className="flex flex-wrap gap-1">{f.map(([t, serious]) => <span key={t} className={`text-xs rounded-full px-2 py-1 ${serious ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-200'}`}>{t}</span>)}</span>
+  const OUT = { more: ['↑ Posting more', 'bg-green-500/15 text-green-300', 'bg-green-300'], typical: ['= Typical', 'bg-white/10 text-pt-text', 'bg-pt-accent'], less: ['↓ Posting less', 'bg-amber-500/15 text-amber-200', 'bg-amber-200'] }
+  const vs = (f: number) => f === TYPICAL ? 'about typical' : f > TYPICAL ? `${f - TYPICAL} more than typical` : `${TYPICAL - f} fewer than typical`
+  const rank = (f: number) => 1 + people.filter(p => p.filmed > f).length
+  const row = (p: typeof people[number], target?: string) => (
+    <button key={p.key} {...(target ? T(target) : {})} onClick={target ? tap(target) : undefined} className="w-full flex items-center gap-3 px-3 py-3 text-left">
+      <span className="w-6 text-center text-pt-muted text-sm tabular-nums shrink-0">{rank(p.filmed)}</span>
+      <Avatar name={p.name} size={40} />
+      <span className="flex-1 min-w-0 space-y-1.5">
+        <span className="flex items-center gap-1.5"><b className="flex-1 min-w-0 truncate text-pt-text text-[15px]">{p.name}</b>
+          {p.out !== 'typical' && <span className={`shrink-0 text-xs font-medium rounded-full px-2 py-0.5 ${OUT[p.out][1]}`}>{OUT[p.out][0]}</span>}
+          {p.why && <span className="shrink-0 text-xs font-medium rounded-full px-2 py-0.5 bg-red-500/15 text-red-300">! Needs attention</span>}</span>
+        <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden">
+          <i className={`absolute inset-y-0 left-0 rounded-full ${OUT[p.out][2]}`} style={{ width: `${(p.filmed / 9) * 100}%` }} />
+          {p.coming > 0 && <i className="absolute inset-y-0 bg-white/25" style={{ left: `${(p.filmed / 9) * 100}%`, width: `${(p.coming / 9) * 100}%` }} />}
+          <i className="absolute inset-y-0 w-[2px] bg-white" style={{ left: `calc(${(TYPICAL / 9) * 100}% - 1px)` }} />
+        </span>
+        <span className="flex items-baseline gap-2 text-xs"><span className="text-pt-text shrink-0"><b className="text-[15px]">{p.filmed}</b> filmed{p.coming ? ` · ${p.coming} booked` : ''}</span><span className="text-pt-muted truncate">{vs(p.filmed)}</span></span>
+        {p.why && <span className="block text-xs text-red-300 truncate">{p.why}</span>}
+      </span>
+      {target && <span className="text-pt-muted shrink-0">›</span>}
+    </button>
+  )
+  const tilesGrid = (target?: boolean) => (
+    <div className="grid grid-cols-2 gap-2">
+      {([['more', 1, 'Posting more', 'bg-green-500/10', 'text-green-300'], ['less', 1, 'Posting less', 'bg-amber-500/10', 'text-amber-200'], ['typical', 2, 'Typical', 'bg-pt-surface', 'text-pt-text'], ['attention', 1, 'Needs attention', 'bg-red-500/10', 'text-red-300']] as [string, number, string, string, string][]).map(([k, n, l, bg, tx]) => {
+        const t = target && k === 'less' ? 'tile-less' : undefined
+        return <button key={k} {...(t ? T(t) : {})} onClick={t ? tap(t) : undefined} className={`rounded-2xl px-3 py-2.5 flex items-center gap-3 text-left ${bg} ${k === 'less' && lessOnly ? 'ring-2 ring-inset ring-white/40' : ''}`}><span className={`text-[26px] font-bold leading-none tabular-nums ${tx}`}>{n}</span><span className="text-pt-text text-[13px] leading-tight">{l}</span></button>
+      })}
     </div>
   )
 
@@ -377,35 +412,25 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         {header('Dashboard')}
         <div className="px-4 space-y-4">
           <div {...T('dashpreview')} className="space-y-3">
-            <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit">{['This month', 'Last month', '12 weeks'].map((l, n) => <span key={l} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</span>)}</div>
-            <div className="grid grid-cols-2 gap-2">
-              {([['1', 'Posting more', 'bg-green-500/10', 'text-green-300'], ['1', 'Posting less', 'bg-amber-500/10', 'text-amber-200'], ['2', 'Typical', 'bg-pt-surface', 'text-pt-text'], ['1', 'Needs attention', 'bg-red-500/10', 'text-red-300']] as [string, string, string, string][]).map(([n, l, bg, tx]) => (
-                <div key={l} className={`rounded-2xl px-3 py-2.5 flex items-center gap-3 ${bg}`}><span className={`text-[26px] font-bold leading-none tabular-nums ${tx}`}>{n}</span><span className="text-pt-text text-[13px] leading-tight">{l}</span></div>
-              ))}
+            <div className="space-y-1.5">
+              <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit">{['This month', 'Last month', '12 weeks'].map((l, n) => <span key={l} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</span>)}</div>
+              <p className="text-pt-muted text-xs px-1">This month · the typical creator filmed {TYPICAL}</p>
             </div>
-            <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
-              {([['Jordan', 1, 7, 'bg-green-300', '↑ Posting more', 'bg-green-500/15 text-green-300', '3 more than typical'], ['Maya', 2, 4, 'bg-pt-accent', '', '', 'about typical'],
-                ['Devon', 3, 4, 'bg-pt-accent', '! Needs attention', 'bg-red-500/15 text-red-300', '1 no-show'], ['Riley', 4, 1, 'bg-amber-200', '↓ Posting less', 'bg-amber-500/15 text-amber-200', '3 fewer than typical']] as [string, number, number, string, string, string, string][]).map(([n, rk, f, fill, pill, pc, why]) => (
-                <div key={n} className="flex items-center gap-3 px-3 py-3">
-                  <span className="w-6 text-center text-pt-muted text-sm">{rk}</span>
-                  <span className="w-10 h-10 rounded-full bg-pt-border grid place-items-center text-pt-text font-semibold shrink-0">{n[0]}</span>
-                  <span className="flex-1 min-w-0 space-y-1.5">
-                    <span className="flex items-center gap-2"><b className="flex-1 text-pt-text text-[15px]">{n}</b>{pill && <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${pc}`}>{pill}</span>}</span>
-                    <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden"><i className={`absolute inset-y-0 left-0 rounded-full ${fill}`} style={{ width: `${(f / 7) * 100}%` }} /><i className="absolute inset-y-0 w-[2px] bg-white" style={{ left: '57%' }} /></span>
-                    <span className="flex gap-2 text-xs"><span className="text-pt-text"><b className="text-[15px]">{f}</b> filmed</span><span className={pill.startsWith('!') ? 'text-red-300' : 'text-pt-muted'}>{why}</span></span>
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div {...T('dashlinks')} className="grid grid-cols-2 gap-2"><span className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold text-center">Open analytics</span><span className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold text-center">Settings sheet</span></div>
-            <div className="bg-amber-500/10 rounded-2xl px-3 py-3 flex items-center gap-3"><span className="min-w-[32px] h-8 px-2 rounded-full grid place-items-center text-sm font-bold bg-red-500/20 text-red-300">{decided ? 0 : 1}</span><span className="flex-1 text-pt-text text-[15px]">Missed check-in to decide</span><span className="text-pt-accent">›</span></div>
+            {tilesGrid(true)}
           </div>
-          <div className="flex items-baseline justify-between pt-1"><h2 className="text-pt-text text-[20px] font-semibold tracking-tight">Needs attention</h2>
-            <button {...T('row-creators')} onClick={tap('row-creators')} className="text-pt-accent text-sm tap">All creators ›</button></div>
-          <div className="bg-pt-surface rounded-2xl p-3 space-y-2"><span className="flex items-center gap-3"><Avatar name="Devon" /><span className="flex-1 min-w-0"><b className="block text-pt-text">Devon</b><span className="block text-pt-muted text-xs">3 filmed of 5 booked</span></span></span>{flagPills(people[0].flags)}</div>
+          <div className="flex items-end justify-between gap-3 pt-1"><div><h2 className="text-pt-text text-[20px] font-semibold tracking-tight">{lessOnly ? 'Posting less' : 'Every creator'}</h2><p className="text-pt-muted text-xs">Most shoots filmed first. Tap someone for their report card.</p></div><span className="text-pt-accent text-sm shrink-0">Analytics ›</span></div>
+          <div {...T('dashlist')} className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+            {[...people].sort((x, y) => y.filmed - x.filmed).filter(p => !lessOnly || p.out === 'less').map(p => row(p))}
+          </div>
+          <div {...T('dashlinks')} className="grid grid-cols-2 gap-2">
+            <button {...T('openanalytics')} onClick={tap('openanalytics')} className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Open analytics</button>
+            <span className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold text-center">Settings sheet</span>
+          </div>
+          <h2 className="text-pt-text text-[20px] font-semibold tracking-tight pt-1">Needs you now</h2>
+          <div className="bg-amber-500/10 rounded-2xl px-3 py-3 flex items-center gap-3"><span className="min-w-[32px] h-8 px-2 rounded-full grid place-items-center text-sm font-bold bg-red-500/20 text-red-300">{decided ? 0 : 1}</span><span className="flex-1 text-pt-text text-[15px]">Missed check-in to decide</span><span className="text-pt-accent">›</span></div>
           <h2 className="text-pt-text text-[20px] font-semibold tracking-tight pt-2">Admin tools</h2>
           <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
-            {[['', 'Analytics', 'Weekly and monthly filming, averages, every flag by type, the teams'], ['', 'Creators', 'How much each creator films, every flag, and strikes and pauses'], ['', 'Settings sheet', 'Every rule the app runs on, and who can change it'], ['', 'Requests calendar', 'Every props request by shoot day'],
+            {[['', 'Analytics', 'Who films more or less, every flag by type, the teams, trends'], ['', 'Creators', 'How much each creator films, every flag, and strikes and pauses'], ['', 'Settings sheet', 'Every rule the app runs on, and who can change it'], ['', 'Requests calendar', 'Every props request by shoot day'],
               ['', 'Schedule team', 'Missed check-ins and reports to decide, creators booked vs filmed'],
               ['', 'Activity', 'Everything that happened, with who and when'], ['users', 'Invite creators', 'Add creators or turn their access off'],
               ['rules', 'Booking rules', 'How far ahead props must be booked; closed days; turnaround days'], ['', 'Admin tour', 'Practise all of this again'],
@@ -422,43 +447,72 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         </div>
       </div>
     ),
-    creators: () => {
-      const total = (f: (p: typeof people[number]) => number) => people.reduce((n, p) => n + f(p), 0)
-      const tiles: [string, number, string][] = [['Shoots filmed', total(p => p.filmed), 'text-pt-text'], ['No-shows', 1, 'text-red-300'], ['Late returns', 1, 'text-amber-200'], ['Strikes', strikes, 'text-red-300']]
+    analytics: () => (
+      <div className="min-h-full pb-10">
+        <div className="pt-safe px-4">
+          <div className="flex items-center gap-2"><span className="text-pt-accent text-[17px] py-1">‹ Back</span><span className="flex-1" />
+            <span {...T('tableicon')} className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="table" /></span>
+            <span className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="note" /></span></div>
+          <h1 className="font-display text-[34px] text-pt-text leading-tight">Analytics</h1>
+          <div {...T('anperiod')} className="flex items-center gap-2 mt-1 mb-3 w-fit pr-1">
+            <span className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-full bg-pt-surface shadow-hairline text-pt-text text-[15px]"><Icon name="calendar" className="w-4 h-4 text-pt-accent" />This month<span className="text-pt-muted">▾</span></span>
+            <span className="text-pt-muted text-sm">So far this month</span>
+          </div>
+        </div>
+        <div className="px-4 border-b border-white/[0.06]">
+          <div {...T('antabs')} className="flex gap-5">
+            {['Creators', 'Flags', 'Teams', 'Trends'].map((l, n) => <span key={l} className={`relative py-3 text-[15px] ${n === 0 ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}{n === 0 && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}</span>)}
+          </div>
+          <div className="flex items-center gap-2 py-2"><span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</span><span className="text-pt-muted text-sm">Everyone · every house</span></div>
+        </div>
+        <div className="px-4 pt-4 space-y-4">
+          <div><p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">Jordan filmed the most this month: 7 shoots</p>
+            <p className="text-pt-muted text-[15px] mt-1">The typical creator filmed {TYPICAL} this month.</p></div>
+          {tilesGrid()}
+          <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
+            {([['most', 'Most filmed'], ['least', 'Least filmed'], ['flags', 'Most flags'], ['name', 'A–Z']] as const).map(([v, l]) => (
+              <button key={v} {...T(`sort-${v}`)} onClick={tap(`sort-${v}`)} className={`flex-1 py-2 rounded-[10px] text-sm whitespace-nowrap ${(v === 'least') === leastFirst && (v === 'most' || v === 'least') ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>
+            ))}
+          </div>
+          <div {...T('anlist')} className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+            {[...people].sort((x, y) => leastFirst ? x.filmed - y.filmed : y.filmed - x.filmed).map(p => row(p, `row-${p.key}`))}
+          </div>
+        </div>
+      </div>
+    ),
+    report: () => {
+      const months: [string, number, number][] = [['May', 5, 4], ['Jun', 3, 4], ['Jul', 4, 4], ['Aug', 6, 5], ['Sep', 2, 4], ['Oct', 4, 4]]
       return (
         <div className="min-h-full pb-10">
-          <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-            <span className="text-pt-accent text-[17px] py-1 inline-block">‹ Back</span>
-            <h1 className="font-display text-[34px] text-pt-text py-1">Creators</h1>
-            {periodChips}
-          </div>
+          <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2"><span className="text-pt-accent text-[17px] py-1 inline-block">‹ Back</span></div>
           <div className="px-4 space-y-4">
-            <div {...T('tiles')} className="grid grid-cols-2 gap-2">
-              {tiles.map(([t, n, cls]) => <div key={t} className="bg-pt-surface rounded-2xl p-3"><p className={`text-[28px] font-bold leading-none tabular-nums ${n ? cls : 'text-pt-text'}`}>{n}</p><p className="text-pt-muted text-xs mt-1">{t}</p></div>)}
+            <div {...T('reportcard')} className="rounded-2xl p-3 space-y-3 bg-red-500/10">
+              <div className="flex items-center gap-3">
+                <Avatar name="Devon" size={52} />
+                <span className="flex-1 min-w-0"><b className="block text-pt-text text-[17px]">Devon</b>
+                  <span className="mt-1 flex flex-wrap gap-1.5"><span className="text-xs font-medium rounded-full px-2 py-0.5 bg-white/10 text-pt-text">= Typical</span><span className="text-xs font-medium rounded-full px-2 py-0.5 bg-red-500/15 text-red-300">! Needs attention</span></span></span>
+                <button {...T('recordbtn')} onClick={tap('recordbtn')} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">Record ›</button>
+              </div>
+              <p className="text-pt-text text-[22px] font-semibold leading-snug">#2 of 4 · 4 shoots filmed <span className="text-pt-muted text-[15px] font-normal">this month</span></p>
+              <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden"><i className="absolute inset-y-0 left-0 rounded-full bg-pt-accent" style={{ width: `${(4 / 7) * 100}%` }} /><i className="absolute inset-y-0 w-[2px] bg-white" style={{ left: `calc(${(4 / 7) * 100}% - 1px)` }} /></span>
+              <p className="text-sm text-pt-muted">The typical creator filmed {TYPICAL}: about typical.</p>
+              <p className="text-sm text-red-300">{people[2].why}</p>
             </div>
-            <div className="flex items-center justify-between">
-              <p className="text-pt-muted text-xs">{people.length} creators · tap one for every flag</p>
-              <div className="flex bg-pt-surface rounded-full p-0.5 text-xs">
-                {([['filming', 'Most filming'], ['flags', 'Most flags']] as const).map(([v, l]) => <button key={v} {...T(`sort-${v}`)} onClick={tap(`sort-${v}`)} className={`px-3 py-1 rounded-full ${(v === 'flags') === byFlags ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
+            <div {...T('months')} className="space-y-2">
+              <div><h2 className="text-pt-text text-[20px] font-semibold tracking-tight">Month by month</h2><p className="text-pt-muted text-xs">Shoots filmed; the white lines are the typical creator · above typical 2 of the last 6 months</p></div>
+              <div className="bg-pt-surface rounded-2xl p-3">
+                <div className="flex items-end gap-2 h-28">
+                  {months.map(([m, v, t]) => (
+                    <div key={m} className="flex-1 h-full flex flex-col justify-end relative">
+                      <div className="absolute inset-x-0 border-t-2 border-white" style={{ bottom: `${(t / 7) * 100}%` }} />
+                      <div className="w-full bg-pt-accent rounded-t-[4px]" style={{ height: `${(v / 7) * 100}%` }} />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-1">{months.map(([m]) => <span key={m} className="flex-1 text-center text-pt-muted text-xs">{m}</span>)}</div>
               </div>
             </div>
-            <div {...T('creatorlist')} className="space-y-2">
-              {ordered.map(c => {
-                const rate = c.booked ? c.filmed / c.booked : 0
-                return (
-                  <button key={c.key} {...T(`row-${c.key}`)} onClick={tap(`row-${c.key}`)} className="w-full text-left bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
-                    <span className="flex items-center gap-3">
-                      <Avatar name={c.name} />
-                      <span className="flex-1 min-w-0"><b className="block text-pt-text truncate">{c.name}</b><span className="block text-pt-muted text-xs">{c.filmed} filmed of {c.booked} booked · {c.up} coming up</span></span>
-                      {c.paused && <span className="text-xs rounded-full px-2 py-1 bg-red-500/20 text-red-300 shrink-0">Paused</span>}
-                      <span className="text-pt-muted">›</span>
-                    </span>
-                    <span className="block h-1.5 rounded-full bg-pt-border overflow-hidden"><i className={`block h-full rounded-full ${rate >= 0.9 ? 'bg-green-400' : rate >= 0.7 ? 'bg-pt-accent' : 'bg-red-400'}`} style={{ width: `${Math.round(rate * 100)}%` }} /></span>
-                    {flagPills(c.flags)}
-                  </button>
-                )
-              })}
-            </div>
+            <div className="space-y-2"><h2 className="text-pt-text text-[20px] font-semibold tracking-tight">Their flags</h2>{flagPills(devonFlags)}</div>
           </div>
         </div>
       )
@@ -478,7 +532,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
           <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-center gap-3"><span className="text-pt-accent text-[17px] py-1">‹ Back</span><h1 className="text-pt-text text-xl font-semibold">Devon</h1></div>
           <div className="px-4 space-y-4">
             <div><p className="text-pt-muted text-sm">devon@example.com</p><p className="text-pt-accent text-sm">Creator</p></div>
-            {periodChips}
+            <p className="text-pt-muted text-xs">This month</p>
             {paused && (
               <div {...T('pausebanner')} className="bg-red-500/10 rounded-2xl px-4 py-3">
                 <p className="text-red-200 font-medium">Paused until {formatDay(pausedUntil)}</p>
@@ -490,10 +544,10 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
               <button {...T('pausebtn')} onClick={tap('pausebtn')} className="flex-1 py-3 rounded-xl bg-pt-surface text-pt-text font-semibold text-sm">{paused ? 'Lift the pause' : 'Pause bookings'}</button>
             </div>
             <div {...T('persontiles')} className="grid grid-cols-3 gap-2">
-              {[[3, 'filmed'], [5, 'booked'], [1, 'coming up']].map(([n, l]) => <div key={l} className="bg-pt-surface shadow-hairline rounded-2xl p-3"><p className="text-[28px] font-bold leading-none tabular-nums text-pt-text">{n}</p><p className="text-pt-muted text-xs mt-1">{l}</p></div>)}
+              {[[4, 'filmed'], [5, 'booked'], [0, 'coming up']].map(([n, l]) => <div key={l} className="bg-pt-surface shadow-hairline rounded-2xl p-3"><p className="text-[28px] font-bold leading-none tabular-nums text-pt-text">{n}</p><p className="text-pt-muted text-xs mt-1">{l}</p></div>)}
             </div>
             <div {...T('flaglist')} className="space-y-2">
-              {flagPills(people[0].flags)}
+              {flagPills(devonFlags)}
               {flags.map(([d, t, serious]) => (
                 <div key={t} className="bg-pt-surface rounded-2xl px-4 py-3 flex items-center gap-3">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${serious ? 'bg-red-400' : 'bg-amber-300'}`} />
@@ -735,7 +789,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
   }
 
   // The admin's real tab bar (Dashboard / Queue / Gear / Schedule / Props).
-  const TAB: Partial<Record<Scene, Tab>> = { queue: 'Queue', request: 'Queue', gearq: 'Gear', admin: 'Dashboard', creators: 'Dashboard', person: 'Dashboard', strikesheet: 'Dashboard',
+  const TAB: Partial<Record<Scene, Tab>> = { queue: 'Queue', request: 'Queue', gearq: 'Gear', admin: 'Dashboard', analytics: 'Dashboard', report: 'Dashboard', person: 'Dashboard', strikesheet: 'Dashboard',
     removesheet: 'Dashboard', pausesheet: 'Dashboard', schedule: 'Schedule', team: 'Schedule', users: 'Dashboard', invitesheet: 'Dashboard', rules: 'Dashboard', notify: 'Dashboard' }
   const lit = TAB[step.scene]
   const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part') && !x.quiz)
