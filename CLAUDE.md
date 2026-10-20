@@ -1232,7 +1232,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       practice stock = camera bodies, lenses, lights, mics, gorilla pods only (no batteries, drones, handles, cards); its Admin
       menu no longer lists schedule settings / calendar import. Help: admins give strikes / invite. Tests 423.
     - ADMIN TOUR (owner, Oct 20: "build out the tutorial for the admin role"; app only, NO server/rules change; preview only,
-      live needs OK): `src/tour/AdminTour.tsx`, same coach/cards/quizzes/badges as GearTour (ADMIN_CHAPTERS): 1 Find your way
+      LIVE Oct 20 website run 34): `src/tour/AdminTour.tsx`, same coach/cards/quizzes/badges as GearTour (ADMIN_CHAPTERS): 1 Find your way
       around (Queue/Gear/Schedule/Props/Admin, Admin menu look) → 2 Watch the queues (props queue, Devon's late request page:
       view only + history, gear queue) → 3 Your creators (Admin → Creators: tiles, Last 90 days, Most flags, rows) → 4 Read a
       record (Devon: tiles + flag list) → 5 Give a strike (Gear + typed reason → 2nd strike → automatic pause banner) + quiz →
@@ -1241,7 +1241,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       → Invited ✓ message; Booking rules notice card with live numbers) + quiz → 9 notifications (REAL) → cheat sheet → badges.
       Practice creators Devon (needs attention), Jordan, Riley, Maya (not "Sam": the test admin login is Sam). REQUIRED once for
       realRole 'admin' (TourGate); replay /tour/admin from Admin → Admin tour (and the owner's Team menu). TAB_ICONS has Gear +
-      Props. Checked: 74 screens on a 390×844 touch screen in the emulator, no errors.
+      Props. Checked: 74 screens on a 390×844 touch screen in the emulator, no errors. LIVE Oct 20 (website run 34, owner OK).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
