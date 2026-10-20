@@ -12,12 +12,13 @@ import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
 import UsedByPicker, { usedByOf } from '../components/UsedByPicker'
+import HandOverSheet from '../components/HandOverSheet'
 import ReturnTogether from '../components/ReturnTogether'
 import { formatDay } from '../lib/dates'
 import { Icon } from '../components/Icon'
 
 const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
-const ACTIONS: Record<string, string> = { edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
+const ACTIONS: Record<string, string> = { handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
 const STEPS = ['Held', 'Picked up', 'Returned', 'Checked in']
 const STEP_OF: Record<string, number> = { held: 0, out: 1, returned: 2, checked_in: 3 }
 const stampMin = (s: string) => Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16))
@@ -39,6 +40,7 @@ export default function GearBookingScreen() {
   const [uploading, setUploading] = useState(false)
   const [note, setNote] = useState('')
   const [notUsing, setNotUsing] = useState<Set<string>>(new Set())
+  const [handing, setHanding] = useState(false)
   const [zoom, setZoom] = useState<string | null>(null)
   const [, setTick] = useState(0)
   useEffect(() => id ? subscribeToGearBooking(id, setB) : undefined, [id])
@@ -122,6 +124,18 @@ export default function GearBookingScreen() {
           </div>
         )}
 
+        {b.handedTo && (
+          <div className="bg-pt-surface rounded-2xl px-4 py-3 text-[15px] text-pt-text">
+            Handed over to <b>{b.handedTo.name}</b>{b.returnedAt ? ` at ${fmtTime(stampMin(b.returnedAt))}` : ''}. They tick every piece when they take it; anything missing then goes on this booking.
+            {isGearStaff && <button onClick={() => navigate(`/gear/bookings/${b.handedTo!.bookingId}`)} className="block text-pt-accent text-sm mt-1 tap">Open their booking ›</button>}
+          </div>
+        )}
+        {b.handedFrom && b.status === 'held' && (
+          <div className="bg-sky-500/10 rounded-2xl px-4 py-3 text-sky-100 text-[15px]">
+            <b>{b.handedFrom.name.split(' ')[0]}</b> is handing you this gear. Open the case together, tick every piece below and sign. Anything missing goes on their record, not yours.
+          </div>
+        )}
+
         {booker && <ShootLink shootId={b.shootId} creatorEmail={b.creatorEmail} other="props" />}
 
         <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
@@ -171,6 +185,8 @@ export default function GearBookingScreen() {
             <UsedByPicker b={b} off={notUsing} onChange={setNotUsing} />
             <button disabled={!photos.length || uploading || busy || usedByOf(b, notUsing)?.length === 0} onClick={() => run(() => returnGear({ id: b.id, photos, usedBy: usedByOf(b, notUsing) }))}
               className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Sending…' : 'Send return'}</button>
+            <button onClick={() => setHanding(true)} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-text font-semibold shadow-hairline">Someone else needs it now? Hand it over</button>
+            <HandOverSheet b={b} open={handing} onClose={() => setHanding(false)} />
           </section>
         )}
 

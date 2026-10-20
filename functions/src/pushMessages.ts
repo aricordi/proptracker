@@ -69,6 +69,11 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
   const added = ((a.crewEmails ?? []) as string[]).filter(e => !((b?.crewEmails ?? []) as string[]).includes(e))
   const shared: Push[] = added.length && a.status === 'held' ? [{ to: added, url, tag, title: 'Gear shared with you 🎥',
     body: `${String(a.creatorName ?? '').split(' ')[0] || 'A friend'} booked "${a.title}" for your back-to-back shoots (${dayLabel(a.date)} ${fmtTime(a.start)}). Whoever uses it is responsible for it.` }] : []
+  // Handed over on the spot: the new person ticks every piece and signs.
+  if (!b && a.handedFrom) return [
+    { to: [a.creatorEmail], url, tag, title: 'Gear handed to you 🎥', body: `${String(a.handedFrom.name ?? '').split(' ')[0] || 'Someone'} handed you "${a.title}" until ${fmtTime(a.end)}. Open it, tick every piece, then sign.` },
+    { to: ['gear-team'], url, tag, title: 'Gear handed over', body: `${a.handedFrom.name} → ${a.creatorName} · "${a.title}" until ${fmtTime(a.end)}` },
+  ]
   if (!b) return [{ to: ['gear-team'], url, tag, title: 'New gear hold', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.date)} ${fmtTime(a.start)}` }, ...shared]
   if (b.status === a.status) return shared
   const all = responsible(a)
@@ -78,6 +83,12 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
       const by = lastBy(a) ?? '', others = all.filter(e => e !== by)
       if (!all.includes(by)) return [{ to: all, url, tag, title: 'Gear hold cancelled', body: `"${a.title}" was cancelled by the team.` }]
       return others.length ? [{ to: others, url, tag, title: 'Shared gear cancelled', body: `${String(a.creatorName ?? '').split(' ')[0]} cancelled "${a.title}".` }] : []
+    }
+    case 'checked_in': {
+      if (!a.handedTo) return []
+      const by = lastBy(a) ?? '', others = all.filter(e => e !== by)
+      const used = ((a.usedByNames ?? []) as string[]).map(n => n.split(' ')[0]).join(', ')
+      return others.length ? [{ to: others, url, tag, title: 'Shared gear handed over', body: `"${a.title}" went to ${a.handedTo.name}.${all.length > 1 ? ` Marked as used by: ${used}. Not right? Tell the equipment team.` : ''}` }] : []
     }
     case 'returned': {
       // Shared gear: tell the others who was marked as using it, so nobody's put on (or left off) without knowing.

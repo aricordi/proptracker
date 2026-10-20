@@ -3,7 +3,7 @@
 // what makes double-booking impossible (same idea as item_bookings for props).
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE } from './auth.js'
+import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
@@ -11,7 +11,7 @@ import { todayInStudio } from './booking.js'
 import { crewProblem, crewHours, isResponsible, type CrewShoot, type CrewMember } from './gearCrew.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
-  isGearLate, wasGearReturnedLate, checkLines, countMissing, type GearHold,
+  isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, type GearHold,
 } from './gearBooking.js'
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -259,8 +259,15 @@ export const editGearBooking = onCall(CALLABLE, async req => {
 
 // Take one friend off shared gear (they left it, or their shoot was cancelled or moved). Held gear only:
 // once it's picked up everyone on it stays responsible until it's back. The hours stay as they are.
+// If they were at the start or end of the block, the gear hours shrink to the people still on it, so that
+// slot frees up for someone else (owner, Oct 20).
 export async function leaveCrew(id: string, email: string, by: string, note = 'left the shared gear') {
   const ref = db.doc(`gear_bookings/${id}`)
+  const pre = (await ref.get()).data()
+  const remaining = ((pre?.crew ?? []) as CrewMember[]).filter(c => c.email !== email)
+  const shootIds = [pre?.scheduleShootId, ...remaining.map(c => c.shootId)].filter((x): x is string => typeof x === 'string' && !!x)
+  const shoots = (await Promise.all(shootIds.map(sid => db.doc(`shoots/${sid}`).get()))).map(x => x.data()).filter(x => x?.status === 'booked') as { start: number; end: number }[]
+  const settings = await loadSettings()
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
     if (!b) throw new HttpsError('not-found', 'Booking not found.')
@@ -269,7 +276,21 @@ export async function leaveCrew(id: string, email: string, by: string, note = 'l
     if (!me) throw new HttpsError('failed-precondition', "You're not on this gear.")
     if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This gear is already picked up, so everyone on it stays responsible until it\'s back.')
     const left = crew.filter(c => c.email !== email), now = new Date().toISOString()
-    tx.update(ref, { ...crewFields(left), updatedAt: now, history: FieldValue.arrayUnion({ at: now, by, action: 'edited', note: `${me.name.split(' ')[0]} ${note}` }) })
+    // Shrink the hours only when the block is still whole without them and the booker's shoot is still on.
+    const h = pre?.scheduleShootId && shoots.length === shootIds.length ? crewHours(shoots) : null
+    const shrink = h && h.start >= b.start && h.end <= b.end && (h.start !== b.start || h.end !== b.end) ? h : null
+    const win = shrink ? holdWindow(b.date, shrink.start, shrink.end, settings) : null
+    if (shrink && win) {
+      const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
+      const holds = await tx.getAll(...holdRefs)
+      holds.forEach((hd, i) => {
+        if (!hd.exists) return
+        tx.update(holdRefs[i], { entries: ((hd.get('entries') as GearHold[] | undefined) ?? []).map(e => e.bookingId === id ? { ...e, from: win.from, to: win.to } : e) })
+      })
+    }
+    tx.update(ref, { ...crewFields(left), updatedAt: now,
+      ...(shrink && win ? { start: shrink.start, end: shrink.end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay } : {}),
+      history: FieldValue.arrayUnion({ at: now, by, action: 'edited', note: `${me.name.split(' ')[0]} ${note}${shrink ? ` · gear now ${fmtHours(shrink.start, shrink.end)}` : ''}` }) })
   })
 }
 
@@ -312,7 +333,9 @@ export const pickUpGear = onCall(CALLABLE, async req => {
   const pre = (await ref.get()).data()
   if (!pre) throw new HttpsError('not-found', 'Booking not found.')
   const previous = new Map<string, string>()
-  for (const offerId of (pre.offerIds as string[])) {
+  // Handed over on the spot: the person who handed it over had it last.
+  if (pre.handedFrom?.bookingId) for (const offerId of (pre.offerIds as string[])) previous.set(offerId, pre.handedFrom.bookingId)
+  else for (const offerId of (pre.offerIds as string[])) {
     const q = await db.collection('gear_bookings').where('offerIds', 'array-contains', offerId).get()
     const last = q.docs.filter(d => d.id !== id && ['returned', 'checked_in'].includes(d.get('status')) && String(d.get('to')) <= pre.from)
       .sort((a, b) => String(b.get('to')).localeCompare(String(a.get('to'))))[0]
@@ -351,6 +374,20 @@ export const pickUpGear = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// Shared gear: the person returning (or handing over) ticks who used it. Only they carry it on their record.
+function whoUsed(b: FirebaseFirestore.DocumentData, usedIn: string[] | null) {
+  const crew = (b.crew ?? []) as CrewMember[]
+  let usedBy: string[] = [b.creatorEmail]
+  if (crew.length) {
+    const people = [b.creatorEmail, ...crew.map(c => c.email)]
+    usedBy = people.filter(e => (usedIn ?? people).includes(e))
+    if (!usedBy.length) throw new HttpsError('invalid-argument', 'Tick who used the gear.', { problem: 'used-by' })
+  }
+  const nameOf = (e: string) => e === b.creatorEmail ? String(b.creatorName ?? e) : crew.find(c => c.email === e)?.name ?? e
+  return { usedBy, usedByNames: usedBy.map(nameOf), usedNote: crew.length ? `Used by ${usedBy.map(e => nameOf(e).split(' ')[0]).join(', ')}` : '' }
+}
+const emailsIn = (v: unknown) => Array.isArray(v) ? v.filter((e: unknown): e is string => typeof e === 'string').slice(0, 10) : null
+
 // Bringing it back: one photo of everything in the case with the batteries charging.
 // The gear is free for the next booking straight away (the team may check it in later).
 export const returnGear = onCall(CALLABLE, async req => {
@@ -358,7 +395,7 @@ export const returnGear = onCall(CALLABLE, async req => {
   const id = str(req.data?.id, 100)
   const photos = Array.isArray(req.data?.photos) ? req.data.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take the return photo first: everything in the case, batteries plugged in.')
-  const usedIn = Array.isArray(req.data?.usedBy) ? req.data.usedBy.filter((e: unknown): e is string => typeof e === 'string').slice(0, 10) : null
+  const usedIn = emailsIn(req.data?.usedBy)
   const ref = db.doc(`gear_bookings/${id}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
@@ -369,26 +406,85 @@ export const returnGear = onCall(CALLABLE, async req => {
     const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
     const holds = await tx.getAll(...holdRefs)
     holds.forEach((h, i) => { if (h.exists) tx.update(holdRefs[i], { entries: ((h.get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id) }) })
-    // Shared gear: the person returning it ticks who used it. Only they carry it on their record.
-    const crew = (b.crew ?? []) as CrewMember[]
-    let usedBy: string[] = [b.creatorEmail]
-    if (crew.length) {
-      const people = [b.creatorEmail, ...crew.map(c => c.email)]
-      usedBy = people.filter(e => (usedIn ?? people).includes(e))
-      if (!usedBy.length) throw new HttpsError('invalid-argument', 'Tick who used the gear.', { problem: 'used-by' })
-    }
-    const nameOf = (e: string) => e === b.creatorEmail ? String(b.creatorName ?? e) : crew.find(c => c.email === e)?.name ?? e
+    const { usedBy, usedByNames, usedNote } = whoUsed(b, usedIn)
     const now = new Date().toISOString(), at = nowStamp()
     const late = wasGearReturnedLate({ to: b.to, returnedAt: at })
-    const usedNote = crew.length ? `Used by ${usedBy.map(e => nameOf(e).split(' ')[0]).join(', ')}` : ''
     tx.update(ref, {
       status: 'returned', updatedAt: now, returnedAt: at, returnedLate: late,
       return: { at: now, by: caller.email, photos },
-      usedBy, usedByNames: usedBy.map(nameOf),
+      usedBy, usedByNames,
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote ? { note: [late ? 'Returned late' : '', usedNote].filter(Boolean).join(' · ') } : {}) }),
     })
   })
   return { ok: true }
+})
+
+// HAND IT OVER on the spot (owner, Oct 20): someone else needs the gear before it goes back to the cage
+// (e.g. a creator on an offsite shoot walks in). The people using it pick who gets it and until when; their
+// booking ends now (no return photo: the next person ticks every piece at their pickup, and anything missing goes
+// on the record of whoever handed it over). The new person's booking starts now, skips the usual notice, but must
+// be free for its hours (it can't eat into someone else's later booking).
+export const handOverGear = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'creator', 'equipment'])
+  const id = str(req.data?.id, 100)
+  const toEmail = str(req.data?.toEmail, 200).toLowerCase()
+  const end = Number(req.data?.end)
+  const usedIn = emailsIn(req.data?.usedBy)
+  const at = nowStamp(), today = at.slice(0, 10), startMin = Number(at.slice(11, 13)) * 60 + Number(at.slice(14, 16))
+  if (!Number.isInteger(end) || end % GEAR_STEP !== 0 || end > GEAR_DAY_END || end < startMin + GEAR_STEP) {
+    throw new HttpsError('invalid-argument', 'Pick until when they need it (at least half an hour from now, by midnight).', { problem: 'bad-hours' })
+  }
+  if (!toEmail || toEmail === caller.email) throw new HttpsError('invalid-argument', 'Pick who you are handing it to.')
+  const u = (await db.doc(`users/${toEmail}`).get()).data()
+  const toOk = toEmail === OWNER_EMAIL || (u?.active === true && ['creator', 'owner', 'admin'].includes(u.role))
+  if (!toOk) throw new HttpsError('failed-precondition', "That person can't book gear.")
+  const toName = String(u?.name || (toEmail === OWNER_EMAIL ? 'Alex' : toEmail))
+  if (toEmail !== OWNER_EMAIL && u?.role === 'creator') {
+    await assertNotPaused(toEmail).catch(() => { throw new HttpsError('failed-precondition', `${toName.split(' ')[0]}'s gear bookings are paused, so they can't take it.`, { problem: 'paused' }) })
+    if (await hasLateGear(toEmail)) throw new HttpsError('failed-precondition', `${toName.split(' ')[0]} has gear that's late coming back, so they can't take more.`, { problem: 'late' })
+  }
+  const ref = db.doc(`gear_bookings/${id}`), next = db.collection('gear_bookings').doc()
+  const from = stamp(today, startMin), to = stamp(today, end)
+  let handedBy = ''
+  await db.runTransaction(async tx => {
+    const b = (await tx.get(ref)).data()
+    if (!b) throw new HttpsError('not-found', 'Booking not found.')
+    if (!isResponsible(b, caller.email) && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Only the people on this gear (or the equipment team) can hand it over.')
+    if (b.status !== 'out') throw new HttpsError('failed-precondition', 'Only gear that is picked up can be handed over.')
+    if (isResponsible(b, toEmail)) throw new HttpsError('failed-precondition', `${toName.split(' ')[0]} is already on this gear.`)
+    const offerIds = b.offerIds as string[]
+    const [offers, holds] = await Promise.all([tx.getAll(...offerIds.map(o => db.doc(`gear_bundles/${o}`))), tx.getAll(...offerIds.map(o => db.doc(`gear_holds/${o}`)))])
+    const lines = b.lines as { offerId: string; kind: string; qty: number }[]
+    const taken: string[] = []
+    const kept = offerIds.map((o, i) => {
+      const others = ((holds[i].get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id)
+      const l = lines.find(x => x.offerId === o)!
+      const pieces = (offers[i].get('pieces') as { qty: number }[] | undefined) ?? []
+      const offered = l.kind === 'extra' ? (pieces[0]?.qty ?? l.qty) : 1
+      if (freeQty(offered, others, from, to) < l.qty) taken.push(String(offers[i].get('name') ?? o))
+      return { ref: holds[i].ref, entries: [...pruneHolds(others, today), { bookingId: next.id, from, to, qty: l.qty }] }
+    })
+    if (taken.length) throw new HttpsError('failed-precondition', `Someone else has ${taken.join(', ')} booked before ${fmtTime(end)}. Pick an earlier time.`, { problem: 'taken' })
+    const { usedBy, usedByNames, usedNote } = whoUsed(b, usedIn)
+    const now = new Date().toISOString()
+    handedBy = caller.name
+    kept.forEach(k => tx.set(k.ref, { entries: k.entries }, { merge: true }))
+    const late = wasGearReturnedLate({ to: b.to, returnedAt: at })
+    tx.update(ref, {
+      status: 'checked_in', updatedAt: now, returnedAt: at, returnedLate: late, usedBy, usedByNames,
+      handedTo: { email: toEmail, name: toName, bookingId: next.id, at: now },
+      checkIn: { at: now, by: caller.email, missing: [], note: `Handed over to ${toName}. They tick every piece at their pickup.` },
+      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'handed_over', note: [`To ${toName}`, usedNote, late ? 'late' : ''].filter(Boolean).join(' · ') }),
+    })
+    tx.set(next, {
+      title: str(req.data?.title, 120) || String(b.title ?? 'Shoot'), notes: '', creatorEmail: toEmail, creatorName: toName,
+      date: today, start: startMin, end, from, to, pickupDay: today, closedDay: false,
+      lines: b.lines, offerIds, status: 'held', createdAt: now, updatedAt: now,
+      handedFrom: { bookingId: id, email: caller.email, name: caller.name },
+      history: [{ at: now, by: caller.email, action: 'held', note: `Handed over by ${caller.name} · ${fmtHours(startMin, end)}` }],
+    })
+  })
+  return { id: next.id, handedBy }
 })
 
 // The equipment team ticks every piece back in (optional between uses). Missing pieces go on

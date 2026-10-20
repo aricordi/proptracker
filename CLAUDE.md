@@ -1176,6 +1176,21 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       → returnGear `usedBy` (crew only) stored as usedBy/usedByNames + history "Used by …"; check-in missing problems and
       missing_after (next pickup) carry `usedBy`; the others get a push "Shared gear returned · Marked as used by: … Not right?
       Tell the equipment team." Creator tour ch9 step `usedby`. Tests 414.
+      → HAND IT OVER (owner, Oct 20, picked option A: "someone on an offsite shoot walks in and asks if they can take it"):
+      callable `handOverGear` ({id, toEmail, end, usedBy}; owner/creator/equipment; in deploy/log lists): caller on the gear
+      (or gear staff), status 'out', receiver = active creator/owner/admin not on it, not paused, no late gear. Their booking
+      starts NOW (skips the notice) until `end` (30-min steps, ≥30 min away, ≤ midnight) and must be free for those hours
+      (holds of the old booking are released in the same transaction; a later booking blocks it: "Someone else has X booked
+      before…"). Old booking → status 'checked_in' + handedTo {email,name,bookingId,at} + usedBy + checkIn note (no return
+      photo); new booking 'held' + handedFrom {bookingId,email,name} → receiver does the normal pickup check; anything missing
+      goes on the handed-over booking (pickUpGear uses handedFrom as the previous holder). Pushes: receiver "Gear handed to
+      you", gear team "Gear handed over", other crew "Shared gear handed over · used by". App: `src/components/HandOverSheet.tsx`
+      (search person via listFilmingFriends, Until select, UsedByPicker, warning for crew) from "Someone else needs it now?
+      Hand it over" in the gear page's Return section; boxes "Handed over to X" / "X is handing you this gear". Tours: creator
+      ch9 tip, gear tour ch6 text.
+      → HOURS SHRINK: leaveCrew (friend leaves or their shoot is cancelled) recomputes crewHours of the booker + remaining crew;
+      if smaller (the leaver was at the start/end), the booking's start/end/from/to and its gear_holds entries shrink so that
+      slot frees up. History "… · gear now 1 PM–3 PM". Tests 417.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

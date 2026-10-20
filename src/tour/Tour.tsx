@@ -273,7 +273,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'retphoto', scene: 'returnall', part: 9, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'One photo of it all', body: "Props together, gear in its case, batteries charging. It's your receipt if anything is questioned." },
     ...(sharing ? [{ id: 'usedby', scene: 'returnall' as Scene, part: 9, target: 'usedby', next: C, hint: 'Tick at least one person',
       title: 'Who used the gear?', body: <>You shared it with {friends.map(f => firstOf(f.name)).join(' and ')}. Untick anyone who didn't use it: only the people ticked are responsible if it's late or something's missing. Everyone gets told what you picked.</> }] : []),
-    { id: 'returned', scene: 'returnall', part: 9, target: 'returned', title: <>Tap <b>Return all 2</b></>, body: 'Add a note first if it helps (where you left the props).' },
+    { id: 'returned', scene: 'returnall', part: 9, target: 'returned', title: <>Tap <b>Return all 2</b></>, body: 'Add a note first if it helps. Tip: if someone else needs the gear before it goes back, open the gear and tap Hand it over. They tick every piece and sign on their phone.' },
     { id: 'seereq', scene: 'returnall', part: 9, target: 'seereq', title: <>Tap <b>See my requests</b></> },
     { id: 'final', scene: 'requests', part: 9, target: 'card', look: true, next: C, title: 'Both on their way home', body: 'Each team checks its part in. When both bars are full, you are done.' },
     { id: 'quiz9', scene: 'requests', part: 9, title: '', quiz: {

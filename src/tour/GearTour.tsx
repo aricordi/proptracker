@@ -163,7 +163,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     // 6 · Check it back in
     intro(6, 'queue', "3 PM. Riley's done filming. Gear comes back, and you make sure it's all there before the next person needs it."),
     { id: 'outtab', scene: 'queue', part: 6, target: 'latecard', look: true, next: C, title: 'Late = 30 minutes after the booked end',
-      body: "A red ring and a Late pill. Late creators can't book more gear until it's back, and they get a reminder." },
+      body: "A red ring and a Late pill. Late creators can't book more gear until it's back, and they get a reminder. Gear can also be handed straight to another creator: that booking ends and theirs starts, and they tick every piece at their pickup." },
     { id: 'tocheckin', scene: 'queue', part: 6, target: 'tab-checkin', title: <>Tap <b>To check in</b></> },
     { id: 'opencheckin', scene: 'queue', part: 6, target: 'retcard', title: "Tap Riley's return" },
     { id: 'retphoto', scene: 'booking', part: 6, target: 'retphoto', look: true, next: C, title: 'Their return photo',

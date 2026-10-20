@@ -100,4 +100,42 @@ describe('everyone is responsible', () => {
     const b = await getDoc(`gear_bookings/${r.result.id}`)
     expect(b).toMatchObject({ status: 'held', crewEmails: [] })
   })
+
+  it('the last friend leaving shrinks the gear hours, so their slot frees up', async () => {
+    const r = await call('createGearBooking', gear({ crewShootIds: ['k'] }), ANA)
+    expect((await call('editGearBooking', { id: r.result.id, leave: true }, KYLE)).ok).toBe(true)
+    expect(await getDoc(`gear_bookings/${r.result.id}`)).toMatchObject({ start: 780, end: 900, crewEmails: [] })
+    expect((await getDoc('gear_holds/fx3'))!.entries[0]).toMatchObject({ from: `${DAY}T13:00`, to: `${DAY}T15:00` })
+  })
+})
+
+describe('handing gear over on the spot', () => {
+  const until = () => { const n = nowStamp(); const m = Number(n.slice(11, 13)) * 60 + Number(n.slice(14, 16)); return Math.ceil((m + 60) / 30) * 30 }
+  async function outNow(id: string) {
+    const from = addMinutes(nowStamp(), -30), to = addMinutes(nowStamp(), 30)
+    await put(`gear_bookings/${id}`, { title: 'Shoot', creatorEmail: ANA, creatorName: 'Ana', crew: [{ email: KYLE, name: 'Kyle', shootId: 'k' }],
+      crewEmails: [KYLE], crewShootIds: ['k'], date: from.slice(0, 10), start: 0, end: 60, from, to, pickupDay: from.slice(0, 10), closedDay: false,
+      lines: [{ offerId: 'fx3', kind: 'bundle', name: 'FX3 kit', qty: 1, photo: null, pieces: [{ itemId: 'g1', qty: 1, name: 'FX3' }] }],
+      offerIds: ['fx3'], status: 'out', pickup: { at: from, by: ANA, missing: [] }, history: [], createdAt: from })
+    await put('gear_holds/fx3', { entries: [{ bookingId: id, from, to, qty: 1 }] })
+  }
+  it('ends the group\'s booking and starts one for the new person; missing at their pickup goes on the group', async () => {
+    if (until() > 1440) return   // too close to midnight to test
+    await outNow('g')
+    const r = await call('handOverGear', { id: 'g', toEmail: BEN, end: until(), usedBy: [ANA] }, ANA)
+    expect(r.ok).toBe(true)
+    expect(await getDoc('gear_bookings/g')).toMatchObject({ status: 'checked_in', usedBy: [ANA], handedTo: { email: BEN, bookingId: r.result.id } })
+    expect(await getDoc(`gear_bookings/${r.result.id}`)).toMatchObject({ creatorEmail: BEN, status: 'held', handedFrom: { bookingId: 'g', email: ANA } })
+    expect((await getDoc('gear_holds/fx3'))!.entries.map((e: any) => e.bookingId)).toEqual([r.result.id])
+    expect((await call('pickUpGear', { id: r.result.id, missing: ['fx3|g1|1'], signed: true }, BEN)).ok).toBe(true)
+    expect((await getDoc('gear_bookings/g'))!.problems?.[0]).toMatchObject({ kind: 'missing_after', usedBy: [ANA] })
+  })
+  it('refused for people not on the gear, or when someone else has it booked before then', async () => {
+    if (until() > 1440) return
+    await outNow('g')
+    expect((await call('handOverGear', { id: 'g', toEmail: JANA, end: until() }, BEN)).error).toBe('PERMISSION_DENIED')
+    const e = await getDoc('gear_holds/fx3')
+    await put('gear_holds/fx3', { entries: [...e!.entries, { bookingId: 'later', from: addMinutes(nowStamp(), 40), to: addMinutes(nowStamp(), 200), qty: 1 }] })
+    expect((await call('handOverGear', { id: 'g', toEmail: BEN, end: until() }, KYLE)).message).toMatch(/booked before/)
+  })
 })
