@@ -1,18 +1,22 @@
-// App tour (owner, Oct 19): a hands-on practice run that trains a new creator on the whole process, in the order it
-// really happens: (1) book a time with a friend, (2) get invited by a friend and confirm in time, (3) find props for
-// your idea with the AI (and ask it for a time), (4) add more yourself + gear, name it, make-or-find, send,
-// (5) follow and CHANGE your request, (6) pick up props + gear, (7) check in, report the slot before (with a
-// message), wrap, (8) return props and gear and see them checked in.
-// Looks like the real app: each scene copies the real screen's layout (CreatorHomeScreen, ScheduleScreen's
-// FindSheet / GroupBookSheet / ShootSheet / OnTheDay / InviteAsk / SlotRow, HomeScreen + GearShopScreen, Assistant,
-// ReserveScreen, ReservationDetailScreen + ChangeRequest, GearBookingScreen, AccountScreen, MyRequestsScreen) and reuses
-// the real pieces that can't send anything (BottomSheet, PieceChecklist, Pill, PhotoStrip, Avatar, RequestRow,
-// BrandMark, GearArt). When one of those screens changes a lot, update its scene here too.
-// Hands-on and calm (owner, Oct 19): you type, pick and tick yourself; no pop-in or pulsing.
-// SEALED: nothing here books anyone or sends a request. Server calls: the read-only list of creators' names (friend
-// search) and the REAL AI helper for your video idea (owner, Oct 19: suggestions must have a logic; ~half a cent, counted
-// in the AI budget; it only suggests). If the AI fails or is resting, `ideaMatches` answers on the phone instead.
-// Camera photos stay on the phone. The "find a time" answer is a made-up example.
+// App tour: a hands-on practice STORY that trains a new creator on the whole process (owner, Oct 20: "guide me there…
+// show me how to navigate the UI… go through a bit of a story and explain why"). Nine chapters, each opened by a short
+// "what's next and why" card, and you get everywhere with the real tabs and buttons (no teleporting):
+//   1 Find your way around (tabs, ✦ AI)  2 Book your first shoot (with a friend → find it again: Home → your shoot card)
+//   3 Add props and gear (from the shoot page: + Add → search → gear → review → send)
+//   4 Check on your request (Back → Me → My requests → open → Change → Save → "ready" notification)
+//   5 Try the AI (Me → ✦ AI → describe an idea → tick → ask for a time → Book → add the ticked to that new shoot)
+//   6 When a friend invites you (notification → Confirm within the hold time)
+//   7 Shoot day (notification → props pickup → My requests → gear pickup → "check-in open" notification → check in → wrap)
+//   8 Bring it all back (Me → My requests → props return → gear return → checked in)
+//   9 Turn on notifications (REAL: turnOnPush; required unless the phone can't yet, e.g. iPhone Safari before Add to Home Screen)
+// Looks like the real app: scenes copy the real screens (CreatorHomeScreen, ScheduleScreen's FindSheet / GroupBookSheet /
+// ShootSheet / OnTheDay / InviteAsk / SlotRow, HomeScreen + GearShopScreen, Assistant, ReserveScreen,
+// ReservationDetailScreen + ChangeRequest, GearBookingScreen, AccountScreen, MyRequestsScreen) and reuse the pieces that
+// can't send anything (BottomSheet locked, PieceChecklist, Pill, PhotoStrip, Avatar, RequestRow, BrandMark, GearArt).
+// When one of those screens changes a lot, update its scene here too.
+// SEALED (except chapter 9): nothing books anyone or sends a request. Server calls: the read-only list of creators' names
+// (friend search) and the real AI helper for the video idea (~half a cent, counted in the AI budget; falls back to
+// `ideaMatches` on the phone). Camera photos stay on the phone. The "find a time" options are made-up examples.
 // Required once for creators (App.tsx TourGate; can pause and resume); anyone can replay it at /tour.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
@@ -22,6 +26,7 @@ import { useScheduleSettings, fmtSlot, listFilmingFriends, INVITE_HOLD_MINUTES }
 import { subscribeToGearBundles, type GearBundle } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import { ideaToProps } from '../services/ai'
+import { pushState, turnOnPush, isIOS, type PushState } from '../services/push'
 import { GearArt, Pill, PieceChecklist } from '../components/GearUi'
 import { TAB_ICONS } from '../components/BottomNav'
 import BottomSheet from '../components/BottomSheet'
@@ -38,12 +43,13 @@ import { GEAR_LEAD_TIME_DAYS, fmtTime, fmtHours } from '../../functions/src/gear
 import { Spotlight } from './Spotlight'
 import { markTourDone, savedStep, saveStep } from './tourState'
 
-type Scene = 'welcome' | 'home' | 'find' | 'bookit' | 'shoot' | 'invited' | 'invite' | 'chat' | 'browse' | 'gear' | 'review'
-  | 'sent' | 'home2' | 'me' | 'requests' | 'request' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'return' | 'gearreturn'
-  | 'final' | 'rules' | 'done'
+type Scene = 'welcome' | 'home' | 'find' | 'bookit' | 'booked' | 'home2' | 'shoot' | 'browse' | 'gear' | 'review' | 'sent'
+  | 'me' | 'requests' | 'request' | 'chat' | 'invite' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'return' | 'gearreturn'
+  | 'notify' | 'rules' | 'done'
 // A step: what's on screen (scene), what to use (target), the coach panel's text, and how you move on (a tap on the
-// target, or Continue = next). hint = why Continue is greyed out. top = panel at the top (the step's button is at the bottom).
-interface Step { id: string; scene: Scene; part?: number; target?: string; title: ReactNode; body?: ReactNode; next?: string; hint?: string; skip?: boolean; top?: boolean }
+// target, or Continue = next). hint = why Continue is greyed out. top = panel at the top. look = nothing dimmed (you're
+// just looking around). notif = a pretend phone notification shows (tap it = the target 'notif').
+interface Step { id: string; scene: Scene; part?: number; target?: string; title: ReactNode; body?: ReactNode; next?: string; hint?: string; skip?: boolean; top?: boolean; look?: boolean; notif?: string }
 
 const START = 13 * 60, SLOT = 120, HOLD = INVITE_HOLD_MINUTES
 // Same class strings as the real screens.
@@ -69,25 +75,23 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const hay = (i: Item) => [i.name, i.description, i.notes, ...(i.tags ?? []), ...(Array.isArray(i.searchWords) ? i.searchWords : [i.searchWords ?? ''])].join(' ').toLowerCase()
   const words = (t: string) => t.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1).map(w => w.replace(/s$/, ''))
   const found = (q: string) => { const w = words(q); return w.length ? all.filter(i => w.every(x => hay(i).includes(x))) : [] }
-  // The practice AI answer (owner, Oct 19: never pad it with props that don't fit, e.g. a Ninja Turtle mask for a
-  // werewolf video). Only props matching the idea's meaningful words; rarer words count more; words that match a big
-  // part of the closet, and filler like "prank" or "video", are ignored. Nothing fits → say so, offer make-or-find.
-  const STOP = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'about', 'video', 'videos', 'prank', 'skit', 'sketch', 'scene', 'idea', 'shoot', 'film', 'filming', 'funny', 'goes', 'wrong', 'some', 'like', 'want', 'need', 'make', 'where', 'what', 'woods', 'house', 'room', 'friend', 'friends', 'people', 'guy', 'girl', 'day', 'night', 'time'])
+  // Fallback for the AI step (owner, Oct 19: never pad with props that don't fit). Only props matching the idea's
+  // meaningful words; rarer words count more; filler words and words matching a big part of the closet are ignored.
+  const STOP = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'into', 'about', 'video', 'videos', 'prank', 'skit', 'sketch', 'scene', 'idea', 'shoot', 'film', 'filming', 'funny', 'goes', 'wrong', 'some', 'like', 'want', 'need', 'make', 'where', 'what', 'woods', 'house', 'room', 'friend', 'friends', 'people', 'guy', 'girl', 'day', 'night', 'time', 'something'])
   const ideaMatches = (q: string) => {
-    const toks = [...new Set(words(q).filter(w => w.length > 2 && !STOP.has(w) && !STOP.has(`${w}s`)))]   // words() turns plurals into singulars
+    const toks = [...new Set(words(q).filter(w => w.length > 2 && !STOP.has(w) && !STOP.has(`${w}s`)))]
     const sets = toks.map(w => ({ w, hits: all.filter(i => hay(i).includes(w)) })).filter(x => x.hits.length && x.hits.length <= Math.max(3, all.length * 0.25))
     const score = new Map<string, { item: Item; n: number; why: string }>()
     for (const { w, hits } of sets) for (const i of hits) {
       const prev = score.get(i.id), add = 1 / Math.log(2 + hits.length)
       score.set(i.id, { item: i, n: (prev?.n ?? 0) + add, why: prev?.why ?? w })
     }
-    // main = when nothing fits, the idea's key word, offered as make-or-find
     const picks = [...score.values()].sort((a, b) => b.n - a.n).slice(0, 4)
-    return { picks, main: picks.length ? '' : toks[0] ?? '' }
+    return { picks, main: picks.length ? '' : toks[0] ?? '' }   // main = when nothing fits, offered as make-or-find
   }
   const [query, setQuery] = useState('')
   const shown = query.trim() ? found(query).slice(0, 8) : props
-  const [added, setAdded] = useState<string[]>([])   // props in your shoot (from the AI and from searching)
+  const [added, setAdded] = useState<string[]>([])   // props added to your first shoot by searching
   const picked = added.map(id => all.find(i => i.id === id)).filter((x): x is Item => !!x)
   const kit = bundles.find(b => b.kind !== 'extra' && !b.archived)
   const kitName = kit?.name ?? 'Camera kit'
@@ -95,15 +99,15 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const pieceLines = kitPieces.flatMap(p => Array.from({ length: Math.min(p.qty, 3) }, (_, u) => ({ key: `${p.itemId}|${u}`, name: p.name ?? 'Piece', unit: u + 1, of: p.qty }))).slice(0, 5)
   const pcs = kitPieces.reduce((n, p) => n + p.qty, 0)
 
-  // ── Your friend: typed and picked from the real list of creators (names only; nobody is booked or told) ──
+  // ── Your friends: typed and picked from the real list of creators (names only; nobody is booked or told) ──
   const [people, setPeople] = useState<{ email: string; name: string }[] | null>(null)
   useEffect(() => { listFilmingFriends({}).then(r => setPeople(r.data.people.filter(p => p.email !== profile.email))).catch(() => setPeople([])) }, [profile.email])
   const [friendQ, setFriendQ] = useState('')
   const [friendCount, setFriendCount] = useState(0)   // + 1 friend / + 2 friends
   const [friends, setFriends] = useState<{ email: string; name: string }[]>([])
   const firstOf = (n: string) => n.split(' ')[0]
-  const friendFirst = friends.map(f => firstOf(f.name)).join(' and ') || 'Sam'   // everyone you invited
-  const friend = friends[0] ?? null   // the one who "invites you" in part 2
+  const friendFirst = friends.map(f => firstOf(f.name)).join(' and ') || 'Sam'
+  const friend = friends[0] ?? null   // the one who "invites you" in chapter 6
   const inviterFirst = friend ? firstOf(friend.name) : 'Sam'
 
   // ── The pretend shoot: Cliff 1, 1–3 PM, on the day you pick (five open days out by default) ──
@@ -115,7 +119,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const shootLabel = `${house.name} · ${formatDay(day)} · ${fmtSlot(START, SLOT)}`
   const longDay = formatDay(day, { weekday: 'long', month: 'short', day: 'numeric' })
   const cut = { props: lastDayToBook(day, settings.leadTimeDays, settings), builds: lastDayToBook(day, settings.buildLeadDays, settings), gear: lastDayToBook(day, GEAR_LEAD_TIME_DAYS, settings) }
-  const inviteDay = addOpenDays(today, 7, settings)   // the day your friend invites you to (a different shoot)
+  const inviteDay = addOpenDays(today, 7, settings)   // the day your friend invites you to (another shoot)
+  const aiDay = addOpenDays(today, 8, settings)       // the new shoot booked with the AI
 
   // ── Everything you type ──
   const [video, setVideo] = useState('')
@@ -126,80 +131,109 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   // The AI's answer: groups of {prop id, why} + things to make or find (null = not asked yet).
   const [aiResult, setAiResult] = useState<{ reply: string; groups: { title: string; picks: { id: string; why: string }[] }[]; missing: { name: string; why: string }[] } | null>(null)
   const [aiBusy, setAiBusy] = useState(false)
-  const [aiTicks, setAiTicks] = useState<string[]>([]), [aiSheet, setAiSheet] = useState(false), [aiAdded, setAiAdded] = useState(false)
+  const [aiTicks, setAiTicks] = useState<string[]>([]), [aiBooked, setAiBooked] = useState(false), [aiAdded, setAiAdded] = useState(false)
   const [qty, setQty] = useState<Record<string, number>>({}), [editing, setEditing] = useState(false), [newBuild, setNewBuild] = useState('')
   const [over, setOver] = useState(false), [mess, setMess] = useState(false), [reportNote, setReportNote] = useState('')
   const [wrapText, setWrapText] = useState(''), [retNote, setRetNote] = useState('')
 
+  // ── Chapter 9 is real: turn on notifications on this phone ──
+  const [push, setPush] = useState<PushState>(() => { try { return pushState() } catch { return 'unsupported' } })
+  const [pushBusy, setPushBusy] = useState(false), [pushMsg, setPushMsg] = useState('')
+  const turnOn = () => { setPushBusy(true); setPushMsg(''); turnOnPush().then(setPush).catch(e => setPushMsg((e as Error).message || "That didn't work. Try again.")).finally(() => setPushBusy(false)) }
+
   const C = 'Continue'
-  const intro = (n: number, scene: Scene, title: string, points: string[]): Step => ({ id: `part${n}`, scene, part: n, next: C,
-    title, body: <ul className="mt-1 space-y-1.5">{points.map(x => <li key={x} className="flex gap-2"><span className="text-pt-accent">•</span><span>{x}</span></li>)}</ul> })
+  const intro = (n: number, scene: Scene, title: string, body: ReactNode): Step => ({ id: `part${n}`, scene, part: n, next: C, title,
+    body: Array.isArray(body) ? <ul className="mt-1 space-y-1.5">{(body as string[]).map(x => <li key={x} className="flex gap-2"><span className="text-pt-accent">•</span><span>{x}</span></li>)}</ul> : body })
   const STEPS: Step[] = [
     { id: 'welcome', scene: 'welcome', title: '' },
-    // 1 · Book a time
-    intro(1, 'home', 'First, book a time', ['A shoot is a 2-hour slot at Cliff 1 or Cliff 2', 'Filming with friends? You each get a slot, back to back', 'Booking is confirmed straight away']),
-    { id: 'book', scene: 'home', part: 1, target: 'book', title: <>Tap <b>Book a shoot</b></>, body: 'Every shoot starts with a time. Props and gear get added to it after.' },
-    { id: 'friend1', scene: 'find', part: 1, target: 'who', next: C, hint: 'Pick + 1 friend or + 2 friends first', title: <>Tap <b>+ 1 friend</b> (or + 2)</>, body: "For this practice, film with someone. Each of you gets your own 2-hour slot, one after the other." },
-    { id: 'friendname', scene: 'find', part: 1, target: 'friendzone', next: C, hint: friendCount > 1 ? 'Pick both friends first' : 'Pick a friend first', title: friendCount > 1 ? 'Find both friends' : 'Find your friend', body: 'Tap the box, type a few letters of their name or channel, then tap them in the list. Nobody is told; it\'s practice.' },
-    { id: 'days', scene: 'find', part: 1, target: 'days', next: C, title: 'Pick a day, or keep Soonest', body: 'Soonest shows the next free times first. Tap a day to jump to it (swipe the row for more). A faded day has nothing free for all of you.' },
-    { id: 'slot', scene: 'find', part: 1, target: 'slot', title: <>Tap a <b>house</b> to take that time</>, body: <>This time is free for everyone: you first, then {friendFirst}. Cliff 1 and Cliff 2 work the same.</> },
-    { id: 'bookit', scene: 'bookit', part: 1, target: 'bookit', title: <>Tap <b>Book + invite</b></>, body: <>Your slot is booked now. {friendFirst} {friends.length > 1 ? 'each get' : 'gets'} a notification and {HOLD} minutes to confirm theirs.</> },
-    { id: 'booked', scene: 'shoot', part: 1, target: 'shoottop', next: C, title: "You're booked", body: "This is your shoot's page. You'll add props and gear here, and check in here on the day." },
-    // 2 · When a friend invites you
-    intro(2, 'home2', 'When a friend invites you', [`A friend can save you the slot right after theirs`, `It's held for you for ${HOLD} minutes`, "Confirm it, or it opens to everyone"]),
-    { id: 'invited', scene: 'invited', part: 2, target: 'notif', title: 'Tap the notification', body: "Pretend a friend just booked and invited you. This is what pops up on your phone." },
-    { id: 'confirm', scene: 'invite', part: 2, target: 'invitebox', title: <>Tap <b>Confirm my slot</b></>, body: <>The slot after theirs is saved for you for {HOLD} minutes. Can't make it? You'd tap that instead, and it opens to everyone.</> },
-    { id: 'confirmed', scene: 'invite', part: 2, target: 'myrow', next: C, title: "It's yours now", body: 'It shows as Yours on the schedule. That was a separate shoot; the rest of the tour uses the one you booked.' },
-    // 3 · Find props with AI
-    intro(3, 'shoot', 'Find props with AI', ['Describe your video in your own words', 'It suggests real props from our closet, and says why', 'You pick what goes in. It can find free times too']),
-    { id: 'planai', scene: 'shoot', part: 3, target: 'planai', title: <>Tap <b>Plan it with AI</b></>, body: 'It\'s on your shoot\'s page. The ✦ AI button at the top of every screen opens the same helper.' },
-    { id: 'aiask', scene: 'chat', part: 3, target: 'composer', title: 'Describe your video', body: <>Tap the box, type it like a text to a friend (e.g. "a séance that goes wrong"), then tap <b>↑</b>.</> },
-    { id: 'aipicks', scene: 'chat', part: 3, target: 'chatzone', top: true, title: <>Tick what you'd use, then <b>Add to a shoot</b></>, body: 'Tap + on the props you want (each says why it fits), then tap the gold Add button at the bottom.' },
-    { id: 'aishoot', scene: 'chat', part: 3, target: 'aishoot', title: 'Tap your shoot', body: "Your picks go into it. Nothing is sent to the teams yet; you'll check everything first." },
-    { id: 'aitime', scene: 'chat', part: 3, target: 'composer', title: 'Now ask it for a time', body: <>Type something like "2 hours with {inviterFirst} next Friday" and tap <b>↑</b>.</> },
-    { id: 'aioptions', scene: 'chat', part: 3, target: 'options', next: C, title: 'Real free times', body: "Back to back for both of you. You'd tap Book to take one; skip it now, you're already booked." },
-    { id: 'aiback', scene: 'chat', part: 3, target: 'aiback', title: <>Tap <b>‹ Back</b></>, body: "Back to your shoot's page." },
-    // 4 · Add more and send
-    intro(4, 'shoot', 'Add more yourself, then send', ['Search the closet for anything else', 'Add a gear kit for your hours', 'Name it, then send it to the teams']),
-    { id: 'addprops', scene: 'shoot', part: 4, target: 'addprops', title: <>Tap <b>+ Add</b> next to Props &amp; costumes</>, body: 'This opens the closet with your shoot already picked.' },
-    { id: 'search', scene: 'browse', part: 4, target: 'browsezone', next: C, hint: 'Add one more prop first', title: 'Search, then tap + on a prop', body: <>Your AI picks already have a ✓. Tap the search box, try <b>mask</b>, <b>hat</b> or <b>phone</b>, tap + on a prop, then Continue.</> },
-    { id: 'geartab', scene: 'browse', part: 4, target: 'geartab', title: <>Tap <b>Gear</b></>, body: 'Cameras, lights and sound live on the Gear tab.' },
-    { id: 'addgear', scene: 'gear', part: 4, target: 'gear-add', title: <>Tap <b>+</b> on the kit</>, body: "Gear comes as kits (one case, every piece), booked whole for your shoot's hours." },
-    { id: 'reviewbar', scene: 'gear', part: 4, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'You check everything before it goes to the teams.' },
-    { id: 'name', scene: 'review', part: 4, target: 'name', next: C, hint: 'Type a name first', title: 'Name your video', body: 'Tap the first box and type a name, so the teams know what it\'s for.' },
-    { id: 'make', scene: 'review', part: 4, target: 'make', title: <>Tap <b>+ Request something we don't have</b></>, body: <>For anything that isn't in the closet. The arts team makes or finds it; for this shoot they need to know by {formatDay(cut.builds)}.</> },
-    { id: 'makeform', scene: 'review', part: 4, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake". Use − and + for how many.' },
-    { id: 'send', scene: 'review', part: 4, target: 'send', title: <>Tap <b>Book props + gear</b></>, body: 'Props go to the arts team, gear to the equipment team. (Practice: nothing is sent.)' },
-    // 5 · Follow and change it
-    intro(5, 'sent', 'Follow it, and change it', ['See where your request is at any time', 'Change it until the arts team starts on it', "You get a notification when it's ready"]),
-    { id: 'sent', scene: 'sent', part: 5, target: 'journey', next: C, title: 'This line shows where your props are', body: 'Requested → Being prepared → Ready → Collected → Returned → Checked in.' },
-    { id: 'back', scene: 'sent', part: 5, target: 'back', title: <>Tap <b>‹ Back</b></>, body: 'Next: where to find it again later.' },
-    { id: 'navme', scene: 'home2', part: 5, target: 'nav-me', title: <>Tap <b>Me</b></>, body: 'Your shoot is on Home now, with ✓ Time, Props and Gear. Everything you asked for lives on Me.' },
-    { id: 'myreq', scene: 'me', part: 5, target: 'myrequests', title: <>Tap <b>My requests</b></> },
-    { id: 'card', scene: 'requests', part: 5, target: 'card', next: C, title: 'One card per shoot', body: 'Its props and its gear, each with a bar showing where it is.' },
-    { id: 'openreq', scene: 'requests', part: 5, target: 'propsrow', title: 'Tap your props request', body: 'To see it in full, or to change it.' },
-    { id: 'change', scene: 'request', part: 5, target: 'changebtn', title: <>Tap <b>Change</b></>, body: 'You can change a request until the arts team starts picking it.' },
-    { id: 'changeit', scene: 'request', part: 5, target: 'changebox', title: <>Change something, then <b>Save changes</b></>, body: 'Use − and + for amounts, × to take something out, or type something to make or find.' },
-    { id: 'saved', scene: 'request', part: 5, target: 'addmore', next: C, title: 'Saved', body: 'Once the team starts picking, Change goes away. Then use + Add more to add to the same shoot.' },
-    { id: 'packed', scene: 'request', part: 5, target: 'journey', next: C, title: 'Your props are ready', body: 'You get a notification (top), and the line moves to Ready.' },
-    // 6 · Pick up
-    intro(6, 'pickup', 'Pick everything up', ['Props: check the list, then sign', 'Gear: tick every piece in the case before you take it']),
-    { id: 'sign', scene: 'pickup', part: 6, target: 'sign', title: <>Tap <b>I've got everything</b></>, body: 'At the prop room, check everything on the list is there. Only you can sign for your props.' },
-    { id: 'pieces', scene: 'gearpickup', part: 6, target: 'pieces', next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece in the case', body: 'Something not there? Tap Missing? next to it, so it isn\'t blamed on you.' },
-    { id: 'gearsign', scene: 'gearpickup', part: 6, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: "From now until it's back, the kit is your responsibility." },
-    // 7 · On the shoot day
-    intro(7, 'checkin', 'On the shoot day', [`Check in at the house (opens ${s.checkinBefore} minutes before)`, 'Tell the team if the slot before you caused a problem', 'Wrap when you\'re done']),
-    { id: 'setphoto', scene: 'checkin', part: 7, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Take a photo of the set', body: 'Tap Take photo. It opens your camera; you can tap the photo to retake it. (Practice: it stays on your phone.)' },
+    // 1 · Find your way around
+    intro(1, 'home', 'Find your way around', ['Everything is under four tabs at the bottom', 'The ✦ AI helper is at the top of every screen', "Let's take a quick look"]),
+    { id: 'tabs', scene: 'home', part: 1, target: 'tabbar', look: true, next: C, title: 'Four tabs take you everywhere',
+      body: <ul className="space-y-1"><li><b className="text-pt-text">Home</b>: your next shoot and what it still needs</li><li><b className="text-pt-text">Book</b>: the schedule, to book a time</li><li><b className="text-pt-text">Browse</b>: every prop, costume and gear kit</li><li><b className="text-pt-text">Me</b>: your requests, profile and help</li></ul> },
+    { id: 'aibtn', scene: 'home', part: 1, target: 'ai', look: true, next: C, title: '✦ AI is at the top of every screen', body: "It helps with prop ideas for a video and with finding a free time. You'll try it in chapter 5." },
+    // 2 · Book your first shoot
+    intro(2, 'home', 'Book your first shoot', 'Everything starts with a time. A shoot is a 2-hour slot at Cliff 1 or Cliff 2, on your own or back to back with friends. Props and gear get added to it after.'),
+    { id: 'book', scene: 'home', part: 2, target: 'book', title: <>Tap <b>Book a shoot</b></>, body: 'You can also start from the Book tab.' },
+    { id: 'friend1', scene: 'find', part: 2, target: 'who', next: C, hint: 'Pick + 1 friend or + 2 friends first', title: <>Tap <b>+ 1 friend</b> (or + 2)</>, body: 'For this practice, film with someone. Each of you gets your own 2-hour slot, one after the other.' },
+    { id: 'friendname', scene: 'find', part: 2, target: 'friendzone', next: C, hint: friendCount > 1 ? 'Pick both friends first' : 'Pick a friend first', title: friendCount > 1 ? 'Find both friends' : 'Find your friend', body: "Tap the box, type a few letters of their name or channel, then tap them in the list. Nobody is told; it's practice." },
+    { id: 'days', scene: 'find', part: 2, target: 'days', next: C, title: 'Pick a day, or keep Soonest', body: 'Soonest shows the next free times first. Tap a day to jump to it (swipe the row for more). A faded day has nothing free for all of you.' },
+    { id: 'slot', scene: 'find', part: 2, target: 'slot', title: <>Tap a <b>house</b> to take that time</>, body: <>This time is free for everyone: you first, then {friendFirst}. Cliff 1 and Cliff 2 work the same.</> },
+    { id: 'bookit', scene: 'bookit', part: 2, target: 'bookit', title: <>Tap <b>Book + invite</b></>, body: <>Your slot is booked now. {friendFirst} {friends.length > 1 ? 'each get' : 'gets'} a notification and {HOLD} minutes to confirm theirs.</> },
+    { id: 'booked', scene: 'booked', part: 2, target: 'myslots', look: true, next: C, title: "You're booked", body: <>Here it is on the schedule, with {friendFirst}'s {friends.length > 1 ? 'slots' : 'slot'} held right after. Next, let's find your shoot again from Home.</> },
+    { id: 'gohome', scene: 'booked', part: 2, target: 'nav-home', title: <>Tap <b>Home</b></>, body: 'Bottom left.' },
+    { id: 'opencard', scene: 'home2', part: 2, target: 'shootcard', title: 'Tap your shoot', body: 'Your next shoot is always the big card on Home.' },
+    { id: 'shootinfo', scene: 'shoot', part: 2, target: 'shootsheet', look: true, top: true, next: C, title: "This is your shoot's page",
+      body: "When and where, then Booked → Checked in → Filmed. Under For this shoot: plan it with AI, and add props and gear. You'll check in here on the day too." },
+    // 3 · Add props and gear
+    intro(3, 'shoot', 'Add props and gear', "Now let's get what you need for it. You can add straight from your shoot's page: the closet opens with this shoot already picked."),
+    { id: 'addprops', scene: 'shoot', part: 3, target: 'addprops', title: <>Tap <b>+ Add</b> next to Props &amp; costumes</> },
+    { id: 'addingbar', scene: 'browse', part: 3, target: 'adding', look: true, next: C, title: 'This bar shows which shoot you\'re adding to', body: '"Free" on a photo means it\'s free that day. Tap Change to add to a different shoot.' },
+    { id: 'search', scene: 'browse', part: 3, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Search, then tap + on a prop', body: <>Tap the search box, try <b>mask</b>, <b>hat</b> or <b>phone</b>, tap + on a prop you like, then Continue.</> },
+    { id: 'geartab', scene: 'browse', part: 3, target: 'geartab', title: <>Tap <b>Gear</b></>, body: 'Cameras, lights and sound live on the Gear tab.' },
+    { id: 'addgear', scene: 'gear', part: 3, target: 'gear-add', title: <>Tap <b>+</b> on the kit</>, body: "Gear comes as kits (one case, every piece), booked whole for your shoot's hours." },
+    { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'You check everything before it goes to the teams.' },
+    { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Name your video', body: "Tap the first box and type a name, so the teams know what it's for." },
+    { id: 'make', scene: 'review', part: 3, target: 'make', title: <>Tap <b>+ Request something we don't have</b></>, body: <>For anything that isn't in the closet. The arts team makes or finds it; for this shoot they need to know by {formatDay(cut.builds)}.</> },
+    { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake". Use − and + for how many.' },
+    { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Tap <b>Book props + gear</b></>, body: 'Props go to the arts team, gear to the equipment team. (Practice: nothing is sent.)' },
+    // 4 · Check on your request
+    intro(4, 'sent', 'Check on your request', ["It's with the arts team now", "Here's how to find it again any time", "You can change it until they start picking"]),
+    { id: 'sent', scene: 'sent', part: 4, target: 'journey', next: C, title: 'This line shows where your props are', body: 'Requested → Being prepared → Ready → Collected → Returned → Checked in.' },
+    { id: 'back', scene: 'sent', part: 4, target: 'back', title: <>Tap <b>‹ Back</b></>, body: "Let's find this again the way you would tomorrow." },
+    { id: 'navme', scene: 'home2', part: 4, target: 'nav-me', title: <>Tap <b>Me</b></>, body: 'Your shoot on Home now has ✓ Time, Props and Gear. Everything you asked for lives on Me.' },
+    { id: 'myreq', scene: 'me', part: 4, target: 'myrequests', title: <>Tap <b>My requests</b></> },
+    { id: 'card', scene: 'requests', part: 4, target: 'card', look: true, next: C, title: 'One card per shoot', body: 'Its props and its gear, each with a bar showing where it is.' },
+    { id: 'openreq', scene: 'requests', part: 4, target: 'propsrow', title: 'Tap your props request', body: 'To see it in full, or to change it.' },
+    { id: 'change', scene: 'request', part: 4, target: 'changebtn', title: <>Tap <b>Change</b></>, body: 'You can change a request until the arts team starts picking it.' },
+    { id: 'changeit', scene: 'request', part: 4, target: 'changebox', title: <>Change something, then <b>Save changes</b></>, body: 'Use − and + for amounts, × to take something out, or type something to make or find.' },
+    { id: 'saved', scene: 'request', part: 4, target: 'addmore', look: true, next: C, title: 'Saved', body: 'Once the team starts picking, Change goes away. Then use + Add more to add to the same shoot.' },
+    { id: 'packed', scene: 'request', part: 4, target: 'journey', next: C, notif: `Your props for ${title} are packed and ready ✓`, title: 'Your props are ready', body: 'You get a notification (top), and the line moves to Ready.' },
+    // 5 · Try the AI
+    intro(5, 'request', 'Try the AI', "Using AI you can get help planning a shoot, finding props that might suit your idea, or even finding a time to film when the schedule seems jam-packed. Let's use it to start a brand-new shoot."),
+    { id: 'reqback', scene: 'request', part: 5, target: 'back', title: <>Tap <b>‹ Back</b></>, body: 'First, back to Me.' },
+    { id: 'tome', scene: 'requests', part: 5, target: 'tome', title: <>Tap <b>‹ Me</b></> },
+    { id: 'openai', scene: 'me', part: 5, target: 'ai', title: <>Tap <b>✦ AI</b></>, body: "It's at the top of every screen." },
+    { id: 'aiask', scene: 'chat', part: 5, target: 'composer', title: 'Describe a video idea', body: <>It can be a complete thought, or just some inspiration (e.g. "something spooky in the woods"). Tap the box, type it, then tap <b>↑</b>.</> },
+    { id: 'aipicks', scene: 'chat', part: 5, target: 'answer', top: true, next: C, hint: 'Tick at least one first', title: 'Tick the ones you like', body: 'Real props from our closet, grouped by scene, each with why it fits. Tap + on any you want.' },
+    { id: 'aitime', scene: 'chat', part: 5, target: 'composer', title: 'Now ask for a time for them', body: <>Type when you'd like to film, e.g. "Friday evening, 2 hours", and tap <b>↑</b>. (Already booked a shoot? "Add to a shoot" puts them in it instead.)</> },
+    { id: 'aioptions', scene: 'chat', part: 5, target: 'optbook', title: <>Tap <b>Book</b> on a time</>, body: 'It only offers times that are really free. (Practice: nothing is booked.)' },
+    { id: 'aiadd', scene: 'chat', part: 5, target: 'aiaddbooked', title: <>Tap <b>Add the {aiTicks.length} ticked to this shoot</b></>, body: 'Your picks go into the new shoot.' },
+    { id: 'aidone', scene: 'chat', part: 5, target: 'aiaddedmsg', look: true, next: C, title: 'A second shoot, with its props', body: "You'd review and send it, just like before. Ideas first and a time second, or the other way round: both work." },
+    { id: 'aiback', scene: 'chat', part: 5, target: 'aiback', title: <>Tap <b>‹ Back</b></>, body: 'Back to Me.' },
+    // 6 · When a friend invites you
+    intro(6, 'me', 'When a friend invites you', [`A friend can save you the slot right after theirs`, `It's held for you for ${HOLD} minutes`, 'Confirm it, or it opens to everyone']),
+    { id: 'invited', scene: 'me', part: 6, target: 'notif', notif: `${inviterFirst} invited you to film right after them, ${formatDay(inviteDay)}. Held for you for ${HOLD} minutes.`, title: 'Tap the notification', body: 'Pretend a friend just booked and invited you. Tapping it takes you straight to the schedule.' },
+    { id: 'confirm', scene: 'invite', part: 6, target: 'invitebox', title: <>Tap <b>Confirm my slot</b></>, body: <>The slot after theirs is saved for you for {HOLD} minutes. Can't make it? You'd tap that instead, and it opens to everyone.</> },
+    { id: 'confirmed', scene: 'invite', part: 6, target: 'myrow', look: true, next: C, title: "It's yours now", body: 'It shows as Yours on the schedule. That was a separate shoot; back to the one you booked first.' },
+    // 7 · Shoot day
+    intro(7, 'home2', 'Shoot day', ['Pick up your props at the prop room', 'Pick up your gear and tick every piece', 'Check in at the house, film, then wrap']),
+    { id: 'pickupnotif', scene: 'home2', part: 7, target: 'notif', notif: `Shoot day! Your props for ${title} are ready to pick up.`, title: 'Tap the notification', body: 'Notifications take you straight to the right page.' },
+    { id: 'sign', scene: 'pickup', part: 7, target: 'sign', title: <>Tap <b>I've got everything</b></>, body: 'At the prop room, check everything on the list is there. Only you can sign for your props.' },
+    { id: 'pickback', scene: 'pickup', part: 7, target: 'back', title: <>Tap <b>‹ Back</b></>, body: 'Now the gear. It\'s on the same card in My requests.' },
+    { id: 'opengear', scene: 'requests', part: 7, target: 'gearrow', title: 'Tap your gear', body: 'Gear is picked up from the equipment cage, from 30 minutes before your time.' },
+    { id: 'pieces', scene: 'gearpickup', part: 7, target: 'pieces', next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece in the case', body: "Something not there? Tap Missing? next to it, so it isn't blamed on you." },
+    { id: 'gearsign', scene: 'gearpickup', part: 7, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: "From now until it's back, the kit is your responsibility." },
+    { id: 'checkinnotif', scene: 'gearpickup', part: 7, target: 'notif', notif: `Check-in is open for your ${fmtTime(START)} shoot at ${house.name}.`, title: 'At the house: tap the notification', body: `Check-in opens ${s.checkinBefore} minutes before your time. (Your shoot card on Home has a Check in button too.)` },
+    { id: 'setphoto', scene: 'checkin', part: 7, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Take a photo of the set', body: 'Tap Take photo. It opens your camera; tap the photo to retake it. (Practice: it stays on your phone.)' },
     { id: 'report', scene: 'checkin', part: 7, target: 'report', next: C, hint: 'Write what happened first', title: 'Any problem with the slot before you?', body: 'If they ran over or left a mess, tap it and write what happened. If not, just Continue.' },
     { id: 'checkin', scene: 'checkin', part: 7, target: 'checkin', title: <>Tap <b>Check in</b></>, body: "That's how the team knows you filmed." },
     { id: 'wrap', scene: 'wrap', part: 7, target: 'wrap', title: <>Type what you filmed, then tap <b>Wrap</b></>, body: "Do this when you're done shooting." },
     // 8 · Bring it all back
-    intro(8, 'return', 'Bring it all back', ['Props: the night of the shoot, with one photo of everything', 'Gear: back in its case, batteries charging, one photo', 'The teams check it all in']),
-    { id: 'retphoto', scene: 'return', part: 8, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Photo of everything you\'re returning', body: 'All the props together, where you leave them. It protects you if anything is questioned later.' },
+    intro(8, 'wrap', 'Bring it all back', ['Props go back the night of the shoot', 'Gear goes back in its case, batteries charging', 'One photo each, then the teams check it all in']),
+    { id: 'gotome', scene: 'booked', part: 8, target: 'nav-me', title: <>Tap <b>Me</b></>, body: "That's a wrap: your slot shows Filmed. Returns start from your request on Me." },
+    { id: 'myreq2', scene: 'me', part: 8, target: 'myrequests', title: <>Tap <b>My requests</b></> },
+    { id: 'openret', scene: 'requests', part: 8, target: 'propsrow', title: 'Tap your props', body: 'It says Collected while they\'re with you.' },
+    { id: 'retphoto', scene: 'return', part: 8, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: "Photo of everything you're returning", body: 'All the props together, where you leave them. It protects you if anything is questioned later.' },
     { id: 'returned', scene: 'return', part: 8, target: 'returned', title: <>Tap <b>Confirm return</b></>, body: 'You can add a note first (where you left them).' },
+    { id: 'retback', scene: 'return', part: 8, target: 'back', title: <>Tap <b>‹ Back</b></>, body: 'Now the gear.' },
+    { id: 'opengearret', scene: 'requests', part: 8, target: 'gearrow', title: 'Tap your gear' },
     { id: 'gearphoto', scene: 'gearreturn', part: 8, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Photo of the gear case', body: 'Every piece back in its case and the batteries plugged in to charge, in one photo.' },
     { id: 'gearsend', scene: 'gearreturn', part: 8, target: 'gearsend', title: <>Tap <b>Send return</b></> },
-    { id: 'final', scene: 'final', part: 8, target: 'card', next: C, title: 'All checked in', body: "The teams check every item in; when both bars are full, you're done. Late returns pause new props and gear, so bring things back on time." },
+    { id: 'gearback', scene: 'gearreturn', part: 8, target: 'back', title: <>Tap <b>‹ Back</b></> },
+    { id: 'final', scene: 'requests', part: 8, target: 'card', look: true, next: C, title: 'Both returned', body: "Each team checks its part in; when both bars are full, you're done. Late returns pause new props and gear, so bring things back on time." },
+    // 9 · Turn on notifications (real)
+    intro(9, 'notify', 'Turn on notifications', ['This last step is real, not practice', `Friends' invites only wait ${HOLD} minutes`, "You'll hear when props are ready, and before your shoot"]),
+    { id: 'notify', scene: 'notify', part: 9, target: 'notifycard', look: true, next: C, hint: 'Turn them on first', title: 'Turn on notifications', body: push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (steps on the card). We\'ll remind you on Home.' : 'Tap the gold button, then Allow when your phone asks.' },
     { id: 'rules', scene: 'rules', title: '' },
     { id: 'done', scene: 'done', title: '' },
   ]
@@ -209,7 +243,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const past = (id: string) => idx > I(id)
   const at = (id: string) => idx >= I(id)
   const advance = () => setIdx(n => { const m = Math.min(n + 1, STEPS.length - 1); if (required) saveStep(profile.email, m); return m })
-  // A tap only counts when it's the highlighted thing (everything else is blocked by the spotlight anyway).
+  // A tap only counts when it's the highlighted thing (everything else is ignored by the spotlight anyway).
   const tap = (t: string) => () => { if (step.target === t) advance() }
   const T = (t: string) => ({ 'data-tour': t })
 
@@ -220,10 +254,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const pickFriend = (p: { email: string; name: string }) => { if (step.id !== 'friendname') return; setFriends(f => f.some(x => x.email === p.email) || f.length >= friendCount ? f : [...f, p]); setFriendQ('') }
   const dropFriend = (email: string) => { if (step.id === 'friendname') setFriends(f => f.filter(x => x.email !== email)) }
   const pickDay = (d: string) => { if (step.id === 'days') setPickedDay(d) }
-  const addProp = (id: string) => {
-    if (step.id !== 'search') return
-    setAdded(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id])
-  }
+  const addProp = (id: string) => { if (step.id === 'search') setAdded(a => a.includes(id) ? a.filter(x => x !== id) : [...a, id]) }
   const addBuild = () => { if (step.id !== 'makeform' || !buildDesc.trim()) return; setBuilds(b => [...b, { description: buildDesc.trim(), qty: buildQty }]); setShowBuild(false); setBuildDesc(''); advance() }
   const send = () => {
     if (step.target !== 'composer' || idea.trim().length < 3) return
@@ -247,11 +278,6 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     }).catch(() => setAiResult(local())).finally(() => setAiBusy(false))
   }
   const aiTick = (id: string) => { if (step.id === 'aipicks') setAiTicks(t => t.includes(id) ? t.filter(x => x !== id) : [...t, id]) }
-  const aiAddTo = () => {
-    if (step.id !== 'aishoot') return
-    const ask = aiTicks.filter(k => k.startsWith('b:')).map(k => ({ description: k.slice(2), qty: 1 }))
-    setAdded(a => [...new Set([...a, ...aiTicks.filter(k => !k.startsWith('b:'))])]); setBuilds(b => [...b, ...ask]); setAiAdded(true); setAiSheet(false); advance()
-  }
   const startChange = () => { if (step.id !== 'change') return; setQty(Object.fromEntries(picked.map(p => [p.id, 1]))); setEditing(true); advance() }
   const saveChange = () => {
     if (step.id !== 'changeit') return
@@ -272,9 +298,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const finish = () => { markTourDone(profile.email); onFinish() }
 
   // Where things are, from the step you're on.
-  const finalDone = at('final')   // the teams have checked everything in
-  const propsStatus: ReservationStatus = finalDone ? 'returned' : past('returned') ? 'return_pending' : past('sign') ? 'collected' : at('packed') ? 'packed' : 'requested'
-  const gearStatus = finalDone ? 'checked_in' : past('gearsend') ? 'returned' : past('gearsign') ? 'out' : 'held'
+  const propsStatus: ReservationStatus = at('final') ? 'returned' : past('returned') ? 'return_pending' : past('sign') ? 'collected' : at('packed') ? 'packed' : 'requested'
+  const gearStatus = at('final') ? 'checked_in' : past('gearsend') ? 'returned' : past('gearsign') ? 'out' : 'held'
   const STATUS_WORD: Record<string, string> = { requested: 'Requested', packed: 'Packed & ready', collected: 'Collected', return_pending: 'Returned, being checked' }
   const propCount = picked.length + builds.length
 
@@ -294,8 +319,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       {right ?? <div className="w-12" />}
     </div>
   )
-  const banner = (tone: 'green' | 'amber' | 'teal', heading: string, body: ReactNode) => (
-    <div className={`border rounded-xl px-4 py-3 ${tone === 'green' ? 'bg-green-500/10 border-green-500/30 text-green-400' : tone === 'teal' ? 'bg-teal-500/10 border-teal-500/30 text-teal-300' : 'bg-amber-500/10 border-amber-500/30 text-amber-300'}`}>
+  const banner = (tone: 'green' | 'amber', heading: string, body: ReactNode) => (
+    <div className={`border rounded-xl px-4 py-3 ${tone === 'green' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-300'}`}>
       <p className="font-medium">{heading}</p><p className="text-pt-text/80 text-sm mt-0.5">{body}</p>
     </div>
   )
@@ -376,7 +401,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     </>
   )
   const addingTo = (kind: 'props' | 'gear' | 'shoot') => (
-    <div className="w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm bg-pt-accent/10 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.45)]">
+    <div {...(kind === 'props' ? T('adding') : {})} className="w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm bg-pt-accent/10 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.45)]">
       <span className="flex-1 min-w-0">
         <span className="block text-pt-muted text-[11px] uppercase tracking-wider">Adding to</span>
         <span className="block text-pt-text truncate">{shootLabel}</span>
@@ -393,7 +418,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       </button>
     </div>
   )
-  // The Schedule screen (behind the booking sheets, and the day view for the invite).
+  // The Schedule screen (behind the booking sheets, and the day view).
   const scheduleHeader = (dayStrip?: string) => (
     <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
       <div className="flex items-end justify-between py-2 gap-2"><h1 className="font-display text-[34px] text-pt-text">Schedule</h1><div className="flex gap-2 pb-0.5">{aiPill()}{roundHelp}</div></div>
@@ -411,12 +436,23 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       )}
     </div>
   )
+  // One row of the real schedule (SlotRow).
+  type Row = { t: number; title: ReactNode; sub?: ReactNode; pill?: ReactNode; cls: string; face?: ReactNode }
+  const slotRow = (r: Row) => (
+    <div key={r.t} className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left border ${r.cls}`}>
+      <span className="w-[86px] shrink-0 text-pt-muted text-[13px] tabular-nums whitespace-nowrap">{fmtSlot(r.t, SLOT)}</span>
+      {r.face}
+      <span className="flex-1 min-w-0"><span className="block font-semibold text-pt-text truncate">{r.title}</span>{r.sub && <span className="block text-pt-muted text-xs truncate">{r.sub}</span>}</span>
+      {r.pill}
+    </div>
+  )
+  const freeRow = (t: number): Row => ({ t, title: <span className="text-pt-accent">Free</span>, cls: 'bg-pt-surface border-pt-accent/35' })
   const sheet = (heading: string, body: ReactNode) => <>{scheduleHeader()}<BottomSheet open locked onClose={() => {}} title={heading}>{body}</BottomSheet></>
   const homeHeader = (
     <div className="pt-safe px-5">
       <div className="flex items-center justify-between py-3">
         <span className="flex items-center gap-2 text-pt-text"><BrandMark className="w-9" title="Prime Capitol" /><b className="text-xs font-extrabold tracking-[0.28em]">PRIME CAPITOL</b></span>
-        <span className="flex items-center gap-3">{aiPill()}{roundHelp}<Avatar email={profile.email} name={name} size={34} /></span>
+        <span className="flex items-center gap-3">{aiPill(step.scene === 'home' || step.scene === 'home2' ? 'ai' : undefined)}{roundHelp}<Avatar email={profile.email} name={name} size={34} /></span>
       </div>
       <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider mt-1">{formatDay(today, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
       <h1 className="font-display text-[34px] leading-tight font-extrabold tracking-tight">{first ? `Hey ${first}` : 'Home'}</h1>
@@ -442,25 +478,20 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     </div>
   )
   const sentAll = past('send')
+  const shootDay = at('part7')   // chapter 7 on: it's the day of the shoot
   const nextShootCard = (
-    <div className="relative overflow-hidden w-full text-left rounded-[28px] p-5 border border-pt-accent/35"
+    <button {...T('shootcard')} onClick={tap('shootcard')} className="relative overflow-hidden w-full text-left rounded-[28px] p-5 border border-pt-accent/35"
       style={{ background: 'radial-gradient(120% 90% at 100% 0%, rgba(235,211,153,.28), transparent 55%), linear-gradient(160deg, #2b2416, #141210 70%)' }}>
       <BrandMark className="absolute -right-10 top-4 w-56 text-white/[0.06] pointer-events-none" title="" />
       <span className="relative flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-[#EBD399]">Next shoot</span>
-        <span className="text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/20 text-[#EBD399]">soon</span>
+        <span className="text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/20 text-[#EBD399]">{shootDay ? 'today' : 'soon'}</span>
       </span>
       <span className="relative block font-display text-[44px] leading-[0.95] font-extrabold tracking-tighter mt-2">{formatDay(day)}</span>
       <span className="relative block text-[17px] font-semibold mt-1">{house.name} · {fmtSlot(START, SLOT)}</span>
       <span className="relative grid grid-cols-3 gap-2 my-4">{homeStep('Time', true, 'Booked', today)}{homeStep('Props', sentAll, 'Requested', cut.props)}{homeStep('Gear', sentAll, 'Held', cut.gear)}</span>
-      <span className="relative block w-full text-center rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">Open this shoot</span>
-    </div>
-  )
-  const notification = (text: string, t?: string) => (
-    <div {...(t ? T(t) : {})} onClick={t ? tap(t) : undefined} className="fixed top-3 inset-x-3 z-[65] rounded-[20px] bg-pt-raised/95 shadow-float px-4 py-3 flex items-center gap-3 cursor-pointer" style={{ marginTop: 'env(safe-area-inset-top)' }}>
-      <span className="w-9 h-9 rounded-xl bg-black grid place-items-center shrink-0"><BrandMark className="w-6 text-white" title="" /></span>
-      <span className="flex-1 min-w-0"><b className="block text-sm">Prime Capitol <span className="font-normal text-pt-muted">· now</span></b><span className="block text-sm">{text}</span></span>
-    </div>
+      <span className="relative block w-full text-center rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">{shootDay ? 'Check in' : 'Open this shoot'}</span>
+    </button>
   )
   // The top of the real "Your shoot" sheet (ShootSheet): who, when, where, and the Booked → Filmed line.
   const shootTop = (stage: number) => (
@@ -470,7 +501,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <div className="min-w-0">
           <p className="text-pt-text font-semibold">{longDay} · {fmtSlot(START, SLOT)}</p>
           <p className="text-pt-muted text-sm">{house.name} · {house.address}</p>
-          <div className="flex gap-2 mt-2"><Pill tone="free">Booked</Pill></div>
+          <div className="flex gap-2 mt-2"><Pill tone="free">{stage >= 3 ? 'Filmed' : stage >= 2 ? 'Checked in' : 'Booked'}</Pill></div>
         </div>
       </div>
       <div>
@@ -496,6 +527,19 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       </div>
     )
   }
+  const notification = (text: string) => (
+    <div {...T('notif')} onClick={tap('notif')} className="fixed top-3 inset-x-3 z-[65] rounded-[20px] bg-pt-raised/95 shadow-float px-4 py-3 flex items-center gap-3 cursor-pointer" style={{ marginTop: 'env(safe-area-inset-top)' }}>
+      <span className="w-9 h-9 rounded-xl bg-black grid place-items-center shrink-0"><BrandMark className="w-6 text-white" title="" /></span>
+      <span className="flex-1 min-w-0"><b className="block text-sm">Prime Capitol <span className="font-normal text-pt-muted">· now</span></b><span className="block text-sm">{text}</span></span>
+    </div>
+  )
+  const requestsHeader = (
+    <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
+      <button {...T('tome')} onClick={tap('tome')} className="block text-pt-accent text-[17px] py-1">‹ Me</button>
+      <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
+      <div className="flex gap-2"><span className="px-3 py-1 rounded-full text-sm bg-pt-accent text-stone-900 font-medium">Upcoming (1)</span><span className="px-3 py-1 rounded-full text-sm bg-pt-surface shadow-hairline text-pt-muted">Past</span></div>
+    </div>
+  )
   // The request card from My requests.
   const requestsCard = (
     <div {...T('card')} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
@@ -507,21 +551,64 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div {...T('propsrow')}>
         <RequestRow className="bg-pt-bg" label="🎬 Props & costumes" onOpen={tap('propsrow')} l={{ id: 'p', kind: 'props', title, status: propsStatus, count: propCount }} />
       </div>
-      <RequestRow className="bg-pt-bg" label={`🎥 Gear · ${fmtSlot(START, SLOT)}`} onOpen={() => {}} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: 1 }} />
-      {!at('sign') && <div className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10 text-center">+ Add props or gear <span className="font-normal text-pt-muted">· by {formatDay(cut.gear)}</span></div>}
+      <div {...T('gearrow')}>
+        <RequestRow className="bg-pt-bg" label={`🎥 Gear · ${fmtSlot(START, SLOT)}`} onOpen={tap('gearrow')} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: 1 }} />
+      </div>
+      {!at('part7') && <div className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10 text-center">+ Add props or gear <span className="font-normal text-pt-muted">· by {formatDay(cut.gear)}</span></div>}
+    </div>
+  )
+  // Chapter 9 (real): the Me screen's notifications card.
+  const notifyCard = (
+    <div {...T('notifycard')} className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
+      <div className="flex items-center gap-3">
+        <span className="w-10 h-10 rounded-full grid place-items-center bg-pt-accent/15 text-pt-accent text-lg">🔔</span>
+        <span className="flex-1 min-w-0"><b className="block text-pt-text">Notifications</b><span className="block text-pt-muted text-xs">Invites, props ready, shoot reminders, things due back</span></span>
+      </div>
+      {push === 'on' ? <p className="text-green-400 font-semibold">✓ Notifications are on</p>
+        : push === 'off' ? <button disabled={pushBusy} onClick={turnOn} className={btnGold}>{pushBusy ? 'Turning on…' : 'Turn on notifications'}</button>
+        : push === 'needs-install' ? (
+          <ol className="space-y-2 text-[14px] text-pt-text list-decimal list-inside">
+            <li>Tap <b>Share</b> at the bottom of Safari</li><li>Tap <b>Add to Home Screen</b>, then Add</li>
+            <li>Open <b>Prime Capitol</b> from your Home Screen</li><li>Me → Notifications → <b>Turn on</b></li>
+          </ol>
+        ) : push === 'blocked' ? <p className="text-pt-muted text-sm">Notifications are blocked for this app. {isIOS() ? 'iPhone Settings → Notifications → Prime Capitol → Allow Notifications.' : 'Tap the lock or ⓘ next to the web address → Notifications → Allow.'}</p>
+        : <p className="text-pt-muted text-sm">This browser can't show notifications. Open the app on your phone to turn them on.</p>}
+      {pushMsg && <p className="text-amber-300 text-xs">Couldn't turn them on: {pushMsg} You can try again later from Me → Notifications.</p>}
+    </div>
+  )
+  const meScreen = (
+    <div className="pb-6">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">Me</span>{aiPill('ai')}</h1>
+      </div>
+      <div className="px-4 pt-4 pb-8 space-y-6">
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 flex items-center gap-4">
+          <span className="relative"><Avatar email={profile.email} name={name} size={72} /><span className="absolute -bottom-1 -right-1 bg-pt-accent text-stone-900 rounded-full w-7 h-7 grid place-items-center text-sm">✎</span></span>
+          <span className="min-w-0"><b className="block text-pt-text truncate">{name}</b><span className="block text-pt-muted text-xs truncate">{profile.email}</span><span className="block text-pt-accent text-sm">Creator</span></span>
+        </div>
+        {step.scene === 'notify' && notifyCard}
+        <div className="rounded-2xl p-4 text-sm bg-pt-surface shadow-hairline"><p className="text-pt-text font-semibold">No strikes</p><p className="text-pt-muted">Strikes come from no-shows, late cancels and upheld reports.</p></div>
+        <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
+          {[['My requests', 'Props and gear for each shoot, and where they are'], ['Help', 'How do I…? Booking, props, gear, check-in, sign-in'], ['App tour', 'Practise booking a shoot again, step by step'], ['How it works', 'Slots, cutoffs, check-ins, strikes']].map(([t, d], n) => (
+            <button key={t} {...(n === 0 ? T('myrequests') : {})} onClick={n === 0 ? tap('myrequests') : undefined} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+              <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span><span className="text-pt-muted">›</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 
   const scenes: Record<Scene, () => ReactNode> = {
     welcome: () => (
       <div className="min-h-full grid place-items-center text-center px-6 pt-safe">
-        <div className="space-y-5">
+        <div className="space-y-5 py-6">
           <BrandMark className="w-20 mx-auto text-white" title="" />
           <h1 className="font-display text-[30px] font-extrabold leading-tight">Welcome to Prime Capitol{first ? `, ${first}` : ''}!</h1>
-          <p className="text-pt-muted text-[15px]">Let's practise one shoot from start to finish: book it, get props and gear, film, and bring it all back. About 6 minutes, in 8 short parts.</p>
+          <p className="text-pt-muted text-[15px]">Let's walk through one shoot from start to finish: book it, get props and gear, film, and bring it all back. About 8 minutes, in 9 short chapters.</p>
           <div className="rounded-2xl bg-pt-surface shadow-hairline px-4 py-3 text-left space-y-2 text-[14px] text-pt-text">
             <p className="font-semibold">How it works</p>
-            {[['🔦', 'The screen dims, except the part you use next.'], ['💬', 'A tip at the top or bottom says what to do, and why.'], ['👆', 'You do it yourself. Continue moves on; ‹ Back goes back a step.'], ['🧪', 'It\'s all practice: nothing is booked, sent or uploaded.'], ['⏸️', 'Close the app any time; you\'ll pick up where you left off.']].map(([i, t]) => (
+            {[['🔦', 'The part you use next is outlined in gold.'], ['💬', 'A tip at the top or bottom says what to do, and why.'], ['👆', 'You do it yourself, with the real buttons and tabs. ‹ Back goes back a step.'], ['🧪', "It's all practice: nothing is booked, sent or uploaded."], ['⏸️', "Close the app any time; you'll pick up where you left off."]].map(([i, t]) => (
               <p key={t} className="flex gap-2.5"><span>{i}</span><span>{t}</span></p>
             ))}
           </div>
@@ -551,10 +638,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <>
           <p className="text-pt-muted text-xs mb-2">Who's filming?</p>
           <div {...T('who')} className="flex bg-pt-bg rounded-full p-1 gap-1">
-            {['Just me', '+ 1 friend', '+ 2 friends'].map((l, n) => {
-              const on = friendCount === n
-              return <button key={l} onClick={() => pickCount(n)} className={`flex-1 rounded-full min-h-[40px] text-sm ${on ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{l}</button>
-            })}
+            {['Just me', '+ 1 friend', '+ 2 friends'].map((l, n) => (
+              <button key={l} onClick={() => pickCount(n)} className={`flex-1 rounded-full min-h-[40px] text-sm ${friendCount === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{l}</button>
+            ))}
           </div>
           {friendCount > 0 && (
             <div {...T('friendzone')} className="mt-3 space-y-2">
@@ -626,166 +712,46 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <button {...T('bookit')} onClick={bookIt} className={`mt-5 ${btnGold} ${flash ? 'booked-flash' : ''}`}>{flash ? 'Booked ✓' : `Book + invite ${friends.length > 1 ? 'them' : friendFirst}`}</button>
       </>
     )),
+    booked: () => { const filmed = past('wrap'); return (
+      <div className="pb-8">
+        {scheduleHeader(day)}
+        <div className="px-4 pt-3 space-y-2">
+          <p className="text-pt-accent text-sm text-center py-1">{filmed ? 'Filmed ✓' : 'Booked ✓'}</p>
+          {slotRow(freeRow(START - SLOT))}
+          <div {...T('myslots')} className="space-y-2">
+            {slotRow({ t: START, title: 'You', sub: filmed ? `Filmed “${wrapText.trim() || title}”` : undefined, pill: <Pill tone="info">{filmed ? 'Filmed' : 'Yours'}</Pill>, cls: 'bg-pt-accent/10 border-pt-accent', face: <Avatar email={profile.email} name={name} ring /> })}
+            {(friends.length ? friends : [{ email: 'practice-1', name: 'Sam' }]).map((f, i) => slotRow(filmed
+              ? { t: START + (i + 1) * SLOT, title: f.name, sub: 'Your collab', cls: 'bg-pt-surface border-transparent', face: <Avatar email={f.email} name={f.name} /> }
+              : { t: START + (i + 1) * SLOT, title: <span className="text-amber-300">Held for {firstOf(f.name)}</span>,
+              sub: `Your collab · opens at ${fmtTime(START + 20)} if not confirmed`, pill: <Pill tone="warn">Held</Pill>, cls: 'bg-amber-400/[0.06] border-dashed border-amber-400/50', face: <Avatar email={f.email} name={f.name} /> }))}
+          </div>
+          {slotRow(freeRow(START + (1 + Math.max(1, friends.length)) * SLOT))}
+        </div>
+      </div>
+    ) },
+    home2: () => <div className="pb-10">{homeHeader}<div className="px-5 mt-4 space-y-4">{nextShootCard}{searchAndAi}</div></div>,
     shoot: () => sheet('Your shoot', (
-      <div className="space-y-3">
+      <div {...T('shootsheet')} className="space-y-3">
         {shootTop(1)}
         <div className="space-y-2">
           <p className="text-pt-muted text-xs uppercase tracking-wider">For this shoot</p>
-          <button {...T('planai')} onClick={tap('planai')} className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
+          <div className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
             <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
             <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">Props for your idea and the gear that's free, then you check it</span></span>
             <span className="text-pt-muted">›</span>
-          </button>
+          </div>
           {([['Props & costumes', cut.props, `new props by ${formatDay(cut.builds)}`, 'addprops'], ['Gear', cut.gear, '', '']] as const).map(([t, by, extra, tg]) => (
             <div key={t} className="bg-pt-bg rounded-xl p-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0"><p className="text-pt-text font-semibold">{t}</p><p className="text-pt-muted text-xs">Add by {formatDay(by)}{extra ? ` · ${extra}` : ''}</p></div>
                 <button {...(tg ? T(tg) : {})} onClick={tg ? tap(tg) : undefined} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm">+ Add</button>
               </div>
-              <p className="text-pt-muted text-xs">{tg && aiAdded ? `${picked.length} in your basket, not sent yet.` : 'Nothing yet.'}</p>
+              <p className="text-pt-muted text-xs">Nothing yet.</p>
             </div>
           ))}
         </div>
       </div>
     )),
-    invited: () => (
-      <div className="pb-10">
-        {homeHeader}
-        <div className="px-5 mt-4 space-y-4">{nextShootCard}{searchAndAi}</div>
-        {notification(`${inviterFirst} invited you to film right after them, ${formatDay(inviteDay)}. Held for you for ${HOLD} minutes.`, 'notif')}
-      </div>
-    ),
-    invite: () => {
-      const done = past('confirm')
-      const rows: [number, ReactNode, ReactNode, ReactNode, string, ReactNode?][] = [
-        [START - SLOT, <span className="text-pt-accent">Free</span>, null, null, 'bg-pt-surface border-pt-accent/35'],
-        [START, friend?.name ?? 'Sam', null, null, 'bg-pt-surface border-transparent', <Avatar email={friend?.email ?? 'friend'} name={friend?.name ?? 'Sam'} />],
-        done ? [START + SLOT, 'You', null, <Pill tone="info">Yours</Pill>, 'bg-pt-accent/10 border-pt-accent', <Avatar email={profile.email} name={name} ring />]
-          : [START + SLOT, <span className="text-amber-300">Held for you</span>, `${inviterFirst}'s collab · confirm above`, <Pill tone="warn">Held</Pill>, 'bg-amber-400/[0.06] border-dashed border-amber-400/50', <Avatar email={profile.email} name={name} />],
-        [START + SLOT * 2, <span className="text-pt-accent">Free</span>, null, null, 'bg-pt-surface border-pt-accent/35'],
-      ]
-      return (
-        <div className="pb-8">
-          {scheduleHeader(inviteDay)}
-          <div className="px-4 pt-3 space-y-2">
-            {!done ? (
-              <div {...T('invitebox')} className="rounded-2xl p-4 border border-amber-400/40 bg-amber-400/10 space-y-2">
-                <p className="text-pt-text text-[15px]"><b>{friend?.name ?? 'Sam'}</b> invited you to film right after them: <b>{formatDay(inviteDay)} · {house.name} · {fmtSlot(START + SLOT, SLOT)}</b>.</p>
-                <p className="text-amber-200 text-sm">Held for you for {HOLD} minutes.</p>
-                <div className="flex gap-2">
-                  <span className="flex-1 grid place-items-center bg-pt-border text-pt-text rounded-xl py-3">Can't make it</span>
-                  <button onClick={tap('invitebox')} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Confirm my slot</button>
-                </div>
-              </div>
-            ) : <p className="text-pt-accent text-sm text-center py-2">Confirmed ✓ It's your shoot now.</p>}
-            {rows.map(([t, ttl, sub, pill, cls, face], n) => (
-              <div key={t} {...(n === 2 ? T('myrow') : {})} className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left border ${cls}`}>
-                <span className="w-[86px] shrink-0 text-pt-muted text-[13px] tabular-nums whitespace-nowrap">{fmtSlot(t, SLOT)}</span>
-                {face}
-                <span className="flex-1 min-w-0"><span className="block font-semibold text-pt-text truncate">{ttl}</span>{sub && <span className="block text-pt-muted text-xs truncate">{sub}</span>}</span>
-                {pill}
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    },
-    chat: () => {
-      const itemById = new Map(items.map(i => [i.id, i]))
-      const tickBtn = (k: string, label: string) => aiAdded && aiTicks.includes(k)
-        ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent">✓</span>
-        : <button onClick={() => aiTick(k)} aria-pressed={aiTicks.includes(k)} aria-label={`${aiTicks.includes(k) ? 'Untick' : 'Tick'} ${label}`}
-            className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${aiTicks.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-xl'}`}>{aiTicks.includes(k) ? '✓' : '+'}</button>
-      return (
-        <div {...T('chatzone')} className="min-h-full flex flex-col">
-          <div className="pt-safe px-5 shrink-0">
-            <div className="flex items-center justify-between py-3"><button {...T('aiback')} onClick={tap('aiback')} className="text-pt-accent text-[17px]">‹ Back</button></div>
-            <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
-            <p className="text-pt-muted text-[13px]">Ideas from our real props and gear, and times that are actually free. Checking free or taken for {shootLabel}.</p>
-          </div>
-          <div className="flex-1 px-5 py-4 space-y-3">
-            <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">What's the video about? I'll find what we have and check it's free that day. Props by {formatDay(cut.props)}.</p>
-            {asked && (
-              <>
-                <p className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{asked}</p>
-                <div {...T('answer')} className="space-y-3">
-                  {aiBusy || !aiResult ? (
-                    <div role="status" className="flex items-center gap-3">
-                      <p className="w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>
-                      <span className="text-pt-muted text-[13px]">Looking through the props…</span>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{aiResult.reply}</p>
-                      {aiResult.groups.map(g => (
-                        <div key={g.title} className="space-y-2">
-                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{g.title}</p>
-                          {g.picks.map(({ id, why }) => {
-                            const p = itemById.get(id)!
-                            return (
-                              <div key={id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                                <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}</span>
-                                <span className="flex-1 min-w-0"><b className="block text-sm truncate">{p.name}</b><span className="block text-xs text-[#CDB8FF]">{why}</span><span className="block text-xs text-pt-muted">Check it ›</span></span>
-                                {tickBtn(id, p.name)}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      ))}
-                      {aiResult.missing.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
-                          {aiResult.missing.map(m => (
-                            <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                              <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
-                              <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
-                              {tickBtn(`b:${m.name}`, m.name)}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-                {aiAdded && <p className="text-pt-accent text-sm text-center">Added to {shootLabel} ✓</p>}
-              </>
-            )}
-            {timeAsk && (
-              <>
-                <p className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{timeAsk}</p>
-                <div {...T('options')} className="space-y-2">
-                  <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">Looking at either house: you 2 h, then {inviterFirst} 2 h, back to back. Soonest first.</p>
-                  {[addOpenDays(today, 8, settings), addOpenDays(today, 9, settings)].map((d, n) => (
-                    <div key={d} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
-                      <span className="w-12 text-center shrink-0"><span className="block text-[11px] uppercase text-pt-muted">{formatDay(d, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(d.slice(8))}</b></span>
-                      <span className="flex-1 min-w-0"><b className="block">{n ? s.houses.cliff2.name : house.name} · {fmtSlot(17 * 60, 2 * SLOT)}</b><span className="block text-pt-muted text-[13px]">You {fmtTime(17 * 60)} · {inviterFirst} {fmtTime(19 * 60)}</span></span>
-                      <span className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold">Book</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-          <div className="shrink-0 border-t border-pt-border px-5 pt-3 pb-safe bg-pt-bg">
-            {aiTicks.length > 0 && !aiAdded && <button onClick={() => { if (step.id === 'aipicks') { setAiSheet(true); advance() } }} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {aiTicks.length} to a shoot</button>}
-            <div {...T('composer')} className="flex items-center gap-2 pb-2">
-              <input value={idea} onChange={e => setIdea(e.target.value.slice(0, 200))} onKeyDown={e => { if (e.key === 'Enter') send() }} placeholder="Your video idea, or when to film…"
-                className="flex-1 min-w-0 bg-pt-surface border border-pt-border rounded-2xl px-4 py-3 text-base focus:outline-none focus:border-[#BF9DFF]" />
-              <button onClick={send} disabled={idea.trim().length < 3} aria-label="Send" className="w-12 h-12 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-xl font-bold disabled:opacity-40">↑</button>
-            </div>
-          </div>
-          <BottomSheet open={aiSheet || step.id === 'aishoot'} locked onClose={() => {}} title="Add to which shoot?">
-            <div className="space-y-2">
-              <button {...T('aishoot')} onClick={aiAddTo} className="w-full text-left rounded-2xl px-4 py-3 bg-pt-accent/15 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]">
-                <span className="block text-pt-text text-[15px] font-semibold">{shootLabel}</span>
-                <span className="block text-xs text-pt-muted">Props by {formatDay(cut.props)} · Gear by {formatDay(cut.gear)}</span>
-              </button>
-              <span className="block w-full text-center rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent/50">+ Book a new shoot for these</span>
-            </div>
-          </BottomSheet>
-        </div>
-      )
-    },
     browse: () => (
       <div {...T('browsezone')}>
         <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
@@ -917,38 +883,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         </div>
       </div>
     ),
-    home2: () => <div className="pb-10">{homeHeader}<div className="px-5 mt-4 space-y-4">{nextShootCard}{searchAndAi}</div></div>,
-    me: () => (
-      <div className="pb-6">
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-          <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">Me</span>{aiPill()}</h1>
-        </div>
-        <div className="px-4 pt-4 pb-8 space-y-6">
-          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 flex items-center gap-4">
-            <span className="relative"><Avatar email={profile.email} name={name} size={72} /><span className="absolute -bottom-1 -right-1 bg-pt-accent text-stone-900 rounded-full w-7 h-7 grid place-items-center text-sm">✎</span></span>
-            <span className="min-w-0"><b className="block text-pt-text truncate">{name}</b><span className="block text-pt-muted text-xs truncate">{profile.email}</span><span className="block text-pt-accent text-sm">Creator</span></span>
-          </div>
-          <div className="rounded-2xl p-4 text-sm bg-pt-surface shadow-hairline"><p className="text-pt-text font-semibold">No strikes</p><p className="text-pt-muted">Strikes come from no-shows, late cancels and upheld reports.</p></div>
-          <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
-            {[['My requests', 'Props and gear for each shoot, and where they are'], ['Help', 'How do I…? Booking, props, gear, check-in, sign-in'], ['App tour', 'Practise booking a shoot again, step by step'], ['How it works', 'Slots, cutoffs, check-ins, strikes']].map(([t, d], n) => (
-              <button key={t} {...(n === 0 ? T('myrequests') : {})} onClick={n === 0 ? tap('myrequests') : undefined} className="w-full flex items-center gap-3 px-4 py-3 text-left">
-                <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span><span className="text-pt-muted">›</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    ),
-    requests: () => (
-      <div className="pb-6">
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-          <span className="block text-pt-accent text-[17px] py-1">‹ Me</span>
-          <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
-          <div className="flex gap-2"><span className="px-3 py-1 rounded-full text-sm bg-pt-accent text-stone-900 font-medium">Upcoming (1)</span><span className="px-3 py-1 rounded-full text-sm bg-pt-surface shadow-hairline text-pt-muted">Past</span></div>
-        </div>
-        <div className="px-4 space-y-3">{requestsCard}</div>
-      </div>
-    ),
+    me: () => meScreen,
+    notify: () => meScreen,
+    requests: () => <div className="pb-6">{requestsHeader}<div className="px-4 space-y-3">{requestsCard}</div></div>,
     request: () => {
       const st: ReservationStatus = at('packed') ? 'packed' : 'requested'
       const box = 'w-9 h-9 text-pt-text text-xl disabled:opacity-30'
@@ -980,10 +917,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                     </div>
                   )
                 })}
-                <div className="flex gap-2">
-                  <input value={newBuild} onChange={e => setNewBuild(e.target.value.slice(0, 200))} placeholder="Something we don't have (make or find)"
-                    className="flex-1 min-w-0 bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
-                </div>
+                <input value={newBuild} onChange={e => setNewBuild(e.target.value.slice(0, 200))} placeholder="Something we don't have (make or find)"
+                  className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
                 <div className="flex gap-2">
                   <span className="flex-1 grid place-items-center bg-pt-border text-pt-text rounded-xl py-3">Never mind</span>
                   <button onClick={saveChange} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Save changes</button>
@@ -997,29 +932,157 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
               </div>
             ))}
           </div>
-          {step.id === 'packed' && notification(`Your props for ${title} are packed and ready ✓`)}
+        </div>
+      )
+    },
+    chat: () => {
+      const itemById = new Map(items.map(i => [i.id, i]))
+      const tickBtn = (k: string, label: string) => aiAdded && aiTicks.includes(k)
+        ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent">✓</span>
+        : <button onClick={() => aiTick(k)} aria-pressed={aiTicks.includes(k)} aria-label={`${aiTicks.includes(k) ? 'Untick' : 'Tick'} ${label}`}
+            className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${aiTicks.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-xl'}`}>{aiTicks.includes(k) ? '✓' : '+'}</button>
+      const aiLabel = `${s.houses.cliff1.name} · ${formatDay(aiDay)} · ${fmtSlot(17 * 60, SLOT)}`
+      const bubbleMe = (t: string) => <p className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{t}</p>
+      const bubbleAi = (t: ReactNode) => <p className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{t}</p>
+      return (
+        <div className="min-h-full flex flex-col">
+          <div className="pt-safe px-5 shrink-0">
+            <div className="flex items-center justify-between py-3"><button {...T('aiback')} onClick={tap('aiback')} className="text-pt-accent text-[17px]">‹ Back</button></div>
+            <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
+            <p className="text-pt-muted text-[13px]">Ideas from our real props and gear, and times that are actually free.</p>
+          </div>
+          <div className="flex-1 px-5 py-4 space-y-3">
+            {bubbleAi(<>Hi{first ? ` ${first}` : ''}! Tell me your video idea, or when you want to film, or both. I'll find the props we have and the times that are free.</>)}
+            {asked && (
+              <>
+                {bubbleMe(asked)}
+                <div {...T('answer')} className="space-y-3">
+                  {aiBusy || !aiResult ? (
+                    <div role="status" className="flex items-center gap-3">
+                      <p className="w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>
+                      <span className="text-pt-muted text-[13px]">Looking through the props…</span>
+                    </div>
+                  ) : (
+                    <>
+                      {bubbleAi(aiResult.reply)}
+                      {aiResult.groups.map(g => (
+                        <div key={g.title} className="space-y-2">
+                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">{g.title}</p>
+                          {g.picks.map(({ id, why }) => {
+                            const p = itemById.get(id)!
+                            return (
+                              <div key={id} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
+                                <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(p) && <img src={thumb(p)} alt="" className="w-full h-full object-cover" />}</span>
+                                <span className="flex-1 min-w-0"><b className="block text-sm truncate">{p.name}</b><span className="block text-xs text-[#CDB8FF]">{why}</span><span className="block text-xs text-pt-muted">Check it ›</span></span>
+                                {tickBtn(id, p.name)}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      ))}
+                      {aiResult.missing.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-pt-muted text-xs font-semibold uppercase tracking-wider">We don't have it</p>
+                          {aiResult.missing.map(m => (
+                            <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
+                              <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0">🛠️</span>
+                              <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
+                              {tickBtn(`b:${m.name}`, m.name)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+            {timeAsk && (
+              <>
+                {bubbleMe(timeAsk)}
+                {bubbleAi('Here are times that are free. Soonest first.')}
+                <div className="space-y-2">
+                  {[aiDay, addOpenDays(today, 9, settings)].map((d, n) => (
+                    <div key={d} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
+                      <span className="w-12 text-center shrink-0"><span className="block text-[11px] uppercase text-pt-muted">{formatDay(d, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(d.slice(8))}</b></span>
+                      <span className="flex-1 min-w-0"><b className="block">{n ? s.houses.cliff2.name : s.houses.cliff1.name} · {fmtSlot(17 * 60, SLOT)}</b><span className="block text-pt-muted text-[13px]">You {fmtTime(17 * 60)}</span></span>
+                      <button {...(n === 0 ? T('optbook') : {})} onClick={() => { if (n === 0 && step.id === 'aioptions') { setAiBooked(true); advance() } }} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold">Book</button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            {aiBooked && (
+              <>
+                {bubbleAi('Booked. 🎬')}
+                <div className="rounded-[18px] bg-pt-surface border border-pt-accent/40 p-4 space-y-3">
+                  <p className="font-semibold">{aiLabel}</p>
+                  {!aiAdded
+                    ? <button {...T('aiaddbooked')} onClick={() => { if (step.id === 'aiadd') { setAiAdded(true); advance() } }} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold">Add the {aiTicks.length} ticked to this shoot</button>
+                    : <p {...T('aiaddedmsg')} className="text-pt-accent text-sm">Added to {aiLabel} ✓ <span className="underline">Review it</span></p>}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="shrink-0 border-t border-pt-border px-5 pt-3 pb-safe bg-pt-bg">
+            {aiTicks.length > 0 && !aiBooked && <span className="block w-full mb-3 rounded-2xl py-4 font-bold text-center text-stone-900 bg-pt-accent/60">Add {aiTicks.length} to a shoot</span>}
+            <div {...T('composer')} className="flex items-center gap-2 pb-2">
+              <input value={idea} onChange={e => setIdea(e.target.value.slice(0, 200))} onKeyDown={e => { if (e.key === 'Enter') send() }} placeholder="Your video idea, or when to film…"
+                className="flex-1 min-w-0 bg-pt-surface border border-pt-border rounded-2xl px-4 py-3 text-base focus:outline-none focus:border-[#BF9DFF]" />
+              <button onClick={send} disabled={idea.trim().length < 3} aria-label="Send" className="w-12 h-12 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-xl font-bold disabled:opacity-40">↑</button>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    invite: () => {
+      const done = past('confirm')
+      return (
+        <div className="pb-8">
+          {scheduleHeader(inviteDay)}
+          <div className="px-4 pt-3 space-y-2">
+            {!done ? (
+              <div {...T('invitebox')} className="rounded-2xl p-4 border border-amber-400/40 bg-amber-400/10 space-y-2">
+                <p className="text-pt-text text-[15px]"><b>{friend?.name ?? 'Sam'}</b> invited you to film right after them: <b>{formatDay(inviteDay)} · {house.name} · {fmtSlot(START + SLOT, SLOT)}</b>.</p>
+                <p className="text-amber-200 text-sm">Held for you for {HOLD} minutes.</p>
+                <div className="flex gap-2">
+                  <span className="flex-1 grid place-items-center bg-pt-border text-pt-text rounded-xl py-3">Can't make it</span>
+                  <button onClick={tap('invitebox')} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Confirm my slot</button>
+                </div>
+              </div>
+            ) : <p className="text-pt-accent text-sm text-center py-2">Confirmed ✓ It's your shoot now.</p>}
+            {slotRow(freeRow(START - SLOT))}
+            {slotRow({ t: START, title: friend?.name ?? 'Sam', cls: 'bg-pt-surface border-transparent', face: <Avatar email={friend?.email ?? 'friend'} name={friend?.name ?? 'Sam'} /> })}
+            <div {...T('myrow')}>
+              {slotRow(done ? { t: START + SLOT, title: 'You', pill: <Pill tone="info">Yours</Pill>, cls: 'bg-pt-accent/10 border-pt-accent', face: <Avatar email={profile.email} name={name} ring /> }
+                : { t: START + SLOT, title: <span className="text-amber-300">Held for you</span>, sub: `${inviterFirst}'s collab · confirm above`, pill: <Pill tone="warn">Held</Pill>, cls: 'bg-amber-400/[0.06] border-dashed border-amber-400/50', face: <Avatar email={profile.email} name={name} /> })}
+            </div>
+            {slotRow(freeRow(START + SLOT * 2))}
+          </div>
         </div>
       )
     },
     pickup: () => (
       <div className="pb-12">
-        {backBar(statusPill('packed'))}
+        {backBar(statusPill(past('sign') ? 'collected' : 'packed'))}
         <div className="px-4 pt-4 pb-8 space-y-6">
-          {titleBlock}{journey('packed')}{contents(true)}
+          {titleBlock}{journey(past('sign') ? 'collected' : 'packed')}{contents(true)}
           {picked.length > 0 && <div><p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Packed · {formatDay(today)}</p><PhotoStrip urls={picked.flatMap(p => { const t = thumb(p); return t ? [t] : [] })} title="What was packed" /></div>}
-          <div className="bg-pt-accent/10 border border-pt-accent/50 rounded-2xl p-4 space-y-3">
-            <p className="text-pt-accent font-semibold text-lg">Ready for pickup!</p>
-            <p className="text-pt-text text-sm">When you collect, check you have everything below, then sign off. This confirms what you took.</p>
-            <ul className="space-y-1">{picked.map(p => <li key={p.id} className="text-pt-text text-sm">☐ {p.name} <strong>×{qty[p.id] ?? 1}</strong></li>)}{builds.map((b, n) => <li key={n} className="text-pt-text text-sm">☐ {b.description} <strong>×{b.qty}</strong></li>)}</ul>
-            <div className="space-y-2">
-              <button {...T('sign')} onClick={tap('sign')} className="w-full py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">✓ I've got everything</button>
-              <span className="block w-full py-3 rounded-xl shadow-hairline text-pt-text text-sm text-center">Something's missing or wrong</span>
+          {past('sign') ? banner('green', 'Collected: you confirmed everything ✓', `Signed by you, ${formatDay(day)}`) : (
+            <div className="bg-pt-accent/10 border border-pt-accent/50 rounded-2xl p-4 space-y-3">
+              <p className="text-pt-accent font-semibold text-lg">Ready for pickup!</p>
+              <p className="text-pt-text text-sm">When you collect, check you have everything below, then sign off. This confirms what you took.</p>
+              <ul className="space-y-1">{picked.map(p => <li key={p.id} className="text-pt-text text-sm">☐ {p.name} <strong>×{qty[p.id] ?? 1}</strong></li>)}{builds.map((b, n) => <li key={n} className="text-pt-text text-sm">☐ {b.description} <strong>×{b.qty}</strong></li>)}</ul>
+              <div className="space-y-2">
+                <button {...T('sign')} onClick={tap('sign')} className="w-full py-4 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">✓ I've got everything</button>
+                <span className="block w-full py-3 rounded-xl shadow-hairline text-pt-text text-sm text-center">Something's missing or wrong</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     ),
-    gearpickup: () => gearPage('held', (
+    gearpickup: () => gearPage(past('gearsign') ? 'out' : 'held', past('gearsign') ? banner('green', "Picked up ✓", "It's yours until you bring it back.") : (
       <section className="space-y-3">
         <div><h2 className="text-pt-text text-xl font-semibold tracking-tight">Pick up</h2><p className="text-pt-muted text-sm">Open the case and tick what's there. Tap "Missing?" for anything that isn't.</p></div>
         <div {...T('pieces')}>
@@ -1055,37 +1118,43 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     )),
     wrap: () => sheet('Your shoot', (
       <div className="space-y-3">
-        {shootTop(2)}
+        {shootTop(past('wrap') ? 3 : 2)}
         <div className="bg-pt-bg rounded-xl p-3 space-y-2">
-          <p className="text-pt-text text-sm">Checked in {fmtTime(START - 5)}</p>
+          <p className="text-pt-text text-sm">Checked in {fmtTime(START - 5)}{past('wrap') ? ` · filmed “${wrapText.trim() || title}”` : ''}</p>
           {photos.setphoto && <div><p className="text-pt-muted text-xs uppercase tracking-wider mb-2">Set photo</p><img src={photos.setphoto} alt="" className="w-24 h-24 rounded-xl object-cover" /></div>}
-          <div {...T('wrap')} className="flex gap-2">
-            <input value={wrapText} onChange={e => setWrapText(e.target.value.slice(0, 120))} placeholder="What did you film?" className={field} />
-            <button onClick={tap('wrap')} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-xl px-4">Wrap</button>
-          </div>
+          {!past('wrap') && (
+            <div {...T('wrap')} className="flex gap-2">
+              <input value={wrapText} onChange={e => setWrapText(e.target.value.slice(0, 120))} placeholder="What did you film?" className={field} />
+              <button onClick={tap('wrap')} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-xl px-4">Wrap</button>
+            </div>
+          )}
         </div>
       </div>
     )),
     return: () => (
       <div className="pb-12">
-        {backBar(statusPill('collected'))}
+        {backBar(statusPill(past('returned') ? 'return_pending' : 'collected'))}
         <div className="px-4 pt-4 pb-8 space-y-6">
-          {titleBlock}{journey('collected')}
-          {banner('amber', 'Bring these back the night of the shoot', 'They count as late after 10 AM the next open day.')}
-          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
-            <p className="text-pt-text font-semibold">Returning</p>
-            {camTile('retphoto', "📷 Photo of everything you're returning (required)", "Show all the props together where you're leaving them. This protects you if anything is questioned later.")}
-            <textarea value={retNote} onChange={e => setRetNote(e.target.value.slice(0, 300))} rows={2} placeholder="Where did you leave them? Anything to flag? (optional)"
-              className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
-            <div {...T('returned')} className="flex gap-2">
-              <span className="flex-1 grid place-items-center py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</span>
-              <button onClick={tap('returned')} className="flex-[2] py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Confirm return</button>
-            </div>
-          </div>
+          {titleBlock}{journey(past('returned') ? 'return_pending' : 'collected')}
+          {past('returned') ? banner('green', 'Returned ✓', 'The arts team checks each prop in.') : (
+            <>
+              {banner('amber', 'Bring these back the night of the shoot', 'They count as late after 10 AM the next open day.')}
+              <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
+                <p className="text-pt-text font-semibold">Returning</p>
+                {camTile('retphoto', "📷 Photo of everything you're returning (required)", "Show all the props together where you're leaving them. This protects you if anything is questioned later.")}
+                <textarea value={retNote} onChange={e => setRetNote(e.target.value.slice(0, 300))} rows={2} placeholder="Where did you leave them? Anything to flag? (optional)"
+                  className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
+                <div {...T('returned')} className="flex gap-2">
+                  <span className="flex-1 grid place-items-center py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</span>
+                  <button onClick={tap('returned')} className="flex-[2] py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Confirm return</button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     ),
-    gearreturn: () => gearPage('out', (
+    gearreturn: () => gearPage(past('gearsend') ? 'returned' : 'out', past('gearsend') ? banner('green', 'Returned ✓', 'The equipment team checks each piece in.') : (
       <section className="space-y-3">
         <div><h2 className="text-pt-text text-xl font-semibold tracking-tight">Return gear</h2><p className="text-pt-muted text-sm">Due back by {fmtTime(START + SLOT)} (late from {fmtTime(START + SLOT + 30)}).</p></div>
         <ol className="bg-pt-surface rounded-2xl px-4 py-3 space-y-1 text-[15px] text-pt-text list-decimal list-inside">
@@ -1095,15 +1164,6 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <button {...T('gearsend')} onClick={tap('gearsend')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Send return</button>
       </section>
     )),
-    final: () => (
-      <div className="pb-6">
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-          <span className="block text-pt-accent text-[17px] py-1">‹ Me</span>
-          <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
-        </div>
-        <div className="px-4 space-y-3">{requestsCard}</div>
-      </div>
-    ),
     rules: () => (
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Good to know</h1>
@@ -1131,14 +1191,14 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   }
 
   // The real gear booking page (GearBookingScreen) around its pickup or return section.
-  function gearPage(st: 'held' | 'out', body: ReactNode) {
-    const n = st === 'held' ? 0 : 1
+  function gearPage(st: 'held' | 'out' | 'returned', body: ReactNode) {
+    const n = { held: 0, out: 1, returned: 2 }[st]
     return (
       <div className="pb-10">
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-2 py-2 flex items-center"><span className="text-pt-accent text-[17px] px-2 py-1">‹ Back</span></div>
+        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-2 py-2 flex items-center"><button {...T('back')} onClick={tap('back')} className="text-pt-accent text-[17px] px-2 py-1">‹ Back</button></div>
         <div className="px-4 space-y-4">
           <div className="space-y-1">
-            <div className="flex gap-2"><Pill tone={st === 'held' ? 'info' : 'warn'}>{st === 'held' ? 'Held' : 'Out'}</Pill></div>
+            <div className="flex gap-2"><Pill tone={st === 'held' ? 'info' : st === 'out' ? 'warn' : 'free'}>{st === 'held' ? 'Held' : st === 'out' ? 'Out' : 'Returned'}</Pill></div>
             <h1 className="font-display text-[34px] text-pt-text leading-tight">{title}</h1>
             <p className="text-pt-muted">{formatDay(day, { weekday: 'long', month: 'long', day: 'numeric' })} · {fmtHours(START, START + SLOT)}</p>
           </div>
@@ -1157,33 +1217,33 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   }
 
   // Which tab is lit (as in the real app). Full-screen pages (review, request pages, AI) have no tab bar.
-  const TAB: Partial<Record<Scene, string>> = { home: 'Home', home2: 'Home', invited: 'Home', find: 'Book', bookit: 'Book', shoot: 'Book', invite: 'Book', checkin: 'Book', wrap: 'Book', browse: 'Browse', gear: 'Browse', me: 'Me', requests: 'Me', final: 'Me' }
+  const TAB: Partial<Record<Scene, string>> = { home: 'Home', home2: 'Home', find: 'Book', bookit: 'Book', booked: 'Book', shoot: 'Book', invite: 'Book', checkin: 'Book', wrap: 'Book', browse: 'Browse', gear: 'Browse', me: 'Me', notify: 'Me', requests: 'Me' }
   const lit = TAB[step.scene]
   // Progress within the part (intro cards don't count).
   const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part'))
   const stepInPart = inPart.findIndex(x => x.id === step.id) + 1
   const back = idx > 1 ? () => setIdx(n => { const m = Math.max(1, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
-  const aiPropCount = aiTicks.filter(k => !k.startsWith('b:')).length
   const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
     || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount)
-    || (step.id === 'search' && added.length <= aiPropCount) || (step.id === 'pieces' && !allTicked)
-    || (['setphoto', 'retphoto', 'gearphoto'].includes(step.id) && !photos[step.id])
+    || (step.id === 'search' && added.length === 0) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
+    || (['setphoto', 'retphoto', 'gearphoto'].includes(step.id) && !photos[step.id]) || (step.id === 'notify' && push === 'off' && !pushMsg)
 
   return (
     <div className="fixed inset-0 z-[60] bg-pt-bg flex flex-col" role="dialog" aria-label="App tour (practice)">
       <div className="flex-1 overflow-y-auto">{scenes[step.scene]()}</div>
       {lit && (
-        <nav className="shrink-0 flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] pb-tabbar">
+        <nav {...T('tabbar')} className="shrink-0 flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] pb-tabbar">
           {['Home', 'Book', 'Browse', 'Me'].map(t => (
-            <button key={t} {...(t === 'Me' ? T('nav-me') : {})} onClick={t === 'Me' ? tap('nav-me') : undefined}
+            <button key={t} {...T(`nav-${t.toLowerCase()}`)} onClick={tap(`nav-${t.toLowerCase()}`)}
               className={`flex-1 flex flex-col items-center gap-0.5 pt-2 pb-0 text-xs ${lit === t ? 'text-pt-accent' : 'text-pt-muted'}`}>
               {TAB_ICONS[t]}<span>{t}</span>
             </button>
           ))}
         </nav>
       )}
+      {step.notif && notification(step.notif)}
       <input ref={cam} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { shot(e.target.files?.[0]); e.target.value = '' }} />
-      {step.part && <Spotlight key={step.id} target={step.target} top={step.top} title={step.title} body={step.body} part={step.part}
+      {step.part && <Spotlight key={step.id} target={step.target} top={step.top} dim={!step.look} title={step.title} body={step.body} part={step.part}
         stepInPart={stepInPart || undefined} stepsInPart={stepInPart ? inPart.length : undefined} next={step.next} onNext={advance}
         nextDisabled={nextDisabled} disabledHint={step.hint} onBack={back} onSkip={step.skip && !photos[step.id] ? advance : undefined} onClose={required ? undefined : onFinish} />}
     </div>

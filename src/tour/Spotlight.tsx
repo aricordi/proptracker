@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 const PAD = 6
-export const PART_NAMES = ['Book a time', 'When a friend invites you', 'Find props with AI', 'Add more and send', 'Follow and change it', 'Pick up', 'On the shoot day', 'Bring it all back']
+export const PART_NAMES = ['Find your way around', 'Book your first shoot', 'Add props and gear', 'Check on your request', 'Try the AI', 'When a friend invites you', 'Shoot day', 'Bring it all back', 'Turn on notifications']
 
 export interface Coach {
   title: ReactNode; body?: ReactNode
@@ -30,19 +30,19 @@ function keepInView(el: HTMLElement, topGap: number, bottomGap: number) {
 
 function Panel({ c, nudge, innerRef }: { c: Coach; nudge: boolean; innerRef: React.Ref<HTMLDivElement> }) {
   return (
-    <div ref={innerRef} className="rounded-[20px] bg-pt-raised shadow-float p-4 space-y-2.5 pointer-events-auto">
+    <div ref={innerRef} className="rounded-[20px] bg-pt-raised shadow-float px-4 py-3.5 space-y-2 pointer-events-auto">
       {c.part ? (
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-pt-accent">Part {c.part} of 8 · {PART_NAMES[c.part - 1]}</p>
-            {c.stepsInPart ? <span className="text-[11px] text-pt-muted tabular-nums">{c.stepInPart} of {c.stepsInPart}</span> : null}
+            <p className="flex-1 text-[11px] font-semibold uppercase tracking-wider text-pt-accent">Part {c.part} of {PART_NAMES.length} · {PART_NAMES[c.part - 1]}</p>
+            {c.stepsInPart && c.stepsInPart > 1 ? <span className="text-[11px] text-pt-muted tabular-nums">{c.stepInPart} of {c.stepsInPart}</span> : null}
             {c.onClose && <button onClick={c.onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button>}
           </div>
           <div className="flex gap-1" aria-hidden>{PART_NAMES.map((_, i) => <i key={i} className={`flex-1 h-1 rounded-full ${i < (c.part ?? 0) ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</div>
         </div>
       ) : c.onClose && <div className="flex justify-end"><button onClick={c.onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button></div>}
-      <p className="text-[17px] font-semibold leading-snug text-pt-text">{c.title}</p>
-      {c.body && <div className="text-[14px] leading-snug text-pt-muted">{c.body}</div>}
+      <p className="text-[16px] font-semibold leading-snug text-pt-text">{c.title}</p>
+      {c.body && <div className="text-[13.5px] leading-snug text-pt-muted">{c.body}</div>}
       <div className="flex items-center gap-3 pt-1">
         {c.onBack && <button onClick={c.onBack} className="shrink-0 rounded-xl px-3 py-3 text-[15px] text-pt-text bg-pt-border">‹ Back</button>}
         {c.next
@@ -56,7 +56,8 @@ function Panel({ c, nudge, innerRef }: { c: Coach; nudge: boolean; innerRef: Rea
   )
 }
 
-export function Spotlight({ target, top, ...c }: Coach & { target?: string; top?: boolean }) {
+// dim = false: just a gold outline, the rest of the screen stays bright (steps where you're only looking around).
+export function Spotlight({ target, top, dim = true, ...c }: Coach & { target?: string; top?: boolean; dim?: boolean }) {
   const [r, setR] = useState<DOMRect | null>(null)
   const [side, setSide] = useState<'top' | 'bottom'>('bottom')
   const cardRef = useRef<HTMLDivElement>(null)
@@ -139,7 +140,7 @@ export function Spotlight({ target, top, ...c }: Coach & { target?: string; top?
     <>
       {/* The dim with a hole around the thing to use */}
       <div aria-hidden className="fixed z-[70] rounded-2xl pointer-events-none"
-        style={{ ...hole, boxShadow: '0 0 0 2px rgba(201,169,97,0.9), 0 0 0 9999px rgba(0,0,0,0.6)' }} />
+        style={{ ...hole, boxShadow: dim ? '0 0 0 2px rgba(201,169,97,0.9), 0 0 0 9999px rgba(0,0,0,0.6)' : '0 0 0 2px rgba(201,169,97,0.95), 0 0 24px 2px rgba(201,169,97,0.25)' }} />
       <div className="fixed z-[71] inset-x-3 pointer-events-none"
         style={side === 'top' ? { top: 'calc(env(safe-area-inset-top) + 8px)' } : { bottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
         <Panel c={c} nudge={nudge} innerRef={cardRef} />

@@ -1029,6 +1029,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       pause). keepInView keeps the target clear of the panel and of sticky headers / bottom button bars. Day step:
       Soonest is a valid choice (tap a day to jump). Checked by walking all 77 screens on an iPhone-sized touch emulator.
       LIVE Oct 20 (website run 27, owner OK): keyboard fix + UX pass.
+    - STORY TOUR (owner, Oct 20: "choppy… guide me there… I'm being jumped through pages I can't access"; owner OK on the
+      storyboard): Tour.tsx rebuilt as 9 CHAPTERS (PART_NAMES in Spotlight.tsx): 1 Find your way around (tab bar, ✦ AI) →
+      2 Book your first shoot (+1 friend, type a name, day, house, Book + invite → schedule shows You + Held → "Tap Home" →
+      "Tap your shoot" → shoot page explained) → 3 Add props and gear (from the shoot's + Add, Adding-to bar, search, Gear tab,
+      kit, Review, name, make-or-find, send) → 4 Check on your request (Back → Me → My requests → card → Change → Save →
+      "ready" notification) → 5 Try the AI (owner's bridge text; Back → ‹ Me → ✦ AI → describe an idea → tick → ask for a time
+      → Book → "Add the N ticked to this shoot") → 6 When a friend invites you (notification → Confirm) → 7 Shoot day
+      (notification → props sign → Back → gear: tick pieces + sign → check-in notification → set photo, report + message,
+      check in, wrap) → 8 Bring it all back (schedule shows Filmed → Me → My requests → props photo + Confirm → Back → gear
+      photo + Send → Back) → 9 Turn on notifications = REAL (Me's notifications card, turnOnPush; Continue only once it's
+      on/blocked/unsupported, or after a failed try; iPhone not on Home Screen gets the steps and can finish; owner choice
+      "must turn on unless the phone can't yet"). Every move uses the scene's real-looking tabs/buttons (data-tour nav-home/
+      nav-book/nav-browse/nav-me, back, tome…); each chapter starts with a "what's next and why" card. Spotlight `dim={false}`
+      for look-around steps. Checked on a 390×844 touch screen in the emulator (86 screens, no errors). Tests 400.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
