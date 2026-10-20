@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, it, expect } from 'vitest'
 import {
   initializeTestEnvironment, assertFails, assertSucceeds,
   type RulesTestEnvironment,
@@ -349,6 +349,22 @@ describe('gear bookings', () => {
     await assertSucceeds(getDoc(doc(as(OWNER), 'gear_bookings', 'g1')))
     await assertFails(getDoc(doc(as(ARTS), 'gear_bookings', 'g1')))
     await assertFails(getDoc(doc(as(STRANGER), 'gear_bookings', 'g1')))
+  })
+  it('shared gear (friends filming back to back): everyone on the crew can read it and list it', async () => {
+    const FRIEND = 'friend@example.com', OTHER = 'other@example.com'
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'users', FRIEND), { email: FRIEND, role: 'creator', active: true })
+      await setDoc(doc(db, 'users', OTHER), { email: OTHER, role: 'creator', active: true })
+      await setDoc(doc(db, 'gear_bookings', 'shared'), { creatorEmail: CREATOR, crewEmails: [FRIEND], crewShootIds: ['s2'], status: 'held' })
+    })
+    await assertSucceeds(getDoc(doc(as(FRIEND), 'gear_bookings', 'shared')))
+    await assertFails(getDoc(doc(as(OTHER), 'gear_bookings', 'shared')))
+    await assertFails(getDoc(doc(as(FRIEND), 'gear_bookings', 'g1')))
+    const { collection, query, where, getDocs } = await import('firebase/firestore')
+    const q = await getDocs(query(collection(as(FRIEND), 'gear_bookings'), where('crewEmails', 'array-contains', FRIEND)))
+    expect(q.docs.map(d => d.id)).toEqual(['shared'])
+    await assertFails(getDocs(query(collection(as(OTHER), 'gear_bookings'), where('crewEmails', 'array-contains', FRIEND))))
   })
   it('holds (times only) are visible to members; nobody writes bookings or holds directly', async () => {
     await assertSucceeds(getDoc(doc(as(CREATOR), 'gear_holds', 'b1')))

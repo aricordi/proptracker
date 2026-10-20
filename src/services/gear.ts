@@ -68,6 +68,8 @@ export interface GearBooking {
   lines: GearBookingLine[]; offerIds: string[]
   shootId?: string   // set when booked together with props (one shoot)
   scheduleShootId?: string   // the booked shoot (Schedule) it belongs to
+  // Shared gear for friends filming back to back: everyone on the crew is responsible for it.
+  crew?: { email: string; name: string; shootId: string }[]; crewEmails?: string[]; crewShootIds?: string[]
   status: 'held' | 'out' | 'returned' | 'checked_in' | 'cancelled' | 'declined'
   declineReason?: string
   pickup?: { at: string; by: string; missing: GearMissing[] }
@@ -90,9 +92,14 @@ export function subscribeToGearHolds(cb: (byOffer: Record<string, GearHold[]>) =
 // Creators: their own gear bookings. Owner + equipment team: everyone's (newest shoots first).
 export function subscribeToGearBookings(mine: string | null, cb: (b: GearBooking[]) => void) {
   const col = collection(db, 'gear_bookings')
-  const q = mine ? query(col, where('creatorEmail', '==', mine), orderBy('date', 'desc'), limit(100))
-                 : query(col, orderBy('date', 'desc'), limit(200))
-  return onSnapshot(q, snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))), () => cb([]))
+  if (!mine) return onSnapshot(query(col, orderBy('date', 'desc'), limit(200)), snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))), () => cb([]))
+  // Yours = the ones you booked + shared gear a friend booked for your back-to-back shoots.
+  let own: GearBooking[] | null = null, shared: GearBooking[] | null = null
+  const emit = () => { if (own && shared) cb([...own, ...shared.filter(s => !own!.some(o => o.id === s.id))].sort((a, b) => b.date.localeCompare(a.date))) }
+  const list = (snap: { docs: { id: string; data: () => object }[] }) => snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))
+  const u1 = onSnapshot(query(col, where('creatorEmail', '==', mine), orderBy('date', 'desc'), limit(100)), snap => { own = list(snap); emit() }, () => { own = []; emit() })
+  const u2 = onSnapshot(query(col, where('crewEmails', 'array-contains', mine), limit(50)), snap => { shared = list(snap); emit() }, () => { shared = []; emit() })
+  return () => { u1(); u2() }
 }
 
 export function subscribeToGearBooking(id: string, cb: (b: GearBooking | null) => void) {
@@ -100,8 +107,8 @@ export function subscribeToGearBooking(id: string, cb: (b: GearBooking | null) =
 }
 
 // Change held gear before pickup (other bundles/extras or hours, same day).
-export const editGearBooking = httpsCallable<{ id: string; lines: { offerId: string; qty: number }[]; start?: number; end?: number }, { ok: boolean }>(functions, 'editGearBooking')
-export const createGearBooking = httpsCallable<{ title: string; notes?: string; date: string; start: number; end: number; lines: { offerId: string; qty: number }[]; shootId?: string; scheduleShootId?: string }, { id: string }>(functions, 'createGearBooking')
+export const editGearBooking = httpsCallable<{ id: string; lines?: { offerId: string; qty: number }[]; start?: number; end?: number; crewShootIds?: string[]; leave?: boolean }, { ok: boolean }>(functions, 'editGearBooking')
+export const createGearBooking = httpsCallable<{ title: string; notes?: string; date: string; start: number; end: number; lines: { offerId: string; qty: number }[]; shootId?: string; scheduleShootId?: string; crewShootIds?: string[] }, { id: string }>(functions, 'createGearBooking')
 export const cancelGearBooking = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelGearBooking')
 export const declineGearBooking = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineGearBooking')
 export const pickUpGear = httpsCallable<{ id: string; missing: string[]; signed: true }, { ok: boolean }>(functions, 'pickUpGear')

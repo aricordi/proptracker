@@ -4,7 +4,7 @@
 const DONE = ['returned', 'checked_in', 'cancelled', 'declined']
 
 export interface PropsReq { id: string; status: string; startDate: string; shootId?: string; scheduleShootId?: string }
-export interface GearReq { id: string; status: string; date: string; shootId?: string; scheduleShootId?: string }
+export interface GearReq { id: string; status: string; date: string; shootId?: string; scheduleShootId?: string; crewShootIds?: string[] }
 export interface ShootRef { id: string; date: string; from: string }
 
 export interface RequestGroup<P, G, S> {
@@ -29,7 +29,7 @@ export function groupByShoot<P extends PropsReq, G extends GearReq, S extends Sh
     return g
   }
   for (const p of props) { const g = at([p.scheduleShootId, p.shootId], p.startDate); g.props.push(p); if (!DONE.includes(p.status)) g.open = true }
-  for (const r of gear) { const g = at([r.scheduleShootId, r.shootId], r.date); g.gear.push(r); if (!DONE.includes(r.status)) g.open = true }
+  for (const r of gear) { const g = at([r.scheduleShootId, r.shootId, ...(r.crewShootIds ?? [])], r.date); g.gear.push(r); if (!DONE.includes(r.status)) g.open = true }
   const all = [...groups.values()]
   const when = (g: RequestGroup<P, G, S>) => g.shoot?.from ?? g.date
   // Upcoming = the shoot day hasn't passed, or something is still out / not checked in. Soonest first.

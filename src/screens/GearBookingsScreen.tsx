@@ -69,7 +69,7 @@ export default function GearBookingsScreen() {
                 {isGearStaff && tab === 'today'
                   ? (pickupToday ? `Pickup ${fmtTime(b.start)}` : `Due back ${fmtTime(b.end)}`)
                   : `${formatDay(b.date)} · ${fmtHours(b.start, b.end)}`}
-                {isGearStaff ? ` · ${b.creatorName || b.creatorEmail}` : ''}
+                {isGearStaff ? ` · ${b.creatorName || b.creatorEmail}${b.crew?.length ? ` + ${b.crew.map(c => c.name.split(' ')[0]).join(', ')}` : ''}` : b.crew?.length && b.creatorEmail !== profile.email ? ` · shared by ${(b.creatorName ?? '').split(' ')[0]}` : ''}
               </p>
               <p className="text-pt-muted text-xs truncate">{b.lines.map(l => `${l.kind === 'extra' ? `${l.qty}× ` : ''}${l.name}`).join(', ')}</p>
             </button>

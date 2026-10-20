@@ -151,7 +151,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     // 5 · Hand it over
     intro(5, 'booking', "1 PM. Riley's at the cage. Here's how a kit leaves the room without anyone getting blamed for something they didn't do."),
     { id: 'pickuplook', scene: 'booking', part: 5, target: 'pickupinfo', look: true, next: C, title: 'Pickup opens 30 minutes before',
-      body: "The creator opens the case and ticks every piece on their own phone, then signs. You can do it with them, on yours." },
+      body: "The creator opens the case and ticks every piece on their own phone, then signs. You can do it with them, on yours. Shared gear (friends filming back to back) is one booking: any of them can pick it up and return it, and they are all responsible." },
     { id: 'pieces', scene: 'booking', part: 5, target: 'pieces', top: true, next: C, hint: 'Mark one piece Missing?, then tick the rest', title: 'Tick every piece. Mark one Missing?',
       body: "Pretend one piece isn't in the case: tap Missing? next to it. Then tick the rest." },
     { id: 'gearsign', scene: 'booking', part: 5, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: 'From here until it comes back, the kit is theirs.' },

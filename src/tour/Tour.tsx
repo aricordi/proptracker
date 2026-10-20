@@ -123,6 +123,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [friendQ, setFriendQ] = useState('')
   const [friendCount, setFriendCount] = useState(0)   // + 1 friend / + 2 friends
   const [friends, setFriends] = useState<{ email: string; name: string }[]>([])
+  const [shareGear, setShareGear] = useState(true)   // chapter 3: share the gear with your back-to-back friend(s)
+  const sharing = shareGear && friends.length > 0
+  const gearEnd = START + SLOT * (sharing ? friends.length + 1 : 1)
   const firstOf = (n: string) => n.split(' ')[0]
   const friendFirst = friends.map(f => firstOf(f.name)).join(' and ') || 'Sam'
   const friend = friends[0] ?? null   // the one who "invites you" in chapter 6
@@ -198,6 +201,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'addextras', scene: 'gear', part: 3, target: 'gearextras', next: C, title: 'Need add-ons? Use + and −', body: 'Extra batteries, lights or a wireless mic go on top of your kit. None needed? Just Continue.' },
     { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'Quick check before it goes to the teams.' },
     { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
+    ...(friends.length ? [{ id: 'share', scene: 'review' as Scene, part: 3, target: 'share', next: C,
+      title: 'Filming back to back? Share the gear',
+      body: <>{friends.map(f => firstOf(f.name)).join(' and ')} film{friends.length > 1 ? '' : 's'} right after you, so one booking covers all of you: one pickup, one return, and you're all responsible for it. Tap a name to keep the gear just yours.</> }] : []),
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
     { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake" or "a pirate hat". Use − and + for how many.' },
     { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Book props + gear</b></>, body: "Props go to the arts team, gear to the equipment team, and you land back on your shoot. (Practice, so nothing's really sent.)" },
@@ -988,16 +994,30 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           </div>
           <div className="space-y-2">
             <div className="flex items-baseline justify-between"><p className="text-pt-muted text-xs">Gear ({gearCount}) · equipment team</p><span className="text-pt-accent text-sm">+ Add gear</span></div>
+            {friends.length > 0 && (
+              <div {...T('share')} className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
+                <p className="text-sky-100 text-[15px] font-semibold">Share this gear with your friends?</p>
+                <p className="text-sky-200/90 text-sm">They film back to back with you, so the gear stays out for all of you: one pickup, one return. You're all responsible for it.</p>
+                <div className="flex flex-wrap gap-2">
+                  {friends.map((f, i) => (
+                    <button key={f.email} aria-pressed={shareGear} onClick={() => setShareGear(v => !v)}
+                      className={`rounded-full px-3 py-2 text-sm ${shareGear ? 'bg-sky-300 text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted shadow-hairline'}`}>
+                      {shareGear ? '✓ ' : ''}{firstOf(f.name)} · {fmtHours(START + SLOT * (i + 1), START + SLOT * (i + 2))}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {chosen.map(g => (
                 <div key={g.id} className="flex items-center gap-3 px-3 py-3">
                   <GearArt category={g.category} className="w-12 h-12 rounded-xl shrink-0" />
-                  <div className="min-w-0 flex-1"><p className="text-pt-text text-sm font-medium truncate">{g.name}{g.kind === 'extra' ? ` ×${gearPick[g.id]}` : ''}</p><p className="text-pt-muted text-xs">{g.kind === 'bundle' ? 'Bundle' : 'Add-on'} · {fmtHours(START, START + SLOT)}</p></div>
+                  <div className="min-w-0 flex-1"><p className="text-pt-text text-sm font-medium truncate">{g.name}{g.kind === 'extra' ? ` ×${gearPick[g.id]}` : ''}</p><p className="text-pt-muted text-xs">{g.kind === 'bundle' ? 'Bundle' : 'Add-on'} · {fmtHours(START, gearEnd)}</p></div>
                   <span className="text-pt-muted text-2xl px-2">×</span>
                 </div>
               ))}
             </div>
-            <p className="text-pt-muted text-xs leading-snug px-1">Gear: pick up {formatDay(day)} at {fmtTime(START)} from the equipment cage; back by {fmtTime(START + SLOT)}. Return photo required.</p>
+            <p className="text-pt-muted text-xs leading-snug px-1">Gear: pick up {formatDay(day)} at {fmtTime(START)} from the equipment cage; back by {fmtTime(gearEnd)}. Return photo required.{sharing ? ' Any of you can pick it up and bring it back.' : ''}</p>
           </div>
         </div>
         <div className="fixed bottom-0 inset-x-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">

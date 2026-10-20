@@ -60,7 +60,8 @@ export default function MyRequestsScreen() {
         ))}
         {g.gear.map(b => (
           <RequestRow key={b.id} className="bg-pt-bg" label={`Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`} late={isGearLate(b, now)}
-            l={{ id: b.id, kind: 'gear', title: b.title, status: b.status, count: b.lines.length }} />
+            l={{ id: b.id, kind: 'gear', title: b.title, status: b.status, count: b.lines.length,
+              ...(b.crew?.length ? b.creatorEmail === profile.email ? { sharedWith: b.crew.map(c => c.name.split(' ')[0]).join(', ') } : { sharedBy: (b.creatorName ?? '').split(' ')[0] } : {}) }} />
         ))}
         {returnCount(g) > 0 && (
           <button onClick={() => navigate(`/return?ref=${encodeURIComponent(g.key)}`)} className="w-full rounded-lg py-3 text-sm font-semibold text-stone-900 bg-pt-accent shadow-gold">

@@ -10,7 +10,7 @@ import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import type { Shoot } from '../services/schedule'
 
-export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear' }
+export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear'; sharedBy?: string; sharedWith?: string }
 
 const PROP_WORDS: Record<string, string> = {
   requested: 'Requested', preparing: 'Being prepared', packed: 'Packed & ready', collected: 'Picked up',
@@ -36,10 +36,22 @@ function useLinked(shoot: Shoot, props: boolean, gear: boolean) {
   useEffect(() => {
     if (!gear) return
     return onSnapshot(query(collection(db, 'gear_bookings'), where('shootId', '==', shoot.id), where('creatorEmail', '==', shoot.creatorEmail)),
-      snap => setG(snap.docs.map(d => ({ id: d.id, kind: 'gear', title: d.get('title'), status: d.get('status'), count: (d.get('lines') ?? []).length }))), () => setG([]))
+      snap => setG(snap.docs.map(d => ({ id: d.id, kind: 'gear', title: d.get('title'), status: d.get('status'), count: (d.get('lines') ?? []).length,
+        sharedWith: firstNames(d.get('crew')) }))), () => setG([]))
   }, [shoot.id, shoot.creatorEmail, gear])
-  return { props: p, gear: g }
+  // Gear a friend booked for your back-to-back shoots (shared: you're responsible for it too).
+  const [sg, setSG] = useState<Linked[]>([])
+  useEffect(() => {
+    if (!gear) return
+    return onSnapshot(query(collection(db, 'gear_bookings'), where('crewEmails', 'array-contains', shoot.creatorEmail)),
+      snap => setSG(snap.docs.filter(d => ((d.get('crewShootIds') ?? []) as string[]).includes(shoot.id))
+        .map(d => ({ id: d.id, kind: 'gear', title: d.get('title'), status: d.get('status'), count: (d.get('lines') ?? []).length,
+          sharedBy: String(d.get('creatorName') ?? '').split(' ')[0] }))), () => setSG([]))
+  }, [shoot.id, shoot.creatorEmail, gear])
+  return { props: p, gear: [...g, ...sg] }
 }
+
+const firstNames = (crew: unknown) => Array.isArray(crew) && crew.length ? crew.map((c: { name?: string }) => String(c?.name ?? '').split(' ')[0]).join(', ') : undefined
 
 // One props request or gear booking with its progress bar; tap opens it. Also used by My requests.
 export function RequestRow({ l, label, late, className = 'bg-pt-surface', onOpen }: { l: Linked; label?: string; late?: boolean; className?: string; onOpen?: () => void }) {
@@ -56,7 +68,8 @@ export function RequestRow({ l, label, late, className = 'bg-pt-surface', onOpen
         <span className={`shrink-0 text-xs ${late ? 'text-red-300 font-semibold' : over ? 'text-pt-muted' : 'text-pt-accent'} tap`}>{late ? 'Late · bring it back' : (kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
       </span>
       {!over && <span className="flex gap-1">{steps.map((_, i) => <i key={i} className={`flex-1 h-1.5 rounded-full ${late && i === at ? 'bg-red-400' : i <= at ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>}
-      {!over && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}
+      {(l.sharedBy || l.sharedWith) && <span className="block text-sky-300 text-xs">{l.sharedBy ? `Shared by ${l.sharedBy} · you're responsible for it too` : `Shared with ${l.sharedWith} · you're all responsible for it`}</span>}
+      {!over && !l.sharedBy && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}
     </button>
   )
 }

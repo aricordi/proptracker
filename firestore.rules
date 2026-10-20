@@ -246,7 +246,8 @@ service cloud.firestore {
       allow write: if false;
     }
     match /gear_bookings/{id} {
-      allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
+      // Shared gear (friends filming back to back): everyone on its crew can see it too.
+      allow read: if isGearStaff() || (isMember() && (resource.data.creatorEmail == myEmail() || myEmail() in resource.data.get('crewEmails', [])));
       allow write: if false;
     }
 

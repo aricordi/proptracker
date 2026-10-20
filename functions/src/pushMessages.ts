@@ -1,6 +1,7 @@
 // What each phone notification says, and who gets it. Pure functions (no database), so every
 // message is unit-tested. push.ts delivers them; reminders are worked out here too.
 import { fmtTime, addMinutes, isGearLate } from './gearBooking.js'
+import { responsible } from './gearCrew.js'
 import { returnDueDay, lastDayToBook, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
 import { checkinWindow, isMissed, explainUntil, type ScheduleSettings } from './schedule.js'
 
@@ -64,11 +65,20 @@ export function reservationChange(id: string, b: Doc, a: Doc): Push[] {
 export function gearChange(id: string, b: Doc, a: Doc): Push[] {
   if (!a) return []
   const url = `/gear/bookings/${id}`, tag = `gear-${id}`
-  if (!b) return [{ to: ['gear-team'], url, tag, title: 'New gear hold', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.date)} ${fmtTime(a.start)}` }]
-  if (b.status === a.status) return []
+  // Friends newly added to shared gear (back-to-back shoots): they're responsible for it too.
+  const added = ((a.crewEmails ?? []) as string[]).filter(e => !((b?.crewEmails ?? []) as string[]).includes(e))
+  const shared: Push[] = added.length && a.status === 'held' ? [{ to: added, url, tag, title: 'Gear shared with you 🎥',
+    body: `${String(a.creatorName ?? '').split(' ')[0] || 'A friend'} booked "${a.title}" for your back-to-back shoots (${dayLabel(a.date)} ${fmtTime(a.start)}). You're all responsible for it.` }] : []
+  if (!b) return [{ to: ['gear-team'], url, tag, title: 'New gear hold', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.date)} ${fmtTime(a.start)}` }, ...shared]
+  if (b.status === a.status) return shared
+  const all = responsible(a)
   switch (a.status) {
-    case 'declined': return [{ to: [a.creatorEmail], url, tag, title: 'Gear request declined', body: a.declineReason ? `"${a.title}": ${a.declineReason}` : `"${a.title}" was declined.` }]
-    case 'cancelled': return lastBy(a) !== a.creatorEmail ? [{ to: [a.creatorEmail], url, tag, title: 'Gear hold cancelled', body: `"${a.title}" was cancelled by the team.` }] : []
+    case 'declined': return [{ to: all, url, tag, title: 'Gear request declined', body: a.declineReason ? `"${a.title}": ${a.declineReason}` : `"${a.title}" was declined.` }]
+    case 'cancelled': {
+      const by = lastBy(a) ?? '', others = all.filter(e => e !== by)
+      if (!all.includes(by)) return [{ to: all, url, tag, title: 'Gear hold cancelled', body: `"${a.title}" was cancelled by the team.` }]
+      return others.length ? [{ to: others, url, tag, title: 'Shared gear cancelled', body: `${String(a.creatorName ?? '').split(' ')[0]} cancelled "${a.title}".` }] : []
+    }
     case 'returned': return [{ to: ['gear-team'], url, tag, title: 'Gear returned', body: `${a.creatorName}'s "${a.title}" is back. Check it in.` }]
     default: return []
   }
@@ -135,7 +145,7 @@ export function propsReminders(id: string, r: Doc, now: string, closed: ClosedDa
 
 export function gearReminders(id: string, g: Doc, now: string): Reminder[] {
   if (!g || g.status !== 'out' || !g.creatorEmail) return []
-  const url = `/gear/bookings/${id}`, to = [g.creatorEmail], tag = `gear-${id}`
+  const url = `/gear/bookings/${id}`, to = responsible(g), tag = `gear-${id}`
   if (isGearLate(g as { status: string; to: string }, now)) return [{ key: `gearlate_${id}`, push: { to, url, tag, title: 'Your gear is late', body: `Please bring back "${g.title}" now. Late gear pauses new holds.` } }]
   if (now >= addMinutes(g.to, -30) && now < g.to) return [{ key: `geardue_${id}`, push: { to, url, tag, title: `Gear due back at ${stampTime(g.to)}`, body: `"${g.title}": everything back in the case, batteries charging, then a photo.` } }]
   return []

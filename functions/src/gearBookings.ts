@@ -8,6 +8,7 @@ import { loadSettings, shootIdOf } from './reservations.js'
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { todayInStudio } from './booking.js'
+import { crewProblem, crewHours, isResponsible, type CrewShoot, type CrewMember } from './gearCrew.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
   isGearLate, wasGearReturnedLate, checkLines, countMissing, type GearHold,
@@ -20,6 +21,35 @@ function minutesNow(now = new Date()) {
   const [h, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
     .format(now).split(':').map(Number)
   return h * 60 + m
+}
+
+// Friends filming back to back can share one gear booking (owner, Oct 20). Their shoots must be booked,
+// on the same day and in the same place, in one unbroken block with the booker's shoot; the gear then covers
+// the whole block. Returns the crew (friends only; the booker is creatorEmail).
+async function crewFor(shoot: { id: string; date: string; start: number; end: number; place: string; creatorEmail: string } | null, raw: unknown, booker: { email: string; name: string }): Promise<CrewMember[]> {
+  const ids = Array.isArray(raw) ? [...new Set(raw.filter((x): x is string => typeof x === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(x)))].slice(0, 6) : []
+  if (!ids.length) return []
+  if (!shoot) throw new HttpsError('invalid-argument', 'Shared gear needs a shoot on the schedule.')
+  const snaps = await Promise.all(ids.filter(i => i !== shoot.id).map(i => db.doc(`shoots/${i}`).get()))
+  const friends: CrewShoot[] = snaps.map(s => {
+    const x = s.data()
+    if (!x || x.status !== 'booked') throw new HttpsError('failed-precondition', 'One of your friends\' shoots is no longer booked.', { problem: 'crew' })
+    return { id: s.id, email: x.creatorEmail, name: x.creatorName ?? x.creatorEmail, date: x.date, place: x.place, start: x.start, end: x.end }
+  })
+  const problem = crewProblem({ id: shoot.id, email: shoot.creatorEmail, name: booker.name, date: shoot.date, place: shoot.place, start: shoot.start, end: shoot.end }, friends)
+  if (problem) throw new HttpsError('failed-precondition', problem, { problem: 'crew' })
+  return friends.map(f => ({ email: f.email, name: f.name, shootId: f.id }))
+}
+const crewFields = (crew: CrewMember[]) => ({ crew, crewEmails: crew.map(c => c.email), crewShootIds: crew.map(c => c.shootId) })
+const names = (crew: CrewMember[]) => crew.map(c => c.name.split(' ')[0]).join(', ')
+
+// Late gear blocks new holds for everyone responsible for it (the booker and the crew).
+async function hasLateGear(email: string) {
+  const [own, shared] = await Promise.all([
+    db.collection('gear_bookings').where('creatorEmail', '==', email).where('status', '==', 'out').get(),
+    db.collection('gear_bookings').where('crewEmails', 'array-contains', email).get(),
+  ])
+  return [...own.docs, ...shared.docs].some(b => isGearLate({ status: b.get('status'), to: b.get('to') }, nowStamp()))
 }
 
 interface LineIn { offerId: string; qty: number }
@@ -48,13 +78,15 @@ export const createGearBooking = onCall(CALLABLE, async req => {
   const problem = checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, caller.role !== 'creator')
   if (problem) throw new HttpsError('failed-precondition', GEAR_TIME_MESSAGES[problem], { problem })
   // Creators with gear that's late coming back can't book more until it's returned.
-  if (caller.role === 'creator') {
-    const out = await db.collection('gear_bookings').where('creatorEmail', '==', caller.email).where('status', '==', 'out').get()
-    if (out.docs.some(b => isGearLate({ status: 'out', to: b.get('to') }, nowStamp()))) {
-      throw new HttpsError('failed-precondition', 'You have gear that is late coming back. Return it first, then you can book more.', { problem: 'late' })
-    }
+  if (caller.role === 'creator' && await hasLateGear(caller.email)) {
+    throw new HttpsError('failed-precondition', 'You have gear that is late coming back. Return it first, then you can book more.', { problem: 'late' })
   }
+  const crew = await crewFor(shoot, d.crewShootIds, caller)
   const date = d.date as string, start = d.start as number, end = d.end as number
+  if (crew.length && shoot) {
+    const h = crewHours([shoot, ...(await Promise.all(crew.map(c => db.doc(`shoots/${c.shootId}`).get()))).map(x => ({ start: x.get('start'), end: x.get('end') }))])
+    if (h.start !== start || h.end !== end) throw new HttpsError('invalid-argument', `Shared gear covers the whole block (${fmtHours(h.start, h.end)}).`, { problem: 'crew-hours' })
+  }
   const win = holdWindow(date, start, end, settings)
   const title = str(d.title, 120) || 'Shoot'
   const now = new Date().toISOString()
@@ -93,13 +125,15 @@ export const createGearBooking = onCall(CALLABLE, async req => {
     tx.set(ref, {
       title, notes: str(d.notes, 1000), creatorEmail: caller.email, creatorName: caller.name,
       ...(shoot ? { shootId: shoot.id, scheduleShootId: shoot.id } : shootIdOf(d.shootId) ? { shootId: shootIdOf(d.shootId) } : {}),
+      ...(crew.length ? crewFields(crew) : {}),
       date, start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay,
       lines: out.map(({ entries: _e, ...l }) => l), offerIds: out.map(l => l.offerId),
       status: 'held', createdAt: now, updatedAt: now,
-      history: [{ at: now, by: caller.email, action: 'held', note: `${date} ${fmtHours(start, end)}` }],
+      history: [{ at: now, by: caller.email, action: 'held', note: `${date} ${fmtHours(start, end)}${crew.length ? ` · shared with ${names(crew)}` : ''}` }],
     })
   })
-  if (shoot) await noteOnShoot(shoot.id, caller.email, 'gear-added', `${lines.length} gear item${lines.length === 1 ? '' : 's'} · ${fmtHours(start, end)}`)
+  if (shoot) await noteOnShoot(shoot.id, caller.email, 'gear-added', `${lines.length} gear item${lines.length === 1 ? '' : 's'} · ${fmtHours(start, end)}${crew.length ? ` · shared with ${names(crew)}` : ''}`)
+  for (const c of crew) await noteOnShoot(c.shootId, caller.email, 'gear-added', `${caller.name.split(' ')[0]}'s gear, shared with you · ${fmtHours(start, end)}`).catch(() => {})
   return { id: ref.id }
 })
 
@@ -143,18 +177,33 @@ export const editGearBooking = onCall(CALLABLE, async req => {
   if (caller.role === 'creator') await assertNotPaused(caller.email)
   const d = req.data ?? {}
   const id = str(d.id, 100)
+  const ref = db.doc(`gear_bookings/${id}`)
+  // A friend on shared gear can take themselves off it (before pickup).
+  if (d.leave === true) {
+    await leaveCrew(id, caller.email, caller.email)
+    return { ok: true }
+  }
   const lines = tidyLines(d.lines)
   if (!lines.length) throw new HttpsError('invalid-argument', 'Nothing left. Cancel this gear booking instead.')
   const settings = await loadSettings()
   const today = todayInStudio()
-  const ref = db.doc(`gear_bookings/${id}`)
+  // Changing who shares it: the hours become the new block.
+  const pre = (await ref.get()).data()
+  let crew: CrewMember[] | null = null, crewH: { start: number; end: number } | null = null
+  if (pre && Array.isArray(d.crewShootIds)) {
+    const own = pre.scheduleShootId ? (await db.doc(`shoots/${pre.scheduleShootId}`).get()).data() : null
+    const shoot = own && own.status === 'booked' ? { id: pre.scheduleShootId as string, date: own.date, start: own.start, end: own.end, place: own.place, creatorEmail: own.creatorEmail } : null
+    crew = await crewFor(shoot, d.crewShootIds, { email: pre.creatorEmail, name: pre.creatorName ?? '' })
+    if (shoot) crewH = crewHours([shoot, ...(await Promise.all(crew.map(c => db.doc(`shoots/${c.shootId}`).get()))).map(x => ({ start: x.get('start'), end: x.get('end') }))])
+  }
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
     const b = snap.data()
     if (!b) throw new HttpsError('not-found', 'Booking not found.')
     if (!GEAR_STAFF.includes(caller.role) && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your booking.')
     if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This gear has been picked up already, so it can\'t be changed.')
-    const start = Number.isInteger(d.start) ? d.start as number : b.start, end = Number.isInteger(d.end) ? d.end as number : b.end
+    const start = crewH ? crewH.start : Number.isInteger(d.start) ? d.start as number : b.start
+    const end = crewH ? crewH.end : Number.isInteger(d.end) ? d.end as number : b.end
     const before = new Map(((b.lines ?? []) as { offerId: string; qty: number }[]).map(l => [l.offerId, l.qty]))
     const adding = lines.some(l => l.qty > (before.get(l.offerId) ?? 0)) || start !== b.start || end !== b.end
     if (adding) {
@@ -194,11 +243,29 @@ export const editGearBooking = onCall(CALLABLE, async req => {
     const now = new Date().toISOString()
     tx.update(ref, {
       lines: saved, offerIds: saved.map(l => l.offerId), start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay, updatedAt: now,
-      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'edited', note: `${saved.length} item${saved.length === 1 ? '' : 's'} · ${fmtHours(start, end)}` }),
+      ...(crew ? crewFields(crew) : {}),
+      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'edited',
+        note: `${saved.length} item${saved.length === 1 ? '' : 's'} · ${fmtHours(start, end)}${crew ? crew.length ? ` · shared with ${names(crew)}` : ' · not shared' : ''}` }),
     })
   })
   return { ok: true }
 })
+
+// Take one friend off shared gear (they left it, or their shoot was cancelled or moved). Held gear only:
+// once it's picked up everyone on it stays responsible until it's back. The hours stay as they are.
+export async function leaveCrew(id: string, email: string, by: string, note = 'left the shared gear') {
+  const ref = db.doc(`gear_bookings/${id}`)
+  await db.runTransaction(async tx => {
+    const b = (await tx.get(ref)).data()
+    if (!b) throw new HttpsError('not-found', 'Booking not found.')
+    const crew = ((b.crew ?? []) as CrewMember[])
+    const me = crew.find(c => c.email === email)
+    if (!me) throw new HttpsError('failed-precondition', "You're not on this gear.")
+    if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This gear is already picked up, so everyone on it stays responsible until it\'s back.')
+    const left = crew.filter(c => c.email !== email), now = new Date().toISOString()
+    tx.update(ref, { ...crewFields(left), updatedAt: now, history: FieldValue.arrayUnion({ at: now, by, action: 'edited', note: `${me.name.split(' ')[0]} ${note}` }) })
+  })
+}
 
 export const declineGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'])
@@ -249,7 +316,7 @@ export const pickUpGear = onCall(CALLABLE, async req => {
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
     const b = snap.data()!
-    if (b.creatorEmail !== caller.email && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Only the creator who booked it (or the equipment team) can pick it up.')
+    if (!isResponsible(b, caller.email) && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Only the people on this booking (or the equipment team) can pick it up.')
     if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This booking has already been picked up, or was cancelled.')
     const win = pickupWindow(b as { from: string; to: string }, stampNowText)
     if (win === 'early') throw new HttpsError('failed-precondition', `Pickup opens at ${fmtTime(Number(pickupOpensAt(b.from).slice(11, 13)) * 60 + Number(pickupOpensAt(b.from).slice(14, 16)))}.`)
@@ -290,7 +357,7 @@ export const returnGear = onCall(CALLABLE, async req => {
     const snap = await tx.get(ref)
     const b = snap.data()
     if (!b) throw new HttpsError('not-found', 'Booking not found.')
-    if (b.creatorEmail !== caller.email && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Not allowed')
+    if (!isResponsible(b, caller.email) && !GEAR_STAFF.includes(caller.role)) throw new HttpsError('permission-denied', 'Not allowed')
     if (b.status !== 'out') throw new HttpsError('failed-precondition', "This gear isn't out.")
     const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
     const holds = await tx.getAll(...holdRefs)

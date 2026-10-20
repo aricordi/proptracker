@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useActiveShoot } from '../activeShoot'
+import { useShoot } from '../services/schedule'
+import { useBackToBack } from '../hooks/useGearCrew'
+import { crewHours } from '../../functions/src/gearCrew'
 import { editGearBooking, subscribeToGearBundles, fmtTime, GEAR_DAY_START, GEAR_DAY_END, GEAR_STEP, type GearBooking, type GearBundle } from '../services/gear'
 
 const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'That didn\'t work. Try again.'
@@ -19,13 +22,21 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
   const [start, setStart] = useState(b.start), [end, setEnd] = useState(b.end)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // Shared gear: friends filming back to back can be added or taken off; the hours follow the block.
+  const shoot = useShoot(b.scheduleShootId ?? null) ?? null
+  const friends = useBackToBack(shoot && shoot.status === 'booked' ? shoot : null)
+  const [crewSel, setCrewSel] = useState<Set<string>>(new Set())
+  const crewOptions = [...friends, ...(b.crew ?? []).filter(c => !friends.some(f => f.id === c.shootId)).map(c => ({ id: c.shootId, name: c.name, start: 0, end: 0 }))]
+  const picked = friends.filter(f => crewSel.has(f.id))
+  const hours = shoot && picked.length ? crewHours([shoot, ...picked]) : shoot && (b.crew ?? []).length ? crewHours([shoot]) : { start: b.start, end: b.end }
   const offered = (id: string) => offers.find(o => o.id === id)?.pieces[0]?.qty ?? 99
 
-  function begin() { setQty(Object.fromEntries(b.lines.map(l => [l.offerId, l.qty]))); setStart(b.start); setEnd(b.end); setErr(''); setEditing(true) }
+  function begin() { setQty(Object.fromEntries(b.lines.map(l => [l.offerId, l.qty]))); setStart(b.start); setEnd(b.end); setCrewSel(new Set(b.crewShootIds ?? [])); setErr(''); setEditing(true) }
   async function save() {
     setBusy(true); setErr('')
     try {
-      await editGearBooking({ id: b.id, lines: Object.entries(qty).filter(([, q]) => q > 0).map(([offerId, q]) => ({ offerId, qty: q })), start, end })
+      await editGearBooking({ id: b.id, lines: Object.entries(qty).filter(([, q]) => q > 0).map(([offerId, q]) => ({ offerId, qty: q })), start, end,
+        ...(crewOptions.length ? { crewShootIds: [...crewSel].filter(id => friends.some(f => f.id === id)) } : {}) })
       setEditing(false)
     } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
   }
@@ -62,7 +73,23 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
         )
       })}
       {/* Gear for a booked shoot keeps the shoot's own hours (owner, Oct 20). */}
-      {b.scheduleShootId ? <p className="text-pt-muted text-sm">Hours: {fmtTime(b.start)}–{fmtTime(b.end)}, the same as your shoot.</p> : <div className="grid grid-cols-2 gap-2">
+      {crewOptions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-pt-muted text-xs">Shared with friends filming back to back (you're all responsible)</p>
+          <div className="flex flex-wrap gap-2">
+            {crewOptions.map(f => {
+              const on = crewSel.has(f.id), gone = !friends.some(x => x.id === f.id)
+              return (
+                <button key={f.id} disabled={gone} aria-pressed={on} onClick={() => setCrewSel(prev => { const n = new Set(prev); if (on) n.delete(f.id); else n.add(f.id); return n })}
+                  className={`rounded-full px-3 py-2 text-sm disabled:opacity-40 ${on && !gone ? 'bg-sky-300 text-stone-900 font-semibold' : 'bg-pt-bg text-pt-muted shadow-hairline'}`}>
+                  {on && !gone ? '✓ ' : ''}{f.name.split(' ')[0]}{gone ? ' · no longer back to back' : f.end ? ` · ${fmtTime(f.start)}–${fmtTime(f.end)}` : ''}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {b.scheduleShootId ? <p className="text-pt-muted text-sm">Hours: {fmtTime(hours.start)}–{fmtTime(hours.end)}, {picked.length ? 'the whole back-to-back block' : 'the same as your shoot'}.</p> : <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1"><span className="block text-pt-muted text-xs">Gear from</span>
           <select value={start} onChange={e => { const v = Number(e.target.value); setStart(v); if (end <= v) setEnd(v + GEAR_STEP) }} className={field}>
             {TIMES.slice(0, -1).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}</select></label>

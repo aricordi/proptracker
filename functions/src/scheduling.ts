@@ -10,7 +10,7 @@ import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
-import { cancelGearForShoot } from './gearBookings.js'
+import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn,
   cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type Place, type House,
@@ -180,6 +180,10 @@ export const cancelShoot = onCall(CALLABLE, async req => {
   }
   for (const g of links.gear.filter(x => x.status === 'held')) {
     try { await cancelGearForShoot(caller.email, g.id); cancelledGear++ } catch (e) { console.warn('cancel gear for shoot', id, g.id, e) }
+  }
+  // Shared gear from a friend: this person comes off it (picked-up gear stays on everyone's record).
+  for (const g of links.sharedGear.filter(x => x.status === 'held')) {
+    try { await leaveCrew(g.id, who.email, caller.email, 'is off the shared gear (their shoot was cancelled)') } catch (e) { console.warn('leave shared gear', id, g.id, e) }
   }
   const stillOut = links.props.length - cancelledProps + links.gear.length - cancelledGear
   return { ok: true, lateCancel: noShow, cancelledProps, cancelledGear, stillOut }

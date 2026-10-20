@@ -21,6 +21,8 @@ import {
 import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes } from '../components/GearUi'
 import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
+import { useBackToBack } from '../hooks/useGearCrew'
+import { crewHours } from '../../functions/src/gearCrew'
 import AddingToBar from '../components/AddingToBar'
 import { addOpenDays } from '../../functions/src/booking'
 import { Icon } from '../components/Icon'
@@ -85,8 +87,14 @@ export default function ReserveScreen() {
   const day = dates?.start ?? gear.date
   const gearLines = Object.entries(gear.lines).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty, offer: offers.find(o => o.id === id) }))
   const hasGear = gearLines.length > 0
-  const gearProblem = hasGear ? (day ? checkGearTimes(day, gear.start, gear.end, today, nowMinutes(), settings, isStaff || isGearStaff) : 'bad-format') : null
-  const win = day ? holdWindow(day, gear.start, gear.end, settings) : null
+  // Friends filming back to back can share ONE gear booking for the whole block (owner, Oct 20:
+  // "one booking for the group but everyone needs to be responsible"). On by default; untick to keep it yours.
+  const friends = useBackToBack(shoot && shootFlow ? shoot : null)
+  const [notSharing, setNotSharing] = useState<Set<string>>(new Set())
+  const sharing = shoot && hasGear ? friends.filter(f => !notSharing.has(f.id)) : []
+  const gh = shoot && sharing.length ? crewHours([shoot, ...sharing]) : { start: gear.start, end: gear.end }
+  const gearProblem = hasGear ? (day ? checkGearTimes(day, gh.start, gh.end, today, nowMinutes(), settings, isStaff || isGearStaff) : 'bad-format') : null
+  const win = day ? holdWindow(day, gh.start, gh.end, settings) : null
   const gearUnavailable = gearLines.filter(l => !l.offer || l.offer.archived || !win
     || freeQty(l.offer.kind === 'extra' ? (l.offer.pieces[0]?.qty ?? 0) : 1, holds[l.id] ?? [], win.from, win.to) < l.qty)
   const gearOk = !hasGear || (!gearProblem && gearUnavailable.length === 0)
@@ -118,7 +126,8 @@ export default function ReserveScreen() {
       // 1. Hold the gear (instant).
       if (hasGear) {
         gearId = (await createGearBooking({
-          title: title.trim(), notes: notes.trim(), date: day, start: gear.start, end: gear.end, shootId, scheduleShootId,
+          title: title.trim(), notes: notes.trim(), date: day, start: gh.start, end: gh.end, shootId, scheduleShootId,
+          ...(scheduleShootId && sharing.length ? { crewShootIds: sharing.map(f => f.id) } : {}),
           lines: gearLines.map(l => ({ offerId: l.id, qty: l.qty })),
         })).data.id
       }
@@ -269,7 +278,26 @@ export default function ReserveScreen() {
           {!hasGear && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No gear yet. Cameras, lights and sound come as bundles.</p>}
           {hasGear && (
             <>
-              {shoot ? <GearShootHours /> : <GearWhenPicker hoursOnly />}
+              {shoot ? (sharing.length ? (
+                <p className="text-pt-text text-[15px] bg-pt-surface rounded-2xl px-4 py-3">Gear hours <b>{fmtHours(gh.start, gh.end)}</b> <span className="text-pt-muted">· the whole back-to-back block</span></p>
+              ) : <GearShootHours />) : <GearWhenPicker hoursOnly />}
+              {friends.length > 0 && (
+                <div className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
+                  <p className="text-sky-100 text-[15px] font-semibold">Share this gear with your friends?</p>
+                  <p className="text-sky-200/90 text-sm">They film back to back with you, so the gear stays out for all of you: one pickup, one return. You're all responsible for it.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {friends.map(f => {
+                      const on = !notSharing.has(f.id)
+                      return (
+                        <button key={f.id} aria-pressed={on} onClick={() => setNotSharing(prev => { const n = new Set(prev); if (on) n.add(f.id); else n.delete(f.id); return n })}
+                          className={`rounded-full px-3 py-2 text-sm ${on ? 'bg-sky-300 text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted shadow-hairline'}`}>
+                          {on ? '✓ ' : ''}{f.name.split(' ')[0]} · {fmtHours(f.start, f.end)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               {gearProblem && day && <p className="text-red-300 text-sm">{GEAR_TIME_MESSAGES[gearProblem]}</p>}
               <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
                 {gearLines.map(l => {
@@ -279,7 +307,7 @@ export default function ReserveScreen() {
                       <GearArt photo={l.offer?.photos?.[0]} category={l.offer?.category} className="w-12 h-12 rounded-xl shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-pt-text text-sm font-medium truncate">{l.offer?.kind === 'extra' ? `${l.qty}× ` : ''}{l.offer?.name ?? 'No longer offered'}</p>
-                        {bad && !gearProblem ? <Pill tone="taken">Not free for these hours</Pill> : <p className="text-pt-muted text-xs">{l.offer?.kind === 'extra' ? 'Add-on extra' : 'Bundle'} · {fmtHours(gear.start, gear.end)}</p>}
+                        {bad && !gearProblem ? <Pill tone="taken">Not free for these hours</Pill> : <p className="text-pt-muted text-xs">{l.offer?.kind === 'extra' ? 'Add-on extra' : 'Bundle'} · {fmtHours(gh.start, gh.end)}</p>}
                       </div>
                       <button onClick={() => gear.setQty(l.id, 0)} aria-label="Remove" className="text-pt-muted text-2xl px-2">×</button>
                     </div>
@@ -288,7 +316,7 @@ export default function ReserveScreen() {
               </div>
               {win && !gearProblem && (
                 <p className="text-pt-muted text-xs leading-snug px-1">
-                  Gear: pick up {formatDay(win.pickup)} at {fmtTime(gear.start)} from the equipment cage; back {win.closedDay ? `${formatDay(win.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(gear.end)}`}. Return photo required.
+                  Gear: pick up {formatDay(win.pickup)} at {fmtTime(gh.start)} from the equipment cage; back {win.closedDay ? `${formatDay(win.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(gh.end)}`}. Return photo required.{sharing.length ? ' Any of you can pick it up and bring it back.' : ''}
                 </p>
               )}
             </>

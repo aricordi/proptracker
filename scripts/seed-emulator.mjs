@@ -105,6 +105,8 @@ const shoots = [
   { id: 'sh5', d: 2, place: 'offsite', start: 900, email: 'kyle@example.com', name: 'Kyle', kind: 'offsite', where: 'Rosewood Park' },
   // Next week: Riley's shoot with time to add props and gear.
   { id: 'sh9', d: 8, place: 'cliff1', start: 900, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra' },
+  // ...and Kyle right after Riley (back to back: they can share one gear booking).
+  { id: 'sh10', d: 8, place: 'cliff1', start: 1020, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
   // Yesterday: Kyle never checked in (shows in Schedule team → Check-ins).
   { id: 'sh6', d: -1, place: 'cliff2', start: 780, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
 ]

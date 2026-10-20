@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import {
-  subscribeToGearBooking, cancelGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
+  subscribeToGearBooking, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
   fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking,
 } from '../services/gear'
 import { GearArt, Pill, PieceChecklist, STATUS_LABEL } from '../components/GearUi'
@@ -49,10 +49,13 @@ export default function GearBookingScreen() {
   if (b === null) return <div className="p-6 pt-safe text-pt-muted">Booking not found.</div>
 
   const now = nowStamp()
-  const mine = b.creatorEmail === profile.email
+  const booker = b.creatorEmail === profile.email
+  const onCrew = (b.crewEmails ?? []).includes(profile.email)
+  const mine = booker || onCrew          // shared gear: everyone on it can pick it up and return it
+  const crew = b.crew ?? []
   const late = isGearLate(b, now)
   const win = pickupWindow(b, now)
-  const canCancel = b.status === 'held' && (mine || isGearStaff)
+  const canCancel = b.status === 'held' && (booker || isGearStaff)
   const allDone = lines.every(l => ticked.has(l.key) || missing.has(l.key))
   const flip = (set: Set<string>, setter: (s: Set<string>) => void, key: string, other: Set<string>, otherSetter: (s: Set<string>) => void) => {
     const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); setter(n)
@@ -102,7 +105,21 @@ export default function GearBookingScreen() {
           </div>
         )}
 
-        <ShootLink shootId={b.shootId} creatorEmail={b.creatorEmail} other="props" />
+        {crew.length > 0 && (
+          <div className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
+            <p className="text-sky-100 text-[15px] font-semibold">Shared gear · one booking for {crew.length + 1} back-to-back shoots</p>
+            <p className="text-sky-200/90 text-sm">{[b.creatorName || b.creatorEmail, ...crew.map(c => c.name)].map(n => n.split(' ')[0]).join(', ')}: you're all responsible for it. Any of you can do the pickup check and the return; if it's late or something goes missing, it's on everyone's record.</p>
+            {onCrew && b.status === 'held' && (
+              <button disabled={busy} onClick={async () => {
+                // Once you're off it you can't see it any more, so go back to where you came from.
+                setBusy(true); setError(null)
+                try { await editGearBooking({ id: b.id, leave: true }); navigate(-1) } catch (err) { setError(errText(err)); setBusy(false) }
+              }} className="text-sky-200 text-sm underline tap">Take me off this gear</button>
+            )}
+          </div>
+        )}
+
+        {booker && <ShootLink shootId={b.shootId} creatorEmail={b.creatorEmail} other="props" />}
 
         <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Pick up</span>
@@ -125,7 +142,7 @@ export default function GearBookingScreen() {
             </div>
             {checklist}
             {missing.size > 0 && <p className="text-red-200 text-sm bg-red-500/10 rounded-xl px-4 py-3">{missing.size} piece{missing.size > 1 ? 's' : ''} reported missing <b>before you took it</b>. The equipment team will see it, and it goes on the record of whoever had it last.</p>}
-            <p className="text-amber-200 text-sm">Report anything missing now. Once you sign, the gear is your responsibility until it's back.</p>
+            <p className="text-amber-200 text-sm">Report anything missing now. Once you sign, the gear is your responsibility{crew.length ? ' (all of you)' : ''} until it's back.</p>
             <button disabled={!allDone || busy} onClick={() => run(() => pickUpGear({ id: b.id, missing: [...missing], signed: true }))}
               className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Signing…' : "Sign: I've got it"}</button>
             {!allDone && <p className="text-pt-muted text-xs text-center">Tick every piece, or mark it missing, to sign.</p>}
@@ -202,7 +219,7 @@ export default function GearBookingScreen() {
           ))}
         </div>
 
-        {b.status === 'held' && mine && <ChangeGear b={b} />}
+        {b.status === 'held' && booker && <ChangeGear b={b} />}
 
         {b.notes && <div className="bg-pt-surface rounded-2xl px-4 py-3"><p className="text-pt-muted text-xs mb-1">Notes</p><p className="text-pt-text text-[15px] whitespace-pre-wrap">{b.notes}</p></div>}
 

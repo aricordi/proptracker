@@ -1149,8 +1149,26 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       lands on the shoot (quiz there); ch4 = shoot → request → Change → type → See all results → closet → + → Back to your
       request → NEW → Save; ch5 = Back → shoot → tap above sheet → ✦ AI on Book; ch6 on Book; ch9 = My requests button.
       Gear tour: Queue/Admin tabs, Admin menu look in ch1, ch9 via Admin → My account. Checked: creator tour 97 screens,
-      gear tour 79, real app flows on the emulator. Tests 400. OPEN QUESTION to the owner: friends filming back to back
-      sharing the same gear (avoid return + pickup in between).
+      gear tour 79, real app flows on the emulator. Tests 400. (Preview only; live needs OK.)
+    - SHARED GEAR (owner, Oct 20: "one booking for the group but everyone needs to be responsible"; NOT deployed: server +
+      SECURITY RULES → backend deploy needs owner OK, then website): `functions/src/gearCrew.ts` (pure, shared): backToBack
+      (other people's shoots touching mine, same day + same place, following the chain), crewProblem (one unbroken block,
+      ≤4 people), crewHours (whole block, 6 AM–midnight), responsible(). gear_bookings get `crew` [{email,name,shootId}],
+      `crewEmails`, `crewShootIds` (friends only; booker = creatorEmail). createGearBooking `crewShootIds` (needs
+      scheduleShootId; friends' shoots must be BOOKED, hours must equal the block); editGearBooking `crewShootIds` (booker:
+      add/remove friends, hours follow the block) or `leave: true` (a friend takes themselves off, held only). pickUpGear +
+      returnGear: anyone responsible; cancel/change = booker or gear staff. Late shared gear blocks new gear for everyone on it
+      (hasLateGear). openLinks has `sharedGear`: cancelling a friend's shoot takes them off (leaveCrew); moving it to another
+      day is refused while on shared gear. Pushes: friends get "Gear shared with you", declines/team cancels/reminders go to
+      everyone, booker cancelling → "Shared gear cancelled" to the rest. Rules: gear_bookings readable by the crew
+      (crewEmails). App: ReserveScreen "Share this gear with your friends?" (sky-blue card, friend chips ON by default, gear
+      hours = block) from `src/hooks/useGearCrew.ts` (useBackToBack reads schedule_days); ChangeGear friend chips; GearBooking
+      page "Shared gear" box + "Take me off this gear" (friend); ShootNeeds/My requests rows "Shared by X · you're responsible
+      for it too" (friend's shoot lists it via crewEmails query); requestGroups groups it under the friend's own shoot;
+      subscribeToGearBookings(mine) = own + crew. Seed sh10 = Kyle right after Riley's sh9. Creator tour ch3 step `share`
+      (target 'share'), gear tour ch5 text. Tests 413 (tests/functions/gearCrew.test.ts, tests/unit/gearCrew.test.ts, rules).
+      Not yet: a friend whose slot is only HELD (invite not confirmed) can't be added until they confirm; the booker adds them
+      later with Change.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

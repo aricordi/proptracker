@@ -160,7 +160,7 @@ export async function runReminders(now = nowStamp()) {
     const cutoffToday = sh.date > today && lastDayToBook(sh.date, lead, booking) === today && Number(now.slice(11, 13)) >= 9
       && !(await db.doc(`push_sent/cutoff_${d.id}`).get()).exists
     const needs = cutoffToday ? await openLinks(d.id) : null
-    list.push(...shootReminders(d.id, sh, now, s, needs ? needs.props.length + needs.gear.length > 0 : true, booking, lead))
+    list.push(...shootReminders(d.id, sh, now, s, needs ? needs.props.length + needs.gear.length + needs.sharedGear.length > 0 : true, booking, lead))
   }
   props.docs.forEach(d => list.push(...propsReminders(d.id, d.data(), now, booking)))
   gear.docs.forEach(d => list.push(...gearReminders(d.id, d.data(), now)))

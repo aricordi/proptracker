@@ -33,13 +33,16 @@ export async function noteOnShoot(shootId: string, by: string, action: 'props-ad
 
 // Props and gear bookings for this shoot that are still going.
 export async function openLinks(shootId: string) {
-  const [props, gear] = await Promise.all([
+  const [props, gear, shared] = await Promise.all([
     db.collection('reservations').where('shootId', '==', shootId).get(),
     db.collection('gear_bookings').where('shootId', '==', shootId).get(),
+    db.collection('gear_bookings').where('crewShootIds', 'array-contains', shootId).get(),
   ])
   return {
     props: props.docs.filter(d => PROPS_OPEN.includes(d.get('status'))).map(d => ({ id: d.id, status: d.get('status') as string })),
     gear: gear.docs.filter(d => GEAR_OPEN.includes(d.get('status'))).map(d => ({ id: d.id, status: d.get('status') as string })),
+    // Gear a friend booked and shares with this shoot (back to back).
+    sharedGear: shared.docs.filter(d => GEAR_OPEN.includes(d.get('status'))).map(d => ({ id: d.id, status: d.get('status') as string })),
   }
 }
 
@@ -47,6 +50,11 @@ export async function openLinks(shootId: string) {
 export async function assertNoLinksForDayChange(shootId: string, fromDate: string, toDate: string) {
   if (fromDate === toDate) return
   const l = await openLinks(shootId)
+  if (l.sharedGear.length) {
+    throw new HttpsError('failed-precondition',
+      'You share gear with a friend filming back to back that day. Take yourself off the shared gear first (on the shoot), then move it.',
+      { problem: 'has-bookings' })
+  }
   if (l.props.length || l.gear.length) {
     throw new HttpsError('failed-precondition',
       'This shoot has props or gear booked for its day. Cancel them first (on the shoot), then move it — or pick another time on the same day.',
