@@ -20,6 +20,8 @@ const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
 const GearTour = lazy(() => import('./tour/GearTour'))
 const AdminTour = lazy(() => import('./tour/AdminTour'))
+const AnalyticsScreen = lazy(() => import('./screens/AnalyticsScreen'))
+const RulesSheetScreen = lazy(() => import('./screens/RulesSheetScreen'))
 const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
 const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
 const BinsScreen = lazy(() => import('./screens/BinsScreen'))
@@ -176,7 +178,7 @@ function PeopleOnly({ children }: { children: ReactNode }) {
 function Home() {
   const { role, shootFlow } = useSession()
   // Arts + admins open on the props queue, the equipment team on the gear queue (owner, Oct 20).
-  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'admin' || role === 'arts' ? <Navigate to="/reservations" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'admin' ? <AdminScreen /> : role === 'arts' ? <Navigate to="/reservations" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
 }
 
 // Booking gear is for creators and the owner (the equipment team runs it; the arts department
@@ -335,6 +337,8 @@ export default function App() {
           <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
           <Route path="/checkout" element={<Navigate to="/admin" replace />} />
           <Route path="/creators" element={<PeopleOnly><CreatorsScreen /></PeopleOnly>} />
+          <Route path="/analytics" element={<PeopleOnly><AnalyticsScreen /></PeopleOnly>} />
+          <Route path="/rules-sheet" element={<PeopleOnly><RulesSheetScreen /></PeopleOnly>} />
           <Route path="/admin" element={<TeamOnly><AdminScreen /></TeamOnly>} />
           <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
           <Route path="/users" element={<PeopleOnly><UsersScreen /></PeopleOnly>} />

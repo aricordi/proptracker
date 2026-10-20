@@ -193,6 +193,15 @@ export function useReportsSince(fromDate: string, enabled: boolean, onEmail?: st
   }, [fromDate, enabled, onEmail])
   return list
 }
+// Analytics (owner + admins): friend invites from a date on.
+export function useInvitesSince(fromDate: string, enabled: boolean): ScheduleInvite[] {
+  const [list, setList] = useState<ScheduleInvite[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(query(collection(db, 'schedule_invites'), where('date', '>=', fromDate)), snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as ScheduleInvite))), () => setList([]))
+  }, [fromDate, enabled])
+  return list
+}
 export interface Strike { id: string; email: string; name?: string; reason: string; shootId?: string; at: string; note?: string; about?: string; removedAt?: string; removedBy?: string; removeNote?: string }
 export function useStrikesSince(fromDate: string, enabled: boolean, email?: string): Strike[] {
   const [list, setList] = useState<Strike[]>([])

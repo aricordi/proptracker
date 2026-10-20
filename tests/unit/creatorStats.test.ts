@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { creatorStats, flagTotal } from '../../src/lib/creatorStats'
+import { creatorStats, flagTotal, weeklyFilming } from '../../src/lib/creatorStats'
 
 const closed = { closedWeekdays: [0], closedDates: [] }
 const shoot = (id: string, email: string, date: string, extra: Record<string, unknown> = {}) =>
@@ -40,5 +40,19 @@ describe('creator dashboard numbers', () => {
     expect(by['kyle@x'].counts).toEqual({ 'late-cancel': 1, 'missed-checkin': 1, 'late-props': 1, strike: 1 })
     expect(by['jana@x'].counts).toEqual({ 'late-gear': 1 })   // used the shared gear
     expect(flagTotal(by['riley@x'])).toBe(0)
+  })
+})
+
+describe('filming per week', () => {
+  it('counts booked and filmed shoots in Monday–Sunday weeks, oldest first', () => {
+    const w = weeklyFilming([
+      shoot('a', 'ana@x', '2026-11-09', { checkin: { at: '2026-11-09T18:05:00.000Z' } }),   // Monday this week
+      shoot('b', 'ana@x', '2026-11-08', { outcome: 'filmed' }),                              // Sunday last week
+      shoot('c', 'kyle@x', '2026-11-04', { noShow: 'missed' }),                              // last week, not filmed
+      shoot('d', 'kyle@x', '2026-11-05', { status: 'cancelled' }),                           // free cancel: not counted
+      shoot('e', 'kyle@x', '2026-11-12'),                                                    // later this week: not happened yet
+    ], '2026-11-10', '2026-11-10T12:00', 3)
+    expect(w.map(x => x.start)).toEqual(['2026-10-26', '2026-11-02', '2026-11-09'])
+    expect(w.map(x => [x.booked, x.filmed])).toEqual([[0, 0], [2, 1], [1, 1]])
   })
 })

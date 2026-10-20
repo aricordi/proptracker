@@ -118,3 +118,24 @@ export function creatorStats(opts: {
 }
 
 export const flagTotal = (c: CreatorStats, kinds?: FlagKind[]) => Object.entries(c.counts).filter(([k]) => !kinds || kinds.includes(k as FlagKind)).reduce((n, [, v]) => n + (v ?? 0), 0)
+
+// Filming per week for the dashboard chart: the last `weeks` weeks (Monday to Sunday), oldest first.
+// booked = shoots that have happened (late cancels count, free cancels don't); filmed = checked in or marked filmed.
+export function weeklyFilming(shoots: StatShoot[], today: string, now: string, weeks = 8) {
+  const d = new Date(today + 'T12:00:00Z')
+  const monday = new Date(d); monday.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  const out = Array.from({ length: weeks }, (_, i) => {
+    const s = new Date(monday); s.setUTCDate(monday.getUTCDate() - 7 * (weeks - 1 - i))
+    const e = new Date(s); e.setUTCDate(s.getUTCDate() + 6)
+    return { start: s.toISOString().slice(0, 10), end: e.toISOString().slice(0, 10), booked: 0, filmed: 0 }
+  })
+  for (const x of shoots) {
+    const w = out.find(w => x.date >= w.start && x.date <= w.end)
+    if (!w) continue
+    if (x.status === 'cancelled') { if (x.noShow === 'late-cancel' || x.lateCancel) w.booked++; continue }
+    if (x.to > now) continue
+    w.booked++
+    if (x.checkin || x.outcome === 'filmed') w.filmed++
+  }
+  return out
+}

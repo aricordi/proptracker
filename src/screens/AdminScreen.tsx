@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
+import CreatorDashboard from '../components/CreatorDashboard'
 
 export default function AdminScreen() {
   const navigate = useNavigate()
-  const { isOwner, isAdmin, shootFlow, role } = useSession()
+  const { isOwner, isAdmin, shootFlow, role, canManagePeople } = useSession()
 
   // Equipment team (owner, Oct 20): the same kind of menu the arts department has, for gear and the schedule.
   const gearEntries = [
@@ -17,9 +18,9 @@ export default function AdminScreen() {
   ]
   // Admin (owner, Oct 20): a viewer. Looks at everything, invites creators, sets the booking rules, books their own shoots.
   const adminEntries = [
+    { to: '/analytics', title: 'Analytics', detail: 'Weekly and monthly filming, averages, every flag by type, the props and equipment teams' },
     { to: '/creators', title: 'Creators', detail: 'How much each creator films, every flag, and strikes and pauses' },
-    { to: '/reservations', title: 'Props queue', detail: 'Every props request and where it is (view only)' },
-    { to: '/gear/bookings', title: 'Gear queue', detail: "Everyone's gear: pickups, what's out, returns (view only)" },
+    { to: '/rules-sheet', title: 'Settings sheet', detail: 'Every rule the app runs on, its value, and who can change it' },
     { to: '/calendar', title: 'Requests calendar', detail: 'Every props request by shoot day' },
     { to: '/schedule/team', title: 'Schedule team', detail: 'Missed check-ins and reports to decide, creators booked vs filmed' },
     { to: '/activity', title: 'Activity', detail: 'Everything that happened: bookings and prop changes, with who and when' },
@@ -35,7 +36,9 @@ export default function AdminScreen() {
     ...(isOwner ? [
       { to: '/reservations', title: 'Props queue', detail: 'Every props request: to prepare, ready, out, returns' },
       { to: '/add', title: 'Add a prop', detail: 'Photo → AI fills the details → you check and save' },
+      { to: '/analytics', title: 'Analytics', detail: 'Weekly and monthly filming, averages, flags by type, the teams' },
       { to: '/creators', title: 'Creators', detail: 'How much each creator films, and every flag on their record' },
+      { to: '/rules-sheet', title: 'Settings sheet', detail: 'Every rule the app runs on, at a glance' },
       { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed' },
       { to: '/schedule/settings', title: 'Schedule settings', detail: 'Houses, slots, priority days, strikes, Google Calendar' },
     ] : []),
@@ -65,9 +68,12 @@ export default function AdminScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2">{shootFlow ? 'Team' : 'Admin'}</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2">{shootFlow ? 'Team' : isAdmin ? 'Dashboard' : 'Admin'}</h1>
       </div>
-      <div className="p-4">
+      {/* Owner + admins: the creators dashboard first (owner, Oct 20: "no dashboards or creator insights"). */}
+      {canManagePeople && <div className="px-4 pb-2"><CreatorDashboard /></div>}
+      <div className="p-4 space-y-2">
+        {canManagePeople && <h2 className="text-pt-text text-[20px] font-semibold tracking-tight pt-2">{isAdmin ? 'Admin tools' : 'Team tools'}</h2>}
         <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
           {entries.map(e => (
             <button key={e.to} onClick={() => navigate(e.to)}

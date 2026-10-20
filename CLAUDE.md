@@ -1242,6 +1242,36 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Practice creators Devon (needs attention), Jordan, Riley, Maya (not "Sam": the test admin login is Sam). REQUIRED once for
       realRole 'admin' (TourGate); replay /tour/admin from Admin → Admin tour (and the owner's Team menu). TAB_ICONS has Gear +
       Props. Checked: 74 screens on a 390×844 touch screen in the emulator, no errors. LIVE Oct 20 (website run 34, owner OK).
+    - ADMIN DASHBOARD + ANALYTICS (owner, Oct 20: "two props queue tabs, no dashboards or creator insights"; then "a robust analytics
+      framework… weekly, monthly, averages over time, what kind of flags… drill down like Power BI… the props + equipment teams'
+      queues… a sheet of the settings"; app only, NO server/rules change: admins already read everything; preview only, live needs OK):
+      BUG FIXED: admin's Props tab pointed at '/', which redirected admins to the props queue. Admin tabs now DASHBOARD ('/' = AdminScreen,
+      also /admin, /analytics, /rules-sheet…) / Queue / Gear / Schedule / Props (/browse). `src/components/CreatorDashboard.tsx` sits on
+      top of AdminScreen for owner + admins (owner's Team page too): period chips, 6 tiles (filmed, filmed-of-booked %, coming up,
+      no-shows, late returns, paused now), amber "Needs you" (missed check-ins to decide, reports, late returns out), Open analytics /
+      Settings sheet buttons, filming-per-week stacked bars (`weeklyFilming` in creatorStats.ts), Needs attention, Most filming bars,
+      Showing up (lowest rate). Menu below = "Admin tools" (Analytics, Creators, Settings sheet, …; queue rows removed = tabs).
+      ENGINE `src/lib/analytics.ts` (pure, tests/unit/analytics.test.ts): analyze() → FACTS (one per shoot that happened: filmed?,
+      house, wrap title), INCIDENTS (flag kinds grouped in THEMES: Abandoning shoots = no-show + late-cancel; Not finishing on time =
+      late-start (>15 min) + ran-over; Leaving the house a mess; Skipping check-in photos and wraps = missed-checkin + no-wrap (checked
+      in, never wrapped); Late or broken returns = late-props + late-gear + props-damaged (check-in damaged/missing lines) + gear-missing
+      (problems missing_at_checkin / missing_after, on usedBy); Not confirming in time = invite-lapsed (friend hold expired); Strikes,
+      not removed), JOBS (props team: packed by + hours request→packed + on time = packed by the pickup day; check-in by + hours return
+      → checked; equipment: gear check-in by + hours) and BACKLOG (props to pack / overdue, returns to check, out late). periods()/
+      periodOf() week (Mon) or month; filterAll by creator/house/periods; series, creatorRows, staffRows, median.
+      SCREEN `/analytics` (AnalyticsScreen, PeopleOnly; all state in the URL: tab, grain, n, who, house, p, theme, kind): Weekly|Monthly,
+      4/8/12 wks or 3/6/12 mos, creator + house pickers, drill chips with ×. Creators tab: 6 KPI tiles (incl. avg per week/month, avg
+      per creator, this period so far vs avg), filmed-of-booked bars + creators-filming bars (tap a bar = focus that period), every
+      creator (sort most filming / lowest show-up / most flags; tap = focus person → their tiles, flag chips, wrap titles, shoot list,
+      Open record). Flags tab: count, flags-per-period bars, 7 theme cards (count + names) → kinds with meanings → every incident
+      (tap → the shoot/request), Who has the most. Teams tab: Right now backlog (→ queues), Arts department (packed, % packed before
+      pickup, typical check-in time, on-time bars, staff table), Equipment team (check-ins, typical time, bars, staff table).
+      SETTINGS SHEET `/rules-sheet` (RulesSheetScreen, PeopleOnly): every live rule (props notice/new props/turnaround incl. per
+      category/closed days/holidays/late 10 AM; gear notice/pickup window/late 30 min; slots, house slots a day, free move/cancel
+      hours, undo, invite hold, priority days + group; check-in window, started-late threshold, explain hours, automatic pause, old
+      photos) with what it means + "Changed by", edit links (booking rules for admins, schedule settings for the owner), and what
+      each flag means. Admin tour: dashboard scene + steps dashlook / analyticslook / adminlook, tabs Dashboard first. Tests 427.
+      Not built (say if wanted): flag for reused/undated proof photos (needs Storage metadata per photo), per-staff queue screens.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

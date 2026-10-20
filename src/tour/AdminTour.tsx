@@ -1,7 +1,7 @@
 // Admin tour (owner, Oct 20: "build out the tutorial for the admin role"). Same coach, chapter cards, quizzes and badges
 // as the creator and gear team tours (Spotlight + Fun.tsx), with ADMIN_CHAPTERS:
-//   1 Find your way around (Queue / Gear / Schedule / Props / Admin, a look at the Admin menu)  2 Watch the queues (props
-//   queue, a request page, the gear queue: all view only)  3 Your creators (Admin → Creators: totals, periods, sort)
+//   1 Find your way around (Dashboard / Queue / Gear / Schedule / Props, a look at the Dashboard + tools)  2 Watch the queues (props
+//   queue, a request page, the gear queue: all view only)  3 Your creators (Dashboard → All creators: totals, periods, sort)
 //   4 Read a record (one creator: tiles + every flag)  5 Give a strike (about + reason, the automatic pause) + quiz
 //   6 Second chances (remove a strike, pause by hand, lift) + quiz  7 On the day (Schedule → team: missed check-ins,
 //   reports) + quiz  8 Hold the door (invite a creator, booking rules) + quiz  9 Stay in the loop (REAL notifications).
@@ -42,7 +42,7 @@ export const ADMIN_CHAPTERS: Chapter[] = [
 
 type Scene = 'hello' | 'meet' | 'queue' | 'request' | 'gearq' | 'admin' | 'creators' | 'person' | 'strikesheet' | 'removesheet'
   | 'pausesheet' | 'schedule' | 'team' | 'users' | 'invitesheet' | 'rules' | 'notify' | 'cheat' | 'done'
-type Tab = 'Queue' | 'Gear' | 'Schedule' | 'Props' | 'Admin'
+type Tab = 'Dashboard' | 'Queue' | 'Gear' | 'Schedule' | 'Props'
 interface Step { id: string; scene: Scene; part?: number; target?: string; title: ReactNode; body?: ReactNode; next?: string; hint?: string; top?: boolean; look?: boolean
   quiz?: { q: ReactNode; options: string[]; correct: number; explain: ReactNode } }
 
@@ -79,13 +79,16 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'hello', scene: 'hello', title: '' },
     { id: 'meet', scene: 'meet', title: '' },
     // 1 · Find your way around
-    intro(1, 'queue', "You keep an eye on everything, and you look after the creators. Five tabs, and none of them can break anything."),
-    { id: 'tabs', scene: 'queue', part: 1, target: 'tabbar', look: true, next: C, title: 'Your five tabs',
-      body: ul([['Queue', 'every props request'], ['Gear', 'every gear booking'], ['Schedule', 'the house calendar'], ['Props', 'the whole closet'], ['Admin', 'creators, strikes, invites and rules']]) },
-    { id: 'toadmin', scene: 'queue', part: 1, target: 'nav-admin', title: <>Peek at <b>Admin</b></> },
-    { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your Admin menu',
-      body: "Creators first: that's the heart of your job. Then the queues, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
-    { id: 'toqueue', scene: 'admin', part: 1, target: 'nav-queue', title: <>Back to the <b>Queue</b> tab</> },
+    intro(1, 'admin', "You keep an eye on everything, and you look after the creators. Five tabs, and none of them can break anything."),
+    { id: 'tabs', scene: 'admin', part: 1, target: 'tabbar', look: true, next: C, title: 'Your five tabs',
+      body: ul([['Dashboard', 'your creators at a glance, plus your tools'], ['Queue', 'every props request'], ['Gear', 'every gear booking'], ['Schedule', 'the house calendar'], ['Props', 'the whole closet']]) },
+    { id: 'dashlook', scene: 'admin', part: 1, target: 'dashpreview', look: true, next: C, title: 'Your Dashboard, your home',
+      body: 'Shoots filmed, how many showed up, no-shows, late returns and who is paused, with a chart of filming per week. Anything that needs you shows in amber.' },
+    { id: 'analyticslook', scene: 'admin', part: 1, target: 'dashlinks', look: true, next: C, title: 'Go deeper: Analytics',
+      body: ul([['Creators', 'filming per week or month, averages, each person, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
+    { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your tools, further down',
+      body: "All creators, the schedule team, activity, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
+    { id: 'toqueue', scene: 'admin', part: 1, target: 'nav-queue', title: <>Now tap <b>Queue</b></>, body: 'Every props request, live.' },
     // 2 · Watch the queues
     intro(2, 'queue', "The arts department and the equipment team do the picking, packing and checking. You can see all of it, so you always know what's going on."),
     { id: 'queuelook', scene: 'queue', part: 2, target: 'queuetabs', look: true, next: C, title: 'The props queue, in piles',
@@ -101,8 +104,8 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
       body: "The equipment team runs it. A Late pill means it's 30 minutes past the booked end. Late creators can't book more gear until it's back." },
     // 3 · Your creators
     intro(3, 'gearq', "This is the big one. One screen that shows who's filming, and who's slipping."),
-    { id: 'toadmin3', scene: 'gearq', part: 3, target: 'nav-admin', title: <>Tap <b>Admin</b></> },
-    { id: 'tocreators', scene: 'admin', part: 3, target: 'row-creators', title: <>Tap <b>Creators</b></> },
+    { id: 'toadmin3', scene: 'gearq', part: 3, target: 'nav-dashboard', title: <>Tap <b>Dashboard</b></> },
+    { id: 'tocreators', scene: 'admin', part: 3, target: 'row-creators', title: <>Tap <b>All creators</b></>, body: 'The full list, one row per creator.' },
     { id: 'tiles', scene: 'creators', part: 3, target: 'tiles', look: true, next: C, title: 'The whole team in four numbers',
       body: 'Shoots filmed, no-shows, late returns and strikes, for everyone together.' },
     { id: 'period', scene: 'creators', part: 3, target: 'period-90', title: <>Tap <b>Last 90 days</b></>, body: 'Every number on the page follows the period you pick.' },
@@ -162,7 +165,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
       explain: 'Strikes are for no-shows, late cancels by the creator, upheld reports, and ones you give with a reason.' } },
     // 8 · Hold the door
     intro(8, 'team', "New creator joining? You let them in. And you look after the booking rules everyone works by."),
-    { id: 'toadmin8', scene: 'team', part: 8, target: 'nav-admin', title: <>Tap <b>Admin</b></> },
+    { id: 'toadmin8', scene: 'team', part: 8, target: 'nav-dashboard', title: <>Tap <b>Dashboard</b></> },
     { id: 'tousers', scene: 'admin', part: 8, target: 'row-users', title: <>Tap <b>Invite creators</b></> },
     { id: 'invitebtn', scene: 'users', part: 8, target: 'invitebtn', title: <>Tap <b>+ Invite</b></> },
     { id: 'inviteform', scene: 'invitesheet', part: 8, target: 'inviteform', top: true, next: C, hint: 'Type an email address first', title: 'Their Google email and name',
@@ -171,7 +174,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'invited', scene: 'invitesheet', part: 8, target: 'invited', look: true, next: C, title: 'Now send them the message',
       body: "The app gives you a ready-made message with the link. Paste it in a text or WhatsApp. (Practice: nobody was invited.)" },
     { id: 'closeinvite', scene: 'invitesheet', part: 8, target: 'closesheet', title: <>Tap <b>Done</b></> },
-    { id: 'toadmin8b', scene: 'users', part: 8, target: 'nav-admin', title: <>Tap <b>Admin</b> again</> },
+    { id: 'toadmin8b', scene: 'users', part: 8, target: 'nav-dashboard', title: <>Tap <b>Dashboard</b> again</> },
     { id: 'torules', scene: 'admin', part: 8, target: 'row-rules', title: <>Tap <b>Booking rules</b></> },
     { id: 'ruleslook', scene: 'rules', part: 8, target: 'notice', look: true, next: C, title: 'The deadlines everyone sees',
       body: `Props from the closet: ${b.leadTimeDays} open days ahead. New things to make or find: ${b.buildLeadDays}. Changes apply to everyone right away, so tap Save only when you're sure.` },
@@ -180,7 +183,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
       explain: 'You invite creators. Staff roles (arts, equipment, admin) are invited by the owner.' } },
     // 9 · Stay in the loop (real)
     intro(9, 'rules', "Last one, and it's real: turn on notifications so you hear about your own shoots, invites and anything about your bookings."),
-    { id: 'toadmin9', scene: 'rules', part: 9, target: 'nav-admin', title: <>Tap <b>Admin</b></> },
+    { id: 'toadmin9', scene: 'rules', part: 9, target: 'nav-dashboard', title: <>Tap <b>Dashboard</b></> },
     { id: 'toaccount', scene: 'admin', part: 9, target: 'myaccount', title: <>Tap <b>My account</b></> },
     { id: 'notify', scene: 'notify', part: 9, target: 'notifycard', look: true, next: C, hint: 'Turn them on first', title: 'Turn on notifications',
       body: push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (steps on the card).' : 'Tap the gold button, then Allow when your phone asks.' },
@@ -250,11 +253,11 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         : push === 'needs-install' ? (
           <ol className="space-y-2 text-[14px] text-pt-text list-decimal list-inside">
             <li>Tap <b>Share</b> at the bottom of Safari</li><li>Tap <b>Add to Home Screen</b>, then Add</li>
-            <li>Open <b>Prime Capitol</b> from your Home Screen</li><li>Admin → My account → <b>Turn on</b></li>
+            <li>Open <b>Prime Capitol</b> from your Home Screen</li><li>Dashboard → My account → <b>Turn on</b></li>
           </ol>
         ) : push === 'blocked' ? <p className="text-pt-muted text-sm">Notifications are blocked for this app. {isIOS() ? 'iPhone Settings → Notifications → Prime Capitol → Allow Notifications.' : 'Tap the lock or ⓘ next to the web address → Notifications → Allow.'}</p>
         : <p className="text-pt-muted text-sm">This browser can't show notifications. Open the app on your phone to turn them on.</p>}
-      {pushMsg && <p className="text-amber-300 text-xs">Couldn't turn them on: {pushMsg} You can try again later from Admin → My account.</p>}
+      {pushMsg && <p className="text-amber-300 text-xs">Couldn't turn them on: {pushMsg} You can try again later from Dashboard → My account.</p>}
     </div>
   )
 
@@ -371,11 +374,35 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     ),
     admin: () => (
       <div className="pb-6">
-        {header('Admin')}
-        <div className="p-4">
+        {header('Dashboard')}
+        <div className="px-4 space-y-4">
+          <div {...T('dashpreview')} className="space-y-3">
+            <div className="flex gap-2">{['Last 30 days', 'This month', 'Last 90 days'].map((l, n) => <span key={l} className={`shrink-0 px-3 py-1 rounded-full text-sm ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</span>)}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {([['Shoots filmed', '15', 'text-pt-text'], ['Filmed of booked', '83%', 'text-pt-text'], ['Coming up', '7', 'text-pt-text'], ['No-shows', '1', 'text-red-300'], ['Late returns', '1', 'text-amber-200'], ['Paused now', paused ? '1' : '0', paused ? 'text-red-300' : 'text-pt-text']] as const).map(([t, n, c]) => (
+                <div key={t} className="bg-pt-surface rounded-2xl p-3"><p className={`text-[28px] font-bold leading-none tabular-nums ${c}`}>{n}</p><p className="text-pt-muted text-xs mt-1">{t}</p></div>
+              ))}
+            </div>
+            <div {...T('dashlinks')} className="grid grid-cols-2 gap-2"><span className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold text-center">Open analytics</span><span className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold text-center">Settings sheet</span></div>
+            <div className="bg-amber-500/10 rounded-2xl p-3 space-y-1"><p className="text-amber-200 font-medium">Needs you</p><p className="text-pt-text text-[15px]">{decided ? 'No' : '1'} missed check-in to decide · 1 report to review</p></div>
+            <div className="bg-pt-surface rounded-2xl p-4">
+              <p className="text-pt-text font-semibold mb-2">Filming per week</p>
+              <div className="flex items-end gap-1.5 h-20">
+                {[[3, 2], [4, 3], [2, 1], [5, 4], [3, 3], [3, 2], [5, 4], [4, 3]].map(([b, f], i) => (
+                  <div key={i} className="flex-1 flex flex-col justify-end rounded-t-[4px] overflow-hidden" style={{ height: `${b * 20}%` }}>
+                    <div className="w-full bg-pt-border" style={{ height: `${((b - f) / b) * 100}%` }} /><div className="w-full bg-pt-accent" style={{ height: `${(f / b) * 100}%` }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-baseline justify-between pt-1"><h2 className="text-pt-text text-[20px] font-semibold tracking-tight">Needs attention</h2>
+            <button {...T('row-creators')} onClick={tap('row-creators')} className="text-pt-accent text-sm tap">All creators ›</button></div>
+          <div className="bg-pt-surface rounded-2xl p-3 space-y-2"><span className="flex items-center gap-3"><Avatar name="Devon" /><span className="flex-1 min-w-0"><b className="block text-pt-text">Devon</b><span className="block text-pt-muted text-xs">3 filmed of 5 booked</span></span></span>{flagPills(people[0].flags)}</div>
+          <h2 className="text-pt-text text-[20px] font-semibold tracking-tight pt-2">Admin tools</h2>
           <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
-            {[['creators', 'Creators', 'How much each creator films, every flag, and strikes and pauses'], ['', 'Props queue', 'Every props request and where it is (view only)'],
-              ['', 'Gear queue', "Everyone's gear: pickups, what's out, returns (view only)"], ['', 'Schedule team', 'Missed check-ins and reports to decide, creators booked vs filmed'],
+            {[['', 'Analytics', 'Weekly and monthly filming, averages, every flag by type, the teams'], ['', 'Creators', 'How much each creator films, every flag, and strikes and pauses'], ['', 'Settings sheet', 'Every rule the app runs on, and who can change it'], ['', 'Requests calendar', 'Every props request by shoot day'],
+              ['', 'Schedule team', 'Missed check-ins and reports to decide, creators booked vs filmed'],
               ['', 'Activity', 'Everything that happened, with who and when'], ['users', 'Invite creators', 'Add creators or turn their access off'],
               ['rules', 'Booking rules', 'How far ahead props must be booked; closed days; turnaround days'], ['', 'Admin tour', 'Practise all of this again'],
               ['', 'Help', 'How do I…? Booking, props, gear, check-in, sign-in'], ['myaccount', 'My account', 'Your photo and channel name; sign out']].map(([k, t, d]) => {
@@ -676,10 +703,10 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     cheat: () => (
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
-        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">Your job in six lines. Replay it from Admin → Admin tour any time.</p></div>
+        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">Your job in six lines. Replay it from Dashboard → Admin tour any time.</p></div>
         {([
           ['eye', 'Queues and the schedule are for looking. The arts department and the equipment team do the changing.'],
-          ['people', 'Admin → Creators: filmed vs booked and every flag. Sort by Most flags to see who needs a chat.'],
+          ['people', 'Your Dashboard shows the team at a glance. Analytics digs in: weekly or monthly, by person, house and flag type, plus the teams. Tap anything to drill down.'],
           ['stop', `A strike needs a reason the creator can read. ${s.strikeCount} strikes in ${s.strikeDays} days pause props and gear for ${s.pauseDays} days.`],
           ['restore', 'Removing a strike keeps it on the record as removed. It lifts an automatic pause, never one you started.'],
           ['clock', `Missed check-in: wait for their explanation (${s.explainHours} hours), then They filmed or No-show. Reports: Dismiss or Strike.`],
@@ -703,9 +730,9 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     ),
   }
 
-  // The admin's real tab bar (Queue / Gear / Schedule / Props / Admin).
-  const TAB: Partial<Record<Scene, Tab>> = { queue: 'Queue', request: 'Queue', gearq: 'Gear', admin: 'Admin', creators: 'Admin', person: 'Admin', strikesheet: 'Admin',
-    removesheet: 'Admin', pausesheet: 'Admin', schedule: 'Schedule', team: 'Schedule', users: 'Admin', invitesheet: 'Admin', rules: 'Admin', notify: 'Admin' }
+  // The admin's real tab bar (Dashboard / Queue / Gear / Schedule / Props).
+  const TAB: Partial<Record<Scene, Tab>> = { queue: 'Queue', request: 'Queue', gearq: 'Gear', admin: 'Dashboard', creators: 'Dashboard', person: 'Dashboard', strikesheet: 'Dashboard',
+    removesheet: 'Dashboard', pausesheet: 'Dashboard', schedule: 'Schedule', team: 'Schedule', users: 'Dashboard', invitesheet: 'Dashboard', rules: 'Dashboard', notify: 'Dashboard' }
   const lit = TAB[step.scene]
   const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part') && !x.quiz)
   const stepInPart = inPart.findIndex(x => x.id === step.id) + 1
@@ -718,7 +745,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
       <div className="flex-1 overflow-y-auto">{scenes[step.scene]()}</div>
       {lit && (
         <nav {...T('tabbar')} className="shrink-0 flex bg-black/80 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_0.5px_0_rgba(255,255,255,0.1)] pb-tabbar">
-          {(['Queue', 'Gear', 'Schedule', 'Props', 'Admin'] as Tab[]).map(t => (
+          {(['Dashboard', 'Queue', 'Gear', 'Schedule', 'Props'] as Tab[]).map(t => (
             <button key={t} {...T(navKey(t))} onClick={tap(navKey(t))}
               className={`flex-1 flex flex-col items-center gap-0.5 pt-2 pb-0 text-xs ${lit === t ? 'text-pt-accent' : 'text-pt-muted'}`}>
               {TAB_ICONS[t]}<span>{t}</span>
