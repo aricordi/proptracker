@@ -3,7 +3,7 @@
 // what makes double-booking impossible (same idea as item_bookings for props).
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
+import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
@@ -15,7 +15,7 @@ import {
 } from './gearBooking.js'
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
-const GEAR_STAFF = ['owner', 'equipment', 'admin']
+const GEAR_STAFF = ['owner', 'equipment']
 
 function minutesNow(now = new Date()) {
   const [h, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -72,7 +72,7 @@ function tidyLines(v: unknown): LineIn[] {
 
 export const createGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'creator'])   // not arts (owner, Oct 19: arts handle requests, they don't book)
-  if (caller.role === 'creator') await assertNotPaused(caller.email)
+  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const d = req.data ?? {}
   const lines = tidyLines(d.lines)
   if (!lines.length) throw new HttpsError('invalid-argument', 'Add at least one bundle or extra.')
@@ -81,10 +81,10 @@ export const createGearBooking = onCall(CALLABLE, async req => {
   const shoot = await shootToAddTo(caller, d.scheduleShootId)
   if (shoot && d.date !== shoot.date) throw new HttpsError('invalid-argument', `Gear for this shoot is for its day (${shoot.date}).`, { problem: 'shoot-day' })
   const today = todayInStudio()
-  const problem = checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, caller.role !== 'creator')
+  const problem = checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, !booksLikeCreator(caller))
   if (problem) throw new HttpsError('failed-precondition', GEAR_TIME_MESSAGES[problem], { problem })
   // Creators with gear that's late coming back can't book more until it's returned.
-  if (caller.role === 'creator' && await hasLateGear(caller.email)) {
+  if (booksLikeCreator(caller) && await hasLateGear(caller.email)) {
     throw new HttpsError('failed-precondition', 'You have gear that is late coming back. Return it first, then you can book more.', { problem: 'late' })
   }
   const crew = await crewFor(shoot, d.crewShootIds, caller)
@@ -180,7 +180,7 @@ export const cancelGearBooking = onCall(CALLABLE, async req => {
 // Anything added (or new hours) follows the usual notice and availability rules; removing is always fine.
 export const editGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
-  if (caller.role === 'creator') await assertNotPaused(caller.email)
+  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const d = req.data ?? {}
   const id = str(d.id, 100)
   const ref = db.doc(`gear_bookings/${id}`)
@@ -213,7 +213,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
     const before = new Map(((b.lines ?? []) as { offerId: string; qty: number }[]).map(l => [l.offerId, l.qty]))
     const adding = lines.some(l => l.qty > (before.get(l.offerId) ?? 0)) || start !== b.start || end !== b.end
     if (adding) {
-      const problem = checkGearTimes(b.date, start, end, today, minutesNow(), settings, caller.role !== 'creator')
+      const problem = checkGearTimes(b.date, start, end, today, minutesNow(), settings, !booksLikeCreator(caller))
       if (problem) throw new HttpsError('failed-precondition', problem === 'too-soon' ? `${GEAR_TIME_MESSAGES[problem]} You can still remove things.` : GEAR_TIME_MESSAGES[problem], { problem })
     }
     const win = holdWindow(b.date, start, end, settings)
@@ -439,7 +439,7 @@ export const handOverGear = onCall(CALLABLE, async req => {
   const toOk = toEmail === OWNER_EMAIL || (u?.active === true && ['creator', 'owner', 'admin'].includes(u.role))
   if (!toOk) throw new HttpsError('failed-precondition', "That person can't book gear.")
   const toName = String(u?.name || (toEmail === OWNER_EMAIL ? 'Alex' : toEmail))
-  if (toEmail !== OWNER_EMAIL && u?.role === 'creator') {
+  if (toEmail !== OWNER_EMAIL && (u?.role === 'creator' || u?.role === 'admin')) {
     await assertNotPaused(toEmail).catch(() => { throw new HttpsError('failed-precondition', `${toName.split(' ')[0]}'s gear bookings are paused, so they can't take it.`, { problem: 'paused' }) })
     if (await hasLateGear(toEmail)) throw new HttpsError('failed-precondition', `${toName.split(' ')[0]} has gear that's late coming back, so they can't take more.`, { problem: 'late' })
   }

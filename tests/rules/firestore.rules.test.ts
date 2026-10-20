@@ -14,6 +14,7 @@ const CREATOR = 'creator@example.com'
 const GONE    = 'former@example.com'   // deactivated user
 const STRANGER = 'stranger@example.com' // never invited
 const GEAR    = 'gear@example.com'     // equipment team
+const ADMIN   = 'admin@example.com'    // admin (a viewer who manages creators)
 
 let env: RulesTestEnvironment
 
@@ -43,6 +44,7 @@ beforeEach(async () => {
     await u(ARTS, 'arts')
     await u(CREATOR, 'creator')
     await u(GEAR, 'equipment')
+    await u(ADMIN, 'admin')
     await u(GONE, 'arts', false)
     await setDoc(doc(db, 'items', 'cop'), item)
     await setDoc(doc(db, 'categories', 'prop'), { label: 'Prop', order: 0, active: true })
@@ -89,11 +91,18 @@ describe('inventory', () => {
     await assertFails(setDoc(doc(db, 'locations', 'x'), { name: 'X' }))
     await assertFails(setDoc(doc(db, 'tags', 'x'), { label: 'X' }))
   })
-  it('arts can set a category turnaround (0–30 whole days); creators cannot', async () => {
-    await assertSucceeds(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: 2 }))
-    await assertFails(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: -1 }))
-    await assertFails(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: 1.5 }))
+  it('admins can set a category turnaround (0–30 whole days) but nothing else; arts and creators cannot', async () => {
+    await assertSucceeds(updateDoc(doc(as(ADMIN), 'categories', 'prop'), { turnaroundDays: 2 }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'categories', 'prop'), { turnaroundDays: -1 }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'categories', 'prop'), { turnaroundDays: 1.5 }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'categories', 'prop'), { label: 'Renamed' }))
+    await assertFails(updateDoc(doc(as(ARTS), 'categories', 'prop'), { turnaroundDays: 2 }))
     await assertFails(updateDoc(doc(as(CREATOR), 'categories', 'prop'), { turnaroundDays: 0 }))
+  })
+  it('only the owner adds or renames categories', async () => {
+    await assertSucceeds(setDoc(doc(as(OWNER), 'categories', 'new'), { label: 'New', order: 9, active: true }))
+    await assertFails(setDoc(doc(as(ARTS), 'categories', 'new2'), { label: 'New 2', order: 9, active: true }))
+    await assertFails(setDoc(doc(as(ADMIN), 'categories', 'new3'), { label: 'New 3', order: 9, active: true }))
   })
   it('creators cannot see characters (arts-only field)', async () => {
     await assertFails(getDoc(doc(as(CREATOR), 'characters', 'c1')))
@@ -121,9 +130,11 @@ describe('inventory', () => {
     await assertSucceeds(updateDoc(doc(as(ARTS), 'suggestions', 's1'), { status: 'dismissed', resolvedBy: ARTS, resolvedAt: 'x', reply: 'It was already fixed' }))
     await assertFails(deleteDoc(doc(as(OWNER), 'suggestions', 's1')))
   })
-  it('import records are read-only, and only the arts department can see them', async () => {
-    await assertSucceeds(getDoc(doc(as(ARTS), 'import_items', 'f1')))
-    await assertSucceeds(getDoc(doc(as(ARTS), 'import_jobs', 'j1')))
+  it('import records are read-only, and only the owner can see them', async () => {
+    await assertSucceeds(getDoc(doc(as(OWNER), 'import_items', 'f1')))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'import_jobs', 'j1')))
+    await assertFails(getDoc(doc(as(ARTS), 'import_items', 'f1')))
+    await assertFails(getDoc(doc(as(ADMIN), 'import_jobs', 'j1')))
     await assertFails(getDoc(doc(as(CREATOR), 'import_items', 'f1')))
     await assertFails(setDoc(doc(as(OWNER), 'import_items', 'f1'), { status: 'approved' }))
   })
@@ -178,8 +189,17 @@ describe('inventory', () => {
 describe('users and invites', () => {
   const invite = (email: string, role: string) => ({ email, role, active: true })
 
-  it('arts can invite a creator', async () => {
-    await assertSucceeds(setDoc(doc(as(ARTS), 'users', 'new@example.com'), invite('new@example.com', 'creator')))
+  it('admins can invite a creator; arts and the equipment team cannot invite anyone', async () => {
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'users', 'new@example.com'), invite('new@example.com', 'creator')))
+    await assertFails(setDoc(doc(as(ARTS), 'users', 'new2@example.com'), invite('new2@example.com', 'creator')))
+    await assertFails(setDoc(doc(as(GEAR), 'users', 'new3@example.com'), invite('new3@example.com', 'creator')))
+  })
+  it('admins cannot invite staff, promote anyone or change staff records', async () => {
+    await assertFails(setDoc(doc(as(ADMIN), 'users', 'lead@example.com'), invite('lead@example.com', 'arts')))
+    await assertFails(setDoc(doc(as(ADMIN), 'users', 'boss@example.com'), invite('boss@example.com', 'admin')))
+    await assertFails(updateDoc(doc(as(ADMIN), 'users', CREATOR), { role: 'arts' }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'users', ARTS), { active: false }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'users', ADMIN), { role: 'owner' }))
   })
   it('arts cannot invite staff or make themselves owner', async () => {
     await assertFails(setDoc(doc(as(ARTS), 'users', 'new@example.com'), invite('new@example.com', 'arts')))
@@ -188,8 +208,9 @@ describe('users and invites', () => {
   it('arts cannot promote a creator', async () => {
     await assertFails(updateDoc(doc(as(ARTS), 'users', CREATOR), { role: 'arts' }))
   })
-  it('arts can deactivate a creator', async () => {
-    await assertSucceeds(updateDoc(doc(as(ARTS), 'users', CREATOR), { active: false }))
+  it('admins can deactivate a creator; arts cannot', async () => {
+    await assertFails(updateDoc(doc(as(ARTS), 'users', CREATOR), { active: false }))
+    await assertSucceeds(updateDoc(doc(as(ADMIN), 'users', CREATOR), { active: false }))
   })
   it('owner can invite staff and change roles', async () => {
     await assertSucceeds(setDoc(doc(as(OWNER), 'users', 'lead@example.com'), invite('lead@example.com', 'arts')))
@@ -237,8 +258,10 @@ describe('internal notes and server-only data', () => {
     await assertFails(getDoc(doc(as(OWNER), 'item_vectors', 'cop')))
     await assertFails(setDoc(doc(as(OWNER), 'item_vectors', 'cop'), { textHash: 'y' }))
   })
-  it('staff can read AI usage but nobody can fake it', async () => {
-    await assertSucceeds(getDoc(doc(as(ARTS), 'ai_usage', '2026-10')))
+  it('only the owner can read AI usage (costs), and nobody can fake it', async () => {
+    await assertSucceeds(getDoc(doc(as(OWNER), 'ai_usage', '2026-10')))
+    await assertFails(getDoc(doc(as(ARTS), 'ai_usage', '2026-10')))
+    await assertFails(getDoc(doc(as(ADMIN), 'ai_usage', '2026-10')))
     await assertFails(getDoc(doc(as(CREATOR), 'ai_usage', '2026-10')))
     await assertFails(setDoc(doc(as(OWNER), 'ai_usage', '2026-10'), { photoAnalyses: 0 }))
   })
@@ -269,19 +292,22 @@ describe('reservations', () => {
     await assertSucceeds(getDoc(doc(as(CREATOR), 'item_bookings', 'cop')))
     await assertFails(getDoc(doc(as(STRANGER), 'item_bookings', 'cop')))
   })
-  it('arts can change lead time and turnaround, within limits', async () => {
-    await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 0 }))
-    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: -1, bufferDays: 0 }))
-    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2.5, bufferDays: 0 }))
-    await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 3 }))
-    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 0 }))
+  it('admins can change lead time and turnaround, within limits; arts, the gear team and creators cannot', async () => {
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 0 }))
+    await assertFails(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { leadTimeDays: -1, bufferDays: 0 }))
+    await assertFails(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { leadTimeDays: 2.5, bufferDays: 0 }))
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 3 }))
+    await assertFails(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 1, maxDays: 0 }))
+    await assertFails(setDoc(doc(as(ADMIN), 'app_settings', 'schedule'), { slotMinutes: 120 }))
+    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 0 }))
+    await assertFails(setDoc(doc(as(GEAR), 'app_settings', 'booking'), { leadTimeDays: 2, bufferDays: 0 }))
     await assertFails(setDoc(doc(as(CREATOR), 'app_settings', 'booking'), { leadTimeDays: 0, bufferDays: 0 }))
   })
-  it('arts can set the days the prop room is closed; creators cannot', async () => {
+  it('admins can set the days the prop room is closed; creators cannot', async () => {
     const base = { leadTimeDays: 3, bufferDays: 1, maxDays: 1 }
-    await assertSucceeds(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { ...base, closedWeekdays: [0], closedDates: ['2026-12-25'] }))
-    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { ...base, closedWeekdays: [0, 1, 2, 3, 4, 5, 6] }))
-    await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'booking'), { ...base, closedWeekdays: 'sunday' }))
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { ...base, closedWeekdays: [0], closedDates: ['2026-12-25'] }))
+    await assertFails(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { ...base, closedWeekdays: [0, 1, 2, 3, 4, 5, 6] }))
+    await assertFails(setDoc(doc(as(ADMIN), 'app_settings', 'booking'), { ...base, closedWeekdays: 'sunday' }))
     await assertFails(setDoc(doc(as(CREATOR), 'app_settings', 'booking'), { ...base, closedWeekdays: [] }))
   })
 })

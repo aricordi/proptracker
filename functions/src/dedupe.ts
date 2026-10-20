@@ -66,7 +66,7 @@ export const comparePropPhotos = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY]
   const [a, b] = await db.getAll(db.doc(`items/${String(req.data?.a ?? 'x')}`), db.doc(`items/${String(req.data?.b ?? 'x')}`))
   if (!usable(a.data()) || !usable(b.data())) throw new HttpsError('not-found', 'Prop not found')
   const budget = await reserveBudget()
-  if (!budget.ok) throw new HttpsError('resource-exhausted', `The AI spending cap ($${budget.capUsd}) has been reached. The owner can raise it on the Import screen.`)
+  if (!budget.ok) throw new HttpsError('resource-exhausted', 'The AI photo check is resting for now. Compare the photos yourself, or ask the owner.')
   try {
     const { verdict, costUsd } = await askGemini(apiKey(),
       { name: a.get('name'), image: await photoOf(a.data()!) },

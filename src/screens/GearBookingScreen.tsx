@@ -27,7 +27,7 @@ const stampMin = (s: string) => Number(s.slice(11, 13)) * 60 + Number(s.slice(14
 export default function GearBookingScreen() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isGearStaff, profile } = useSession()
+  const { isGearStaff, canSeeGear, profile } = useSession()   // canSeeGear: admins look, only owner/equipment act
   const [b, setB] = useState<GearBooking | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -89,7 +89,7 @@ export default function GearBookingScreen() {
           </div>
           <h1 className="font-display text-[34px] text-pt-text leading-tight">{b.title}</h1>
           <p className="text-pt-muted">{formatDay(b.date, { weekday: 'long', month: 'long', day: 'numeric' })} · {fmtHours(b.start, b.end)}</p>
-          {isGearStaff && <p className="text-pt-muted text-sm">Booked by {b.creatorName || b.creatorEmail}</p>}
+          {canSeeGear && <p className="text-pt-muted text-sm">Booked by {b.creatorName || b.creatorEmail}</p>}
         </div>
 
         {step !== undefined && (
@@ -127,7 +127,7 @@ export default function GearBookingScreen() {
         {b.handedTo && (
           <div className="bg-pt-surface rounded-2xl px-4 py-3 text-[15px] text-pt-text">
             Handed over to <b>{b.handedTo.name}</b>{b.returnedAt ? ` at ${fmtTime(stampMin(b.returnedAt))}` : ''}. They tick every piece when they take it; anything missing then goes on this booking.
-            {isGearStaff && <button onClick={() => navigate(`/gear/bookings/${b.handedTo!.bookingId}`)} className="block text-pt-accent text-sm mt-1 tap">Open their booking ›</button>}
+            {canSeeGear && <button onClick={() => navigate(`/gear/bookings/${b.handedTo!.bookingId}`)} className="block text-pt-accent text-sm mt-1 tap">Open their booking ›</button>}
           </div>
         )}
         {b.handedFrom && b.status === 'held' && (

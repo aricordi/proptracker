@@ -29,7 +29,7 @@ export default function ReservationDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const { isStaff, profile } = useSession()
+  const { isStaff, canSeeStaff, profile } = useSession()   // canSeeStaff: admins look, but only arts/owner act
   const [res, setRes] = useState<Reservation | null | undefined>(undefined)
   const settings = useBookingSettings()
   const asList = useMemo(() => res ? [res] : [], [res])
@@ -50,7 +50,7 @@ export default function ReservationDetailScreen() {
   return (
     <div className="min-h-screen bg-pt-bg pb-12">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(isStaff ? '/reservations' : '/requests')} className="text-pt-text text-base font-medium py-1">‹ Back</button>
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')} className="text-pt-text text-base font-medium py-1">‹ Back</button>
         <span className={`text-xs px-3 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
           {overdue ? 'Late' : statusLabel(res)}
         </span>
@@ -69,7 +69,7 @@ export default function ReservationDetailScreen() {
           {active && pickup !== res.startDate && (
             <p className="text-amber-300 text-sm mt-0.5">Pick up {formatDay(pickup)}: the prop room is closed on the shoot day.</p>
           )}
-          {isStaff && (
+          {canSeeStaff && (
             <button onClick={() => navigate(`/people/${encodeURIComponent(res.creatorEmail)}`)} className="text-pt-muted text-sm mt-0.5 text-left">
               Booked by <span className="text-pt-accent">{res.creatorName}</span> · {res.creatorEmail} ›
             </button>
@@ -87,7 +87,7 @@ export default function ReservationDetailScreen() {
               <div key={x.itemId} className="flex items-center justify-between gap-3">
                 <p className="text-pt-text text-sm"><b className="font-medium">{x.itemName}</b> {RISK_WORDS[x.risk]}.</p>
                 {!isStaff && (
-                  <button onClick={() => navigate(`/?q=${encodeURIComponent(x.itemName)}`)}
+                  <button onClick={() => navigate(`/browse?q=${encodeURIComponent(x.itemName)}`)}
                     className="shrink-0 px-3 py-2 rounded-lg border border-pt-accent text-pt-accent text-xs font-medium">Find similar</button>
                 )}
               </div>
@@ -137,7 +137,7 @@ export default function ReservationDetailScreen() {
         )}
         {s === 'collected' && mine && <ReturnTogether kind="props" id={res.id} />}
         {s === 'collected' && mine && <ReturnForm res={res} />}
-        {s === 'collected' && isStaff && !mine && (
+        {s === 'collected' && canSeeStaff && !mine && (
           <Banner tone={overdue ? 'red' : 'amber'} title={overdue ? `Late: was due back by ${dueBy}` : 'Out with the creator'}>
             {overdue ? 'They can’t book more props until this is returned.' : `Due back the night of the shoot; late after ${dueBy}.`} The creator photographs everything when returning.
           </Banner>
@@ -148,7 +148,7 @@ export default function ReservationDetailScreen() {
             {res.returnInfo.note && <p className="text-pt-text text-sm mt-2"><IconText name="note">{res.returnInfo.note}</IconText></p>}
           </Section>
         )}
-        {s === 'return_pending' && !isStaff && <Banner tone="teal" title="Thanks! Being checked in">The arts department will check everything and let you know.</Banner>}
+        {s === 'return_pending' && mine && <Banner tone="teal" title="Thanks! Being checked in">The arts department will check everything and let you know.</Banner>}
 
         {/* ── Arts: check-in ── */}
         {isStaff && (s === 'return_pending' || s === 'collected') && <CheckInForm res={res} />}

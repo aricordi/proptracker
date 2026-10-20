@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSession } from '../auth'
 import Avatar from '../components/Avatar'
 import { Pill } from '../components/GearUi'
 import { PhotoStrip } from '../components/ProofPhotos'
@@ -16,6 +17,8 @@ type Tab = 'checkins' | 'reports' | 'creators'
 // Schedule team (owner + equipment): who filmed, missed check-ins, reports, strikes and pauses.
 export default function ScheduleTeamScreen() {
   const navigate = useNavigate()
+  const { isGearStaff, isAdmin, canManagePeople } = useSession()
+  const canDecide = isGearStaff || isAdmin   // admins manage the creators too (owner, Oct 20)
   const s = useScheduleSettings()
   const today = todayInStudio(), now = nowStamp()
   const shoots = useShootsSince(addDays(today, -s.strikeDays), true)
@@ -71,10 +74,10 @@ export default function ScheduleTeamScreen() {
                 <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold truncate">{x.creatorName}</p><p className="text-pt-muted text-xs">{formatDay(x.date)} · {where(x)} · {fmtSlot(x.start, x.end - x.start)}</p></div>
                 <Pill tone="taken">No check-in</Pill></div>
               {x.explanation ? <p className="text-pt-text text-sm">“{x.explanation.text}”</p> : <p className="text-pt-muted text-xs">No explanation yet.</p>}
-              <div className="flex gap-2">
+              {canDecide ? <div className="flex gap-2">
                 <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'filmed' }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">They filmed</button>
                 <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'noshow' }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>
-              </div>
+              </div> : <p className="text-pt-muted text-xs">Waiting for the schedule team to decide.</p>}
             </div>
           ))}
           <h2 className="text-pt-text font-semibold pt-3">Yesterday and today</h2>
@@ -91,7 +94,7 @@ export default function ScheduleTeamScreen() {
         </>}
 
         {tab === 'reports' && <>
-          <p className="text-pt-muted text-sm">Sent by the next creator at check-in. Dismiss, or uphold it to give that person a strike.</p>
+          <p className="text-pt-muted text-sm">Sent by the next creator at check-in. {canDecide ? 'Dismiss, or uphold it to give that person a strike.' : 'The schedule team dismisses or upholds them.'}</p>
           {reports.length === 0 && <p className="text-pt-muted text-sm">No reports to review.</p>}
           {reports.map(r => (
             <div key={r.id} className="bg-pt-surface rounded-2xl p-3 space-y-2">
@@ -102,10 +105,10 @@ export default function ScheduleTeamScreen() {
               <p className="text-pt-text text-sm">{[r.overMinutes ? `Ran over ${r.overMinutes} min` : '', r.mess ? 'Left the house a mess' : ''].filter(Boolean).join(' · ')}</p>
               {r.note && <p className="text-pt-text text-sm bg-pt-bg rounded-xl px-3 py-2">“{r.note}”</p>}
               {r.photos.length > 0 && <PhotoStrip urls={r.photos} title="Photos" />}
-              <div className="flex gap-2">
+              {canDecide ? <div className="flex gap-2">
                 <button disabled={!!busy} onClick={() => run(r.id, () => reviewReport({ id: r.id, uphold: false }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">Dismiss</button>
                 <button disabled={!!busy} onClick={() => run(r.id, () => reviewReport({ id: r.id, uphold: true }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">Strike for {r.onName}</button>
-              </div>
+              </div> : <p className="text-pt-muted text-xs">Waiting for the schedule team to review.</p>}
             </div>
           ))}
         </>}
@@ -116,12 +119,12 @@ export default function ScheduleTeamScreen() {
             const st = statuses[p.email]
             const paused = !!st?.pausedUntil && st.pausedUntil > today
             return (
-              <div key={p.email} className="bg-pt-surface rounded-2xl p-3 flex items-center gap-3">
+              <div key={p.email} onClick={() => canManagePeople && navigate(`/people/${encodeURIComponent(p.email)}`)} className={`bg-pt-surface rounded-2xl p-3 flex items-center gap-3 ${canManagePeople ? 'cursor-pointer' : ''}`}>
                 <Avatar email={p.email} name={p.name} />
                 <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold truncate">{p.name}</p>
                   <p className="text-pt-muted text-xs">{p.filmed} of {p.booked} filmed{p.missed ? ` · ${p.missed} missed` : ''}{st?.strikes ? ` · ${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : ''}</p></div>
-                {paused
-                  ? <button disabled={!!busy} onClick={() => run(p.email, () => liftPause({ email: p.email }))} className="shrink-0 bg-red-500/15 text-red-300 rounded-lg px-3 py-2 text-xs disabled:opacity-40">Paused · Lift</button>
+                {paused && !canDecide ? <Pill tone="taken">Paused</Pill> : paused
+                  ? <button disabled={!!busy} onClick={e => { e.stopPropagation(); run(p.email, () => liftPause({ email: p.email })) }} className="shrink-0 bg-red-500/15 text-red-300 rounded-lg px-3 py-2 text-xs disabled:opacity-40">Paused · Lift</button>
                   : st?.strikes ? <Pill tone="warn">{st.strikes} strike</Pill> : <Pill tone="free">Reliable</Pill>}
               </div>
             )

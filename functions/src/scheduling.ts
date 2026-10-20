@@ -17,7 +17,7 @@ import { houseSlotsOn,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
 
-const TEAM = ['owner', 'equipment', 'admin']
+const TEAM = ['owner', 'equipment']
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 // Owner (Oct 19): the arts department handles props only; it never books shoots (creators + the schedule team do).
 const BOOKERS = ['owner', 'creator', 'equipment'] as const
@@ -359,8 +359,8 @@ export const removeScheduleBlock = onCall(CALLABLE, async req => {
 })
 
 export const saveScheduleSettings = onCall(CALLABLE, async req => {
-  // Owner (Oct 19): admins oversee the schedule but don't change its settings.
-  const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  // Owner only (owner, Oct 20): slot times, priority days, strike limits affect everyone, so they're maintenance.
+  const caller = await requireRole(req, ['owner'])
   const clean = cleanScheduleSettings(req.data)
   await db.doc('app_settings/schedule').set({ ...clean, updatedAt: new Date().toISOString(), updatedBy: caller.email })
   return clean

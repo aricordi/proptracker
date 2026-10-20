@@ -288,7 +288,7 @@ export default function AddItemScreen() {
         ])
         const ref = await addItem({ ...common, status: 'available', archived: false })
         await savePrivate(ref.id)
-        navigate('/')
+        navigate('/browse')
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

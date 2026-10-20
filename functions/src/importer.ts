@@ -47,7 +47,7 @@ export { binKey, tidyBinLabel }
 // ─── 0. Info for the Import screen ───────────────────────────────────────────
 
 export const importInfo = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner', 'arts'])
+  await requireRole(req, ['owner'])   // owner only (owner, Oct 20: imports are maintenance)
   return { serviceAccount: await serviceAccountEmail() }
 })
 
@@ -279,7 +279,7 @@ async function approvalContext() {
 }
 
 export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  const caller = await requireRole(req, ['owner', 'arts'])
+  const caller = await requireRole(req, ['owner'])   // owner only (owner, Oct 20: imports are maintenance)
   const list: Approval[] = Array.isArray(req.data?.items) ? req.data.items.slice(0, 50) : []
   if (!list.length) throw new HttpsError('invalid-argument', 'Nothing to approve')
   const { fieldsFor } = await approvalContext()
@@ -323,7 +323,7 @@ export const approveImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async
 // reviewer's edits; quantity as they set it: copies, or 1 for "more angles"), or
 // added to a prop already in the app (its photos, plus any extra quantity).
 export const mergeImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  const caller = await requireRole(req, ['owner', 'arts'])
+  const caller = await requireRole(req, ['owner'])   // owner only (owner, Oct 20: imports are maintenance)
   const ids: string[] = Array.isArray(req.data?.ids) ? [...new Set<string>(req.data.ids.filter((x: unknown) => typeof x === 'string'))].slice(0, 30) : []
   const addToItemId = typeof req.data?.addToItemId === 'string' ? req.data.addToItemId : null
   const addQuantity = Number.isInteger(req.data?.addQuantity) && req.data.addQuantity >= 0 && req.data.addQuantity <= 100000 ? req.data.addQuantity as number : 0
@@ -374,7 +374,7 @@ export const mergeImports = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async r
 })
 
 export const skipImports = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts'])
+  const caller = await requireRole(req, ['owner'])   // owner only (owner, Oct 20: imports are maintenance)
   const ids: string[] = Array.isArray(req.data?.ids) ? req.data.ids.filter((x: unknown) => typeof x === 'string').slice(0, 100) : []
   let skipped = 0
   for (const id of ids) {

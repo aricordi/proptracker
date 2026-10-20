@@ -10,7 +10,7 @@ type Tab = 'today' | 'out' | 'checkin' | 'upcoming' | 'past'
 // Creators: their gear bookings. Owner + equipment team: the gear queue for everyone.
 export default function GearBookingsScreen() {
   const navigate = useNavigate()
-  const { isGearStaff: gearStaff, profile, role } = useSession()
+  const { canSeeGear: gearStaff, profile, role } = useSession()   // admins see the whole gear queue (view only)
   // ?mine=1: just your own gear (the owner's "Me" tab), even for the gear team.
   const [params] = useSearchParams()
   const isGearStaff = gearStaff && params.get('mine') !== '1'

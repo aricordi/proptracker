@@ -2,17 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToReservations, ACTIVE_STATUSES, type Reservation, type ReservationStatus } from '../services/reservations'
-import { todayInStudio, daysBetween, pickupDay, isLate } from '../../functions/src/booking'
+import { todayInStudio, daysBetween, pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useAtRisk } from '../hooks/useAtRisk'
 import { formatRange } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
-import { Icon } from '../components/Icon'
+import { Pill } from '../components/GearUi'
 
-interface Tab { key: string; label: string; statuses: ReservationStatus[]; newestFirst?: boolean; byEnd?: boolean }
+interface Tab { key: string; label: string; statuses: ReservationStatus[]; newestFirst?: boolean; byEnd?: boolean; today?: boolean }
 
-// The arts department works the queue left to right.
+// The arts department works the queue left to right. Same look as the gear queue (owner, Oct 20), starting on Today.
 const STAFF_TABS: Tab[] = [
+  { key: 'today',   label: 'Today',      statuses: ['requested', 'preparing', 'packed', 'collected'], today: true },
   { key: 'prepare', label: 'To prepare', statuses: ['requested', 'preparing'] },
   { key: 'ready',   label: 'Ready',      statuses: ['packed'] },
   { key: 'out',     label: 'Out',        statuses: ['collected'], byEnd: true },
@@ -36,7 +37,7 @@ function whenLabel(start: string, today: string) {
 export default function ReservationsScreen() {
   const settings = useBookingSettings()
   const navigate = useNavigate()
-  const { isStaff: staff, profile, canBook } = useSession()
+  const { canSeeStaff: staff, profile, canBook } = useSession()   // admins see the whole queue (view only)
   // ?mine=1: just your own requests (the owner's "Me" tab), even for staff.
   const [params] = useSearchParams()
   const isStaff = staff && params.get('mine') !== '1'
@@ -47,12 +48,15 @@ export default function ReservationsScreen() {
 
   useEffect(() => subscribeToReservations({ email: profile.email, all: isStaff }, setList), [profile.email, isStaff])
 
+  // Today: props being picked up today, and props due back today (like the gear queue's Today).
+  const pickupToday = (r: Reservation) => ['requested', 'preparing', 'packed'].includes(r.status) && pickupDay(r.startDate, settings) <= today
+  const dueToday = (r: Reservation) => r.status === 'collected' && returnDueDay(r.endDate, settings) <= today
   const byTab = useMemo(() => Object.fromEntries(tabs.map(t => {
-    let rows = (list ?? []).filter(r => t.statuses.includes(r.status))
+    let rows = (list ?? []).filter(r => t.statuses.includes(r.status) && (!t.today || pickupToday(r) || dueToday(r)))
     if (t.byEnd) rows = [...rows].sort((a, b) => a.endDate.localeCompare(b.endDate))
     if (t.newestFirst) rows = [...rows].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     return [t.key, rows]
-  })), [list, tabs])
+  })), [list, tabs, settings, today])   // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = byTab[tabKey] ?? []
   const atRisk = useAtRisk(list ?? [])
@@ -61,7 +65,7 @@ export default function ReservationsScreen() {
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center justify-between">
-          <h1 className="font-display text-[34px] text-pt-text py-2">{isStaff ? 'Queue' : 'My bookings'}</h1>
+          <h1 className="font-display text-[34px] text-pt-text py-2">{isStaff ? 'Props queue' : 'My bookings'}</h1>
           {canBook && <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1 tap">+ New request</button>}
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
@@ -69,8 +73,8 @@ export default function ReservationsScreen() {
             const n = byTab[t.key]?.length ?? 0
             return (
               <button key={t.key} onClick={() => setTabKey(t.key)}
-                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
-                {t.label}{t.key !== 'done' && t.key !== 'past' && n > 0 ? ` (${n})` : ''}
+                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>
+                {t.label}{t.key !== 'done' && t.key !== 'past' ? ` (${n})` : ''}
               </button>
             )
           })}
@@ -93,43 +97,33 @@ export default function ReservationsScreen() {
           const builds = r.builds ?? []
           const total = r.lines.length + builds.length
           const done = r.lines.filter(l => l.pick).length + builds.filter(b => b.state !== 'todo').length
+          const items = [...r.lines.map(l => l.qty > 1 ? `${l.qty}× ${l.itemName}` : l.itemName), ...builds.map(b => `${b.qty > 1 ? `${b.qty}× ` : ''}${b.description} (to make)`)]
+          const todayLine = tabKey === 'today' && (r.status === 'collected' ? `Due back by ${RETURN_DEADLINE_HOUR} AM` : pickup < today ? 'Pickup was due' : 'Pickup today')
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
-              className={`w-full text-left bg-pt-surface border rounded-2xl p-3 active:opacity-75 ${overdue || urgent ? 'border-red-500/50' : atRisk[r.id] ? 'border-amber-500/60' : 'border-pt-border'}`}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-pt-text font-semibold truncate">{r.title}</p>
-                  <p className="text-pt-muted text-sm">
-                    {formatRange(r.startDate, r.endDate)}
-                    {isStaff && ['requested', 'preparing', 'packed'].includes(r.status) && (
-                      <span className={urgent ? 'text-red-300' : ''}> · {pickup !== r.startDate ? `pickup ${whenLabel(pickup, today).toLowerCase()}` : whenLabel(r.startDate, today)}</span>
-                    )}
-                  </p>
+              className={`w-full text-left bg-pt-surface rounded-2xl p-4 space-y-1 active:opacity-80 ${overdue || urgent ? 'ring-1 ring-red-400/60' : atRisk[r.id] ? 'ring-1 ring-amber-400/60' : ''}`}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-pt-text font-semibold truncate">{r.title}</p>
+                <div className="flex gap-1 shrink-0">
+                  {overdue && <Pill tone="taken">Late</Pill>}
+                  {atRisk[r.id] && <Pill tone="warn">⚠ At risk</Pill>}
+                  {r.pickup && !r.pickup.allReceived && <Pill tone="taken">⚠ Pickup issue</Pill>}
+                  {isStaff && r.status === 'preparing' && <Pill tone="info">{done}/{total} picked</Pill>}
+                  {!overdue && <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[r.status]}`}>{statusLabel(r)}</span>}
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[r.status]}`}>
-                  {overdue ? 'Late' : statusLabel(r)}
-                </span>
               </div>
+              <p className="text-pt-muted text-sm">
+                {todayLine || <>{formatRange(r.startDate, r.endDate)}{isStaff && ['requested', 'preparing', 'packed'].includes(r.status) && (
+                  <span className={urgent ? 'text-red-300' : ''}> · {pickup !== r.startDate ? `pickup ${whenLabel(pickup, today).toLowerCase()}` : whenLabel(r.startDate, today)}</span>
+                )}</>}
+                {isStaff && ` · ${r.creatorName}`}
+              </p>
+              <p className="text-pt-muted text-xs truncate">{items.join(', ')}</p>
               {atRisk[r.id] && (
-                <p className="text-amber-300 text-xs mt-2">
-                  ⚠ At risk: {atRisk[r.id].map(x => x.itemName).join(', ')} {atRisk[r.id].some(x => x.risk === 'late') ? 'not back yet' : 'may not be usable'}
+                <p className="text-amber-300 text-xs">
+                  {atRisk[r.id].map(x => x.itemName).join(', ')} {atRisk[r.id].some(x => x.risk === 'late') ? 'not back yet' : 'may not be usable'}
                 </p>
               )}
-              <div className="flex items-center gap-2 mt-2">
-                <div className="flex -space-x-2">
-                  {r.lines.slice(0, 4).map(l => (
-                    <div key={l.itemId} className="w-8 h-8 rounded-lg bg-pt-border border-2 border-pt-surface overflow-hidden">
-                      {l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}
-                    </div>
-                  ))}
-                  {builds.length > 0 && <div className="w-8 h-8 rounded-lg bg-violet-500/20 border-2 border-pt-surface flex items-center justify-center text-sm"><Icon name="tools" className="w-4 h-4 text-violet-300" /></div>}
-                </div>
-                <p className="text-pt-muted text-xs truncate flex-1">
-                  {total} item{total !== 1 ? 's' : ''}{isStaff && ` · ${r.creatorName}`}
-                </p>
-                {isStaff && r.status === 'preparing' && <span className="text-violet-300 text-xs shrink-0">{done}/{total} picked</span>}
-                {r.pickup && !r.pickup.allReceived && <span className="text-red-300 text-xs shrink-0">⚠ pickup issue</span>}
-              </div>
             </button>
           )
         })}

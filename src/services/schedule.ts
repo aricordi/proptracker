@@ -137,8 +137,12 @@ export const explainMissedCheckIn = httpsCallable<{ id: string; text: string }, 
 export const decideShoot = httpsCallable<{ id: string; outcome: 'filmed' | 'noshow' }, { ok: boolean }>(functions, 'decideShoot')
 export const reviewReport = httpsCallable<{ id: string; uphold: boolean }, { ok: boolean }>(functions, 'reviewReport')
 export const liftPause = httpsCallable<{ email: string }, { ok: boolean }>(functions, 'liftPause')
+// Managing creators by hand (owner + admins, Oct 20).
+export const giveStrike = httpsCallable<{ email: string; about: string; note: string; shootId?: string }, { ok: boolean; strikes: number; paused: boolean }>(functions, 'giveStrike')
+export const removeStrike = httpsCallable<{ id: string; note: string }, { ok: boolean; strikes: number; lifted: boolean }>(functions, 'removeStrike')
+export const pauseCreator = httpsCallable<{ email: string; days: number; note: string }, { ok: boolean; pausedUntil: string }>(functions, 'pauseCreator')
 
-export interface UserStatus { email: string; name?: string; strikes?: number; pausedUntil?: string | null }
+export interface UserStatus { email: string; name?: string; strikes?: number; pausedUntil?: string | null; manualPause?: boolean; pauseNote?: string }
 export interface ScheduleReport { id: string; onShootId: string; onEmail: string; onName: string; byEmail: string; byName: string; date: string; place: Place; overMinutes: number; mess: boolean; note?: string; photos: string[]; status: string; createdAt: string }
 
 // Your strikes / pause, live.
@@ -171,6 +175,33 @@ export function useAllStatuses(enabled: boolean): Record<string, UserStatus> {
     return onSnapshot(collection(db, 'user_status'), snap => setM(Object.fromEntries(snap.docs.map(d => [d.id, d.data() as UserStatus]))), () => setM({}))
   }, [enabled])
   return m
+}
+
+// Creator dashboard (owner + admins): every shoot of one person (any status), reports and strikes from a date on.
+export function useShootsOf(email: string, fromDate: string): Shoot[] | null {
+  const [list, setList] = useState<Shoot[] | null>(null)
+  useEffect(() => onSnapshot(query(collection(db, 'shoots'), where('creatorEmail', '==', email), where('date', '>=', fromDate), orderBy('date')),
+    snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot))), () => setList([])), [email, fromDate])
+  return list
+}
+export function useReportsSince(fromDate: string, enabled: boolean, onEmail?: string): ScheduleReport[] {
+  const [list, setList] = useState<ScheduleReport[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    const q = onEmail ? query(collection(db, 'schedule_reports'), where('onEmail', '==', onEmail)) : query(collection(db, 'schedule_reports'), where('date', '>=', fromDate))
+    return onSnapshot(q, snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as ScheduleReport)).filter(r => r.date >= fromDate)), () => setList([]))
+  }, [fromDate, enabled, onEmail])
+  return list
+}
+export interface Strike { id: string; email: string; name?: string; reason: string; shootId?: string; at: string; note?: string; about?: string; removedAt?: string; removedBy?: string; removeNote?: string }
+export function useStrikesSince(fromDate: string, enabled: boolean, email?: string): Strike[] {
+  const [list, setList] = useState<Strike[]>([])
+  useEffect(() => {
+    if (!enabled) return
+    const q = email ? query(collection(db, 'strikes'), where('email', '==', email)) : query(collection(db, 'strikes'), where('at', '>=', fromDate))
+    return onSnapshot(q, snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Strike)).filter(x => x.at.slice(0, 10) >= fromDate)), () => setList([]))
+  }, [fromDate, enabled, email])
+  return list
 }
 
 // Error text from a server call, in plain words.

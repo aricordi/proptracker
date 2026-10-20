@@ -62,10 +62,10 @@ export default function HelpScreen() {
       { q: `It's less than ${s.noticeHours} hours before. What now?`, words: 'late cancel swap no show', a: <>You can still <b>swap</b> with another creator (they accept, and both shoots switch). Cancelling or moving now counts as a no-show.</> },
     ] },
     { title: 'Strikes', icon: 'stop', items: [
-      { q: 'What gets me a strike?', words: 'strike penalty pause blocked', a: <>Not showing up, cancelling inside {s.noticeHours} hours, or a report the team upholds. <b>{s.strikeCount} strikes in {s.strikeDays} days</b> pauses your prop and gear requests for {s.pauseDays} days (you can still book house time). Your strikes are on the Me tab.</> },
+      { q: 'What gets me a strike?', words: 'strike penalty pause blocked', a: <>Not showing up, cancelling inside {s.noticeHours} hours, a report the team upholds, or a strike an admin gives you (always with the reason, which you can see). <b>{s.strikeCount} strikes in {s.strikeDays} days</b> pauses your prop and gear requests for {s.pauseDays} days (you can still book house time). Your strikes are on the Me tab.</> },
     ] },
     { title: 'Still stuck?', icon: 'chat', items: [
-      { q: 'Who do I ask?', words: 'contact help team support', a: <>Bookings and the schedule: the schedule team (Maanik). Props and costumes: the arts department. Gear: the equipment team. Something broken in the app: tell the owner, with a screenshot if you can.</> },
+      { q: 'Who do I ask?', words: 'contact help team support', a: <>Bookings and the schedule: the schedule team (Maanik). Props and costumes: the arts department. Gear: the equipment team. Strikes, pauses or a new person to invite: an admin. Something broken in the app: tell the owner, with a screenshot if you can.</> },
     ] },
   ]
 

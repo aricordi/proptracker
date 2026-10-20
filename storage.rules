@@ -19,12 +19,15 @@ service firebase.storage {
         && firestore.get(profilePath()).data.role in roles;
     }
     function isMember() { return isOwner() || hasRole(['owner', 'arts', 'creator', 'admin']); }
-    function isStaff()  { return isOwner() || hasRole(['owner', 'arts', 'admin']); }
-    function isGearStaff() { return isOwner() || hasRole(['owner', 'equipment', 'admin']); }
+    // isStaff / isGearStaff upload; canSee / canSeeGear also include the admin (viewer, owner Oct 20).
+    function isStaff()  { return isOwner() || hasRole(['owner', 'arts']); }
+    function canSee()   { return isOwner() || hasRole(['owner', 'arts', 'admin']); }
+    function isGearStaff() { return isOwner() || hasRole(['owner', 'equipment']); }
+    function canSeeGear()  { return isOwner() || hasRole(['owner', 'equipment', 'admin']); }
 
     // Gear and bundle photos: creators see bundles, the gear team uploads.
     match /gear/{allPaths=**} {
-      allow read: if isMember() || isGearStaff();
+      allow read: if isMember() || canSeeGear();
       allow create, update: if isGearStaff()
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
@@ -33,11 +36,13 @@ service firebase.storage {
 
     // Gear return photos (everything in the case, batteries charging): the creator who
     // booked it adds them; they and the gear team can see them. Add-only.
+    // The person who booked it, or a friend on its shared-gear crew.
     function gearBookedBy(bookingId) {
-      return firestore.get(/databases/(default)/documents/gear_bookings/$(bookingId)).data.creatorEmail == myEmail();
+      let b = firestore.get(/databases/(default)/documents/gear_bookings/$(bookingId)).data;
+      return b.creatorEmail == myEmail() || myEmail() in b.get('crewEmails', []);
     }
     match /gear-returns/{bookingId}/{file} {
-      allow read: if isGearStaff() || (isMember() && gearBookedBy(bookingId));
+      allow read: if canSeeGear() || (isMember() && gearBookedBy(bookingId));
       // resource == null: only brand-new files, so a return photo can't be swapped later.
       allow create: if resource == null && (isGearStaff() || (isMember() && gearBookedBy(bookingId)))
         && request.resource.size < 15 * 1024 * 1024
@@ -63,7 +68,7 @@ service firebase.storage {
 
     // Proof photos for a booking: what was packed, how it came back.
     match /reservation-photos/{resId}/{kind}/{file} {
-      allow read: if isStaff() || (isMember() && bookedBy(resId));
+      allow read: if canSee() || (isMember() && bookedBy(resId));
       // resource == null: only brand-new files, so existing proof can't be overwritten.
       allow create: if resource == null && isImage() && (
         (kind in ['pack', 'checkin'] && isStaff())
@@ -84,14 +89,14 @@ service firebase.storage {
       return firestore.get(/databases/(default)/documents/shoots/$(shootId)).data.creatorEmail == myEmail();
     }
     match /shoot-photos/{shootId}/{file} {
-      allow read: if isGearStaff() || ((isMember() || isGearStaff()) && shootBookedBy(shootId));
+      allow read: if canSeeGear() || ((isMember() || isGearStaff()) && shootBookedBy(shootId));
       allow create: if resource == null && isImage() && (isGearStaff() || shootBookedBy(shootId));
       allow update, delete: if false;
     }
 
     // Profile photos (small, square). Everyone in the company can see them; you upload your own.
     match /avatars/{email}/{file} {
-      allow read: if isMember() || isGearStaff();
+      allow read: if isMember() || canSeeGear();
       allow create: if resource == null && isImage() && (isMember() || isGearStaff()) && myEmail() == email;
       allow update, delete: if false;
     }

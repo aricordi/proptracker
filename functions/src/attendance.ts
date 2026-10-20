@@ -5,9 +5,10 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { nowStamp } from './gearBooking.js'
 import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, slotKey, type ScheduleDay, type House } from './schedule.js'
-import { addStrike } from './strikes.js'
+import { addStrike, removeStrikeById } from './strikes.js'
+import { addDays, todayInStudio } from './booking.js'
 
-const TEAM = ['owner', 'equipment', 'admin']
+const TEAM = ['owner', 'equipment']
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 const photoList = (v: unknown) => Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 10) : []
@@ -84,9 +85,14 @@ export const explainMissedCheckIn = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// People who manage the creators (owner, Oct 20): the schedule team decides check-ins and reports; admins too.
+const DISCIPLINE = ['owner', 'equipment', 'admin']
+// Strikes and pauses given by hand: the owner and admins only.
+const MANAGERS = ['owner', 'admin']
+
 // Team: a missed check-in was really filmed, or was a no-show (adds a strike).
 export const decideShoot = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, TEAM as any)
+  const caller = await requireRole(req, DISCIPLINE as any)
   const ref = db.doc(`shoots/${str(req.data?.id, 100)}`)
   const sh = (await ref.get()).data()
   if (!sh) throw new HttpsError('not-found', 'Shoot not found.')
@@ -101,7 +107,7 @@ export const decideShoot = onCall(CALLABLE, async req => {
 
 // Team: a report about the slot before is dismissed, or upheld (adds a strike to that person).
 export const reviewReport = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, TEAM as any)
+  const caller = await requireRole(req, DISCIPLINE as any)
   const ref = db.doc(`schedule_reports/${str(req.data?.id, 100)}`)
   const r = (await ref.get()).data()
   if (!r) throw new HttpsError('not-found', 'Report not found.')
@@ -113,10 +119,51 @@ export const reviewReport = onCall(CALLABLE, async req => {
 })
 
 export const liftPause = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, TEAM as any)
+  const caller = await requireRole(req, DISCIPLINE as any)
   const email = str(req.data?.email, 200).toLowerCase()
   if (!email) throw new HttpsError('invalid-argument', 'Who?')
   const at = new Date().toISOString()
-  await db.doc(`user_status/${email}`).set({ email, pausedUntil: null, liftedAt: at, liftedBy: caller.email, strikes: 0, updatedAt: at }, { merge: true })
+  await db.doc(`user_status/${email}`).set({ email, pausedUntil: null, manualPause: false, liftedAt: at, liftedBy: caller.email, strikes: 0, updatedAt: at }, { merge: true })
   return { ok: true }
+})
+
+// ─── Managing creators by hand (owner + admins, owner Oct 20) ────────────────
+const STRIKE_ABOUT = ['props', 'gear', 'schedule', 'behaviour', 'other']
+async function creatorNamed(email: string) {
+  const u = (await db.doc(`users/${email}`).get()).data()
+  if (!u || !['creator', 'admin'].includes(u.role)) throw new HttpsError('not-found', "That person isn't a creator in the app.")
+  return String(u.name || email)
+}
+
+// Give a strike for anything (late props or gear, damage, behaviour…). A reason is required; it counts toward the pause.
+export const giveStrike = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, MANAGERS as any)
+  const email = str(req.data?.email, 200).toLowerCase(), note = str(req.data?.note, 300)
+  const about = STRIKE_ABOUT.includes(req.data?.about) ? req.data.about as string : 'other'
+  if (note.length < 3) throw new HttpsError('invalid-argument', 'Write a short reason, so the creator knows why.')
+  const name = await creatorNamed(email)
+  const r = await addStrike(email, name, 'manual', str(req.data?.shootId, 100), caller.email, { note, about })
+  return { ok: true, ...r }
+})
+
+export const removeStrike = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, MANAGERS as any)
+  const note = str(req.data?.note, 300)
+  if (note.length < 3) throw new HttpsError('invalid-argument', 'Say why it comes off (for the record).')
+  const r = await removeStrikeById(str(req.data?.id, 100), caller.email, note)
+  return { ok: true, ...r }
+})
+
+// Pause someone's prop + gear bookings straight away for N days (1–90), with a reason.
+export const pauseCreator = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, MANAGERS as any)
+  const email = str(req.data?.email, 200).toLowerCase(), note = str(req.data?.note, 300)
+  const days = Number(req.data?.days)
+  if (!Number.isInteger(days) || days < 1 || days > 90) throw new HttpsError('invalid-argument', 'Pick 1 to 90 days.')
+  if (note.length < 3) throw new HttpsError('invalid-argument', 'Write a short reason.')
+  const name = await creatorNamed(email)
+  const at = new Date().toISOString()
+  const until = addDays(todayInStudio(), days)
+  await db.doc(`user_status/${email}`).set({ email, name, pausedUntil: until, pausedAt: at, manualPause: true, pausedBy: caller.email, pauseNote: note, updatedAt: at }, { merge: true })
+  return { ok: true, pausedUntil: until }
 })

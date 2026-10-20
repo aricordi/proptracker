@@ -11,42 +11,52 @@ export default function AdminScreen() {
     { to: '/gear/bundles', title: 'Bundles & add-on extras', detail: 'What creators can book; build a new kit' },
     { to: '/gear/items', title: 'All gear', detail: 'Every piece you own: add gear, serial numbers, values, archive' },
     { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed, pauses' },
-    { to: '/schedule/settings', title: 'Schedule settings', detail: 'Houses, slots, priority days, strikes, Google Calendar' },
-    { to: '/schedule/import', title: 'Google Calendar import', detail: 'Sort events added straight in the shared calendar' },
     { to: '/tour/gear', title: 'Gear team tour', detail: 'Practise the gear room again, step by step' },
     { to: '/help', title: 'Help', detail: 'How do I…? Gear, check-ins, the schedule, sign-in' },
     { to: '/account', title: 'My account', detail: 'Your photo, notifications; sign out' },
   ]
-  const entries = role === 'equipment' ? gearEntries : [
+  // Admin (owner, Oct 20): a viewer. Looks at everything, invites creators, sets the booking rules, books their own shoots.
+  const adminEntries = [
+    { to: '/creators', title: 'Creators', detail: 'How much each creator films, every flag, and strikes and pauses' },
+    { to: '/reservations', title: 'Props queue', detail: 'Every props request and where it is (view only)' },
+    { to: '/gear/bookings', title: 'Gear queue', detail: "Everyone's gear: pickups, what's out, returns (view only)" },
+    { to: '/calendar', title: 'Requests calendar', detail: 'Every props request by shoot day' },
+    { to: '/schedule/team', title: 'Schedule team', detail: 'Missed check-ins and reports to decide, creators booked vs filmed' },
+    { to: '/activity', title: 'Activity', detail: 'Everything that happened: bookings and prop changes, with who and when' },
+    { to: '/users', title: 'Invite creators', detail: 'Add creators or turn their access off' },
+    { to: '/booking-rules', title: 'Booking rules', detail: 'How far ahead props must be booked; closed days; turnaround days' },
+    { to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' },
+    { to: '/help', title: 'Help', detail: 'How do I…? Booking, props, gear, check-in, sign-in' },
+    { to: '/account', title: 'My account', detail: 'Your photo and channel name; sign out' },
+  ]
+  const entries = role === 'equipment' ? gearEntries : isAdmin ? adminEntries : [
     // The owner uses the creator tabs, so the staff tabs (Queue, Add) live here.
-    ...(shootFlow ? [
+    ...(isOwner ? [
       { to: '/reservations', title: 'Props queue', detail: 'Every props request: to prepare, ready, out, returns' },
       { to: '/add', title: 'Add a prop', detail: 'Photo → AI fills the details → you check and save' },
+      { to: '/creators', title: 'Creators', detail: 'How much each creator films, and every flag on their record' },
       { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed' },
+      { to: '/schedule/settings', title: 'Schedule settings', detail: 'Houses, slots, priority days, strikes, Google Calendar' },
     ] : []),
     { to: '/suggestions', title: 'Suggested edits',  detail: "Creators' corrections to props: apply in one tap or dismiss" },
-    ...(!isAdmin ? [{ to: '/import', title: 'Import props', detail: 'Bring the photo library in from Google Drive; review AI suggestions' }] : []),
+    ...(isOwner ? [{ to: '/import', title: 'Import props', detail: 'Bring the photo library in from Google Drive; review AI suggestions' }] : []),
     { to: '/duplicates', title: 'Find duplicates',   detail: 'After an import: look-alike props side by side, merge or mark as different' },
     { to: '/activity',   title: 'Activity',          detail: 'Everything that happened: bookings and prop changes, with who and when' },
-    { to: '/health',     title: 'Health',            detail: 'Fix-it list, duplicates, inventory counts, AI usage, export' },
-    { to: '/users',      title: isOwner ? 'People & access' : 'Invite creators', detail: isOwner ? 'Invite people, change roles, turn access off' : 'Add creators or turn their access off' },
-    { to: '/categories', title: 'Categories',        detail: 'Add, rename, reorder or hide categories' },
-    { to: '/booking-rules', title: 'Booking rules',  detail: 'How far ahead props must be booked; turnaround days' },
+    { to: '/health',     title: 'Health',            detail: isOwner ? 'Fix-it list, duplicates, inventory counts, AI usage, export' : 'Fix-it list, duplicates, inventory counts, export' },
+    ...(isOwner ? [{ to: '/users', title: 'People & access', detail: 'Invite people, change roles, turn access off' }] : []),
+    ...(isOwner ? [{ to: '/categories', title: 'Categories', detail: 'Add, rename, reorder or hide categories' }] : []),
+    ...(isOwner ? [{ to: '/booking-rules', title: 'Booking rules', detail: 'How far ahead props must be booked; turnaround days' }] : []),
     ...(isOwner ? [{ to: '/email', title: 'Email', detail: 'Turn emails on, choose the sending service, send a test' }] : []),
     ...(isOwner ? [{ to: '/costs', title: 'Running costs', detail: 'What the app costs this month, storage, photo clean-up' }] : []),
     ...(isOwner ? [{ to: '/ai', title: 'AI helpers', detail: 'Monthly AI budget, daily limit per person, what it has cost' }] : []),
     { to: '/bins',       title: 'Bins & storage',    detail: 'Storage areas, bins and their QR codes' },
-    ...(isOwner || isAdmin ? [{ to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' }] : []),
-    ...(isAdmin ? [{ to: '/add', title: 'Add a prop', detail: 'Photo → AI fills the details → you check and save' },
-      { to: '/gear/bundles', title: 'Gear bundles & pieces', detail: 'Every piece of gear, and the bundles and extras creators can book' },
-      { to: '/schedule/team', title: 'Schedule team', detail: 'Check-ins, reports to review, creators booked vs filmed' }] : []),
+    ...(isOwner ? [{ to: '/gear', title: 'Book gear', detail: 'Hold camera, light and sound bundles for a shoot, by the hour' }] : []),
     ...(!isOwner ? [{ to: '/calendar', title: 'Requests calendar', detail: 'Every props request by shoot day' }] : []),
     ...(isOwner ? [
       { to: '/gear/bookings', title: 'Gear bookings', detail: "Everyone's gear bookings; decline if something's wrong" },
       { to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles and extras creators can book' },
       { to: '/tour/gear', title: 'Gear team tour', detail: 'The practice tour the equipment team does on their first open' },
     ] : []),
-    { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout, kept until everything moves to the Queue' },
     { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Your photo and channel name; preview the app as another role; sign out' : 'Your photo and channel name; sign out' },
   ]
 

@@ -36,7 +36,7 @@ export async function reserveAi(email: string, helper: string) {
     const [m, p] = await Promise.all([tx.get(monthRef), tx.get(personRef)])
     const spent = Number(m.get('spentUsd') ?? 0)
     if (spent + RESERVE_USD > s.monthlyCapUsd) {
-      throw new HttpsError('resource-exhausted', 'The AI helpers are resting until the 1st (this month\'s AI budget is used up). Search and browse still work.', { problem: 'ai-budget' })
+      throw new HttpsError('resource-exhausted', 'The AI helpers are resting until the 1st. Search and browse still work.', { problem: 'ai-budget' })
     }
     const used = p.get('day') === today ? Number(p.get('count') ?? 0) : 0
     // No more than BURST uses a minute (stops scripts and runaway loops; people never hit it).
@@ -262,7 +262,7 @@ Not about filming times → {"offTopic":true}.`
   const friends = matchPeople(ask.people, people, caller.email)
   // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
   ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }
-  const team = caller.role === 'owner' || caller.role === 'equipment' || caller.role === 'admin'
+  const team = caller.role === 'owner' || caller.role === 'equipment'
   // Creators get at most settings.slotsPerDay house slots a day (one); only the team can book more.
   const capped = !team && ask.mySlots > s.slotsPerDay
   if (capped) ask = { ...ask, mySlots: s.slotsPerDay }

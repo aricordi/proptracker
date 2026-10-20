@@ -24,7 +24,7 @@ const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
 const BinsScreen = lazy(() => import('./screens/BinsScreen'))
 const BinQrScreen = lazy(() => import('./screens/BinQrScreen'))
 const LocationsScreen = lazy(() => import('./screens/LocationsScreen'))
-const CheckoutScreen = lazy(() => import('./screens/CheckoutScreen'))
+const CreatorsScreen = lazy(() => import('./screens/CreatorsScreen'))
 const HealthScreen = lazy(() => import('./screens/HealthScreen'))
 const UsersScreen = lazy(() => import('./screens/UsersScreen'))
 const CategoriesScreen = lazy(() => import('./screens/CategoriesScreen'))
@@ -141,23 +141,37 @@ function OwnerOnly({ children }: { children: ReactNode }) {
   return isOwner ? <>{children}</> : <Navigate to="/" replace />
 }
 
-// Schedule settings + the Google Calendar connection: owner + equipment team, not admins (owner, Oct 19).
+// Schedule settings + the Google Calendar connection: the owner only (owner, Oct 20: maintenance).
 function ScheduleSettingsOnly({ children }: { children: ReactNode }) {
   const { role } = useSession()
-  return role === 'owner' || role === 'equipment' ? <>{children}</> : <Navigate to="/schedule" replace />
+  return role === 'owner' ? <>{children}</> : <Navigate to="/schedule" replace />
 }
 
-// Owner + equipment team (gear) + admins.
+// Owner + equipment team (gear). Admins only LOOK, through SeeGear.
 function GearOnly({ children }: { children: ReactNode }) {
   const { isGearStaff } = useSession()
   return isGearStaff ? <>{children}</> : <Navigate to="/" replace />
+}
+function SeeGear({ children }: { children: ReactNode }) {
+  const { canSeeGear } = useSession()
+  return canSeeGear ? <>{children}</> : <Navigate to="/" replace />
+}
+function SeeStaff({ children }: { children: ReactNode }) {
+  const { canSeeStaff } = useSession()
+  return canSeeStaff ? <>{children}</> : <Navigate to="/" replace />
+}
+// Invites, booking rules and the creator dashboard: the owner and admins (owner, Oct 20).
+function PeopleOnly({ children }: { children: ReactNode }) {
+  const { canManagePeople } = useSession()
+  return canManagePeople ? <>{children}</> : <Navigate to="/" replace />
 }
 
 // The equipment team works only with gear: their home is the gear queue.
 // Creators' (and the owner's, who films too) home is their shoots; the arts department lands on prop search.
 function Home() {
   const { role, shootFlow } = useSession()
-  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'admin' ? <Navigate to="/reservations" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
+  // Arts + admins open on the props queue, the equipment team on the gear queue (owner, Oct 20).
+  return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'admin' || role === 'arts' ? <Navigate to="/reservations" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
 }
 
 // Booking gear is for creators and the owner (the equipment team runs it; the arts department
@@ -178,8 +192,8 @@ function StaffOnly({ children }: { children: ReactNode }) {
 }
 // The Admin menu: the arts department and the equipment team each get their own list.
 function TeamOnly({ children }: { children: ReactNode }) {
-  const { isStaff, isGearStaff } = useSession()
-  return isStaff || isGearStaff ? <>{children}</> : <Navigate to="/" replace />
+  const { canSeeStaff, canSeeGear } = useSession()
+  return canSeeStaff || canSeeGear ? <>{children}</> : <Navigate to="/" replace />
 }
 
 export default function App() {
@@ -230,8 +244,8 @@ export default function App() {
   }, [user])
 
   useEffect(() => {
-    if (session?.isStaff) ensureDefaultCategories().catch(() => {})
-  }, [session?.isStaff])
+    if (session?.isOwner) ensureDefaultCategories().catch(() => {})
+  }, [session?.isOwner])
 
   // Everyone's profile photos + channel names; and keep your Google photo as the default picture.
   const profiles = useProfilesLive(!!session)
@@ -302,30 +316,31 @@ export default function App() {
           <Route path="/shoots" element={<MyShootsScreen />} />
           <Route path="/return" element={<ReturnAllScreen />} />
           <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
-          <Route path="/calendar" element={<StaffOnly><RequestsCalendarScreen /></StaffOnly>} />
+          <Route path="/calendar" element={<SeeStaff><RequestsCalendarScreen /></SeeStaff>} />
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
           <Route path="/schedule/settings" element={<ScheduleSettingsOnly><ScheduleSettingsScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/import" element={<ScheduleSettingsOnly><CalendarImportScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/calendar" element={<ScheduleSettingsOnly><CalendarSyncScreen /></ScheduleSettingsOnly>} />
-          <Route path="/schedule/team" element={<GearOnly><ScheduleTeamScreen /></GearOnly>} />
+          <Route path="/schedule/team" element={<SeeGear><ScheduleTeamScreen /></SeeGear>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
-          <Route path="/booking-rules" element={<StaffOnly><BookingRulesScreen /></StaffOnly>} />
+          <Route path="/booking-rules" element={<PeopleOnly><BookingRulesScreen /></PeopleOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
           <Route path="/bins" element={<StaffOnly><BinsScreen /></StaffOnly>} />
           <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
-          <Route path="/checkout" element={<StaffOnly><CheckoutScreen /></StaffOnly>} />
+          <Route path="/checkout" element={<Navigate to="/admin" replace />} />
+          <Route path="/creators" element={<PeopleOnly><CreatorsScreen /></PeopleOnly>} />
           <Route path="/admin" element={<TeamOnly><AdminScreen /></TeamOnly>} />
           <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
-          <Route path="/users" element={<StaffOnly><UsersScreen /></StaffOnly>} />
-          <Route path="/categories" element={<StaffOnly><CategoriesScreen /></StaffOnly>} />
+          <Route path="/users" element={<PeopleOnly><UsersScreen /></PeopleOnly>} />
+          <Route path="/categories" element={<OwnerOnly><CategoriesScreen /></OwnerOnly>} />
           <Route path="/email" element={<OwnerOnly><EmailSettingsScreen /></OwnerOnly>} />
           <Route path="/ai" element={<OwnerOnly><AiSettingsScreen /></OwnerOnly>} />
           <Route path="/costs" element={<OwnerOnly><CostsScreen /></OwnerOnly>} />
           <Route path="/help" element={<HelpScreen />} />
-          <Route path="/activity" element={<StaffOnly><ActivityScreen /></StaffOnly>} />
-          <Route path="/people/:email" element={<StaffOnly><PersonHistoryScreen /></StaffOnly>} />
-          <Route path="/import" element={<StaffOnly><ImportScreen /></StaffOnly>} />
-          <Route path="/import/:jobId" element={<StaffOnly><ImportReviewScreen /></StaffOnly>} />
+          <Route path="/activity" element={<SeeStaff><ActivityScreen /></SeeStaff>} />
+          <Route path="/people/:email" element={<SeeStaff><PersonHistoryScreen /></SeeStaff>} />
+          <Route path="/import" element={<OwnerOnly><ImportScreen /></OwnerOnly>} />
+          <Route path="/import/:jobId" element={<OwnerOnly><ImportReviewScreen /></OwnerOnly>} />
           <Route path="/duplicates" element={<StaffOnly><DuplicatesScreen /></StaffOnly>} />
           <Route path="/suggestions" element={<StaffOnly><SuggestionsScreen /></StaffOnly>} />
         </Route>

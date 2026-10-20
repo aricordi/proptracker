@@ -17,7 +17,7 @@ import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleD
 import { importShootAsTeam, removeImportedShoot } from './scheduling.js'
 import { stamp, addMinutes } from './gearBooking.js'
 
-const TEAM = ['owner', 'equipment', 'admin']
+const TEAM = ['owner', 'equipment']
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
 
 // ─── 1. Personal calendar feed ───────────────────────────────────────────────
@@ -189,14 +189,14 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
 
 // What the app has put in the calendar, and any change Google refused (to retry).
 export const calendarPending = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  await requireRole(req, ['owner'])
   const [p, sent] = await Promise.all([db.collection('calendar_outbox').orderBy('at').limit(300).get(), db.collection('calendar_sent').orderBy('at', 'desc').limit(300).get()])
   return { pending: p.docs.map(d => d.data()), sent: sent.docs.map(d => ({ eventId: d.id, label: d.get('label'), at: d.get('at') })) }
 })
 
 // A tap from the team: retry ('send') or drop ('discard') failed changes, or take app events back out ('remove').
 export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  const caller = await requireRole(req, ['owner'])
   const action = req.data?.action
   const ids = (Array.isArray(req.data?.ids) ? req.data.ids : []).map((x: unknown) => String(x)).filter((x: string) => /^[sb][0-9a-f]+$/.test(x)).slice(0, 100) as string[]
   if (!['send', 'discard', 'remove'].includes(action) || !ids.length) throw new HttpsError('invalid-argument', 'Pick what to send.')
@@ -222,7 +222,7 @@ export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 },
 
 // Schedule team: test the shared-calendar connection (a tap: writes and removes one test event).
 export const testCalendarLink = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })   // the connection itself: not admins (owner, Oct 19)
+  await requireRole(req, ['owner'])   // the connection itself: the owner only (owner, Oct 20)
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   if (isEmulator()) return { ok: true, account: 'test-calendar@example.iam.gserviceaccount.com' }
@@ -263,7 +263,7 @@ export function guessImport(e: { title: string; location: string; date: string; 
 }
 
 export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  await requireRole(req, ['owner'])
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
   const { events, people } = await scanCalendar(cal)
@@ -337,7 +337,7 @@ async function removeImportedBlock(date: string, blockId: string) {
 // Import the reviewed events. Each one is a shoot (for a person, at a house slot or offsite hours)
 // or blocked time; skipped ones are just remembered so they don't show up again.
 export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
-  const caller = await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  const caller = await requireRole(req, ['owner'])
   const list = Array.isArray(req.data?.items) ? req.data.items.slice(0, 500) : []
   return { results: await applyImports(list, caller.email) }
 })
@@ -428,6 +428,6 @@ export const calendarCheck = onSchedule({ schedule: 'every 15 minutes', timeZone
 
 // "Check now" on the import screen (same as the 15-minute check).
 export const checkCalendarNow = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
-  await requireRole(req, ['owner', 'equipment'], { noAdmin: true })
+  await requireRole(req, ['owner'])
   return (await runCalendarCheck()) ?? { error: 'Paste the Google Calendar ID in Schedule settings first.' }
 })

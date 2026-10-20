@@ -57,10 +57,11 @@ const queueIcon = (
   </svg>
 )
 
+// Arts department (owner, Oct 20): the queue first, like the equipment team.
 const staffNav = [
-  { to: '/',         label: 'Search',   icon: searchIcon },
-  { to: '/calendar', label: 'Calendar', icon: reservationsIcon },
   { to: '/reservations', label: 'Queue', icon: queueIcon },
+  { to: '/browse',   label: 'Props',    icon: searchIcon, also: ['/item', '/bin'] },
+  { to: '/calendar', label: 'Calendar', icon: reservationsIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
   { to: '/admin',    label: 'Admin',    icon: adminIcon },
 ]
@@ -110,7 +111,7 @@ const adminNav = [
   { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
   { to: '/',         label: 'Props',    icon: searchIcon, also: ['/item'] },
   { to: '/admin',    label: 'Admin',    icon: adminIcon, also: ['/add', '/suggestions', '/duplicates', '/activity', '/health', '/users', '/people',
-    '/categories', '/booking-rules', '/bins', '/checkout', '/calendar', '/account'] },
+    '/categories', '/booking-rules', '/bins', '/creators', '/calendar', '/account', '/schedule/team'] },
 ]
 
 // The owner films too: the creator tabs, plus "Team" for everything only the owner and staff can do.
@@ -119,7 +120,7 @@ const ownerNav = [
   { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests'] },
   { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
     '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
-    '/costs', '/ai', '/bins', '/checkout'] },
+    '/costs', '/ai', '/bins', '/creators'] },
 ]
 
 export default function BottomNav() {

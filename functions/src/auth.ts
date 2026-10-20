@@ -14,8 +14,9 @@ export const db = getFirestore()
 export const OWNER_EMAIL = 'alexisricordi@gmail.com'
 
 export type Role = 'owner' | 'arts' | 'creator' | 'equipment' | 'admin'   // equipment = gear team (gear only, no props)
-// admin (owner, Oct 19): everything a creator, the arts department and the equipment team can do, but none of the
-// owner's own things (personal props, money/AI budget, bulk tools, settings, connections). Future roles too.
+// admin (owner, Oct 20): a VIEWER. Sees what the arts department and the equipment team see (through the security
+// rules), books their own shoots/props/gear exactly like a creator, and can invite creators + change the booking rules
+// (both client writes allowed by the rules). On the server an admin is treated as a creator, never as staff.
 
 export interface Caller {
   email: string
@@ -34,12 +35,13 @@ export async function getCaller(req: CallableRequest): Promise<Caller | null> {
   const data = snap.data()
   if (!snap.exists || data?.active !== true) return null
   const role = data.role as Role
-  return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts' || role === 'admin' }
+  return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts' }
 }
 
-// An admin passes wherever a creator, the arts department or the equipment team may (owner-only stays owner-only).
-// `noAdmin` keeps a team function away from admins (schedule settings, the Google Calendar connection).
-const ADMIN_COVERS: Role[] = ['creator', 'arts', 'equipment']
+// An admin passes wherever a creator may (their own bookings), nothing more. `noAdmin` is kept for old call sites.
+const ADMIN_COVERS: Role[] = ['creator']
+// Notice periods, pauses and late-gear blocks apply to creators and admins alike.
+export const booksLikeCreator = (c: Caller) => c.role === 'creator' || c.role === 'admin'
 export async function requireRole(req: CallableRequest, allowed: Role[], opts: { noAdmin?: boolean } = {}): Promise<Caller> {
   const caller = await getCaller(req)
   const ok = !!caller && (allowed.includes(caller.role)

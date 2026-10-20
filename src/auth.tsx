@@ -8,9 +8,12 @@ export interface Session {
   role: Role          // the role the screens act as (may be a "View as" preview)
   realRole: Role      // the person's actual role
   isOwner: boolean
-  isStaff: boolean    // owner, arts department or admin
-  isAdmin: boolean    // admin: everything a creator, arts and the equipment team can do, nothing owner-only (owner, Oct 19)
-  isGearStaff: boolean   // owner or equipment team
+  isStaff: boolean    // owner or arts department: may CHANGE props, queues, bins…
+  isAdmin: boolean    // admin (owner, Oct 20): a viewer. Sees staff + gear screens, books own shoots, invites creators, booking rules
+  isGearStaff: boolean   // owner or equipment team: may CHANGE gear, the gear queue, the schedule team's things
+  canSeeStaff: boolean   // may LOOK at the arts department's screens (isStaff + admin)
+  canSeeGear: boolean    // may LOOK at the equipment/schedule team's screens (isGearStaff + admin)
+  canManagePeople: boolean  // invites creators + changes the booking rules: owner and admin only (owner, Oct 20)
   shootFlow: boolean     // creator-style app (Home / Book / Browse / Me): creators and the owner (who films too)
   canBook: boolean       // may book props and gear (creators + owner). Arts handle requests, they don't book (owner, Oct 19)
   viewingAs: Role | null                 // set while the owner previews another role
@@ -38,8 +41,11 @@ export function makeSession(user: User, profile: AppUser, viewAs: Role | null, s
     realRole,
     isOwner: role === 'owner',
     isAdmin: role === 'admin',
-    isStaff: role === 'owner' || role === 'arts' || role === 'admin',
-    isGearStaff: role === 'owner' || role === 'equipment' || role === 'admin',
+    isStaff: role === 'owner' || role === 'arts',
+    isGearStaff: role === 'owner' || role === 'equipment',
+    canSeeStaff: role === 'owner' || role === 'arts' || role === 'admin',
+    canSeeGear: role === 'owner' || role === 'equipment' || role === 'admin',
+    canManagePeople: role === 'owner' || role === 'admin',
     shootFlow: role === 'creator' || role === 'owner',
     canBook: role === 'creator' || role === 'owner' || role === 'admin',
     viewingAs: role !== realRole ? role : null,

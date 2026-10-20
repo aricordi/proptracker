@@ -9,8 +9,9 @@ service cloud.firestore {
     //   arts    — arts department: manages inventory, invites creators
     //   creator — searches and views props
     //   equipment — gear team: manages gear and gear bundles (no props)
-    //   admin   — (owner, Oct 19) oversees everything (creator + arts + equipment) but none of the
-    //             owner's own things: personal props, money/AI budget, bulk tools, settings, connections
+    //   admin   — (owner, Oct 20) a VIEWER: sees everything the arts department and the equipment team see,
+    //             books their own shoots like a creator, invites creators and changes the booking rules.
+    //             Nothing else (no inventory, queue, gear, schedule-team or settings changes; never costs).
     // A person's role lives in /users/{their email, lowercased}.
     // Keep OWNER_EMAIL in sync with src/config.ts and storage.rules.
     // ─────────────────────────────────────────────────────────────
@@ -33,9 +34,12 @@ service cloud.firestore {
         : 'none';
     }
     function isOwner()  { return role() == 'owner'; }
-    function isStaff()  { return role() in ['owner', 'arts', 'admin']; }
+    // isStaff / isGearStaff = people who CHANGE things; canSee / canSeeGear = also the admin (viewer).
+    function isStaff()  { return role() in ['owner', 'arts']; }
+    function canSee()   { return role() in ['owner', 'arts', 'admin']; }
     function isMember() { return role() in ['owner', 'arts', 'creator', 'admin']; }
-    function isGearStaff() { return role() in ['owner', 'equipment', 'admin']; }
+    function isGearStaff() { return role() in ['owner', 'equipment']; }
+    function canSeeGear()  { return role() in ['owner', 'equipment', 'admin']; }
 
     // ─── Users ──────────────────────────────────────────────────
     function validUser(email) {
@@ -48,12 +52,13 @@ service cloud.firestore {
     }
 
     match /users/{email} {
-      allow read: if isStaff() || (signedIn() && myEmail() == email);
+      allow read: if canSee() || (signedIn() && myEmail() == email);
+      // Invites (owner, Oct 20): only the owner (any role) and admins (creators only).
       allow create: if validUser(email)
-        && (isOwner() || (isStaff() && request.resource.data.role == 'creator'));
+        && (isOwner() || (role() == 'admin' && request.resource.data.role == 'creator'));
       allow update: if validUser(email)
         && (isOwner()
-            || (isStaff() && resource.data.role == 'creator' && request.resource.data.role == 'creator'));
+            || (role() == 'admin' && resource.data.role == 'creator' && request.resource.data.role == 'creator'));
       allow delete: if false; // deactivate instead, so history stays intact
     }
 
@@ -92,7 +97,7 @@ service cloud.firestore {
     // "Suggest an edit" on a prop: anyone can suggest (in their own name, about a prop
     // they can see); the arts department applies or dismisses. Never deleted.
     match /suggestions/{id} {
-      allow read: if isStaff() || (isMember() && resource.data.by == myEmail());
+      allow read: if canSee() || (isMember() && resource.data.by == myEmail());
       allow create: if isMember()
         && request.resource.data.keys().hasOnly(['itemId', 'itemName', 'by', 'byName', 'at', 'status', 'message', 'changes', 'photos'])
         && request.resource.data.by == myEmail()
@@ -111,11 +116,12 @@ service cloud.firestore {
     }
 
     // Batch import (Phase 6): written only by the server, read by the arts department.
+    // Imports are the owner's (owner, Oct 20).
     match /import_jobs/{id} {
-      allow read: if isStaff();
+      allow read: if isOwner();
     }
     match /import_items/{id} {
-      allow read: if isStaff();
+      allow read: if isOwner();
     }
 
     // Changes to the owner's personal props: owner only.
@@ -125,17 +131,24 @@ service cloud.firestore {
 
     // Activity log: written only by the server, read by the arts department.
     match /activity/{id} {
-      allow read: if isStaff();
+      allow read: if canSee();
     }
 
-    match /categories/{id} {
-      allow read: if isMember();
-      allow create, update: if isStaff()
-        && request.resource.data.label is string
+    function validCategory() {
+      return request.resource.data.label is string
         && request.resource.data.label.size() > 0
         && request.resource.data.get('turnaroundDays', 0) is int
         && request.resource.data.get('turnaroundDays', 0) >= 0
         && request.resource.data.get('turnaroundDays', 0) <= 30;
+    }
+    match /categories/{id} {
+      allow read: if isMember();
+      // Categories are maintenance: the owner only (owner, Oct 20). Their turnaround days are a booking rule,
+      // which admins may also change.
+      allow create: if validCategory() && isOwner();
+      allow update: if validCategory()
+        && (isOwner()
+            || (role() == 'admin' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['turnaroundDays', 'updatedAt', 'updatedBy'])));
       allow delete: if false; // hide instead
     }
 
@@ -156,25 +169,31 @@ service cloud.firestore {
 
     // Characters are an arts-department-only field for now.
     match /characters/{id} {
-      allow read, write: if isStaff();
+      allow read: if canSee();
+      allow write: if isStaff();
     }
 
-    // Current simple checkout system — replaced by reservations in Phase 3.
+    // Old quick checkout (removed Oct 20): kept read-only for the record.
     match /checkouts/{id} {
-      allow read, write: if isStaff();
+      allow read: if canSee();
+      allow write: if false;
     }
 
     // Arts-department-only details for a prop (internal notes). Kept in a
     // separate document so creators can't read them even outside the app.
     match /item_private/{id} {
-      allow read, write: if isOwner()
+      allow read: if isOwner()
+        || (canSee() && exists(/databases/$(database)/documents/items/$(id))
+            && isCompanyProp(get(/databases/$(database)/documents/items/$(id)).data));
+      allow write: if isOwner()
         || (isStaff() && exists(/databases/$(database)/documents/items/$(id))
             && isCompanyProp(get(/databases/$(database)/documents/items/$(id)).data));
     }
 
     // Health page bookkeeping (e.g. "not a duplicate" decisions).
     match /health/{id} {
-      allow read, write: if isStaff();
+      allow read: if canSee();
+      allow write: if isStaff();
     }
 
     // ─── Gear (equipment team) ──────────────────────────────────
@@ -182,38 +201,38 @@ service cloud.firestore {
     // creators book, so members can see them. Only server functions write both,
     // which keeps "a piece is in one bundle at a time" true.
     match /gear_items/{id} {
-      allow read: if isGearStaff();
+      allow read: if canSeeGear();
       allow write: if false;
     }
     match /gear_bundles/{id} {
-      allow read: if isMember() || isGearStaff();
+      allow read: if isMember() || canSeeGear();
       allow write: if false;
     }
     // Holds on each bundle/extra (times only, no names), so the app can show what's free.
     match /gear_holds/{id} {
-      allow read: if isMember() || isGearStaff();
+      allow read: if isMember() || canSeeGear();
       allow write: if false;
     }
     // Gear bookings: the creator sees their own; the owner and equipment team see all.
     // House schedule: one doc per day (who booked each slot, offsite shoots, blocked time).
     // Everyone can see the schedule; only server functions write it.
     match /schedule_days/{day} {
-      allow read: if isMember() || isGearStaff();
+      allow read: if isMember() || canSeeGear();
       allow write: if false;
     }
     // Shoots: the creator sees their own; the owner and schedule team (equipment) see all.
     match /shoots/{id} {
-      allow read: if isGearStaff() || (isMember() && resource.data.creatorEmail == myEmail());
+      allow read: if canSeeGear() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;
     }
     // Swap requests between two creators: only those two (and the schedule team) see them; server writes.
     match /swap_requests/{id} {
-      allow read: if isGearStaff() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
+      allow read: if canSeeGear() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
       allow write: if false;
     }
     // Invites to film back to back (a held slot for a friend): the two people + the schedule team; server-only writes.
     match /schedule_invites/{id} {
-      allow read: if isGearStaff() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
+      allow read: if canSeeGear() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
       allow write: if false;
     }
     // Profiles: a small photo + channel name. Everyone in the company sees them; you edit your own;
@@ -227,27 +246,27 @@ service cloud.firestore {
         && d.get('channel', '') is string && d.get('channel', '').size() <= 60;
     }
     match /profiles/{email} {
-      allow read: if isMember() || isGearStaff();
-      allow create, update: if validProfile() && ((signedIn() && myEmail() == email && (isMember() || isGearStaff())) || isGearStaff());
+      allow read: if isMember() || canSeeGear();
+      allow create, update: if validProfile() && ((signedIn() && myEmail() == email && (isMember() || canSeeGear())) || isGearStaff());
       allow delete: if false;
     }
     // Check-ins & accountability: reports about the slot before (team + the reporter), strikes and
     // pauses (the person themselves + team). Server writes only.
     match /schedule_reports/{id} {
-      allow read: if isGearStaff() || (signedIn() && resource.data.byEmail == myEmail());
+      allow read: if canSeeGear() || (signedIn() && resource.data.byEmail == myEmail());
       allow write: if false;
     }
     match /strikes/{id} {
-      allow read: if isGearStaff() || (signedIn() && resource.data.email == myEmail());
+      allow read: if canSeeGear() || (signedIn() && resource.data.email == myEmail());
       allow write: if false;
     }
     match /user_status/{email} {
-      allow read: if isGearStaff() || (signedIn() && myEmail() == email);
+      allow read: if canSeeGear() || (signedIn() && myEmail() == email);
       allow write: if false;
     }
     match /gear_bookings/{id} {
       // Shared gear (friends filming back to back): everyone on its crew can see it too.
-      allow read: if isGearStaff() || (isMember() && (resource.data.creatorEmail == myEmail() || myEmail() in resource.data.get('crewEmails', [])));
+      allow read: if canSeeGear() || (isMember() && (resource.data.creatorEmail == myEmail() || myEmail() in resource.data.get('crewEmails', [])));
       allow write: if false;
     }
 
@@ -259,7 +278,7 @@ service cloud.firestore {
     // AI usage counters (Health page) + this month's AI helper spend. Written by the server only.
     // Per-person daily counts: the owner, or that person.
     match /ai_usage/{month} {
-      allow read: if isOwner() || role() == 'arts';   // not admins: money stays with the owner
+      allow read: if isOwner();   // money: the owner only (owner, Oct 20)
       allow write: if false;
       match /people/{email} {
         allow read: if isOwner() || (signedIn() && myEmail() == email);
@@ -272,17 +291,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Booking rules (lead time, turnaround) can be changed by the arts
-    // department; other settings by the owner only.
     // Queued and sent emails. Written only by the server; the owner can see the log.
     match /outbox/{id} {
       allow read: if isOwner();
     }
 
     match /app_settings/{id} {
-      allow read: if isMember() || (id in ['schedule', 'calendarCheck'] && isGearStaff());
+      allow read: if isMember() || (id in ['schedule', 'calendarCheck'] && canSeeGear());
+      // Booking rules: the owner and admins only (owner, Oct 20). Every other setting: the owner.
       allow write: if isOwner()
-        || (isStaff() && id == 'booking'
+        || (role() == 'admin' && id == 'booking'
             && request.resource.data.keys().hasOnly(['leadTimeDays', 'buildLeadDays', 'bufferDays', 'maxDays', 'closedWeekdays', 'closedDates', 'updatedAt', 'updatedBy'])
             && request.resource.data.get('closedWeekdays', []) is list
             && request.resource.data.get('closedWeekdays', []).size() <= 6
@@ -299,7 +317,7 @@ service cloud.firestore {
     // Reservations are created and changed only by the server functions,
     // which enforce availability. Creators see their own; staff see all.
     match /reservations/{id} {
-      allow read: if isStaff() || (isMember() && resource.data.creatorEmail == myEmail());
+      allow read: if canSee() || (isMember() && resource.data.creatorEmail == myEmail());
       allow write: if false;
     }
 

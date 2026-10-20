@@ -58,7 +58,10 @@ type SheetState =
 // The house schedule: Cliff 1, Cliff 2 and offsite shoots, by day, in 2-hour slots.
 export default function ScheduleScreen() {
   const { profile, role } = useSession()
-  const team = role === 'owner' || role === 'equipment' || role === 'admin'
+  // team = the schedule team who change things (owner, equipment). Admins only look (owner, Oct 20): they open anyone's
+  // shoot and the Schedule team page, but book, block and move like a creator.
+  const team = role === 'owner' || role === 'equipment'
+  const teamView = team || role === 'admin'
   const s = useScheduleSettings()
   const profiles = useProfiles()
   const today = todayInStudio()
@@ -72,7 +75,7 @@ export default function ScheduleScreen() {
   const [calWaiting, setCalWaiting] = useState(0)
   const [calNew, setCalNew] = useState(0)
   useEffect(() => {
-    if (!((role === 'owner' || role === 'equipment') && s.googleCalendarId)) return
+    if (!(role === 'owner' && s.googleCalendarId)) return
     calendarPending({}).then(r => setCalWaiting(r.data.pending.length)).catch(() => {})
     // The 15-minute calendar check counts new events added straight in Google Calendar, waiting to be sorted.
     return onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setCalNew(Number(d.get('newEvents') ?? 0)), () => {})
@@ -129,8 +132,8 @@ export default function ScheduleScreen() {
           <div className="flex gap-2 pb-0.5">
             <AiButton mode="time" />
             <MyRequestsButton />
-            {team && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
-            {(role === 'owner' || role === 'equipment') && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
+            {teamView && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
+            {role === 'owner' && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
             <RoundIcon icon="help" label="Help" to="/help" />
           </div>
         </div>
@@ -216,7 +219,7 @@ export default function ScheduleScreen() {
                   if (st.t === 'free') setSheet(team ? { kind: 'block', date, house, start } : { kind: 'book', house, date, start })
                   else if (st.t === 'booked') {
                     const isMine = st.entry.email === profile.email || (mine ?? []).some(x => x.id === st.entry.shootId)
-                    setSheet(team || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date, house, start } })
+                    setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date, house, start } })
                   }
                   else if (st.t === 'block' && team) setSheet({ kind: 'unblock', date, block: st.block })
                 }} />
@@ -227,7 +230,7 @@ export default function ScheduleScreen() {
           <div className="space-y-2">
             {(day?.offsite ?? []).length === 0 && <p className="text-pt-muted text-sm">No offsite shoots this day.</p>}
             {(day?.offsite ?? []).slice().sort((a, b) => a.start - b.start).map(o => (
-              <button key={o.shootId} onClick={() => (team || o.email === profile.email) && setSheet({ kind: 'shoot', id: o.shootId })}
+              <button key={o.shootId} onClick={() => (teamView || o.email === profile.email) && setSheet({ kind: 'shoot', id: o.shootId })}
                 className="w-full flex items-center gap-3 p-3 rounded-2xl bg-pt-surface text-left">
                 <Avatar email={o.email} name={o.name} />
                 <span className="flex-1 min-w-0"><span className="block font-semibold text-pt-text truncate">{o.email === profile.email ? 'You' : o.name}</span><span className="block text-pt-muted text-xs truncate">{o.where} · {fmtSlot(o.start, o.end - o.start)}</span></span>

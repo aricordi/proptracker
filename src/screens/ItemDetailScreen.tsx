@@ -22,7 +22,7 @@ import type { Item, Condition } from '../types'
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isStaff } = useSession()
+  const { isStaff, canSeeStaff } = useSession()   // admins see staff details; only arts/owner change things
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'busy'>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const tags       = useTags()
@@ -47,8 +47,8 @@ export default function ItemDetailScreen() {
       .then(setItem)
       .catch(() => setItem(null))   // e.g. someone else's personal prop: treated as not found
       .finally(() => setLoading(false))
-    if (isStaff) getItemPrivate(id).then(p => setInternalNotes(p.internalNotes ?? '')).catch(() => {})
-  }, [id, isStaff])
+    if (canSeeStaff) getItemPrivate(id).then(p => setInternalNotes(p.internalNotes ?? '')).catch(() => {})
+  }, [id, canSeeStaff])
 
   const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
   const characterById = useMemo(() => Object.fromEntries(characters.map(c => [c.id, c])), [characters])
@@ -222,7 +222,7 @@ export default function ItemDetailScreen() {
         {!item.archived && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
 
         {/* Location */}
-        {isStaff && locationPath && (
+        {canSeeStaff && locationPath && (
           <div>
             <p className="text-pt-muted text-xs mb-1">Bin / storage</p>
             <p className="text-pt-text">{locationPath}</p>
@@ -256,7 +256,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {isStaff && internalNotes && (
+        {canSeeStaff && internalNotes && (
           <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl px-4 py-3">
             <p className="text-sky-300 text-xs mb-1">Internal notes · arts dept only</p>
             <p className="text-pt-text text-sm leading-relaxed whitespace-pre-wrap">{internalNotes}</p>
@@ -278,7 +278,7 @@ export default function ItemDetailScreen() {
         )}
 
         {/* Characters — arts department only */}
-        {isStaff && (characterIds.length > 0 || item.character) && (
+        {canSeeStaff && (characterIds.length > 0 || item.character) && (
           <div>
             <p className="text-pt-muted text-xs mb-2">Character</p>
             <div className="flex flex-wrap gap-2">
@@ -294,7 +294,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {isStaff && item.whereToRebuy && (
+        {canSeeStaff && item.whereToRebuy && (
           <div>
             <p className="text-pt-muted text-xs mb-1">Where to rebuy</p>
             <p className="text-pt-text text-sm">{item.whereToRebuy}</p>
@@ -303,7 +303,16 @@ export default function ItemDetailScreen() {
 
         {!item.archived && <PropSuggestions item={item} />}
 
-        {isStaff && <PropHistory item={item} />}
+        {canSeeStaff && <PropHistory item={item} />}
+
+        {/* The old quick checkout was removed (owner, Oct 20). A prop still marked out there can be put back here. */}
+        {isStaff && item.status === 'checked-out' && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 space-y-2">
+            <p className="text-amber-200 text-sm">Marked out on the old quick checkout{item.checkedOutInfo?.label ? ` (${item.checkedOutInfo.label})` : ''}. It can't be booked until it's back.</p>
+            <button onClick={() => run({ status: 'available' }, () => updateItem(item.id, { status: 'available' }))} disabled={busy}
+              className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">It's back: mark it in</button>
+          </div>
+        )}
 
         {/* Staff controls */}
         {isStaff && (

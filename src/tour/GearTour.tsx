@@ -52,14 +52,14 @@ interface Step { id: string; scene: Scene; part?: number; target?: string; title
 interface Piece { id: string; name: string; category: string; have: number; inB: number; serial?: string }
 const STOCK: Piece[] = [
   { id: 'a7s', name: 'Sony A7S III body', category: 'Camera', have: 1, inB: 1, serial: 'A7S-0042' },
-  { id: 'lens', name: '24-70mm lens', category: 'Lens', have: 3, inB: 1 },
-  { id: 'bat', name: 'Camera battery', category: 'Power', have: 10, inB: 3 },
-  { id: 'card', name: 'CFexpress card', category: 'Other', have: 4, inB: 0 },
-  { id: 'handle', name: 'Top handle', category: 'Grip', have: 2, inB: 0 },
+  { id: 'lens', name: '24-70mm lens', category: 'Lens', have: 3, inB: 0 },
+  { id: 'zeiss', name: 'Zeiss 16-35mm f/4 lens', category: 'Lens', have: 2, inB: 1 },
+  { id: 'light', name: 'Aputure MC Pro light', category: 'Lighting', have: 6, inB: 3 },
+  { id: 'shotgun', name: 'Rode shotgun mic', category: 'Audio', have: 3, inB: 1 },
   { id: 'mic', name: 'Wireless mic (DJI Mic)', category: 'Audio', have: 4, inB: 4 },
-  { id: 'mini5', name: 'DJI Mini 5 drone', category: 'Drones', have: 1, inB: 1, serial: 'MINI5-118' },
+  { id: 'pod', name: 'Gorilla pod', category: 'Grip', have: 6, inB: 4 },
 ]
-const CATS = ['Camera', 'Lens', 'Lighting', 'Audio', 'Drones', 'Power', 'Grip', 'Monitors', 'Other']
+const CATS = ['Camera', 'Lens', 'Lighting', 'Audio', 'Grip', 'Other']
 const START = 13 * 60, END = 15 * 60
 const field = 'w-full bg-pt-bg border border-pt-border rounded-lg px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent'
 const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 disabled:shadow-none'
@@ -86,7 +86,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
   const [blockType, setBlockType] = useState('cleaners'), [blockNote, setBlockNote] = useState('')
   const [decided, setDecided] = useState(false), [found, setFound] = useState(false)
   // The kit going out in the story: the one you built (every piece once, so the checklist stays short).
-  const lines = (kitPieces.length ? kitPieces : [{ ...newPiece, qty: 1 }, { ...STOCK[1], qty: 1 }, { ...STOCK[2], qty: 2 }])
+  const lines = (kitPieces.length ? kitPieces : [{ ...newPiece, qty: 1 }, { ...STOCK[1], qty: 1 }, { ...STOCK[3], qty: 1 }, { ...STOCK[6], qty: 1 }])
     .map(p => ({ key: p.id, name: p.qty > 1 ? `${p.name} ×${p.qty}` : p.name, unit: 1, of: 1 }))
   const [ticked, setTicked] = useState<Set<string>>(new Set()), [missing, setMissing] = useState<Set<string>>(new Set())
   const [inTicked, setInTicked] = useState<Set<string>>(new Set()), [inMissing, setInMissing] = useState<Set<string>>(new Set())
@@ -112,30 +112,30 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
       body: ul([['Queue', 'who picks up what, and what is due back'], ['Schedule', 'the house calendar'], ['Bundles', 'the kits creators can book'], ['All gear', 'every piece you own'], ['Admin', 'everything else, like the arts department has']]) },
     { id: 'toadmin', scene: 'queue', part: 1, target: 'nav-admin', title: <>Peek at <b>Admin</b></> },
     { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your Admin menu',
-      body: 'Schedule team, schedule settings, the Google Calendar import, help, this tour again, and your account. Same idea as the arts department.' },
+      body: 'Schedule team, help, this tour again, and your account. Schedule settings and the Google Calendar are looked after by the owner.' },
     { id: 'toitems', scene: 'admin', part: 1, target: 'nav-allgear', title: <>Start with the shelves: tap <b>All gear</b></> },
     // 2 · Stock the shelves
-    intro(2, 'items', 'Every lens, battery and drone lives in All gear. If it isn\'t in here, it doesn\'t exist (as far as the app knows).'),
+    intro(2, 'items', 'Every camera, lens, light and mic lives in All gear. If it isn\'t in here, it doesn\'t exist (as far as the app knows).'),
     { id: 'itemslook', scene: 'items', part: 2, target: 'itemlist', look: true, next: C, title: 'Every piece you own, by type',
       body: <>The number on the right is how many you have. <b>Loose</b> means it isn't in a kit yet, so creators can't book it.</> },
     { id: 'additem', scene: 'items', part: 2, target: 'addgear', title: <>Tap <b>+ Add gear</b></>, body: "Let's add a brand new camera." },
     { id: 'itemform', scene: 'itemsheet', part: 2, target: 'itemform', top: true, next: C, hint: 'Type a name first', title: 'Name it and pick its type',
-      body: <>Try <b>Sony FX3 body</b>. Cameras and drones get a <b>serial number</b> (then it counts as one). Value is staff only, for when something goes missing.</> },
+      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). Value is staff only, for when something goes missing.</> },
     { id: 'itemsave', scene: 'itemsheet', part: 2, target: 'itemsave', title: <>Tap <b>Save</b></> },
     { id: 'itemnew', scene: 'items', part: 2, target: 'newitem', next: C, title: "There it is, '1 loose'", body: "It's on the shelf, but creators can't see it yet. Time to put it in a kit." },
     // 3 · Build a kit
     intro(3, 'items', "Creators never book loose pieces. They book kits: one case, every piece inside, booked as a whole."),
     { id: 'tobundles', scene: 'items', part: 3, target: 'nav-bundles', title: <>Tap <b>Bundles</b></> },
     { id: 'bundleslook', scene: 'bundles', part: 3, target: 'bundlelist', look: true, next: C, title: 'What creators can book',
-      body: ul([['Bundles', 'a case booked whole, never split'], ['Add-on extras', 'one kind of piece (spare batteries, mics), creators pick how many']]) },
+      body: ul([['Bundles', 'a case booked whole, never split'], ['Add-on extras', 'one kind of piece (spare lights, mics), creators pick how many']]) },
     { id: 'newbundle', scene: 'bundles', part: 3, target: 'newbundle', title: <>Tap <b>+ Bundle</b></> },
     { id: 'bundlename', scene: 'bundleedit', part: 3, target: 'bundlename', next: C, hint: 'Type a name first', title: 'Name the kit', body: <>Something creators recognise, like <b>Sony FX3 kit</b>. Add a photo of the case in real life.</> },
     { id: 'bundlepieces', scene: 'bundleedit', part: 3, target: 'pieces', top: true, next: C, hint: 'Add at least 2 pieces', title: <>Fill the case with <b>+</b></>,
-      body: <>Add your new camera, a lens, a few batteries. "Still free" shows what isn't in another kit.</> },
+      body: <>Add your new camera, a lens, a light and a gorilla pod. "Still free" shows what isn't in another kit.</> },
     { id: 'bundlesave', scene: 'bundleedit', part: 3, target: 'bundlesave', title: <>Tap <b>Save bundle</b></> },
     { id: 'bundlenew', scene: 'bundles', part: 3, target: 'newkit', next: C, title: 'Your kit is live', body: <>Creators can book <b>{kitName}</b> right away. Need to change it later? Tap it. Its pieces are locked while it's booked or out.</> },
     { id: 'quiz3', scene: 'bundles', part: 3, title: '', quiz: {
-      q: 'Can one camera battery sit in two bundles at once?', options: ['Yes, they share it', 'No, one bundle or extra at a time', 'Only on weekends'], correct: 1,
+      q: 'Can one light sit in two bundles at once?', options: ['Yes, they share it', 'No, one bundle or extra at a time', 'Only on weekends'], correct: 1,
       explain: 'A piece lives in one place at a time, so a kit can never be promised twice. Archiving a bundle frees its pieces again.' } },
     // 4 · Run the queue
     intro(4, 'bundles', "Creators book gear themselves, instantly. Your queue is where you see it all coming and going."),
@@ -145,7 +145,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     { id: 'openheld', scene: 'queue', part: 4, target: 'heldcard', title: "Tap Riley's booking", body: 'Picking up today at 1 PM.' },
     { id: 'heldlook', scene: 'booking', part: 4, target: 'bookinghead', look: true, next: C, title: 'Booked, held, no approval needed',
       body: "Creators get an instant hold within the rules (2 open days' notice, nothing double-booked). You only step in when something's wrong." },
-    { id: 'declineopen', scene: 'booking', part: 4, target: 'decline', title: <>Can't do it? Tap <b>Decline</b></>, body: 'Say the drone is in for repair.' },
+    { id: 'declineopen', scene: 'booking', part: 4, target: 'decline', title: <>Can't do it? Tap <b>Decline</b></>, body: 'Say the FX3 is in for repair.' },
     { id: 'declinewhy', scene: 'booking', part: 4, target: 'decline', top: true, next: C, hint: 'Write a reason first', title: 'Always say why, and offer another option',
       body: <>e.g. <b>"The FX3 is in for repair, try the A7S kit."</b> They get a ping with your words. (Practice: we'll keep this booking.)</> },
     // 5 · Hand it over
@@ -158,7 +158,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     { id: 'outlook', scene: 'booking', part: 5, target: 'problems', look: true, next: C, title: 'Missing at pickup is flagged right away',
       body: "You get a ping, the kit shows a warning, and it goes on the record of whoever had it last. Not on Riley." },
     { id: 'quiz5', scene: 'booking', part: 5, title: '', quiz: {
-      q: "Riley opens the case and the top handle isn't there. What should happen?", options: ['Sign anyway and mention it later', 'Tap Missing? before signing', 'Cancel the shoot'], correct: 1,
+      q: "Riley opens the case and the gorilla pod isn't there. What should happen?", options: ['Sign anyway and mention it later', 'Tap Missing? before signing', 'Cancel the shoot'], correct: 1,
       explain: "Missing before signing is on the last person who had it. After signing, it's on the one who signed." } },
     // 6 · Check it back in
     intro(6, 'queue', "3 PM. Riley's done filming. Gear comes back, and you make sure it's all there before the next person needs it."),
@@ -167,7 +167,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     { id: 'tocheckin', scene: 'queue', part: 6, target: 'tab-checkin', title: <>Tap <b>To check in</b></> },
     { id: 'opencheckin', scene: 'queue', part: 6, target: 'retcard', title: "Tap Riley's return" },
     { id: 'retphoto', scene: 'booking', part: 6, target: 'retphoto', look: true, next: C, title: 'Their return photo',
-      body: "Everything in the case, batteries plugged in to charge. The stamp shows when it was really taken, so old photos can't be reused." },
+      body: "Everything back in the case, packed the way it went out. The stamp shows when it was really taken, so old photos can't be reused." },
     { id: 'checkpieces', scene: 'booking', part: 6, target: 'pieces', top: true, next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece back in', body: 'Same as pickup. No time before the next pickup? The next creator\'s pickup check covers it.' },
     { id: 'checknote', scene: 'booking', part: 6, target: 'checknote', next: C, title: 'Anything damaged? Write it down',
       body: <>e.g. <b>"lens cap scratched"</b>. The note stays on this booking, with who had it. Nothing to report? Just Continue.</> },
@@ -309,7 +309,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
           <div className="chapter-rise relative self-center"><span className="absolute inset-0 rounded-full blur-2xl bg-pt-accent/25" /><BrandMark className="relative w-28 text-white" title="" /></div>
           <div className="space-y-3">
             <h1 className="chapter-rise font-display text-[34px] leading-[1.05] font-extrabold tracking-tight" style={{ animationDelay: '100ms' }}>Welcome to the gear room{first ? `, ${first}` : ''}!</h1>
-            <p className="chapter-rise text-[17px] leading-relaxed text-pt-text/85" style={{ animationDelay: '170ms' }}>Every camera, light and drone at Prime Capitol goes through you. This app keeps track of all of it, so you don't have to remember.</p>
+            <p className="chapter-rise text-[17px] leading-relaxed text-pt-text/85" style={{ animationDelay: '170ms' }}>Every camera, lens, light and mic at Prime Capitol goes through you. This app keeps track of all of it, so you don't have to remember.</p>
           </div>
           <div className="space-y-3">
             {([['box', 'Every piece of gear, and which kit it lives in'], ['clock', 'A queue of who picks up what, and when it is due back'], ['calendar', 'The house calendar, when it needs a human']] as [IconName, string][]).map(([i, t], n) => (
@@ -359,7 +359,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
           <div className="p-4 space-y-2">
             {tab === 'today' && <>
               {queueCard({ t: 'If You See This, RUN', who: 'Riley', when: past('opencheckin') ? `Due back ${fmtTime(END)}` : `Pickup ${fmtTime(START)}`, what: kitWhat, pill: <Pill tone={kitTone}>{kitLabel}</Pill>, target: 'heldcard' })}
-              {queueCard({ t: 'Ghost Hunt at 3 AM', who: 'Jordan', when: `Due back ${fmtTime(17 * 60)}`, what: 'DJI Mini 5 drone, 2× Extra camera battery', pill: <Pill tone="warn">Out</Pill> })}
+              {queueCard({ t: 'Ghost Hunt at 3 AM', who: 'Jordan', when: `Due back ${fmtTime(17 * 60)}`, what: 'Interview light kit, 2× Wireless mic (DJI Mic)', pill: <Pill tone="warn">Out</Pill> })}
             </>}
             {tab === 'out' && <>
               <div {...T('latecard')}>{queueCard({ t: 'My Roommate Is A Spy', who: 'Sam', when: `${formatDay(today)} · ${fmtHours(10 * 60, 12 * 60)}`, what: 'Sony A7S III kit', pill: <><Pill tone="taken">Late</Pill><Pill tone="warn">Out</Pill></>, late: true })}</div>
@@ -405,7 +405,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
 
             {kitStatus === 'returned' && (
               <section className="space-y-3">
-                <div><h2 className="text-pt-text text-xl font-semibold tracking-tight">Check in</h2><p className="text-pt-muted text-sm">Check the batteries are charging, then tick each piece. If you can't get to it before the next pickup, that creator's pickup check covers it.</p></div>
+                <div><h2 className="text-pt-text text-xl font-semibold tracking-tight">Check in</h2><p className="text-pt-muted text-sm">Tick each piece as it goes back on the shelf. If you can't get to it before the next pickup, that creator's pickup check covers it.</p></div>
                 {pieceList(false)}
                 <input {...T('checknote')} value={checkNote} onChange={e => setCheckNote(e.target.value.slice(0, 200))} placeholder="Note (optional), e.g. lens cap scratched"
                   className="w-full bg-pt-surface rounded-xl px-4 py-3 text-pt-text text-[15px] placeholder-pt-muted focus:outline-none focus:ring-1 focus:ring-pt-accent" />
@@ -443,7 +443,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
               <div {...T('decline')}>
                 {at('declinewhy') ? (
                   <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
-                    <textarea value={declineWhy} onChange={e => setDeclineWhy(e.target.value.slice(0, 200))} rows={2} placeholder="Why? e.g. the drone is in for repair; try the Mini 3 bundle"
+                    <textarea value={declineWhy} onChange={e => setDeclineWhy(e.target.value.slice(0, 200))} rows={2} placeholder="Why? e.g. the FX3 is in for repair; try the A7S III kit"
                       className="w-full bg-pt-bg rounded-xl px-3 py-2 text-pt-text text-[15px] placeholder-pt-muted focus:outline-none focus:ring-1 focus:ring-pt-accent resize-none" />
                     <div className="grid grid-cols-2 gap-2"><span className="py-3 rounded-xl bg-pt-border text-pt-text font-medium text-center">Back</span><span className="py-3 rounded-xl bg-red-500/50 text-white font-semibold text-center">Decline</span></div>
                   </div>
@@ -518,7 +518,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
               <div className="flex gap-2">
                 <label className="block space-y-1 w-28"><span className="text-pt-muted text-[13px]">How many</span><input value="1" disabled className={field} /></label>
                 <label className="block space-y-1 flex-1"><span className="text-pt-muted text-[13px]">Serial number</span>
-                  <input value={serial} onChange={e => setSerial(e.target.value.slice(0, 40))} placeholder="Cameras & drones (optional)" className={field} /></label>
+                  <input value={serial} onChange={e => setSerial(e.target.value.slice(0, 40))} placeholder="Cameras (optional)" className={field} /></label>
               </div>
               <label className="block space-y-1"><span className="text-pt-muted text-[13px]">Replacement value ($, staff only)</span><input placeholder="Optional" disabled className={field} /></label>
             </div>
@@ -546,10 +546,10 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
                     <p className="text-pt-muted text-xs truncate">{kitPieces.slice(0, 3).map(p => `${p.qty}× ${p.name}`).join(', ')}{kitPieces.length > 3 ? '…' : ''}</p></div>
                 </div>
               )}
-              {[['Sony A7S III kit', 'Camera', '1× Sony A7S III body, 1× 24-70mm lens, 3× Camera battery'], ['DJI Mini 5 drone', 'Drones', '1× DJI Mini 5 drone, 1× Controller, 3× Drone battery']].map(([n, c, p]) => (
+              {[['Sony A7S III kit', 'Camera', '1× Sony A7S III body, 1× Zeiss 16-35mm f/4 lens, 1× Rode shotgun mic'], ['Interview light kit', 'Lighting', '3× Aputure MC Pro light, 1× Gorilla pod']].map(([n, c, p]) => (
                 <div key={n} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
                   <GearArt category={c} className="w-16 h-16 rounded-xl shrink-0" />
-                  <div className="min-w-0"><p className="text-pt-text font-medium truncate">{n}</p><p className="text-pt-muted text-xs">{c} · 5 pieces</p><p className="text-pt-muted text-xs truncate">{p}</p></div>
+                  <div className="min-w-0"><p className="text-pt-text font-medium truncate">{n}</p><p className="text-pt-muted text-xs">{c} · {n === 'Sony A7S III kit' ? 3 : 4} pieces</p><p className="text-pt-muted text-xs truncate">{p}</p></div>
                 </div>
               ))}
               {past('gearsign') && missingShown && (
@@ -564,7 +564,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
             </div>
             <div className="space-y-2">
               <p className="text-pt-muted text-xs">Add-on extras · Creators pick how many</p>
-              {[['Extra camera battery', 'Power', 6], ['Wireless mic (DJI Mic)', 'Audio', 4]].map(([n, c, q]) => (
+              {[['Wireless mic (DJI Mic)', 'Audio', 4], ['Gorilla pod', 'Grip', 3]].map(([n, c, q]) => (
                 <div key={n as string} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
                   <GearArt category={c as string} className="w-16 h-16 rounded-xl shrink-0" />
                   <div className="min-w-0"><p className="text-pt-text font-medium truncate">{n}</p><p className="text-pt-muted text-xs">{q} offered</p></div>
@@ -729,7 +729,6 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
           <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
             {[['Gear queue', "Today's pickups and returns, what's out, what to check in"], ['Bundles & add-on extras', 'What creators can book; build a new kit'],
               ['All gear', 'Every piece you own: add gear, serial numbers, values, archive'], ['Schedule team', 'Check-ins, reports to review, creators booked vs filmed, pauses'],
-              ['Schedule settings', 'Houses, slots, priority days, strikes, Google Calendar'], ['Google Calendar import', 'Sort events added straight in the shared calendar'],
               ['Gear team tour', 'Practise the gear room again, step by step'], ['Help', 'How do I…? Gear, check-ins, the schedule, sign-in'], ['My account', 'Your photo, notifications; sign out']].map(([t, d]) => (
               <button key={t} {...(t === 'My account' ? T('myaccount') : {})} onClick={t === 'My account' ? tap('myaccount') : undefined} className="w-full flex items-center gap-3 px-4 py-4 text-left">
                 <div className="flex-1 min-w-0"><p className="text-pt-text font-medium">{t}</p><p className="text-pt-muted text-xs mt-0.5">{d}</p></div>

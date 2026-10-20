@@ -13,7 +13,7 @@ import {
   type StockItem, type StockBundle, type GearCategory, type OfferKind,
 } from './gearStock.js'
 
-const GEAR_STAFF = ['owner', 'equipment', 'admin'] as const
+const GEAR_STAFF = ['owner', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 const category = (v: unknown): GearCategory => GEAR_CATEGORIES.includes(v as GearCategory) ? v as GearCategory : 'Other'
 const photosOf = (v: unknown) => Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 10) : []

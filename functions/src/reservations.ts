@@ -13,7 +13,7 @@ import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE, type Caller } from './auth.js'
+import { db, requireRole, CALLABLE, booksLikeCreator, type Caller } from './auth.js'
 import { collectionOf } from './collections.js'
 import {
   checkDates, freeForRange, todayInStudio, earliestStart, addOpenDays, turnaroundFor, cleanClosedDays, isLate,
@@ -169,7 +169,7 @@ export const shootIdOf = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-
 
 export const createReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'creator'])   // not arts (owner, Oct 19: arts handle requests, they don't book)
-  if (caller.role === 'creator') await assertNotPaused(caller.email)
+  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const { startDate, endDate } = req.data ?? {}
   const title = text(req.data?.title, 120)
   if (!title) throw new HttpsError('invalid-argument', 'Give the shoot a name.')
@@ -330,7 +330,7 @@ export const cancelReservation = onCall(CALLABLE, async req => {
 // availability rules as a new request; taking things out is always fine.
 export const editReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
-  if (caller.role === 'creator') await assertNotPaused(caller.email)
+  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const lines = cleanLines(req.data?.lines)
   const builds = cleanBuilds(req.data?.builds)
   if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Nothing left in this request. Cancel it instead.')

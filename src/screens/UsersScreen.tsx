@@ -12,11 +12,11 @@ const ROLE_ORDER: Role[] = ['owner', 'admin', 'arts', 'equipment', 'creator']
 
 // One line per role, shown under the picker so it's clear what each person will be able to do.
 const ROLE_HELP: Record<Role, string> = {
-  creator: 'Books props and gear for their shoots. Sees only their own bookings.',
-  arts: 'Runs the props: adds and edits props, the props queue, check-ins. Can invite creators.',
-  equipment: 'Runs the gear: gear list, bundles, the gear queue. Sees no props.',
-  admin: 'Oversees everything: props queue, gear, schedule, people (invites creators); books shoots too. No costs, settings or your personal props.',
-  owner: 'Full control of everything, including people, settings and costs. Only give this to a partner.',
+  creator: 'Books shoots, props and gear. Sees only their own bookings.',
+  arts: 'Runs the props: adds and edits props, the props queue, check-ins, duplicates and bins.',
+  equipment: 'Runs the gear and the schedule day to day: gear list, bundles, the gear queue, blocking time. Sees no props.',
+  admin: 'Manages the creators: sees every queue and the schedule, the Creators dashboard, gives and removes strikes, pauses, invites creators, booking rules. Books their own shoots. Changes nothing else.',
+  owner: 'Full control of everything, including people and settings. Only give this to a partner.',
 }
 
 export default function UsersScreen() {
@@ -59,7 +59,7 @@ export default function UsersScreen() {
       <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">
           Only people listed here can sign in. They sign in with Google using the exact email you invite.
-          {!isOwner && !viewingAs && ' You can invite and turn off creators; ask the owner to invite arts department or equipment team people.'}
+          {!isOwner && !viewingAs && ' You can invite and turn off creators; ask the owner for anyone else.'}
         </p>
         {realRole === 'owner' && viewingAs && (
           <div className="bg-sky-500/15 rounded-2xl px-4 py-3 text-sky-200 text-sm space-y-2">
