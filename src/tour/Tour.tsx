@@ -23,7 +23,6 @@ import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useScheduleSettings, fmtSlot, listFilmingFriends, INVITE_HOLD_MINUTES } from '../services/schedule'
-import { subscribeToGearBundles, type GearBundle } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import { ideaToProps } from '../services/ai'
 import { pushState, turnOnPush, isIOS, type PushState } from '../services/push'
@@ -54,6 +53,17 @@ interface Step { id: string; scene: Scene; part?: number; target?: string; title
   quiz?: { q: ReactNode; options: string[]; correct: number; explain: ReactNode } }
 
 const START = 13 * 60, SLOT = 120, HOLD = INVITE_HOLD_MINUTES
+// The tour's gear room: what creators pick from in chapter 3 (practice only, not the real inventory).
+interface PracticeGear { id: string; kind: 'bundle' | 'extra'; name: string; category: string; pieces: { name: string; qty: number }[]; offered?: number }
+const PRACTICE_GEAR: PracticeGear[] = [
+  { id: 'fx3', kind: 'bundle', name: 'Sony FX3 kit', category: 'Camera', pieces: [{ name: 'Sony FX3 body', qty: 1 }, { name: '24-70mm lens', qty: 1 }, { name: 'Battery', qty: 3 }, { name: 'CFexpress card', qty: 2 }, { name: 'Top handle', qty: 1 }] },
+  { id: 'a7s', kind: 'bundle', name: 'Sony A7S III kit', category: 'Camera', pieces: [{ name: 'Sony A7S III body', qty: 1 }, { name: '24-70mm lens', qty: 1 }, { name: 'Battery', qty: 3 }, { name: 'SD card', qty: 2 }] },
+  { id: 'mavic', kind: 'bundle', name: 'DJI Mavic Air drone', category: 'Drones', pieces: [{ name: 'Mavic Air drone', qty: 1 }, { name: 'Controller', qty: 1 }, { name: 'Drone battery', qty: 3 }, { name: 'Charging hub', qty: 1 }, { name: 'Spare propellers', qty: 1 }] },
+  { id: 'mini5', kind: 'bundle', name: 'DJI Mini 5 drone', category: 'Drones', pieces: [{ name: 'Mini 5 drone', qty: 1 }, { name: 'Controller', qty: 1 }, { name: 'Drone battery', qty: 3 }, { name: 'Charger', qty: 1 }] },
+  { id: 'bat', kind: 'extra', name: 'Extra camera battery', category: 'Power', pieces: [], offered: 6 },
+  { id: 'led', kind: 'extra', name: 'LED panel light', category: 'Lighting', pieces: [], offered: 4 },
+  { id: 'mic', kind: 'extra', name: 'Wireless mic (DJI Mic)', category: 'Audio', pieces: [], offered: 4 },
+]
 // Same class strings as the real screens.
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 disabled:shadow-none'
@@ -70,8 +80,6 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const items = useItems()
   const settings = useBookingSettings()
   const s = useScheduleSettings()
-  const [bundles, setBundles] = useState<GearBundle[]>([])
-  useEffect(() => subscribeToGearBundles(setBundles), [])
 
   // ── Real props (read only), searched on the phone ──
   const all = useMemo(() => items.filter(i => i.collection === 'company' && i.photos?.length && !i.archived && i.condition !== 'damaged'), [items])
@@ -97,11 +105,16 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const shown = query.trim() ? found(query).slice(0, 8) : props
   const [added, setAdded] = useState<string[]>([])   // props added to your first shoot by searching
   const picked = added.map(id => all.find(i => i.id === id)).filter((x): x is Item => !!x)
-  const kit = bundles.find(b => b.kind !== 'extra' && !b.archived)
-  const kitName = kit?.name ?? 'Camera kit'
-  const kitPieces = kit?.pieces.length ? kit.pieces : [{ itemId: 'a', qty: 1, name: 'Camera body' }, { itemId: 'b', qty: 1, name: 'Lens' }, { itemId: 'c', qty: 2, name: 'Battery' }]
-  const pieceLines = kitPieces.flatMap(p => Array.from({ length: Math.min(p.qty, 3) }, (_, u) => ({ key: `${p.itemId}|${u}`, name: p.name ?? 'Piece', unit: u + 1, of: p.qty }))).slice(0, 5)
-  const pcs = kitPieces.reduce((n, p) => n + p.qty, 0)
+  // ── Practice gear (owner, Oct 20): two camera kits, two drones, add-ons. Nothing real is booked. ──
+  const [gearPick, setGearPick] = useState<Record<string, number>>({})
+  const chosen = PRACTICE_GEAR.filter(g => (gearPick[g.id] ?? 0) > 0)
+  const gearCount = chosen.length
+  const hasCamera = chosen.some(g => g.category === 'Camera')
+  const gearNames = chosen.map(g => g.kind === 'extra' && gearPick[g.id] > 1 ? `${g.name} ×${gearPick[g.id]}` : g.name).join(', ') || 'Camera kit'
+  // Pickup checklist: each piece of the kits you picked, plus the add-ons (one line each, at most 6, to keep it short).
+  const pieceLines = chosen.flatMap(g => g.kind === 'bundle'
+    ? g.pieces.map(p => ({ key: `${g.id}|${p.name}`, name: p.qty > 1 ? `${p.name} ×${p.qty}` : p.name, unit: 1, of: 1 }))
+    : [{ key: g.id, name: gearPick[g.id] > 1 ? `${g.name} ×${gearPick[g.id]}` : g.name, unit: 1, of: 1 }]).slice(0, 6)
 
   // ── Your friends: typed and picked from the real list of creators (names only; nobody is booked or told) ──
   const [people, setPeople] = useState<{ email: string; name: string }[] | null>(null)
@@ -178,7 +191,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'addingbar', scene: 'browse', part: 3, target: 'adding', look: true, next: C, title: "This bar shows which shoot you're shopping for", body: '"Free" on a photo means it is free that day. Tap Change to switch shoots.' },
     { id: 'search', scene: 'browse', part: 3, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Search the closet and tap + on something', body: <>Try <b>mask</b>, <b>hat</b> or <b>phone</b>. Add as many as you like, then Continue.</> },
     { id: 'geartab', scene: 'browse', part: 3, target: 'geartab', title: <>Now the gear. Tap <b>Gear</b></>, body: 'Cameras, lights and sound live here.' },
-    { id: 'addgear', scene: 'gear', part: 3, target: 'gear-add', title: <>Tap <b>+</b> on the kit</>, body: "Gear comes as kits: one case with every piece inside, booked for your shoot's hours." },
+    { id: 'addgear', scene: 'gear', part: 3, target: 'gearkits', top: true, next: C, hint: 'Add a camera kit first', title: <>Pick a camera: tap <b>+</b> on the FX3 or the A7S</>, body: "Each kit is one case with every piece inside, booked for your shoot's hours. Want aerial shots? Add the Mavic Air or the Mini 5 too." },
+    { id: 'addextras', scene: 'gear', part: 3, target: 'gearextras', next: C, title: 'Need add-ons? Use + and −', body: 'Extra batteries, lights or a wireless mic go on top of your kit. None needed? Just Continue.' },
     { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'Quick check before it goes to the teams.' },
     { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
@@ -226,7 +240,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'sign', scene: 'pickup', part: 7, target: 'sign', title: <>Got everything? Tap <b>I've got everything</b></>, body: 'Check the list at the prop room first. Only you can sign for your props.' },
     { id: 'pickback', scene: 'pickup', part: 7, target: 'back', title: <>Tap <b>Back</b></>, body: "Now the gear. It's on the same card." },
     { id: 'opengear', scene: 'requests', part: 7, target: 'gearrow', title: 'Tap your gear', body: 'Pick it up from the equipment cage, from 30 minutes before your time.' },
-    { id: 'pieces', scene: 'gearpickup', part: 7, target: 'pieces', next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece in the case', body: 'Something not there? Tap Missing? next to it, so nobody blames you.' },
+    { id: 'pieces', scene: 'gearpickup', part: 7, target: 'pieces', top: true, next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece in the case', body: 'Something not there? Tap Missing? next to it, so nobody blames you.' },
     { id: 'gearsign', scene: 'gearpickup', part: 7, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: "From here until it's back, the kit is in your hands." },
     { id: 'quiz7', scene: 'gearpickup', part: 7, title: '', quiz: {
       q: 'You open the gear case and the spare battery is missing. What do you do?', options: ["Sign anyway, it's probably fine", 'Tap Missing? before signing', 'Text the team about it later'], correct: 1,
@@ -430,7 +444,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <span className="text-pt-accent text-xs shrink-0 tap">Change</span>
     </div>
   )
-  const nGear = past('addgear') ? 1 : 0
+  const nGear = gearCount
   const basket = (propCount + nGear > 0) && (
     <div className="sticky bottom-3 px-4">
       <button {...T('reviewbar')} onClick={tap('reviewbar')} className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 font-semibold shadow-gold">
@@ -572,7 +586,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <RequestRow className="bg-pt-bg" label="Props & costumes" onOpen={tap('propsrow')} l={{ id: 'p', kind: 'props', title, status: propsStatus, count: propCount }} />
       </div>
       <div {...T('gearrow')}>
-        <RequestRow className="bg-pt-bg" label={`Gear · ${fmtSlot(START, SLOT)}`} onOpen={tap('gearrow')} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: 1 }} />
+        <RequestRow className="bg-pt-bg" label={`Gear · ${fmtSlot(START, SLOT)}`} onOpen={tap('gearrow')} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: Math.max(1, gearCount) }} />
       </div>
       {at('returnall') && !past('returned') && <button {...T('returnall')} onClick={tap('returnall')} className="w-full rounded-lg py-3 text-sm font-semibold text-stone-900 bg-pt-accent shadow-gold">Return everything</button>}
       {!at('part7') && <div className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10 text-center">+ Add props or gear <span className="font-normal text-pt-muted">· by {formatDay(cut.gear)}</span></div>}
@@ -840,23 +854,50 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         </div>
         <div className="p-4 space-y-3">
           <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Bundles</h2><span className="text-pt-muted text-xs">Booked as a whole</span></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="relative w-full h-full">
-              <div className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
-                <div className="relative aspect-square">
-                  <GearArt photo={kit?.photos?.[0]} category={kit?.category} className="w-full h-full" />
-                  <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span>
-                  <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">{pcs} pcs</span>
+          <div {...T('gearkits')} className="grid grid-cols-2 gap-3">
+            {PRACTICE_GEAR.filter(g => g.kind === 'bundle').map(g => {
+              const on = (gearPick[g.id] ?? 0) > 0, can = step.id === 'addgear'
+              return (
+                <div key={g.id} className="relative w-full h-full">
+                  <div className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
+                    <div className="relative aspect-square">
+                      <GearArt category={g.category} className="w-full h-full" />
+                      <span className={`absolute top-2 left-2 text-xs font-semibold px-2 py-0.5 rounded-full ${FREE}`}>Free</span>
+                      <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs font-semibold px-2 py-0.5 rounded-md">{g.pieces.reduce((n, p) => n + p.qty, 0)} pcs</span>
+                    </div>
+                    <div className="px-3 pt-2 pb-3">
+                      <p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{g.name}</p>
+                      <p className="text-pt-muted text-xs truncate mt-0.5">{g.category === 'Drones' ? 'Drone' : g.category} · free {fmtHours(START, START + SLOT)}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => can && setGearPick(p => ({ ...p, [g.id]: on ? 0 : 1 }))} aria-label={`${on ? 'Remove' : 'Add'} ${g.name}`}
+                    className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${on ? 'bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{on ? '✓' : '+'}</button>
                 </div>
-                <div className="px-3 pt-2 pb-3">
-                  <p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{kitName}</p>
-                  <p className="text-pt-muted text-xs truncate mt-0.5">{kit?.category ?? 'Camera'} · free {fmtHours(START, START + SLOT)}</p>
-                </div>
-              </div>
-              <button {...T('gear-add')} onClick={tap('gear-add')} aria-label={`${nGear ? 'Remove' : 'Add'} ${kitName}`}
-                className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${nGear ? 'bg-pt-accent text-stone-900 text-sm' : 'bg-black/55 text-pt-text text-[22px] leading-none pb-0.5'}`}>{nGear ? '✓' : '+'}</button>
-            </div>
+              )
+            })}
           </div>
+          <section {...T('gearextras')} className="space-y-3 pt-3">
+            <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Add-on extras</h2><span className="text-pt-muted text-xs">Pick how many</span></div>
+            <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+              {PRACTICE_GEAR.filter(g => g.kind === 'extra').map(x => {
+                const n = gearPick[x.id] ?? 0, can = step.id === 'addextras', f = x.offered ?? 0
+                return (
+                  <div key={x.id} className="flex items-center gap-3 px-3 py-3">
+                    <GearArt category={x.category} className="w-11 h-11 rounded-xl shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-pt-text text-[15px] truncate">{x.name}</p>
+                      <p className="text-xs text-pt-muted">{f} free for your hours</p>
+                    </div>
+                    <div className="flex items-center rounded-xl overflow-hidden bg-pt-bg shadow-hairline shrink-0">
+                      <button onClick={() => can && setGearPick(p => ({ ...p, [x.id]: n - 1 }))} disabled={n === 0} aria-label={`One less ${x.name}`} className="w-11 h-11 text-pt-text text-lg disabled:opacity-30">−</button>
+                      <span className="w-7 text-center text-pt-text font-semibold tabular-nums">{n}</span>
+                      <button onClick={() => can && setGearPick(p => ({ ...p, [x.id]: n + 1 }))} disabled={n >= f} aria-label={`One more ${x.name}`} className="w-11 h-11 text-pt-text text-lg disabled:opacity-30">+</button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
           <div className="h-20" />
         </div>
         {basket}
@@ -913,13 +954,15 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             )}
           </div>
           <div className="space-y-2">
-            <div className="flex items-baseline justify-between"><p className="text-pt-muted text-xs">Gear (1) · equipment team</p><span className="text-pt-accent text-sm">+ Add gear</span></div>
+            <div className="flex items-baseline justify-between"><p className="text-pt-muted text-xs">Gear ({gearCount}) · equipment team</p><span className="text-pt-accent text-sm">+ Add gear</span></div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
-              <div className="flex items-center gap-3 px-3 py-3">
-                <GearArt photo={kit?.photos?.[0]} category={kit?.category} className="w-12 h-12 rounded-xl shrink-0" />
-                <div className="min-w-0 flex-1"><p className="text-pt-text text-sm font-medium truncate">{kitName}</p><p className="text-pt-muted text-xs">Bundle · {fmtHours(START, START + SLOT)}</p></div>
-                <span className="text-pt-muted text-2xl px-2">×</span>
-              </div>
+              {chosen.map(g => (
+                <div key={g.id} className="flex items-center gap-3 px-3 py-3">
+                  <GearArt category={g.category} className="w-12 h-12 rounded-xl shrink-0" />
+                  <div className="min-w-0 flex-1"><p className="text-pt-text text-sm font-medium truncate">{g.name}{g.kind === 'extra' ? ` ×${gearPick[g.id]}` : ''}</p><p className="text-pt-muted text-xs">{g.kind === 'bundle' ? 'Bundle' : 'Add-on'} · {fmtHours(START, START + SLOT)}</p></div>
+                  <span className="text-pt-muted text-2xl px-2">×</span>
+                </div>
+              ))}
             </div>
             <p className="text-pt-muted text-xs leading-snug px-1">Gear: pick up {formatDay(day)} at {fmtTime(START)} from the equipment cage; back by {fmtTime(START + SLOT)}. Return photo required.</p>
           </div>
@@ -1223,7 +1266,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             <div><h1 className="font-display text-[34px] text-pt-text">Return everything</h1><p className="text-pt-muted text-[15px]">{shootLabel}</p></div>
             <section {...T('retlist')} className="space-y-2">
               <h2 className="text-pt-text text-lg font-semibold">What you're bringing back</h2>
-              {([['props', `Props & costumes · ${propCount}`, [...picked.map(p => p.name), ...builds.map(b => b.description)].join(', ')], ['gear', `Gear · ${fmtSlot(START, SLOT)}`, kitName]] as const).map(([k, head, detail]) => {
+              {([['props', `Props & costumes · ${propCount}`, [...picked.map(p => p.name), ...builds.map(b => b.description)].join(', ')], ['gear', `Gear · ${fmtSlot(START, SLOT)}`, gearNames]] as const).map(([k, head, detail]) => {
                 const on = !retOff.includes(k)
                 return (
                   <button key={k} onClick={() => step.id === 'retlist' && setRetOff(o => on ? [...o, k] : o.filter(x => x !== k))} aria-pressed={on}
@@ -1319,7 +1362,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const back = idx > 0 ? () => setIdx(n => { const m = Math.max(0, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
   const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
     || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount)
-    || (step.id === 'search' && added.length === 0) || (step.id === 'changeadd' && changeAdded === 0) || (step.id === 'retlist' && retOff.length > 0) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
+    || (step.id === 'search' && added.length === 0) || (step.id === 'changeadd' && changeAdded === 0) || (step.id === 'retlist' && retOff.length > 0) || (step.id === 'addgear' && !hasCamera) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
     || (['setphoto', 'retphoto'].includes(step.id) && !photos[step.id]) || (step.id === 'notify' && push === 'off' && !pushMsg)
 
   return (

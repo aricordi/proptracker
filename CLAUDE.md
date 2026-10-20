@@ -1090,6 +1090,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the props request page and the gear page when the shoot has more out. Separate returns still work from each page.
       Tour ch9 = Return everything → untick/tick → one photo → Return all 2 → See my requests. Checked: 94 tour screens on a
       390×844 touch screen, real return of props + gear with one photo in the emulator. Tests 400.
+    - TOUR GEAR ROOM (owner, Oct 20; preview only, live needs OK; app only): chapter 3's gear step uses a fixed PRACTICE
+      catalogue (PRACTICE_GEAR in Tour.tsx, not the real inventory): bundles Sony FX3 kit, Sony A7S III kit, DJI Mavic Air
+      drone, DJI Mini 5 drone (pieces listed) + add-on extras (Extra camera battery 6, LED panel light 4, Wireless mic (DJI
+      Mic) 4, steppers). Steps: `addgear` (pick a camera kit; Continue needs one; drones optional; coach at top) →
+      `addextras` (optional) → Review. The review, My requests count, Return everything list and the chapter-7 pickup
+      checklist (one line per piece "Battery ×3", max 6; coach at top) follow what was picked. Fixed weekday-dependent test
+      (invites "ended hold" now uses Cliff 2; Cliff 1 is priority-locked on Thu/Sat). Checked: 97 tour screens. Tests 400.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

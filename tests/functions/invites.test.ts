@@ -33,15 +33,16 @@ describe('book with friends', () => {
     expect((await call('answerInvite', { id: kyleInvite, accept: true }, BEN)).error).toBe('PERMISSION_DENIED')
   })
 
+  // Cliff 2: Cliff 1 is priority-only on Thursdays and Saturdays, and DAY can land on one.
   it('an ended hold can be booked by anyone; the late confirm is refused', async () => {
-    const r = await call('bookWithFriends', { place: 'cliff1', date: DAY, start: 780, friends: [KYLE] }, ANA)
+    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
     const id = r.result.inviteIds[0]
     await put(`schedule_invites/${id}`, { ...(await getDoc(`schedule_invites/${id}`))!, until: '2000-01-01T00:00' })
     const day = (await getDoc(`schedule_days/${DAY}`))!
-    day.cliff1['900'].hold.until = '2000-01-01T00:00'
+    day.cliff2['900'].hold.until = '2000-01-01T00:00'
     await put(`schedule_days/${DAY}`, day)
     expect((await call('answerInvite', { id, accept: true }, KYLE)).message).toMatch(/minutes ran out/)
-    expect((await call('bookShoot', { place: 'cliff1', date: DAY, start: 900 }, BEN)).ok).toBe(true)
+    expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 900 }, BEN)).ok).toBe(true)
   })
 })
 
