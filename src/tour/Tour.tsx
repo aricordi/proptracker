@@ -41,7 +41,9 @@ import { markTourDone, savedStep, saveStep } from './tourState'
 type Scene = 'welcome' | 'home' | 'find' | 'bookit' | 'shoot' | 'invited' | 'invite' | 'chat' | 'browse' | 'gear' | 'review'
   | 'sent' | 'home2' | 'me' | 'requests' | 'request' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'return' | 'gearreturn'
   | 'final' | 'rules' | 'done'
-interface Step { id: string; scene: Scene; target?: string; tip?: ReactNode; next?: string; skip?: boolean; part?: string; top?: boolean }   // top: dock the tip at the top (the step's buttons are at the bottom)
+// A step: what's on screen (scene), what to use (target), the coach panel's text, and how you move on (a tap on the
+// target, or Continue = next). hint = why Continue is greyed out. top = panel at the top (the step's button is at the bottom).
+interface Step { id: string; scene: Scene; part?: number; target?: string; title: ReactNode; body?: ReactNode; next?: string; hint?: string; skip?: boolean; top?: boolean }
 
 const START = 13 * 60, SLOT = 120, HOLD = INVITE_HOLD_MINUTES
 // Same class strings as the real screens.
@@ -50,7 +52,6 @@ const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px]
 const input = 'w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent'
 const searchIcon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
 const FREE = 'bg-green-500/90 text-stone-900'
-const PART = (n: number, t: string) => `${n} of 8 · ${t}`
 
 export default function Tour({ onFinish, required = false }: { onFinish: () => void; required?: boolean }) {
   const { profile, user } = useSession()
@@ -130,66 +131,77 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [over, setOver] = useState(false), [mess, setMess] = useState(false), [reportNote, setReportNote] = useState('')
   const [wrapText, setWrapText] = useState(''), [retNote, setRetNote] = useState('')
 
+  const C = 'Continue'
+  const intro = (n: number, scene: Scene, title: string, points: string[]): Step => ({ id: `part${n}`, scene, part: n, next: C,
+    title, body: <ul className="mt-1 space-y-1.5">{points.map(x => <li key={x} className="flex gap-2"><span className="text-pt-accent">•</span><span>{x}</span></li>)}</ul> })
   const STEPS: Step[] = [
-    { id: 'welcome', scene: 'welcome' },
+    { id: 'welcome', scene: 'welcome', title: '' },
     // 1 · Book a time
-    { id: 'book', scene: 'home', target: 'book', part: PART(1, 'Book a time'), tip: <>Everything starts with a <b>shoot</b>. Tap <b>Book a shoot</b>.</> },
-    { id: 'friend1', scene: 'find', target: 'who', next: 'Continue', part: PART(1, 'Book a time'), tip: <>Let's say you're filming with friends. Tap <b>+ 1 friend</b> or <b>+ 2 friends</b>, then <b>Continue</b>.</> },
-    { id: 'friendname', scene: 'find', target: 'friendzone', next: 'Continue', part: PART(1, 'Book a time'), tip: <>Type {friendCount > 1 ? 'each' : 'your'} friend's name (or their channel) and tap them. Try someone you film with. Then <b>Continue</b>.</> },
-    { id: 'days', scene: 'find', target: 'days', next: 'Continue', part: PART(1, 'Book a time'), tip: <>Tap the day you want to film (a faded day is full), then <b>Continue</b>.</> },
-    { id: 'slot', scene: 'find', target: 'slot', part: PART(1, 'Book a time'), tip: <>Each row is a time that's free for all of you: you first, then {friendFirst}. Tap a <b>house</b>.</> },
-    { id: 'bookit', scene: 'bookit', target: 'bookit', part: PART(1, 'Book a time'), tip: <>Tap <b>Book + invite {friendFirst}</b>. (Practice: nobody is booked or told.)</> },
-    { id: 'booked', scene: 'shoot', target: 'shoottop', next: 'Next', part: PART(1, 'Book a time'), tip: <>Booked! Your slot is yours. {friendFirst} {friends.length > 1 ? 'get' : 'gets'} a notification and {friends.length > 1 ? 'each have' : 'has'} <b>{HOLD} minutes</b> to confirm. A slot nobody confirms opens to everyone.</> },
+    intro(1, 'home', 'First, book a time', ['A shoot is a 2-hour slot at Cliff 1 or Cliff 2', 'Filming with friends? You each get a slot, back to back', 'Booking is confirmed straight away']),
+    { id: 'book', scene: 'home', part: 1, target: 'book', title: <>Tap <b>Book a shoot</b></>, body: 'Every shoot starts with a time. Props and gear get added to it after.' },
+    { id: 'friend1', scene: 'find', part: 1, target: 'who', next: C, hint: 'Pick + 1 friend or + 2 friends first', title: <>Tap <b>+ 1 friend</b> (or + 2)</>, body: "For this practice, film with someone. Each of you gets your own 2-hour slot, one after the other." },
+    { id: 'friendname', scene: 'find', part: 1, target: 'friendzone', next: C, hint: friendCount > 1 ? 'Pick both friends first' : 'Pick a friend first', title: friendCount > 1 ? 'Find both friends' : 'Find your friend', body: 'Tap the box, type a few letters of their name or channel, then tap them in the list. Nobody is told; it\'s practice.' },
+    { id: 'days', scene: 'find', part: 1, target: 'days', next: C, title: 'Pick a day, or keep Soonest', body: 'Soonest shows the next free times first. Tap a day to jump to it (swipe the row for more). A faded day has nothing free for all of you.' },
+    { id: 'slot', scene: 'find', part: 1, target: 'slot', title: <>Tap a <b>house</b> to take that time</>, body: <>This time is free for everyone: you first, then {friendFirst}. Cliff 1 and Cliff 2 work the same.</> },
+    { id: 'bookit', scene: 'bookit', part: 1, target: 'bookit', title: <>Tap <b>Book + invite</b></>, body: <>Your slot is booked now. {friendFirst} {friends.length > 1 ? 'each get' : 'gets'} a notification and {HOLD} minutes to confirm theirs.</> },
+    { id: 'booked', scene: 'shoot', part: 1, target: 'shoottop', next: C, title: "You're booked", body: "This is your shoot's page. You'll add props and gear here, and check in here on the day." },
     // 2 · When a friend invites you
-    { id: 'invited', scene: 'invited', target: 'notif', part: PART(2, 'When a friend invites you'), tip: <>Now the other way round: a friend booked and invited <b>you</b>. Your phone shows this. Tap it.</> },
-    { id: 'confirm', scene: 'invite', target: 'invitebox', part: PART(2, 'When a friend invites you'), tip: <>The slot after theirs is <b>held for you for {HOLD} minutes</b>. Tap <b>Confirm my slot</b>. (Can't make it? Tap that and it opens to everyone.)</> },
-    { id: 'confirmed', scene: 'invite', target: 'myrow', next: 'Next', part: PART(2, 'When a friend invites you'), tip: <>Confirmed: it's your own shoot now, right after theirs. If you don't answer within {HOLD} minutes, the slot opens to everyone. Back to the shoot you booked…</> },
+    intro(2, 'home2', 'When a friend invites you', [`A friend can save you the slot right after theirs`, `It's held for you for ${HOLD} minutes`, "Confirm it, or it opens to everyone"]),
+    { id: 'invited', scene: 'invited', part: 2, target: 'notif', title: 'Tap the notification', body: "Pretend a friend just booked and invited you. This is what pops up on your phone." },
+    { id: 'confirm', scene: 'invite', part: 2, target: 'invitebox', title: <>Tap <b>Confirm my slot</b></>, body: <>The slot after theirs is saved for you for {HOLD} minutes. Can't make it? You'd tap that instead, and it opens to everyone.</> },
+    { id: 'confirmed', scene: 'invite', part: 2, target: 'myrow', next: C, title: "It's yours now", body: 'It shows as Yours on the schedule. That was a separate shoot; the rest of the tour uses the one you booked.' },
     // 3 · Find props with AI
-    { id: 'planai', scene: 'shoot', target: 'planai', part: PART(3, 'Find props with AI'), tip: <>Not sure what props you need? Tap <b>✦ Plan it with AI</b>. (The ✦ AI button at the top of every screen opens it too.)</> },
-    { id: 'aiask', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>Describe your video in your own words (e.g. "a séance that goes wrong") and tap <b>↑</b>.</> },
-    { id: 'aipicks', scene: 'chat', target: 'chatzone', top: true, part: PART(3, 'Find props with AI'), tip: <>That's the real AI: props from our closet for your idea, grouped by scene, each with <b>why</b> it fits. <b>Tick</b> the ones you want (tap +), then tap <b>Add to a shoot</b>. (It only suggests: you decide.)</> },
-    { id: 'aishoot', scene: 'chat', target: 'aishoot', part: PART(3, 'Find props with AI'), tip: <>Pick the shoot they're for: tap yours.</> },
-    { id: 'aitime', scene: 'chat', target: 'composer', part: PART(3, 'Find props with AI'), tip: <>It finds times too. Type something like "2 hours with {inviterFirst} next Friday" and tap <b>↑</b>.</> },
-    { id: 'aioptions', scene: 'chat', target: 'options', next: 'Next', part: PART(3, 'Find props with AI'), tip: <>Real free times, back to back for you and your friend. You'd tap <b>Book</b> to take one (not now: you're already booked).</> },
-    { id: 'aiback', scene: 'chat', target: 'aiback', part: PART(3, 'Find props with AI'), tip: <>Tap <b>‹ Back</b> to go back to your shoot.</> },
-    // 4 · Add more yourself, then send
-    { id: 'addprops', scene: 'shoot', target: 'addprops', part: PART(4, 'Add more and send'), tip: <>You can also add things yourself. Tap <b>+ Add</b> next to Props &amp; costumes.</> },
-    { id: 'search', scene: 'browse', target: 'browsezone', next: 'Continue', part: PART(4, 'Add more and send'), tip: <>Your AI picks are already in your shoot. Search for something else (try <b>mask</b>, <b>hat</b> or <b>phone</b>), tap <b>+</b> on a prop, then <b>Continue</b>.</> },
-    { id: 'geartab', scene: 'browse', target: 'geartab', part: PART(4, 'Add more and send'), tip: <>Cameras, lights and sound are here. Tap <b>Gear</b>.</> },
-    { id: 'addgear', scene: 'gear', target: 'gear-add', part: PART(4, 'Add more and send'), tip: <>Gear comes in kits, booked whole, for your shoot's hours. Tap <b>+</b>.</> },
-    { id: 'reviewbar', scene: 'gear', target: 'reviewbar', part: PART(4, 'Add more and send'), tip: <>Tap here to check everything before it goes.</> },
-    { id: 'name', scene: 'review', target: 'name', next: 'Done', part: PART(4, 'Add more and send'), tip: <>Type a name for the video, so the teams know what it's for.</> },
-    { id: 'make', scene: 'review', target: 'make', part: PART(4, 'Add more and send'), tip: <>Need something we don't have? Tap <b>+ Request something we don't have</b>.</> },
-    { id: 'makeform', scene: 'review', target: 'make', part: PART(4, 'Add more and send'), tip: <>Describe it (e.g. "a fake birthday cake"), pick how many, then tap <b>Add request</b>. For this shoot the arts team needs it by <b>{formatDay(cut.builds)}</b>.</> },
-    { id: 'send', scene: 'review', target: 'send', part: PART(4, 'Add more and send'), tip: <>Props go to the arts team, gear to the equipment team. Tap the button to send. (Practice: nothing is sent.)</> },
-    // 5 · Follow and change your request
-    { id: 'sent', scene: 'sent', target: 'journey', next: 'Next', part: PART(5, 'Follow and change it'), tip: <>Sent! This line shows where your props are, from Requested to Checked in.</> },
-    { id: 'back', scene: 'sent', target: 'back', part: PART(5, 'Follow and change it'), tip: <>Tap <b>‹ Back</b>.</> },
-    { id: 'navme', scene: 'home2', target: 'nav-me', part: PART(5, 'Follow and change it'), tip: <>Your shoot is on Home with ✓ Time, Props and Gear. Everything you asked for is on <b>Me</b>. Tap it.</> },
-    { id: 'myreq', scene: 'me', target: 'myrequests', part: PART(5, 'Follow and change it'), tip: <>Tap <b>My requests</b>.</> },
-    { id: 'card', scene: 'requests', target: 'card', next: 'Next', part: PART(5, 'Follow and change it'), tip: <>One card per shoot, with its props and gear and where each one is.</> },
-    { id: 'openreq', scene: 'requests', target: 'propsrow', part: PART(5, 'Follow and change it'), tip: <>Forgot something, or need a different amount? Tap your props request.</> },
-    { id: 'change', scene: 'request', target: 'changebtn', part: PART(5, 'Follow and change it'), tip: <>Until the arts team starts on it, you can change it. Tap <b>Change</b>.</> },
-    { id: 'changeit', scene: 'request', target: 'changebox', part: PART(5, 'Follow and change it'), tip: <>Change something: tap <b>+</b> or <b>−</b>, <b>×</b> to take one out, or type something to make or find. Then tap <b>Save changes</b>.</> },
-    { id: 'saved', scene: 'request', target: 'addmore', next: 'Next', part: PART(5, 'Follow and change it'), tip: <>Saved. Once the team starts picking, Change goes away; use <b>+ Add more</b> to add to the same shoot instead.</> },
-    { id: 'packed', scene: 'request', target: 'journey', next: 'Next', part: PART(5, 'Follow and change it'), tip: <>When it's ready you get a notification and the line moves to <b>Ready</b>.</> },
+    intro(3, 'shoot', 'Find props with AI', ['Describe your video in your own words', 'It suggests real props from our closet, and says why', 'You pick what goes in. It can find free times too']),
+    { id: 'planai', scene: 'shoot', part: 3, target: 'planai', title: <>Tap <b>Plan it with AI</b></>, body: 'It\'s on your shoot\'s page. The ✦ AI button at the top of every screen opens the same helper.' },
+    { id: 'aiask', scene: 'chat', part: 3, target: 'composer', title: 'Describe your video', body: <>Tap the box, type it like a text to a friend (e.g. "a séance that goes wrong"), then tap <b>↑</b>.</> },
+    { id: 'aipicks', scene: 'chat', part: 3, target: 'chatzone', top: true, title: <>Tick what you'd use, then <b>Add to a shoot</b></>, body: 'Tap + on the props you want (each says why it fits), then tap the gold Add button at the bottom.' },
+    { id: 'aishoot', scene: 'chat', part: 3, target: 'aishoot', title: 'Tap your shoot', body: "Your picks go into it. Nothing is sent to the teams yet; you'll check everything first." },
+    { id: 'aitime', scene: 'chat', part: 3, target: 'composer', title: 'Now ask it for a time', body: <>Type something like "2 hours with {inviterFirst} next Friday" and tap <b>↑</b>.</> },
+    { id: 'aioptions', scene: 'chat', part: 3, target: 'options', next: C, title: 'Real free times', body: "Back to back for both of you. You'd tap Book to take one; skip it now, you're already booked." },
+    { id: 'aiback', scene: 'chat', part: 3, target: 'aiback', title: <>Tap <b>‹ Back</b></>, body: "Back to your shoot's page." },
+    // 4 · Add more and send
+    intro(4, 'shoot', 'Add more yourself, then send', ['Search the closet for anything else', 'Add a gear kit for your hours', 'Name it, then send it to the teams']),
+    { id: 'addprops', scene: 'shoot', part: 4, target: 'addprops', title: <>Tap <b>+ Add</b> next to Props &amp; costumes</>, body: 'This opens the closet with your shoot already picked.' },
+    { id: 'search', scene: 'browse', part: 4, target: 'browsezone', next: C, hint: 'Add one more prop first', title: 'Search, then tap + on a prop', body: <>Your AI picks already have a ✓. Tap the search box, try <b>mask</b>, <b>hat</b> or <b>phone</b>, tap + on a prop, then Continue.</> },
+    { id: 'geartab', scene: 'browse', part: 4, target: 'geartab', title: <>Tap <b>Gear</b></>, body: 'Cameras, lights and sound live on the Gear tab.' },
+    { id: 'addgear', scene: 'gear', part: 4, target: 'gear-add', title: <>Tap <b>+</b> on the kit</>, body: "Gear comes as kits (one case, every piece), booked whole for your shoot's hours." },
+    { id: 'reviewbar', scene: 'gear', part: 4, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'You check everything before it goes to the teams.' },
+    { id: 'name', scene: 'review', part: 4, target: 'name', next: C, hint: 'Type a name first', title: 'Name your video', body: 'Tap the first box and type a name, so the teams know what it\'s for.' },
+    { id: 'make', scene: 'review', part: 4, target: 'make', title: <>Tap <b>+ Request something we don't have</b></>, body: <>For anything that isn't in the closet. The arts team makes or finds it; for this shoot they need to know by {formatDay(cut.builds)}.</> },
+    { id: 'makeform', scene: 'review', part: 4, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake". Use − and + for how many.' },
+    { id: 'send', scene: 'review', part: 4, target: 'send', title: <>Tap <b>Book props + gear</b></>, body: 'Props go to the arts team, gear to the equipment team. (Practice: nothing is sent.)' },
+    // 5 · Follow and change it
+    intro(5, 'sent', 'Follow it, and change it', ['See where your request is at any time', 'Change it until the arts team starts on it', "You get a notification when it's ready"]),
+    { id: 'sent', scene: 'sent', part: 5, target: 'journey', next: C, title: 'This line shows where your props are', body: 'Requested → Being prepared → Ready → Collected → Returned → Checked in.' },
+    { id: 'back', scene: 'sent', part: 5, target: 'back', title: <>Tap <b>‹ Back</b></>, body: 'Next: where to find it again later.' },
+    { id: 'navme', scene: 'home2', part: 5, target: 'nav-me', title: <>Tap <b>Me</b></>, body: 'Your shoot is on Home now, with ✓ Time, Props and Gear. Everything you asked for lives on Me.' },
+    { id: 'myreq', scene: 'me', part: 5, target: 'myrequests', title: <>Tap <b>My requests</b></> },
+    { id: 'card', scene: 'requests', part: 5, target: 'card', next: C, title: 'One card per shoot', body: 'Its props and its gear, each with a bar showing where it is.' },
+    { id: 'openreq', scene: 'requests', part: 5, target: 'propsrow', title: 'Tap your props request', body: 'To see it in full, or to change it.' },
+    { id: 'change', scene: 'request', part: 5, target: 'changebtn', title: <>Tap <b>Change</b></>, body: 'You can change a request until the arts team starts picking it.' },
+    { id: 'changeit', scene: 'request', part: 5, target: 'changebox', title: <>Change something, then <b>Save changes</b></>, body: 'Use − and + for amounts, × to take something out, or type something to make or find.' },
+    { id: 'saved', scene: 'request', part: 5, target: 'addmore', next: C, title: 'Saved', body: 'Once the team starts picking, Change goes away. Then use + Add more to add to the same shoot.' },
+    { id: 'packed', scene: 'request', part: 5, target: 'journey', next: C, title: 'Your props are ready', body: 'You get a notification (top), and the line moves to Ready.' },
     // 6 · Pick up
-    { id: 'sign', scene: 'pickup', target: 'sign', part: PART(6, 'Pick up'), tip: <>Shoot day: at the prop room, check you've got everything, then sign. Only you can sign for your props.</> },
-    { id: 'pieces', scene: 'gearpickup', target: 'pieces', next: 'Continue', part: PART(6, 'Pick up'), tip: <>Gear: open the case and tick <b>every piece</b>. Something missing? Tap <b>Missing?</b> so it isn't blamed on you. Then <b>Continue</b>.</> },
-    { id: 'gearsign', scene: 'gearpickup', target: 'gearsign', part: PART(6, 'Pick up'), tip: <>Then sign. The kit is yours until you bring it back.</> },
-    // 7 · On the day
-    { id: 'setphoto', next: 'Continue', scene: 'checkin', target: 'camera', skip: true, part: PART(7, 'On the day'), tip: <>At the house: open your shoot. Check-in opens <b>{s.checkinBefore} minutes</b> before your time. Take a photo of the set. (Practice: it stays on your phone.)</> },
-    { id: 'report', scene: 'checkin', target: 'report', next: 'Next', part: PART(7, 'On the day'), tip: <>Did the slot before you run over, or leave a mess? Tap one and <b>write what happened</b> (e.g. "still packing up at 1:20"). The team reviews every report.</> },
-    { id: 'checkin', scene: 'checkin', target: 'checkin', part: PART(7, 'On the day'), tip: <>Tap <b>Check in</b>. That's how the team knows you filmed.</> },
-    { id: 'wrap', scene: 'wrap', target: 'wrap', part: PART(7, 'On the day'), tip: <>Done filming? Type what you shot, then tap <b>Wrap</b>.</> },
-    // 8 · Return everything
-    { id: 'retphoto', next: 'Continue', scene: 'return', target: 'camera', skip: true, part: PART(8, 'Return everything'), tip: <>Props go back the night of the shoot. Take one photo of <b>everything</b> together, where you leave it.</> },
-    { id: 'returned', scene: 'return', target: 'returned', part: PART(8, 'Return everything'), tip: <>Add a note if you like (where you left them), then tap <b>Confirm return</b>.</> },
-    { id: 'gearphoto', next: 'Continue', scene: 'gearreturn', target: 'camera', skip: true, part: PART(8, 'Return everything'), tip: <>Gear: every piece back in its case, batteries plugged in to charge, then one photo that shows both.</> },
-    { id: 'gearsend', scene: 'gearreturn', target: 'gearsend', part: PART(8, 'Return everything'), tip: <>Tap <b>Send return</b>.</> },
-    { id: 'final', scene: 'final', target: 'card', next: 'Next', part: PART(8, 'Return everything'), tip: <>The teams check each item in. When both say <b>Checked in</b>, you're done. Late returns block new props and gear, so bring things back on time.</> },
-    { id: 'rules', scene: 'rules' },
-    { id: 'done', scene: 'done' },
+    intro(6, 'pickup', 'Pick everything up', ['Props: check the list, then sign', 'Gear: tick every piece in the case before you take it']),
+    { id: 'sign', scene: 'pickup', part: 6, target: 'sign', title: <>Tap <b>I've got everything</b></>, body: 'At the prop room, check everything on the list is there. Only you can sign for your props.' },
+    { id: 'pieces', scene: 'gearpickup', part: 6, target: 'pieces', next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece in the case', body: 'Something not there? Tap Missing? next to it, so it isn\'t blamed on you.' },
+    { id: 'gearsign', scene: 'gearpickup', part: 6, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: "From now until it's back, the kit is your responsibility." },
+    // 7 · On the shoot day
+    intro(7, 'checkin', 'On the shoot day', [`Check in at the house (opens ${s.checkinBefore} minutes before)`, 'Tell the team if the slot before you caused a problem', 'Wrap when you\'re done']),
+    { id: 'setphoto', scene: 'checkin', part: 7, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Take a photo of the set', body: 'Tap Take photo. It opens your camera; you can tap the photo to retake it. (Practice: it stays on your phone.)' },
+    { id: 'report', scene: 'checkin', part: 7, target: 'report', next: C, hint: 'Write what happened first', title: 'Any problem with the slot before you?', body: 'If they ran over or left a mess, tap it and write what happened. If not, just Continue.' },
+    { id: 'checkin', scene: 'checkin', part: 7, target: 'checkin', title: <>Tap <b>Check in</b></>, body: "That's how the team knows you filmed." },
+    { id: 'wrap', scene: 'wrap', part: 7, target: 'wrap', title: <>Type what you filmed, then tap <b>Wrap</b></>, body: "Do this when you're done shooting." },
+    // 8 · Bring it all back
+    intro(8, 'return', 'Bring it all back', ['Props: the night of the shoot, with one photo of everything', 'Gear: back in its case, batteries charging, one photo', 'The teams check it all in']),
+    { id: 'retphoto', scene: 'return', part: 8, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Photo of everything you\'re returning', body: 'All the props together, where you leave them. It protects you if anything is questioned later.' },
+    { id: 'returned', scene: 'return', part: 8, target: 'returned', title: <>Tap <b>Confirm return</b></>, body: 'You can add a note first (where you left them).' },
+    { id: 'gearphoto', scene: 'gearreturn', part: 8, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Photo of the gear case', body: 'Every piece back in its case and the batteries plugged in to charge, in one photo.' },
+    { id: 'gearsend', scene: 'gearreturn', part: 8, target: 'gearsend', title: <>Tap <b>Send return</b></> },
+    { id: 'final', scene: 'final', part: 8, target: 'card', next: C, title: 'All checked in', body: "The teams check every item in; when both bars are full, you're done. Late returns pause new props and gear, so bring things back on time." },
+    { id: 'rules', scene: 'rules', title: '' },
+    { id: 'done', scene: 'done', title: '' },
   ]
   const [idx, setIdx] = useState(() => required ? Math.min(savedStep(profile.email), STEPS.length - 1) : 0)
   const step = STEPS[idx]
@@ -507,7 +519,12 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           <BrandMark className="w-20 mx-auto text-white" title="" />
           <h1 className="font-display text-[30px] font-extrabold leading-tight">Welcome to Prime Capitol{first ? `, ${first}` : ''}!</h1>
           <p className="text-pt-muted text-[15px]">Let's practise one shoot from start to finish: book it, get props and gear, film, and bring it all back. About 6 minutes, in 8 short parts.</p>
-          <p className="rounded-2xl bg-pt-surface shadow-hairline px-4 py-3 text-sm text-pt-text">🧪 This is a <b>practice run</b> on the app's real screens. Nothing gets booked, nobody gets a request, and no photos are uploaded.</p>
+          <div className="rounded-2xl bg-pt-surface shadow-hairline px-4 py-3 text-left space-y-2 text-[14px] text-pt-text">
+            <p className="font-semibold">How it works</p>
+            {[['🔦', 'The screen dims, except the part you use next.'], ['💬', 'A tip at the top or bottom says what to do, and why.'], ['👆', 'You do it yourself. Continue moves on; ‹ Back goes back a step.'], ['🧪', 'It\'s all practice: nothing is booked, sent or uploaded.'], ['⏸️', 'Close the app any time; you\'ll pick up where you left off.']].map(([i, t]) => (
+              <p key={t} className="flex gap-2.5"><span>{i}</span><span>{t}</span></p>
+            ))}
+          </div>
           <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Let's go</button>
           {!required && <button onClick={onFinish} className="tap text-pt-muted text-sm">Not now</button>}
         </div>
@@ -568,7 +585,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             </div>
           )}
           <div {...T('days')} className="mt-5 -mx-6 px-6 flex gap-2 overflow-x-auto no-scrollbar">
-            <span className={`shrink-0 rounded-2xl px-4 min-h-[56px] grid place-items-center text-sm font-semibold ${pickedDay ? 'bg-pt-bg text-pt-text' : 'bg-pt-accent text-stone-900 shadow-gold'}`}>Soonest</span>
+            <button onClick={() => step.id === 'days' && setPickedDay(null)} className={`shrink-0 rounded-2xl px-4 min-h-[56px] grid place-items-center text-sm font-semibold ${pickedDay ? 'bg-pt-bg text-pt-text' : 'bg-pt-accent text-stone-900 shadow-gold'}`}>Soonest</button>
             {strip.map((d, n) => (
               <button key={d} onClick={n === 0 ? undefined : () => pickDay(d)} aria-label={formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}
                 className={`shrink-0 w-12 rounded-2xl min-h-[56px] flex flex-col items-center justify-center ${pickedDay === d ? 'bg-pt-accent text-stone-900 shadow-gold' : n === 0 ? 'bg-pt-bg text-pt-muted/50' : 'bg-pt-bg text-pt-text'}`}>
@@ -1142,11 +1159,13 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   // Which tab is lit (as in the real app). Full-screen pages (review, request pages, AI) have no tab bar.
   const TAB: Partial<Record<Scene, string>> = { home: 'Home', home2: 'Home', invited: 'Home', find: 'Book', bookit: 'Book', shoot: 'Book', invite: 'Book', checkin: 'Book', wrap: 'Book', browse: 'Browse', gear: 'Browse', me: 'Me', requests: 'Me', final: 'Me' }
   const lit = TAB[step.scene]
-  const tipCount = STEPS.filter(x => x.tip).length
-  const tipNo = STEPS.slice(0, idx + 1).filter(x => x.tip).length
+  // Progress within the part (intro cards don't count).
+  const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part'))
+  const stepInPart = inPart.findIndex(x => x.id === step.id) + 1
+  const back = idx > 1 ? () => setIdx(n => { const m = Math.max(1, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
   const aiPropCount = aiTicks.filter(k => !k.startsWith('b:')).length
   const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
-    || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount) || (step.id === 'days' && !pickedDay)
+    || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount)
     || (step.id === 'search' && added.length <= aiPropCount) || (step.id === 'pieces' && !allTicked)
     || (['setphoto', 'retphoto', 'gearphoto'].includes(step.id) && !photos[step.id])
 
@@ -1164,8 +1183,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         </nav>
       )}
       <input ref={cam} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => { shot(e.target.files?.[0]); e.target.value = '' }} />
-      {step.tip && <Spotlight key={step.id} target={step.target} tip={step.tip} part={step.part} step={tipNo} total={tipCount} next={step.next} onNext={advance}
-        nextDisabled={nextDisabled} onSkip={step.skip ? advance : undefined} onClose={required ? undefined : onFinish} top={step.top} />}
+      {step.part && <Spotlight key={step.id} target={step.target} top={step.top} title={step.title} body={step.body} part={step.part}
+        stepInPart={stepInPart || undefined} stepsInPart={stepInPart ? inPart.length : undefined} next={step.next} onNext={advance}
+        nextDisabled={nextDisabled} disabledHint={step.hint} onBack={back} onSkip={step.skip && !photos[step.id] ? advance : undefined} onClose={required ? undefined : onFinish} />}
     </div>
   )
 }

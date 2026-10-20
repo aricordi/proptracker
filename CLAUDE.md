@@ -1019,6 +1019,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       for the keyboard, so the fixed dim/tip landed in the wrong place. Spotlight: while a text box is focused, no dim and
       no tip, only a slim Continue/Done bar placed with window.visualViewport just above the keyboard (nothing on steps
       without a button); on blur → window.scrollTo(0, 0) and the highlight comes back.
+      UX PASS (owner, Oct 20: "go through it with a fine-toothed comb… best practice UX, clarity, usability… enough
+      explanation at each step"): COACH PANEL (Spotlight `Coach`): always docked to the top or bottom edge (side chosen
+      once, away from the target; Step.top forces top), same shape every step: "Part n of 8 · <name>" + 8-segment bar +
+      "k of N" in the part, bold do-this TITLE, one muted WHY line, footer = ‹ Back + Continue (greyed with Step.hint
+      saying why) or "👆 Tap the highlighted part"; a tap outside turns that line gold ("…to keep going") for 2.5 s.
+      Steps are {title, body, next, hint}; one word for moving on: "Continue". PART INTRO cards (intro(n, scene, title,
+      points)) open each of the 8 parts. Welcome explains how the tour works (dim, tip, do it yourself, Back, practice,
+      pause). keepInView keeps the target clear of the panel and of sticky headers / bottom button bars. Day step:
+      Soonest is a valid choice (tap a day to jump). Checked by walking all 77 screens on an iPhone-sized touch emulator.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
