@@ -1191,6 +1191,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       → HOURS SHRINK: leaveCrew (friend leaves or their shoot is cancelled) recomputes crewHours of the booker + remaining crew;
       if smaller (the leaver was at the start/end), the booking's start/end/from/to and its gear_holds entries shrink so that
       slot frees up. History "… · gear now 1 PM–3 PM". Tests 417.
+    - LIVE Oct 20 (owner "ok on all"): backend run 39 + website run 32 (everything through shared gear, who used it, hand-over,
+      gear team tour, big feedback round) + "Add test gear" run 1 (FX3, 2× A7S III, Mavic Air + Mini 5 kits on the live app).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
