@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 434 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 435 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1314,6 +1314,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       filmed → every shoot. Flags: cards, Who has the most FIRST, then By type, list (no chart). Teams: cards, per person, Right now (no
       chart). Trends = the old Overview (headline, cards, chart, top creators, flags by type, houses). Settings sheet: "Creator
       standing" section. Admin tour dashboard scene = scoreboard. Tests 434.
+      → NO MINIMUM (owner, Oct 20: "there's no set minimum per creator… mainly just to see who's posting more and who's posting less"):
+      MIN_SHOOTS_PER_MONTH / targetFor / LEVEL removed. Creators are compared WITH EACH OTHER: typical = MEDIAN of shoots filmed in the
+      range (all active creators incl. zeros); outputOf: 'more' (≥ 1.25× typical and ≥ 1 more), 'less' (≤ 0.75× and ≥ 1 fewer, or 0 when
+      others filmed), else 'typical'. Standing {rank (ties share), output, vsTypical, typical, filmed, booked, coming, attention, reasons}.
+      ATTENTION is separate = behaviour (paused, serious flag, show-up < 70%). sortStandings most (default) / least / flags / name.
+      typicalSeries (median per month) → ColumnChart `typical` = white step line (replaced `goal`). Parts: OutPill, StandingTiles (2×2:
+      Posting more / Posting less / Typical / Needs attention = filters), OutputBar (vs the busiest creator, white tick = typical),
+      StandingRow (rank, pills, "7 filmed · 1 more than typical", red reasons line), TypicalKey. Creators tab headline "X filmed the most
+      this month: N shoots" + "The typical creator filmed N". Report card "#1 of 7 · 7 shoots filmed", month by month vs typical
+      ("above typical X of the last 6 months"). Settings sheet section "Comparing creators" (no minimum). Tests 435.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

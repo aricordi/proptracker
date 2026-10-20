@@ -10,7 +10,7 @@ import { RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
 import { LATE_START_MIN, KIND, THEMES } from '../lib/analytics'
-import { MIN_SHOOTS_PER_MONTH, LOW_SHOW_UP, MANY_FLAGS, LEVEL } from '../lib/insights'
+import { LOW_SHOW_UP, OUTPUT, ATTENTION_MEANS } from '../lib/insights'
 import { formatDay } from '../lib/dates'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -48,10 +48,12 @@ export default function RulesSheetScreen() {
       ['Priority days', list(s.priorityWeekdays.map(d => DAYS[d])), `Only the priority group can book these; unclaimed slots open to everyone on Sunday at ${fmtTime(s.releaseMinute)}.`, owner],
       ['Priority group', `${s.priority.length} people`, list(s.priority.map(p => p.name)), owner],
     ] },
-    { title: 'Creator standing (Dashboard and Analytics)', rows: [
-      ['Minimum shoots', `${MIN_SHOOTS_PER_MONTH} a month`, 'Each creator should film at least this many. This month counts what is due by today; booked shoots still to come show but only filmed ones count.', owner],
-      ['Needs attention', 'any serious flag', LEVEL.attention.means, owner],
-      ['Behind', `under the minimum, or ${MANY_FLAGS}+ small flags`, LEVEL.behind.means, owner],
+    { title: 'Comparing creators (Dashboard and Analytics)', rows: [
+      ['Minimum shoots', 'none', 'There is no minimum. Creators are compared with each other.', owner],
+      ['Typical creator', 'the middle value', 'Half of the creators filmed more than this in the date range, half filmed less.', owner],
+      ['Posting more', 'a quarter above typical', OUTPUT.more.means, owner],
+      ['Posting less', 'a quarter below typical', OUTPUT.less.means, owner],
+      ['Needs attention', 'behaviour, not output', ATTENTION_MEANS, owner],
       ['Low show-up', `under ${Math.round(LOW_SHOW_UP * 100)}%`, 'Filmed out of booked, once they have 2 or more shoots in the range.', owner],
     ] },
     { title: 'On the day, strikes and pauses', rows: [

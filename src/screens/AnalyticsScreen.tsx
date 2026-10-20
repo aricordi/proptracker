@@ -15,12 +15,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import BottomSheet from '../components/BottomSheet'
 import { Icon } from '../components/Icon'
-import { MetricCards, ColumnChart, SectionHead, RankList, NeedsYou, needsYouItems, showRateTone, StandingTiles, StandingList, TargetKey, TargetBar, LevelPill, LEVEL_STYLE } from '../components/analytics/Parts'
+import { MetricCards, ColumnChart, SectionHead, RankList, NeedsYou, needsYouItems, showRateTone, StandingTiles, StandingList, TypicalKey, OutputBar, OutPill, OUT_STYLE, vsTypicalText, type StandFilter } from '../components/analytics/Parts'
 import { useAnalyticsData } from '../hooks/useAnalytics'
 import { formatDay } from '../lib/dates'
 import { KIND, THEMES, type House, type Kind } from '../lib/analytics'
 import { PRESETS, rangeFor, customRange, grainsFor, defaultGrain, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, shift,
-  METRICS, DIMS, HOUSE_LABEL, standings, sortStandings, targetFor, comingThisMonth, MIN_SHOOTS_PER_MONTH, LEVEL, type StandSort, type Level, type Preset, type Grain, type Metric, type Dim, type Data, type Range, type Row } from '../lib/insights'
+  METRICS, DIMS, HOUSE_LABEL, standings, sortStandings, comingThisMonth, typicalSeries, OUTPUT, ATTENTION_MEANS, type StandSort, type Output, type Preset, type Grain, type Metric, type Dim, type Data, type Range, type Row } from '../lib/insights'
 
 type Tab = 'creators' | 'flags' | 'teams' | 'trends'
 // Owner, Oct 20: accountability first ("organised by creator rather than by time"); trends over time come last.
@@ -41,7 +41,7 @@ export default function AnalyticsScreen() {
   const drill = (patch: Record<string, string | number | null>) => set(patch, true)
 
   const tabQ = qs.get('tab'), tab: Tab = tabQ === 'overview' ? 'trends' : TABS.some(t => t[0] === tabQ) ? tabQ as Tab : 'creators'
-  // Accountability is by the month (the minimum is per month); trends default to 12 weeks.
+  // Creators are compared month by month by default; trends default to 12 weeks.
   const preset = (PRESETS.some(p => p[0] === qs.get('period')) ? qs.get('period') : tab === 'trends' ? '12w' : 'tm') as Preset
   const zoomFrom = qs.get('from'), zoomTo = qs.get('to')
   const who = qs.get('who') || '', house = (qs.get('house') as House) || ''
@@ -116,7 +116,7 @@ export default function AnalyticsScreen() {
 
       <div className="px-4 pt-4 space-y-4">
         {table ? <AdvancedView {...ctx} qs={qs} /> : <>
-          {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(['worst', 'best', 'flags', 'name'].includes(qs.get('sort') ?? '') ? qs.get('sort') : 'worst') as StandSort} level={(qs.get('level') as Level) || ''} />}
+          {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(['most', 'least', 'flags', 'name'].includes(qs.get('sort') ?? '') ? qs.get('sort') : 'most') as StandSort} level={(qs.get('level') as StandFilter) || ''} />}
           {tab === 'flags' && <FlagsTab {...ctx} m={qs.get('m') as Metric} />}
           {tab === 'teams' && <TeamsTab {...ctx} m={qs.get('m') as Metric} />}
           {tab === 'trends' && <TrendsTab {...ctx} m={qs.get('m') as Metric} />}
@@ -246,45 +246,54 @@ function TrendsTab(c: Ctx & { m: Metric }) {
   </>
 }
 
-// ── Creators: accountability, one standing per person (the default tab) ──
-function CreatorsTab(c: Ctx & { m: Metric; sort: StandSort; level: Level | '' }) {
+// ── Creators: who's posting more, who's posting less (the default tab) ──
+function CreatorsTab(c: Ctx & { m: Metric; sort: StandSort; level: StandFilter | '' }) {
   if (c.who) return <PersonView {...c} />
-  const target = targetFor(c.range, c.today)
   const all = sortStandings(standings(rowsBy('creator', c.cur, { grain: c.grain, people: c.house || c.theme || c.kind ? [] : c.people }),
-    { target, paused: c.pausedNow, coming: comingThisMonth(c.a.upcoming, c.range, c.today) }), c.sort)
-  const list = c.level ? all.filter(s => s.level === c.level) : all
-  const n = (l: Level) => all.filter(s => s.level === l).length
+    { paused: c.pausedNow, coming: comingThisMonth(c.a.upcoming, c.range, c.today) }), c.sort)
+  const list = !c.level ? all : c.level === 'attention' ? all.filter(s => s.attention) : all.filter(s => s.output === c.level)
+  const typical = all[0]?.typical ?? 0
+  const max = Math.max(1, ...all.map(s => s.filmed))
+  const top = [...all].sort((x, y) => y.filmed - x.filmed)[0]
   const when = c.range.phrase.replace(/^in /, '')
+  const t = Math.round(typical * 10) / 10
   return <>
     <div data-tour="headline">
       <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">
-        {n('attention') + n('behind') === 0 ? `Everyone is on track ${when}` : <>{n('attention') ? <span className={LEVEL_STYLE.attention.text}>{n('attention')} need{n('attention') === 1 ? 's' : ''} attention</span> : null}{n('attention') && n('behind') ? ', ' : ''}{n('behind') ? <span className={LEVEL_STYLE.behind.text}>{n('behind')} behind</span> : null} {when}</>}
+        {top && top.filmed > 0 ? <>{top.name} filmed the most {when}: {plural(top.filmed, 'shoot')}</> : `Nobody has filmed ${when} yet`}
       </p>
-      <p className="text-pt-muted text-[15px] mt-1">Minimum {MIN_SHOOTS_PER_MONTH} shoots a month: {target.full} for this range{target.byNow < target.full ? `, ${target.byNow} by today` : ''}.</p>
+      <p className="text-pt-muted text-[15px] mt-1">The typical creator filmed {t} {when}. {all.filter(s => s.filmed === 0).length ? `${plural(all.filter(s => s.filmed === 0).length, 'creator')} filmed nothing.` : ''}</p>
     </div>
     <StandingTiles tourId="tiles" list={all} filter={c.level} onFilter={l => c.set({ level: l || null })} />
     <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5" role="tablist" aria-label="Sort">
-      {([['worst', 'Worst first'], ['best', 'Best first'], ['flags', 'Most flags'], ['name', 'A–Z']] as [StandSort, string][]).map(([v, l]) =>
-        <button key={v} role="tab" aria-selected={c.sort === v} onClick={() => c.set({ sort: v === 'worst' ? null : v })} className={`flex-1 py-2 rounded-[10px] text-sm whitespace-nowrap ${c.sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
+      {([['most', 'Most filmed'], ['least', 'Least filmed'], ['flags', 'Most flags'], ['name', 'A–Z']] as [StandSort, string][]).map(([v, l]) =>
+        <button key={v} role="tab" aria-selected={c.sort === v} onClick={() => c.set({ sort: v === 'most' ? null : v })} className={`flex-1 py-2 rounded-[10px] text-sm whitespace-nowrap ${c.sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
     </div>
-    <StandingList tourId="standings" list={list} onOpen={e => c.drill({ who: e, m: null })} empty="Nobody in this group. Nice." />
-    <TargetKey byNow={target.byNow} full={target.full} />
+    <StandingList tourId="standings" max={max} list={list} onOpen={e => c.drill({ who: e, m: null })} empty="Nobody in this group." />
+    <TypicalKey typical={typical} />
     <details className="bg-pt-surface rounded-2xl px-3 py-2">
-      <summary className="text-pt-text text-[15px] py-1 cursor-pointer">How the standing is decided</summary>
-      <div className="space-y-2 py-2">{(['attention', 'behind', 'good'] as Level[]).map(l => <p key={l} className="text-pt-muted text-sm"><b className={LEVEL_STYLE[l].text}>{LEVEL[l].label}:</b> {LEVEL[l].means}</p>)}</div>
+      <summary className="text-pt-text text-[15px] py-1 cursor-pointer">How creators are compared</summary>
+      <div className="space-y-2 py-2">
+        <p className="text-pt-muted text-sm">There's no minimum. Everyone is compared with the <b className="text-pt-text">typical creator</b>: the middle number of shoots filmed in this date range (half filmed more, half less).</p>
+        {(['more', 'typical', 'less'] as Output[]).map(l => <p key={l} className="text-pt-muted text-sm"><b className={OUT_STYLE[l].text}>{OUTPUT[l].label}:</b> {OUTPUT[l].means}</p>)}
+        <p className="text-pt-muted text-sm"><b className={OUT_STYLE.attention.text}>Needs attention</b> is about behaviour, not output: {ATTENTION_MEANS}</p>
+      </div>
     </details>
     <SectionHead title="Needs you now" sub="Live, whatever the date range" />
     <NeedsYou items={needsYouItems(c.a, c.pausedNow, to => c.navigate(to))} />
   </>
 }
-// A creator's report card: standing and reasons first, then their numbers, month by month against the minimum, flags, shoots.
+// A creator's report card: how they compare, month by month against the typical creator, then flags, videos, shoots.
 function PersonView(c: Ctx & { m: Metric }) {
-  const name = c.nameOf(c.who), filmed = value('filmed', c.cur)!
-  const target = targetFor(c.range, c.today)
-  const st = standings([{ key: c.who, label: name, email: c.who, data: c.cur }], { target, paused: c.pausedNow, coming: comingThisMonth(c.a.upcoming, c.range, c.today, { email: c.who }) })[0]
-  const year = rangeFor('6m', c.today)
-  const months = seriesOf('filmed', c.a, year, 'month', { email: c.who })
-  const hit = months.slice(0, -1).filter(x => (x.value ?? 0) >= MIN_SHOOTS_PER_MONTH).length
+  const name = c.nameOf(c.who)
+  const allRows = rowsBy('creator', slice(c.a, c.range.from, c.range.to, { house: c.scope.house }), { grain: c.grain, people: c.people })
+  const everyone = standings(allRows, { paused: c.pausedNow, coming: comingThisMonth(c.a.upcoming, c.range, c.today) })
+  const st = everyone.find(s => s.email === c.who) ?? standings([{ key: c.who, label: name, email: c.who, data: c.cur }], { paused: c.pausedNow, typical: everyone[0]?.typical ?? 0 })[0]
+  const max = Math.max(1, ...everyone.map(s => s.filmed))
+  const six = rangeFor('6m', c.today)
+  const months = seriesOf('filmed', c.a, six, 'month', { email: c.who })
+  const typical = typicalSeries(c.a, six, 'month', c.people)
+  const above = months.filter((x, i) => (x.value ?? 0) > typical[i]).length
   const kinds = sortRows(rowsBy('kind', c.cur, { grain: c.grain }), 'flags')
   const kMax = Math.max(1, ...kinds.map(r => value('flags', r.data)!))
   const videos = c.cur.facts.filter(f => f.filmed && f.title).sort((x, y) => y.date.localeCompare(x.date))
@@ -292,21 +301,23 @@ function PersonView(c: Ctx & { m: Metric }) {
   const [showAll, setShowAll] = useState({ videos: false, shoots: false })
   const more = (k: 'videos' | 'shoots', n: number) => !showAll[k] && n > CAP && <button onClick={() => setShowAll({ ...showAll, [k]: true })} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">Show all {n}</button>
   return <>
-    <div className={`rounded-2xl p-3 space-y-3 ${LEVEL_STYLE[st.level].tile}`} data-tour="reportcard">
+    <div className={`rounded-2xl p-3 space-y-3 ${st.attention ? OUT_STYLE.attention.tile : OUT_STYLE[st.output].tile}`} data-tour="reportcard">
       <div className="flex items-center gap-3">
         <Avatar email={c.who} name={name} size={52} />
-        <span className="flex-1 min-w-0"><b className="block text-pt-text text-[17px] truncate">{name}</b><span className="mt-1 inline-block"><LevelPill level={st.level} /></span></span>
+        <span className="flex-1 min-w-0"><b className="block text-pt-text text-[17px] truncate">{name}</b>
+          <span className="mt-1 flex flex-wrap gap-1.5"><OutPill k={st.output} />{st.attention && <OutPill k="attention" />}</span></span>
         <button onClick={() => c.navigate(`/people/${encodeURIComponent(c.who)}`)} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">Record ›</button>
       </div>
       <div>
-        <p className="text-pt-text text-[22px] font-semibold leading-snug"><span className="tabular-nums">{filmed}</span> of {target.full} shoots filmed <span className="text-pt-muted text-[15px] font-normal">{c.range.phrase.replace(/^in /, '')}</span></p>
-        <div className="mt-2"><TargetBar s={st} /></div>
-        <p className={`text-sm mt-2 ${st.level === 'good' ? 'text-pt-muted' : LEVEL_STYLE[st.level].text}`}>{st.reasons.length ? st.reasons.join(' · ') : 'At the minimum, no serious flags.'}{st.coming ? <span className="text-pt-muted"> · {st.coming} more booked this month</span> : null}</p>
+        <p className="text-pt-text text-[22px] font-semibold leading-snug">#{st.rank} of {everyone.length} · {plural(st.filmed, 'shoot')} filmed <span className="text-pt-muted text-[15px] font-normal">{c.range.phrase.replace(/^in /, '')}</span></p>
+        <div className="mt-2"><OutputBar s={st} max={max} /></div>
+        <p className="text-sm mt-2 text-pt-muted">The typical creator filmed {Math.round(st.typical * 10) / 10}: {vsTypicalText(st)}.{st.coming ? ` ${st.coming} more booked this month.` : ''}</p>
+        {st.attention && <p className={`text-sm mt-1 ${OUT_STYLE.attention.text}`}>{st.reasons.join(' · ')}</p>}
       </div>
     </div>
-    <Top c={c} m={c.m} chart={false} metrics={['filmed', 'showRate', 'flags', 'serious']} headline={null} />
-    <SectionHead title="Month by month" sub={`Shoots filmed against the minimum · hit it ${hit} of the last ${months.length - 1} months`} />
-    <ColumnChart data={months} grain="month" m="filmed" goal={MIN_SHOOTS_PER_MONTH} avgWord="a month" onZoom={b => { const [f, t] = bucketSpan(b, 'month', year); c.drill({ from: f, to: t, g: null }) }} />
+    <Top c={c} m={c.m} chart={false} metrics={['filmed', 'showRate', 'flags', 'serious']} />
+    <SectionHead title="Month by month" sub={`Shoots filmed; the white lines are the typical creator · above typical ${above} of the last ${months.length} months`} />
+    <ColumnChart data={months} grain="month" m="filmed" typical={typical} avgWord="a month" onZoom={b => { const [f, t] = bucketSpan(b, 'month', six); c.drill({ from: f, to: t, g: null }) }} />
     <SectionHead title="Their flags" onMore={() => c.drill({ tab: 'flags', m: null })} more="All their flags" />
     <RankList empty="No flags in this range." rows={kinds.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / kMax, tone: 'text-amber-200',
       onClick: () => c.drill({ tab: 'flags', kind: r.key, theme: null, m: null }) }))} />

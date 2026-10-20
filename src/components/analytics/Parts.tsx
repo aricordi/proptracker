@@ -41,8 +41,8 @@ const niceTop = (x: number) => {
 }
 
 // One measure over time: columns, a dashed line at the average, and a details line under it (tap a column).
-export function ColumnChart({ data, grain, m, onZoom, avgWord, goal }: {
-  data: { bucket: string; value: number | null }[]; grain: Grain; m: Metric; onZoom?: (bucket: string) => void; avgWord: string; goal?: number }) {
+export function ColumnChart({ data, grain, m, onZoom, avgWord, typical }: {
+  data: { bucket: string; value: number | null }[]; grain: Grain; m: Metric; onZoom?: (bucket: string) => void; avgWord: string; typical?: number[] }) {
   const box = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(340)
   const [pick, setPick] = useState<number | null>(null)
@@ -61,7 +61,7 @@ export function ColumnChart({ data, grain, m, onZoom, avgWord, goal }: {
   const pct = METRICS[m].fmt === 'pct'
   const vals = data.map(d => d.value)
   const avg = averageOf(vals)
-  const top = pct ? 1 : niceTop(Math.max(0, ...vals.map(v => v ?? 0), avg ?? 0, goal ?? 0))
+  const top = pct ? 1 : niceTop(Math.max(0, ...vals.map(v => v ?? 0), avg ?? 0, ...(typical ?? [])))
   const H = 176, padL = 34, padB = 22, padT = 8, ch = H - padB - padT
   const n = Math.max(1, data.length), slot = (w - padL) / n
   const barW = Math.max(3, Math.min(30, slot * 0.64)), r = Math.min(4, barW / 2)
@@ -96,21 +96,21 @@ export function ColumnChart({ data, grain, m, onZoom, avgWord, goal }: {
               </g>
             )
           })}
-          {goal !== undefined && <g pointerEvents="none"><line x1={padL} x2={w} y1={y(goal)} y2={y(goal)} stroke="#fff" strokeWidth={2} /><text x={w - 2} y={y(goal) - 5} textAnchor="end" className="fill-pt-text" fontSize={12}>Minimum {goal}</text></g>}
-          {avg !== null && goal === undefined && <line x1={padL} x2={w} y1={y(avg)} y2={y(avg)} stroke="rgba(255,255,255,.55)" strokeWidth={1.5} strokeDasharray="4 4" pointerEvents="none" />}
+          {typical && <g pointerEvents="none"><path d={typical.map((t, i) => `${i ? 'L' : 'M'}${padL + i * slot + 2},${y(t)}H${padL + (i + 1) * slot - 2}`).join('')} fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" /></g>}
+          {avg !== null && !typical && <line x1={padL} x2={w} y1={y(avg)} y2={y(avg)} stroke="rgba(255,255,255,.55)" strokeWidth={1.5} strokeDasharray="4 4" pointerEvents="none" />}
         </svg>
       </div>
       <div className="min-h-[44px] flex items-center gap-3 border-t border-white/[0.06] mt-1 pt-2">
         {picked ? <>
           <span className="flex-1 min-w-0">
             <span className="block text-pt-text text-[15px]"><b className="tabular-nums">{fmt(m, picked.value)}</b> <span className="text-pt-muted">{METRICS[m].unit || METRICS[m].label.toLowerCase()}</span></span>
-            <span className="block text-pt-muted text-xs">{bucketLabel(picked.bucket, grain, true)}</span>
+            <span className="block text-pt-muted text-xs">{bucketLabel(picked.bucket, grain, true)}{typical ? ` · typical creator ${Math.round(typical[pick!] * 10) / 10}` : ''}</span>
           </span>
           {onZoom && grain !== 'day' && <button onClick={() => onZoom(picked.bucket)} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">Zoom in ›</button>}
           {onZoom && grain === 'day' && <button onClick={() => onZoom(picked.bucket)} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">See that day ›</button>}
         </> : <>
-          {goal === undefined && <svg width="22" height="8" aria-hidden className="shrink-0"><line x1="0" x2="22" y1="4" y2="4" stroke="rgba(255,255,255,.55)" strokeWidth={1.5} strokeDasharray="4 4" /></svg>}
-          <span className="flex-1 text-pt-muted text-xs">{goal !== undefined ? `White line = the minimum. Average ${fmt(m, avg)} ${avgWord}.` : `Average ${fmt(m, avg)} ${avgWord}. Tap a column for details.`}</span>
+          {!typical && <svg width="22" height="8" aria-hidden className="shrink-0"><line x1="0" x2="22" y1="4" y2="4" stroke="rgba(255,255,255,.55)" strokeWidth={1.5} strokeDasharray="4 4" /></svg>}
+          <span className="flex-1 text-pt-muted text-xs">{typical ? 'White lines = the typical creator that month.' : `Average ${fmt(m, avg)} ${avgWord}. Tap a column for details.`}</span>
         </>}
       </div>
     </div>
@@ -182,82 +182,86 @@ export function needsYouItems(a: { incidents: { kind: string; open?: boolean; to
   ]
 }
 
-// ── Accountability: who's doing well, who isn't ──
-export const LEVEL_STYLE: Record<'attention' | 'behind' | 'good', { pill: string; fill: string; tile: string; text: string }> = {
-  attention: { pill: 'bg-red-500/15 text-red-300', fill: 'bg-red-300', tile: 'bg-red-500/10', text: 'text-red-300' },
-  behind: { pill: 'bg-amber-500/15 text-amber-200', fill: 'bg-amber-200', tile: 'bg-amber-500/10', text: 'text-amber-200' },
-  good: { pill: 'bg-green-500/15 text-green-300', fill: 'bg-green-300', tile: 'bg-green-500/10', text: 'text-green-300' },
-}
+// ── Accountability: who's posting more, who's posting less (compared with each other), and who needs attention ──
 type St = import('../../lib/insights').Standing
-type Lv = import('../../lib/insights').Level
-const LABEL: Record<Lv, string> = { attention: 'Needs attention', behind: 'Behind', good: 'On track' }
-
-export function LevelPill({ level }: { level: Lv }) {
-  return <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5 ${LEVEL_STYLE[level].pill}`}>
-    {level === 'good' ? <Icon name="check" className="w-3.5 h-3.5" /> : <span aria-hidden className="font-bold">{level === 'attention' ? '!' : '–'}</span>}{LABEL[level]}</span>
+type Out = import('../../lib/insights').Output
+export type StandFilter = Out | 'attention'
+export const OUT_STYLE: Record<StandFilter, { pill: string; fill: string; tile: string; text: string; label: string }> = {
+  more: { pill: 'bg-green-500/15 text-green-300', fill: 'bg-green-300', tile: 'bg-green-500/10', text: 'text-green-300', label: 'Posting more' },
+  typical: { pill: 'bg-white/10 text-pt-text', fill: 'bg-pt-accent', tile: 'bg-pt-surface', text: 'text-pt-text', label: 'Typical' },
+  less: { pill: 'bg-amber-500/15 text-amber-200', fill: 'bg-amber-200', tile: 'bg-amber-500/10', text: 'text-amber-200', label: 'Posting less' },
+  attention: { pill: 'bg-red-500/15 text-red-300', fill: 'bg-red-300', tile: 'bg-red-500/10', text: 'text-red-300', label: 'Needs attention' },
 }
-// Three tiles that are also the filter: "2 need attention · 3 behind · 9 on track".
-export function StandingTiles({ list, filter, onFilter, tourId }: { list: St[]; filter?: Lv | ''; onFilter?: (l: Lv | '') => void; tourId?: string }) {
+export function OutPill({ k }: { k: StandFilter }) {
+  const sym = k === 'more' ? '↑' : k === 'less' ? '↓' : k === 'attention' ? '!' : '='
+  return <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5 ${OUT_STYLE[k].pill}`}><span aria-hidden className="font-bold">{sym}</span>{OUT_STYLE[k].label}</span>
+}
+// Four tiles that are also the filter.
+export function StandingTiles({ list, filter, onFilter, tourId }: { list: St[]; filter?: StandFilter | ''; onFilter?: (l: StandFilter | '') => void; tourId?: string }) {
+  const count = (k: StandFilter) => k === 'attention' ? list.filter(s => s.attention).length : list.filter(s => s.output === k).length
   return (
-    <div data-tour={tourId} className="grid grid-cols-3 gap-2">
-      {(['attention', 'behind', 'good'] as Lv[]).map(l => {
-        const n = list.filter(s => s.level === l).length, on = filter === l
+    <div data-tour={tourId} className="grid grid-cols-2 gap-2">
+      {(['more', 'less', 'typical', 'attention'] as StandFilter[]).map(k => {
+        const n = count(k), on = filter === k
         return (
-          <button key={l} onClick={() => onFilter?.(on ? '' : l)} aria-pressed={on} disabled={!onFilter}
-            className={`rounded-2xl p-3 text-left ${LEVEL_STYLE[l].tile} ${on ? 'ring-2 ring-inset ring-white/40' : ''} disabled:cursor-default`}>
-            <span className={`block text-[28px] font-bold leading-none tabular-nums ${n ? LEVEL_STYLE[l].text : 'text-pt-muted'}`}>{n}</span>
-            <span className="block text-pt-text text-[13px] mt-1">{LABEL[l]}</span>
+          <button key={k} onClick={() => onFilter?.(on ? '' : k)} aria-pressed={on} disabled={!onFilter}
+            className={`rounded-2xl px-3 py-2.5 text-left flex items-center gap-3 ${OUT_STYLE[k].tile} ${on ? 'ring-2 ring-inset ring-white/40' : ''} disabled:cursor-default`}>
+            <span className={`text-[26px] font-bold leading-none tabular-nums ${n ? OUT_STYLE[k].text : 'text-pt-muted'}`}>{n}</span>
+            <span className="text-pt-text text-[13px] leading-tight">{OUT_STYLE[k].label}</span>
           </button>
         )
       })}
     </div>
   )
 }
-// Progress to the minimum: filmed (coloured), booked still to come (light), a tick where they should be by now.
-export function TargetBar({ s }: { s: St }) {
-  const scale = Math.max(s.target.full, s.filmed + s.coming, 1)
-  const pace = s.target.byNow < s.target.full ? s.target.byNow : null
+// Filmed against the busiest creator in the list; light = booked still to come; white tick = the typical creator.
+export function OutputBar({ s, max }: { s: St; max: number }) {
+  const scale = Math.max(max, s.filmed + s.coming, s.typical, 1)
   return (
     <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden" aria-hidden>
-      <i className={`absolute inset-y-0 left-0 ${LEVEL_STYLE[s.level].fill}`} style={{ width: `${(s.filmed / scale) * 100}%` }} />
+      <i className={`absolute inset-y-0 left-0 rounded-full ${OUT_STYLE[s.output].fill}`} style={{ width: `${(s.filmed / scale) * 100}%` }} />
       {s.coming > 0 && <i className="absolute inset-y-0 bg-white/25" style={{ left: `${(s.filmed / scale) * 100}%`, width: `${(s.coming / scale) * 100}%` }} />}
-      {pace !== null && pace > 0 && <i className="absolute inset-y-0 w-[2px] bg-white/70" style={{ left: `calc(${(pace / scale) * 100}% - 1px)` }} />}
-      <i className="absolute inset-y-0 w-[2px] bg-white" style={{ left: `calc(${(s.target.full / scale) * 100}% - 2px)` }} />
+      {s.typical > 0 && <i className="absolute inset-y-0 w-[2px] bg-white" style={{ left: `calc(${(s.typical / scale) * 100}% - 1px)` }} />}
     </span>
   )
 }
-export function StandingRow({ s, onClick }: { s: St; onClick?: () => void }) {
-  const good = s.level === 'good'
+export const vsTypicalText = (s: St) => {
+  const d = Math.round(s.vsTypical * 10) / 10
+  return s.typical === 0 && s.filmed === 0 ? 'nobody has filmed yet' : Math.abs(d) < 0.5 ? 'about typical' : d > 0 ? `${d} more than typical` : `${-d} fewer than typical`
+}
+export function StandingRow({ s, max, onClick }: { s: St; max: number; onClick?: () => void }) {
   return (
     <button onClick={onClick} disabled={!onClick} className="w-full flex items-center gap-3 px-3 py-3 text-left disabled:cursor-default">
+      <span className="w-6 text-center text-pt-muted text-sm tabular-nums shrink-0">{s.rank}</span>
       <Avatar email={s.email} name={s.name} size={40} />
       <span className="flex-1 min-w-0 space-y-1.5">
-        <span className="flex items-center gap-2"><b className="flex-1 min-w-0 truncate text-pt-text text-[15px]">{s.name}</b><LevelPill level={s.level} /></span>
-        <TargetBar s={s} />
+        <span className="flex items-center gap-1.5"><b className="flex-1 min-w-0 truncate text-pt-text text-[15px]">{s.name}</b>{s.output !== 'typical' && <OutPill k={s.output} />}{s.attention && <OutPill k="attention" />}</span>
+        <OutputBar s={s} max={max} />
         <span className="flex items-baseline gap-2 text-xs">
-          <span className="text-pt-text tabular-nums shrink-0"><b>{s.filmed}</b> of {s.target.full} filmed{s.coming ? ` · ${s.coming} booked` : ''}</span>
-          <span className={`min-w-0 truncate ${good ? 'text-pt-muted' : LEVEL_STYLE[s.level].text}`}>{good ? `${s.showRate === null ? 'nothing booked yet' : `showed up ${Math.round(s.showRate * 100)}%`}${s.flags ? ` · ${s.flags} small flag${s.flags > 1 ? 's' : ''}` : ''}` : s.reasons.join(' · ')}</span>
+          <span className="text-pt-text tabular-nums shrink-0"><b className="text-[15px]">{s.filmed}</b> filmed{s.coming ? ` · ${s.coming} booked` : ''}</span>
+          <span className="min-w-0 truncate text-pt-muted">{vsTypicalText(s)}</span>
         </span>
+        {s.attention && <span className={`block text-xs truncate ${OUT_STYLE.attention.text}`}>{s.reasons.join(' · ')}</span>}
       </span>
       {onClick && <span className="text-pt-muted shrink-0">›</span>}
     </button>
   )
 }
-export function StandingList({ list, onOpen, empty = 'Nobody in this view.', tourId }: { list: St[]; onOpen?: (email: string) => void; empty?: string; tourId?: string }) {
+export function StandingList({ list, onOpen, empty = 'Nobody in this view.', tourId, max }: { list: St[]; onOpen?: (email: string) => void; empty?: string; tourId?: string; max?: number }) {
+  const m = max ?? Math.max(1, ...list.map(s => s.filmed))
   return (
     <div data-tour={tourId} className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
       {list.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">{empty}</p>}
-      {list.map(s => <StandingRow key={s.email} s={s} onClick={onOpen ? () => onOpen(s.email) : undefined} />)}
+      {list.map(s => <StandingRow key={s.email} s={s} max={m} onClick={onOpen ? () => onOpen(s.email) : undefined} />)}
     </div>
   )
 }
-export function TargetKey({ byNow, full }: { byNow: number; full: number }) {
+export function TypicalKey({ typical }: { typical: number }) {
   return (
     <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-pt-muted text-xs">
-      <span className="flex items-center gap-1.5"><i className="w-3 h-2 rounded-sm bg-green-300" />Filmed</span>
+      <span className="flex items-center gap-1.5"><i className="w-3 h-2 rounded-sm bg-pt-accent" />Filmed</span>
       <span className="flex items-center gap-1.5"><i className="w-3 h-2 rounded-sm bg-white/25" />Booked, still to come</span>
-      <span className="flex items-center gap-1.5"><i className="w-[2px] h-3 bg-white" />Minimum ({full})</span>
-      {byNow < full && <span className="flex items-center gap-1.5"><i className="w-[2px] h-3 bg-white/70" />Where they should be by now ({byNow})</span>}
+      <span className="flex items-center gap-1.5"><i className="w-[2px] h-3 bg-white" />Typical creator ({Math.round(typical * 10) / 10} filmed)</span>
     </p>
   )
 }

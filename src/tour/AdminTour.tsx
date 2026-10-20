@@ -83,9 +83,9 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'tabs', scene: 'admin', part: 1, target: 'tabbar', look: true, next: C, title: 'Your five tabs',
       body: ul([['Dashboard', 'your creators at a glance, plus your tools'], ['Queue', 'every props request'], ['Gear', 'every gear booking'], ['Schedule', 'the house calendar'], ['Props', 'the whole closet']]) },
     { id: 'dashlook', scene: 'admin', part: 1, target: 'dashpreview', look: true, next: C, title: 'Your Dashboard, your home',
-      body: `Every creator gets one standing: Needs attention, Behind or On track, worst first, with the reason. The bar shows filmed (coloured) and booked (light) against the minimum of 4 shoots a month.` },
+      body: `Every creator, most filmed first, compared with the typical creator (the white tick): posting more, typical or posting less. Needs attention is separate, for behaviour like no-shows or strikes. Tap the tiles to filter.` },
     { id: 'analyticslook', scene: 'admin', part: 1, target: 'dashlinks', look: true, next: C, title: 'Go deeper: Analytics',
-      body: ul([['Creators', 'the scoreboard, then tap anyone for their report card: standing, month by month against the minimum, flags, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Advanced view', 'the table icon: break any number down by person, house, week, flag or staff, sort it, download it'], ['Trends', 'the whole studio over time, last'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
+      body: ul([['Creators', 'who films more and who films less, then tap anyone for their report card: rank, month by month against the typical creator, flags, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Advanced view', 'the table icon: break any number down by person, house, week, flag or staff, sort it, download it'], ['Trends', 'the whole studio over time, last'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
     { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your tools, further down',
       body: "All creators, the schedule team, activity, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
     { id: 'toqueue', scene: 'admin', part: 1, target: 'nav-queue', title: <>Now tap <b>Queue</b></>, body: 'Every props request, live.' },
@@ -378,20 +378,21 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         <div className="px-4 space-y-4">
           <div {...T('dashpreview')} className="space-y-3">
             <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit">{['This month', 'Last month', '12 weeks'].map((l, n) => <span key={l} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</span>)}</div>
-            <div className="grid grid-cols-3 gap-2">
-              {([['1', 'Needs attention', 'bg-red-500/10 text-red-300'], ['1', 'Behind', 'bg-amber-500/10 text-amber-200'], ['2', 'On track', 'bg-green-500/10 text-green-300']] as [string, string, string][]).map(([n, l, cl]) => (
-                <div key={l} className={`rounded-2xl p-3 ${cl.split(' ')[0]}`}><span className={`block text-[28px] font-bold leading-none tabular-nums ${cl.split(' ')[1]}`}>{n}</span><span className="block text-pt-text text-[13px] mt-1">{l}</span></div>
+            <div className="grid grid-cols-2 gap-2">
+              {([['1', 'Posting more', 'bg-green-500/10', 'text-green-300'], ['1', 'Posting less', 'bg-amber-500/10', 'text-amber-200'], ['2', 'Typical', 'bg-pt-surface', 'text-pt-text'], ['1', 'Needs attention', 'bg-red-500/10', 'text-red-300']] as [string, string, string, string][]).map(([n, l, bg, tx]) => (
+                <div key={l} className={`rounded-2xl px-3 py-2.5 flex items-center gap-3 ${bg}`}><span className={`text-[26px] font-bold leading-none tabular-nums ${tx}`}>{n}</span><span className="text-pt-text text-[13px] leading-tight">{l}</span></div>
               ))}
             </div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
-              {([['Devon', 'Needs attention', 'bg-red-500/15 text-red-300', 'bg-red-300', 1, 0, '1 no-show · 1 short of the minimum'], ['Riley', 'Behind', 'bg-amber-500/15 text-amber-200', 'bg-amber-200', 1, 1, '1 short of the minimum'],
-                ['Jordan', 'On track', 'bg-green-500/15 text-green-300', 'bg-green-300', 4, 0, 'showed up 100%']] as [string, string, string, string, number, number, string][]).map(([n, l, pill, fill, f, cm, why]) => (
+              {([['Jordan', 1, 7, 'bg-green-300', '↑ Posting more', 'bg-green-500/15 text-green-300', '3 more than typical'], ['Maya', 2, 4, 'bg-pt-accent', '', '', 'about typical'],
+                ['Devon', 3, 4, 'bg-pt-accent', '! Needs attention', 'bg-red-500/15 text-red-300', '1 no-show'], ['Riley', 4, 1, 'bg-amber-200', '↓ Posting less', 'bg-amber-500/15 text-amber-200', '3 fewer than typical']] as [string, number, number, string, string, string, string][]).map(([n, rk, f, fill, pill, pc, why]) => (
                 <div key={n} className="flex items-center gap-3 px-3 py-3">
+                  <span className="w-6 text-center text-pt-muted text-sm">{rk}</span>
                   <span className="w-10 h-10 rounded-full bg-pt-border grid place-items-center text-pt-text font-semibold shrink-0">{n[0]}</span>
                   <span className="flex-1 min-w-0 space-y-1.5">
-                    <span className="flex items-center gap-2"><b className="flex-1 text-pt-text text-[15px]">{n}</b><span className={`text-xs font-medium rounded-full px-2 py-0.5 ${pill}`}>{l}</span></span>
-                    <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden"><i className={`absolute inset-y-0 left-0 ${fill}`} style={{ width: `${f * 25}%` }} />{cm > 0 && <i className="absolute inset-y-0 bg-white/25" style={{ left: `${f * 25}%`, width: `${cm * 25}%` }} />}</span>
-                    <span className="flex gap-2 text-xs"><span className="text-pt-text"><b>{f}</b> of 4 filmed{cm ? ` · ${cm} booked` : ''}</span><span className={l === 'On track' ? 'text-pt-muted' : pill.split(' ')[1]}>{why}</span></span>
+                    <span className="flex items-center gap-2"><b className="flex-1 text-pt-text text-[15px]">{n}</b>{pill && <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${pc}`}>{pill}</span>}</span>
+                    <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden"><i className={`absolute inset-y-0 left-0 rounded-full ${fill}`} style={{ width: `${(f / 7) * 100}%` }} /><i className="absolute inset-y-0 w-[2px] bg-white" style={{ left: '57%' }} /></span>
+                    <span className="flex gap-2 text-xs"><span className="text-pt-text"><b className="text-[15px]">{f}</b> filmed</span><span className={pill.startsWith('!') ? 'text-red-300' : 'text-pt-muted'}>{why}</span></span>
                   </span>
                 </div>
               ))}
@@ -709,7 +710,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">Your job in six lines. Replay it from Dashboard → Admin tour any time.</p></div>
         {([
           ['eye', 'Queues and the schedule are for looking. The arts department and the equipment team do the changing.'],
-          ['people', 'Your Dashboard ranks every creator, worst first: Needs attention, Behind or On track, against the minimum of 4 shoots a month. Tap anyone for their report card; Back zooms out; the table icon breaks it all down.'],
+          ['people', 'Your Dashboard ranks every creator by shoots filmed against the typical creator (posting more, typical, posting less), with behaviour problems flagged separately. Tap anyone for their report card; Back zooms out; the table icon breaks it all down.'],
           ['stop', `A strike needs a reason the creator can read. ${s.strikeCount} strikes in ${s.strikeDays} days pause props and gear for ${s.pauseDays} days.`],
           ['restore', 'Removing a strike keeps it on the record as removed. It lifts an automatic pause, never one you started.'],
           ['clock', `Missed check-in: wait for their explanation (${s.explainHours} hours), then They filmed or No-show. Reports: Dismiss or Strike.`],

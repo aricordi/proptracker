@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { analyze } from '../../src/lib/analytics'
-import { rangeFor, customRange, grainsFor, defaultGrain, buckets, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, targetFor, standings, sortStandings, comingThisMonth } from '../../src/lib/insights'
+import { rangeFor, customRange, grainsFor, defaultGrain, buckets, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, standings, sortStandings, comingThisMonth, outputOf, typicalSeries } from '../../src/lib/insights'
 
 const closed = { closedWeekdays: [0], closedDates: [] }
 const shoot = (id: string, email: string, date: string, extra: Record<string, unknown> = {}) =>
@@ -67,31 +67,34 @@ describe('insights: metrics and breakdowns', () => {
   })
 })
 
-describe('insights: creator standing', () => {
+describe('insights: comparing creators', () => {
+  const w = { ...filmed, wrap: { at: 'x', title: 'Video' } }
   const a = analyze({
     now: '2026-10-20T12:00', closed,
     shoots: [
-      ...['01', '05', '08', '12'].map((d, i) => shoot('r' + i, 'riley@x', `2026-10-${d}`, { ...filmed, wrap: { at: 'x', title: 'Video' } })),          // 4 filmed: on track
-      shoot('j1', 'jana@x', '2026-10-06', { ...filmed, wrap: { at: 'x', title: 'Video' } }), shoot('j2', 'jana@x', '2026-10-28'),                     // 1 filmed + 1 booked: behind
-      shoot('d1', 'devon@x', '2026-10-07', { ...filmed, wrap: { at: 'x', title: 'Video' } }), shoot('d2', 'devon@x', '2026-10-09', { noShow: 'missed', outcome: 'noshow' }),
-      ...['02', '03', '06'].map((d, i) => shoot('m' + i, 'maya@x', `2026-10-${d}`, { ...filmed, wrap: { at: 'x', title: 'Video' } })),                // 3 filmed, by-now pace 2: on track
+      ...['01', '05', '08', '12', '14', '15'].map((d, i) => shoot('r' + i, 'riley@x', `2026-10-${d}`, w)),   // 6: posting more
+      ...['02', '03', '06'].map((d, i) => shoot('m' + i, 'maya@x', `2026-10-${d}`, w)),                       // 3: typical
+      shoot('j1', 'jana@x', '2026-10-06', w), shoot('j2', 'jana@x', '2026-10-28'),                           // 1 + 1 booked: posting less
+      ...['07', '08', '10'].map((d, i) => shoot('d' + i, 'devon@x', `2026-10-${d}`, w)), shoot('dx', 'devon@x', '2026-10-09', { noShow: 'missed', outcome: 'noshow' }),
     ],
     props: [], gear: [], reports: [], strikes: [], invites: [],
   })
-  const r = rangeFor('tm', '2026-10-20'), target = targetFor(r, '2026-10-20')
+  const r = rangeFor('tm', '2026-10-20')
   const list = sortStandings(standings(rowsBy('creator', slice(a, r.from, r.to), { grain: 'day', people: [{ email: 'kim@x', name: 'Kim' }] }),
-    { target, paused: [], coming: comingThisMonth(a.upcoming, r, '2026-10-20') }))
+    { paused: [], coming: comingThisMonth(a.upcoming, r, '2026-10-20') }))
   const by = (e: string) => list.find(s => s.email === e)!
-  it('sets the minimum for the range', () => {
-    expect(target).toEqual({ full: 4, byNow: 2 })                                // Oct 20 of 31 days → 2 due by today
-    expect(targetFor(rangeFor('lm', '2026-10-20'), '2026-10-20')).toEqual({ full: 4, byNow: 4 })
-    expect(targetFor(rangeFor('12w', '2026-10-20'), '2026-10-20').full).toBe(10)
+  it('compares everyone with the typical creator (the middle value), no minimum', () => {
+    expect(by('riley@x').typical).toBe(3)
+    expect(list.map(s => [s.name, s.rank, s.output])).toEqual([['riley', 1, 'more'], ['maya', 2, 'typical'], ['devon', 2, 'typical'], ['jana', 4, 'less'], ['Kim', 5, 'less']])
+    expect(by('jana@x')).toMatchObject({ filmed: 1, coming: 1, vsTypical: -2, attention: false })
+    expect(outputOf(0, 0)).toBe('typical')
   })
-  it('gives each creator one standing with reasons, worst first', () => {
-    expect(list.map(s => [s.name, s.level])).toEqual([['devon', 'attention'], ['Kim', 'behind'], ['jana', 'behind'], ['maya', 'good'], ['riley', 'good']])
-    expect(by('devon@x').reasons).toEqual(['1 no-show', 'showed up 50%', '1 short of the minimum'])
-    expect(by('jana@x')).toMatchObject({ filmed: 1, coming: 1, reasons: ['1 short of the minimum'] })
-    expect(by('kim@x').reasons).toEqual(['nothing booked'])
-    expect(sortStandings(list, 'best')[0].name).toBe('riley')
+  it('flags behaviour separately from output', () => {
+    expect(by('devon@x')).toMatchObject({ output: 'typical', attention: true, reasons: ['1 no-show'] })
+    expect(sortStandings(list, 'least')[0].name).toBe('Kim')
+    expect(sortStandings(list, 'flags')[0].name).toBe('devon')
+  })
+  it('works out the typical creator per month', () => {
+    expect(typicalSeries(a, customRange('2026-09-01', '2026-10-31'), 'month', [])).toEqual([0, 3])
   })
 })
