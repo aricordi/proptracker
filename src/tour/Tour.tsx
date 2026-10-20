@@ -1,11 +1,11 @@
 // App tour: a hands-on practice STORY with a guide character (owner, Oct 20: "fun and exciting… like Duolingo… lean into
-// the story… nobody has used this before"). Welcome (what the app is for) → meet Cap (the Prime Capitol eagle) → "what do
-// you mostly film?" (picks the examples) → 10 chapters (CHAPTERS in Fun.tsx), each opened by a ChapterCard with the badge
+// the story… nobody has used this before"). Welcome (what the app is for) → meet Cap (the Prime Capitol eagle) → 10 chapters (CHAPTERS in Fun.tsx), each opened by a ChapterCard with the badge
 // just earned, plus 4 pop quizzes (QuizCard) so people learn instead of tapping Continue:
 //   1 Find your way around  2 Book your first shoot (with a friend → find it again: Home → your shoot card)
-//   3 Stock up for your shoot (+ Add → search → gear → review → send) + quiz  4 Keep tabs on it (Me → My requests → Change)
+//   3 Stock up for your shoot (+ Add → search → gear → review → send) + quiz  4 Keep tabs on it (Me → My requests → Change,
+//   search the closet to add a prop, Save)
 //   5 Meet the AI (idea → tick → ask a time → Book → add the ticked)  6 When a friend invites you + quiz
-//   7 Pickup day (props sign, gear pieces) + quiz  8 Showtime (check in, report, wrap)  9 Bring it all back + quiz
+//   7 Pickup day (props sign, gear pieces) + quiz  8 Showtime (check in, report, wrap)  9 Bring it all back (Return everything: props + gear together, untick to keep one) + quiz
 //   10 Stay in the loop (REAL: turnOnPush; required unless the phone can't yet). Then the cheat sheet and every badge.
 // The coach (Spotlight) glides between targets; Cap's voice is warm and playful, short sentences, no emoji.
 // Looks like the real app: scenes copy the real screens (CreatorHomeScreen, ScheduleScreen's FindSheet / GroupBookSheet /
@@ -44,8 +44,8 @@ import { Spotlight } from './Spotlight'
 import { CHAPTERS, Cap, Confetti, ChapterCard, QuizCard, BadgeWall } from './Fun'
 import { markTourDone, savedStep, saveStep } from './tourState'
 
-type Scene = 'hello' | 'meet' | 'vibe' | 'home' | 'find' | 'bookit' | 'booked' | 'home2' | 'shoot' | 'browse' | 'gear' | 'review' | 'sent'
-  | 'me' | 'requests' | 'request' | 'chat' | 'invite' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'return' | 'gearreturn'
+type Scene = 'hello' | 'meet' | 'home' | 'find' | 'bookit' | 'booked' | 'home2' | 'shoot' | 'browse' | 'gear' | 'review' | 'sent'
+  | 'me' | 'requests' | 'request' | 'chat' | 'invite' | 'pickup' | 'gearpickup' | 'checkin' | 'wrap' | 'returnall'
   | 'notify' | 'rules' | 'done'
 // A step: what's on screen (scene), what to use (target), the coach panel's text, and how you move on (a tap on the
 // target, or Continue = next). hint = why Continue is greyed out. top = panel at the top. look = nothing dimmed (you're
@@ -60,14 +60,8 @@ const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px]
 const input = 'w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent'
 const searchIcon = <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
 const FREE = 'bg-green-500/90 text-stone-900'
-// "What do you mostly film?" (asked on the welcome) picks the examples Cap uses.
-const VIBES = [
-  { id: 'skits', label: 'Comedy skits', title: 'Spy waiter sketch', idea: 'a sketch where a waiter is secretly a spy', time: 'Friday evening, 2 hours' },
-  { id: 'pranks', label: 'Pranks', title: 'Werewolf prank', idea: 'a werewolf prank in the woods', time: 'Saturday afternoon with a friend' },
-  { id: 'vlogs', label: 'Vlogs', title: 'Morning routine', idea: 'a cozy morning routine vlog', time: 'Tomorrow morning, 2 hours' },
-  { id: 'shorts', label: 'Short films', title: 'Detective short', idea: 'a 1970s detective short film', time: 'Next week, evenings' },
-  { id: 'mix', label: 'A bit of everything', title: 'Haunted dinner party', idea: 'a haunted dinner party', time: 'Friday evening, 2 hours' },
-]
+// Cap's examples, in the Stromedy style everyone at Prime Capitol shoots (owner, Oct 20).
+const EX = { title: 'If You See This, RUN', idea: 'a prank where my roommate thinks the house is haunted', time: 'Friday evening, 2 hours' }
 
 export default function Tour({ onFinish, required = false }: { onFinish: () => void; required?: boolean }) {
   const { profile, user } = useSession()
@@ -135,8 +129,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   // ── Everything you type ──
   const [video, setVideo] = useState('')
   const title = video.trim() || 'My practice video'
-  const [vibe, setVibe] = useState<string | null>(null)
-  const ex = VIBES.find(v => v.id === vibe) ?? VIBES[4]
+  const ex = EX
   const [builds, setBuilds] = useState<{ description: string; qty: number }[]>([])
   const [buildDesc, setBuildDesc] = useState(''), [buildQty, setBuildQty] = useState(1), [showBuild, setShowBuild] = useState(false)
   const [idea, setIdea] = useState(''), [asked, setAsked] = useState(''), [timeAsk, setTimeAsk] = useState('')
@@ -145,8 +138,9 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [aiBusy, setAiBusy] = useState(false)
   const [aiTicks, setAiTicks] = useState<string[]>([]), [aiBooked, setAiBooked] = useState(false), [aiAdded, setAiAdded] = useState(false)
   const [qty, setQty] = useState<Record<string, number>>({}), [editing, setEditing] = useState(false), [newBuild, setNewBuild] = useState('')
+  const [changeQ, setChangeQ] = useState(''), [changeAdded, setChangeAdded] = useState(0)
   const [over, setOver] = useState(false), [mess, setMess] = useState(false), [reportNote, setReportNote] = useState('')
-  const [wrapText, setWrapText] = useState(''), [retNote, setRetNote] = useState('')
+  const [wrapText, setWrapText] = useState(''), [retNote, setRetNote] = useState(''), [retOff, setRetOff] = useState<string[]>([])
 
   // ── Chapter 9 is real: turn on notifications on this phone ──
   const [push, setPush] = useState<PushState>(() => { try { return pushState() } catch { return 'unsupported' } })
@@ -161,7 +155,6 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const STEPS: Step[] = [
     { id: 'hello', scene: 'hello', title: '' },
     { id: 'meet', scene: 'meet', title: '' },
-    { id: 'vibe', scene: 'vibe', title: '' },
     // 1 · Find your way around
     intro(1, 'home', 'Quick lay of the land before the fun stuff. Two things you will use every single day.'),
     { id: 'tabs', scene: 'home', part: 1, target: 'tabbar', look: true, next: C, title: 'These four tabs are your whole world',
@@ -187,7 +180,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'geartab', scene: 'browse', part: 3, target: 'geartab', title: <>Now the gear. Tap <b>Gear</b></>, body: 'Cameras, lights and sound live here.' },
     { id: 'addgear', scene: 'gear', part: 3, target: 'gear-add', title: <>Tap <b>+</b> on the kit</>, body: "Gear comes as kits: one case with every piece inside, booked for your shoot's hours." },
     { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'Quick check before it goes to the teams.' },
-    { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Something the teams will recognise, like "{ex.title}".</> },
+    { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
     { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake" or "a pirate hat". Use − and + for how many.' },
     { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Book props + gear</b></>, body: "Props go to the arts team, gear to the equipment team. (Practice, so nothing's really sent.)" },
@@ -203,7 +196,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'myreq', scene: 'me', part: 4, target: 'myrequests', title: <>Tap <b>My requests</b></>, body: 'One card per shoot, with its props and gear together.' },
     { id: 'openreq', scene: 'requests', part: 4, target: 'propsrow', title: 'Tap your props request', body: 'To see it in full, or to change it.' },
     { id: 'change', scene: 'request', part: 4, target: 'changebtn', title: <>Changed your mind? Tap <b>Change</b></>, body: 'You can edit it until the arts team starts picking.' },
-    { id: 'changeit', scene: 'request', part: 4, target: 'changebox', title: <>Change something, then <b>Save changes</b></>, body: '− and + for amounts, × to take something out, or type a new thing to make.' },
+    { id: 'changeadd', scene: 'request', part: 4, target: 'changesearch', next: C, hint: 'Add a prop from the search first', title: 'Forgot something? Search the closet', body: <>Type in the search box (try <b>mask</b> or <b>hat</b>) and tap <b>+ Add</b>. It joins this request.</> },
+    { id: 'changeit', scene: 'request', part: 4, target: 'changebox', top: true, title: <>Tweak it, then <b>Save changes</b></>, body: '− and + for amounts, × to take something out, or type a new thing to make.' },
     { id: 'saved', scene: 'request', part: 4, target: 'addmore', look: true, next: C, title: 'Saved!', body: 'Once the team starts picking, Change disappears. You can still use + Add more for this shoot.' },
     { id: 'packed', scene: 'request', part: 4, target: 'journey', next: C, notif: `Your props for ${title} are packed and ready ✓`, title: 'Ding! Your props are ready', body: "You get a notification, and the line jumps to Ready. That's your cue to pick up." },
     // 5 · Meet the AI
@@ -248,14 +242,11 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     intro(9, 'wrap', "That's a wrap! Bring everything back so the next creator gets it in one piece."),
     { id: 'gotome', scene: 'booked', part: 9, target: 'nav-me', title: <>Tap <b>Me</b></>, body: 'Your slot now says Filmed. Returns start from your request on Me.' },
     { id: 'myreq2', scene: 'me', part: 9, target: 'myrequests', title: <>Tap <b>My requests</b></> },
-    { id: 'openret', scene: 'requests', part: 9, target: 'propsrow', title: 'Tap your props', body: "It says Collected while they're with you." },
-    { id: 'retphoto', scene: 'return', part: 9, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: "Snap everything you're returning", body: "All the props together, where you leave them. It's your receipt if anything is questioned." },
-    { id: 'returned', scene: 'return', part: 9, target: 'returned', title: <>Tap <b>Confirm return</b></>, body: 'Add a note first if it helps (where you left them).' },
-    { id: 'retback', scene: 'return', part: 9, target: 'back', title: <>Tap <b>Back</b></>, body: 'Now the gear.' },
-    { id: 'opengearret', scene: 'requests', part: 9, target: 'gearrow', title: 'Tap your gear' },
-    { id: 'gearphoto', scene: 'gearreturn', part: 9, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'Snap the gear case', body: 'Every piece back in the case and the batteries charging, all in one photo.' },
-    { id: 'gearsend', scene: 'gearreturn', part: 9, target: 'gearsend', title: <>Tap <b>Send return</b></> },
-    { id: 'gearback', scene: 'gearreturn', part: 9, target: 'back', title: <>Tap <b>Back</b></> },
+    { id: 'returnall', scene: 'requests', part: 9, target: 'returnall', title: <>Tap <b>Return everything</b></>, body: 'Props and gear usually go back together, so it is one step for both.' },
+    { id: 'retlist', scene: 'returnall', part: 9, target: 'retlist', next: C, hint: 'Tick both back to return them together', title: 'Everything starts ticked', body: <>Keeping something for later? Tap it to untick it, and return it on its own from My requests. Try it, then tick it back.</> },
+    { id: 'retphoto', scene: 'returnall', part: 9, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'One photo of it all', body: "Props together, gear in its case, batteries charging. It's your receipt if anything is questioned." },
+    { id: 'returned', scene: 'returnall', part: 9, target: 'returned', title: <>Tap <b>Return all 2</b></>, body: 'Add a note first if it helps (where you left the props).' },
+    { id: 'seereq', scene: 'returnall', part: 9, target: 'seereq', title: <>Tap <b>See my requests</b></> },
     { id: 'final', scene: 'requests', part: 9, target: 'card', look: true, next: C, title: 'Both on their way home', body: 'Each team checks its part in. When both bars are full, you are done.' },
     { id: 'quiz9', scene: 'requests', part: 9, title: '', quiz: {
       q: 'When do props need to come back?', options: ['The night of the shoot', 'Within a week', 'Whenever, no rush'], correct: 0,
@@ -328,7 +319,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
 
   // Where things are, from the step you're on.
   const propsStatus: ReservationStatus = at('final') ? 'returned' : past('returned') ? 'return_pending' : past('sign') ? 'collected' : at('packed') ? 'packed' : 'requested'
-  const gearStatus = at('final') ? 'checked_in' : past('gearsend') ? 'returned' : past('gearsign') ? 'out' : 'held'
+  const gearStatus = at('final') ? 'checked_in' : past('returned') ? 'returned' : past('gearsign') ? 'out' : 'held'
   const STATUS_WORD: Record<string, string> = { requested: 'Requested', packed: 'Packed & ready', collected: 'Collected', return_pending: 'Returned, being checked' }
   const propCount = picked.length + builds.length
 
@@ -583,6 +574,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div {...T('gearrow')}>
         <RequestRow className="bg-pt-bg" label={`Gear · ${fmtSlot(START, SLOT)}`} onOpen={tap('gearrow')} l={{ id: 'g', kind: 'gear', title, status: gearStatus, count: 1 }} />
       </div>
+      {at('returnall') && !past('returned') && <button {...T('returnall')} onClick={tap('returnall')} className="w-full rounded-lg py-3 text-sm font-semibold text-stone-900 bg-pt-accent shadow-gold">Return everything</button>}
       {!at('part7') && <div className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10 text-center">+ Add props or gear <span className="font-normal text-pt-muted">· by {formatDay(cut.gear)}</span></div>}
     </div>
   )
@@ -676,25 +668,6 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         </div>
         <div className="space-y-2 pb-4">
           <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">Let's do this</button>
-          <button onClick={back} className="w-full py-2 text-pt-muted text-[15px]">Back</button>
-        </div>
-      </div>
-    ),
-    vibe: () => (
-      <div className="min-h-full flex flex-col px-6 pt-safe pb-safe">
-        <div className="flex-1 flex flex-col justify-center gap-5 py-8">
-          <div className="flex items-center gap-3"><Cap size={44} className="cap-bob" /><span className="text-pt-muted text-[15px]">Quick one before we start</span></div>
-          <h1 className="chapter-rise font-display text-[32px] leading-[1.1] font-extrabold tracking-tight">What do you mostly film?</h1>
-          <div className="flex flex-wrap gap-2.5">
-            {VIBES.map((v, n) => (
-              <button key={v.id} onClick={() => setVibe(v.id)} style={{ animationDelay: `${80 + n * 50}ms` }}
-                className={`chapter-rise rounded-full px-5 py-3 text-[16px] font-semibold transition-colors duration-200 ${vibe === v.id ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-surface text-pt-text shadow-hairline'}`}>{v.label}</button>
-            ))}
-          </div>
-          <p className="text-pt-muted text-[15px]">{vibe ? `Love it. I'll use ${ex.label.toLowerCase()} for the examples.` : "I'll use it for the examples. No wrong answers."}</p>
-        </div>
-        <div className="space-y-2 pb-4">
-          <button onClick={advance} disabled={!vibe} className="w-full rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40 disabled:shadow-none">Continue</button>
           <button onClick={back} className="w-full py-2 text-pt-muted text-[15px]">Back</button>
         </div>
       </div>
@@ -977,7 +950,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           <div className="px-4 pt-4 pb-8 space-y-6">
             {past('changeit') && st === 'requested' && banner('green', 'Changed ✓', 'The arts department sees your new list straight away.')}
             {titleBlock}{shootLink('gear')}{journey(st)}{contents(false)}
-            {st === 'requested' && (editing || step.id === 'changeit' ? (
+            {st === 'requested' && (editing || step.id === 'changeit' || step.id === 'changeadd' ? (
               <div {...T('changebox')} className="bg-pt-surface border border-pt-accent/40 rounded-2xl p-3 space-y-3">
                 <p className="text-pt-text font-semibold">Change your request</p>
                 {picked.map(p => {
@@ -999,6 +972,22 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                     </div>
                   )
                 })}
+                <div {...T('changesearch')} className="space-y-2 pt-1">
+                  <div className="relative">{searchIcon}
+                    <input value={changeQ} onChange={e => setChangeQ(e.target.value)} placeholder="Search the closet to add a prop" enterKeyHint="search" aria-label="Search props to add"
+                      className="w-full bg-pt-bg border border-pt-border rounded-xl pl-10 pr-3 py-2.5 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
+                  </div>
+                  {changeQ.trim().length >= 2 && (() => {
+                    const hits = found(changeQ).filter(i => !added.includes(i.id)).slice(0, 4)
+                    return hits.length ? hits.map(it => (
+                      <div key={it.id} className="flex items-center gap-3">
+                        <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{thumb(it) && <img src={thumb(it)} alt="" className="w-full h-full object-cover" />}</div>
+                        <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it.name}</p>
+                        <button onClick={() => { setAdded(a => [...a, it.id]); setQty(q => ({ ...q, [it.id]: 1 })); setChangeQ(''); setChangeAdded(n => n + 1) }} className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</button>
+                      </div>
+                    )) : <p className="text-pt-muted text-sm">Nothing matches "{changeQ.trim()}". Try mask or hat.</p>
+                  })()}
+                </div>
                 <input value={newBuild} onChange={e => setNewBuild(e.target.value.slice(0, 200))} placeholder="Something we don't have (make or find)"
                   className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
                 <div className="flex gap-2">
@@ -1218,39 +1207,53 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         </div>
       </div>
     )),
-    return: () => (
-      <div className="pb-12">
-        {backBar(statusPill(past('returned') ? 'return_pending' : 'collected'))}
-        <div className="px-4 pt-4 pb-8 space-y-6">
-          {titleBlock}{journey(past('returned') ? 'return_pending' : 'collected')}
-          {past('returned') ? banner('green', 'Returned ✓', 'The arts team checks each prop in.') : (
-            <>
-              {banner('amber', 'Bring these back the night of the shoot', 'They count as late after 10 AM the next open day.')}
-              <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
-                <p className="text-pt-text font-semibold">Returning</p>
-                {camTile('retphoto', "Photo of everything you're returning (required)", "Show all the props together where you're leaving them. This protects you if anything is questioned later.")}
-                <textarea value={retNote} onChange={e => setRetNote(e.target.value.slice(0, 300))} rows={2} placeholder="Where did you leave them? Anything to flag? (optional)"
-                  className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
-                <div {...T('returned')} className="flex gap-2">
-                  <span className="flex-1 grid place-items-center py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</span>
-                  <button onClick={tap('returned')} className="flex-[2] py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Confirm return</button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+    // The real ReturnAllScreen: tick what's coming back, one photo, one button.
+    returnall: () => (
+      <div className="pb-10">
+        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2"><span className="block text-pt-accent text-[17px] py-1">‹ Back</span></div>
+        {past('returned') ? (
+          <div className="px-4 pt-10 text-center space-y-4">
+            <span className="mx-auto w-16 h-16 rounded-full bg-green-600 text-white grid place-items-center text-3xl">✓</span>
+            <h1 className="font-display text-[28px] text-pt-text">All returned</h1>
+            <p className="text-pt-muted text-[15px]">Thanks! Each team will check everything in. You'll see it on My requests.</p>
+            <button {...T('seereq')} onClick={tap('seereq')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">See my requests</button>
+          </div>
+        ) : (
+          <div className="px-4 space-y-6">
+            <div><h1 className="font-display text-[34px] text-pt-text">Return everything</h1><p className="text-pt-muted text-[15px]">{shootLabel}</p></div>
+            <section {...T('retlist')} className="space-y-2">
+              <h2 className="text-pt-text text-lg font-semibold">What you're bringing back</h2>
+              {([['props', `Props & costumes · ${propCount}`, [...picked.map(p => p.name), ...builds.map(b => b.description)].join(', ')], ['gear', `Gear · ${fmtSlot(START, SLOT)}`, kitName]] as const).map(([k, head, detail]) => {
+                const on = !retOff.includes(k)
+                return (
+                  <button key={k} onClick={() => step.id === 'retlist' && setRetOff(o => on ? [...o, k] : o.filter(x => x !== k))} aria-pressed={on}
+                    className="w-full flex items-start gap-3 bg-pt-surface shadow-hairline rounded-2xl px-4 py-3 text-left">
+                    <span className={`mt-0.5 w-6 h-6 shrink-0 rounded-full grid place-items-center text-sm font-bold ${on ? 'bg-pt-accent text-stone-900' : 'shadow-[inset_0_0_0_2px_#3A3A3C]'}`}>{on ? '✓' : ''}</span>
+                    <span className="min-w-0 flex-1">
+                      <b className={`block text-[15px] ${on ? 'text-pt-text' : 'text-pt-muted'}`}>{head}</b>
+                      <span className="block text-pt-muted text-xs line-clamp-2">{detail}</span>
+                      {!on && <span className="block text-pt-muted text-xs mt-1">Keeping it for now. Return it later from My requests.</span>}
+                    </span>
+                  </button>
+                )
+              })}
+              <p className="text-pt-muted text-xs px-1">Bringing something back later? Untick it.</p>
+            </section>
+            <section className="space-y-3">
+              <h2 className="text-pt-text text-lg font-semibold">Before you go</h2>
+              <ol className="bg-pt-surface rounded-2xl px-4 py-3 space-y-1 text-[15px] text-pt-text list-decimal list-inside">
+                <li>Put everything together where you're leaving it.</li><li>Every piece of gear back in its case.</li>
+                <li>Batteries plugged into the chargers on the shelf.</li><li>Take one photo that shows it all.</li>
+              </ol>
+              {camTile('retphoto', 'Photo of everything (required)', 'It protects you if anything is questioned later.')}
+              <textarea value={retNote} onChange={e => setRetNote(e.target.value.slice(0, 300))} rows={2} placeholder="Where did you leave the props? Anything to flag? (optional)"
+                className="w-full bg-pt-surface rounded-xl px-3 py-2 text-pt-text placeholder-pt-muted focus:outline-none focus:ring-1 focus:ring-pt-accent resize-none" />
+              <button {...T('returned')} onClick={tap('returned')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Return all 2</button>
+            </section>
+          </div>
+        )}
       </div>
     ),
-    gearreturn: () => gearPage(past('gearsend') ? 'returned' : 'out', past('gearsend') ? banner('green', 'Returned ✓', 'The equipment team checks each piece in.') : (
-      <section className="space-y-3">
-        <div><h2 className="text-pt-text text-xl font-semibold tracking-tight">Return gear</h2><p className="text-pt-muted text-sm">Due back by {fmtTime(START + SLOT)} (late from {fmtTime(START + SLOT + 30)}).</p></div>
-        <ol className="bg-pt-surface rounded-2xl px-4 py-3 space-y-1 text-[15px] text-pt-text list-decimal list-inside">
-          <li>Put every piece back in its case.</li><li>Plug the batteries into the chargers on the shelf.</li><li>Take one photo that shows both.</li>
-        </ol>
-        {camTile('gearphoto', 'Return photo', 'Required: case packed, batteries charging')}
-        <button {...T('gearsend')} onClick={tap('gearsend')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Send return</button>
-      </section>
-    )),
     rules: () => (
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
@@ -1316,8 +1319,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const back = idx > 0 ? () => setIdx(n => { const m = Math.max(0, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
   const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
     || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount)
-    || (step.id === 'search' && added.length === 0) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
-    || (['setphoto', 'retphoto', 'gearphoto'].includes(step.id) && !photos[step.id]) || (step.id === 'notify' && push === 'off' && !pushMsg)
+    || (step.id === 'search' && added.length === 0) || (step.id === 'changeadd' && changeAdded === 0) || (step.id === 'retlist' && retOff.length > 0) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
+    || (['setphoto', 'retphoto'].includes(step.id) && !photos[step.id]) || (step.id === 'notify' && push === 'off' && !pushMsg)
 
   return (
     <div className="fixed inset-0 z-[60] bg-pt-bg flex flex-col" role="dialog" aria-label="App tour (practice)">

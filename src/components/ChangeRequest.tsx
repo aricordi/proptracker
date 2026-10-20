@@ -1,11 +1,15 @@
 // A creator's props request while it's still "Requested": change how many, take props out,
-// add or remove things to make or find, or add more from Browse (a new request for the same shoot).
+// search the closet and add props right here (owner, Oct 20), add or remove things to make or find, or add more
+// from Browse (a new request for the same shoot).
 // The AI helper's "Plan my shoot" can open it with props already added (location state `add`): they show here
 // marked "New", and only join the request when the creator taps Save.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../cart'
 import { useItems } from '../hooks/useItems'
+import { useTags } from '../hooks/useTags'
+import { matchesQuery, byName } from '../lib/search'
+import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
 import { editReservation, type Reservation } from '../services/reservations'
 import { Icon } from './Icon'
@@ -20,6 +24,15 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
   const [lines, setLines] = useState<Record<string, number>>({})
   const [builds, setBuilds] = useState<{ description: string; qty: number; refPhoto?: string }[]>([])
   const [newBuild, setNewBuild] = useState('')
+  const [query, setQuery] = useState('')
+  const tags = useTags()
+  const tagById = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
+  // Props you can still add: not archived, not damaged, not already in the request. The server re-checks they're free.
+  const found = useMemo(() => {
+    const q = query.trim()
+    if (q.length < 2) return []
+    return items.filter(i => !i.archived && i.condition !== 'damaged' && !(lines[i.id] > 0) && matchesQuery(i, q, tagById)).sort(byName).slice(0, 6)
+  }, [items, query, lines, tagById])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const max = (id: string) => items.find(i => i.id === id)?.quantity ?? 99
@@ -111,6 +124,21 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
           </div>
         )
       })}
+      <div className="space-y-2 pt-1">
+        <div className="relative">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-pt-muted pointer-events-none" aria-hidden><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search the closet to add a prop" enterKeyHint="search" aria-label="Search props to add"
+            className="w-full bg-pt-bg border border-pt-border rounded-xl pl-9 pr-9 py-2.5 text-pt-text text-sm focus:outline-none focus:border-pt-accent" />
+          {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 text-pt-muted text-lg">×</button>}
+        </div>
+        {query.trim().length >= 2 && (found.length ? found.map(it => (
+          <div key={it.id} className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{it.photos[0] && <img loading="lazy" decoding="async" src={thumbOf(it, it.photos[0])} alt="" className="w-full h-full object-cover" />}</div>
+            <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it.name}</p>
+            <button onClick={() => { setLines({ ...lines, [it.id]: 1 }); setQuery('') }} className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</button>
+          </div>
+        )) : <p className="text-pt-muted text-sm">Nothing matches "{query.trim()}". Try another word, or ask for it below.</p>)}
+      </div>
       {builds.map((b, i) => (
         <div key={i} className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-violet-500/10 grid place-items-center shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></div>

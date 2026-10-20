@@ -90,6 +90,8 @@ export function Spotlight({ target, top, dim = true, stepKey, ...c }: Coach & { 
   useEffect(() => {
     if (!target) return
     const stop = (e: Event) => {
+      // Only real taps count: the camera button opens its hidden photo picker with a script click, which must go through.
+      if (!e.isTrusted) return
       const el = document.querySelector(`[data-tour="${target}"]`), n = e.target as Node
       if (el?.contains(n) || cardRef.current?.contains(n) || barRef.current?.contains(n)) return
       e.preventDefault(); e.stopPropagation()

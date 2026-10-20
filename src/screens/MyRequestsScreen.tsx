@@ -13,6 +13,7 @@ import { fmtTime, isGearLate, nowStamp } from '../../functions/src/gearBooking'
 import { formatDay } from '../lib/dates'
 import { groupByShoot, type RequestGroup } from '../lib/requestGroups'
 import { RequestRow } from '../components/ShootNeeds'
+import { returnCount } from '../hooks/useReturnables'
 
 const WEEKDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -61,6 +62,11 @@ export default function MyRequestsScreen() {
           <RequestRow key={b.id} className="bg-pt-bg" label={`Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`} late={isGearLate(b, now)}
             l={{ id: b.id, kind: 'gear', title: b.title, status: b.status, count: b.lines.length }} />
         ))}
+        {returnCount(g) > 0 && (
+          <button onClick={() => navigate(`/return?ref=${encodeURIComponent(g.key)}`)} className="w-full rounded-lg py-3 text-sm font-semibold text-stone-900 bg-pt-accent shadow-gold">
+            {returnCount(g) > 1 ? 'Return everything' : 'Return it'}
+          </button>
+        )}
         {canAdd && (
           <button onClick={() => { choose(sh!.id); navigate('/browse') }} className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10">
             + Add props or gear <span className="font-normal text-pt-muted">· {cut!.props === cut!.gear ? `by ${formatDay(cut!.gear)}` : `${today <= cut!.props ? `props by ${formatDay(cut!.props)}, ` : ''}gear by ${formatDay(cut!.gear)}`}</span>

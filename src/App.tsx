@@ -15,6 +15,7 @@ import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 const HomeScreen = lazy(() => import('./screens/HomeScreen'))
 const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
+const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
 const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
 const ItemDetailScreen = lazy(() => import('./screens/ItemDetailScreen'))
@@ -93,14 +94,16 @@ function TourGate({ children }: { children: ReactNode }) {
   const { realRole, viewingAs, profile } = useSession()
   const required = realRole === 'creator' && !viewingAs
   const [done, setDone] = useTourDone(profile.email, required)
+  const navigate = useNavigate()
   if (!required || done) return <>{children}</>
   if (done === undefined) return <ScreenFallback />
-  return <Suspense fallback={<ScreenFallback />}><Tour required onFinish={setDone} /></Suspense>
+  // Finished (or paused with Not now): land on Home (owner, Oct 20).
+  return <Suspense fallback={<ScreenFallback />}><Tour required onFinish={() => { setDone(); navigate('/', { replace: true }) }} /></Suspense>
 }
-// Replaying the tour (Me → App tour, Help).
+// Replaying the tour (Me → App tour, Help). Ends on Home, like the first time.
 function TourReplay() {
   const navigate = useNavigate()
-  return <Tour onFinish={() => navigate('/account')} />
+  return <Tour onFinish={() => navigate('/', { replace: true })} />
 }
 
 function Loading() {
@@ -282,6 +285,7 @@ export default function App() {
           <Route path="/gear/items" element={<GearOnly><GearItemsScreen /></GearOnly>} />
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/requests" element={<MyRequestsScreen />} />
+          <Route path="/return" element={<ReturnAllScreen />} />
           <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
           <Route path="/calendar" element={<StaffOnly><RequestsCalendarScreen /></StaffOnly>} />
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />

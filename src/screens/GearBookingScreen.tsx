@@ -11,6 +11,7 @@ import { GearArt, Pill, PieceChecklist, STATUS_LABEL } from '../components/GearU
 import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
+import ReturnTogether from '../components/ReturnTogether'
 import { formatDay } from '../lib/dates'
 import { Icon } from '../components/Icon'
 
@@ -140,6 +141,7 @@ export default function GearBookingScreen() {
               <h2 className="text-pt-text text-xl font-semibold tracking-tight">Return gear</h2>
               <p className="text-pt-muted text-sm">Due back {b.closedDay ? `${formatDay(b.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(b.end)}`} (late from {fmtTime(stampMin(gearDueBy(b.to)))}).</p>
             </div>
+            {mine && <ReturnTogether kind="gear" id={b.id} />}
             <ol className="bg-pt-surface rounded-2xl px-4 py-3 space-y-1 text-[15px] text-pt-text list-decimal list-inside">
               <li>Put every piece back in its case.</li>
               <li>Plug the batteries into the chargers on the shelf.</li>

@@ -18,6 +18,7 @@ import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
 import ShootLink from '../components/ShootLink'
+import ReturnTogether from '../components/ReturnTogether'
 import { Icon, IconText } from '../components/Icon'
 
 function errText(err: unknown) {
@@ -134,6 +135,7 @@ export default function ReservationDetailScreen() {
             {overdue ? `They were due back by ${dueBy}. You can't book more props until they're returned.` : `They count as late after ${dueBy}.`}
           </Banner>
         )}
+        {s === 'collected' && mine && <ReturnTogether kind="props" id={res.id} />}
         {s === 'collected' && mine && <ReturnForm res={res} />}
         {s === 'collected' && isStaff && !mine && (
           <Banner tone={overdue ? 'red' : 'amber'} title={overdue ? `Late: was due back by ${dueBy}` : 'Out with the creator'}>

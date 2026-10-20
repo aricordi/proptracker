@@ -1076,6 +1076,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       confetti), all off under reduced motion. FIX: the keyboard Continue bar now counts as part of the coach (barRef);
       before, its tap could be swallowed. Checked: 95 screens on a 390×844 touch screen in the emulator, no errors. Tests 400.
       LIVE Oct 20 (website run 29, owner OK).
+    - TOUR + RETURNS ROUND (owner, Oct 20; preview only, live needs OK; app only, NO server/rules change):
+      (1) Vibe question REMOVED (everyone shoots Stromedy style); examples = EX in Tour.tsx (title "If You See This, RUN").
+      (2) CHANGE A REQUEST CAN SEARCH: ChangeRequest.tsx has "Search the closet to add a prop" (matchesQuery, 6 results,
+      + Add → NEW row); tour ch4 step `changeadd` (target changesearch) does the same; `changeit` coach docks at the top.
+      (3) Tour camera fix: Spotlight's click blocker ignores untrusted (script) clicks, so the hidden photo input opens.
+      (4) Tour ends on HOME (TourGate + TourReplay navigate('/')).
+      (5) RETURN EVERYTHING: `/return?ref=props:<id>|gear:<id>|<group key>` (ReturnAllScreen) + `src/hooks/useReturnables.ts`
+      (groups like My requests; returnable = props 'collected', gear 'out'): tick what's coming back (all ticked; untick =
+      keep it, return it later), ONE photo (uploaded to the first request's own return folder; the same links go to every
+      request), optional props note, then startReturn for each props request + returnGear for each gear booking (partial
+      failures shown per row). Entry: gold "Return everything"/"Return it" on My requests cards; `ReturnTogether` card on
+      the props request page and the gear page when the shoot has more out. Separate returns still work from each page.
+      Tour ch9 = Return everything → untick/tick → one photo → Return all 2 → See my requests. Checked: 94 tour screens on a
+      390×844 touch screen, real return of props + gear with one photo in the emulator. Tests 400.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
