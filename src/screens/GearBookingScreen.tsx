@@ -11,6 +11,7 @@ import { GearArt, Pill, PieceChecklist, STATUS_LABEL } from '../components/GearU
 import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
+import UsedByPicker, { usedByOf } from '../components/UsedByPicker'
 import ReturnTogether from '../components/ReturnTogether'
 import { formatDay } from '../lib/dates'
 import { Icon } from '../components/Icon'
@@ -37,6 +38,7 @@ export default function GearBookingScreen() {
   const [photos, setPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [note, setNote] = useState('')
+  const [notUsing, setNotUsing] = useState<Set<string>>(new Set())
   const [zoom, setZoom] = useState<string | null>(null)
   const [, setTick] = useState(0)
   useEffect(() => id ? subscribeToGearBooking(id, setB) : undefined, [id])
@@ -108,7 +110,8 @@ export default function GearBookingScreen() {
         {crew.length > 0 && (
           <div className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
             <p className="text-sky-100 text-[15px] font-semibold">Shared gear · one booking for {crew.length + 1} back-to-back shoots</p>
-            <p className="text-sky-200/90 text-sm">{[b.creatorName || b.creatorEmail, ...crew.map(c => c.name)].map(n => n.split(' ')[0]).join(', ')}: you're all responsible for it. Any of you can do the pickup check and the return; if it's late or something goes missing, it's on everyone's record.</p>
+            <p className="text-sky-200/90 text-sm">{[b.creatorName || b.creatorEmail, ...crew.map(c => c.name)].map(n => n.split(' ')[0]).join(', ')}: any of you can do the pickup check and the return. Whoever signs at pickup holds it while it's out. At the return you tick who used it: only they're responsible if it's late or something's missing.</p>
+            {b.usedByNames?.length ? <p className="text-sky-100 text-sm">Used by {b.usedByNames.map(n => n.split(' ')[0]).join(', ')} (ticked at the return).</p> : null}
             {onCrew && b.status === 'held' && (
               <button disabled={busy} onClick={async () => {
                 // Once you're off it you can't see it any more, so go back to where you came from.
@@ -142,7 +145,7 @@ export default function GearBookingScreen() {
             </div>
             {checklist}
             {missing.size > 0 && <p className="text-red-200 text-sm bg-red-500/10 rounded-xl px-4 py-3">{missing.size} piece{missing.size > 1 ? 's' : ''} reported missing <b>before you took it</b>. The equipment team will see it, and it goes on the record of whoever had it last.</p>}
-            <p className="text-amber-200 text-sm">Report anything missing now. Once you sign, the gear is your responsibility{crew.length ? ' (all of you)' : ''} until it's back.</p>
+            <p className="text-amber-200 text-sm">Report anything missing now. Once you sign, the gear is your responsibility until it's back.{crew.length ? ' At the return you tick who used it.' : ''}</p>
             <button disabled={!allDone || busy} onClick={() => run(() => pickUpGear({ id: b.id, missing: [...missing], signed: true }))}
               className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Signing…' : "Sign: I've got it"}</button>
             {!allDone && <p className="text-pt-muted text-xs text-center">Tick every piece, or mark it missing, to sign.</p>}
@@ -165,7 +168,8 @@ export default function GearBookingScreen() {
               <li>Take one photo that shows both.</li>
             </ol>
             <ProofPhotos folder={`gear-returns/${b.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Return photo" hint="Required: case packed, batteries charging" max={4} />
-            <button disabled={!photos.length || uploading || busy} onClick={() => run(() => returnGear({ id: b.id, photos }))}
+            <UsedByPicker b={b} off={notUsing} onChange={setNotUsing} />
+            <button disabled={!photos.length || uploading || busy || usedByOf(b, notUsing)?.length === 0} onClick={() => run(() => returnGear({ id: b.id, photos, usedBy: usedByOf(b, notUsing) }))}
               className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Sending…' : 'Send return'}</button>
           </section>
         )}

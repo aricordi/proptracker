@@ -41,6 +41,10 @@ async function crewFor(shoot: { id: string; date: string; start: number; end: nu
   return friends.map(f => ({ email: f.email, name: f.name, shootId: f.id }))
 }
 const crewFields = (crew: CrewMember[]) => ({ crew, crewEmails: crew.map(c => c.email), crewShootIds: crew.map(c => c.shootId) })
+export function holderOf(b: FirebaseFirestore.DocumentData): string {
+  const by = b.pickup?.by as string | undefined
+  return by && isResponsible(b, by) ? by : b.creatorEmail
+}
 const names = (crew: CrewMember[]) => crew.map(c => c.name.split(' ')[0]).join(', ')
 
 // Late gear blocks new holds for everyone responsible for it (the booker and the crew).
@@ -49,7 +53,9 @@ async function hasLateGear(email: string) {
     db.collection('gear_bookings').where('creatorEmail', '==', email).where('status', '==', 'out').get(),
     db.collection('gear_bookings').where('crewEmails', 'array-contains', email).get(),
   ])
-  return [...own.docs, ...shared.docs].some(b => isGearLate({ status: b.get('status'), to: b.get('to') }, nowStamp()))
+  // Shared gear that's out: whoever signed for it at pickup holds it until it's back (owner, Oct 20: only the
+  // people who actually USED it are responsible; that's ticked at the return).
+  return [...own.docs, ...shared.docs].some(b => isGearLate({ status: b.get('status'), to: b.get('to') }, nowStamp()) && holderOf(b.data()) === email)
 }
 
 interface LineIn { offerId: string; qty: number }
@@ -332,7 +338,7 @@ export const pickUpGear = onCall(CALLABLE, async req => {
     // Recorded against the previous holder (records only, no billing).
     for (const p of prevSnaps) {
       const mine = missing.filter(m => previous.get(m.offerId) === p.id)
-      tx.update(p.ref, { problems: FieldValue.arrayUnion(...mine.map(m => ({ kind: 'missing_after', ...m, at: now, reportedOn: id, reportedBy: caller.email }))) })
+      tx.update(p.ref, { problems: FieldValue.arrayUnion(...mine.map(m => ({ kind: 'missing_after', ...m, at: now, reportedOn: id, reportedBy: caller.email, usedBy: p.get('usedBy') ?? [p.get('creatorEmail')] }))) })
     }
     tx.update(ref, {
       status: 'out', updatedAt: now,
@@ -352,6 +358,7 @@ export const returnGear = onCall(CALLABLE, async req => {
   const id = str(req.data?.id, 100)
   const photos = Array.isArray(req.data?.photos) ? req.data.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take the return photo first: everything in the case, batteries plugged in.')
+  const usedIn = Array.isArray(req.data?.usedBy) ? req.data.usedBy.filter((e: unknown): e is string => typeof e === 'string').slice(0, 10) : null
   const ref = db.doc(`gear_bookings/${id}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
@@ -362,12 +369,23 @@ export const returnGear = onCall(CALLABLE, async req => {
     const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
     const holds = await tx.getAll(...holdRefs)
     holds.forEach((h, i) => { if (h.exists) tx.update(holdRefs[i], { entries: ((h.get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id) }) })
+    // Shared gear: the person returning it ticks who used it. Only they carry it on their record.
+    const crew = (b.crew ?? []) as CrewMember[]
+    let usedBy: string[] = [b.creatorEmail]
+    if (crew.length) {
+      const people = [b.creatorEmail, ...crew.map(c => c.email)]
+      usedBy = people.filter(e => (usedIn ?? people).includes(e))
+      if (!usedBy.length) throw new HttpsError('invalid-argument', 'Tick who used the gear.', { problem: 'used-by' })
+    }
+    const nameOf = (e: string) => e === b.creatorEmail ? String(b.creatorName ?? e) : crew.find(c => c.email === e)?.name ?? e
     const now = new Date().toISOString(), at = nowStamp()
     const late = wasGearReturnedLate({ to: b.to, returnedAt: at })
+    const usedNote = crew.length ? `Used by ${usedBy.map(e => nameOf(e).split(' ')[0]).join(', ')}` : ''
     tx.update(ref, {
       status: 'returned', updatedAt: now, returnedAt: at, returnedLate: late,
       return: { at: now, by: caller.email, photos },
-      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late ? { note: 'Returned late' } : {}) }),
+      usedBy, usedByNames: usedBy.map(nameOf),
+      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote ? { note: [late ? 'Returned late' : '', usedNote].filter(Boolean).join(' · ') } : {}) }),
     })
   })
   return { ok: true }
@@ -394,7 +412,7 @@ export const checkInGear = onCall(CALLABLE, async req => {
     tx.update(ref, {
       status: 'checked_in', updatedAt: now,
       checkIn: { at: now, by: caller.email, missing, note },
-      ...(missing.length ? { problems: FieldValue.arrayUnion(...missing.map(m => ({ kind: 'missing_at_checkin', ...m, at: now, reportedBy: caller.email }))) } : {}),
+      ...(missing.length ? { problems: FieldValue.arrayUnion(...missing.map(m => ({ kind: 'missing_at_checkin', ...m, at: now, reportedBy: caller.email, usedBy: b.usedBy ?? [b.creatorEmail] }))) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'checked_in',
         ...(missing.length ? { note: `Missing: ${missing.map(m => `${m.qty}× ${m.name}`).join(', ')}` } : note ? { note } : {}) }),
     })

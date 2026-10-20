@@ -284,7 +284,7 @@ export default function ReserveScreen() {
               {friends.length > 0 && (
                 <div className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
                   <p className="text-sky-100 text-[15px] font-semibold">Share this gear with your friends?</p>
-                  <p className="text-sky-200/90 text-sm">They film back to back with you, so the gear stays out for all of you: one pickup, one return. You're all responsible for it.</p>
+                  <p className="text-sky-200/90 text-sm">They film back to back with you, so the gear stays out for all of you: one pickup, one return. When it comes back you tick who used it, and only they're responsible for it.</p>
                   <div className="flex flex-wrap gap-2">
                     {friends.map(f => {
                       const on = !notSharing.has(f.id)

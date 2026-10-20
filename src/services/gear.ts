@@ -70,6 +70,7 @@ export interface GearBooking {
   scheduleShootId?: string   // the booked shoot (Schedule) it belongs to
   // Shared gear for friends filming back to back: everyone on the crew is responsible for it.
   crew?: { email: string; name: string; shootId: string }[]; crewEmails?: string[]; crewShootIds?: string[]
+  usedBy?: string[]; usedByNames?: string[]   // ticked at the return: who actually used shared gear
   status: 'held' | 'out' | 'returned' | 'checked_in' | 'cancelled' | 'declined'
   declineReason?: string
   pickup?: { at: string; by: string; missing: GearMissing[] }
@@ -112,6 +113,6 @@ export const createGearBooking = httpsCallable<{ title: string; notes?: string; 
 export const cancelGearBooking = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelGearBooking')
 export const declineGearBooking = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineGearBooking')
 export const pickUpGear = httpsCallable<{ id: string; missing: string[]; signed: true }, { ok: boolean }>(functions, 'pickUpGear')
-export const returnGear = httpsCallable<{ id: string; photos: string[] }, { ok: boolean }>(functions, 'returnGear')
+export const returnGear = httpsCallable<{ id: string; photos: string[]; usedBy?: string[] }, { ok: boolean }>(functions, 'returnGear')
 export const checkInGear = httpsCallable<{ id: string; missing: string[]; note?: string }, { ok: boolean }>(functions, 'checkInGear')
 export const markGearFound = httpsCallable<{ offerId: string; index: number }, { ok: boolean }>(functions, 'markGearFound')

@@ -30,5 +30,8 @@ describe('shared gear notifications', () => {
     expect(gearChange('g1', g, { ...g, status: 'cancelled', history: [{ by: 'team@x' }] })[0].to).toEqual(['c@x', 'k@x'])
     expect(gearReminders('g1', { ...g, status: 'out', to: '2026-11-02T17:00' }, '2026-11-02T16:40')[0].push.to).toEqual(['c@x', 'k@x'])
     expect(responsible({ creatorEmail: 'c@x' })).toEqual(['c@x'])
+    const back = gearChange('g1', { ...g, status: 'out' }, { ...g, status: 'returned', usedByNames: ['Kyle'], history: [{ by: 'c@x' }] })
+    expect(back[1]).toMatchObject({ to: ['k@x'], title: 'Shared gear returned' })
+    expect(back[1].body).toMatch(/used by: Kyle/)
   })
 })

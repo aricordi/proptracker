@@ -47,25 +47,35 @@ describe('booking shared gear', () => {
 })
 
 describe('everyone is responsible', () => {
-  async function out(id: string, status = 'held', startIn = 10) {
+  async function out(id: string, status = 'held', startIn = 10, extra: Record<string, unknown> = {}) {
     const from = addMinutes(nowStamp(), startIn), to = addMinutes(from, 240)
     await put(`gear_bookings/${id}`, { title: 'Shoot', creatorEmail: ANA, creatorName: 'Ana', crew: [{ email: KYLE, name: 'Kyle', shootId: 'k' }],
       crewEmails: [KYLE], crewShootIds: ['k'], date: from.slice(0, 10), start: 0, end: 60, from, to, pickupDay: from.slice(0, 10), closedDay: false,
       lines: [{ offerId: 'fx3', kind: 'bundle', name: 'FX3 kit', qty: 1, photo: null, pieces: [{ itemId: 'g1', qty: 1, name: 'FX3' }] }],
-      offerIds: ['fx3'], status, history: [], createdAt: from })
+      offerIds: ['fx3'], status, history: [], createdAt: from, ...extra })
   }
   it('a friend on the crew can pick it up and return it; others can\'t', async () => {
     await out('g')
     expect((await call('pickUpGear', { id: 'g', missing: [], signed: true }, BEN)).error).toBe('PERMISSION_DENIED')
     expect((await call('pickUpGear', { id: 'g', missing: [], signed: true }, KYLE)).ok).toBe(true)
-    expect((await call('returnGear', { id: 'g', photos: ['https://example.com/p.jpg'] }, KYLE)).ok).toBe(true)
-    expect((await getDoc('gear_bookings/g'))!.status).toBe('returned')
+    expect((await call('returnGear', { id: 'g', photos: ['https://example.com/p.jpg'], usedBy: [] }, KYLE)).message).toMatch(/who used/)
+    expect((await call('returnGear', { id: 'g', photos: ['https://example.com/p.jpg'], usedBy: [KYLE, BEN] }, KYLE)).ok).toBe(true)
+    // Only the people who used it are on it (Ben isn't on the crew, so he's ignored).
+    expect(await getDoc('gear_bookings/g')).toMatchObject({ status: 'returned', usedBy: [KYLE], usedByNames: ['Kyle'] })
   })
 
-  it('late shared gear blocks new gear for the friend too', async () => {
-    await out('late', 'out', -400)
-    const r = await call('createGearBooking', { title: 'x', date: DAY, start: 900, end: 1020, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'k' }, KYLE)
-    expect(r.message).toMatch(/late/)
+  it('late shared gear blocks only whoever signed for it at pickup', async () => {
+    await out('late', 'out', -400, { pickup: { at: 'x', by: KYLE, missing: [] } })
+    const k = await call('createGearBooking', { title: 'x', date: DAY, start: 900, end: 1020, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'k' }, KYLE)
+    expect(k.message).toMatch(/late/)
+    expect((await call('createGearBooking', gear(), ANA)).ok).toBe(true)
+  })
+
+  it('missing at check-in goes on the people who used it', async () => {
+    await out('back', 'returned', -400, { usedBy: [ANA] })
+    await put('users/team@example.com', { email: 'team@example.com', role: 'equipment', active: true })
+    expect((await call('checkInGear', { id: 'back', missing: ['fx3|g1|1'] }, 'team@example.com')).ok).toBe(true)
+    expect((await getDoc('gear_bookings/back'))!.problems?.[0]?.usedBy).toEqual([ANA])
   })
 
   it('a friend can take themselves off held gear (not once it is out); only the booker changes it', async () => {

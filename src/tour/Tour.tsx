@@ -125,6 +125,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const [friends, setFriends] = useState<{ email: string; name: string }[]>([])
   const [shareGear, setShareGear] = useState(true)   // chapter 3: share the gear with your back-to-back friend(s)
   const sharing = shareGear && friends.length > 0
+  const [notUsed, setNotUsed] = useState<Set<string>>(new Set())   // chapter 9: who didn't use the shared gear
+  const usedCount = 1 + friends.length - notUsed.size
   const gearEnd = START + SLOT * (sharing ? friends.length + 1 : 1)
   const firstOf = (n: string) => n.split(' ')[0]
   const friendFirst = friends.map(f => firstOf(f.name)).join(' and ') || 'Sam'
@@ -203,7 +205,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
     ...(friends.length ? [{ id: 'share', scene: 'review' as Scene, part: 3, target: 'share', next: C,
       title: 'Filming back to back? Share the gear',
-      body: <>{friends.map(f => firstOf(f.name)).join(' and ')} film{friends.length > 1 ? '' : 's'} right after you, so one booking covers all of you: one pickup, one return, and you're all responsible for it. Tap a name to keep the gear just yours.</> }] : []),
+      body: <>{friends.map(f => firstOf(f.name)).join(' and ')} film{friends.length > 1 ? '' : 's'} right after you, so one booking covers all of you: one pickup, one return. When you bring it back you tick who actually used it: only they're responsible. Tap a name to keep the gear just yours.</> }] : []),
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
     { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake" or "a pirate hat". Use − and + for how many.' },
     { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Book props + gear</b></>, body: "Props go to the arts team, gear to the equipment team, and you land back on your shoot. (Practice, so nothing's really sent.)" },
@@ -269,6 +271,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'returnall', scene: 'requests', part: 9, target: 'returnall', title: <>Tap <b>Return everything</b></>, body: 'Props and gear usually go back together, so it is one step for both.' },
     { id: 'retlist', scene: 'returnall', part: 9, target: 'retlist', next: C, hint: 'Tick both back to return them together', title: 'Everything starts ticked', body: <>Keeping something for later? Tap it to untick it, and return it on its own from My requests. Try it, then tick it back.</> },
     { id: 'retphoto', scene: 'returnall', part: 9, target: 'camera', next: C, skip: true, hint: 'Take a photo first (or skip)', title: 'One photo of it all', body: "Props together, gear in its case, batteries charging. It's your receipt if anything is questioned." },
+    ...(sharing ? [{ id: 'usedby', scene: 'returnall' as Scene, part: 9, target: 'usedby', next: C, hint: 'Tick at least one person',
+      title: 'Who used the gear?', body: <>You shared it with {friends.map(f => firstOf(f.name)).join(' and ')}. Untick anyone who didn't use it: only the people ticked are responsible if it's late or something's missing. Everyone gets told what you picked.</> }] : []),
     { id: 'returned', scene: 'returnall', part: 9, target: 'returned', title: <>Tap <b>Return all 2</b></>, body: 'Add a note first if it helps (where you left the props).' },
     { id: 'seereq', scene: 'returnall', part: 9, target: 'seereq', title: <>Tap <b>See my requests</b></> },
     { id: 'final', scene: 'requests', part: 9, target: 'card', look: true, next: C, title: 'Both on their way home', body: 'Each team checks its part in. When both bars are full, you are done.' },
@@ -997,7 +1001,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
             {friends.length > 0 && (
               <div {...T('share')} className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
                 <p className="text-sky-100 text-[15px] font-semibold">Share this gear with your friends?</p>
-                <p className="text-sky-200/90 text-sm">They film back to back with you, so the gear stays out for all of you: one pickup, one return. You're all responsible for it.</p>
+                <p className="text-sky-200/90 text-sm">They film back to back with you, so the gear stays out for all of you: one pickup, one return. When it comes back you tick who used it, and only they're responsible for it.</p>
                 <div className="flex flex-wrap gap-2">
                   {friends.map((f, i) => (
                     <button key={f.email} aria-pressed={shareGear} onClick={() => setShareGear(v => !v)}
@@ -1380,6 +1384,23 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                 <li>Batteries plugged into the chargers on the shelf.</li><li>Take one photo that shows it all.</li>
               </ol>
               {camTile('retphoto', 'Photo of everything (required)', 'It protects you if anything is questioned later.')}
+              {sharing && (
+                <div {...T('usedby')} className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
+                  <p className="text-sky-100 text-[15px] font-semibold">Who used this gear?</p>
+                  <p className="text-sky-200/90 text-sm">Untick anyone who didn't. Only the people ticked are responsible if it's late or something's missing.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {[{ email: 'you', name: 'You' }, ...friends].map(f => {
+                      const on = !notUsed.has(f.email)
+                      return (
+                        <button key={f.email} aria-pressed={on} onClick={() => setNotUsed(prev => { const n = new Set(prev); if (on) n.add(f.email); else n.delete(f.email); return n })}
+                          className={`rounded-full px-3 py-2 text-sm ${on ? 'bg-sky-300 text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted shadow-hairline'}`}>
+                          {on ? '✓ ' : ''}{firstOf(f.name)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <textarea value={retNote} onChange={e => setRetNote(e.target.value.slice(0, 300))} rows={2} placeholder="Where did you leave the props? Anything to flag? (optional)"
                 className="w-full bg-pt-surface rounded-xl px-3 py-2 text-pt-text placeholder-pt-muted focus:outline-none focus:ring-1 focus:ring-pt-accent resize-none" />
               <button {...T('returned')} onClick={tap('returned')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Return all 2</button>
@@ -1451,7 +1472,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
   const inPart = STEPS.filter(x => x.part === step.part && !x.id.startsWith('part') && !x.quiz)
   const stepInPart = inPart.findIndex(x => x.id === step.id) + 1
   const back = idx > 0 ? () => setIdx(n => { const m = Math.max(0, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
-  const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3)
+  const nextDisabled = (step.id === 'name' && video.trim().length < 2) || (step.id === 'report' && (over || mess) && reportNote.trim().length < 3) || (step.id === 'usedby' && usedCount < 1)
     || (step.id === 'friend1' && friendCount === 0) || (step.id === 'friendname' && friends.length < friendCount)
     || (step.id === 'search' && added.length === 0) || (step.id === 'changeq' && changeQ.trim().length < 2) || (step.id === 'reqadd' && changeAdded === 0) || (step.id === 'retlist' && retOff.length > 0) || (step.id === 'addgear' && !hasCamera) || (step.id === 'pieces' && !allTicked) || (step.id === 'aipicks' && aiTicks.length === 0)
     || (['setphoto', 'retphoto'].includes(step.id) && !photos[step.id]) || (step.id === 'notify' && push === 'off' && !pushMsg)

@@ -7,14 +7,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import { startReturn } from '../services/reservations'
-import { returnGear } from '../services/gear'
+import { returnGear, type GearBooking } from '../services/gear'
+import UsedByPicker, { usedByOf } from '../components/UsedByPicker'
 import { useShootLabel } from '../activeShoot'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { formatDay } from '../lib/dates'
 import ProofPhotos from '../components/ProofPhotos'
 import { useReturnGroups, findReturnGroup, canReturnProps, canReturnGear } from '../hooks/useReturnables'
 
-interface Part { key: string; kind: 'props' | 'gear'; id: string; title: string; detail: string }
+interface Part { key: string; kind: 'props' | 'gear'; id: string; title: string; detail: string; booking?: GearBooking }
 
 function errText(err: unknown) {
   return err instanceof FirebaseError ? err.message.replace(/^Firebase: /, '').replace(/ \(functions\/[a-z-]+\)\.?$/, '') : 'Something went wrong. Try again.'
@@ -35,7 +36,7 @@ export default function ReturnAllScreen() {
       detail: [...r.lines.map(l => l.qty > 1 ? `${l.itemName} ×${l.qty}` : l.itemName), ...(r.builds ?? []).filter(b => b.state === 'done').map(b => b.description)].join(', '),
     })),
     ...group.gear.filter(canReturnGear).map(b => ({
-      key: `gear:${b.id}`, kind: 'gear' as const, id: b.id, title: `Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`,
+      key: `gear:${b.id}`, kind: 'gear' as const, id: b.id, booking: b, title: `Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`,
       detail: b.lines.map(l => l.qty > 1 ? `${l.name} ×${l.qty}` : l.name).join(', '),
     })),
   ], [group])
@@ -48,6 +49,7 @@ export default function ReturnAllScreen() {
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [done, setDone] = useState<string[] | null>(null)
+  const [notUsing, setNotUsing] = useState<Record<string, Set<string>>>({})   // shared gear: who didn't use it
 
   const ticked = parts.filter(p => !off.has(p.key))
   const gearTicked = ticked.some(p => p.kind === 'gear')
@@ -60,7 +62,7 @@ export default function ReturnAllScreen() {
     for (const p of ticked) {
       try {
         if (p.kind === 'props') await startReturn({ id: p.id, photos, ...(note.trim() ? { note: note.trim() } : {}) })
-        else await returnGear({ id: p.id, photos })
+        else await returnGear({ id: p.id, photos, usedBy: p.booking ? usedByOf(p.booking, notUsing[p.id] ?? new Set()) : undefined })
         ok.push(p.key)
       } catch (err) { bad[p.key] = errText(err) }
     }
@@ -142,7 +144,10 @@ export default function ReturnAllScreen() {
                     placeholder="Where did you leave the props? Anything to flag? (optional)"
                     className="w-full bg-pt-surface rounded-xl px-3 py-2 text-pt-text placeholder-pt-muted focus:outline-none focus:ring-1 focus:ring-pt-accent resize-none" />
                 )}
-                <button onClick={submit} disabled={busy || uploading || photos.length === 0}
+                {ticked.filter(p => p.booking?.crew?.length).map(p => (
+                  <UsedByPicker key={p.key} b={p.booking!} off={notUsing[p.id] ?? new Set()} onChange={s => setNotUsing({ ...notUsing, [p.id]: s })} />
+                ))}
+                <button onClick={submit} disabled={busy || uploading || photos.length === 0 || ticked.some(p => p.booking && usedByOf(p.booking, notUsing[p.id] ?? new Set())?.length === 0)}
                   className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
                   {busy ? 'Returning…' : uploading ? 'Uploading…' : ticked.length === 1 ? 'Confirm return' : `Return all ${ticked.length}`}
                 </button>

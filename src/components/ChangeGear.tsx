@@ -75,7 +75,7 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
       {/* Gear for a booked shoot keeps the shoot's own hours (owner, Oct 20). */}
       {crewOptions.length > 0 && (
         <div className="space-y-2">
-          <p className="text-pt-muted text-xs">Shared with friends filming back to back (you're all responsible)</p>
+          <p className="text-pt-muted text-xs">Shared with friends filming back to back (at the return you tick who used it)</p>
           <div className="flex flex-wrap gap-2">
             {crewOptions.map(f => {
               const on = crewSel.has(f.id), gone = !friends.some(x => x.id === f.id)

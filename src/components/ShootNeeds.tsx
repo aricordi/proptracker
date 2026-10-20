@@ -39,7 +39,7 @@ function useLinked(shoot: Shoot, props: boolean, gear: boolean) {
       snap => setG(snap.docs.map(d => ({ id: d.id, kind: 'gear', title: d.get('title'), status: d.get('status'), count: (d.get('lines') ?? []).length,
         sharedWith: firstNames(d.get('crew')) }))), () => setG([]))
   }, [shoot.id, shoot.creatorEmail, gear])
-  // Gear a friend booked for your back-to-back shoots (shared: you're responsible for it too).
+  // Gear a friend booked for your back-to-back shoots (shared: any of you can pick it up and return it).
   const [sg, setSG] = useState<Linked[]>([])
   useEffect(() => {
     if (!gear) return
@@ -68,7 +68,7 @@ export function RequestRow({ l, label, late, className = 'bg-pt-surface', onOpen
         <span className={`shrink-0 text-xs ${late ? 'text-red-300 font-semibold' : over ? 'text-pt-muted' : 'text-pt-accent'} tap`}>{late ? 'Late · bring it back' : (kind === 'props' ? PROP_WORDS : GEAR_WORDS)[l.status] ?? l.status} ›</span>
       </span>
       {!over && <span className="flex gap-1">{steps.map((_, i) => <i key={i} className={`flex-1 h-1.5 rounded-full ${late && i === at ? 'bg-red-400' : i <= at ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</span>}
-      {(l.sharedBy || l.sharedWith) && <span className="block text-sky-300 text-xs">{l.sharedBy ? `Shared by ${l.sharedBy} · you're responsible for it too` : `Shared with ${l.sharedWith} · you're all responsible for it`}</span>}
+      {(l.sharedBy || l.sharedWith) && <span className="block text-sky-300 text-xs">{l.sharedBy ? `Shared by ${l.sharedBy} · any of you can pick it up` : `Shared with ${l.sharedWith}`}</span>}
       {!over && !l.sharedBy && (l.status === 'requested' || l.status === 'held') && <span className="block text-pt-muted text-xs">{kind === 'props' ? 'Tap to change it, until the arts team starts.' : 'Tap to change it, until you pick it up.'}</span>}
     </button>
   )

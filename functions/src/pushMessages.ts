@@ -68,7 +68,7 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
   // Friends newly added to shared gear (back-to-back shoots): they're responsible for it too.
   const added = ((a.crewEmails ?? []) as string[]).filter(e => !((b?.crewEmails ?? []) as string[]).includes(e))
   const shared: Push[] = added.length && a.status === 'held' ? [{ to: added, url, tag, title: 'Gear shared with you 🎥',
-    body: `${String(a.creatorName ?? '').split(' ')[0] || 'A friend'} booked "${a.title}" for your back-to-back shoots (${dayLabel(a.date)} ${fmtTime(a.start)}). You're all responsible for it.` }] : []
+    body: `${String(a.creatorName ?? '').split(' ')[0] || 'A friend'} booked "${a.title}" for your back-to-back shoots (${dayLabel(a.date)} ${fmtTime(a.start)}). Whoever uses it is responsible for it.` }] : []
   if (!b) return [{ to: ['gear-team'], url, tag, title: 'New gear hold', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.date)} ${fmtTime(a.start)}` }, ...shared]
   if (b.status === a.status) return shared
   const all = responsible(a)
@@ -79,7 +79,13 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
       if (!all.includes(by)) return [{ to: all, url, tag, title: 'Gear hold cancelled', body: `"${a.title}" was cancelled by the team.` }]
       return others.length ? [{ to: others, url, tag, title: 'Shared gear cancelled', body: `${String(a.creatorName ?? '').split(' ')[0]} cancelled "${a.title}".` }] : []
     }
-    case 'returned': return [{ to: ['gear-team'], url, tag, title: 'Gear returned', body: `${a.creatorName}'s "${a.title}" is back. Check it in.` }]
+    case 'returned': {
+      // Shared gear: tell the others who was marked as using it, so nobody's put on (or left off) without knowing.
+      const by = lastBy(a) ?? '', others = all.length > 1 ? all.filter(e => e !== by) : []
+      const used = ((a.usedByNames ?? []) as string[]).map(n => n.split(' ')[0]).join(', ')
+      return [{ to: ['gear-team'], url, tag, title: 'Gear returned', body: `${a.creatorName}'s "${a.title}" is back. Check it in.` },
+        ...(others.length ? [{ to: others, url, tag, title: 'Shared gear returned', body: `"${a.title}" is back. Marked as used by: ${used || 'nobody'}. Not right? Tell the equipment team.` }] : [])]
+    }
     default: return []
   }
 }

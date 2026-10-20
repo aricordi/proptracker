@@ -1169,6 +1169,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (target 'share'), gear tour ch5 text. Tests 413 (tests/functions/gearCrew.test.ts, tests/unit/gearCrew.test.ts, rules).
       Not yet: a friend whose slot is only HELD (invite not confirmed) can't be added until they confirm; the booker adds them
       later with Change.
+      → WHO USED IT (owner, Oct 20: "what if someone in the group doesn't use it… maybe when returned you say who used it"):
+      being on shared gear = may pick it up / return it. RESPONSIBILITY: while it's out = whoever signed at pickup (`holderOf`:
+      pickup.by if on the booking, else the booker) → only they're blocked by late gear; at the RETURN the returner ticks
+      "Who used this gear?" (`src/components/UsedByPicker.tsx` on the gear page + Return everything; all ticked, ≥1 required)
+      → returnGear `usedBy` (crew only) stored as usedBy/usedByNames + history "Used by …"; check-in missing problems and
+      missing_after (next pickup) carry `usedBy`; the others get a push "Shared gear returned · Marked as used by: … Not right?
+      Tell the equipment team." Creator tour ch9 step `usedby`. Tests 414.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
