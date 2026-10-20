@@ -68,7 +68,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
   strikes: AStrike[]; invites: AInvite[] }) {
   const { now, closed } = o
   const nowDate = new Date(now + ':00'), today = now.slice(0, 10)
-  const facts: Fact[] = [], incidents: Incident[] = [], jobs: Job[] = []
+  const facts: Fact[] = [], incidents: Incident[] = [], jobs: Job[] = [], upcoming: { email: string; date: string; id: string }[] = []
   const names = new Map<string, string>()
   const name = (email: string, n?: string) => { if (n && !names.has(email)) names.set(email, n); return names.get(email) ?? n ?? email.split('@')[0] }
   const add = (i: Omit<Incident, 'name'> & { name?: string }) => incidents.push({ ...i, name: name(i.email, i.name) })
@@ -84,7 +84,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
       }
       continue
     }
-    if (x.to > now) continue
+    if (x.to > now) { upcoming.push({ email: x.creatorEmail, date: x.date, id: x.id }); continue }
     const filmed = !!x.checkin || x.outcome === 'filmed'
     facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed, title: x.wrap?.title, to })
     if (filmed) {
@@ -151,7 +151,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
       add({ kind: 'invite-lapsed', email: v.toEmail, name: v.toName, date: v.date, house: houseOf(v.place), text: `Let ${v.fromName}'s held slot run out` })
   }
   for (const i of incidents) i.name = name(i.email)
-  return { facts, incidents, jobs, backlog, names }
+  return { facts, incidents, jobs, backlog, names, upcoming }
 }
 
 // ── Periods ──

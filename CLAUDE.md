@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 432 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 434 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1297,6 +1297,23 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (CreatorDashboard) now uses the same engine + parts (7 days / 28 days default / 12 weeks, headline, cards, chart, Open
       analytics / Settings sheet, Needs you now, Needs attention, Top creators; rows open Analytics narrowed). Admin tour dashboard
       scene + texts updated. creatorStats.ts still drives /creators and /people. Tests 432.
+    - ACCOUNTABILITY FIRST (owner, Oct 20, right after v2: "least interested in total shoots and trends; most interested in
+      accountability, individual creators hitting a minimum number of videos… organised by creator rather than by time… who's doing
+      well and who's doing poorly"; app only; preview only, live needs OK). insights.ts: MIN_SHOOTS_PER_MONTH = 4 (CONSTANT, owner to
+      confirm; making it editable needs a rules change), targetFor(range) (whole month = 4; THIS month = 4 + "by today" pace rounded
+      down; other ranges pro-rated), standings() = one LEVEL per creator: 'attention' (paused, any serious flag, or show-up < 70% with
+      2+ booked), 'behind' (filmed < by-now target, or 3+ smaller flags), 'good'; reasons ("1 no-show · 2 short of the minimum",
+      "nothing booked"); sortStandings worst/best/flags/name; comingThisMonth (analyze() now returns `upcoming` booked shoots).
+      Parts: LevelPill, StandingTiles (3 tiles = filter), TargetBar (filmed colour, booked light, white tick = minimum, faint tick =
+      due by today), StandingRow/List, TargetKey; ColumnChart `goal` (solid white "Minimum N" line). DASHBOARD = This month (default) /
+      Last month / 12 weeks, standing tiles, every creator worst first (8 + See all), key, Open analytics / Settings sheet, Needs you now
+      (no trend chart). ANALYTICS tabs now Creators (default; ?tab=overview → trends) / Flags / Teams / Trends; default range This
+      month (Trends: 12 weeks). Creators = headline "4 need attention, 3 behind this month", tiles (?level=), sort chips (?sort=),
+      list, "How the standing is decided", Needs you now. Person = REPORT CARD (standing, "N of 4 shoots filmed", bar, reasons) →
+      cards (no chart) → Month by month (last 6 months vs the minimum line, "hit it X of the last 5 months") → their flags → what they
+      filmed → every shoot. Flags: cards, Who has the most FIRST, then By type, list (no chart). Teams: cards, per person, Right now (no
+      chart). Trends = the old Overview (headline, cards, chart, top creators, flags by type, houses). Settings sheet: "Creator
+      standing" section. Admin tour dashboard scene = scoreboard. Tests 434.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

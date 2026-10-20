@@ -10,6 +10,7 @@ import { RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
 import { LATE_START_MIN, KIND, THEMES } from '../lib/analytics'
+import { MIN_SHOOTS_PER_MONTH, LOW_SHOW_UP, MANY_FLAGS, LEVEL } from '../lib/insights'
 import { formatDay } from '../lib/dates'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -46,6 +47,12 @@ export default function RulesSheetScreen() {
       ['Friend invite hold', `${INVITE_HOLD_MINUTES} min`, 'How long a slot is held for an invited friend. If they let it run out, they get a "Didn\'t confirm" flag.', owner],
       ['Priority days', list(s.priorityWeekdays.map(d => DAYS[d])), `Only the priority group can book these; unclaimed slots open to everyone on Sunday at ${fmtTime(s.releaseMinute)}.`, owner],
       ['Priority group', `${s.priority.length} people`, list(s.priority.map(p => p.name)), owner],
+    ] },
+    { title: 'Creator standing (Dashboard and Analytics)', rows: [
+      ['Minimum shoots', `${MIN_SHOOTS_PER_MONTH} a month`, 'Each creator should film at least this many. This month counts what is due by today; booked shoots still to come show but only filmed ones count.', owner],
+      ['Needs attention', 'any serious flag', LEVEL.attention.means, owner],
+      ['Behind', `under the minimum, or ${MANY_FLAGS}+ small flags`, LEVEL.behind.means, owner],
+      ['Low show-up', `under ${Math.round(LOW_SHOW_UP * 100)}%`, 'Filmed out of booked, once they have 2 or more shoots in the range.', owner],
     ] },
     { title: 'On the day, strikes and pauses', rows: [
       ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a set photo (camera only) from this time until the slot ends.', owner],

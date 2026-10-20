@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { analyze } from '../../src/lib/analytics'
-import { rangeFor, customRange, grainsFor, defaultGrain, buckets, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv } from '../../src/lib/insights'
+import { rangeFor, customRange, grainsFor, defaultGrain, buckets, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, targetFor, standings, sortStandings, comingThisMonth } from '../../src/lib/insights'
 
 const closed = { closedWeekdays: [0], closedDates: [] }
 const shoot = (id: string, email: string, date: string, extra: Record<string, unknown> = {}) =>
@@ -64,5 +64,34 @@ describe('insights: metrics and breakdowns', () => {
     expect(w.map(x => value('filmed', x.data))).toEqual([0, 0, 1, 1, 0])
     expect(seriesOf('filmed', a, r, 'week', {}).map(x => x.value)).toEqual([0, 0, 1, 1, 0])
     expect(toCsv('creator', rows, ['filmed', 'showRate'], cur).split('\n')[1]).toBe('Total,2,67%')
+  })
+})
+
+describe('insights: creator standing', () => {
+  const a = analyze({
+    now: '2026-10-20T12:00', closed,
+    shoots: [
+      ...['01', '05', '08', '12'].map((d, i) => shoot('r' + i, 'riley@x', `2026-10-${d}`, { ...filmed, wrap: { at: 'x', title: 'Video' } })),          // 4 filmed: on track
+      shoot('j1', 'jana@x', '2026-10-06', { ...filmed, wrap: { at: 'x', title: 'Video' } }), shoot('j2', 'jana@x', '2026-10-28'),                     // 1 filmed + 1 booked: behind
+      shoot('d1', 'devon@x', '2026-10-07', { ...filmed, wrap: { at: 'x', title: 'Video' } }), shoot('d2', 'devon@x', '2026-10-09', { noShow: 'missed', outcome: 'noshow' }),
+      ...['02', '03', '06'].map((d, i) => shoot('m' + i, 'maya@x', `2026-10-${d}`, { ...filmed, wrap: { at: 'x', title: 'Video' } })),                // 3 filmed, by-now pace 2: on track
+    ],
+    props: [], gear: [], reports: [], strikes: [], invites: [],
+  })
+  const r = rangeFor('tm', '2026-10-20'), target = targetFor(r, '2026-10-20')
+  const list = sortStandings(standings(rowsBy('creator', slice(a, r.from, r.to), { grain: 'day', people: [{ email: 'kim@x', name: 'Kim' }] }),
+    { target, paused: [], coming: comingThisMonth(a.upcoming, r, '2026-10-20') }))
+  const by = (e: string) => list.find(s => s.email === e)!
+  it('sets the minimum for the range', () => {
+    expect(target).toEqual({ full: 4, byNow: 2 })                                // Oct 20 of 31 days → 2 due by today
+    expect(targetFor(rangeFor('lm', '2026-10-20'), '2026-10-20')).toEqual({ full: 4, byNow: 4 })
+    expect(targetFor(rangeFor('12w', '2026-10-20'), '2026-10-20').full).toBe(10)
+  })
+  it('gives each creator one standing with reasons, worst first', () => {
+    expect(list.map(s => [s.name, s.level])).toEqual([['devon', 'attention'], ['Kim', 'behind'], ['jana', 'behind'], ['maya', 'good'], ['riley', 'good']])
+    expect(by('devon@x').reasons).toEqual(['1 no-show', 'showed up 50%', '1 short of the minimum'])
+    expect(by('jana@x')).toMatchObject({ filmed: 1, coming: 1, reasons: ['1 short of the minimum'] })
+    expect(by('kim@x').reasons).toEqual(['nothing booked'])
+    expect(sortStandings(list, 'best')[0].name).toBe('riley')
   })
 })

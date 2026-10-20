@@ -15,15 +15,16 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import BottomSheet from '../components/BottomSheet'
 import { Icon } from '../components/Icon'
-import { MetricCards, ColumnChart, SectionHead, RankList, NeedsYou, needsYouItems, showRateTone } from '../components/analytics/Parts'
+import { MetricCards, ColumnChart, SectionHead, RankList, NeedsYou, needsYouItems, showRateTone, StandingTiles, StandingList, TargetKey, TargetBar, LevelPill, LEVEL_STYLE } from '../components/analytics/Parts'
 import { useAnalyticsData } from '../hooks/useAnalytics'
 import { formatDay } from '../lib/dates'
 import { KIND, THEMES, type House, type Kind } from '../lib/analytics'
 import { PRESETS, rangeFor, customRange, grainsFor, defaultGrain, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, shift,
-  METRICS, DIMS, HOUSE_LABEL, type Preset, type Grain, type Metric, type Dim, type Data, type Range, type Row } from '../lib/insights'
+  METRICS, DIMS, HOUSE_LABEL, standings, sortStandings, targetFor, comingThisMonth, MIN_SHOOTS_PER_MONTH, LEVEL, type StandSort, type Level, type Preset, type Grain, type Metric, type Dim, type Data, type Range, type Row } from '../lib/insights'
 
-type Tab = 'overview' | 'creators' | 'flags' | 'teams'
-const TABS: [Tab, string][] = [['overview', 'Overview'], ['creators', 'Creators'], ['flags', 'Flags'], ['teams', 'Teams']]
+type Tab = 'creators' | 'flags' | 'teams' | 'trends'
+// Owner, Oct 20: accountability first ("organised by creator rather than by time"); trends over time come last.
+const TABS: [Tab, string][] = [['creators', 'Creators'], ['flags', 'Flags'], ['teams', 'Teams'], ['trends', 'Trends']]
 const DIM_ORDER: Dim[] = ['creator', 'house', 'period', 'theme', 'kind', 'staff']
 const CAP = 5
 const cap = <T,>(xs: T[], all: boolean) => all ? xs : xs.slice(0, CAP)
@@ -39,8 +40,9 @@ export default function AnalyticsScreen() {
   }
   const drill = (patch: Record<string, string | number | null>) => set(patch, true)
 
-  const tab = (qs.get('tab') as Tab) || 'overview'
-  const preset = (PRESETS.some(p => p[0] === qs.get('period')) ? qs.get('period') : '12w') as Preset
+  const tabQ = qs.get('tab'), tab: Tab = tabQ === 'overview' ? 'trends' : TABS.some(t => t[0] === tabQ) ? tabQ as Tab : 'creators'
+  // Accountability is by the month (the minimum is per month); trends default to 12 weeks.
+  const preset = (PRESETS.some(p => p[0] === qs.get('period')) ? qs.get('period') : tab === 'trends' ? '12w' : 'tm') as Preset
   const zoomFrom = qs.get('from'), zoomTo = qs.get('to')
   const who = qs.get('who') || '', house = (qs.get('house') as House) || ''
   const theme = qs.get('theme') || '', kind = (qs.get('kind') as Kind) || ''
@@ -67,7 +69,7 @@ export default function AnalyticsScreen() {
     ...(kind ? [{ label: KIND[kind].label, clear: () => set({ kind: null }) }] : []),
   ]
   const zoomTo_ = (bucket: string) => { const [f, t] = bucketSpan(bucket, grain, range); drill({ from: f, to: t, g: null }) }
-  const ctx: Ctx = { a, cur, prev, range, grain, scope, who, house, theme, kind, people, staffName, nameOf, set, drill, navigate, zoom: zoomTo_, tab, pausedNow }
+  const ctx: Ctx = { a, cur, prev, range, grain, scope, who, house, theme, kind, people, staffName, nameOf, set, drill, navigate, zoom: zoomTo_, tab, pausedNow, today }
 
   if (loading) return <div className="min-h-full bg-pt-bg pt-safe px-4"><p className="text-pt-muted text-sm pt-10 text-center">Loading analytics…</p></div>
 
@@ -96,7 +98,7 @@ export default function AnalyticsScreen() {
         {!table && (
           <div role="tablist" className="flex gap-5 overflow-x-auto no-scrollbar">
             {TABS.map(([v, l]) => (
-              <button key={v} role="tab" aria-selected={tab === v} onClick={() => set({ tab: v === 'overview' ? null : v, m: null })}
+              <button key={v} role="tab" aria-selected={tab === v} onClick={() => set({ tab: v === 'creators' ? null : v, m: null })}
                 className={`relative py-3 text-[15px] shrink-0 ${tab === v ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>
                 {l}{tab === v && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}
               </button>
@@ -114,10 +116,10 @@ export default function AnalyticsScreen() {
 
       <div className="px-4 pt-4 space-y-4">
         {table ? <AdvancedView {...ctx} qs={qs} /> : <>
-          {tab === 'overview' && <OverviewTab {...ctx} m={qs.get('m') as Metric} />}
-          {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(qs.get('sort') as 'filmed' | 'showRate' | 'flags') || 'filmed'} />}
+          {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(['worst', 'best', 'flags', 'name'].includes(qs.get('sort') ?? '') ? qs.get('sort') : 'worst') as StandSort} level={(qs.get('level') as Level) || ''} />}
           {tab === 'flags' && <FlagsTab {...ctx} m={qs.get('m') as Metric} />}
           {tab === 'teams' && <TeamsTab {...ctx} m={qs.get('m') as Metric} />}
+          {tab === 'trends' && <TrendsTab {...ctx} m={qs.get('m') as Metric} />}
         </>}
       </div>
 
@@ -127,7 +129,7 @@ export default function AnalyticsScreen() {
             {PRESETS.map(([p, l]) => {
               const on = !range.zoomed && p === preset
               return (
-                <button key={p} onClick={() => { set({ period: p === '12w' ? null : p, from: null, to: null, g: null }); setPeriodOpen(false) }} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                <button key={p} onClick={() => { set({ period: p, from: null, to: null, g: null }); setPeriodOpen(false) }} className="w-full flex items-center gap-3 px-4 py-3 text-left">
                   <span className="flex-1"><span className="block text-pt-text text-[15px]">{l}</span><span className="block text-pt-muted text-xs">{rangeFor(p, today).dates}</span></span>
                   {on && <Icon name="check" className="w-5 h-5 text-pt-accent" />}
                 </button>
@@ -155,7 +157,7 @@ interface Ctx {
   a: ReturnType<typeof useAnalyticsData>['a']; cur: Data; prev: Data; range: Range; grain: Grain; scope: { email?: string; house?: House; kinds?: Kind[] }
   who: string; house: string; theme: string; kind: string; people: { email: string; name: string }[]; staffName: (e: string) => string; nameOf: (e: string) => string
   set: (p: Record<string, string | number | null>, push?: boolean) => void; drill: (p: Record<string, string | number | null>) => void
-  navigate: ReturnType<typeof useNavigate>; zoom: (bucket: string) => void; tab: Tab; pausedNow: string[]
+  navigate: ReturnType<typeof useNavigate>; zoom: (bucket: string) => void; tab: Tab; pausedNow: string[]; today: string
 }
 
 function FilterSheet({ open, onClose, people, who, house, theme, set }: { open: boolean; onClose: () => void; people: { email: string; name: string }[]; who: string; house: string; theme: string
@@ -193,22 +195,22 @@ function FilterSheet({ open, onClose, people, who, house, theme, set }: { open: 
 }
 
 // ── The same top half on every tab: headline → metric cards → chart ──
-function Top({ c, metrics, m, headline, sub, tourId }: { c: Ctx; metrics: Metric[]; m?: Metric; headline: ReactNode; sub?: ReactNode; tourId?: string }) {
+function Top({ c, metrics, m, headline, sub, tourId, chart = true }: { c: Ctx; metrics: Metric[]; m?: Metric; headline?: ReactNode; sub?: ReactNode; tourId?: string; chart?: boolean }) {
   const sel = m && metrics.includes(m) ? m : metrics[0]
   const cv = (x: Metric) => value(x, c.cur), pv = (x: Metric) => value(x, c.prev)
   const data = seriesOf(sel, c.a, c.range, c.grain, c.scope)
   const cmp = compare(sel, cv(sel), pv(sel))
   return <>
-    <div data-tour={tourId}>
+    {headline && <div data-tour={tourId}>
       <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">{headline}</p>
       {sub && <p className="text-pt-muted text-[15px] mt-1">{sub}</p>}
-    </div>
-    <MetricCards metrics={metrics} cur={cv} prev={pv} selected={sel} onSelect={x => c.set({ m: x === metrics[0] ? null : x })} tourId="cards" />
-    <div>
+    </div>}
+    <MetricCards metrics={metrics} cur={cv} prev={pv} selected={chart ? sel : undefined} onSelect={chart ? x => c.set({ m: x === metrics[0] ? null : x }) : undefined} tourId="cards" />
+    {chart && <div>
       <p className="text-pt-text text-[15px] font-medium mb-2">{METRICS[sel].label} by {c.grain}{cmp && cmp.text !== 'New' && <span className="text-pt-muted font-normal"> · {cmp.tone === 'flat' ? 'about the same as' : `${cmp.text} vs`} {c.range.prevLabel}</span>}</p>
       <ColumnChart data={data} grain={c.grain} m={sel} onZoom={c.zoom} avgWord={`per ${c.grain}`} />
       <p className="text-pt-muted text-xs mt-2">{METRICS[sel].means}</p>
-    </div>
+    </div>}
   </>
 }
 const vsLine = (c: Ctx, m: Metric) => {
@@ -218,8 +220,8 @@ const vsLine = (c: Ctx, m: Metric) => {
   return cmp.tone === 'flat' ? `About the same as ${c.range.prevLabel}.` : `${cmp.text.replace('↑', 'Up').replace('↓', 'Down')} on ${c.range.prevLabel}.`
 }
 
-// ── Overview: the whole picture ──
-function OverviewTab(c: Ctx & { m: Metric }) {
+// ── Trends: the whole studio over time (owner: least important, so it's the last tab) ──
+function TrendsTab(c: Ctx & { m: Metric }) {
   const filmed = value('filmed', c.cur)!, creators = value('creators', c.cur)!
   const people = rowsBy('creator', c.cur, { grain: c.grain, people: c.who ? [] : c.people })
   const top = sortRows(people, 'filmed').filter(r => value('filmed', r.data)! > 0).slice(0, 5)
@@ -232,8 +234,6 @@ function OverviewTab(c: Ctx & { m: Metric }) {
   return <>
     <Top c={c} m={c.m} metrics={['filmed', 'showRate', 'creators', 'flags']} tourId="headline"
       headline={<>{subject} filmed {plural(filmed, 'shoot')} {c.range.phrase}</>} sub={vsLine(c, 'filmed')} />
-    <SectionHead title="Needs you now" sub="Live, whatever the date range" />
-    <NeedsYou items={needsYouItems(c.a, c.pausedNow, to => c.navigate(to))} />
     <SectionHead title="Top creators" sub="Most shoots filmed" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: 'filmed' })} />
     <RankList tourId="topcreators" empty="Nobody filmed in this range." rows={top.map(r => ({ key: r.key, label: r.label, email: r.email, value: fmt('filmed', value('filmed', r.data)),
       share: value('filmed', r.data)! / topMax, sub: `${fmt('showRate', value('showRate', r.data))} showed up · ${plural(value('flags', r.data)!, 'flag')}`, onClick: () => c.drill({ who: r.key, tab: 'creators', m: null }) }))} />
@@ -246,34 +246,45 @@ function OverviewTab(c: Ctx & { m: Metric }) {
   </>
 }
 
-// ── Creators: production per person ──
-function CreatorsTab(c: Ctx & { m: Metric; sort: 'filmed' | 'showRate' | 'flags' }) {
+// ── Creators: accountability, one standing per person (the default tab) ──
+function CreatorsTab(c: Ctx & { m: Metric; sort: StandSort; level: Level | '' }) {
   if (c.who) return <PersonView {...c} />
-  const filmed = value('filmed', c.cur)!, creators = value('creators', c.cur)!
-  const rows = rowsBy('creator', c.cur, { grain: c.grain, people: c.people })
-  const sorted = sortRows(rows, c.sort, c.sort === 'showRate' ? 'asc' : 'desc')
-  const max = Math.max(c.sort === 'showRate' ? 1 : 1, ...rows.map(r => value(c.sort, r.data) ?? 0))
-  const idle = rows.filter(r => !value('filmed', r.data)).length
+  const target = targetFor(c.range, c.today)
+  const all = sortStandings(standings(rowsBy('creator', c.cur, { grain: c.grain, people: c.house || c.theme || c.kind ? [] : c.people }),
+    { target, paused: c.pausedNow, coming: comingThisMonth(c.a.upcoming, c.range, c.today) }), c.sort)
+  const list = c.level ? all.filter(s => s.level === c.level) : all
+  const n = (l: Level) => all.filter(s => s.level === l).length
+  const when = c.range.phrase.replace(/^in /, '')
   return <>
-    <Top c={c} m={c.m} metrics={['filmed', 'perCreator', 'showRate', 'creators']}
-      headline={<>{plural(creators, 'creator')} filmed {plural(filmed, 'shoot')} {c.range.phrase}</>}
-      sub={<>{vsLine(c, 'filmed')}{idle ? ` ${plural(idle, 'creator')} didn't film.` : ''}</>} />
-    <SectionHead title="Every creator" sub="Tap someone to see just them" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: c.sort })} more="Table" />
-    <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
-      {([['filmed', 'Most filming'], ['showRate', 'Lowest show-up'], ['flags', 'Most flags']] as const).map(([v, l]) =>
-        <button key={v} onClick={() => c.set({ sort: v === 'filmed' ? null : v })} className={`flex-1 py-2 rounded-[10px] text-sm ${c.sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
+    <div data-tour="headline">
+      <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">
+        {n('attention') + n('behind') === 0 ? `Everyone is on track ${when}` : <>{n('attention') ? <span className={LEVEL_STYLE.attention.text}>{n('attention')} need{n('attention') === 1 ? 's' : ''} attention</span> : null}{n('attention') && n('behind') ? ', ' : ''}{n('behind') ? <span className={LEVEL_STYLE.behind.text}>{n('behind')} behind</span> : null} {when}</>}
+      </p>
+      <p className="text-pt-muted text-[15px] mt-1">Minimum {MIN_SHOOTS_PER_MONTH} shoots a month: {target.full} for this range{target.byNow < target.full ? `, ${target.byNow} by today` : ''}.</p>
     </div>
-    <RankList rows={sorted.map(r => {
-      const v = value(c.sort, r.data)
-      return { key: r.key, label: r.label, email: r.email, value: fmt(c.sort, v), share: (v ?? 0) / max,
-        tone: c.sort === 'showRate' ? showRateTone(v) : c.sort === 'flags' && v ? 'text-amber-200' : undefined,
-        sub: `${value('filmed', r.data)} filmed of ${value('booked', r.data)} · ${plural(value('flags', r.data)!, 'flag')}${c.pausedNow.includes(r.key) ? ' · Paused' : ''}`,
-        onClick: () => c.drill({ who: r.key, m: null }) }
-    })} />
+    <StandingTiles tourId="tiles" list={all} filter={c.level} onFilter={l => c.set({ level: l || null })} />
+    <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5" role="tablist" aria-label="Sort">
+      {([['worst', 'Worst first'], ['best', 'Best first'], ['flags', 'Most flags'], ['name', 'A–Z']] as [StandSort, string][]).map(([v, l]) =>
+        <button key={v} role="tab" aria-selected={c.sort === v} onClick={() => c.set({ sort: v === 'worst' ? null : v })} className={`flex-1 py-2 rounded-[10px] text-sm whitespace-nowrap ${c.sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>)}
+    </div>
+    <StandingList tourId="standings" list={list} onOpen={e => c.drill({ who: e, m: null })} empty="Nobody in this group. Nice." />
+    <TargetKey byNow={target.byNow} full={target.full} />
+    <details className="bg-pt-surface rounded-2xl px-3 py-2">
+      <summary className="text-pt-text text-[15px] py-1 cursor-pointer">How the standing is decided</summary>
+      <div className="space-y-2 py-2">{(['attention', 'behind', 'good'] as Level[]).map(l => <p key={l} className="text-pt-muted text-sm"><b className={LEVEL_STYLE[l].text}>{LEVEL[l].label}:</b> {LEVEL[l].means}</p>)}</div>
+    </details>
+    <SectionHead title="Needs you now" sub="Live, whatever the date range" />
+    <NeedsYou items={needsYouItems(c.a, c.pausedNow, to => c.navigate(to))} />
   </>
 }
+// A creator's report card: standing and reasons first, then their numbers, month by month against the minimum, flags, shoots.
 function PersonView(c: Ctx & { m: Metric }) {
   const name = c.nameOf(c.who), filmed = value('filmed', c.cur)!
+  const target = targetFor(c.range, c.today)
+  const st = standings([{ key: c.who, label: name, email: c.who, data: c.cur }], { target, paused: c.pausedNow, coming: comingThisMonth(c.a.upcoming, c.range, c.today, { email: c.who }) })[0]
+  const year = rangeFor('6m', c.today)
+  const months = seriesOf('filmed', c.a, year, 'month', { email: c.who })
+  const hit = months.slice(0, -1).filter(x => (x.value ?? 0) >= MIN_SHOOTS_PER_MONTH).length
   const kinds = sortRows(rowsBy('kind', c.cur, { grain: c.grain }), 'flags')
   const kMax = Math.max(1, ...kinds.map(r => value('flags', r.data)!))
   const videos = c.cur.facts.filter(f => f.filmed && f.title).sort((x, y) => y.date.localeCompare(x.date))
@@ -281,22 +292,30 @@ function PersonView(c: Ctx & { m: Metric }) {
   const [showAll, setShowAll] = useState({ videos: false, shoots: false })
   const more = (k: 'videos' | 'shoots', n: number) => !showAll[k] && n > CAP && <button onClick={() => setShowAll({ ...showAll, [k]: true })} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">Show all {n}</button>
   return <>
-    <div className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-      <Avatar email={c.who} name={name} size={52} />
-      <span className="flex-1 min-w-0"><b className="block text-pt-text text-[17px] truncate">{name}</b>
-        <span className="block text-pt-muted text-xs">{c.pausedNow.includes(c.who) ? 'Paused right now · ' : ''}Numbers below are just theirs</span></span>
-      <button onClick={() => c.navigate(`/people/${encodeURIComponent(c.who)}`)} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">Record ›</button>
+    <div className={`rounded-2xl p-3 space-y-3 ${LEVEL_STYLE[st.level].tile}`} data-tour="reportcard">
+      <div className="flex items-center gap-3">
+        <Avatar email={c.who} name={name} size={52} />
+        <span className="flex-1 min-w-0"><b className="block text-pt-text text-[17px] truncate">{name}</b><span className="mt-1 inline-block"><LevelPill level={st.level} /></span></span>
+        <button onClick={() => c.navigate(`/people/${encodeURIComponent(c.who)}`)} className="shrink-0 px-3 py-2 rounded-full bg-pt-border text-pt-text text-sm">Record ›</button>
+      </div>
+      <div>
+        <p className="text-pt-text text-[22px] font-semibold leading-snug"><span className="tabular-nums">{filmed}</span> of {target.full} shoots filmed <span className="text-pt-muted text-[15px] font-normal">{c.range.phrase.replace(/^in /, '')}</span></p>
+        <div className="mt-2"><TargetBar s={st} /></div>
+        <p className={`text-sm mt-2 ${st.level === 'good' ? 'text-pt-muted' : LEVEL_STYLE[st.level].text}`}>{st.reasons.length ? st.reasons.join(' · ') : 'At the minimum, no serious flags.'}{st.coming ? <span className="text-pt-muted"> · {st.coming} more booked this month</span> : null}</p>
+      </div>
     </div>
-    <Top c={c} m={c.m} metrics={['filmed', 'booked', 'showRate', 'flags']} headline={<>{name} filmed {plural(filmed, 'shoot')} {c.range.phrase}</>} sub={vsLine(c, 'filmed')} />
+    <Top c={c} m={c.m} chart={false} metrics={['filmed', 'showRate', 'flags', 'serious']} headline={null} />
+    <SectionHead title="Month by month" sub={`Shoots filmed against the minimum · hit it ${hit} of the last ${months.length - 1} months`} />
+    <ColumnChart data={months} grain="month" m="filmed" goal={MIN_SHOOTS_PER_MONTH} avgWord="a month" onZoom={b => { const [f, t] = bucketSpan(b, 'month', year); c.drill({ from: f, to: t, g: null }) }} />
+    <SectionHead title="Their flags" onMore={() => c.drill({ tab: 'flags', m: null })} more="All their flags" />
+    <RankList empty="No flags in this range." rows={kinds.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / kMax, tone: 'text-amber-200',
+      onClick: () => c.drill({ tab: 'flags', kind: r.key, theme: null, m: null }) }))} />
     <SectionHead title="What they filmed" sub="From their wraps" />
     <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
       {videos.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">No wraps in this range.</p>}
       {cap(videos, showAll.videos).map(f => <button key={f.id} onClick={() => c.navigate(f.to)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left"><Icon name="video" className="w-5 h-5 text-pt-accent" /><span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] truncate">“{f.title}”</span><span className="block text-pt-muted text-xs">{formatDay(f.date)} · {HOUSE_LABEL[f.house]}</span></span><span className="text-pt-muted">›</span></button>)}
     </div>
     {more('videos', videos.length)}
-    <SectionHead title="Their flags" onMore={() => c.drill({ tab: 'flags', m: null })} more="All their flags" />
-    <RankList empty="No flags in this range." rows={kinds.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / kMax, tone: 'text-amber-200',
-      onClick: () => c.drill({ tab: 'flags', kind: r.key, theme: null, m: null }) }))} />
     <SectionHead title="Every shoot" sub={`${shoots.length} in this range`} />
     <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
       {shoots.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">No shoots in this range.</p>}
@@ -324,9 +343,14 @@ function FlagsTab(c: Ctx & { m: Metric }) {
   const list = [...c.cur.incidents].sort((x, y) => y.date.localeCompare(x.date))
   const narrowed = !!(c.who || c.theme || c.kind)
   return <>
-    <Top c={c} m={c.m} metrics={['flags', 'serious', 'flagged', 'open']}
+    <Top c={c} m={c.m} chart={false} metrics={['flags', 'serious', 'flagged', 'open']}
       headline={<>{subject} {n} {what ? what + ' ' : ''}{n === 1 ? 'flag' : 'flags'} {c.range.phrase}</>}
       sub={<>{serious ? `${serious} serious. ` : ''}{vsLine(c, 'flags')}</>} />
+    {!c.who && <>
+      <SectionHead title="Who has the most" sub="Tap someone to see just their flags" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: 'flags' })} />
+      <RankList empty="Nobody. Nice." rows={people.slice(0, 8).map(r => ({ key: r.key, label: r.label, email: r.email, value: String(value('flags', r.data)), share: value('flags', r.data)! / pMax, tone: 'text-amber-200',
+        sub: `${value('serious', r.data)} serious`, onClick: () => c.drill({ who: r.key, m: null }) }))} />
+    </>}
     {!c.theme && !c.kind && <>
       <SectionHead title="By type" sub="Tap a type to see what's in it" onMore={() => c.drill({ view: 'table', dim: 'theme', sort: 'flags' })} />
       <RankList tourId="themes" rows={themes.map(r => ({ key: r.key, label: r.label, value: String(value('flags', r.data)), share: value('flags', r.data)! / tMax, tone: value('flags', r.data) ? 'text-amber-200' : 'text-pt-muted',
@@ -338,11 +362,6 @@ function FlagsTab(c: Ctx & { m: Metric }) {
         return { key: k, label: KIND[k].label, value: String(v), share: v / Math.max(1, ...kinds.map(x => value('flags', x.data)!)), tone: v ? 'text-amber-200' : 'text-pt-muted', sub: KIND[k].means, onClick: () => c.drill({ kind: k, m: null }) } })} />
     </>}
     {c.kind && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-3 py-3"><b className="text-pt-text">{KIND[c.kind as Kind].label}:</b> {KIND[c.kind as Kind].means}</p>}
-    {!c.who && <>
-      <SectionHead title="Who has the most" onMore={() => c.drill({ view: 'table', dim: 'creator', sort: 'flags' })} />
-      <RankList empty="Nobody. Nice." rows={people.slice(0, 8).map(r => ({ key: r.key, label: r.label, email: r.email, value: String(value('flags', r.data)), share: value('flags', r.data)! / pMax, tone: 'text-amber-200',
-        sub: `${value('serious', r.data)} serious`, onClick: () => c.drill({ who: r.key, m: null }) }))} />
-    </>}
     <SectionHead title={narrowed ? `Every flag · ${list.length}` : 'Latest flags'} sub="Tap one to open the shoot or request" />
     <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
       {list.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">None in this view.</p>}
@@ -374,7 +393,9 @@ function TeamsTab(c: Ctx & { m: Metric }) {
     </button>
   )
   return <>
-    <Top c={c} m={c.m} metrics={['packed', 'packOnTime', 'packTime', 'propsCheckTime', 'gearChecked', 'gearCheckTime']}
+    <Top c={c} m={c.m} chart={false} metrics={['packed', 'packOnTime', 'packTime', 'propsCheckTime', 'gearChecked', 'gearCheckTime']}
+      headline={<>The arts department packed {plural(packed, 'request')} and the equipment team checked in {plural(gear, 'return')} {c.range.phrase}</>} sub={vsLine(c, 'packed')} />
+    <Top c={c} m={c.m} chart={false} metrics={['packed', 'packOnTime', 'packTime', 'propsCheckTime', 'gearChecked', 'gearCheckTime']}
       headline={<>The arts department packed {plural(packed, 'request')} and the equipment team checked in {plural(gear, 'return')} {c.range.phrase}</>} sub={vsLine(c, 'packed')} />
     <SectionHead title="Right now" sub="Live queues, whatever the date range" />
     <div className="grid grid-cols-3 gap-2">

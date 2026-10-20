@@ -83,9 +83,9 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'tabs', scene: 'admin', part: 1, target: 'tabbar', look: true, next: C, title: 'Your five tabs',
       body: ul([['Dashboard', 'your creators at a glance, plus your tools'], ['Queue', 'every props request'], ['Gear', 'every gear booking'], ['Schedule', 'the house calendar'], ['Props', 'the whole closet']]) },
     { id: 'dashlook', scene: 'admin', part: 1, target: 'dashpreview', look: true, next: C, title: 'Your Dashboard, your home',
-      body: 'Pick a date range. Each number says if it went up or down since the same stretch before (green = good, red = worse). Tap a card to see it on the chart; the dashed line is the average.' },
+      body: `Every creator gets one standing: Needs attention, Behind or On track, worst first, with the reason. The bar shows filmed (coloured) and booked (light) against the minimum of 4 shoots a month.` },
     { id: 'analyticslook', scene: 'admin', part: 1, target: 'dashlinks', look: true, next: C, title: 'Go deeper: Analytics',
-      body: ul([['Like YouTube Studio', 'one date range, cards that change the chart, tap anything to zoom in, Back to zoom out'], ['Creators', 'filming per week or month, averages, each person, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Advanced view', 'the table icon: break any number down by person, house, week, flag or staff, sort it, download it'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
+      body: ul([['Creators', 'the scoreboard, then tap anyone for their report card: standing, month by month against the minimum, flags, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Advanced view', 'the table icon: break any number down by person, house, week, flag or staff, sort it, download it'], ['Trends', 'the whole studio over time, last'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
     { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your tools, further down',
       body: "All creators, the schedule team, activity, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
     { id: 'toqueue', scene: 'admin', part: 1, target: 'nav-queue', title: <>Now tap <b>Queue</b></>, body: 'Every props request, live.' },
@@ -377,23 +377,24 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         {header('Dashboard')}
         <div className="px-4 space-y-4">
           <div {...T('dashpreview')} className="space-y-3">
-            <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit">{['7 days', '28 days', '12 weeks'].map((l, n) => <span key={l} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${n === 1 ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</span>)}</div>
-            <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">4 creators filmed 15 shoots in the last 28 days</p>
-            <p className="text-pt-muted text-[15px] -mt-2">Up 12% on the 28 days before.</p>
-            <div className="flex gap-2 overflow-hidden">
-              {([['Shoots filmed', '15', '↑ 12%', 'text-green-300', true], ['Show-up rate', '83%', '↓ 6 pts', 'text-red-300', false], ['Creators filming', '4', 'About the same', 'text-pt-muted', false]] as [string, string, string, string, boolean][]).map(([t, v, d, tone, on]) => (
-                <div key={t} className={`shrink-0 w-[46%] rounded-2xl p-3 pt-2.5 relative overflow-hidden ${on ? 'bg-pt-raised shadow-hairline' : 'bg-pt-surface'}`}>
-                  {on && <span className="absolute inset-x-0 top-0 h-[3px] bg-pt-accent" />}
-                  <span className={`block text-[13px] ${on ? 'text-pt-text' : 'text-pt-muted'}`}>{t}</span><span className="block text-[28px] font-bold leading-tight tabular-nums text-pt-text">{v}</span><span className={`text-xs font-medium ${tone}`}>{d}</span>
-                </div>
+            <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit">{['This month', 'Last month', '12 weeks'].map((l, n) => <span key={l} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${n === 0 ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</span>)}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {([['1', 'Needs attention', 'bg-red-500/10 text-red-300'], ['1', 'Behind', 'bg-amber-500/10 text-amber-200'], ['2', 'On track', 'bg-green-500/10 text-green-300']] as [string, string, string][]).map(([n, l, cl]) => (
+                <div key={l} className={`rounded-2xl p-3 ${cl.split(' ')[0]}`}><span className={`block text-[28px] font-bold leading-none tabular-nums ${cl.split(' ')[1]}`}>{n}</span><span className="block text-pt-text text-[13px] mt-1">{l}</span></div>
               ))}
             </div>
-            <div className="bg-pt-surface rounded-2xl p-3">
-              <div className="relative flex items-end gap-1.5 h-24">
-                {[2, 4, 3, 1, 5, 3, 4, 2, 5, 3, 4, 3].map((v, i) => <div key={i} className="flex-1 bg-pt-accent rounded-t-[4px]" style={{ height: `${v * 20}%` }} />)}
-                <div className="absolute inset-x-0 border-t-[1.5px] border-dashed border-white/55" style={{ bottom: '64%' }} />
-              </div>
-              <p className="text-pt-muted text-xs mt-2 pt-2 border-t border-white/[0.06]">Average 3.2 per week. Tap a column for details.</p>
+            <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+              {([['Devon', 'Needs attention', 'bg-red-500/15 text-red-300', 'bg-red-300', 1, 0, '1 no-show · 1 short of the minimum'], ['Riley', 'Behind', 'bg-amber-500/15 text-amber-200', 'bg-amber-200', 1, 1, '1 short of the minimum'],
+                ['Jordan', 'On track', 'bg-green-500/15 text-green-300', 'bg-green-300', 4, 0, 'showed up 100%']] as [string, string, string, string, number, number, string][]).map(([n, l, pill, fill, f, cm, why]) => (
+                <div key={n} className="flex items-center gap-3 px-3 py-3">
+                  <span className="w-10 h-10 rounded-full bg-pt-border grid place-items-center text-pt-text font-semibold shrink-0">{n[0]}</span>
+                  <span className="flex-1 min-w-0 space-y-1.5">
+                    <span className="flex items-center gap-2"><b className="flex-1 text-pt-text text-[15px]">{n}</b><span className={`text-xs font-medium rounded-full px-2 py-0.5 ${pill}`}>{l}</span></span>
+                    <span className="relative block h-2 rounded-full bg-white/[0.08] overflow-hidden"><i className={`absolute inset-y-0 left-0 ${fill}`} style={{ width: `${f * 25}%` }} />{cm > 0 && <i className="absolute inset-y-0 bg-white/25" style={{ left: `${f * 25}%`, width: `${cm * 25}%` }} />}</span>
+                    <span className="flex gap-2 text-xs"><span className="text-pt-text"><b>{f}</b> of 4 filmed{cm ? ` · ${cm} booked` : ''}</span><span className={l === 'On track' ? 'text-pt-muted' : pill.split(' ')[1]}>{why}</span></span>
+                  </span>
+                </div>
+              ))}
             </div>
             <div {...T('dashlinks')} className="grid grid-cols-2 gap-2"><span className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold text-center">Open analytics</span><span className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold text-center">Settings sheet</span></div>
             <div className="bg-amber-500/10 rounded-2xl px-3 py-3 flex items-center gap-3"><span className="min-w-[32px] h-8 px-2 rounded-full grid place-items-center text-sm font-bold bg-red-500/20 text-red-300">{decided ? 0 : 1}</span><span className="flex-1 text-pt-text text-[15px]">Missed check-in to decide</span><span className="text-pt-accent">›</span></div>
@@ -708,7 +709,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">Your job in six lines. Replay it from Dashboard → Admin tour any time.</p></div>
         {([
           ['eye', 'Queues and the schedule are for looking. The arts department and the equipment team do the changing.'],
-          ['people', 'Your Dashboard shows the team at a glance. Analytics digs in like YouTube Studio: pick a range, tap a card, tap anything to zoom in, Back to zoom out, and the table icon to break it all down.'],
+          ['people', 'Your Dashboard ranks every creator, worst first: Needs attention, Behind or On track, against the minimum of 4 shoots a month. Tap anyone for their report card; Back zooms out; the table icon breaks it all down.'],
           ['stop', `A strike needs a reason the creator can read. ${s.strikeCount} strikes in ${s.strikeDays} days pause props and gear for ${s.pauseDays} days.`],
           ['restore', 'Removing a strike keeps it on the record as removed. It lifts an automatic pause, never one you started.'],
           ['clock', `Missed check-in: wait for their explanation (${s.explainHours} hours), then They filmed or No-show. Reports: Dismiss or Strike.`],

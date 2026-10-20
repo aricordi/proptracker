@@ -229,3 +229,69 @@ export function toCsv(dim: Dim, rows: Row[], metrics: Metric[], total?: Data) {
   const line = (label: string, d: Data) => [label, ...metrics.map(m => { const v = value(m, d); return v === null ? '' : METRICS[m].fmt === 'pct' ? String(Math.round(v * 100)) + '%' : String(Math.round(v * 100) / 100) })]
   return [head, ...(total ? [line('Total', total)] : []), ...rows.map(r => line(r.label, r.data))].map(r => r.map(csvCell).join(',')).join('\n')
 }
+
+// ── Accountability (owner, Oct 20: "organised by creator, not by time… everybody hitting a minimum number of videos…
+// who's doing well and who's doing poorly"). Each creator gets ONE standing for the date range, with the reasons.
+export const MIN_SHOOTS_PER_MONTH = 4      // owner to confirm (matches the 4 guaranteed Cliff 1 slots a month)
+export const LOW_SHOW_UP = 0.7
+export const MANY_FLAGS = 3
+export type Level = 'attention' | 'behind' | 'good'
+export const LEVEL: Record<Level, { label: string; means: string }> = {
+  attention: { label: 'Needs attention', means: `A serious flag (no-show, late cancel, strike, damaged or missing props or gear), showing up under ${Math.round(LOW_SHOW_UP * 100)}%, or paused.` },
+  behind: { label: 'Behind', means: `Fewer shoots than the minimum (${MIN_SHOOTS_PER_MONTH} a month; this month: what they should have by now), or ${MANY_FLAGS} or more smaller flags.` },
+  good: { label: 'On track', means: 'At or above the minimum, no serious flags.' },
+}
+// The minimum for a range: whole months count MIN each; this month counts what's due by today (rounded down, so it's fair).
+export function targetFor(r: Range, today: string, min = MIN_SHOOTS_PER_MONTH): { full: number; byNow: number } {
+  const len = daysBetween(r.from, r.to) + 1
+  if (r.from === monthStart(r.from) && r.to === monthEnd(r.from)) return { full: min, byNow: min }
+  if (r.from === monthStart(today) && r.to === today) {
+    const days = Number(monthEnd(today).slice(8)), done = Number(today.slice(8))
+    return { full: min, byNow: Math.floor((min * done) / days) }
+  }
+  const full = Math.max(1, Math.round((min * len) / 30.44))
+  return { full, byNow: full }
+}
+export interface Standing { email: string; name: string; level: Level; filmed: number; booked: number; coming: number; showRate: number | null
+  flags: number; serious: number; target: { full: number; byNow: number }; reasons: string[]; worstKinds: [Kind, number][]; paused: boolean }
+export function standings(rows: Row[], o: { target: { full: number; byNow: number }; paused: string[]; coming?: Map<string, number> }): Standing[] {
+  return rows.map(r => {
+    const filmed = value('filmed', r.data)!, booked = value('booked', r.data)!, showRate = value('showRate', r.data)
+    const serious = value('serious', r.data)!, flags = value('flags', r.data)!, paused = o.paused.includes(r.key), coming = o.coming?.get(r.key) ?? 0
+    const counts = new Map<Kind, number>()
+    for (const i of r.data.incidents) counts.set(i.kind, (counts.get(i.kind) ?? 0) + 1)
+    const worstKinds = [...counts].sort((x, y) => Number(SERIOUS_KINDS.includes(y[0])) - Number(SERIOUS_KINDS.includes(x[0])) || y[1] - x[1])
+    const reasons: string[] = []
+    if (paused) reasons.push('Paused')
+    for (const [k, n] of worstKinds.filter(([k]) => SERIOUS_KINDS.includes(k))) reasons.push(reasonText(k, n))
+    const lowShow = showRate !== null && booked >= 2 && showRate < LOW_SHOW_UP
+    if (lowShow) reasons.push(`showed up ${Math.round(showRate! * 100)}%`)
+    const short = filmed < o.target.byNow
+    if (short) reasons.push(filmed === 0 && booked === 0 && !coming ? 'nothing booked' : `${o.target.byNow - filmed} short of the minimum`)
+    const minor = flags - serious
+    if (minor >= MANY_FLAGS) reasons.push(`${minor} smaller flags`)
+    const level: Level = paused || serious > 0 || lowShow ? 'attention' : short || minor >= MANY_FLAGS ? 'behind' : 'good'
+    return { email: r.key, name: r.label, level, filmed, booked, coming, showRate, flags, serious, target: o.target, reasons, worstKinds, paused }
+  })
+}
+const REASON: Partial<Record<Kind, [string, string]>> = { 'no-show': ['no-show', 'no-shows'], 'late-cancel': ['late cancel', 'late cancels'], strike: ['strike', 'strikes'],
+  'props-damaged': ['prop damaged or missing', 'props damaged or missing'], 'gear-missing': ['gear piece missing', 'gear pieces missing'] }
+const reasonText = (k: Kind, n: number) => `${n} ${REASON[k]?.[n === 1 ? 0 : 1] ?? KIND[k].label.toLowerCase()}`
+const RANK: Record<Level, number> = { attention: 0, behind: 1, good: 2 }
+export type StandSort = 'worst' | 'best' | 'name' | 'flags'
+export function sortStandings(xs: Standing[], by: StandSort = 'worst') {
+  const progress = (s: Standing) => s.target.byNow ? s.filmed / s.target.byNow : s.filmed
+  return [...xs].sort((a, b) =>
+    by === 'name' ? a.name.localeCompare(b.name)
+    : by === 'flags' ? b.serious - a.serious || b.flags - a.flags || a.name.localeCompare(b.name)
+    : by === 'best' ? RANK[b.level] - RANK[a.level] || progress(b) - progress(a) || a.flags - b.flags || a.name.localeCompare(b.name)
+    : RANK[a.level] - RANK[b.level] || b.serious - a.serious || progress(a) - progress(b) || b.flags - a.flags || a.name.localeCompare(b.name))
+}
+// Shoots already booked for the rest of THIS month (only "This month" has a rest to come).
+export function comingThisMonth(upcoming: { email: string; date: string }[], r: Range, today: string, s: Scope = {}) {
+  const m = new Map<string, number>()
+  if (!(r.from === monthStart(today) && r.to === today)) return m
+  const end = monthEnd(today)
+  for (const u of upcoming) if (u.date <= end && (!s.email || u.email === s.email)) m.set(u.email, (m.get(u.email) ?? 0) + 1)
+  return m
+}
