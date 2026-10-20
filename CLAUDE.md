@@ -1097,6 +1097,24 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       `addextras` (optional) → Review. The review, My requests count, Return everything list and the chapter-7 pickup
       checklist (one line per piece "Battery ×3", max 6; coach at top) follow what was picked. Fixed weekday-dependent test
       (invites "ended hold" now uses Cliff 2; Cliff 1 is priority-locked on Thu/Sat). Checked: 97 tour screens. Tests 400.
+    - SMOOTH HIGHLIGHT (owner, Oct 20: "the yellow highlight following the cameras as I swipe up is janky"): Spotlight
+      `glide` = the hole/card/arrow animate only for ~600 ms after a step change; any scroll turns the animation off so the
+      highlight sticks to its target frame by frame (checked: offset constant while scrolling).
+    - GEAR TEAM TOUR (owner, Oct 20; preview only, live needs OK; app only, NO server/rules change): `src/tour/GearTour.tsx`,
+      same coach/cards/quizzes/badges (Fun.tsx ChapterCard/BadgeWall + Spotlight take `chapters`; GEAR_CHAPTERS). Welcome →
+      meet Cap → 9 chapters: 1 tabs (Schedule/Bookings/Bundles/All gear/Account; TAB_ICONS in BottomNav now has these) →
+      2 Stock the shelves (+ Add gear: name, type, serial → Save → "1 loose") → 3 Build a kit (+ Bundle: name, steppers
+      capped at "still free", Save; extras explained) + quiz → 4 Run the queue (Today/Out/To check in/Upcoming/Past, open a
+      held booking, Decline needs a reason; practice keeps it) → 5 Hand it over (pickup window, tick every piece, MUST mark
+      one Missing?, sign → Problems "also on the last holder") + quiz → 6 Check it back in (late ring, To check in, return
+      photo stamp, tick, damage note, Checked in) → 7 The paper trail (Problems, History incl. "Checked in by <you> · note",
+      Bundles → Found it, broken pieces = take out of the kit then archive in All gear) + quiz → 8 Run the schedule (Free ·
+      book or block → "Book this slot…" + block type/note → Blocked row; Riley's shoot Move / Cancel (no strike); team icon
+      → Schedule team: They filmed, Reports, Creators/Paused · Lift) + quiz → 9 notifications (REAL) → cheat sheet → badges.
+      All practice data (STOCK, Riley/Jordan/Sam). REQUIRED once for realRole 'equipment' (TourGate shares tourDoneAt;
+      equipment only ever gets this tour); replay /tour/gear from Account ("Gear team tour", gear staff not in the creator
+      layout) and the owner's Team menu. Ends on '/' (= gear queue for equipment). Gear has NO "damaged" state: the tour
+      teaches the check-in note (possible follow-up: a real Damaged button, needs server + owner OK). Checked: 75 screens.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

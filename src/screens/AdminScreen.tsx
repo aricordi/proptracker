@@ -32,6 +32,7 @@ export default function AdminScreen() {
     ...(isOwner ? [
       { to: '/gear/bookings', title: 'Gear bookings', detail: "Everyone's gear bookings; decline if something's wrong" },
       { to: '/gear/bundles', title: 'Gear (equipment team)', detail: 'Every piece of gear, and the bundles and extras creators can book' },
+      { to: '/tour/gear', title: 'Gear team tour', detail: 'The practice tour the equipment team does on their first open' },
     ] : []),
     { to: '/checkout',   title: 'Quick checkout (old)', detail: 'The original simple checkout, kept until everything moves to the Queue' },
     { to: '/account',    title: isOwner ? 'My account & View as' : 'My account', detail: isOwner ? 'Your photo and channel name; preview the app as another role; sign out' : 'Your photo and channel name; sign out' },

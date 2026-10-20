@@ -80,7 +80,6 @@ const creatorNav = [
 ]
 
 // The app tour draws the same tab bar.
-export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon }
 
 const gearIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
@@ -98,6 +97,10 @@ const equipmentNav = [
   { to: '/gear/items',   label: 'All gear', icon: cameraIcon },
   { to: '/account',      label: 'Account',  icon: accountIcon },
 ]
+
+// For the practice tours' pretend tab bars.
+export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
+  Schedule: scheduleIcon, Bookings: reservationsIcon, Bundles: gearIcon, 'All gear': cameraIcon, Account: accountIcon }
 
 // Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
 const adminNav = [

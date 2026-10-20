@@ -5,14 +5,14 @@
 // - big targets (a whole list, a sheet) get the card docked to the top or bottom edge instead;
 // - while a text box is focused (iPhone keyboard up) only a slim Continue bar shows, just above the keyboard.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { CHAPTERS, Cap } from './Fun'
+import { CHAPTERS, Cap, type Chapter } from './Fun'
 
 const PAD = 6, GAP = 14, EDGE = 12
 const EASE = 'cubic-bezier(.32,.72,0,1)'
 
 export interface Coach {
   title: ReactNode; body?: ReactNode
-  part?: number; stepInPart?: number; stepsInPart?: number
+  part?: number; stepInPart?: number; stepsInPart?: number; chapters?: Chapter[]
   next?: string; nextDisabled?: boolean; disabledHint?: string
   onNext?: () => void; onBack?: () => void; onSkip?: () => void; onClose?: () => void
 }
@@ -43,7 +43,7 @@ function useSafe() {
 }
 
 function Card({ c, nudge, stepKey }: { c: Coach; nudge: number; stepKey?: string }) {
-  const ch = c.part ? CHAPTERS[c.part - 1] : null
+  const ch = c.part ? (c.chapters ?? CHAPTERS)[c.part - 1] : null
   return (
     <div key={stepKey} className="coach-in">
       <div key={nudge} className={nudge ? 'coach-nudge' : ''}>
@@ -85,6 +85,16 @@ export function Spotlight({ target, top, dim = true, stepKey, ...c }: Coach & { 
   const [nudge, setNudge] = useState(0)
   const safe = useSafe()
   useEffect(() => setNudge(0), [stepKey])
+  // Glide only when the step changes. While you scroll, the highlight sticks to its target with no animation
+  // (an animated follow lags behind the finger and looks jumpy).
+  const [glide, setGlide] = useState(true)
+  useEffect(() => {
+    setGlide(true)
+    const t = setTimeout(() => setGlide(false), 600)
+    const scrolled = () => setGlide(false)
+    document.addEventListener('scroll', scrolled, true)
+    return () => { clearTimeout(t); document.removeEventListener('scroll', scrolled, true) }
+  }, [stepKey, target])
 
   // Taps outside the highlight (and outside the card) are ignored, and the card shakes once to say so.
   useEffect(() => {
@@ -175,7 +185,7 @@ export function Spotlight({ target, top, dim = true, stepKey, ...c }: Coach & { 
   return (
     <>
       <div aria-hidden className="coach-hole fixed z-[70] pointer-events-none"
-        style={{ left: hole.x, top: hole.y, width: hole.w, height: hole.h, borderRadius: shown ? 18 : 999,
+        style={{ left: hole.x, top: hole.y, width: hole.w, height: hole.h, borderRadius: shown ? 18 : 999, ...(glide ? {} : { transition: 'box-shadow .4s ease' }),
           boxShadow: !shown || dim ? `${shown ? '0 0 0 2.5px rgba(201,169,97,0.95), 0 0 22px 4px rgba(201,169,97,0.35), ' : ''}0 0 0 9999px rgba(0,0,0,0.62)` : '0 0 0 2.5px rgba(201,169,97,0.95), 0 0 24px 4px rgba(201,169,97,0.3)' }} />
       {tapStep && (
         <>
@@ -187,8 +197,8 @@ export function Spotlight({ target, top, dim = true, stepKey, ...c }: Coach & { 
         </>
       )}
       <div ref={cardRef} role="dialog" aria-live="polite" className="coach-card fixed z-[71] rounded-[24px] bg-[#F6F1E6] px-4 pt-3.5 pb-3.5 shadow-float"
-        style={{ top: cardTop, left: cardLeft, width: cardW, transition: `top .55s ${EASE}, left .55s ${EASE}` }}>
-        {arrow && <span aria-hidden className="coach-arrow absolute w-4 h-4 rotate-45 rounded-[3px] bg-[#F6F1E6]" style={{ left: arrow.x - 8, ...(arrow.up ? { top: -6 } : { bottom: -6 }) }} />}
+        style={{ top: cardTop, left: cardLeft, width: cardW, transition: glide ? `top .55s ${EASE}, left .55s ${EASE}` : 'none' }}>
+        {arrow && <span aria-hidden className="coach-arrow absolute w-4 h-4 rotate-45 rounded-[3px] bg-[#F6F1E6]" style={{ left: arrow.x - 8, ...(glide ? {} : { transition: 'none' }), ...(arrow.up ? { top: -6 } : { bottom: -6 }) }} />}
         <Card c={c} nudge={nudge} stepKey={stepKey} />
       </div>
     </>

@@ -6,7 +6,8 @@ import { useState, type ReactNode } from 'react'
 import BrandMark from '../components/BrandMark'
 import { Icon, type IconName } from '../components/Icon'
 
-export const CHAPTERS: { name: string; badge: string; icon: IconName }[] = [
+export interface Chapter { name: string; badge: string; icon: IconName }
+export const CHAPTERS: Chapter[] = [
   { name: 'Find your way around', badge: 'Explorer', icon: 'search' },
   { name: 'Book your first shoot', badge: 'Booked it', icon: 'calendar' },
   { name: 'Stock up for your shoot', badge: 'Shopper', icon: 'basket' },
@@ -56,8 +57,8 @@ function Ring({ n, of }: { n: number; of: number }) {
 }
 
 // Full-screen chapter opener. Shows the badge earned in the chapter before (with confetti), then this chapter.
-export function ChapterCard({ n, body, onGo, onBack }: { n: number; body: ReactNode; onGo: () => void; onBack?: () => void }) {
-  const ch = CHAPTERS[n - 1], prev = CHAPTERS[n - 2]
+export function ChapterCard({ n, body, onGo, onBack, chapters = CHAPTERS }: { n: number; body: ReactNode; onGo: () => void; onBack?: () => void; chapters?: Chapter[] }) {
+  const ch = chapters[n - 1], prev = chapters[n - 2]
   return (
     <div className="fixed inset-0 z-[72] flex flex-col px-6 pt-safe pb-safe" style={{ background: 'radial-gradient(120% 70% at 50% 0%, #2b2416 0%, #000 62%)' }} role="dialog" aria-label={`Chapter ${n}: ${ch.name}`}>
       <div className="flex-1 flex flex-col items-center justify-center gap-4 pt-6">
@@ -71,7 +72,7 @@ export function ChapterCard({ n, body, onGo, onBack }: { n: number; body: ReactN
         )}
       </div>
       <div className="pb-6 space-y-3">
-        <div className="chapter-rise" style={{ animationDelay: '120ms' }}><Ring n={n} of={CHAPTERS.length} /></div>
+        <div className="chapter-rise" style={{ animationDelay: '120ms' }}><Ring n={n} of={chapters.length} /></div>
         <p className="chapter-rise text-pt-accent font-semibold text-[16px]" style={{ animationDelay: '180ms' }}>Chapter {n}</p>
         <h1 className="chapter-rise font-display text-[38px] leading-[1.05] font-extrabold tracking-tight text-pt-text" style={{ animationDelay: '230ms' }}>{ch.name}</h1>
         <div className="chapter-rise flex gap-3 items-start" style={{ animationDelay: '290ms' }}>
@@ -121,10 +122,10 @@ export function QuizCard({ part, q, options, correct, explain, onDone, onBack }:
 }
 
 // The finish line: every badge.
-export function BadgeWall() {
+export function BadgeWall({ chapters = CHAPTERS }: { chapters?: Chapter[] }) {
   return (
-    <div className="grid grid-cols-5 gap-3">
-      {CHAPTERS.map((c, i) => (
+    <div className={`grid gap-3 ${chapters.length % 4 === 0 ? 'grid-cols-4' : 'grid-cols-5'}`}>
+      {chapters.map((c, i) => (
         <div key={c.badge} className="flex flex-col items-center gap-1.5 badge-pop" style={{ animationDelay: `${120 + i * 70}ms` }}>
           <span className="w-12 h-12 rounded-full grid place-items-center bg-pt-accent text-stone-900 shadow-gold"><Icon name={c.icon} className="w-6 h-6" /></span>
           <span className="text-xs leading-tight text-pt-muted text-center">{c.badge}</span>
