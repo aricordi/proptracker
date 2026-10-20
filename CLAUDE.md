@@ -1056,6 +1056,25 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       #F2A33A actions, daylight #8FB8F0 AI/info; Big Shoulders Display + Atkinson Hyperlegible; next shoot = clapperboard
       slate; Book = stripboard). Nothing in the app changed for it. OWNER REJECTED IT (Oct 20: "I hate option C"):
       the current Black & Gold card look + polish A is FINAL. Don't propose a new identity again unless the owner asks.
+    - TOUR WITH CHARACTER (owner, Oct 20: "fun and exciting… like Duolingo… lean into the story… nobody has used this before…
+      speak like you have a personality"; owner picked coach marks + chapter cards from the style demo
+      https://claude.ai/artifact/Fin3FkBpuHs2KEmePxRGqd). Preview only; live needs OK. App only, no server change.
+      GUIDE = "Cap" (the Prime Capitol eagle on a gold coin, `Cap` in src/tour/Fun.tsx); voice warm + playful, short, no emoji.
+      WELCOME = 3 screens: hello (what the app is for, 3 value rows) → meet (Cap intro: 10 chapters / ~8 min / 10 badges,
+      how to use the tour) → vibe ("What do you mostly film?" VIBES in Tour.tsx pick Cap's examples: video name, AI idea +
+      time suggestion chips "Try: …" above the AI composer). 10 CHAPTERS (Fun.tsx CHAPTERS: name, badge, icon):
+      1 Find your way around, 2 Book your first shoot, 3 Stock up for your shoot, 4 Keep tabs on it, 5 Meet the AI,
+      6 When a friend invites you, 7 Pickup day, 8 Showtime, 9 Bring it all back, 10 Stay in the loop (real notifications).
+      Each opens with a full-screen ChapterCard (progress ring n/10, "Badge unlocked: <previous badge>" + confetti, Cap's line).
+      4 POP QUIZZES (QuizCard: wrong = shake + "Not quite. Try again!", right = confetti + explanation; Continue only when
+      right): ch3 last day to ask for something new (live buildLeadDays), ch6 invite hold minutes, ch7 missing gear piece
+      (Missing? before signing), ch9 props back the night of the shoot. End = cheat sheet + "You're officially ready" +
+      BadgeWall. COACH (Spotlight.tsx): stays mounted (no key) so the gold-ringed highlight and the cream card GLIDE between
+      targets (CSS transitions, spring curve); card sits next to the target with a pointer, docks bottom for big areas
+      (top if Step.top); content slides in per step; finger taps once then fades; a wrong tap shakes the card; per-chapter
+      step bar; titles 20px, body 16px. Animations in index.css (coach-*, cap-bob, chapter-rise, badge-pop, ring-fill,
+      confetti), all off under reduced motion. FIX: the keyboard Continue bar now counts as part of the coach (barRef);
+      before, its tap could be swallowed. Checked: 95 screens on a 390×844 touch screen in the emulator, no errors. Tests 400.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

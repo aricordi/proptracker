@@ -1,15 +1,14 @@
-// The tour's coach panel (owner, Oct 20: "best practice UX and clarity… people shouldn't fight the UX"):
-// - everything is dimmed except the one thing to use (found by data-tour="<target>");
-// - the tip is ALWAYS docked to the top or bottom edge of the screen (never floating over what you're doing);
-// - every tip has the same shape: part + progress, a bold "what to do" line, one line of "why", and a footer that
-//   either says "Tap the highlighted part" or has Continue (with the reason when it's greyed out), plus ‹ Back;
-// - a tap anywhere else is ignored but says so in the tip; scrolling works everywhere;
+// The tour's coach (owner, Oct 20: "more visual… nicer, smoother… like a polished App Store app… fun, with character"):
+// - Cap (the Prime Capitol eagle) talks in a cream card that sits right next to the thing to use, with a pointer;
+// - the highlight and the card stay mounted and GLIDE from one target to the next, so your eye follows them;
+// - on "tap this" steps a finger slides in, taps once and fades (no loops); a wrong tap shakes the card once;
+// - big targets (a whole list, a sheet) get the card docked to the top or bottom edge instead;
 // - while a text box is focused (iPhone keyboard up) only a slim Continue bar shows, just above the keyboard.
-// Calm on purpose (owner, Oct 19): no pulsing, no sliding, no pop-in.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { CHAPTERS, Cap } from './Fun'
 
-const PAD = 6
-export const PART_NAMES = ['Find your way around', 'Book your first shoot', 'Add props and gear', 'Check on your request', 'Try the AI', 'When a friend invites you', 'Shoot day', 'Bring it all back', 'Turn on notifications']
+const PAD = 6, GAP = 14, EDGE = 12
+const EASE = 'cubic-bezier(.32,.72,0,1)'
 
 export interface Coach {
   title: ReactNode; body?: ReactNode
@@ -17,8 +16,9 @@ export interface Coach {
   next?: string; nextDisabled?: boolean; disabledHint?: string
   onNext?: () => void; onBack?: () => void; onSkip?: () => void; onClose?: () => void
 }
+type Box = { x: number; y: number; w: number; h: number }
 
-// Scroll the nearest scrolling box (a sheet or the page) so the element sits clear of the coach panel and the edges.
+// Scroll the nearest scrolling box (a sheet or the page) so the element sits clear of the card and the edges.
 function keepInView(el: HTMLElement, topGap: number, bottomGap: number) {
   const box = el.parentElement?.closest<HTMLElement>('.overflow-y-auto')
   if (!box) return
@@ -28,122 +28,166 @@ function keepInView(el: HTMLElement, topGap: number, bottomGap: number) {
   else if (above > 0) box.scrollTop -= above
 }
 
-function Panel({ c, nudge, innerRef }: { c: Coach; nudge: boolean; innerRef: React.Ref<HTMLDivElement> }) {
+// The phone's safe areas (notch, home bar), read once from CSS.
+function useSafe() {
+  const [safe, setSafe] = useState({ top: 0, bottom: 0 })
+  useEffect(() => {
+    const p = document.createElement('div')
+    p.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'
+    document.body.appendChild(p)
+    const cs = getComputedStyle(p)
+    setSafe({ top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 })
+    p.remove()
+  }, [])
+  return safe
+}
+
+function Card({ c, nudge, stepKey }: { c: Coach; nudge: number; stepKey?: string }) {
+  const ch = c.part ? CHAPTERS[c.part - 1] : null
   return (
-    <div ref={innerRef} className="rounded-[20px] bg-pt-raised shadow-float px-4 py-3.5 space-y-2 pointer-events-auto">
-      {c.part ? (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <p className="flex-1 text-xs font-semibold text-pt-accent">Part {c.part} of {PART_NAMES.length} · {PART_NAMES[c.part - 1]}</p>
-            {c.stepsInPart && c.stepsInPart > 1 ? <span className="text-xs text-pt-muted tabular-nums">{c.stepInPart} of {c.stepsInPart}</span> : null}
-            {c.onClose && <button onClick={c.onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button>}
-          </div>
-          <div className="flex gap-1" aria-hidden>{PART_NAMES.map((_, i) => <i key={i} className={`flex-1 h-1 rounded-full ${i < (c.part ?? 0) ? 'bg-pt-accent' : 'bg-pt-border'}`} />)}</div>
+    <div key={stepKey} className="coach-in">
+      <div key={nudge} className={nudge ? 'coach-nudge' : ''}>
+        <div className="flex items-center gap-2.5 mb-2.5">
+          <Cap size={30} className="cap-bob" />
+          <span className="font-semibold text-[15px] text-stone-900">Cap</span>
+          {ch && <span className="ml-auto text-[13px] text-stone-500 truncate">Ch {c.part} · {ch.name}</span>}
+          {c.onClose && <button onClick={c.onClose} aria-label="Close the tour" className={`tap text-stone-500 text-base ${ch ? '' : 'ml-auto'}`}>✕</button>}
         </div>
-      ) : c.onClose && <div className="flex justify-end"><button onClick={c.onClose} aria-label="Close the tour" className="tap text-pt-muted text-sm">✕</button></div>}
-      <p className="text-[16px] font-semibold leading-snug text-pt-text">{c.title}</p>
-      {c.body && <div className="text-[13px] leading-snug text-pt-muted">{c.body}</div>}
-      <div className="flex items-center gap-3 pt-1">
-        {c.onBack && <button onClick={c.onBack} className="shrink-0 rounded-xl px-3 py-3 text-[15px] text-pt-text bg-pt-border">‹ Back</button>}
-        {c.next
-          ? <button onClick={c.onNext} disabled={c.nextDisabled} className="flex-1 rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40 disabled:shadow-none">{c.next}</button>
-          : <p className={`flex-1 text-[13px] ${nudge ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>👆 {nudge ? 'Tap the highlighted part to keep going' : 'Tap the highlighted part'}</p>}
-        {c.onSkip && <button onClick={c.onSkip} className="tap shrink-0 text-pt-muted text-sm underline">No camera? Skip</button>}
+        {c.stepsInPart && c.stepsInPart > 1 ? (
+          <div className="flex gap-1 mb-3" aria-label={`Step ${c.stepInPart} of ${c.stepsInPart}`}>
+            {Array.from({ length: c.stepsInPart }, (_, i) => <i key={i} className={`h-1 rounded-full transition-all duration-500 ${i < (c.stepInPart ?? 0) ? 'bg-[#9C7B32]' : 'bg-stone-300'}`} style={{ flex: i === (c.stepInPart ?? 0) - 1 ? 2 : 1 }} />)}
+          </div>
+        ) : null}
+        <p className="text-[20px] font-bold leading-snug text-stone-900 tracking-[-0.01em]">{c.title}</p>
+        {c.body && <div className="text-[16px] leading-relaxed text-stone-700 mt-1.5">{c.body}</div>}
+        <div className="flex items-center gap-3 mt-4">
+          {c.onBack && <button onClick={c.onBack} className="shrink-0 px-1 py-3 text-[15px] font-semibold text-stone-500">Back</button>}
+          {c.next
+            ? <button onClick={c.onNext} disabled={c.nextDisabled} className="flex-1 rounded-2xl py-3.5 text-[16px] font-bold bg-stone-900 text-[#F6F1E6] disabled:opacity-30">{c.next}</button>
+            : <p className={`flex-1 flex items-center gap-2 text-[15px] ${nudge ? 'text-stone-900 font-bold' : 'text-stone-500'}`}>
+                <svg viewBox="0 0 48 48" className="w-5 h-5 shrink-0" aria-hidden><path d="M19 6a4 4 0 0 1 8 0v14l9.2 2.3a5 5 0 0 1 3.7 5.7l-1.9 11A6 6 0 0 1 32.1 44H22a6 6 0 0 1-4.7-2.3L9 31.2a4 4 0 0 1 6.1-5.1L19 30z" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" /></svg>
+                {nudge ? 'Tap the glowing part to keep going' : 'Tap the glowing part'}
+              </p>}
+          {c.onSkip && <button onClick={c.onSkip} className="tap shrink-0 text-stone-500 text-sm underline">No camera? Skip</button>}
+        </div>
+        {c.next && c.nextDisabled && c.disabledHint && <p className={`text-[14px] mt-2 ${nudge ? 'text-stone-900 font-semibold' : 'text-stone-500'}`}>{c.disabledHint}</p>}
       </div>
-      {c.next && c.nextDisabled && c.disabledHint && <p className={`text-[13px] ${nudge ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>{c.disabledHint}</p>}
-      {c.next && !c.nextDisabled && nudge && <p className="text-[13px] text-pt-accent font-semibold">Use the highlighted part, or tap {c.next}.</p>}
     </div>
   )
 }
 
 // dim = false: just a gold outline, the rest of the screen stays bright (steps where you're only looking around).
-export function Spotlight({ target, top, dim = true, ...c }: Coach & { target?: string; top?: boolean; dim?: boolean }) {
-  const [r, setR] = useState<DOMRect | null>(null)
-  const [side, setSide] = useState<'top' | 'bottom'>('bottom')
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [nudge, setNudge] = useState(false)
+export function Spotlight({ target, top, dim = true, stepKey, ...c }: Coach & { target?: string; top?: boolean; dim?: boolean; stepKey?: string }) {
+  const [box, setBox] = useState<Box | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null), barRef = useRef<HTMLDivElement>(null)
+  const [cardH, setCardH] = useState(220)
+  const [view, setView] = useState({ w: window.innerWidth, h: window.innerHeight })
+  const [nudge, setNudge] = useState(0)
+  const safe = useSafe()
+  useEffect(() => setNudge(0), [stepKey])
 
-  // Taps outside the highlight (and outside the panel) are ignored, and the panel says so for a moment.
+  // Taps outside the highlight (and outside the card) are ignored, and the card shakes once to say so.
   useEffect(() => {
     if (!target) return
-    let t = 0
     const stop = (e: Event) => {
       const el = document.querySelector(`[data-tour="${target}"]`), n = e.target as Node
-      if (el?.contains(n) || cardRef.current?.contains(n)) return
+      if (el?.contains(n) || cardRef.current?.contains(n) || barRef.current?.contains(n)) return
       e.preventDefault(); e.stopPropagation()
-      setNudge(true); clearTimeout(t); t = window.setTimeout(() => setNudge(false), 2500)
+      setNudge(x => x + 1)
     }
     document.addEventListener('click', stop, true)
-    return () => { document.removeEventListener('click', stop, true); clearTimeout(t) }
+    return () => document.removeEventListener('click', stop, true)
   }, [target])
 
-  // iPhone keyboard: the page slides up, so the dim would land in the wrong place. While a text box is focused only a
-  // slim Continue bar shows, just above the keyboard (visualViewport = the part of the screen you can see).
+  // iPhone keyboard: the page slides up, so only a slim Continue bar shows, just above the keyboard.
   const [typing, setTyping] = useState(false)
-  const [vv, setVv] = useState({ top: 0, height: typeof window !== 'undefined' ? window.innerHeight : 800 })
+  const [vv, setVv] = useState({ top: 0, height: window.innerHeight })
   useEffect(() => {
     const isText = (el: Element | null) => !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'file'].includes((el as HTMLInputElement).type)))
     const on = (e: FocusEvent) => { if (isText(e.target as Element)) setTyping(true) }
     const off = () => setTimeout(() => { if (!isText(document.activeElement)) { setTyping(false); window.scrollTo(0, 0) } }, 50)
-    document.addEventListener('focusin', on); document.addEventListener('focusout', off)
+    const resize = () => setView({ w: window.innerWidth, h: window.innerHeight })
+    document.addEventListener('focusin', on); document.addEventListener('focusout', off); window.addEventListener('resize', resize)
     const v = window.visualViewport, update = () => v && setVv({ top: v.offsetTop, height: v.height })
     update(); v?.addEventListener('resize', update); v?.addEventListener('scroll', update)
-    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off); v?.removeEventListener('resize', update); v?.removeEventListener('scroll', update) }
+    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off); window.removeEventListener('resize', resize); v?.removeEventListener('resize', update); v?.removeEventListener('scroll', update) }
   }, [])
 
-  // Find the target, pick the panel's edge once (away from the target), keep the target in view, follow it while scrolling.
+  // The card's height (for placing it above a target).
+  useLayoutEffect(() => {
+    const el = cardRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setCardH(el.offsetHeight))
+    ro.observe(el); setCardH(el.offsetHeight)
+    return () => ro.disconnect()
+  }, [typing])
+
+  // Follow the target. The last box is kept while the next screen mounts, so the highlight glides instead of blinking.
   useEffect(() => {
-    setR(null)
-    if (!target) return
-    let raf = 0, last = '', height = -1, chosen: 'top' | 'bottom' | null = null
+    if (!target) { setBox(null); return }
+    let raf = 0, last = '', height = -1
     const tick = () => {
       const el = document.querySelector<HTMLElement>(`[data-tour="${target}"]`)
       if (el) {
-        const h = window.innerHeight
-        if (!chosen) {
-          const b0 = el.getBoundingClientRect()
-          chosen = top || (b0.height < h * 0.6 && b0.top + b0.height / 2 > h * 0.5) ? 'top' : 'bottom'
-          setSide(chosen)
-        }
-        const hh = Math.round(el.offsetHeight)
+        const h = window.innerHeight, hh = Math.round(el.offsetHeight)
         if (hh !== height) {
           height = hh
-          const panel = (cardRef.current?.offsetHeight ?? 190) + 24
-          // Clear of the panel, and of the sticky header / bottom button bars on the other side.
-          if (hh < h * 0.6) keepInView(el, chosen === 'top' ? panel + 8 : 100, chosen === 'bottom' ? panel + 8 : 110)
+          const gap = (cardRef.current?.offsetHeight ?? 220) + 32
+          if (hh < h * 0.45) keepInView(el, 110, gap)
         }
         const b = el.getBoundingClientRect()
         const k = `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.width)},${Math.round(b.height)}`
-        if (k !== last) { last = k; setR(b) }
+        if (k !== last) { last = k; setBox({ x: b.x, y: b.y, w: b.width, h: b.height }) }
       }
       raf = requestAnimationFrame(tick)
     }
     tick()
     return () => cancelAnimationFrame(raf)
-  }, [target, top])
+  }, [target])
 
-  // Nothing to point at (part intros, info cards): a card in the middle of a dimmed screen.
-  if (!target) return (
-    <div className="fixed inset-0 z-[70] bg-black/65 grid place-items-center px-4">
-      <div className="w-full max-w-sm"><Panel c={c} nudge={false} innerRef={cardRef} /></div>
-    </div>
-  )
   if (typing) return c.next ? (
-    <div ref={cardRef} className="fixed z-[71] inset-x-4" style={{ top: vv.top + vv.height - 64 }}>
-      <button onClick={c.onNext} disabled={c.nextDisabled} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40 disabled:shadow-none">{c.nextDisabled && c.disabledHint ? c.disabledHint : c.next}</button>
+    <div ref={barRef} className="fixed z-[71] inset-x-4" style={{ top: vv.top + vv.height - 64 }}>
+      <button onClick={c.onNext} disabled={c.nextDisabled} className="w-full rounded-2xl py-3.5 font-bold text-[16px] bg-stone-900 text-[#F6F1E6] shadow-float disabled:opacity-50">{c.nextDisabled && c.disabledHint ? c.disabledHint : c.next}</button>
     </div>
   ) : null
-  if (!r) return null
 
-  const hole = { left: r.left - PAD, top: r.top - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 }
+  const W = view.w, H = view.h
+  const shown = target ? box : null
+  const hole = shown ? { x: shown.x - PAD, y: shown.y - PAD, w: shown.w + PAD * 2, h: shown.h + PAD * 2 } : { x: W / 2, y: H / 2, w: 0, h: 0 }
+  const cardW = Math.min(W - EDGE * 2, 440)
+  const minTop = safe.top + EDGE, maxTop = H - safe.bottom - EDGE - cardH
+  // Where the card goes: next to the target (with a pointer), else docked to an edge, else in the middle.
+  let cardTop = (H - cardH) / 2, cardLeft = (W - cardW) / 2, arrow: { x: number; up: boolean } | null = null
+  if (shown) {
+    const cy = hole.y + hole.h / 2, below = cy < H / 2
+    const anchored = below ? hole.y + hole.h + GAP : hole.y - GAP - cardH
+    const fits = !top && hole.h < H * 0.45 && anchored >= minTop && anchored <= maxTop
+    if (fits) {
+      cardTop = anchored
+      cardLeft = Math.min(Math.max(hole.x + hole.w / 2 - cardW / 2, EDGE), W - cardW - EDGE)
+      arrow = { x: Math.min(Math.max(hole.x + hole.w / 2 - cardLeft, 28), cardW - 28), up: below }
+    } else cardTop = top ? minTop : hole.h >= H * 0.45 || cy <= H / 2 ? maxTop : minTop   // big areas start near the top: dock below
+  }
+  const tapStep = !!shown && !c.next
+
   return (
     <>
-      {/* The dim with a hole around the thing to use */}
-      <div aria-hidden className="fixed z-[70] rounded-2xl pointer-events-none"
-        style={{ ...hole, boxShadow: dim ? '0 0 0 2px rgba(201,169,97,0.9), 0 0 0 9999px rgba(0,0,0,0.6)' : '0 0 0 2px rgba(201,169,97,0.95), 0 0 24px 2px rgba(201,169,97,0.25)' }} />
-      <div className="fixed z-[71] inset-x-3 pointer-events-none"
-        style={side === 'top' ? { top: 'calc(env(safe-area-inset-top) + 8px)' } : { bottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}>
-        <Panel c={c} nudge={nudge} innerRef={cardRef} />
+      <div aria-hidden className="coach-hole fixed z-[70] pointer-events-none"
+        style={{ left: hole.x, top: hole.y, width: hole.w, height: hole.h, borderRadius: shown ? 18 : 999,
+          boxShadow: !shown || dim ? `${shown ? '0 0 0 2.5px rgba(201,169,97,0.95), 0 0 22px 4px rgba(201,169,97,0.35), ' : ''}0 0 0 9999px rgba(0,0,0,0.62)` : '0 0 0 2.5px rgba(201,169,97,0.95), 0 0 24px 4px rgba(201,169,97,0.3)' }} />
+      {tapStep && (
+        <>
+          <span key={`r${stepKey}`} aria-hidden className="coach-ripple fixed z-[71] pointer-events-none rounded-full border-2 border-pt-accent" style={{ width: 44, height: 44, left: hole.x + hole.w / 2 - 22, top: hole.y + hole.h / 2 - 22 }} />
+          <svg key={`f${stepKey}`} viewBox="0 0 48 48" aria-hidden className="coach-finger fixed z-[71] pointer-events-none w-12 h-12 drop-shadow-[0_6px_10px_rgba(0,0,0,0.5)]"
+            style={{ left: hole.x + hole.w / 2 - 23, top: hole.y + hole.h / 2 - 6 }}>
+            <path d="M19 6a4 4 0 0 1 8 0v14l9.2 2.3a5 5 0 0 1 3.7 5.7l-1.9 11A6 6 0 0 1 32.1 44H22a6 6 0 0 1-4.7-2.3L9 31.2a4 4 0 0 1 6.1-5.1L19 30z" fill="#F6F1E6" stroke="#1c1917" strokeWidth="2" strokeLinejoin="round" />
+          </svg>
+        </>
+      )}
+      <div ref={cardRef} role="dialog" aria-live="polite" className="coach-card fixed z-[71] rounded-[24px] bg-[#F6F1E6] px-4 pt-3.5 pb-3.5 shadow-float"
+        style={{ top: cardTop, left: cardLeft, width: cardW, transition: `top .55s ${EASE}, left .55s ${EASE}` }}>
+        {arrow && <span aria-hidden className="coach-arrow absolute w-4 h-4 rotate-45 rounded-[3px] bg-[#F6F1E6]" style={{ left: arrow.x - 8, ...(arrow.up ? { top: -6 } : { bottom: -6 }) }} />}
+        <Card c={c} nudge={nudge} stepKey={stepKey} />
       </div>
     </>
   )

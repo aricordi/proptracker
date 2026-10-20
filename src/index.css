@@ -125,5 +125,34 @@
 .typing-dot:nth-child(2) { animation-delay: 0.15s; } .typing-dot:nth-child(3) { animation-delay: 0.3s; }
 @media (prefers-reduced-motion: reduce) { .booked-flash, .tab-bounce > svg, .typing-dot { animation: none; } }
 
+/* App tour (src/tour): the highlight glides between targets, the coach card slides in, one finger tap, small celebrations.
+   Everything plays once, when something changes; nothing loops. */
+.coach-hole { transition: left .55s cubic-bezier(.32,.72,0,1), top .55s cubic-bezier(.32,.72,0,1), width .55s cubic-bezier(.32,.72,0,1), height .55s cubic-bezier(.32,.72,0,1), border-radius .55s cubic-bezier(.32,.72,0,1), box-shadow .4s ease; }
+.coach-card { transition: top .55s cubic-bezier(.32,.72,0,1), bottom .55s cubic-bezier(.32,.72,0,1); }
+.coach-arrow { transition: left .55s cubic-bezier(.32,.72,0,1); }
+@keyframes coach-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+.coach-in { animation: coach-in .35s cubic-bezier(.32,.72,0,1) both; }
+@keyframes coach-nudge { 20% { transform: translateX(-7px); } 45% { transform: translateX(6px); } 70% { transform: translateX(-3px); } 100% { transform: none; } }
+.coach-nudge { animation: coach-nudge .42s cubic-bezier(.32,.72,0,1); }
+@keyframes coach-tap { 0% { opacity: 0; transform: translate(26px, 30px); } 35% { opacity: 1; transform: translate(0, 0) scale(1); } 50% { transform: scale(.82); } 62% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: translate(10px, 14px); } }
+.coach-finger { animation: coach-tap 1.6s cubic-bezier(.32,.72,0,1) .9s both; transform-origin: 48% 12%; }
+@keyframes coach-ripple { 0% { opacity: 0; transform: scale(.4); } 55% { opacity: .9; transform: scale(.4); } 100% { opacity: 0; transform: scale(2.6); } }
+.coach-ripple { animation: coach-ripple 1.1s ease-out .9s both; }
+@keyframes cap-bob { 0% { transform: translateY(4px) rotate(-6deg) scale(.9); } 60% { transform: translateY(-2px) rotate(3deg) scale(1.04); } 100% { transform: none; } }
+.cap-bob { animation: cap-bob .5s cubic-bezier(.32,.72,0,1) both; }
+@keyframes chapter-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.chapter-rise { animation: chapter-rise .6s cubic-bezier(.32,.72,0,1) both; }
+@keyframes badge-pop { 0% { opacity: 0; transform: scale(.3) rotate(-20deg); } 60% { opacity: 1; transform: scale(1.12) rotate(4deg); } 100% { transform: none; } }
+.badge-pop { animation: badge-pop .6s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes ring-fill { from { stroke-dashoffset: var(--from); } to { stroke-dashoffset: var(--to); } }
+.ring-fill { stroke-dashoffset: var(--to); animation: ring-fill 1s cubic-bezier(.32,.72,0,1) .45s both; }
+@keyframes confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 90px)) rotate(var(--r)); } }
+.confetti-bit { position: absolute; left: 50%; top: 40%; border-radius: 2px; animation: confetti 1.3s cubic-bezier(.2,.7,.3,1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .coach-hole, .coach-card, .coach-arrow { transition: none; }
+  .coach-in, .coach-nudge, .coach-finger, .coach-ripple, .cap-bob, .chapter-rise, .badge-pop, .ring-fill { animation: none; }
+  .confetti-bit { display: none; }
+}
+
 /* iPhone zooms the page when you tap a text box whose text is under 16px (owner, Oct 19): keep them at 16px on phones */
 @media (pointer: coarse) { input, textarea, select { font-size: 16px !important; } }
