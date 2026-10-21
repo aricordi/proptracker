@@ -1342,6 +1342,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       app closed (10 s)" + iPhone checklist (banner hidden while the app is open, Settings → Notifications → Prime Capitol,
       Focus off, open from the Home Screen icon, turn off/on). server-logs.yml: FCM on?, phones per person, push function
       logs (3 days), last 20 push_log sends.
+      LIVE Oct 21 (backend run 41 + website run 36, owner OK).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
