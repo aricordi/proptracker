@@ -17,6 +17,7 @@ import { useGearCart } from '../gearCart'
 import {
   subscribeToGearBundles, subscribeToGearHolds, createGearBooking, cancelGearBooking,
   freeQty, holdWindow, checkGearTimes, earliestGearDay, fmtHours, fmtTime, GEAR_TIME_MESSAGES, type GearBundle, type GearHold,
+  byCount,
 } from '../services/gear'
 import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes } from '../components/GearUi'
 import { thumbOf } from '../services/itemShape'
@@ -96,7 +97,7 @@ export default function ReserveScreen() {
   const gearProblem = hasGear ? (day ? checkGearTimes(day, gh.start, gh.end, today, nowMinutes(), settings, isStaff || isGearStaff) : 'bad-format') : null
   const win = day ? holdWindow(day, gh.start, gh.end, settings) : null
   const gearUnavailable = gearLines.filter(l => !l.offer || l.offer.archived || !win
-    || freeQty(l.offer.kind === 'extra' ? (l.offer.pieces[0]?.qty ?? 0) : 1, holds[l.id] ?? [], win.from, win.to) < l.qty)
+    || freeQty(byCount(l.offer.kind) ? (l.offer.pieces[0]?.qty ?? 0) : 1, holds[l.id] ?? [], win.from, win.to) < l.qty)
   const gearOk = !hasGear || (!gearProblem && gearUnavailable.length === 0)
   // With props, the props notice applies to the day; gear alone only needs the gear notice.
   const pickerMin = hasProps || !hasGear ? minStart : (isStaff ? today : earliestGearDay(today, settings))
@@ -306,8 +307,8 @@ export default function ReserveScreen() {
                     <div key={l.id} className="flex items-center gap-3 px-3 py-3">
                       <GearArt photo={l.offer?.photos?.[0]} category={l.offer?.category} className="w-12 h-12 rounded-xl shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-pt-text text-sm font-medium truncate">{l.offer?.kind === 'extra' ? `${l.qty}× ` : ''}{l.offer?.name ?? 'No longer offered'}</p>
-                        {bad && !gearProblem ? <Pill tone="taken">Not free for these hours</Pill> : <p className="text-pt-muted text-xs">{l.offer?.kind === 'extra' ? 'Add-on extra' : 'Bundle'} · {fmtHours(gh.start, gh.end)}</p>}
+                        <p className="text-pt-text text-sm font-medium truncate">{byCount(l.offer?.kind) ? `${l.qty}× ` : ''}{l.offer?.name ?? 'No longer offered'}</p>
+                        {bad && !gearProblem ? <Pill tone="taken">Not free for these hours</Pill> : <p className="text-pt-muted text-xs">{byCount(l.offer?.kind) ? 'Single item' : 'Bundle'} · {fmtHours(gh.start, gh.end)}</p>}
                       </div>
                       <button onClick={() => gear.setQty(l.id, 0)} aria-label="Remove" className="text-pt-muted text-2xl px-2">×</button>
                     </div>

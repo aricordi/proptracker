@@ -1,7 +1,8 @@
 // Gear team tour (owner, Oct 20: "a tutorial just like this but for the gear department… the story of their
 // responsibilities"). Same coach, chapter cards, quizzes and badges as the creator tour (Spotlight + Fun.tsx), with
 // GEAR_CHAPTERS:
-//   1 Find your way around (5 tabs: Queue / Schedule / Bundles / All gear / Admin, a look at the Admin menu)  2 Stock the shelves (All gear → + Add gear → name, type, serial → Save)
+//   1 Find your way around (5 tabs: Queue / Schedule / Bundles / All gear / Admin, a look at the Admin menu)  2 Stock the shelves (All gear → + Add gear → name, type, serial,
+//   Internal only / Creators can book → Save)
 //   3 Build a kit (Bundles → + Bundle → name → pieces → Save; add-on extras) + quiz  4 Run the queue (Today / Out /
 //   To check in…, open a booking, decline with a reason)  5 Hand it over (the pickup check: tick every piece, Missing?,
 //   sign) + quiz  6 Check it back in (late, To check in, return photo, tick, damage note, Checked in)
@@ -117,17 +118,17 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
     // 2 · Stock the shelves
     intro(2, 'items', 'Every camera, lens, light and mic lives in All gear. If it isn\'t in here, it doesn\'t exist (as far as the app knows).'),
     { id: 'itemslook', scene: 'items', part: 2, target: 'itemlist', look: true, next: C, title: 'Every piece you own, by type',
-      body: <>The number on the right is how many you have. <b>Loose</b> means it isn't in a kit yet, so creators can't book it.</> },
+      body: <>The number on the right is how many you have. <b>Loose</b> means it isn't in a kit and is internal only, so creators can't book it. <b>Bookable</b> means creators can take it on its own.</> },
     { id: 'additem', scene: 'items', part: 2, target: 'addgear', title: <>Tap <b>+ Add gear</b></>, body: "Let's add a brand new camera." },
     { id: 'itemform', scene: 'itemsheet', part: 2, target: 'itemform', top: true, next: C, hint: 'Type a name first', title: 'Name it and pick its type',
-      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). Value is staff only, for when something goes missing.</> },
+      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). <b>Internal only</b> keeps it for the team or for a kit; <b>Creators can book</b> offers it on its own as a single item. A camera body goes in a kit, so leave it internal.</> },
     { id: 'itemsave', scene: 'itemsheet', part: 2, target: 'itemsave', title: <>Tap <b>Save</b></> },
-    { id: 'itemnew', scene: 'items', part: 2, target: 'newitem', next: C, title: "There it is, '1 loose'", body: "It's on the shelf, but creators can't see it yet. Time to put it in a kit." },
+    { id: 'itemnew', scene: 'items', part: 2, target: 'newitem', next: C, title: "There it is, '1 loose'", body: "It's on the shelf, internal only, so creators can't see it yet. Time to put it in a kit." },
     // 3 · Build a kit
-    intro(3, 'items', "Creators never book loose pieces. They book kits: one case, every piece inside, booked as a whole."),
+    intro(3, 'items', "Most creators grab a kit: one case, every piece inside, booked as a whole. Single items are for the odd extra thing."),
     { id: 'tobundles', scene: 'items', part: 3, target: 'nav-bundles', title: <>Tap <b>Bundles</b></> },
     { id: 'bundleslook', scene: 'bundles', part: 3, target: 'bundlelist', look: true, next: C, title: 'What creators can book',
-      body: ul([['Bundles', 'a case booked whole, never split'], ['Add-on extras', 'one kind of piece (spare lights, mics), creators pick how many']]) },
+      body: ul([['Bundles', 'a case booked whole, never split'], ['Single items', "any piece you set to Creators can book in All gear (a spare light, a mic); creators pick how many of the ones not in a kit"]]) },
     { id: 'newbundle', scene: 'bundles', part: 3, target: 'newbundle', title: <>Tap <b>+ Bundle</b></> },
     { id: 'bundlename', scene: 'bundleedit', part: 3, target: 'bundlename', next: C, hint: 'Type a name first', title: 'Name the kit', body: <>Something creators recognise, like <b>Sony FX3 kit</b>. Add a photo of the case in real life.</> },
     { id: 'bundlepieces', scene: 'bundleedit', part: 3, target: 'pieces', top: true, next: C, hint: 'Add at least 2 pieces', title: <>Fill the case with <b>+</b></>,
@@ -520,6 +521,8 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
                 <label className="block space-y-1 flex-1"><span className="text-pt-muted text-[13px]">Serial number</span>
                   <input value={serial} onChange={e => setSerial(e.target.value.slice(0, 40))} placeholder="Cameras (optional)" className={field} /></label>
               </div>
+              <div className="space-y-1"><span className="text-pt-muted text-[13px]">Who can book it on its own?</span>
+                <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 shadow-hairline"><span className="flex-1 py-2 rounded-[10px] text-sm text-center bg-pt-border text-pt-text font-semibold">Internal only</span><span className="flex-1 py-2 rounded-[10px] text-sm text-center text-pt-muted">Creators can book</span></div></div>
               <label className="block space-y-1"><span className="text-pt-muted text-[13px]">Replacement value ($, staff only)</span><input placeholder="Optional" disabled className={field} /></label>
             </div>
             <button {...T('itemsave')} onClick={tap('itemsave')} disabled={itemName.trim().length < 2} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Save</button>
@@ -533,7 +536,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
         <div className="p-4 space-y-3">
           <div className="grid grid-cols-2 gap-2">
             <button {...T('newbundle')} onClick={tap('newbundle')} className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">+ Bundle</button>
-            <span className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold text-center">+ Add-on extra</span>
+            <span className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold text-center">Single items</span>
           </div>
           <p className="text-pt-muted text-sm">Creators only see what's here, never the loose pieces in All gear.</p>
           <div {...T('bundlelist')} className="space-y-3">
@@ -563,7 +566,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
               )}
             </div>
             <div className="space-y-2">
-              <p className="text-pt-muted text-xs">Add-on extras · Creators pick how many</p>
+              <p className="text-pt-muted text-xs">Single items creators can book · Set in All gear</p>
               {[['Wireless mic (DJI Mic)', 'Audio', 4], ['Gorilla pod', 'Grip', 3]].map(([n, c, q]) => (
                 <div key={n as string} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
                   <GearArt category={c as string} className="w-16 h-16 rounded-xl shrink-0" />
@@ -727,7 +730,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
         {header('Admin')}
         <div className="p-4">
           <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
-            {[['Gear queue', "Today's pickups and returns, what's out, what to check in"], ['Bundles & add-on extras', 'What creators can book; build a new kit'],
+            {[['Gear queue', "Today's pickups and returns, what's out, what to check in"], ['Bundles & single items', 'What creators can book; build a new kit'],
               ['All gear', 'Every piece you own: add gear, serial numbers, values, archive'], ['Schedule team', 'Check-ins, reports to review, creators booked vs filmed, pauses'],
               ['Gear team tour', 'Practise the gear room again, step by step'], ['Help', 'How do I…? Gear, check-ins, the schedule, sign-in'], ['My account', 'Your photo, notifications; sign out']].map(([t, d]) => (
               <button key={t} {...(t === 'My account' ? T('myaccount') : {})} onClick={t === 'My account' ? tap('myaccount') : undefined} className="w-full flex items-center gap-3 px-4 py-4 text-left">
@@ -756,7 +759,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
         <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">The gear room in six lines. Replay it from Admin → Gear team tour any time.</p></div>
         {([
-          ['box', 'Every piece goes in All gear first. Loose pieces are invisible to creators until they are in a bundle or an add-on extra.'],
+          ['box', 'Every piece goes in All gear first. Internal only pieces are invisible to creators unless they are in a bundle; Creators can book offers the ones not in a kit as single items.'],
           ['tools', 'A piece lives in one bundle at a time. Bundles are booked whole. Pieces are locked while a bundle is booked or out.'],
           ['handshake', 'Pickup opens 30 minutes before. The creator ticks every piece and signs. Missing before signing goes on whoever had it last.'],
           ['check', 'Late = 30 minutes after the booked end. Check returns in: tick every piece, write down any damage.'],

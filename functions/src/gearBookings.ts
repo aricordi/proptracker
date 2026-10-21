@@ -9,6 +9,7 @@ import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { todayInStudio } from './booking.js'
 import { crewProblem, crewHours, isResponsible, type CrewShoot, type CrewMember } from './gearCrew.js'
+import { byCount } from './gearStock.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
   isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, type GearHold,
@@ -106,7 +107,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
     const out = lines.map((l, i) => {
       const o = offers[i]
       if (!o.exists || o.get('archived') === true) throw new HttpsError('failed-precondition', 'One of these is no longer offered. Remove it and try again.')
-      const kind = o.get('kind') === 'extra' ? 'extra' : 'bundle'
+      const kind = byCount(o.get('kind')) ? 'extra' : 'bundle'   // single items book like extras (by count)
       const pieces = (o.get('pieces') as { itemId: string; qty: number; name?: string }[] | undefined) ?? []
       const offered = kind === 'extra' ? (pieces[0]?.qty ?? 0) : 1
       if (kind === 'bundle' && l.qty !== 1) throw new HttpsError('invalid-argument', 'A bundle is booked whole, one at a time.')
@@ -225,7 +226,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
       const i = ids.indexOf(l.offerId), o = offers[i]
       const kept = (b.lines as { offerId: string }[]).find(x => x.offerId === l.offerId) as Record<string, unknown> | undefined
       if (!o.exists || (o.get('archived') === true && !kept)) throw new HttpsError('failed-precondition', 'One of these is no longer offered. Remove it and try again.')
-      const kind = o.get('kind') === 'extra' ? 'extra' : 'bundle'
+      const kind = byCount(o.get('kind')) ? 'extra' : 'bundle'   // single items book like extras (by count)
       if (kind === 'bundle' && l.qty !== 1) throw new HttpsError('invalid-argument', 'A bundle is booked whole, one at a time.')
       const pieces = (o.get('pieces') as { itemId: string; qty: number; name?: string }[] | undefined) ?? []
       const others = ((holds[i].get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id)

@@ -4,7 +4,7 @@ import { db, functions } from '../firebase'
 import type { BundlePiece, GearCategory, OfferKind } from '../../functions/src/gearStock'
 import type { GearHold } from '../../functions/src/gearBooking'
 
-export { GEAR_CATEGORIES, bundledCounts, looseCount, bundleProblems, pieceTotal } from '../../functions/src/gearStock'
+export { GEAR_CATEGORIES, bundledCounts, looseCount, bundleProblems, pieceTotal, byCount, itemOfferId } from '../../functions/src/gearStock'
 export type { BundlePiece, GearCategory, OfferKind } from '../../functions/src/gearStock'
 
 // One kind of gear the company owns ("NP-FZ100 battery", have 6). Gear team only.
@@ -18,6 +18,7 @@ export interface GearItem {
   notes?: string
   photos?: string[]
   archived?: boolean
+  public?: boolean           // owner, Oct 21: "Creators can book" (the pieces not in a bundle); missing = internal only
 }
 
 // What creators see and book: a bundle (a case of pieces, booked whole) or an

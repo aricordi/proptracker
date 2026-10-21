@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { bundledCounts, looseCount, tidyPieces, bundleProblems, haveProblem, pieceTotal } from '../../functions/src/gearStock'
+import { peakHeld, byCount } from '../../functions/src/gearStock'
 
 const items = [
   { id: 'cam', name: 'Sony FX3 body', have: 1 },
@@ -45,5 +46,18 @@ describe('gear stock', () => {
     expect(bundleProblems([{ itemId: 'bat', qty: 1 }], items, bundles, undefined, 'extra')).toEqual([])
     expect(bundleProblems([], items, bundles, undefined, 'extra')).toEqual(['Pick the piece to offer.'])
     expect(bundleProblems([{ itemId: 'bat', qty: 1 }, { itemId: 'cam', qty: 1 }], items, [], undefined, 'extra')[0]).toMatch(/one kind of piece/)
+  })
+})
+
+describe('single items (owner, Oct 21)', () => {
+  it('single-item offers never count as using pieces', () => {
+    const m = bundledCounts([{ id: 'k', pieces: [{ itemId: 'mic', qty: 1 }] }, { id: 'item-mic', kind: 'item', pieces: [{ itemId: 'mic', qty: 2 }] }])
+    expect(m.get('mic')).toBe(1)
+  })
+  it('the busiest moment of the bookings that have not ended', () => {
+    const e = [{ from: '2026-10-22T10:00', to: '2026-10-22T12:00', qty: 1 }, { from: '2026-10-22T11:00', to: '2026-10-22T13:00', qty: 2 },
+      { from: '2026-10-22T13:00', to: '2026-10-22T15:00', qty: 1 }, { from: '2026-10-20T10:00', to: '2026-10-20T12:00', qty: 5 }]
+    expect(peakHeld(e, '2026-10-21T09:00')).toBe(3)
+    expect(byCount('item')).toBe(true); expect(byCount('bundle')).toBe(false)
   })
 })

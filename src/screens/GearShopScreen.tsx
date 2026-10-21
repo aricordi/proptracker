@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useGearCart } from '../gearCart'
 import { useCart } from '../cart'
 import BrandMark from '../components/BrandMark'
-import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, freeQty, pieceTotal, fmtHours, nowStamp, isGearLate, type GearBundle, type GearHold, type GearBooking } from '../services/gear'
+import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, freeQty, pieceTotal, fmtHours, nowStamp, isGearLate, byCount, type GearBundle, type GearHold, type GearBooking } from '../services/gear'
 import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, useGearWhen } from '../components/GearUi'
 import { useActiveShoot } from '../activeShoot'
@@ -11,7 +11,8 @@ import { BrowseTabs, AddingToChip, useAddingNote } from '../components/AddingToB
 import MyRequestsButton from '../components/MyRequestsButton'
 import AiButton from '../components/AiButton'
 
-// Creators: pick the shoot day + hours, see which bundles and extras are free, add them.
+// Creators: pick the shoot day + hours, see which kits (bundles) and single items are free, add them.
+// Owner, Oct 21: kits are what most people grab; single items are the pieces the team marked "Creators can book".
 export default function GearShopScreen() {
   const navigate = useNavigate()
   const cart = useGearCart()
@@ -39,10 +40,10 @@ export default function GearShopScreen() {
   const all = (offers ?? []).filter(o => !o.archived)
   const live = all.filter(matches)
   const bundles = live.filter(o => (o.kind ?? 'bundle') === 'bundle')
-  const extras = live.filter(o => o.kind === 'extra')
+  const extras = live.filter(o => byCount(o.kind))
   const cats = useMemo(() => [...new Set(all.map(b => b.category))].sort(), [all.map(o => o.category).join()])   // eslint-disable-line react-hooks/exhaustive-deps
   const note = useAddingNote('gear')
-  const free = (o: GearBundle) => freeQty(o.kind === 'extra' ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], w.win.from, w.win.to)
+  const free = (o: GearBundle) => freeQty(byCount(o.kind) ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], w.win.from, w.win.to)
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
@@ -73,7 +74,7 @@ export default function GearShopScreen() {
       </div>
 
       <div className="px-4 pb-4 pt-1 space-y-6">
-        <p className="text-xs flex gap-2 -mb-3"><span className="text-pt-muted shrink-0">{bundles.length} bundle{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} extra${extras.length === 1 ? '' : 's'}` : ''}</span>
+        <p className="text-xs flex gap-2 -mb-3"><span className="text-pt-muted shrink-0">{bundles.length} kit{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} single item${extras.length === 1 ? '' : 's'}` : ''}</span>
           {creator && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {shoot ? `Gear for your shoot's hours · ${note.text}` : note.text}</span>}</p>
         {lateOnes.length > 0 && (
           <button onClick={() => navigate(`/gear/bookings/${lateOnes[0].id}`)} className="w-full text-left bg-red-500/10 rounded-2xl px-4 py-3 text-red-200 text-[15px]">
@@ -87,8 +88,8 @@ export default function GearShopScreen() {
         {bundles.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-pt-text text-xl font-semibold tracking-tight">Bundles</h2>
-              <span className="text-pt-muted text-xs">Booked as a whole</span>
+              <h2 className="text-pt-text text-xl font-semibold tracking-tight">Grab-and-go kits</h2>
+              <span className="text-pt-muted text-xs">Everything in the case, booked whole</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {bundles.map(b => {
@@ -127,8 +128,8 @@ export default function GearShopScreen() {
         {extras.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-pt-text text-xl font-semibold tracking-tight">Add-on extras</h2>
-              <span className="text-pt-muted text-xs">Pick how many</span>
+              <h2 className="text-pt-text text-xl font-semibold tracking-tight">Single items</h2>
+              <span className="text-pt-muted text-xs">Need just one thing? Pick how many</span>
             </div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {extras.map(x => {

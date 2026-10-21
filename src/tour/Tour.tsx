@@ -200,7 +200,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
     { id: 'search', scene: 'browse', part: 3, target: 'browsezone', next: C, hint: 'Add a prop first', title: 'Search the closet and tap + on something', body: <>Try <b>mask</b>, <b>hat</b> or <b>phone</b>. Need more than one? Tap <b>+</b> again on the photo. Add as many as you like, then Continue.</> },
     { id: 'geartab', scene: 'browse', part: 3, target: 'geartab', title: <>Now the gear. Tap <b>Gear</b></>, body: 'Cameras, lights and sound live here.' },
     { id: 'addgear', scene: 'gear', part: 3, target: 'gearkits', next: C, hint: 'Add a camera kit first', title: <>Pick a camera: tap <b>+</b> on the FX3 or the A7S</>, body: "Each kit is one case with every piece inside. No times to pick: gear is booked for your shoot's hours. Want aerial shots? Scroll down for the Mavic Air and the Mini 5." },
-    { id: 'addextras', scene: 'gear', part: 3, target: 'gearextras', next: C, title: 'Need add-ons? Use + and −', body: 'Extra batteries, lights or a wireless mic go on top of your kit. None needed? Just Continue.' },
+    { id: 'addextras', scene: 'gear', part: 3, target: 'gearextras', next: C, title: 'Need just one thing? Use + and −', body: 'Single items (a spare battery, a light, a wireless mic) go on top of your kit, or on their own. Most shoots just need the kit. None needed? Just Continue.' },
     { id: 'reviewbar', scene: 'gear', part: 3, target: 'reviewbar', title: <>Tap <b>Review</b></>, body: 'Quick check before it goes to the teams.' },
     { id: 'name', scene: 'review', part: 3, target: 'name', next: C, hint: 'Type a name first', title: 'Give your video a name', body: <>Go full Stromedy, like "{ex.title}". The teams will know exactly which shoot it is.</> },
     ...(friends.length ? [{ id: 'share', scene: 'review' as Scene, part: 3, target: 'share', next: C,
@@ -891,8 +891,8 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <>
         {browseHeader(true)}
         <div className="px-4 pt-1 pb-4 space-y-3">
-          <p className="text-pt-muted text-xs">4 bundles · 3 extras · Gear for your shoot's hours · Add gear by {formatDay(cut.gear)}</p>
-          <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Bundles</h2><span className="text-pt-muted text-xs">Booked as a whole</span></div>
+          <p className="text-pt-muted text-xs">4 kits · 3 single items · Gear for your shoot's hours · Add gear by {formatDay(cut.gear)}</p>
+          <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Grab-and-go kits</h2><span className="text-pt-muted text-xs">Everything in the case, booked whole</span></div>
           <div {...T('gearkits')} className="space-y-3">
           {(['Camera', 'Drones'] as const).map(cat => (
           <div key={cat} className="grid grid-cols-2 gap-3">
@@ -920,7 +920,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           ))}
           </div>
           <section {...T('gearextras')} className="space-y-3 pt-3">
-            <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Add-on extras</h2><span className="text-pt-muted text-xs">Pick how many</span></div>
+            <div className="flex items-baseline justify-between"><h2 className="text-pt-text text-xl font-semibold tracking-tight">Single items</h2><span className="text-pt-muted text-xs">Need just one thing? Pick how many</span></div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {PRACTICE_GEAR.filter(g => g.kind === 'extra').map(x => {
                 const n = gearPick[x.id] ?? 0, can = step.id === 'addextras', f = x.offered ?? 0

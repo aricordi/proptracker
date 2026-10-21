@@ -5,14 +5,20 @@
 // The team offers two kinds of thing to creators (nothing else is visible to them):
 //   'bundle' — a case of pieces, booked whole, never split
 //   'extra'  — an add-on of ONE kind of piece (e.g. sandbags); the team sets how many
-//              are offered, creators pick how many they need
+//              are offered, creators pick how many they need (older; new ones are 'item')
+//   'item'   — a single piece the team marked "Creators can book" (owner, Oct 21). The app keeps
+//              this offer itself (id 'item-<itemId>'): it offers every unit that isn't in a bundle.
+//              Pieces marked "Internal only" are never shown to creators.
 
 export const GEAR_CATEGORIES = ['Camera', 'Lens', 'Lighting', 'Audio', 'Drones', 'Power', 'Grip', 'Monitors', 'Other'] as const
 export type GearCategory = typeof GEAR_CATEGORIES[number]
 
 export interface BundlePiece { itemId: string; qty: number; name?: string }   // name: copied in by the server
 export interface StockItem { id: string; name: string; have: number; archived?: boolean }
-export type OfferKind = 'bundle' | 'extra'
+export type OfferKind = 'bundle' | 'extra' | 'item'
+// Booked by count (pick how many) rather than whole.
+export const byCount = (kind: string | undefined) => kind === 'extra' || kind === 'item'
+export const itemOfferId = (itemId: string) => `item-${itemId}`
 export interface StockBundle { id: string; pieces: BundlePiece[]; archived?: boolean; kind?: OfferKind }
 
 export const MAX_PIECES = 60   // different kinds of piece in one bundle
@@ -21,7 +27,7 @@ export const MAX_PIECES = 60   // different kinds of piece in one bundle
 export function bundledCounts(bundles: StockBundle[], exceptBundleId?: string): Map<string, number> {
   const m = new Map<string, number>()
   for (const b of bundles) {
-    if (b.archived || b.id === exceptBundleId) continue
+    if (b.archived || b.id === exceptBundleId || b.kind === 'item') continue   // single-item offers use the loose ones, they don't take any
     for (const p of b.pieces ?? []) m.set(p.itemId, (m.get(p.itemId) ?? 0) + p.qty)
   }
   return m
@@ -71,3 +77,12 @@ export function haveProblem(item: StockItem, newHave: number, bundles: StockBund
 }
 
 export const pieceTotal = (pieces: BundlePiece[]) => pieces.reduce((n, p) => n + p.qty, 0)
+
+// The most units of one offer booked at the same moment, counting only bookings that haven't ended.
+export function peakHeld(entries: { from: string; to: string; qty: number }[], now: string): number {
+  const live = entries.filter(e => e.to > now)
+  let peak = 0
+  // The busiest moment is always when one of the bookings starts.
+  for (const e of live) peak = Math.max(peak, live.filter(x => x.from <= e.from && e.from < x.to).reduce((n, x) => n + x.qty, 0))
+  return peak
+}

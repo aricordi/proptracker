@@ -229,7 +229,7 @@ export default function GearBookingScreen() {
                 <GearArt photo={l.photo} className="w-12 h-12 rounded-xl shrink-0" />
                 <div className="min-w-0">
                   <p className="text-pt-text text-[15px] font-medium truncate">{l.kind === 'extra' ? `${l.qty}× ` : ''}{l.name}</p>
-                  <p className="text-pt-muted text-xs">{l.kind === 'extra' ? 'Add-on extra' : `Bundle · ${l.pieces.reduce((n, p) => n + p.qty, 0)} pieces`}</p>
+                  <p className="text-pt-muted text-xs">{l.kind === 'extra' ? 'Single item' : `Bundle · ${l.pieces.reduce((n, p) => n + p.qty, 0)} pieces`}</p>
                 </div>
               </div>
               {l.kind === 'bundle' && l.pieces.length > 0 && (

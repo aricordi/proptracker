@@ -141,7 +141,7 @@ Empty answer: {"reply":"","needs":[],"chips":[]}.`,
         qty: Number(x.get('quantity') ?? 1), free: freeOn[x.id],
       }))
     const gear = (await db.collection('gear_bundles').get()).docs.filter(d => d.get('archived') !== true && !exclude.has(d.id))
-      .map(d => ({ id: d.id, name: String(d.get('name') ?? ''), cat: String(d.get('category') ?? ''), kind: d.get('kind') === 'extra' ? 'add-on' : 'bundle' }))
+      .map(d => ({ id: d.id, name: String(d.get('name') ?? ''), cat: String(d.get('category') ?? ''), kind: d.get('kind') === 'extra' || d.get('kind') === 'item' ? 'single item' : 'bundle' }))
     const propIds = new Set(props.map(p => p.id)), gearIds = new Set(gear.map(g => g.id))
 
     // 3. Pick from the shortlist only.

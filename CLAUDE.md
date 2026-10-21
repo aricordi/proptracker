@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 442 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 447 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1365,6 +1365,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       days)"; missed check-ins link to the Flags tab. Tests 442 (tests/unit/flagState.test.ts, tests/functions/flagReviews.test.ts,
       rules). Checked in a browser on the emulator (admin: card → list → note, excuse → Excused, count again, They filmed, strike).
       NOT yet: admin tour steps for this (do after the owner OKs the design); creators don't see "notes" in the app (push only).
+    - SINGLE ITEMS (owner, Oct 21: "creators don't have to book only bundles… the gear manager puts stuff public (bookable) or internal…
+      bundles stay the quick grab-and-go, same with drones; individual items used less"; NOT deployed: functions only (no rules change:
+      gear_bundles is already readable by members), backend deploy needs owner OK, then website). gear_items `public` (missing = INTERNAL).
+      Public piece → the server keeps an offer `gear_bundles/item-<itemId>` {kind 'item', itemId, name, category, photos, description '',
+      pieces [{itemId, qty: loose (have − in bundles/extras)}]} (gear.ts writeItemOffers, called in saveGearItem / saveGearBundle /
+      setGearBundleArchived transactions; set merge so `missing` warnings stay); internal or archived → offer archived. Refuses: a piece
+      going internal/archived while creators have it booked (active holds), or any change leaving fewer loose units than the busiest moment
+      already booked (`peakHeld` in gearStock.ts). gearStock: OfferKind 'item', `byCount` (extra|item), `itemOfferId`, bundledCounts skips
+      kind 'item'. Bookings: item lines are stored as kind 'extra' (by count) so pickup/return/check-in/ChangeGear work unchanged.
+      saveGearBundle/setGearBundleArchived refuse item offers ("Single pieces are offered from All gear"). App: All gear sheet "Who can book
+      it on its own? Internal only | Creators can book" + note, rows "Creators can book · …" / "N bookable" (green) vs "N loose"; Bundles
+      screen: "+ Bundle" + "Single items" (→ All gear), sections Bundles (grab-and-go kits) / Single items creators can book / Add-on extras
+      (older; new extras no longer offered: the toggle only shows with ?kind=extra); Browse gear: "Grab-and-go kits" then "Single items · Need
+      just one thing? Pick how many" (extras + items). Labels "Single item" on /reserve and gear booking pages. Tours: creator ch3 + gear tour
+      ch2/3 texts, practice item sheet shows the switch. Tests 447 (tests/functions/gearSingleItems.test.ts, unit gearStock). Checked in a
+      browser on the emulator (gear team adds a GorillaPod as Creators can book → creator sees it under Single items).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

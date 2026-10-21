@@ -27,7 +27,7 @@ import { useGearCart } from '../gearCart'
 import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds } from '../activeShoot'
 import { formatDay } from '../lib/dates'
 import { ideaToProps, type IdeaResult } from '../services/ai'
-import { subscribeToGearBundles, subscribeToGearHolds, freeQty, type GearBundle, type GearHold } from '../services/gear'
+import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
   askForTime, bookWithFriends, useMyInvites, useScheduleSettings, fmtSlot, errorText, INVITE_HOLD_MINUTES,
@@ -477,7 +477,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
             <p className="text-pt-muted text-xs">{formatDay(w.date)} · {fmtHours(w.start, w.end)}. Change the hours on the next page if you need.</p>
             {bundles.filter(b => !b.archived).length === 0 && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl p-4">No gear in the app yet. Skip this step.</p>}
             {bundles.filter(b => !b.archived).map(b => {
-              const offered = b.kind === 'extra' ? (b.pieces[0]?.qty ?? 0) : 1
+              const offered = byCount(b.kind) ? (b.pieces[0]?.qty ?? 0) : 1
               const free = freeQty(offered, holds[b.id] ?? [], w.win.from, w.win.to)
               const qty = gearCart.lines[b.id] ?? 0
               const already = sentGearIds.includes(b.id)
@@ -486,7 +486,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
                   <button onClick={() => go(`/gear/b/${b.id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
                     <GearArt photo={b.photos?.[0]} category={b.category} className="w-[52px] h-[52px] rounded-xl shrink-0" />
                     <span className="min-w-0"><b className="block text-sm truncate">{b.name}</b>
-                      <span className={`block text-xs ${free > 0 ? 'text-green-400' : 'text-pt-muted'}`}>{free > 0 ? (b.kind === 'extra' ? `${free} free` : 'Free') : 'Taken then'} · {b.category}</span></span>
+                      <span className={`block text-xs ${free > 0 ? 'text-green-400' : 'text-pt-muted'}`}>{free > 0 ? (byCount(b.kind) ? `${free} free` : 'Free') : 'Taken then'} · {b.category}</span></span>
                   </button>
                   {already ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/15 text-pt-accent">On this shoot ✓</span>
                     : qty > 0

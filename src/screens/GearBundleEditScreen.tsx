@@ -44,12 +44,12 @@ export default function GearBundleEditScreen() {
   }, [bundles, id, isNew, loaded])
 
   // What's free for THIS bundle: loose pieces plus whatever it already holds.
-  const others = useMemo(() => bundledCounts((bundles ?? []).map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived })), isNew ? undefined : id), [bundles, id, isNew])
+  const others = useMemo(() => bundledCounts((bundles ?? []).map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived, kind: b.kind })), isNew ? undefined : id), [bundles, id, isNew])
   const stock = (items ?? []).filter(i => !i.archived)
   const freeFor = (i: GearItem) => looseCount({ id: i.id, name: i.name, have: i.have }, others)
   const pieces = Object.entries(pick).filter(([, n]) => n > 0).map(([itemId, qty]) => ({ itemId, qty }))
   const problems = items && bundles ? bundleProblems(pieces, stock.map(i => ({ id: i.id, name: i.name, have: i.have })),
-    bundles.map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived })), isNew ? undefined : id, kind) : []
+    bundles.map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived, kind: b.kind })), isNew ? undefined : id, kind) : []
   const shown = stock.filter(i => (freeFor(i) > 0 || pick[i.id]) && (!q.trim() || i.name.toLowerCase().includes(q.trim().toLowerCase())))
 
   function step(i: GearItem, d: number) {
@@ -83,7 +83,8 @@ export default function GearBundleEditScreen() {
       </div>
       {!loaded ? <p className="text-pt-muted text-sm text-center p-6">Loading…</p> : (
       <div className="px-4 pt-4 pb-8 space-y-6">
-        {isNew && (
+        {/* Owner, Oct 21: single pieces are offered from All gear ("Creators can book"), so new add-on extras are no longer offered here. */}
+        {isNew && isExtra && (
           <div className="grid grid-cols-2 gap-1 p-1 bg-pt-surface shadow-hairline rounded-xl">
             {([['bundle', 'Bundle'], ['extra', 'Add-on extra']] as const).map(([k, l]) => (
               <button key={k} onClick={() => { setKind(k); setPick({}) }}

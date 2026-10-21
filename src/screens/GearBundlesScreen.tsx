@@ -18,7 +18,9 @@ export default function GearBundlesScreen() {
   const itemName = useMemo(() => new Map(items.map(i => [i.id, i.name])), [items])
   const shown = (bundles ?? []).filter(b => !!b.archived === showArchived)
   const sections = [
-    { title: 'Bundles', note: 'Booked whole, never split', list: shown.filter(b => (b.kind ?? 'bundle') === 'bundle') },
+    { title: 'Bundles (grab-and-go kits)', note: 'Booked whole, never split', list: shown.filter(b => (b.kind ?? 'bundle') === 'bundle') },
+    // Owner, Oct 21: single pieces are offered from All gear ("Creators can book"); older add-on extras still work.
+    { title: 'Single items creators can book', note: 'Set in All gear · the pieces not in a bundle', list: shown.filter(b => b.kind === 'item') },
     { title: 'Add-on extras', note: 'Creators pick how many', list: shown.filter(b => b.kind === 'extra') },
   ]
 
@@ -36,9 +38,9 @@ export default function GearBundlesScreen() {
       <div className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => navigate('/gear/bundles/new')} className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">+ Bundle</button>
-          <button onClick={() => navigate('/gear/bundles/new?kind=extra')} className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold">+ Add-on extra</button>
+          <button onClick={() => navigate('/gear/items')} className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold">Single items</button>
         </div>
-        <p className="text-pt-muted text-sm">Creators only see what's here, never the loose pieces in All gear.</p>
+        <p className="text-pt-muted text-sm">Creators see the bundles here, plus any piece you set to <b className="text-pt-text">Creators can book</b> in All gear. Pieces set to Internal only never show.</p>
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
         {bundles === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
         {bundles && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">{showArchived ? 'Nothing archived.' : 'Nothing offered to creators yet.'}</p>}
@@ -47,19 +49,19 @@ export default function GearBundlesScreen() {
             <p className="text-pt-muted text-xs">{s.title} <span className="normal-case tracking-normal">· {s.note}</span></p>
         {s.list.map(b => (
           <div key={b.id} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
-            <button onClick={() => !b.archived && navigate(`/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">
+            <button onClick={() => !b.archived && navigate(b.kind === 'item' ? '/gear/items' : `/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">
               <GearArt photo={b.photos?.[0]} category={b.category} className="w-16 h-16 rounded-xl shrink-0" />
               <div className="min-w-0">
                 <p className="text-pt-text font-medium truncate">{b.name}</p>
-                {b.kind === 'extra'
-                  ? <p className="text-pt-muted text-xs">{pieceTotal(b.pieces)} offered</p>
+                {b.kind === 'extra' || b.kind === 'item'
+                  ? <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} {b.kind === 'item' ? 'can be booked' : 'offered'}</p>
                   : <>
                       <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
                       <p className="text-pt-muted text-xs truncate">{b.pieces.slice(0, 3).map(p => `${p.qty}× ${itemName.get(p.itemId) ?? '…'}`).join(', ')}{b.pieces.length > 3 ? '…' : ''}</p>
                     </>}
               </div>
             </button>
-            {b.archived && <button onClick={() => bringBack(b)} className="text-pt-accent text-sm shrink-0 tap">Bring back</button>}
+            {b.archived && b.kind !== 'item' && <button onClick={() => bringBack(b)} className="text-pt-accent text-sm shrink-0 tap">Bring back</button>}
           </div>
         ))}
         {s.list.filter(b => b.missing?.length).map(b => (

@@ -21,10 +21,10 @@ export default function GearItemsScreen() {
   useEffect(() => subscribeToGearItems(setItems), [])
   useEffect(() => subscribeToGearBundles(setBundles), [])
 
-  const bundled = useMemo(() => bundledCounts(bundles.map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived }))), [bundles])
+  const bundled = useMemo(() => bundledCounts(bundles.map(b => ({ id: b.id, pieces: b.pieces, archived: b.archived, kind: b.kind }))), [bundles])
   const live = (items ?? []).filter(i => showArchived ? i.archived : !i.archived)
     .filter(i => !q.trim() || `${i.name} ${i.serial ?? ''}`.toLowerCase().includes(q.trim().toLowerCase()))
-  const looseTotal = (items ?? []).reduce((n, i) => n + looseCount({ id: i.id, name: i.name, have: i.have, archived: i.archived }, bundled), 0)
+  const looseTotal = (items ?? []).filter(i => !i.public).reduce((n, i) => n + looseCount({ id: i.id, name: i.name, have: i.have, archived: i.archived }, bundled), 0)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -39,11 +39,11 @@ export default function GearItemsScreen() {
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">
-          Every piece of gear you own. Creators can't book pieces on their own: put them into a <button onClick={() => navigate('/gear/bundles')} className="text-pt-accent">bundle</button>.
+          Every piece of gear you own. Creators book it two ways: a <button onClick={() => navigate('/gear/bundles')} className="text-pt-accent">bundle</button> (a grab-and-go kit), or a single piece you set to <b className="text-pt-text">Creators can book</b>. Pieces set to <b className="text-pt-text">Internal only</b> never show to creators.
         </p>
         {looseTotal > 0 && !showArchived && (
           <p className="text-sky-200 text-sm bg-sky-500/10 border border-sky-500/30 rounded-xl px-3 py-2">
-            {looseTotal} piece{looseTotal === 1 ? ' isn\'t' : 's aren\'t'} in any bundle yet, so creators can't book {looseTotal === 1 ? 'it' : 'them'}.
+            {looseTotal} internal piece{looseTotal === 1 ? ' isn\'t' : 's aren\'t'} in any bundle, so creators can't book {looseTotal === 1 ? 'it' : 'them'}. That's fine for team-only gear.
           </p>
         )}
         {items === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
@@ -66,12 +66,14 @@ export default function GearItemsScreen() {
                     <div className="min-w-0 flex-1">
                       <p className="text-pt-text text-sm truncate">{i.name}</p>
                       <p className="text-pt-muted text-xs truncate">
-                        {i.serial ? `Serial ${i.serial} · ` : ''}{inB ? `${inB} in bundles` : 'Not in a bundle'}
+                        {i.public ? 'Creators can book · ' : 'Internal only · '}{i.serial ? `Serial ${i.serial} · ` : ''}{inB ? `${inB} in bundles` : 'Not in a bundle'}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-pt-text font-semibold tabular-nums">{i.have}</p>
-                      {loose > 0 && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{loose} loose</span>}
+                      {loose > 0 && (i.public
+                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/15 text-green-300">{loose} bookable</span>
+                        : <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{loose} loose</span>)}
                     </div>
                   </button>
                 )
@@ -96,6 +98,7 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
   const [value, setValue] = useState(item.value != null ? String(item.value) : '')
   const [notes, setNotes] = useState(item.notes ?? '')
   const [photos, setPhotos] = useState<string[]>(item.photos ?? [])
+  const [isPublic, setPublic] = useState(item.public === true)
   const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -105,7 +108,7 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
     try {
       await saveGearItem({
         id: item.id, name, category, have: serial.trim() ? 1 : Number(have), serial: serial.trim() || null,
-        value: value.trim() === '' ? null : Number(value), notes, photos, archived,
+        value: value.trim() === '' ? null : Number(value), notes, photos, archived, public: isPublic,
       })
       onClose()
     } catch (err) { setError(errText(err)) } finally { setBusy(false) }
@@ -129,9 +132,20 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
             <input value={serial} onChange={e => setSerial(e.target.value)} placeholder="Cameras & drones (optional)" className={input} /></label>
         </div>
         {inBundles > 0 && <p className="text-pt-muted text-xs">{inBundles} of these {inBundles === 1 ? 'is' : 'are'} in bundles.</p>}
+        <div className="space-y-1" data-tour="visibility">
+          <span className={label}>Who can book it on its own?</span>
+          <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 shadow-hairline">
+            {([[false, 'Internal only'], [true, 'Creators can book']] as const).map(([v, l]) => (
+              <button key={l} type="button" onClick={() => setPublic(v)} className={`flex-1 py-2 rounded-[10px] text-sm ${isPublic === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>
+            ))}
+          </div>
+          <p className="text-pt-muted text-xs">{isPublic
+            ? `Creators see it under "Single items" and can book the ${Math.max(0, (serial.trim() ? 1 : Number(have) || 0) - inBundles)} not in a bundle. Same pickup check and return photo as a kit.`
+            : 'Only the team uses it. Creators can still get it inside a bundle.'}</p>
+        </div>
         <label className="block space-y-1"><span className={label}>Replacement value ($, staff only)</span>
           <input type="number" min={0} value={value} onChange={e => setValue(e.target.value)} placeholder="Optional" className={input} /></label>
-        <label className="block space-y-1"><span className={label}>Notes</span>
+        <label className="block space-y-1"><span className={label}>Notes (team only)</span>
           <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" className={input} /></label>
         <ProofPhotos cameraOnly={false} folder="gear/items" urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo (optional)" max={3} />
         {error && <p className="text-red-300 text-sm">{error}</p>}
