@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 435 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 442 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1343,6 +1343,28 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Focus off, open from the Home Screen icon, turn off/on). server-logs.yml: FCM on?, phones per person, push function
       logs (3 days), last 20 push_log sends.
       LIVE Oct 21 (backend run 42 + website run 37, owner OK; runs 41/36 failed on a weekday-dependent test, fixed with soonSlot() in tests/functions/helpers.ts).
+    - FLAGS YOU CAN ACT ON (owner, Oct 21: "admin isn't able to drill down once they click on a creator… press the flag cards to see a
+      list of all flags… remediation options for each one… as deep as they want"; NOT deployed: new callable + SECURITY RULES → backend
+      deploy needs owner OK, then website). Cause of the dead end: with chart={false} the MetricCards had no onSelect. Now Top `onCard` →
+      MetricCards `link` (shows ›): creator page Flags/Serious → their flag list (#their-flags, ?fs=, ?sev=1), Filmed/Show-up → Every shoot;
+      Flags tab cards → the list / Who has the most. Every Incident (analytics.ts) has a stable `id` ('<kind>:<source id>…', late-gear/
+      gear-missing add the person), `src` {type, id}, `shootId`, `strikeId` (auto strike by shoot + reason, by-hand strike by flagId).
+      analyze({excused}) moves excused flags out of `incidents` into `excused` (they stop counting everywhere). `src/lib/flagState.ts`
+      (pure, tested): decide (open missed-checkin / ran-over / mess) | todo | handled (strike came with it, or reviewed) | excused;
+      stillOut; warnText per kind. Server `reviewFlag` (attendance.ts, MANAGERS owner+admin; in deploy/log lists): actions excuse |
+      unexcuse | warn (push to the creator, url /account) | strike (addStrike manual, about from the kind, note "(label)", strike.flagId;
+      one live strike per flag) | handled; reasons ≥3 chars except handled/unexcuse; doc `flag_reviews/{id with ':'→'__'}` {flagId,
+      email, name, kind, label, status, strikeId, actions[]}; rules: owner + admin read, no client writes. App:
+      `src/components/analytics/Flags.tsx` (FlagFilters To do/Handled/Excused/All + Serious only, FlagList, FlagSheet = header + state
+      pill, text + meaning, EVIDENCE from the raw records (useAnalyticsData now returns `reviews` + `raw` maps: shoot place/hours,
+      check-in time + set photo, wrap title, explanation, cancelled at, who marked no-show; report by/minutes/note/photos; props title,
+      return time/note/photos, damaged lines; gear hours, picked up by, returned, used by, check-in note, return photo; strike by +
+      reason), "What was done" timeline, actions: decide (decideShoot / reviewReport), Send a note, Give a strike for this, Remove the
+      strike, Excuse it, Mark as handled, Count it again, Open the shoot/request). Creator page also has Give a strike / Pause bookings
+      (useManageCreator) under the report card. Needs you now (dashboard + Creators tab) adds "Flags nobody has looked at (last 28
+      days)"; missed check-ins link to the Flags tab. Tests 442 (tests/unit/flagState.test.ts, tests/functions/flagReviews.test.ts,
+      rules). Checked in a browser on the emulator (admin: card → list → note, excuse → Excused, count again, They filmed, strike).
+      NOT yet: admin tour steps for this (do after the owner OKs the design); creators don't see "notes" in the app (push only).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

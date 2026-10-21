@@ -167,3 +167,46 @@ export const pauseCreator = onCall(CALLABLE, async req => {
   await db.doc(`user_status/${email}`).set({ email, name, pausedUntil: until, pausedAt: at, manualPause: true, pausedBy: caller.email, pauseNote: note, updatedAt: at }, { merge: true })
   return { ok: true, pausedUntil: until }
 })
+
+// ─── Handling one flag (owner + admins, owner Oct 21: "press the flag cards… remediation options for each one") ──
+// Flags are worked out by the app from shoots, reports, requests and strikes; each has a stable id like
+// 'late-props:<requestId>'. What an admin did about it is kept in `flag_reviews/{id}` (server-only writes):
+//  excuse   = doesn't count any more (kept on record with the reason; can be undone with 'unexcuse')
+//  warn     = a message to the creator (phone notification), kept on the flag
+//  strike   = a strike for this flag (counts toward the automatic pause; one per flag)
+//  handled  = looked at, nothing more to do (optional note)
+const FLAG_ACTIONS = ['excuse', 'unexcuse', 'warn', 'strike', 'handled']
+const ABOUT_FOR: Record<string, string> = { 'late-props': 'props', 'props-damaged': 'props', 'late-gear': 'gear', 'gear-missing': 'gear',
+  'no-show': 'schedule', 'late-cancel': 'schedule', 'late-start': 'schedule', 'ran-over': 'schedule', 'missed-checkin': 'schedule',
+  'no-wrap': 'schedule', 'invite-lapsed': 'schedule', mess: 'behaviour' }
+export const reviewFlag = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, MANAGERS as any)
+  const id = str(req.data?.flagId, 200), action = String(req.data?.action ?? ''), note = str(req.data?.note, 300)
+  const email = str(req.data?.email, 200).toLowerCase(), kind = str(req.data?.kind, 40), label = str(req.data?.label, 200)
+  if (!/^[a-z-]+:[\w-]+(:[\w-]+)*$/.test(id) || id.split(':')[0] !== kind) throw new HttpsError('invalid-argument', 'Unknown flag.')
+  if (!FLAG_ACTIONS.includes(action)) throw new HttpsError('invalid-argument', 'Unknown action.')
+  if (action !== 'handled' && action !== 'unexcuse' && note.length < 3) throw new HttpsError('invalid-argument', 'Write a short reason.')
+  const name = await creatorNamed(email)
+  const ref = db.doc(`flag_reviews/${id.replace(/:/g, '__')}`)
+  const cur = (await ref.get()).data()
+  const at = new Date().toISOString()
+  let strike: { strikes: number; paused: boolean; id: string } | null = null
+  if (action === 'strike') {
+    if (cur?.strikeId) {
+      const old = (await db.doc(`strikes/${cur.strikeId}`).get()).data()
+      if (old && !old.removedAt) throw new HttpsError('failed-precondition', 'This flag already has a strike.')
+    }
+    strike = await addStrike(email, name, 'manual', id.startsWith('strike:') ? '' : str(req.data?.shootId, 100), caller.email,
+      { note: label ? `${note} (${label})` : note, about: ABOUT_FOR[kind] ?? 'other' })
+    await db.doc(`strikes/${strike.id}`).update({ flagId: id })
+  }
+  if (action === 'warn') {
+    const { sendPush } = await import('./push.js')
+    await sendPush({ to: [email], title: 'A note from the Prime Capitol team', body: note, url: '/account', tag: `warn-${id}` }).catch(() => 0)
+  }
+  const status = action === 'excuse' ? 'excused' : action === 'unexcuse' ? 'open' : action === 'strike' ? 'struck' : action === 'warn' ? 'warned' : 'handled'
+  await ref.set({ flagId: id, email, name, kind, label, status, updatedAt: at, updatedBy: caller.email,
+    ...(strike ? { strikeId: strike.id } : {}),
+    actions: FieldValue.arrayUnion({ at, by: caller.email, action, ...(note ? { note } : {}), ...(strike ? { strikeId: strike.id } : {}) }) }, { merge: true })
+  return { ok: true, status, strike }
+})

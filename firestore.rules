@@ -260,6 +260,11 @@ service cloud.firestore {
       allow read: if canSeeGear() || (signedIn() && resource.data.email == myEmail());
       allow write: if false;
     }
+    // What an admin did about a flag (excused / warned / strike / handled). Owner + admins read; server-only writes.
+    match /flag_reviews/{id} {
+      allow read: if role() in ['owner', 'admin'];
+      allow write: if false;
+    }
     match /user_status/{email} {
       allow read: if canSeeGear() || (signedIn() && myEmail() == email);
       allow write: if false;

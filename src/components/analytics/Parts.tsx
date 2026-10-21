@@ -14,17 +14,18 @@ export function Delta({ m, cur, prev, vs }: { m: Metric; cur: number | null; pre
 }
 
 // YouTube Studio's metric strip: each card is a tab for the chart under it.
-export function MetricCards({ metrics, cur, prev, selected, onSelect, tourId }: {
-  metrics: Metric[]; cur: (m: Metric) => number | null; prev: (m: Metric) => number | null; selected?: Metric; onSelect?: (m: Metric) => void; tourId?: string }) {
+// link = no chart to pick for: each card is a shortcut (shows ›), e.g. Flags → the flag list.
+export function MetricCards({ metrics, cur, prev, selected, onSelect, tourId, link }: {
+  metrics: Metric[]; cur: (m: Metric) => number | null; prev: (m: Metric) => number | null; selected?: Metric; onSelect?: (m: Metric) => void; tourId?: string; link?: boolean }) {
   return (
-    <div data-tour={tourId} role="tablist" aria-label="Pick what the chart shows" className="-mx-4 px-4 scroll-px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+    <div data-tour={tourId} role={link ? undefined : 'tablist'} aria-label={link ? undefined : 'Pick what the chart shows'} className="-mx-4 px-4 scroll-px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
       {metrics.map(m => {
         const on = selected === m, v = cur(m)
         return (
-          <button key={m} role="tab" aria-selected={on} onClick={() => onSelect?.(m)}
+          <button key={m} role={link ? undefined : 'tab'} aria-selected={link ? undefined : on} onClick={() => onSelect?.(m)}
             className={`snap-start shrink-0 w-[46%] min-w-[150px] max-w-[200px] text-left rounded-2xl p-3 pt-2.5 relative overflow-hidden ${on ? 'bg-pt-raised shadow-hairline' : 'bg-pt-surface'}`}>
             <span className={`absolute inset-x-0 top-0 h-[3px] ${on ? 'bg-pt-accent' : 'bg-transparent'}`} />
-            <span className={`block text-[13px] ${on ? 'text-pt-text' : 'text-pt-muted'}`}>{METRICS[m].label}</span>
+            <span className={`block text-[13px] ${on ? 'text-pt-text' : 'text-pt-muted'}`}>{METRICS[m].label}{link && <span className="float-right text-pt-muted" aria-hidden>›</span>}</span>
             <span className="block text-[28px] font-bold leading-tight tabular-nums text-pt-text">{fmt(m, v)}</span>
             <Delta m={m} cur={v} prev={prev(m)} />
           </button>
@@ -168,13 +169,14 @@ export const showRateTone = (r: number | null) => r === null ? 'text-pt-muted' :
 
 // The same "waiting on someone" list on the Dashboard and in Analytics.
 export function needsYouItems(a: { incidents: { kind: string; open?: boolean; to?: string }[]; backlog: { propsPackLate: number; propsToCheckIn: number; gearToCheckIn: number; propsOutLate: number; gearOutLate: number } },
-  pausedNow: string[], go: (to: string) => void) {
+  pausedNow: string[], go: (to: string) => void, notLookedAt = 0) {
   const open = (k: string[]) => new Set(a.incidents.filter(i => i.open && k.includes(i.kind)).map(i => i.to ?? Math.random())).size
   const b = a.backlog, decide = open(['missed-checkin']), reports = open(['ran-over', 'mess']), late = b.propsOutLate + b.gearOutLate
   return [
-    { n: decide, text: `Missed check-in${decide === 1 ? '' : 's'} to decide`, onClick: () => go('/schedule/team'), serious: true },
+    { n: decide, text: `Missed check-in${decide === 1 ? '' : 's'} to decide`, onClick: () => go('/analytics?tab=flags&kind=missed-checkin&period=12w'), serious: true },
     { n: reports, text: `House report${reports === 1 ? '' : 's'} to review`, onClick: () => go('/schedule/team') },
     { n: late, text: `Late return${late === 1 ? '' : 's'} still out`, onClick: () => go('/analytics?tab=flags&theme=returns'), serious: true },
+    { n: notLookedAt, text: `Flag${notLookedAt === 1 ? '' : 's'} nobody has looked at (last 28 days)`, onClick: () => go('/analytics?tab=flags&period=28d') },
     { n: b.propsPackLate, text: 'Props requests to pack today or overdue', onClick: () => go('/reservations') },
     { n: b.propsToCheckIn, text: `Props return${b.propsToCheckIn === 1 ? '' : 's'} to check in`, onClick: () => go('/reservations') },
     { n: b.gearToCheckIn, text: `Gear return${b.gearToCheckIn === 1 ? '' : 's'} to check in`, onClick: () => go('/gear/bookings') },

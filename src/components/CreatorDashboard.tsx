@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { SectionHead, NeedsYou, needsYouItems, StandingTiles, StandingList, TypicalKey, type StandFilter } from './analytics/Parts'
+import { notLookedAt } from './analytics/Flags'
 import { useAnalyticsData } from '../hooks/useAnalytics'
 import { rangeFor, defaultGrain, slice, rowsBy, shift, standings, sortStandings, comingThisMonth, type Preset } from '../lib/insights'
 
@@ -15,7 +16,7 @@ export default function CreatorDashboard() {
   const navigate = useNavigate()
   const [preset, setPreset] = useState<Preset>('tm')
   const [filter, setFilter] = useState<StandFilter | ''>('')
-  const { a, people, pausedNow, loading, today } = useAnalyticsData(shift(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }), -100))
+  const { a, people, pausedNow, loading, today, reviews } = useAnalyticsData(shift(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }), -100))
   if (loading) return <p className="text-pt-muted text-sm text-center py-6">Loading the dashboard…</p>
 
   const range = rangeFor(preset, today), grain = defaultGrain(range)
@@ -49,7 +50,7 @@ export default function CreatorDashboard() {
       </div>
 
       <SectionHead title="Needs you now" />
-      <NeedsYou items={needsYouItems(a, pausedNow, to => navigate(to))} />
+      <NeedsYou items={needsYouItems(a, pausedNow, to => navigate(to), notLookedAt(a.incidents, reviews, shift(today, -27)))} />
     </div>
   )
 }

@@ -202,7 +202,7 @@ export function useInvitesSince(fromDate: string, enabled: boolean): ScheduleInv
   }, [fromDate, enabled])
   return list
 }
-export interface Strike { id: string; email: string; name?: string; reason: string; shootId?: string; at: string; note?: string; about?: string; removedAt?: string; removedBy?: string; removeNote?: string }
+export interface Strike { id: string; email: string; name?: string; reason: string; shootId?: string; at: string; by?: string; flagId?: string; note?: string; about?: string; removedAt?: string; removedBy?: string; removeNote?: string }
 export function useStrikesSince(fromDate: string, enabled: boolean, email?: string): Strike[] {
   const [list, setList] = useState<Strike[]>([])
   useEffect(() => {
@@ -212,6 +212,21 @@ export function useStrikesSince(fromDate: string, enabled: boolean, email?: stri
   }, [fromDate, enabled, email])
   return list
 }
+
+// What an admin did about a flag (owner + admins read).
+export type FlagAction = 'excuse' | 'unexcuse' | 'warn' | 'strike' | 'handled'
+export interface FlagReview { id: string; flagId: string; email: string; kind: string; label?: string; status: 'excused' | 'warned' | 'struck' | 'handled' | 'open'
+  strikeId?: string; updatedAt: string; updatedBy: string; actions: { at: string; by: string; action: FlagAction; note?: string; strikeId?: string }[] }
+export function useFlagReviews(enabled: boolean): Map<string, FlagReview> {
+  const [m, setM] = useState<Map<string, FlagReview>>(new Map())
+  useEffect(() => {
+    if (!enabled) return
+    return onSnapshot(collection(db, 'flag_reviews'), snap => setM(new Map(snap.docs.map(d => { const r = { id: d.id, ...d.data() } as FlagReview; return [r.flagId, r] }))), () => setM(new Map()))
+  }, [enabled])
+  return m
+}
+export const reviewFlag = httpsCallable<{ flagId: string; action: FlagAction; note?: string; email: string; kind: string; label?: string; shootId?: string },
+  { ok: boolean; status: string; strike: { strikes: number; paused: boolean } | null }>(functions, 'reviewFlag')
 
 // Error text from a server call, in plain words.
 export const errorText = (e: unknown) => (e as { message?: string })?.message || 'Something went wrong. Try again.'

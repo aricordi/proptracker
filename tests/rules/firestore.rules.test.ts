@@ -479,4 +479,11 @@ describe('admin (a viewer who manages creators)', () => {
     await assertFails(setDoc(doc(as(ADMIN), 'items', 'new'), { ...item, ...by(ADMIN) }))
     await assertFails(setDoc(doc(as(ADMIN), 'health', 'dismissed'), { pairs: [] }))
   })
+  it('reads what admins did about flags; nobody else does, and nobody writes them directly', async () => {
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'flag_reviews', 'late-props__r1'), { email: CREATOR, status: 'excused' }) })
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'flag_reviews', 'late-props__r1')))
+    await assertSucceeds(getDoc(doc(as(OWNER), 'flag_reviews', 'late-props__r1')))
+    for (const who of [CREATOR, ARTS, GEAR]) await assertFails(getDoc(doc(as(who), 'flag_reviews', 'late-props__r1')))
+    await assertFails(setDoc(doc(as(ADMIN), 'flag_reviews', 'x'), { status: 'excused' }))
+  })
 })

@@ -50,12 +50,15 @@ export interface AGear { id: string; creatorEmail: string; creatorName?: string;
   returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null; history?: Hist[]
   problems?: { kind: string; name?: string; usedBy?: string[] }[]; returnedAt?: string }
 export interface AReport { id: string; onEmail: string; onName: string; date: string; overMinutes: number; mess: boolean; status: string; onShootId: string; byName?: string }
-export interface AStrike { id: string; email: string; reason: string; at: string; note?: string; about?: string; removedAt?: string; shootId?: string }
+export interface AStrike { id: string; email: string; reason: string; at: string; note?: string; about?: string; removedAt?: string; shootId?: string; flagId?: string }
 export interface AInvite { id: string; toEmail: string; toName: string; fromName: string; date: string; until: string; status: string; place: string }
 
 // ── Outputs ──
 export interface Fact { id: string; email: string; name: string; date: string; house: House; filmed: boolean; title?: string; to: string }
-export interface Incident { kind: Kind; email: string; name: string; date: string; house?: House; text: string; to?: string; open?: boolean }
+// id = stable flag id ('<kind>:<source id>…'), used to remember what an admin did about it (flag_reviews).
+// src = where it came from (for the evidence on the flag sheet); strikeId = the strike that came with it, if any.
+export interface Incident { id: string; kind: Kind; email: string; name: string; date: string; house?: House; text: string; to?: string; open?: boolean
+  src: { type: 'shoot' | 'report' | 'props' | 'gear' | 'strike' | 'invite'; id: string }; shootId?: string; strikeId?: string }
 export interface Job { team: 'props' | 'gear'; kind: 'packed' | 'checked-in'; by: string; date: string; hours: number; onTime?: boolean; to: string; title: string }
 export interface Backlog { propsToPack: number; propsPackLate: number; propsToCheckIn: number; gearToCheckIn: number; gearOutLate: number; propsOutLate: number }
 
@@ -64,14 +67,21 @@ const local = (iso: string) => nowStamp(new Date(iso))            // UTC ISO →
 const hoursBetween = (a: string, b: string) => Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 3600000)
 const minutesLocal = (a: string, b: string) => (new Date(b + ':00').getTime() - new Date(a + ':00').getTime()) / 60000
 
+const slug = (e: string) => e.replace(/[^\w-]/g, '-')
 export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; props: AProps[]; gear: AGear[]; reports: AReport[]
-  strikes: AStrike[]; invites: AInvite[] }) {
+  strikes: AStrike[]; invites: AInvite[]; excused?: Set<string> }) {
   const { now, closed } = o
   const nowDate = new Date(now + ':00'), today = now.slice(0, 10)
   const facts: Fact[] = [], incidents: Incident[] = [], jobs: Job[] = [], upcoming: { email: string; date: string; id: string }[] = []
   const names = new Map<string, string>()
   const name = (email: string, n?: string) => { if (n && !names.has(email)) names.set(email, n); return names.get(email) ?? n ?? email.split('@')[0] }
-  const add = (i: Omit<Incident, 'name'> & { name?: string }) => incidents.push({ ...i, name: name(i.email, i.name) })
+  const excused: Incident[] = []
+  const add = (i: Omit<Incident, 'name'> & { name?: string }) => (o.excused?.has(i.id) ? excused : incidents).push({ ...i, name: name(i.email, i.name) })
+  // The strike that came with a flag: automatic ones by shoot + reason, by-hand ones by flag id.
+  const live = o.strikes.filter(s => !s.removedAt)
+  const strikeFor = (reason: string, shootId: string) => live.find(s => s.reason === reason && s.shootId === shootId)?.id
+  const byFlag = new Map(live.filter(s => s.flagId).map(s => [s.flagId!, s.id]))
+  const sh = (kind: Kind, id: string) => ({ id: `${kind}:${id}`, src: { type: 'shoot' as const, id }, shootId: id })
   const houseOfShoot = new Map(o.shoots.map(x => [x.id, houseOf(x.place)]))
 
   for (const x of o.shoots) {
@@ -80,7 +90,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     if (x.status === 'cancelled') {
       if (x.noShow === 'late-cancel' || x.lateCancel) {
         facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed: false, to })
-        add({ kind: 'late-cancel', email: x.creatorEmail, date: x.date, house, text: 'Cancelled too close to the shoot', to })
+        add({ ...sh('late-cancel', x.id), strikeId: strikeFor('late-cancel', x.id), kind: 'late-cancel', email: x.creatorEmail, date: x.date, house, text: 'Cancelled too close to the shoot', to })
       }
       continue
     }
@@ -90,32 +100,34 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     if (filmed) {
       if (x.checkin) {
         const late = minutesLocal(x.from, local(x.checkin.at))
-        if (late > LATE_START_MIN) add({ kind: 'late-start', email: x.creatorEmail, date: x.date, house, text: `Checked in ${Math.round(late)} min late`, to })
-        if (!x.wrap && house !== 'offsite') add({ kind: 'no-wrap', email: x.creatorEmail, date: x.date, house, text: "Checked in, never wrapped (didn't say what they filmed)", to })
+        if (late > LATE_START_MIN) add({ ...sh('late-start', x.id), kind: 'late-start', email: x.creatorEmail, date: x.date, house, text: `Checked in ${Math.round(late)} min late`, to })
+        if (!x.wrap && house !== 'offsite') add({ ...sh('no-wrap', x.id), kind: 'no-wrap', email: x.creatorEmail, date: x.date, house, text: "Checked in, never wrapped (didn't say what they filmed)", to })
       }
-    } else if (x.noShow || x.outcome === 'noshow') add({ kind: 'no-show', email: x.creatorEmail, date: x.date, house, text: 'No-show', to })
-    else if (house !== 'offsite') add({ kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true })
+    } else if (x.noShow || x.outcome === 'noshow') add({ ...sh('no-show', x.id), strikeId: strikeFor('no-show', x.id), kind: 'no-show', email: x.creatorEmail, date: x.date, house, text: 'No-show', to })
+    else if (house !== 'offsite') add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true })
   }
 
   for (const r of o.reports) {
     if (r.status === 'dismissed') continue
     const to = `/schedule?shoot=${r.onShootId}`, tail = r.status === 'open' ? ' (not reviewed yet)' : ''
-    if (r.overMinutes) add({ kind: 'ran-over', email: r.onEmail, name: r.onName, date: r.date, house: houseOfShoot.get(r.onShootId), text: `Ran over ${r.overMinutes} min${tail}`, to, open: r.status === 'open' })
-    if (r.mess) add({ kind: 'mess', email: r.onEmail, name: r.onName, date: r.date, house: houseOfShoot.get(r.onShootId), text: `Left the house a mess${tail}`, to, open: r.status === 'open' })
+    const rs = (kind: Kind) => ({ id: `${kind}:${r.id}`, src: { type: 'report' as const, id: r.id }, shootId: r.onShootId, strikeId: r.status === 'upheld' ? strikeFor('report', r.onShootId) : undefined })
+    if (r.overMinutes) add({ ...rs('ran-over'), kind: 'ran-over', email: r.onEmail, name: r.onName, date: r.date, house: houseOfShoot.get(r.onShootId), text: `Ran over ${r.overMinutes} min${tail}`, to, open: r.status === 'open' })
+    if (r.mess) add({ ...rs('mess'), kind: 'mess', email: r.onEmail, name: r.onName, date: r.date, house: houseOfShoot.get(r.onShootId), text: `Left the house a mess${tail}`, to, open: r.status === 'open' })
   }
 
   const backlog: Backlog = { propsToPack: 0, propsPackLate: 0, propsToCheckIn: 0, gearToCheckIn: 0, gearOutLate: 0, propsOutLate: 0 }
   for (const r of o.props) {
     const to = `/reservations/${r.id}`, h = r.history ?? []
     name(r.creatorEmail, r.creatorName)
+    const pr = (kind: Kind) => ({ id: `${kind}:${r.id}`, src: { type: 'props' as const, id: r.id }, shootId: r.scheduleShootId })
     // Creator side
-    if (isLate(r.status, r.endDate, closed, nowDate)) { backlog.propsOutLate++; add({ kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props still out, late`, to, open: true }) }
+    if (isLate(r.status, r.endDate, closed, nowDate)) { backlog.propsOutLate++; add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props still out, late`, to, open: true }) }
     else {
       const back = h.find(e => e.status === 'return_pending')?.at ?? r.returnInfo?.at
-      if (back && wasReturnedLate(r.endDate, back, closed)) add({ kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props came back late`, to })
+      if (back && wasReturnedLate(r.endDate, back, closed)) add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props came back late`, to })
     }
     const bad = (r.lines ?? []).filter(l => l.checkIn && l.checkIn.result !== 'ok')
-    if (bad.length) add({ kind: 'props-damaged', email: r.creatorEmail, date: r.endDate, text: `${bad.map(l => `${l.itemName} (${l.checkIn!.result})`).join(', ')} on "${r.title}"`, to })
+    if (bad.length) add({ ...pr('props-damaged'), kind: 'props-damaged', email: r.creatorEmail, date: r.endDate, text: `${bad.map(l => `${l.itemName} (${l.checkIn!.result})`).join(', ')} on "${r.title}"`, to })
     // Arts department side
     const requested = h[0]?.at, packed = h.find(e => e.status === 'packed'), returned = h.find(e => e.status === 'return_pending'), checked = h.find(e => e.status === 'returned')
     const pick = pickupDay(r.startDate, closed)
@@ -131,10 +143,10 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     const users = g.usedBy?.length ? g.usedBy : [g.pickup?.by && [g.creatorEmail, ...(g.crewEmails ?? [])].includes(g.pickup.by) ? g.pickup.by : g.creatorEmail]
     const lateNow = isGearLate(g, now)
     if (lateNow) backlog.gearOutLate++
-    if (lateNow || g.returnedLate) for (const e of users) add({ kind: 'late-gear', email: e, date: g.date, text: lateNow ? `"${g.title}" gear still out, late` : `"${g.title}" gear came back late`, to, open: lateNow })
-    for (const p of g.problems ?? []) {
+    if (lateNow || g.returnedLate) for (const e of users) add({ id: `late-gear:${g.id}:${slug(e)}`, src: { type: 'gear', id: g.id }, kind: 'late-gear', email: e, date: g.date, text: lateNow ? `"${g.title}" gear still out, late` : `"${g.title}" gear came back late`, to, open: lateNow })
+    for (const [n, p] of (g.problems ?? []).entries()) {
       if (p.kind !== 'missing_at_checkin' && p.kind !== 'missing_after') continue
-      for (const e of p.usedBy?.length ? p.usedBy : users) add({ kind: 'gear-missing', email: e, date: g.date, text: `${p.name ?? 'A piece'} missing from "${g.title}"`, to })
+      for (const e of p.usedBy?.length ? p.usedBy : users) add({ id: `gear-missing:${g.id}:${n}:${slug(e)}`, src: { type: 'gear', id: g.id }, kind: 'gear-missing', email: e, date: g.date, text: `${p.name ?? 'A piece'} missing from "${g.title}"`, to })
     }
     const returned = h.find(e => e.action === 'returned'), checked = h.find(e => e.action === 'checked_in')
     if (checked?.by && returned) jobs.push({ team: 'gear', kind: 'checked-in', by: checked.by, date: local(checked.at).slice(0, 10), hours: hoursBetween(returned.at, checked.at), to, title: g.title })
@@ -144,14 +156,15 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
   for (const s of o.strikes) {
     if (s.removedAt) continue
     const why = s.reason === 'manual' ? `${s.about && s.about !== 'other' ? `${s.about}: ` : ''}${s.note ?? 'given by an admin'}` : s.reason === 'late-cancel' ? 'late cancel' : s.reason === 'report' ? 'upheld report' : 'no-show'
-    add({ kind: 'strike', email: s.email, date: local(s.at).slice(0, 10), house: s.shootId ? houseOfShoot.get(s.shootId) : undefined, text: `Strike: ${why}`, to: s.shootId ? `/schedule?shoot=${s.shootId}` : undefined })
+    add({ id: `strike:${s.id}`, src: { type: 'strike', id: s.id }, strikeId: s.id, shootId: s.shootId || undefined, kind: 'strike', email: s.email, date: local(s.at).slice(0, 10), house: s.shootId ? houseOfShoot.get(s.shootId) : undefined, text: `Strike: ${why}`, to: s.shootId ? `/schedule?shoot=${s.shootId}` : undefined })
   }
   for (const v of o.invites) {
     if (v.status === 'expired' || (v.status === 'pending' && local(v.until) < now))
-      add({ kind: 'invite-lapsed', email: v.toEmail, name: v.toName, date: v.date, house: houseOf(v.place), text: `Let ${v.fromName}'s held slot run out` })
+      add({ id: `invite-lapsed:${v.id}`, src: { type: 'invite', id: v.id }, kind: 'invite-lapsed', email: v.toEmail, name: v.toName, date: v.date, house: houseOf(v.place), text: `Let ${v.fromName}'s held slot run out` })
   }
-  for (const i of incidents) i.name = name(i.email)
-  return { facts, incidents, jobs, backlog, names, upcoming }
+  for (const i of incidents) { i.name = name(i.email); i.strikeId ??= byFlag.get(i.id) }
+  for (const i of excused) i.name = name(i.email)
+  return { facts, incidents, excused, jobs, backlog, names, upcoming }
 }
 
 // ── Periods ──
