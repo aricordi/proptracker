@@ -72,3 +72,34 @@ jobs:
           gcloud logging read 'resource.type="cloud_run_revision" AND severity>=WARNING AND NOT httpRequest:*' \
             --project proptracker-9732e --freshness 6h --limit "${{ inputs.lines }}" \
             --format='value(timestamp, resource.labels.service_name, textPayload, jsonPayload.message)'
+
+      # Phone notifications (Oct 21): is Google's push service switched on, which phones are signed up
+      # (count per person, no tokens printed), and what happened when pushes were sent.
+      - name: "Notifications: is Firebase Cloud Messaging switched on?"
+        continue-on-error: true
+        run: |
+          gcloud services list --enabled --project proptracker-9732e --format='value(config.name)' | grep -iE 'fcm|firebasecloudmessaging' || echo "NOT ENABLED: Firebase Cloud Messaging API (fcm.googleapis.com)"
+
+      - name: "Notifications: phones signed up, per person"
+        continue-on-error: true
+        run: |
+          curl -sS -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+            "https://firestore.googleapis.com/v1/projects/proptracker-9732e/databases/(default)/documents/push_tokens?pageSize=300" \
+            | python3 -c '
+          import json,sys,collections
+          d=json.load(sys.stdin)
+          if "error" in d: print("ERROR:", d["error"].get("message")); sys.exit()
+          c=collections.defaultdict(list)
+          for doc in d.get("documents",[]):
+              f=doc["fields"]; g=lambda k: f.get(k,{}).get("stringValue","")
+              c[g("email")].append((g("platform"), g("lastSeen")[:16], len(g("token"))))
+          for e,v in sorted(c.items()):
+              print(e); [print("   ", p or "?", "· last seen", s, "· token length", n) for p,s,n in v]
+          print(len(c), "people,", sum(len(v) for v in c.values()), "phones")'
+
+      - name: "Notifications: what the push functions logged (last 3 days)"
+        continue-on-error: true
+        run: |
+          gcloud logging read 'resource.type="cloud_run_revision" AND (resource.labels.service_name=~"push" OR textPayload=~"Push" OR jsonPayload.message=~"Push")' \
+            --project proptracker-9732e --freshness 3d --limit 80 \
+            --format='value(timestamp, resource.labels.service_name, severity, textPayload, jsonPayload.message)'
