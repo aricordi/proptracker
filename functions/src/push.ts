@@ -37,19 +37,29 @@ async function resolve(to: string[]): Promise<string[]> {
   return [...out]
 }
 
+// Every real send is written down (push_log, server-only; the "Read server logs" button shows the last ones), so a
+// phone that never shows a notification can be told apart from a send that failed (owner, Oct 21: Ariel got nothing).
+async function logSend(p: Push, emails: string[], phones: number, sent: number, errors: string[]) {
+  logger.info('Push sent', { title: p.title, to: emails, phones, sent, errors })
+  await db.collection('push_log').add({ title: p.title, to: emails, phones, sent, errors, at: new Date().toISOString() }).catch(() => {})
+}
+
 export async function sendPush(p: Push): Promise<number> {
+  return (await sendPushDetailed(p)).sent
+}
+export async function sendPushDetailed(p: Push): Promise<{ sent: number; phones: number; errors: string[] }> {
   const emails = await resolve(p.to)
-  if (!emails.length) return 0
+  if (!emails.length) return { sent: 0, phones: 0, errors: [] }
   if (isEmulator()) {
     await db.collection('push_log').add({ ...p, to: emails, at: new Date().toISOString() })
-    return emails.length
+    return { sent: emails.length, phones: emails.length, errors: [] }
   }
   const tokens: { id: string; token: string }[] = []
   for (let i = 0; i < emails.length; i += 30) {
     const q = await db.collection('push_tokens').where('email', 'in', emails.slice(i, i + 30)).get()
     q.docs.forEach(d => tokens.push({ id: d.id, token: d.get('token') }))
   }
-  if (!tokens.length) return 0
+  if (!tokens.length) { await logSend(p, emails, 0, 0, ['no phone signed up']); return { sent: 0, phones: 0, errors: ['no phone signed up'] } }
   const link = `${APP_URL}${p.url}`
   const res = await getMessaging().sendEach(tokens.map(t => ({
     token: t.token,
@@ -61,13 +71,15 @@ export async function sendPush(p: Push): Promise<number> {
     },
   })))
   // Phones that turned notifications off (or reinstalled) give "not registered": forget those tokens.
+  const errors: string[] = []
   await Promise.all(res.responses.map((r, i) => {
     const code = r.error?.code ?? ''
+    if (!r.success) { errors.push(`${code} ${r.error?.message ?? ''}`.trim()); logger.warn('Push failed', code, r.error?.message) }
     if (!r.success && /registration-token-not-registered|invalid-registration-token|invalid-argument/.test(code)) return db.doc(`push_tokens/${tokens[i].id}`).delete()
-    if (!r.success) logger.warn('Push failed', code, r.error?.message)
     return null
   }))
-  return res.successCount
+  await logSend(p, emails, tokens.length, res.successCount, errors)
+  return { sent: res.successCount, phones: tokens.length, errors }
 }
 const sendAll = (list: Push[]) => Promise.all(list.map(p => sendPush(p).catch(e => logger.warn('Push failed', String(e)))))
 
@@ -99,11 +111,15 @@ export const unregisterPush = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// A test can wait a few seconds first, so the person can close the app: iPhones often don't show a banner for the
+// app that's open on screen.
 export const testPush = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
-  const sent = await sendPush({ to: [caller.email], url: '/account', tag: 'test', title: 'Notifications are on ✓',
+  const wait = Math.min(Math.max(Number(req.data?.delaySeconds) || 0, 0), 15)
+  if (wait) await new Promise(r => setTimeout(r, wait * 1000))
+  const r = await sendPushDetailed({ to: [caller.email], url: '/account', tag: 'test', title: 'Notifications are on ✓',
     body: "You'll get a ping for invites, swaps, props and gear, and reminders before your shoots." })
-  return { sent }
+  return r
 })
 
 // ─── Things that happen (instant) ────────────────────────────────────────────

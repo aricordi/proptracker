@@ -6,7 +6,7 @@ import { app, functions, USING_EMULATORS } from '../firebase'
 
 const registerPush = httpsCallable<{ token: string; platform: string }, { ok: boolean }>(functions, 'registerPush')
 const unregisterPush = httpsCallable<{ token: string }, { ok: boolean }>(functions, 'unregisterPush')
-export const testPush = httpsCallable<void, { sent: number }>(functions, 'testPush')
+export const testPush = httpsCallable<{ delaySeconds?: number }, { sent: number; phones?: number; errors?: string[] }>(functions, 'testPush')
 
 const KEY = 'pc-push-token'
 const store = {

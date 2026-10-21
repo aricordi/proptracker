@@ -27,12 +27,20 @@ function usePush() {
     try { setState(await turnOnPush()) } catch (e) { setMsg(errorText(e)) } finally { setBusy(false) }
   }
   async function off() { setBusy(true); await turnOffPush(); setState(pushState()); setBusy(false) }
-  async function test() {
-    setBusy(true); setMsg('')
-    try { const r = await testPush(); setMsg(r.data.sent ? 'Sent ✓ It should pop up in a few seconds.' : 'Nothing was sent. Turn notifications off and on again.') }
+  const [tested, setTested] = useState(false)
+  // closed = wait 10 s so the app can be closed first (iPhones often skip the banner for the app on screen).
+  async function test(closed = false) {
+    setBusy(true); setMsg(closed ? 'Close the app now (swipe it up). The test arrives in about 10 seconds.' : '')
+    try {
+      const r = await testPush(closed ? { delaySeconds: 10 } : {})
+      if (!closed) setMsg(r.data.sent ? 'Sent to this phone ✓ It should pop up in a few seconds.'
+        : r.data.phones ? `Your phone refused it (${(r.data.errors ?? [])[0] ?? 'unknown'}). Turn notifications off and on again.`
+        : "This phone isn't signed up any more. Turn notifications off and on again.")
+      setTested(true)
+    }
     catch (e) { setMsg(errorText(e)) } finally { setBusy(false) }
   }
-  return { state, busy, msg, on, off, test }
+  return { state, busy, msg, on, off, test, tested }
 }
 
 // Me tab.
@@ -58,8 +66,22 @@ export function NotificationsCard() {
       </div>
       {p.state === 'on' && (
         <div className="flex gap-2">
-          <button disabled={p.busy} onClick={p.test} className="flex-1 bg-pt-raised rounded-xl min-h-[44px] text-sm text-pt-text disabled:opacity-40">Send me a test</button>
+          <button disabled={p.busy} onClick={() => p.test()} className="flex-1 bg-pt-raised rounded-xl min-h-[44px] text-sm text-pt-text disabled:opacity-40">Send me a test</button>
           <button disabled={p.busy} onClick={p.off} className="flex-1 bg-pt-raised rounded-xl min-h-[44px] text-sm text-pt-muted disabled:opacity-40">Turn off</button>
+        </div>
+      )}
+      {p.state === 'on' && p.tested && (
+        <div className="bg-pt-bg rounded-xl p-3 space-y-2">
+          <p className="text-pt-text text-sm font-medium">Nothing popped up?</p>
+          <button disabled={p.busy} onClick={() => p.test(true)} className="w-full bg-pt-raised rounded-xl min-h-[44px] text-sm text-pt-text disabled:opacity-40">Test with the app closed (10 s)</button>
+          {isIOS() ? (
+            <ol className="text-pt-muted text-xs space-y-1 list-decimal list-inside">
+              <li>iPhones often don't show a banner for the app that's open. Try the button above, then swipe the app away.</li>
+              <li>iPhone Settings → Notifications → <b>Prime Capitol</b>: Allow Notifications on, and Lock Screen, Notification Centre and Banners ticked.</li>
+              <li>Turn off Focus / Do Not Disturb (swipe down from the top right corner).</li>
+              <li>Open the app from its Home Screen icon (not from Safari), then Turn off and Turn on here again.</li>
+            </ol>
+          ) : <p className="text-pt-muted text-xs">Check that this browser is allowed to show notifications in your phone's settings, then Turn off and Turn on here again.</p>}
         </div>
       )}
       {p.state === 'blocked' && <p className="text-pt-muted text-xs">{isIOS() ? 'iPhone Settings → Notifications → Prime Capitol → Allow Notifications.' : 'Tap the lock or ⓘ next to the web address → Notifications → Allow, then come back.'}</p>}

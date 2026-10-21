@@ -1331,6 +1331,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       unchanged). Practice data: typical 4; Jordan 7 (more), Maya 4, Devon 4 + needs attention, Riley 1 (less). Scenes 'analytics' +
       'report' replace 'creators'. Checked: 81 tour screens on a 390×844 touch screen, no errors.
       LIVE Oct 20 (website run 35, owner "yes put it live"): analytics v2 + accountability + no minimum + updated admin tour.
+    - NOTIFICATIONS NOT ARRIVING (owner, Oct 21: Ariel turned them on, pressed "Send me a test", owner booked with him: nothing).
+      "Read server logs" (run 10, read-only, new notification steps) showed: FCM API ON (fcm.googleapis.com), Ariel's iPhone
+      signed up (covi3llo@gmail.com, ios-app, Oct 21 00:19 UTC), testPush ran 4× + pushOnShoot/pushOnInvite fired, NO "Push failed"
+      warnings → Google accepted the sends; the loss is between Apple and his phone (or he pressed test with the app open).
+      BUILT (needs a BACKEND deploy for the server part, owner OK; website for the card): push.ts `sendPushDetailed` + `logSend`
+      writes EVERY real send to `push_log` {title,to,phones,sent,errors,at} (server-only) + logger.info 'Push sent';
+      testPush takes `delaySeconds` ≤15 and returns {sent, phones, errors}. Notifications card: precise result ("Sent to this
+      phone ✓" / "Your phone refused it (code)" / "isn't signed up any more"), then "Nothing popped up?" box: "Test with the
+      app closed (10 s)" + iPhone checklist (banner hidden while the app is open, Settings → Notifications → Prime Capitol,
+      Focus off, open from the Home Screen icon, turn off/on). server-logs.yml: FCM on?, phones per person, push function
+      logs (3 days), last 20 push_log sends.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

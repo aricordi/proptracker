@@ -103,3 +103,20 @@ jobs:
           gcloud logging read 'resource.type="cloud_run_revision" AND (resource.labels.service_name=~"push" OR textPayload=~"Push" OR jsonPayload.message=~"Push")' \
             --project proptracker-9732e --freshness 3d --limit 80 \
             --format='value(timestamp, resource.labels.service_name, severity, textPayload, jsonPayload.message)'
+
+      - name: "Notifications: the last 20 sends (who, how many phones, delivered, errors)"
+        continue-on-error: true
+        run: |
+          curl -sS -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "Content-Type: application/json" \
+            "https://firestore.googleapis.com/v1/projects/proptracker-9732e/databases/(default)/documents:runQuery" \
+            -d '{"structuredQuery":{"from":[{"collectionId":"push_log"}],"orderBy":[{"field":{"fieldPath":"at"},"direction":"DESCENDING"}],"limit":20}}' \
+            | python3 -c '
+          import json,sys
+          for r in json.load(sys.stdin):
+              d=r.get("document")
+              if not d: continue
+              f=d["fields"]; s=lambda k: f.get(k,{}).get("stringValue","")
+              n=lambda k: f.get(k,{}).get("integerValue","0")
+              to=[v.get("stringValue","") for v in f.get("to",{}).get("arrayValue",{}).get("values",[])]
+              errs=[v.get("stringValue","") for v in f.get("errors",{}).get("arrayValue",{}).get("values",[])]
+              print(s("at")[:19], "|", s("title")[:40], "| to", ",".join(to), "| phones", n("phones"), "| delivered to Google", n("sent"), "|", "; ".join(errs))'
