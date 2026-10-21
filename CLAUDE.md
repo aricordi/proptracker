@@ -1343,6 +1343,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Focus off, open from the Home Screen icon, turn off/on). server-logs.yml: FCM on?, phones per person, push function
       logs (3 days), last 20 push_log sends.
       LIVE Oct 21 (backend run 42 + website run 37, owner OK; runs 41/36 failed on a weekday-dependent test, fixed with soonSlot() in tests/functions/helpers.ts).
+      Server logs run 11 (Oct 21 15:49 UTC): since the fix went live NOBODY pressed Send me a test and push_log is empty (no
+      notifications sent yet); owner's phone re-signed up 14:05 UTC, Ariel's last seen 00:19 UTC. Fix still UNTESTED on a phone.
     - FLAGS YOU CAN ACT ON (owner, Oct 21: "admin isn't able to drill down once they click on a creator… press the flag cards to see a
       list of all flags… remediation options for each one… as deep as they want"; NOT deployed: new callable + SECURITY RULES → backend
       deploy needs owner OK, then website). Cause of the dead end: with chart={false} the MetricCards had no onSelect. Now Top `onCard` →
@@ -1365,6 +1367,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       days)"; missed check-ins link to the Flags tab. Tests 442 (tests/unit/flagState.test.ts, tests/functions/flagReviews.test.ts,
       rules). Checked in a browser on the emulator (admin: card → list → note, excuse → Excused, count again, They filmed, strike).
       NOT yet: admin tour steps for this (do after the owner OKs the design); creators don't see "notes" in the app (push only).
+      LIVE Oct 21 (backend run 43 + website run 38, owner "go live"), together with SINGLE ITEMS.
     - SINGLE ITEMS (owner, Oct 21: "creators don't have to book only bundles… the gear manager puts stuff public (bookable) or internal…
       bundles stay the quick grab-and-go, same with drones; individual items used less"; NOT deployed: functions only (no rules change:
       gear_bundles is already readable by members), backend deploy needs owner OK, then website). gear_items `public` (missing = INTERNAL).
@@ -1381,6 +1384,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       just one thing? Pick how many" (extras + items). Labels "Single item" on /reserve and gear booking pages. Tours: creator ch3 + gear tour
       ch2/3 texts, practice item sheet shows the switch. Tests 447 (tests/functions/gearSingleItems.test.ts, unit gearStock). Checked in a
       browser on the emulator (gear team adds a GorillaPod as Creators can book → creator sees it under Single items).
+      LIVE Oct 21 (backend run 43 + website run 38). Every live piece starts INTERNAL until the gear team switches it.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
