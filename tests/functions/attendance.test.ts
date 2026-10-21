@@ -1,8 +1,7 @@
 // On the day: check in with a set photo, report the slot before, wrap; missed check-ins, strikes, pauses.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, soonSlot } from './helpers'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
-import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com'
 const PHOTO = 'https://example.com/set.jpg'
@@ -73,8 +72,8 @@ describe('missed check-ins, strikes and pauses', () => {
   })
 
   it('cancelling inside 48 hours adds a strike', async () => {
-    let d = addDays(todayInStudio(), 1); if (weekday(d) === 4 || weekday(d) === 6) d = addDays(d, 1)
-    const b = await call('bookShoot', { place: 'cliff1', date: d, start: 1260, kind: 'extra' }, ANA)
+    const { date, start } = await soonSlot()
+    const b = await call('bookShoot', { place: 'cliff1', date, start, kind: 'extra' }, ANA)
     await put(`shoots/${b.result.id}`, { ...(await getDoc(`shoots/${b.result.id}`))!, createdAt: '2026-01-01T00:00:00.000Z' })
     await call('cancelShoot', { id: b.result.id, confirmNoShow: true }, ANA)
     expect((await getDoc(`user_status/${ANA}`))!.strikes).toBe(1)

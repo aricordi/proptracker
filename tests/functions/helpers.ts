@@ -79,3 +79,20 @@ function fromValue(v: any): any {
 function fromFields(f: Record<string, any>) {
   return Object.fromEntries(Object.entries(f).map(([k, v]) => [k, fromValue(v)]))
 }
+
+// A house slot 3–40 hours from now on a non-priority day (Thu/Sat locked): inside the 48-hour notice whatever the
+// day or time the tests run. Slot starts follow the default 2-hour grid, last one (11 PM) skipped since it ends next day.
+export async function soonSlot() {
+  const { nowStamp, addMinutes } = await import('../../functions/src/gearBooking')
+  const { weekday } = await import('../../functions/src/booking')
+  const now = nowStamp(), soonest = addMinutes(now, 3 * 60), latest = addMinutes(now, 40 * 60)
+  for (let i = 0; i < 3; i++) {
+    const date = addMinutes(`${now.slice(0, 10)}T12:00`, i * 1440).slice(0, 10)
+    if (weekday(date) === 4 || weekday(date) === 6) continue
+    for (let start = 420; start <= 1260; start += 120) {
+      const at = `${date}T${String(start / 60).padStart(2, '0')}:00`
+      if (at >= soonest && at <= latest) return { date, start }
+    }
+  }
+  throw new Error('no soon slot')
+}

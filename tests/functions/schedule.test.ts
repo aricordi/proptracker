@@ -1,6 +1,6 @@
 // House schedule: instant booking, no double-booking, monthly slots, priority days, blocks.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, soonSlot } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const OWNER = 'alexisricordi@gmail.com', MAANIK = 'maanik@example.com', ANA = 'ana@example.com', BEN = 'ben@example.com', JANA = 'jana@example.com'
@@ -141,8 +141,7 @@ describe('schedule team', () => {
 })
 
 // A shoot about a day away: inside the 48-hour notice period (skip near midnight edge cases by using an afternoon slot).
-let SOON = addDays(today, 1)
-if (weekday(SOON) === 4 || weekday(SOON) === 6) SOON = addDays(SOON, 1)   // avoid priority days
+const { date: SOON, start: SOON_AT } = await soonSlot()
 
 describe('moving and the 48-hour notice', () => {
   it('moves to a free slot in one step; the old slot frees up and the history says where from', async () => {
@@ -165,14 +164,14 @@ describe('moving and the 48-hour notice', () => {
   })
 
   it('a booking made by mistake can be cancelled for free within 10 minutes, even inside 48 hours', async () => {
-    const r = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
+    const r = await book(ANA, { date: SOON, start: SOON_AT, kind: 'extra' })
     const c = await call('cancelShoot', { id: r.result.id }, ANA)
     expect(c.ok, c.message).toBe(true)
     expect(c.result.lateCancel).toBe(false)
   })
 
   it('inside 48 hours: no free move; cancelling needs confirming and counts as a no-show; the team is exempt', async () => {
-    const r = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
+    const r = await book(ANA, { date: SOON, start: SOON_AT, kind: 'extra' })
     expect(r.ok, r.message).toBe(true)
     await put(`shoots/${r.result.id}`, { ...(await getDoc(`shoots/${r.result.id}`))!, createdAt: '2026-01-01T00:00:00.000Z' })   // booked long ago
     expect((await call('moveShoot', { id: r.result.id, date: FRI, start: 1260 }, ANA)).message).toMatch(/Swap with someone/)
@@ -180,23 +179,23 @@ describe('moving and the 48-hour notice', () => {
     const c = await call('cancelShoot', { id: r.result.id, confirmNoShow: true }, ANA)
     expect(c.result.lateCancel).toBe(true)
     expect((await getDoc(`shoots/${r.result.id}`))!).toMatchObject({ status: 'cancelled', noShow: 'late-cancel' })
-    const r2 = await book(BEN, { date: SOON, start: 1260, kind: 'extra' })
+    const r2 = await book(BEN, { date: SOON, start: SOON_AT, kind: 'extra' })
     expect((await call('moveShoot', { id: r2.result.id, date: FRI, start: 1260 }, MAANIK)).ok).toBe(true)
   })
 })
 
 describe('swaps', () => {
   it('ask, accept, and both shoots trade places in one step (even inside 48 hours)', async () => {
-    const a = await book(ANA, { date: SOON, start: 1260, kind: 'extra' })
+    const a = await book(ANA, { date: SOON, start: SOON_AT, kind: 'extra' })
     const b = await book(BEN, { start: 900 })
     const req = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
     expect(req.ok, req.message).toBe(true)
     expect((await call('answerSwap', { id: req.result.id, accept: true }, ANA)).error).toBe('PERMISSION_DENIED')   // can't accept your own
     expect((await call('answerSwap', { id: req.result.id, accept: true }, BEN)).ok).toBe(true)
     expect((await getDoc(`shoots/${a.result.id}`))!).toMatchObject({ creatorEmail: ANA, date: FRI, start: 900 })
-    expect((await getDoc(`shoots/${b.result.id}`))!).toMatchObject({ creatorEmail: BEN, date: SOON, start: 1260 })
+    expect((await getDoc(`shoots/${b.result.id}`))!).toMatchObject({ creatorEmail: BEN, date: SOON, start: SOON_AT })
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['900']).toMatchObject({ shootId: a.result.id, name: 'Ana' })
-    expect((await getDoc(`schedule_days/${SOON}`))!.cliff1['1260']).toMatchObject({ shootId: b.result.id, name: 'Ben' })
+    expect((await getDoc(`schedule_days/${SOON}`))!.cliff1[String(SOON_AT)]).toMatchObject({ shootId: b.result.id, name: 'Ben' })
     expect((await getDoc(`swap_requests/${req.result.id}`))!.status).toBe('accepted')
   })
 
