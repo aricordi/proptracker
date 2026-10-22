@@ -120,3 +120,42 @@ jobs:
               to=[v.get("stringValue","") for v in f.get("to",{}).get("arrayValue",{}).get("values",[])]
               errs=[v.get("stringValue","") for v in f.get("errors",{}).get("arrayValue",{}).get("values",[])]
               print(s("at")[:19], "|", s("title")[:40], "| to", ",".join(to), "| phones", n("phones"), "| delivered to Google", n("sent"), "|", "; ".join(errs))'
+
+      - name: "Launch readiness: live settings, people and gear (read only)"
+        continue-on-error: true
+        run: |
+          T=$(gcloud auth print-access-token); B="https://firestore.googleapis.com/v1/projects/proptracker-9732e/databases/(default)/documents"
+          get() { curl -sS -H "Authorization: Bearer $T" "$B/$1"; }
+          echo "== Booking rules (app_settings/booking)"; get app_settings/booking | python3 -c '
+          import json,sys; d=json.load(sys.stdin).get("fields",{})
+          for k,v in sorted(d.items()): print("  ",k,"=",list(v.values())[0])'
+          echo "== Schedule settings (app_settings/schedule)"; get app_settings/schedule | python3 -c '
+          import json,sys; d=json.load(sys.stdin).get("fields",{})
+          for k,v in sorted(d.items()):
+              val=list(v.values())[0]
+              if k=="priority": val=[x["mapValue"]["fields"].get("name",{}).get("stringValue","?") for x in val.get("values",[])]
+              elif isinstance(val,dict): val=val.get("values", val)
+              print("  ",k,"=",val)'
+          echo "== Google Calendar check (app_settings/calendarCheck)"; get app_settings/calendarCheck | python3 -c '
+          import json,sys; d=json.load(sys.stdin).get("fields",{}); print("  ", {k:list(v.values())[0] for k,v in d.items()} or "never ran")'
+          echo "== People by role"; get "users?pageSize=300" | python3 -c '
+          import json,sys,collections; c=collections.Counter(); names=collections.defaultdict(list)
+          for doc in json.load(sys.stdin).get("documents",[]):
+              f=doc["fields"]; r=f.get("role",{}).get("stringValue","?"); a=f.get("active",{}).get("booleanValue",False)
+              c[(r,a)]+=1; names[r].append(f.get("name",{}).get("stringValue","") or doc["name"].split("/")[-1].split("@")[0])
+          for (r,a),n in sorted(c.items()): print("  ",r,"active" if a else "inactive",n)
+          for r,v in names.items(): print("  ",r,":",", ".join(sorted(v))[:300])'
+          echo "== Gear"; get "gear_items?pageSize=300" | python3 -c '
+          import json,sys; ds=json.load(sys.stdin).get("documents",[])
+          pub=[d["fields"]["name"]["stringValue"] for d in ds if d["fields"].get("public",{}).get("booleanValue")]
+          print("  ",len(ds),"pieces,",len(pub),"set to Creators can book:",", ".join(pub)[:300])'
+          get "gear_bundles?pageSize=300" | python3 -c '
+          import json,sys; ds=json.load(sys.stdin).get("documents",[])
+          live=[d for d in ds if not d["fields"].get("archived",{}).get("booleanValue")]
+          print("  ",len(live),"offers live:",", ".join(d["fields"]["name"]["stringValue"]+" ("+d["fields"].get("kind",{}).get("stringValue","bundle")+")" for d in live)[:400])'
+          echo "== Company props"; curl -sS -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" "$B:runAggregationQuery" \
+            -d '{"structuredAggregationQuery":{"structuredQuery":{"from":[{"collectionId":"items"}],"where":{"fieldFilter":{"field":{"fieldPath":"collection"},"op":"EQUAL","value":{"stringValue":"company"}}}},"aggregations":[{"count":{},"alias":"n"}]}}' \
+            | python3 -c 'import json,sys; print("  ", json.load(sys.stdin)[0]["result"]["aggregateFields"]["n"]["integerValue"], "company props")'
+          echo "== Shoots booked from today on"; curl -sS -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" "$B:runAggregationQuery" \
+            -d "{\"structuredAggregationQuery\":{\"structuredQuery\":{\"from\":[{\"collectionId\":\"shoots\"}],\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"date\"},\"op\":\"GREATER_THAN_OR_EQUAL\",\"value\":{\"stringValue\":\"$(TZ=America/Toronto date +%F)\"}}}},\"aggregations\":[{\"count\":{},\"alias\":\"n\"}]}}" \
+            | python3 -c 'import json,sys; print("  ", json.load(sys.stdin)[0]["result"]["aggregateFields"]["n"]["integerValue"], "shoots (any status)")'
