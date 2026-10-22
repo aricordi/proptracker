@@ -66,6 +66,19 @@ jobs:
             --project proptracker-9732e --freshness 6h --limit 40 \
             --format='table(timestamp, resource.labels.service_name, httpRequest.status, httpRequest.requestMethod)'
 
+      - name: Everything logged around each failed request (last 24 hours, 20 s either side)
+        continue-on-error: true
+        run: |
+          gcloud logging read 'resource.type="cloud_run_revision" AND httpRequest.status>=500' \
+            --project proptracker-9732e --freshness 24h --limit 8 \
+            --format='value(timestamp, resource.labels.service_name)' | while read -r ts svc; do
+            [ -z "$ts" ] && continue
+            from=$(date -u -d "$ts - 20 seconds" +%Y-%m-%dT%H:%M:%SZ); to=$(date -u -d "$ts + 20 seconds" +%Y-%m-%dT%H:%M:%SZ)
+            echo "=== $svc failed at $ts"
+            gcloud logging read "resource.labels.service_name=\"$svc\" AND timestamp>=\"$from\" AND timestamp<=\"$to\"" \
+              --project proptracker-9732e --limit 30 --order asc \
+              --format='value(timestamp, severity, httpRequest.status, httpRequest.latency, textPayload, jsonPayload.message, jsonPayload.error, protoPayload.status.message)' | cut -c1-600
+          done
       - name: Errors and warnings from inside the functions (last 6 hours)
         continue-on-error: true
         run: |
