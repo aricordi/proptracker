@@ -1385,6 +1385,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       ch2/3 texts, practice item sheet shows the switch. Tests 447 (tests/functions/gearSingleItems.test.ts, unit gearStock). Checked in a
       browser on the emulator (gear team adds a GorillaPod as Creators can book → creator sees it under Single items).
       LIVE Oct 21 (backend run 43 + website run 38). Every live piece starts INTERNAL until the gear team switches it.
+    - LAUNCH TESTING (Oct 22, owner: "launching Thursday, make sure everything is proper"): emulator end-to-end passed (creator
+      books, adds props + kit, sends, checks in with photo, wraps; arts pick/pack/photo; creator pickup + return photo; arts check-in;
+      gear queue; admin dashboard/analytics/flags); crawl of 49 routes x 5 roles: no errors or blank screens. Server logs run 13 has a
+      new step "Everything logged around each failed request". LIVE: searchSimilar 500 x3 + registerPush 500 x1 (Oct 22, 0 s, nothing
+      logged = no free instance). FIX BUILT, NOT deployed (backend, ask): global maxInstances 5 -> 20 (functions/src/auth.ts).
+      LIVE SETTINGS (Oct 22): Booking rules leadTimeDays still 3 (owner wanted 2), no buildLeadDays (default 4 applies); Schedule
+      settings never saved = defaults, PRIORITY GROUP EMPTY (Cliff 1 Thu/Sat locked for every creator until Sunday 6 PM); Google
+      Calendar never connected; people: arts Farrell + Keith, creator Ariel only (no equipment/admin yet); gear: 5 kits live, 0 pieces
+      set to "Creators can book"; 1,164 company props; push_log empty (no notification sent since the fix).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

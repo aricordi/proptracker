@@ -5,7 +5,8 @@ import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import { setGlobalOptions } from 'firebase-functions/v2'
 
 // Every function runs in Montréal. Set here because every module imports this one first.
-setGlobalOptions({ region: 'northamerica-northeast1', maxInstances: 5 })
+// maxInstances 20 (was 5): at 5, bursts got instant 500s with no log ("no available instance"), Oct 22. Idle copies cost nothing.
+setGlobalOptions({ region: 'northamerica-northeast1', maxInstances: 20 })
 
 initializeApp()
 export const db = getFirestore()
