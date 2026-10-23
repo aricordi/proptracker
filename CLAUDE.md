@@ -1419,6 +1419,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       scoreboard open as their home + 4 open groups; equipment 3 groups; arts 3 groups (+ Help). Nothing was removed. AdminTour + GearTour
       'admin' scenes now render the real TeamMenu (targets adminlist / row-users / row-rules / myaccount unchanged; coach text mentions
       the groups). When adding a tool to any role's menu, add it to teamMenu() only. Checked: 4 roles on a 390x844 screen, both tours walked.
+      LIVE Oct 23 (website run 41, owner "push to live"). Server logs run 16 after: no failed requests in 6 h, every callable public,
+      owner's iPhone re-signed up 18:19 UTC (refresh works); Ariel's still Oct 21 00:19; push_log still empty (no test sent yet).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
