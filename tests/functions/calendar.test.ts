@@ -119,10 +119,17 @@ describe('shared calendar copies', () => {
   })
 })
 
+// Toronto's offset on FRI (summer time -04:00, winter -05:00 from early November).
+const TZ = (() => {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', timeZoneName: 'shortOffset' })
+    .formatToParts(new Date(`${FRI}T12:00:00Z`)).find(x => x.type === 'timeZoneName')!.value   // e.g. "GMT-5"
+  return `-0${name.replace('GMT-', '')}:00`
+})()
+
 describe('importing again', () => {
   it('shows events changed or deleted in Google Calendar; changes move the app copy, deletes take it off', async () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
-    const ev = (start: string, end: string, title = 'Ana - Cliff 2') => ({ id: 'man1', summary: title, start: { dateTime: `${FRI}T${start}:00-04:00` }, end: { dateTime: `${FRI}T${end}:00-04:00` } })
+    const ev = (start: string, end: string, title = 'Ana - Cliff 2') => ({ id: 'man1', summary: title, start: { dateTime: `${FRI}T${start}:00${TZ}` }, end: { dateTime: `${FRI}T${end}:00${TZ}` } })
     await put('test_calendar/events', { items: [ev('13:00', '15:00')] })
     const p1 = (await call('previewCalendarImport', {}, OWNER)).result.events
     expect(p1[0].kind).toBe('new')
@@ -152,7 +159,7 @@ describe('importing again', () => {
 describe('automatic calendar check', () => {
   it('follows changes and deletions of imported events by itself, and counts new ones for a person to sort', async () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
-    const ev = (id: string, start: string, end: string) => ({ id, summary: 'Ana - Cliff 1', start: { dateTime: `${FRI}T${start}:00-04:00` }, end: { dateTime: `${FRI}T${end}:00-04:00` } })
+    const ev = (id: string, start: string, end: string) => ({ id, summary: 'Ana - Cliff 1', start: { dateTime: `${FRI}T${start}:00${TZ}` }, end: { dateTime: `${FRI}T${end}:00${TZ}` } })
     await put('test_calendar/events', { items: [ev('a1', '13:00', '15:00')] })
     await call('applyCalendarImport', { items: [{ id: 'a1', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana - Cliff 1' }] }, OWNER)
     // Moved in Google Calendar + a brand-new event added there.

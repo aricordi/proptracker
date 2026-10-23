@@ -4,9 +4,20 @@
 import { httpsCallable } from 'firebase/functions'
 import { app, functions, USING_EMULATORS } from '../firebase'
 
-const registerPush = httpsCallable<{ token: string; platform: string }, { ok: boolean }>(functions, 'registerPush')
+// One retry after 2 s when the server was briefly busy (Oct 22: a sign-up was turned away with "internal").
+function retryOnce<A, R>(fn: (a: A) => Promise<R>) {
+  return async (a: A) => {
+    try { return await fn(a) } catch (e) {
+      const code = (e as { code?: string }).code ?? ''
+      if (!/internal|unavailable|deadline/.test(code)) throw e
+      await new Promise(r => setTimeout(r, 2000))
+      return fn(a)
+    }
+  }
+}
+const registerPush = retryOnce(httpsCallable<{ token: string; platform: string }, { ok: boolean }>(functions, 'registerPush'))
 const unregisterPush = httpsCallable<{ token: string }, { ok: boolean }>(functions, 'unregisterPush')
-export const testPush = httpsCallable<{ delaySeconds?: number }, { sent: number; phones?: number; errors?: string[] }>(functions, 'testPush')
+export const testPush = retryOnce(httpsCallable<{ delaySeconds?: number }, { sent: number; phones?: number; errors?: string[] }>(functions, 'testPush'))
 
 const KEY = 'pc-push-token'
 const store = {

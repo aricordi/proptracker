@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 447 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 448 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1394,6 +1394,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       settings never saved = defaults, PRIORITY GROUP EMPTY (Cliff 1 Thu/Sat locked for every creator until Sunday 6 PM); Google
       Calendar never connected; people: arts Farrell + Keith, creator Ariel only (no equipment/admin yet); gear: 5 kits live, 0 pieces
       set to "Creators can book"; 1,164 company props; push_log empty (no notification sent since the fix).
+    - TEST SOMEONE'S PHONE (owner, Oct 23: "Ariel isn't seeing notifications even with the app closed… can I send him one from my
+      admin screen?"). Server logs run 14: push_log EMPTY = no push sent in 3 days (Ariel's "test with the app closed" never reached
+      the server); push_tokens lastSeen owner Oct 21 19:21 + Ariel Oct 21 00:19 = no phone re-signed up since; the only registerPush
+      call in 3 days was the 500 (no free instance) on Oct 22 22:21. BUILT (needs backend + website deploy, ask): callable
+      `testPushTo` (push.ts, owner + admin; {email} = their phones + last seen, {send:true} = sends "Test notification" and returns
+      sent/phones/errors; in deploy/log lists), `src/components/PushCheck.tsx` on /people/:email (owner/admin): phones with
+      "last opened", Send <name> a test notification, plain advice per result. src/services/push.ts: registerPush + testPush RETRY
+      once after 2 s on internal/unavailable/deadline. Fixed date-dependent calendar test (TZ offset -04/-05 from Intl). Tests 448.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

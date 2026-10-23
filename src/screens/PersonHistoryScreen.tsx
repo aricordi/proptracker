@@ -6,6 +6,7 @@ import { useShootsOf, useReportsSince, useStrikesSince, useMyStatus } from '../s
 import { creatorStats, SERIOUS, FLAG_LABEL } from '../lib/creatorStats'
 import { FlagPills, PERIODS, periodStart, type Period } from './CreatorsScreen'
 import { useManageCreator } from '../components/ManageCreator'
+import { PushCheck } from '../components/PushCheck'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
@@ -101,6 +102,7 @@ export default function PersonHistoryScreen() {
         )}
 
         {canManagePeople && manage.sheets}
+        {canManagePeople && <PushCheck email={email} name={user?.name || email} />}
         {list === null ? <p className="text-pt-muted text-sm text-center">Loading…</p> : (
           <>
             {summary.lateNow.length > 0 && (

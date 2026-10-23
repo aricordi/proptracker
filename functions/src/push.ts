@@ -122,6 +122,22 @@ export const testPush = onCall(CALLABLE, async req => {
   return r
 })
 
+// Owner/admin (Oct 23): send a test to SOMEONE ELSE from their page, and see which phones they have signed up and
+// when each last opened the app. Helps when "nothing pops up" on their phone.
+export const testPushTo = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'admin'])
+  const email = typeof req.data?.email === 'string' ? req.data.email.trim().toLowerCase() : ''
+  if (!email.includes('@')) throw new HttpsError('invalid-argument', 'Pick a person.')
+  const phones = (await db.collection('push_tokens').where('email', '==', email).get()).docs
+    .map(d => ({ platform: String(d.get('platform') ?? ''), lastSeen: String(d.get('lastSeen') ?? '') }))
+    .sort((a, b) => b.lastSeen.localeCompare(a.lastSeen))
+  if (req.data?.send !== true) return { sent: 0, phones: phones.length, errors: [], devices: phones }
+  const from = caller.name || 'the team'
+  const r = await sendPushDetailed({ to: [email], url: '/account', tag: 'test', title: 'Test notification',
+    body: `${from} sent this to check your notifications work. If you can read this, you're all set.` })
+  return { ...r, devices: phones }
+})
+
 // ─── Things that happen (instant) ────────────────────────────────────────────
 
 export const pushOnInvite = onDocumentWritten('schedule_invites/{id}', async e => {

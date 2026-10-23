@@ -35,6 +35,20 @@ describe('phone notifications', () => {
     expect((await docs('push_tokens')).length).toBe(0)
   })
 
+  it('the owner or an admin can see someone\'s phones and send them a test; others cannot', async () => {
+    await put('users/admin@example.com', { email: 'admin@example.com', role: 'admin', active: true, name: 'Sam' })
+    await call('registerPush', { token: 'emulator-aaaaaaaaaaaaaaaa-test-device', platform: 'ios-app' }, ANA)
+    const look = await call('testPushTo', { email: ANA }, 'admin@example.com')
+    expect(look.ok, look.message).toBe(true)
+    expect(look.result.devices.map((d: { platform: string }) => d.platform)).toEqual(['ios-app'])
+    expect(look.result.sent).toBe(0)
+    expect((await pings(/Test notification/)).length).toBe(0)
+    expect((await call('testPushTo', { email: ANA, send: true }, 'alexisricordi@gmail.com')).result.sent).toBe(1)
+    expect((await pings(/Test notification/))[0].to).toEqual([ANA])
+    expect((await call('testPushTo', { email: ANA, send: true }, BEN)).ok).toBe(false)
+    expect((await call('testPushTo', { email: ANA, send: true }, MAANIK)).ok).toBe(false)
+  })
+
   it('a friend invite pings the friend; confirming pings the inviter', async () => {
     const r = await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 1 }, ANA)
     expect(r.ok, r.message).toBe(true)
