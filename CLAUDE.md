@@ -1402,6 +1402,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       sent/phones/errors; in deploy/log lists), `src/components/PushCheck.tsx` on /people/:email (owner/admin): phones with
       "last opened", Send <name> a test notification, plain advice per result. src/services/push.ts: registerPush + testPush RETRY
       once after 2 s on internal/unavailable/deadline. Fixed date-dependent calendar test (TZ offset -04/-05 from Intl). Tests 448.
+    - PUBLISHING BROKE (Oct 23): backend run 44 GREEN (maxInstances 20 + testPushTo live). Website run 39 FAILED twice at "Publish":
+      firebase-tools 15.34.1 (released Oct 21 22:18 UTC; action-hosting-deploy uses @latest) now calls serviceusage.services.get,
+      which github-preview (roles: firebasehosting.admin, firebaseauth.admin, run.viewer, serviceusage.apiKeysViewer) lacks; every
+      preview push since Oct 22 failed the same way. No IAM changes in 3 days. FIX: `firebaseToolsVersion: 15.34.0` in
+      deploy-website.yml + preview.yml. Alternative if pinning stops working: owner grants github-preview "Service Usage Consumer".
+      server-logs.yml now lists every service account's roles + keys and recent access changes (read only).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
