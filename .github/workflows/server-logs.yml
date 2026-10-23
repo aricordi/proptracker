@@ -52,6 +52,20 @@ jobs:
           gcloud projects get-iam-policy proptracker-9732e --flatten='bindings[].members' \
             --filter="bindings.members:$SA" --format='value(bindings.role)' || true
 
+      - name: Roles of the GitHub publishing accounts (website + backend)
+        continue-on-error: true
+        run: |
+          for SA in $(gcloud iam service-accounts list --project proptracker-9732e --format='value(email)'); do
+            echo "== $SA ($(gcloud iam service-accounts describe $SA --format='value(disabled)' | sed 's/True/DISABLED/;s/False/enabled/'))"
+            gcloud projects get-iam-policy proptracker-9732e --flatten='bindings[].members' \
+              --filter="bindings.members:serviceAccount:$SA" --format='value(bindings.role)' || true
+            gcloud iam service-accounts keys list --iam-account=$SA --managed-by=user --format='value(name.basename(), validAfterTime, disabled)' 2>/dev/null | sed 's/^/   key /' || true
+          done
+          echo "== Recent changes to who has access (last 3 days)"
+          gcloud logging read 'protoPayload.methodName="SetIamPolicy" OR protoPayload.methodName:"DeleteServiceAccountKey" OR protoPayload.methodName:"DisableServiceAccountKey"' \
+            --project proptracker-9732e --freshness 3d --limit 20 \
+            --format='value(timestamp, protoPayload.methodName, protoPayload.authenticationInfo.principalEmail)' || true
+
       - name: Who may call each function (needs allUsers for the app to reach it)
         continue-on-error: true
         run: |
