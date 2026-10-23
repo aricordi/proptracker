@@ -14,6 +14,7 @@
 // SEALED: practice data only (made-up gear, bookings and people). Nothing is saved, booked or sent, except turning on
 // notifications in chapter 9 and marking the tour done. Required once for the equipment team (App.tsx TourGate);
 // anyone on the gear side can replay it at /tour/gear.
+import { TeamMenu, teamMenu } from '../components/TeamMenu'
 import { useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
 import { useScheduleSettings, fmtSlot } from '../services/schedule'
@@ -113,7 +114,7 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
       body: ul([['Queue', 'who picks up what, and what is due back'], ['Schedule', 'the house calendar'], ['Bundles', 'the kits creators can book'], ['All gear', 'every piece you own'], ['Admin', 'everything else, like the arts department has']]) },
     { id: 'toadmin', scene: 'queue', part: 1, target: 'nav-admin', title: <>Peek at <b>Admin</b></> },
     { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your Admin menu',
-      body: 'Schedule team, help, this tour again, and your account. Schedule settings and the Google Calendar are looked after by the owner.' },
+      body: 'Three groups: Gear, Schedule, and Help & account (this tour again lives there). Schedule settings and the Google Calendar are looked after by the owner.' },
     { id: 'toitems', scene: 'admin', part: 1, target: 'nav-allgear', title: <>Start with the shelves: tap <b>All gear</b></> },
     // 2 · Stock the shelves
     intro(2, 'items', 'Every camera, lens, light and mic lives in All gear. If it isn\'t in here, it doesn\'t exist (as far as the app knows).'),
@@ -729,16 +730,8 @@ export default function GearTour({ onFinish, required = false }: { onFinish: () 
       <div className="pb-6">
         {header('Admin')}
         <div className="p-4">
-          <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
-            {[['Gear queue', "Today's pickups and returns, what's out, what to check in"], ['Bundles & single items', 'What creators can book; build a new kit'],
-              ['All gear', 'Every piece you own: add gear, serial numbers, values, archive'], ['Schedule team', 'Check-ins, reports to review, creators booked vs filmed, pauses'],
-              ['Gear team tour', 'Practise the gear room again, step by step'], ['Help', 'How do I…? Gear, check-ins, the schedule, sign-in'], ['My account', 'Your photo, notifications; sign out']].map(([t, d]) => (
-              <button key={t} {...(t === 'My account' ? T('myaccount') : {})} onClick={t === 'My account' ? tap('myaccount') : undefined} className="w-full flex items-center gap-3 px-4 py-4 text-left">
-                <div className="flex-1 min-w-0"><p className="text-pt-text font-medium">{t}</p><p className="text-pt-muted text-xs mt-0.5">{d}</p></div>
-                <span className="text-pt-muted">›</span>
-              </button>
-            ))}
-          </div>
+          <TeamMenu groups={teamMenu('equipment')} onOpen={() => {}} listProps={T('adminlist')}
+            rowProps={it => it.id === 'myaccount' ? { ...T('myaccount'), onClick: tap('myaccount') } : { onClick: undefined }} />
         </div>
       </div>
     ),

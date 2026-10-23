@@ -10,6 +10,7 @@
 // BookingRulesScreen, AccountScreen). When one of those screens changes a lot, update its scene here too.
 // SEALED: practice data only (made-up creators, requests and strikes). Nothing is saved, given or sent, except turning on
 // notifications in chapter 9 and marking the tour done. Required once for admins (App.tsx TourGate); replay at /tour/admin.
+import { TeamMenu, teamMenu } from '../components/TeamMenu'
 import { useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
 import { useScheduleSettings, fmtSlot } from '../services/schedule'
@@ -87,7 +88,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
     { id: 'analyticslook', scene: 'admin', part: 1, target: 'dashlinks', look: true, next: C, title: 'Go deeper: Analytics',
       body: ul([['Creators', 'who films more and who films less, then tap anyone for their report card: rank, month by month against the typical creator, flags, what they filmed'], ['Flags', 'by type: abandoned shoots, running over, mess, skipped check-ins, late or broken returns, not confirming'], ['Teams', 'the arts department and equipment team: what is waiting, packed on time, check-in speed'], ['Advanced view', 'the table icon: break any number down by person, house, week, flag or staff, sort it, download it'], ['Trends', 'the whole studio over time, last'], ['Settings sheet', 'every rule the app runs on, and who can change it']]) },
     { id: 'adminlook', scene: 'admin', part: 1, target: 'adminlist', look: true, next: C, title: 'Your tools, further down',
-      body: "Analytics, every creator's record, the schedule team, activity, invites and booking rules. Settings, the Google Calendar and anything technical stay with the owner." },
+      body: "Sorted into groups: Every day, Creators, Rules, and Help & records. Settings, the Google Calendar and anything technical stay with the owner." },
     { id: 'toqueue', scene: 'admin', part: 1, target: 'nav-queue', title: <>Now tap <b>Queue</b></>, body: 'Every props request, live.' },
     // 2 · Watch the queues
     intro(2, 'queue', "The arts department and the equipment team do the picking, packing and checking. You can see all of it, so you always know what's going on."),
@@ -428,22 +429,8 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
           </div>
           <h2 className="text-pt-text text-[20px] font-semibold tracking-tight pt-1">Needs you now</h2>
           <div className="bg-amber-500/10 rounded-2xl px-3 py-3 flex items-center gap-3"><span className="min-w-[32px] h-8 px-2 rounded-full grid place-items-center text-sm font-bold bg-red-500/20 text-red-300">{decided ? 0 : 1}</span><span className="flex-1 text-pt-text text-[15px]">Missed check-in to decide</span><span className="text-pt-accent">›</span></div>
-          <h2 className="text-pt-text text-[20px] font-semibold tracking-tight pt-2">Admin tools</h2>
-          <div {...T('adminlist')} className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
-            {[['', 'Analytics', 'Who films more or less, every flag by type, the teams, trends'], ['', 'Creators', 'How much each creator films, every flag, and strikes and pauses'], ['', 'Settings sheet', 'Every rule the app runs on, and who can change it'], ['', 'Requests calendar', 'Every props request by shoot day'],
-              ['', 'Schedule team', 'Missed check-ins and reports to decide, creators booked vs filmed'],
-              ['', 'Activity', 'Everything that happened, with who and when'], ['users', 'Invite creators', 'Add creators or turn their access off'],
-              ['rules', 'Booking rules', 'How far ahead props must be booked; closed days; turnaround days'], ['', 'Admin tour', 'Practise all of this again'],
-              ['', 'Help', 'How do I…? Booking, props, gear, check-in, sign-in'], ['myaccount', 'My account', 'Your photo and channel name; sign out']].map(([k, t, d]) => {
-              const target = k === 'myaccount' ? 'myaccount' : k ? `row-${k}` : ''
-              return (
-                <button key={t} {...(target ? T(target) : {})} onClick={target ? tap(target) : undefined} className="w-full flex items-center gap-3 px-4 py-4 text-left">
-                  <div className="flex-1 min-w-0"><p className="text-pt-text font-medium">{t}</p><p className="text-pt-muted text-xs mt-0.5">{d}</p></div>
-                  <span className="text-pt-muted">›</span>
-                </button>
-              )
-            })}
-          </div>
+          <TeamMenu groups={teamMenu('admin')} onOpen={() => {}} listProps={T('adminlist')}
+            rowProps={it => { const t = it.id === 'myaccount' ? 'myaccount' : it.id === 'users' || it.id === 'rules' ? `row-${it.id}` : ''; return t ? { ...T(t), onClick: tap(t) } : { onClick: undefined } }} />
         </div>
       </div>
     ),

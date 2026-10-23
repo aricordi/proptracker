@@ -1408,6 +1408,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       preview push since Oct 22 failed the same way. No IAM changes in 3 days. FIX: `firebaseToolsVersion: 15.34.0` in
       deploy-website.yml + preview.yml. Alternative if pinning stops working: owner grants github-preview "Service Usage Consumer".
       server-logs.yml now lists every service account's roles + keys and recent access changes (read only).
+    - PUBLISHING FIXED + LIVE Oct 23: preview run 225 green with the pin, website run 40 LIVE (owner OK): PushCheck box + push retry.
+    - TEAM PAGE TIDY (owner, Oct 23: "my owner facing team page is way too busy… organize it better… update everything that trickles
+      down"; preview only, live needs OK; app only, NO server/rules change): `src/components/TeamMenu.tsx` = ONE source for every role's
+      menu: `teamMenu(who)` (owner | admin | equipment | arts) → named groups of items {id, to, title, short detail, icon}; `TeamMenu`
+      (sections; `foldable` = tap to open/close, open groups remembered in localStorage 'pc.teamMenuOpen'; `rowProps`/`listProps` let
+      the tours add highlight targets), `DailyTiles` + OWNER_DAILY (Props queue, Gear queue, Schedule team, Add a prop), `FoldableBlock`.
+      AdminScreen: owner = tiles → "Creator scoreboard" (CreatorDashboard, folded, Show/Hide) → 6 folding groups (Creators & people /
+      Props & storage / Gear (+ All gear, new for the owner) / Rules & settings / Money & connections / Help & records); admins keep the
+      scoreboard open as their home + 4 open groups; equipment 3 groups; arts 3 groups (+ Help). Nothing was removed. AdminTour + GearTour
+      'admin' scenes now render the real TeamMenu (targets adminlist / row-users / row-rules / myaccount unchanged; coach text mentions
+      the groups). When adding a tool to any role's menu, add it to teamMenu() only. Checked: 4 roles on a 390x844 screen, both tours walked.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
