@@ -1421,6 +1421,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the groups). When adding a tool to any role's menu, add it to teamMenu() only. Checked: 4 roles on a 390x844 screen, both tours walked.
       LIVE Oct 23 (website run 41, owner "push to live"). Server logs run 16 after: no failed requests in 6 h, every callable public,
       owner's iPhone re-signed up 18:19 UTC (refresh works); Ariel's still Oct 21 00:19; push_log still empty (no test sent yet).
+    - DEEP ERROR CHECK (owner, Oct 24: "error check as deeply as you can"; preview only, live website needs OK): typecheck + build OK;
+      npm audit fix (patch bumps only: body-parser, nodemailer, react-router 6.30.6, protobufjs; remaining warnings need major
+      upgrades, not reachable in our use); every live listener has an error handler; every query has its index; full creator→arts
+      journey + crawl of 57 routes x 5 roles: no errors; all 3 tours walked to the end by a robot (scratchpad walk.mjs).
+      FIXED: PhotoStamp crashed the screen on a non-Storage photo link (now caught); PhotoStrip duplicate keys; tour big highlights
+      now scroll up so their button shows (ch4 "Save changes" was off-screen); "Already in your request" instead of "Nothing
+      matches" (tour + ChangeRequest); "1 prop / 1 piece / 1 person" wording; shared-gear test landed on a closed Sunday.
+      NEW: "Read server logs" step "Data check" (`.github/scripts/data_check.py`, GET only): holds pointing at cancelled/missing
+      requests or bookings, active requests/gear with no hold, schedule slots pointing at cancelled shoots, booked shoots missing
+      from the schedule, odd quantities, unknown roles. Tests 448.
+      Server logs run 17 (Oct 24): data check "No inconsistencies found" (1245 props, 6 requests, 7 shoots); no failed requests
+      in 24 h; every callable public; Oct 24 20:17 UTC an admin test push to Ariel REACHED Google (1 of 2 phones; the other was an
+      old dead sign-up, removed automatically). Still open (owner): Booking rules leadTimeDays 3 (wanted 2), schedule settings +
+      priority group never saved, Google Calendar not connected, 0 gear pieces "Creators can book".
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
