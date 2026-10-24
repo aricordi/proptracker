@@ -56,7 +56,7 @@ export default function GearBundlesScreen() {
                 {b.kind === 'extra' || b.kind === 'item'
                   ? <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} {b.kind === 'item' ? 'can be booked' : 'offered'}</p>
                   : <>
-                      <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} pieces</p>
+                      <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} {pieceTotal(b.pieces) === 1 ? 'piece' : 'pieces'}</p>
                       <p className="text-pt-muted text-xs truncate">{b.pieces.slice(0, 3).map(p => `${p.qty}× ${itemName.get(p.itemId) ?? '…'}`).join(', ')}{b.pieces.length > 3 ? '…' : ''}</p>
                     </>}
               </div>

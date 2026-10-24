@@ -81,7 +81,7 @@ export default function CreatorsScreen() {
           ))}
         </div>
         <div className="flex items-center justify-between">
-          <p className="text-pt-muted text-xs">{stats.length} creators · tap one for every flag</p>
+          <p className="text-pt-muted text-xs">{stats.length} {stats.length === 1 ? 'creator' : 'creators'} · tap one for every flag</p>
           <div className="flex bg-pt-surface rounded-full p-0.5 text-xs">
             {([['filming', 'Most filming'], ['flags', 'Most flags']] as const).map(([v, l]) => (
               <button key={v} onClick={() => setSort(v)} className={`px-3 py-1 rounded-full ${sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>

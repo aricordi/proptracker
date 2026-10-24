@@ -36,6 +36,9 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
     if (q.length < 2) return []
     return items.filter(i => !i.archived && i.condition !== 'damaged' && !(lines[i.id] > 0) && matchesQuery(i, q, tagById)).sort(byName).slice(0, 6)
   }, [items, query, lines, tagById])
+  // Matches that are already in the request, so "nothing matches" doesn't mislead.
+  const alreadyIn = useMemo(() => found.length || query.trim().length < 2 ? 0
+    : items.filter(i => lines[i.id] > 0 && matchesQuery(i, query.trim(), tagById)).length, [found, items, query, lines, tagById])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const max = (id: string) => items.find(i => i.id === id)?.quantity ?? 99
@@ -158,7 +161,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
             <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it.name}</p>
             <button onClick={() => { setLines({ ...lines, [it.id]: 1 }); setQuery('') }} className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</button>
           </div>
-        )) : <p className="text-pt-muted text-sm">Nothing matches "{query.trim()}". Try another word, or ask for it below.</p>)}
+        )) : <p className="text-pt-muted text-sm">{alreadyIn ? `Already in your request. Use + above for more, or try another word.` : <>Nothing matches "{query.trim()}". Try another word, or ask for it below.</>}</p>)}
         <button onClick={seeAll} className="w-full rounded-xl py-2.5 text-sm font-semibold text-pt-accent bg-pt-accent/10">
           {query.trim().length >= 2 ? `See all results for "${query.trim()}"` : 'Browse the whole closet'} ›
         </button>

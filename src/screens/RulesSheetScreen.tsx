@@ -46,7 +46,7 @@ export default function RulesSheetScreen() {
       ['Undo after booking', `${UNDO_MINUTES} min`, 'Cancelling within this many minutes of booking is always free.', owner],
       ['Friend invite hold', `${INVITE_HOLD_MINUTES} min`, 'How long a slot is held for an invited friend. If they let it run out, they get a "Didn\'t confirm" flag.', owner],
       ['Priority days', list(s.priorityWeekdays.map(d => DAYS[d])), `Only the priority group can book these; unclaimed slots open to everyone on Sunday at ${fmtTime(s.releaseMinute)}.`, owner],
-      ['Priority group', `${s.priority.length} people`, list(s.priority.map(p => p.name)), owner],
+      ['Priority group', `${s.priority.length} ${s.priority.length === 1 ? 'person' : 'people'}`, list(s.priority.map(p => p.name)), owner],
     ] },
     { title: 'Comparing creators (Dashboard and Analytics)', rows: [
       ['Minimum shoots', 'none', 'There is no minimum. Creators are compared with each other.', owner],

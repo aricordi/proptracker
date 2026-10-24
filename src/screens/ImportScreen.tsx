@@ -166,7 +166,7 @@ export default function ImportScreen() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-pt-text text-sm font-medium truncate">{j.folders.map(f => f.name).join(', ')}</p>
-                    <p className="text-pt-muted text-xs">{formatDay(j.createdAt.slice(0, 10))} · {j.total} photos · {usd(j.spentUsd)}{j.dryRun ? ' · dry run' : ''}</p>
+                    <p className="text-pt-muted text-xs">{formatDay(j.createdAt.slice(0, 10))} · {j.total} {j.total === 1 ? 'photo' : 'photos'} · {usd(j.spentUsd)}{j.dryRun ? ' · dry run' : ''}</p>
                   </div>
                   {running === j.id && <span className="text-sky-300 text-xs shrink-0">working…</span>}
                 </div>

@@ -880,7 +880,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       <div {...T('browsezone')}>
         {browseHeader(false)}
         <div className="px-4 pt-1">
-          <p className="text-pt-muted text-xs mb-3">{query.trim() ? found(query).length : all.length} props · Add props by {formatDay(cut.props)}</p>
+          <p className="text-pt-muted text-xs mb-3">{(n => `${n} ${n === 1 ? 'prop' : 'props'}`)(query.trim() ? found(query).length : all.length)} · Add props by {formatDay(cut.props)}</p>
           {query.trim() && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing called "{query.trim()}". Try another word, like mask, hat or phone.</p>}
           <div className="grid grid-cols-2 gap-3">{shown.map(tile)}</div><div className="h-20" />
         </div>
@@ -1044,7 +1044,10 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <div {...T('browsezone')}>
           {browseHeader(false, true)}
           <div className="px-4 pt-1">
-            <p className="text-pt-muted text-xs mb-3">{list.length} props · free on {formatDay(day)}</p>
+            <p className="text-pt-muted text-xs mb-3">{list.length} {list.length === 1 ? 'prop' : 'props'} · free on {formatDay(day)}</p>
+            {step.id === 'reqadd' && list.length > 0 && list.every(i => added.includes(i.id)) && (
+              <p className="text-pt-accent text-sm mb-3">{list.length === 1 ? "That one's" : "These are"} already in your request ✓. Search for something new, like hat or mask.</p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               {list.map(i => {
                 const on = added.includes(i.id)
@@ -1120,7 +1123,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
                         <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it.name}</p>
                         <span className="shrink-0 bg-pt-accent/15 text-pt-accent font-semibold rounded-xl px-3 py-2 text-sm">+ Add</span>
                       </div>
-                    )) : <p className="text-pt-muted text-sm">Nothing matches "{changeQ.trim()}". Try mask or hat.</p>
+                    )) : <p className="text-pt-muted text-sm">{found(changeQ).length ? 'Already in your request. Try another word, like mask or hat.' : <>Nothing matches "{changeQ.trim()}". Try mask or hat.</>}</p>
                   })()}
                   <button {...T('seeall')} onClick={tap('seeall')} className="w-full rounded-xl py-2.5 text-sm font-semibold text-pt-accent bg-pt-accent/10">
                     {changeQ.trim().length >= 2 ? `See all results for "${changeQ.trim()}"` : 'Browse the whole closet'} ›

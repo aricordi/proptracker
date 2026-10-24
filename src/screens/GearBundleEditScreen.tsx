@@ -110,7 +110,7 @@ export default function GearBundleEditScreen() {
         </div>
 
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-1">
-          <p className={label}>{isExtra ? `Offered to creators (${pieceTotal(pieces)})` : `In this bundle (${pieceTotal(pieces)} pieces)`}</p>
+          <p className={label}>{isExtra ? `Offered to creators (${pieceTotal(pieces)})` : `In this bundle (${pieceTotal(pieces)} ${pieceTotal(pieces) === 1 ? 'piece' : 'pieces'})`}</p>
           {pieces.length === 0 && <p className="text-pt-muted text-sm">{isExtra ? 'Pick the piece below and how many to offer.' : 'Add pieces from the list below.'}</p>}
           {pieces.map(p => (
             <p key={p.itemId} className="text-pt-text text-sm"><span className="text-pt-accent font-bold tabular-nums">{p.qty}×</span> {itemName.get(p.itemId) ?? 'Unknown piece'}</p>

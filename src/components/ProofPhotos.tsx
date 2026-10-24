@@ -103,7 +103,7 @@ export function PhotoStrip({ urls, title }: { urls?: string[]; title: string }) 
     <div>
       <p className="text-pt-muted text-xs mb-2">{title}</p>
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
-        {urls.map(u => <StripPhoto key={u} url={u} />)}
+        {urls.map((u, i) => <StripPhoto key={`${i}-${u}`} url={u} />)}
       </div>
     </div>
   )
@@ -141,7 +141,8 @@ export function PhotoStamp({ url }: { url: string }) {
   const [stamp, setStamp] = useState<Stamp | null>(null)
   useEffect(() => {
     let on = true
-    getMetadata(storageRef(storage, url)).then(m => {
+    // Inside the promise: a link that isn't one of our Storage files throws, and must not crash the screen.
+    Promise.resolve().then(() => getMetadata(storageRef(storage, url))).then(m => {
       if (!on || m.customMetadata?.takenAt === undefined) return
       setStamp(photoAge(m.customMetadata.takenAt || null, m.timeCreated))
     }).catch(() => {})

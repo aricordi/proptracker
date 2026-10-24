@@ -6,7 +6,8 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 
 const ANA = 'crew-ana@example.com', KYLE = 'crew-kyle@example.com', JANA = 'crew-jana@example.com', BEN = 'crew-ben@example.com'
-const DAY = addDays(todayInStudio(), 8)
+// About a week out, never on a closed day (Sundays): gear for a closed-day shoot is picked up the day before.
+const DAY = (() => { let d = addDays(todayInStudio(), 8); while (new Date(`${d}T12:00:00Z`).getUTCDay() === 0) d = addDays(d, 1); return d })()
 const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 
 async function shoot(id: string, email: string, name: string, start: number, place = 'cliff1', date = DAY) {

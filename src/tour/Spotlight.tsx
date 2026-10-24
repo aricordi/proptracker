@@ -146,6 +146,13 @@ export function Spotlight({ target, top, dim = true, stepKey, ...c }: Coach & { 
           height = hh
           const gap = (cardRef.current?.offsetHeight ?? 220) + 32
           if (hh < h * 0.45) keepInView(el, 110, gap)
+          else {
+            // Big area hanging off the bottom (its button out of sight): bring its top up under the card (docked top)
+            // or near the top of the screen, as far as the page allows.
+            const box = el.parentElement?.closest<HTMLElement>('.overflow-y-auto'), b = el.getBoundingClientRect()
+            const want = top ? (cardRef.current?.offsetHeight ?? 240) + 44 : 110
+            if (box && b.bottom > h && b.top > want) box.scrollTop += b.top - want
+          }
         }
         const b = el.getBoundingClientRect()
         const k = `${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.width)},${Math.round(b.height)}`

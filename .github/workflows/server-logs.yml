@@ -148,6 +148,10 @@ jobs:
               errs=[v.get("stringValue","") for v in f.get("errors",{}).get("arrayValue",{}).get("values",[])]
               print(s("at")[:19], "|", s("title")[:40], "| to", ",".join(to), "| phones", n("phones"), "| delivered to Google", n("sent"), "|", "; ".join(errs))'
 
+      - name: "Data check: records that disagree with each other (read only)"
+        continue-on-error: true
+        run: T=$(gcloud auth print-access-token) python3 .github/scripts/data_check.py
+
       - name: "Launch readiness: live settings, people and gear (read only)"
         continue-on-error: true
         run: |
