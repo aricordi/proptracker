@@ -1465,6 +1465,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       upcoming / pausedNow to countedEmails (team jobs + backlog untouched, so the Teams tab still shows staff work); CreatorsScreen
       filters creatorStats the same way. Was: active creators + admins, and anyone with a shoot. Checked on the emulator (a filmed shoot
       by the equipment test login no longer appears; a creator's does). Owner guide updated.
+      LIVE Oct 27 (website run 43, owner "once it works push it live").
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
