@@ -1524,6 +1524,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "App access: Props only | Full app" (owner only; sheet stays open, live user). Analytics creatorPeople = Full app creators only.
       Test helper put() gives test creators access 'full' unless set; tests/functions/demoMode.test.ts + rules test. Seed: demo@example.com
       "Dee (props only)" + test login "Creator on Props only (demo)"; other seed creators 'full'. Tests 483.
+      LIVE Oct 27 (owner "yes deploy everything"): backend run 46 + website run 45. Every live creator (Ariel) is now on Props only
+      until the owner switches them on People & access.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
