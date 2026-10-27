@@ -1,15 +1,15 @@
 // Hand gear over on the spot (owner, Oct 20): someone else needs it before it goes back to the cage.
 // Pick who and until when; they open the app, tick every piece and sign (anything missing goes on your record).
 import { useEffect, useMemo, useState } from 'react'
-import { FirebaseError } from 'firebase/app'
 import BottomSheet from './BottomSheet'
 import Avatar from './Avatar'
 import UsedByPicker, { usedByOf } from './UsedByPicker'
 import { handOverGear, nowStamp, fmtTime, GEAR_STEP, GEAR_DAY_END, type GearBooking } from '../services/gear'
 import { listFilmingFriends } from '../services/schedule'
 import { useSession } from '../auth'
+import { friendlyError } from '../lib/errors'
 
-const errText = (e: unknown) => e instanceof FirebaseError ? e.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
+const errText = (e: unknown) => friendlyError(e)
 
 export default function HandOverSheet({ b, open, onClose }: { b: GearBooking; open: boolean; onClose: () => void }) {
   const { profile } = useSession()

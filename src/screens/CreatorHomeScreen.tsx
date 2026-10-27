@@ -11,6 +11,7 @@ import Avatar from '../components/Avatar'
 import LateBanner from '../components/LateBanner'
 import AiButton from '../components/AiButton'
 import { MyRequestsRow } from '../components/MyRequestsButton'
+import UnsentBasket from '../components/UnsentBasket'
 import { useAssistant } from '../assistant'
 import { GearArt } from '../components/GearUi'
 import { useMyLateBookings } from '../hooks/useLateBookings'
@@ -166,6 +167,7 @@ export default function CreatorHomeScreen() {
           </div>
         )}
 
+        <UnsentBasket />
         {/* Search */}
         <div className="flex items-center gap-2 bg-pt-surface rounded-[14px] pl-4 pr-2 py-2">
           <button onClick={() => navigate('/browse?focus=1')} className="flex-1 flex items-center gap-3 py-2 text-pt-muted text-left min-w-0">

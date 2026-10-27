@@ -16,8 +16,9 @@ import { useActiveShoot } from '../activeShoot'
 import { editReservation, type Reservation } from '../services/reservations'
 import { Icon } from './Icon'
 import { readRequestDraft, writeRequestDraft, clearRequestDraft } from '../lib/requestDraft'
+import { friendlyError } from '../lib/errors'
 
-const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'That didn\'t work. Try again.'
+const errText = (e: unknown) => friendlyError(e)
 
 export default function ChangeRequest({ res }: { res: Reservation }) {
   const navigate = useNavigate()

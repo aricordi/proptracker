@@ -7,8 +7,9 @@ import { useShoot } from '../services/schedule'
 import { useBackToBack } from '../hooks/useGearCrew'
 import { crewHours } from '../../functions/src/gearCrew'
 import { editGearBooking, subscribeToGearBundles, fmtTime, GEAR_DAY_START, GEAR_DAY_END, GEAR_STEP, type GearBooking, type GearBundle } from '../services/gear'
+import { friendlyError } from '../lib/errors'
 
-const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'That didn\'t work. Try again.'
+const errText = (e: unknown) => friendlyError(e)
 const TIMES: number[] = []
 for (let t = GEAR_DAY_START; t <= GEAR_DAY_END; t += GEAR_STEP) TIMES.push(t)
 

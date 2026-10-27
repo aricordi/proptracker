@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 448 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 455 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1435,6 +1435,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       in 24 h; every callable public; Oct 24 20:17 UTC an admin test push to Ariel REACHED Google (1 of 2 phones; the other was an
       old dead sign-up, removed automatically). Still open (owner): Booking rules leadTimeDays 3 (wanted 2), schedule settings +
       priority group never saved, Google Calendar not connected, 0 gear pieces "Creators can book".
+    - LAZY-USER PASS (owner, Oct 27: "deep check… clean and easy for anyone, even lazy and uninterested users"; app only, NO
+      server/rules change; preview only, live website needs OK). Walked the app as a brand-new creator (new test login "New creator
+      (first day)" = newbie@example.com "Nia", seeded with no shoots) + crawl of 57 routes x 6 roles: no errors. BUILT:
+      (1) + BEFORE BOOKING: `src/components/AddWithoutShoot.tsx` `useAddWithoutShoot()` → sheet "Add X to…" (your upcoming shoots,
+      late ones greyed with the cutoff) or "Book a (new) shoot for it" (savePendingAdds → /schedule?book=1 → after booking the pick
+      lands in /reserve). Used on Browse props cards, gear kits + single items, and the prop page ("Add to a shoot").
+      (2) AUTO-PICKED SHOOT: activeShoot id null = never chose → the app picks your soonest shoot that can still take props; ''
+      = "Just browsing" (remembered). (3) NOT SENT YET: `src/components/UnsentBasket.tsx` amber card on creator Home (under the
+      next-shoot card) and on the shoot sheet (ShootNeeds) whenever the basket has something unsent ("only on your phone… Send by
+      <date>", Review & send). (4) CUTOFFS RESPECTED: + hidden on Browse/gear and the prop page says "Too late…" once the shoot's
+      cutoff passed (creators; staff/owner skip); /reserve hides "Request something we don't have" when too late for new props;
+      past cutoffs read "too late for …" instead of a past date. (5) SEND BUTTON says what's missing ("Type a video name to send",
+      "Pick your shoot above"…) and reads "Send the props" / "Send the gear" / "Send props + gear" (tour ch3 text matched).
+      (6) PLAIN ERRORS: `src/lib/errors.ts` friendlyError() used by every screen (was ~20 copies that showed raw "internal",
+      "Missing or insufficient permissions", and chopped our own messages at the first colon). Tests: tests/unit/errors.test.ts.
+      (7) NO SIGNAL banner (`src/components/OfflineBanner.tsx`, amber pill under the clock). (8) Browse count line no longer wraps.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

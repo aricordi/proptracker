@@ -208,7 +208,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
       body: <>{friends.map(f => firstOf(f.name)).join(' and ')} film{friends.length > 1 ? '' : 's'} right after you, so one booking covers all of you: one pickup, one return. When you bring it back you tick who actually used it: only they're responsible. Tap a name to keep the gear just yours.</> }] : []),
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
     { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake" or "a pirate hat". Use − and + for how many.' },
-    { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Book props + gear</b></>, body: "Props go to the arts team, gear to the equipment team, and you land back on your shoot. (Practice, so nothing's really sent.)" },
+    { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Send props + gear</b></>, body: "Props go to the arts team, gear to the equipment team, and you land back on your shoot. (Practice, so nothing's really sent.)" },
     { id: 'quiz3', scene: 'shoot', part: 3, title: '', quiz: {
       q: <>Pop quiz! Your shoot is on {formatDay(day)}. What's the last day to ask the arts team to <b>make something new</b>?</>,
       options: [formatDay(sameCut ? day : cut.props), `${formatDay(cut.builds)}${cut.builds === today ? ' (today!)' : ''}`, 'The morning of the shoot'], correct: 1,
@@ -1025,7 +1025,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
           </div>
         </div>
         <div className="fixed bottom-0 inset-x-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
-          <button {...T('send')} onClick={tap('send')} className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg mb-3 shadow-gold">Book props + gear</button>
+          <button {...T('send')} onClick={tap('send')} className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg mb-3 shadow-gold">Send props + gear</button>
         </div>
       </div>
     ),

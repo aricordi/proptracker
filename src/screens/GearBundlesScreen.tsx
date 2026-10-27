@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import { GearArt } from '../components/GearUi'
 import { subscribeToGearItems, subscribeToGearBundles, setGearBundleArchived, markGearFound, pieceTotal, type GearItem, type GearBundle } from '../services/gear'
+import { friendlyError } from '../lib/errors'
 
-const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
+const errText = (e: unknown) => friendlyError(e)
 
 // Gear team: the bundles creators can book (whole), and a button to build a new one.
 export default function GearBundlesScreen() {

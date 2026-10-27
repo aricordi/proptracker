@@ -4,7 +4,6 @@
 // /return?ref=props:<id> | gear:<id> | <group key>
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import { startReturn } from '../services/reservations'
 import { returnGear, type GearBooking } from '../services/gear'
@@ -14,12 +13,11 @@ import { fmtTime } from '../../functions/src/gearBooking'
 import { formatDay } from '../lib/dates'
 import ProofPhotos from '../components/ProofPhotos'
 import { useReturnGroups, findReturnGroup, canReturnProps, canReturnGear } from '../hooks/useReturnables'
+import { friendlyError } from '../lib/errors'
 
 interface Part { key: string; kind: 'props' | 'gear'; id: string; title: string; detail: string; booking?: GearBooking }
 
-function errText(err: unknown) {
-  return err instanceof FirebaseError ? err.message.replace(/^Firebase: /, '').replace(/ \(functions\/[a-z-]+\)\.?$/, '') : 'Something went wrong. Try again.'
-}
+const errText = (e: unknown) => friendlyError(e)
 
 export default function ReturnAllScreen() {
   const navigate = useNavigate()

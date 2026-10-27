@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
+import { friendlyError } from '../lib/errors'
 
 interface Report {
   month: string; measured: boolean
@@ -22,7 +23,7 @@ const FOLDERS: Record<string, string> = {
 }
 const size = (b: number) => b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} KB`
 const money = (n: number | null) => n === null ? '—' : n < 0.01 ? 'under 1¢' : `$${n.toFixed(2)}`
-const errText = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'That didn\'t work. Try again.'
+const errText = (e: unknown) => friendlyError(e)
 
 export default function CostsScreen() {
   const navigate = useNavigate()

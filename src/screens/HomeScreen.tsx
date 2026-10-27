@@ -24,6 +24,7 @@ import BrandMark from '../components/BrandMark'
 import { useGearCart } from '../gearCart'
 import { useActiveShoot } from '../activeShoot'
 import { BrowseTabs, AddingToChip, useAddingNote } from '../components/AddingToBar'
+import { useAddWithoutShoot } from '../components/AddWithoutShoot'
 import MyRequestsButton from '../components/MyRequestsButton'
 import BottomSheet from '../components/BottomSheet'
 import { readRequestDraft, writeRequestDraft } from '../lib/requestDraft'
@@ -178,12 +179,16 @@ export default function HomeScreen() {
     setDraft(next); writeRequestDraft(toRequest, next)
   }
   const canAdd = (item: Item) => !item.archived && item.condition !== 'damaged'
+  const noShoot = useAddWithoutShoot()
   const qtyProps = (item: Item) => {
     if (toRequest) {
       if (!canAdd(item)) return {}
       return { inCart: draftQty(item.id), max: Math.max(1, (freeFor(item) ?? item.quantity) + (draft?.orig[item.id] ?? 0)), onQty: (n: number) => setDraftQty(item.id, n) }
     }
-    if (!(shootFlow && active.shoot && canAdd(item) && (freeFor(item) ?? 0) > 0)) return { inCart: cart.lines[item.id] }
+    // No shoot picked yet: + still works, it asks which shoot (or books one) instead of a dead end.
+    if (shootFlow && canBook && !active.shoot && canAdd(item) && !(item.missingQty && item.missingQty >= item.quantity))
+      return { inCart: cart.lines[item.id], onAdd: () => noShoot.open(item.name, 'props', item.id) }
+    if (!(shootFlow && active.shoot && !note.late && canAdd(item) && (freeFor(item) ?? 0) > 0)) return { inCart: cart.lines[item.id] }
     return { inCart: cart.lines[item.id], max: freeFor(item) ?? 1, onQty: (n: number) => cart.setQty(item.id, n) }
   }
   // Cards settle in one after another (first dozen only, 30 ms apart) as the list appears.
@@ -284,7 +289,7 @@ export default function HomeScreen() {
 
       <div className="px-4 pb-4 pt-1">
         <p className="text-xs mb-3 flex items-center gap-2">
-          <span className="text-pt-muted">{matched.length} prop{matched.length !== 1 ? 's' : ''}</span>
+          <span className="text-pt-muted shrink-0 whitespace-nowrap">{matched.length} prop{matched.length !== 1 ? 's' : ''}</span>
           {toRequest && reqDay && <span className="text-pt-muted">· free on {formatDay(reqDay)}</span>}
           {shootFlow && !toRequest && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {note.text}</span>}
           {filtersActive && <button onClick={() => { setCategoryFilter(null); setAvailability('all') }} className="ml-auto text-pt-accent shrink-0 tap">Clear filters</button>}
@@ -361,6 +366,7 @@ export default function HomeScreen() {
           </button>
         </div>
       )}
+      {noShoot.sheet}
     </div>
   )
 }

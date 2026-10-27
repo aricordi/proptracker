@@ -62,7 +62,7 @@ function ShootPicker({ open, onClose }: { open: boolean; onClose: () => void }) 
               <span className="block text-pt-muted text-xs">Props by {formatDay(cutoffs(sh).props)} · Gear by {formatDay(cutoffs(sh).gear)}</span>
             </button>
           ))}
-          <button onClick={() => { choose(null); onClose() }} className={`w-full text-left rounded-xl px-3 py-3 ${!shoot ? 'bg-pt-accent/15 border border-pt-accent/50' : 'bg-pt-bg'}`}>
+          <button onClick={() => { choose(''); onClose() }} className={`w-full text-left rounded-xl px-3 py-3 ${!shoot ? 'bg-pt-accent/15 border border-pt-accent/50' : 'bg-pt-bg'}`}>
             <span className="block text-pt-text text-[15px]">Just browsing</span>
           </button>
           <button onClick={() => { onClose(); navigate('/schedule') }} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 mt-2 shadow-gold">Book a shoot</button>
@@ -87,7 +87,8 @@ export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot'
             <span className="block text-pt-muted text-xs">Adding to</span>
             <span className="block text-pt-text truncate">{label(shoot)}</span>
             <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-muted'}`}>
-              {kind === 'shoot' ? `Props by ${formatDay(c!.props)} · new props by ${formatDay(c!.builds)} · gear by ${formatDay(c!.gear)}`
+              {kind === 'shoot' ? [['Props', c!.props], ['new props', c!.builds], ['gear', c!.gear]]
+                  .map(([what, d]) => today > d ? `${what === 'Props' ? 'Too late' : 'too late'} for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`).join(' · ')
                 : late ? `Too late to add ${kind} (cutoff was ${formatDay(by!)})` : `Add ${kind} by ${formatDay(by!)}`}
             </span>
           </> : <>

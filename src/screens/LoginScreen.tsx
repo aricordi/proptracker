@@ -11,6 +11,7 @@ const TEST_ACCOUNTS = [
   { email: 'arts@example.com',        label: 'Arts department' },
   { email: 'creator@example.com',     label: 'Creator' },
   { email: 'kyle@example.com',        label: 'Kyle (creator)' },
+  { email: 'newbie@example.com',      label: 'New creator (first day)' },
   { email: 'gear@example.com',        label: 'Equipment team' },
   { email: 'admin@example.com',       label: 'Admin' },
   { email: 'stranger@example.com',    label: 'Not invited' },

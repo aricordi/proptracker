@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { FirebaseError } from 'firebase/app'
 import { lookAlikeBins } from '../../functions/src/binNames'
 import { mergeBins } from '../services/importer'
 import { useItems } from '../hooks/useItems'
 import type { Bin, Location } from '../types'
+import { friendlyError } from '../lib/errors'
 
 // Bins screen: bins that are really the same one ("B.31", "B:31", "B: 31").
 // Pick the name to keep, then merge: every prop moves into it.
@@ -39,7 +39,7 @@ function Group({ bins, counts, locationMap }: { bins: Bin[]; counts: Map<string,
     if (!window.confirm(`Merge these bins into "${keep.label}"?\n\nEvery prop in the others moves into "${keep.label}", and the other bins are removed (old QR stickers for them stop working).`)) return
     setBusy(true); setError(null)
     try { await mergeBins({ keepId: keep.id, removeIds: bins.filter(b => b.id !== keep.id).map(b => b.id) }) }
-    catch (err) { setError(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server.") ; setBusy(false) }
+    catch (err) { setError(friendlyError(err, "Couldn't reach the server.")) ; setBusy(false) }
   }
 
   return (

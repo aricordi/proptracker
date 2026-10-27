@@ -69,6 +69,7 @@ const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
+import OfflineBanner from './components/OfflineBanner'
 
 // Screens load on demand (smaller first download). Right after sign-in, while the phone is idle,
 // the four main tabs are fetched in the background so switching tabs is still instant.
@@ -293,6 +294,7 @@ export default function App() {
     <Prefetch />
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
+    <OfflineBanner />
     <AssistantProvider>
     <TourGate>
     <ViewAsFrame on={!!session.viewingAs}>

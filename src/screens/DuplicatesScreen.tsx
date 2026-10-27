@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
@@ -14,8 +13,9 @@ import { groupPairs, spreadOf, isSpread, shelfList, pairKey, crossKeys, insideKe
 import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
 import { thumbOf } from '../services/itemShape'
+import { friendlyError } from '../lib/errors'
 
-const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."
+const errText = (e: unknown) => friendlyError(e)
 
 // Admin → Find duplicates. Look-alikes are shown in groups; staff tick the ones that are
 // really the same prop and merge them (same bin) or flag them "to gather" (different bins).

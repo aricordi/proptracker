@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import ChangeRequest from '../components/ChangeRequest'
 import { useItems } from '../hooks/useItems'
@@ -20,10 +19,9 @@ import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reser
 import ShootLink from '../components/ShootLink'
 import ReturnTogether from '../components/ReturnTogether'
 import { Icon, IconText } from '../components/Icon'
+import { friendlyError } from '../lib/errors'
 
-function errText(err: unknown) {
-  return err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Try again."
-}
+const errText = (e: unknown) => friendlyError(e)
 
 export default function ReservationDetailScreen() {
   const { id } = useParams<{ id: string }>()

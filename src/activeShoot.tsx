@@ -38,10 +38,19 @@ export function ActiveShootProvider({ children }: { children: ReactNode }) {
   const upcoming = useMemo(() => (mine ?? []).filter(x => x.status === 'booked' && x.to > now), [mine, now.slice(0, 15)])   // eslint-disable-line react-hooks/exhaustive-deps
   const shoot = upcoming.find(x => x.id === id) ?? null
   const chosenAt = useRef(0)
+  // id: a shoot id, '' = the person picked "Just browsing", null = never chose (the app picks for them, below).
   const choose = (next: string | null) => {
     setId(next); chosenAt.current = Date.now()
-    try { next ? localStorage.setItem(KEY, next) : localStorage.removeItem(KEY) } catch { /* private mode: fine */ }
+    try { next !== null ? localStorage.setItem(KEY, next) : localStorage.removeItem(KEY) } catch { /* private mode: fine */ }
   }
+  // Nothing chosen yet (owner, Oct 27: zero thinking): start on your soonest shoot that can still take props.
+  const settings = useBookingSettings()
+  useEffect(() => {
+    if (!mine || id !== null) return
+    const today = todayInStudio()
+    const next = upcoming.find(x => lastDayToBook(x.date, settings.leadTimeDays, settings) >= today)
+    if (next) choose(next.id)
+  }, [mine, id, upcoming, settings])   // eslint-disable-line react-hooks/exhaustive-deps
   // The shoot was cancelled or is over: back to just browsing. (A shoot booked a moment ago may not have
   // reached this phone's list yet, so give it half a minute before deciding it's gone.)
   useEffect(() => {

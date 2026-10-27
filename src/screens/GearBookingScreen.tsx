@@ -1,7 +1,6 @@
 import ChangeGear from '../components/ChangeGear'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import {
   subscribeToGearBooking, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
@@ -16,8 +15,9 @@ import HandOverSheet from '../components/HandOverSheet'
 import ReturnTogether from '../components/ReturnTogether'
 import { formatDay } from '../lib/dates'
 import { Icon } from '../components/Icon'
+import { friendlyError } from '../lib/errors'
 
-const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
+const errText = (e: unknown) => friendlyError(e)
 const ACTIONS: Record<string, string> = { handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
 const STEPS = ['Held', 'Picked up', 'Returned', 'Checked in']
 const STEP_OF: Record<string, number> = { held: 0, out: 1, returned: 2, checked_in: 3 }

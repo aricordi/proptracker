@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import ProofPhotos from '../components/ProofPhotos'
 import {
   subscribeToGearItems, subscribeToGearBundles, saveGearBundle, setGearBundleArchived,
   bundledCounts, looseCount, bundleProblems, pieceTotal, GEAR_CATEGORIES,
   type GearItem, type GearBundle, type GearCategory, type OfferKind,
 } from '../services/gear'
+import { friendlyError } from '../lib/errors'
 
-const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
+const errText = (e: unknown) => friendlyError(e)
 
 // Gear team: build a bundle (or edit one) from pieces that aren't in another bundle.
 export default function GearBundleEditScreen() {

@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMyStatus } from '../services/schedule'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
+import { friendlyError } from '../lib/errors'
 
 export const ROLE_LABELS: Record<string, string> = {
   owner:   'Owner',
@@ -79,7 +80,7 @@ function ProfileCard({ name, email, roleLabel }: { name: string; email: string; 
   useEffect(() => { setChannel(mine?.channel ?? '') }, [mine?.channel])
   async function run(label: string, f: () => Promise<unknown>, done: string) {
     setBusy(label); setMsg('')
-    try { await f(); setMsg(done) } catch (e) { setMsg((e as Error).message || 'That did not work. Try again.') } finally { setBusy('') }
+    try { await f(); setMsg(done) } catch (e) { setMsg(friendlyError(e, 'That did not work. Try again.')) } finally { setBusy('') }
   }
   const dirty = channel.trim() !== (mine?.channel ?? '')
   return (

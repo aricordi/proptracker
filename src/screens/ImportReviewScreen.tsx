@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import {
   subscribeToImportJob, subscribeToImportItems, approveImports, skipImports, mergeImports, binKey,
   type ImportJob, type ImportItem, type ImportStatus, type Approval,
@@ -11,6 +10,7 @@ import { useItems } from '../hooks/useItems'
 import BottomSheet from '../components/BottomSheet'
 import type { Bin, Category, Item } from '../types'
 import { thumbOf } from '../services/itemShape'
+import { friendlyError } from '../lib/errors'
 
 const PAGE = 20
 const TABS: { key: ImportStatus; label: string }[] = [
@@ -92,7 +92,7 @@ export default function ImportReviewScreen() {
       await mergeImports({ ids, ...(args.item ? { item } : {}), ...(args.addToItemId ? { addToItemId: args.addToItemId, addQuantity: args.addQuantity ?? 0 } : {}) })
       setSelected(new Set()); setSheet(null)
     } catch (err) {
-      setError(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server.")
+      setError(friendlyError(err, "Couldn't reach the server."))
       setSheet(null)
     } finally {
       setBusy(b => new Set([...b].filter(x => !ids.includes(x))))
@@ -111,7 +111,7 @@ export default function ImportReviewScreen() {
         if (failed.length) setError(`${failed.length} couldn't be approved: ${failed[0].error}`)
       }
     } catch (err) {
-      setError(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server.")
+      setError(friendlyError(err, "Couldn't reach the server."))
     } finally {
       setBusy(b => new Set([...b].filter(x => !ids.includes(x))))
     }

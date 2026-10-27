@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import BottomSheet from '../components/BottomSheet'
 import ProofPhotos from '../components/ProofPhotos'
 import {
   subscribeToGearItems, subscribeToGearBundles, saveGearItem, bundledCounts, looseCount,
   GEAR_CATEGORIES, type GearItem, type GearBundle, type GearCategory,
 } from '../services/gear'
+import { friendlyError } from '../lib/errors'
 
-const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
+const errText = (e: unknown) => friendlyError(e)
 
 // Gear team: every piece of gear the company owns, and how many are in bundles.
 export default function GearItemsScreen() {

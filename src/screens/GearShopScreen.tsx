@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAddWithoutShoot } from '../components/AddWithoutShoot'
 import { useGearCart } from '../gearCart'
 import { useCart } from '../cart'
 import BrandMark from '../components/BrandMark'
@@ -22,7 +23,8 @@ export default function GearShopScreen() {
   const [cat, setCat] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const propsCart = useCart()
-  const { profile, role, shootFlow, isStaff } = useSession()
+  const { profile, role, shootFlow, isStaff, canBook } = useSession()
+  const noShoot = useAddWithoutShoot()
   // Creators add gear to one of their booked shoots; without one they just browse.
   const creator = shootFlow   // creator layout (creators + the owner)
   const { shoot } = useActiveShoot()
@@ -97,7 +99,8 @@ export default function GearShopScreen() {
                 // Same badge colours as props: green = free/available, red = taken, amber = something missing.
                 const badge = showFree && !w.problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
                   : b.missing?.length ? { label: 'Piece missing', style: 'bg-amber-500/90 text-stone-900' } : { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
-                const canAdd = creator && !!shoot && ok
+                const canAdd = creator && !!shoot && ok && !note.late
+                const askShoot = creator && !shoot && canBook && !b.archived
                 return (
                   <div key={b.id} className="relative w-full h-full">
                     <button onClick={() => navigate(`/gear/b/${b.id}`)} className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
@@ -113,6 +116,10 @@ export default function GearShopScreen() {
                         {b.missing?.length ? <p className="text-amber-200 text-xs mt-0.5">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
                       </div>
                     </button>
+                    {askShoot && (
+                      <button onClick={() => noShoot.open(b.name, 'gear', b.id)} aria-label={`Add ${b.name}`}
+                        className="absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline bg-black/55 text-pt-text text-[22px] leading-none pb-0.5">+</button>
+                    )}
                     {canAdd && (
                       <button onClick={() => cart.setQty(b.id, inCart ? 0 : 1)} aria-label={inCart ? `Remove ${b.name}` : `Add ${b.name}`}
                         className={`absolute top-2 right-2 min-w-11 h-11 px-3 rounded-full grid place-items-center font-bold backdrop-blur-md shadow-hairline ${
@@ -141,11 +148,16 @@ export default function GearShopScreen() {
                       <p className="text-pt-text text-[15px] truncate">{x.name}</p>
                       <p className={`text-xs ${f || !showFree ? 'text-pt-muted' : 'text-red-300'}`}>{!showFree ? `${x.pieces[0]?.qty ?? 0} offered` : f ? `${f} free for your hours` : 'None free for your hours'}</p>
                     </div>
+                    {creator && !shoot && canBook ? (
+                      <button onClick={() => noShoot.open(x.name, 'gear', x.id)} aria-label={`Add ${x.name}`}
+                        className="w-11 h-11 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-lg shrink-0">+</button>
+                    ) : (
                     <div className="flex items-center rounded-xl overflow-hidden bg-pt-bg shadow-hairline shrink-0">
                       <button onClick={() => cart.setQty(x.id, n - 1)} disabled={n === 0} aria-label={`One less ${x.name}`} className="w-11 h-11 text-pt-text text-lg disabled:opacity-30">−</button>
                       <span className="w-7 text-center text-pt-text font-semibold tabular-nums">{n}</span>
-                      <button onClick={() => cart.setQty(x.id, n + 1)} disabled={n >= f} aria-label={`One more ${x.name}`} className="w-11 h-11 text-pt-text text-lg disabled:opacity-30">+</button>
+                      <button onClick={() => cart.setQty(x.id, n + 1)} disabled={n >= f || (creator && note.late)} aria-label={`One more ${x.name}`} className="w-11 h-11 text-pt-text text-lg disabled:opacity-30">+</button>
                     </div>
+                    )}
                   </div>
                 )
               })}
@@ -164,6 +176,7 @@ export default function GearShopScreen() {
           </button>
         </div>
       )}
+      {noShoot.sheet}
     </div>
   )
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, setItemArchived } from '../services/items'
-import { FirebaseError } from 'firebase/app'
 import { deleteImportedProp } from '../services/importer'
 import { getItemPrivate } from '../services/itemPrivate'
 import { useSession } from '../auth'
@@ -18,6 +17,7 @@ import PropSuggestions, { WrongNameLink } from '../components/Suggestions'
 import { useBookings } from '../hooks/useBookings'
 import { photoMorphName, CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
 import type { Item, Condition } from '../types'
+import { friendlyError } from '../lib/errors'
 
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
@@ -355,7 +355,7 @@ export default function ItemDetailScreen() {
                     <button disabled={deleteState === 'busy'} onClick={async () => {
                       setDeleteState('busy'); setDeleteError(null)
                       try { await deleteImportedProp({ itemId: item.id }); navigate('/', { replace: true }) }
-                      catch (err) { setDeleteError(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server."); setDeleteState('confirm') }
+                      catch (err) { setDeleteError(friendlyError(err, "Couldn't reach the server.")); setDeleteState('confirm') }
                     }} className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-50">
                       {deleteState === 'busy' ? 'Deleting…' : 'Delete'}
                     </button>

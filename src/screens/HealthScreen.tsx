@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
-import { FirebaseError } from 'firebase/app'
 import { useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -21,6 +20,7 @@ import { DUPLICATE_NAME_SIMILARITY } from '../config'
 import { formatMoney } from '../components/ItemCard'
 import type { AiUsageRecord, Item } from '../types'
 import { thumbOf } from '../services/itemShape'
+import { friendlyError } from '../lib/errors'
 
 export default function HealthScreen() {
   const navigate   = useNavigate()
@@ -441,7 +441,7 @@ function ImproveSearchWords() {
         setMessage('')
       }
     } catch (err) {
-      setMessage(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Tap the button to continue.")
+      setMessage(friendlyError(err, "Couldn't reach the server. Tap the button to continue."))
     } finally { setRunning(false) }
   }
 
@@ -484,7 +484,7 @@ function SpeedUpPhotos() {
         last = r.remaining
       }
     } catch (err) {
-      setMessage(err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Tap the button to continue.")
+      setMessage(friendlyError(err, "Couldn't reach the server. Tap the button to continue."))
     } finally { setRunning(false) }
   }
 

@@ -9,21 +9,26 @@ import DateRangePicker from './DateRangePicker'
 import { freeForRange, todayInStudio, earliestStart, pickupDay, type BookingEntry } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
 import type { Item } from '../types'
-import { useActiveShoot } from '../activeShoot'
+import { useActiveShoot, useCutoffs } from '../activeShoot'
 import AddingToBar from './AddingToBar'
 import { IconText } from './Icon'
+import { useAddWithoutShoot } from './AddWithoutShoot'
 
 // On a prop's page: when it's booked, and adding it to the reservation being built.
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
   const navigate = useNavigate()
   const cart = useCart()
   const { isStaff, shootFlow, canBook } = useSession()
+  const noShoot = useAddWithoutShoot()
   const settings = useBookingSettings()
   const turnaroundDays = useTurnaround()(item)
   const today = todayInStudio()
   const minStart = earliestStart(today, settings, isStaff)
   const legacyOut = item.status === 'checked-out'
   const { shoot } = useActiveShoot()
+  const cutoffs = useCutoffs()
+  // Creators can't add after the cutoff (the server refuses it too); staff and the owner skip the notice.
+  const propsLate = !!shoot && !isStaff && todayInStudio() > cutoffs(shoot).props
   // Creators add props to one of their booked shoots; staff can pick any day.
   const dates = cart.start && cart.end && (isStaff || shoot) ? { start: cart.start, end: cart.end } : null
   const free = dates
@@ -55,7 +60,12 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
           This prop is damaged and can't be reserved until the arts department fixes it.
         </p>
       ) : !isStaff && !dates ? (
-        <AddingToBar kind="props" />
+        <div className="space-y-2">
+          <AddingToBar kind="props" />
+          {canBook && <button onClick={() => noShoot.open(item.name, 'props', item.id)}
+            className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Add to a shoot</button>}
+          {noShoot.sheet}
+        </div>
       ) : !dates ? (
         <div className="space-y-2">
           {shootFlow && <AddingToBar kind="props" />}
@@ -79,7 +89,8 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
               : item.quantity > 1 ? `${free} of ${item.quantity} free on this day`
               : 'Free on this day'}
           </p>
-          {canBook && !!free && (
+          {propsLate && <p className="text-red-300 text-sm">Too late to add props to this shoot (the cutoff was {formatDay(cutoffs(shoot!).props)}). Pick a later shoot above.</p>}
+          {canBook && !!free && !propsLate && (
             <>
               {item.quantity > 1 && (
                 <div className="flex items-center gap-3">

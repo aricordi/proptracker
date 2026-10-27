@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FirebaseError } from 'firebase/app'
 import { useSession } from '../auth'
 import {
   subscribeToImportJobs, subscribeToImportBudget, setImportCap, importInfo, startImport, processImport, undoImport,
   DEFAULT_CAP_USD, type ImportJob, type ImportBudget,
 } from '../services/importer'
 import { formatDay } from '../lib/dates'
+import { friendlyError } from '../lib/errors'
 
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`
-const errText = (err: unknown) => err instanceof FirebaseError ? err.message.replace(/^.*?:\s*/, '') : "Couldn't reach the server. Check your connection."
+const errText = (e: unknown) => friendlyError(e)
 
 // Admin → Import: bring the existing photo library in from Google Drive.
 export default function ImportScreen() {

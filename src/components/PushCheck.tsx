@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { Icon } from './Icon'
+import { friendlyError } from '../lib/errors'
 
 interface Device { platform: string; lastSeen: string }
 interface Result { sent: number; phones: number; errors: string[]; devices: Device[] }
@@ -37,7 +38,7 @@ export function PushCheck({ email, name }: { email: string; name: string }) {
       else if (r.sent) setMsg({ ok: true, text: `Google accepted it for ${r.sent} of ${r.phones} phone${r.phones === 1 ? '' : 's'}. If ${first} sees nothing within a minute, their phone is dropping it: ask them to turn notifications off and on again in Me → Notifications.` })
       else setMsg({ ok: false, text: `Their phone refused it${r.errors[0] ? ` (${r.errors[0]})` : ''}. The sign-up has gone stale: ask ${first} to turn notifications off and on again in Me → Notifications.` })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Could not send it.' })
+      setMsg({ ok: false, text: friendlyError(e, 'Could not send it.') })
     } finally { setBusy(false) }
   }
 

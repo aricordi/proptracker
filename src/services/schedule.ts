@@ -4,6 +4,7 @@ import { collection, doc, onSnapshot, query, where, orderBy, documentId } from '
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
 import { cleanScheduleSettings, DEFAULT_SCHEDULE, type ScheduleSettings, type ScheduleDay, type Place, type ShootKind, type BlockType, type House } from '../../functions/src/schedule'
+import { friendlyError } from '../lib/errors'
 
 export * from '../../functions/src/schedule'
 // Owner (Oct 19, option A): the "monthly vs extra" choice is hidden until the wishlist + fair draw exists.
@@ -229,4 +230,4 @@ export const reviewFlag = httpsCallable<{ flagId: string; action: FlagAction; no
   { ok: boolean; status: string; strike: { strikes: number; paused: boolean } | null }>(functions, 'reviewFlag')
 
 // Error text from a server call, in plain words.
-export const errorText = (e: unknown) => (e as { message?: string })?.message || 'Something went wrong. Try again.'
+export const errorText = (e: unknown) => friendlyError(e, 'Something went wrong. Try again.')

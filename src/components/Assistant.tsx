@@ -36,6 +36,7 @@ import {
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
 import { fmtTime, fmtHours } from '../../functions/src/gearBooking'
 import { Icon } from './Icon'
+import { friendlyError } from '../lib/errors'
 
 type Msg =
   | { who: 'me'; text: string; mode: Helper }
@@ -67,7 +68,7 @@ const OPENERS: Record<Helper, string> = {
 const GREETING = 'Tell me your video idea, or when you want to film, or both. I\'ll find the props we have and the times that are free.'
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-const propsErr = (e: unknown) => (e as Error)?.message?.replace(/^.*?:\s*/, '') || 'The AI helper didn\'t answer. Try again.'
+const propsErr = (e: unknown) => friendlyError(e, "The AI helper didn't answer. Try again.")
 // The phone's own speech recognition, when the browser has it (Safari and Chrome do).
 const Speech = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null
 

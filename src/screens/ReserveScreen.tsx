@@ -27,9 +27,10 @@ import { crewHours } from '../../functions/src/gearCrew'
 import AddingToBar from '../components/AddingToBar'
 import { addOpenDays } from '../../functions/src/booking'
 import { Icon } from '../components/Icon'
+import { friendlyError } from '../lib/errors'
 
 const shootIdNew = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
-const errMsg = (err: unknown) => err instanceof FirebaseError ? (err.message.replace(/^.*?:\s*/, '') || 'Could not book.') : "Couldn't reach the server. Check your connection and try again."
+const errMsg = (e: unknown) => friendlyError(e, 'Could not book.')
 
 // "Your shoot": the props AND gear for one shoot day, sent together. Gear is held first;
 // if the props part then fails, the gear hold is cancelled again so nothing is half-booked.
@@ -113,8 +114,20 @@ export default function ReserveScreen() {
     setBuildDesc(''); setBuildQty(1); setBuildPhotos([]); setShowBuild(false)
   }
 
+  // Too late for new things on this day (creators): don't offer the form at all.
+  const buildsClosed = !isStaff && cart.builds.length === 0 && !!day && day < addOpenDays(today, settings.buildLeadDays, settings)
   const buildsTooSoon = !isStaff && cart.builds.length > 0 && !!day && day < addOpenDays(today, settings.buildLeadDays, settings)
   const propsOk = !hasProps || (late.length === 0 && datesOk && !buildsTooSoon && lines.every(l => !l.problem))
+  // Say on the button what's missing (owner, Oct 27: a greyed-out button with no reason makes people give up).
+  const whyNot = canSubmit_why()
+  function canSubmit_why(): string | null {
+    if (busy || buildUploading) return null
+    if (!hasProps && !hasGear) return 'Add props or gear first'
+    if (needShoot) return 'Pick your shoot above'
+    if (!day) return 'Pick the shoot day above'
+    if (!title.trim()) return 'Type a video name to send'
+    return null
+  }
   const canSubmit = !needShoot && !!day && title.trim() && (hasProps || hasGear) && propsOk && gearOk && !busy && !buildUploading
 
   async function submit() {
@@ -262,6 +275,8 @@ export default function ReserveScreen() {
                   className="flex-1 py-3 rounded-xl bg-violet-500 text-white text-sm font-semibold disabled:opacity-40">Add request</button>
               </div>
             </div>
+          ) : buildsClosed ? (
+            <p className="mt-2 text-pt-muted text-sm">Too late to ask for things we don't have for this shoot ({settings.buildLeadDays} open days' notice). Pick from the closet instead.</p>
           ) : (
             <button onClick={() => setShowBuild(true)}
               className="mt-2 w-full py-3 rounded-2xl border border-dashed border-violet-500/60 text-violet-300 text-sm font-medium active:opacity-70">
@@ -330,7 +345,7 @@ export default function ReserveScreen() {
       <div className="fixed bottom-0 inset-x-0 px-4 pt-3 pb-safe bg-pt-bg border-t border-pt-border">
         <button onClick={submit} disabled={!canSubmit}
           className="w-full bg-pt-accent text-stone-900 py-4 rounded-2xl font-semibold text-lg disabled:opacity-40 active:opacity-80 mb-3 shadow-gold">
-          {busy ? 'Sending…' : hasProps && hasGear ? 'Book props + gear' : hasGear ? 'Hold this gear' : 'Reserve these props'}
+          {busy ? 'Sending…' : whyNot ?? (hasProps && hasGear ? 'Send props + gear' : hasGear ? 'Send the gear' : 'Send the props')}
         </button>
       </div>
     </div>

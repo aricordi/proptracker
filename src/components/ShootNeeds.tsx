@@ -9,6 +9,7 @@ import { useAssistant } from '../assistant'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import type { Shoot } from '../services/schedule'
+import UnsentBasket from './UnsentBasket'
 
 export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear'; sharedBy?: string; sharedWith?: string }
 
@@ -106,6 +107,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
   return (
     <div className="space-y-2">
       <p className="text-pt-muted text-xs">For this shoot</p>
+      {mine && <UnsentBasket shootId={shoot.id} />}
       {mine && open && ai.available && today <= cut.gear && (
         <button onClick={() => ai.open('plan', shoot.id)} className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
           <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>

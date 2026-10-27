@@ -17,8 +17,9 @@ import { useSession } from '../auth'
 import { formatDay } from '../lib/dates'
 import BottomSheet from '../components/BottomSheet'
 import type { Item, Location } from '../types'
+import { friendlyError } from '../lib/errors'
 
-const errText = (e: unknown) => (e as Error)?.message?.includes('permission') ? 'Not allowed.' : 'That didn\'t save. Check your signal and try again.'
+const errText = (e: unknown) => friendlyError(e, "That didn't save. Check your signal and try again.")
 
 export default function BinQrScreen() {
   const { qrSlug } = useParams<{ qrSlug: string }>()

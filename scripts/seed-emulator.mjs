@@ -38,6 +38,7 @@ const users = [
   { email: 'admin@example.com', name: 'Sam (Admin)', role: 'admin', active: true },
   { email: 'jana@example.com', name: 'Jana', role: 'creator', active: true },
   { email: 'kyle@example.com', name: 'Kyle', role: 'creator', active: true },
+  { email: 'newbie@example.com', name: 'Nia', role: 'creator', active: true },
   { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false },
 ]
 const locations = [{ id: 'loc-main', name: 'Main prop room' }, { id: 'loc-cage', name: 'Costume cage' }]
