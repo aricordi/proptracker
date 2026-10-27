@@ -1526,6 +1526,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "Dee (props only)" + test login "Creator on Props only (demo)"; other seed creators 'full'. Tests 483.
       LIVE Oct 27 (owner "yes deploy everything"): backend run 46 + website run 45. Every live creator (Ariel) is now on Props only
       until the owner switches them on People & access.
+    - ERROR CHECK + BINS IN NUMBER ORDER (owner, Oct 27; app only, preview only, live website needs OK): typecheck + build OK, tests 484,
+      crawl of 58 routes x 7 roles (incl. demo creator) no errors; Read server logs run 19: no failed requests (6 h) / no 500s (24 h),
+      every callable public, data check clean. BINS: `compareBinLabels` (functions/src/binNames.ts: ignores dots/spaces, numeric:
+      "Bin 2" before "Bin 10", "B3" before "B.31") used by useBins → every bin list/picker in number order; BinQrScreen "Done ✓ · next:
+      Bin 7" goes straight to the next UNCHECKED bin in number order (else /bins). Unit test in binNames.test.ts.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

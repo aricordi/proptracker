@@ -7,6 +7,12 @@ export const binKey = (s: string) => s.toUpperCase().trim()
   .replace(/[^A-Z0-9]/g, '')
   .replace(/(^|[A-Z])0+(?=\d)/g, '$1')
 
+// Number order (owner, Oct 27): "Bin 2" before "Bin 10", "A2" before "A10", then letters A–Z.
+// Dots, dashes and spaces are ignored ("B.31" sits with "B31", after "B3").
+const sortable = (s: string) => s.replace(/[^A-Za-z0-9]+/g, '')
+export const compareBinLabels = (a: string, b: string) =>
+  sortable(a).localeCompare(sortable(b), 'en', { numeric: true, sensitivity: 'base' }) || a.localeCompare(b)
+
 // How a new bin from a sign is named: "bin 1", "BIN 1" and "Bin  1" all become "Bin 1".
 export const tidyBinLabel = (s: string) => s.trim().replace(/\s+/g, ' ').replace(/^bin\b\s*/i, 'Bin ').trim()
 

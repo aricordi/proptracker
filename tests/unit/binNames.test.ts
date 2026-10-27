@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { binKey, lookAlikeBins, tidyBinLabel } from '../../functions/src/binNames'
+import { binKey, lookAlikeBins, tidyBinLabel, compareBinLabels } from '../../functions/src/binNames'
 
 describe('matching bin names written different ways', () => {
   it('treats punctuation, spaces, "Bin" and leading zeros as the same bin', () => {
@@ -23,5 +23,12 @@ describe('matching bin names written different ways', () => {
   })
   it('tidies new bin names', () => {
     expect(tidyBinLabel('  bin   5 ')).toBe('Bin 5')
+  })
+})
+
+describe('number order (owner, Oct 27)', () => {
+  it('sorts bins like a person would: 2 before 10, letters together', () => {
+    const labels = ['Bin 10', 'Bin 2', 'A10', 'bin 1', 'A2', 'B.31', 'B3', 'Bin 21']
+    expect([...labels].sort(compareBinLabels)).toEqual(['A2', 'A10', 'B3', 'B.31', 'bin 1', 'Bin 2', 'Bin 10', 'Bin 21'])
   })
 })

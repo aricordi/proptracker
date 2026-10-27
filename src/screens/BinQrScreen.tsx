@@ -66,7 +66,16 @@ export default function BinQrScreen() {
     await updateItem(i.id, { binId: bin!.id, locationId: bin!.locationId ?? '', lostFromBin: '', binCheck: { binId: bin!.id, at: stamp(), by: me } })
     setFinding(false); setQ('')
   })
-  const finish = () => run('finish', async () => { await updateBin(bin!.id, { checkedAt: stamp(), checkedBy: me }); navigate('/bins') })
+  // Walking the shelves in number order (owner, Oct 27): "Done" goes straight to the next bin that isn't checked yet.
+  const nextBin = useMemo(() => {
+    if (!bin) return null
+    const after = bins.slice(bins.findIndex(b => b.id === bin.id) + 1)
+    return after.find(b => !b.checkedAt) ?? null
+  }, [bins, bin])
+  const finish = () => run('finish', async () => {
+    await updateBin(bin!.id, { checkedAt: stamp(), checkedBy: me })
+    navigate(nextBin ? `/bin/${nextBin.qrSlug}` : '/bins')
+  })
 
   // "Found something else": any prop not already in this bin, by name.
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -155,7 +164,7 @@ export default function BinQrScreen() {
         <div className="fixed left-0 right-0 bottom-0 px-4 pt-3 pb-safe bg-pt-bg z-20">
           <button disabled={!!busy || done < binItems.length} onClick={finish}
             className="w-full mb-3 rounded-2xl py-4 font-bold bg-pt-accent text-stone-900 shadow-gold disabled:opacity-40">
-            {done < binItems.length ? `Tick every prop first (${binItems.length - done} left)` : 'Done with this bin ✓'}
+            {done < binItems.length ? `Tick every prop first (${binItems.length - done} left)` : nextBin ? `Done ✓ · next: ${nextBin.label}` : 'Done with this bin ✓'}
           </button>
         </div>
       )}
