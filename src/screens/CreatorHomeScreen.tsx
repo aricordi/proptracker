@@ -12,6 +12,7 @@ import LateBanner from '../components/LateBanner'
 import AiButton from '../components/AiButton'
 import { MyRequestsRow } from '../components/MyRequestsButton'
 import UnsentBasket from '../components/UnsentBasket'
+import { tourDoneHere } from '../tour/tourState'
 import { useAssistant } from '../assistant'
 import { GearArt } from '../components/GearUi'
 import { useMyLateBookings } from '../hooks/useLateBookings'
@@ -181,6 +182,14 @@ export default function CreatorHomeScreen() {
         </button>
         <MyRequestsRow />
         <NotificationsNudge />
+        {!tourDoneHere(profile.email) && (
+          <button onClick={() => navigate('/tour')} className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left bg-pt-surface shadow-hairline">
+            <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-accent/15 text-pt-accent shrink-0"><Icon name="clock" className="w-5 h-5" /></span>
+            <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">New here? Take the practice tour</b>
+              <span className="text-pt-muted text-sm">About 8 minutes. Nothing real gets booked.</span></span>
+            <span className="text-pt-muted">›</span>
+          </button>
+        )}
       </div>
 
       {/* Your usuals */}

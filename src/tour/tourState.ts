@@ -29,3 +29,14 @@ export function markTourDone(email: string) {
 
 export const savedStep = (email: string) => Number(read(STEP(email)) ?? 0) || 0
 export const saveStep = (email: string, n: number) => write(STEP(email), String(n))
+
+// "Skip for now" (owner, Oct 27: an 8-minute must-do tour loses lazy users): skipping hides it on this phone for a
+// week, then it asks once more. Creators see a small "Take the practice tour" card on Home meanwhile.
+const SKIP = (email: string) => `pc.tourSkip.${email}`
+const SKIP_DAYS = 7
+export function skipTour(email: string) { write(SKIP(email), new Date().toISOString()) }
+export function tourSkipped(email: string) {
+  const at = Date.parse(read(SKIP(email)) ?? '')
+  return !Number.isNaN(at) && Date.now() - at < SKIP_DAYS * 86_400_000
+}
+export const tourDoneHere = (email: string) => !!read(DONE(email))

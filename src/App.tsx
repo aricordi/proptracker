@@ -64,7 +64,7 @@ import { ActiveShootProvider } from './activeShoot'
 import { AssistantProvider } from './assistant'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
-import { useTourDone } from './tour/tourState'
+import { useTourDone, skipTour, tourSkipped } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
@@ -102,11 +102,12 @@ function TourGate({ children }: { children: ReactNode }) {
   const required = (realRole === 'creator' || realRole === 'equipment' || realRole === 'admin') && !viewingAs
   const [done, setDone] = useTourDone(profile.email, required)
   const navigate = useNavigate()
-  if (!required || done) return <>{children}</>
+  if (!required || done || tourSkipped(profile.email)) return <>{children}</>
   if (done === undefined) return <ScreenFallback />
   // Finished (or paused with Not now): land on Home (owner, Oct 20).
   const finished = () => { setDone(); navigate('/', { replace: true }) }
-  return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' ? <GearTour required onFinish={finished} /> : realRole === 'admin' ? <AdminTour required onFinish={finished} /> : <Tour required onFinish={finished} />}</Suspense>
+  const skipped = () => { skipTour(profile.email); finished() }
+  return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' ? <GearTour required onFinish={finished} onSkip={skipped} /> : realRole === 'admin' ? <AdminTour required onFinish={finished} onSkip={skipped} /> : <Tour required onFinish={finished} onSkip={skipped} />}</Suspense>
 }
 // Replaying the tour (Me → App tour, Help). Ends on Home, like the first time.
 function TourReplay() {

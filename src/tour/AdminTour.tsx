@@ -52,7 +52,7 @@ const field = 'w-full bg-pt-bg rounded-xl px-3 py-3 text-pt-text shadow-hairline
 const btnGold = 'w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 disabled:shadow-none'
 const validEmail = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e.trim())
 
-export default function AdminTour({ onFinish, required = false }: { onFinish: () => void; required?: boolean }) {
+export default function AdminTour({ onFinish, onSkip, required = false }: { onFinish: () => void; onSkip?: () => void; required?: boolean }) {
   const { profile, user } = useSession()
   const name = profile.name || user.displayName || profile.email
   const first = (profile.name || user.displayName || '').split(' ')[0]
@@ -210,7 +210,8 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
   const back = idx > 0 ? () => setIdx(n => { const m = Math.max(0, n - 1); if (required) saveStep(profile.email, m); return m }) : undefined
   const tap = (t: string) => () => { if (step.target === t) advance() }
   const T = (t: string) => ({ 'data-tour': t })
-  const finish = () => { if (required) markTourDone(profile.email); onFinish() }
+  // Finishing counts even when replayed (someone who skipped it may finish it later from the menu).
+  const finish = () => { markTourDone(profile.email); onFinish() }
 
   // ── Where the story is ──
   const lessOnly = past('tilesless') && !past('tilesall')
@@ -334,6 +335,7 @@ export default function AdminTour({ onFinish, required = false }: { onFinish: ()
         <div className="chapter-rise space-y-2 pb-4" style={{ animationDelay: '480ms' }}>
           <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">Show me around</button>
           {!required && <button onClick={onFinish} className="w-full py-2 text-pt-muted text-[15px]">Not now</button>}
+          {required && onSkip && <button onClick={onSkip} className="w-full py-2 text-pt-muted text-[15px]">Skip for now</button>}
         </div>
       </div>
     ),

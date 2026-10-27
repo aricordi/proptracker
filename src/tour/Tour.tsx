@@ -74,7 +74,7 @@ const FREE = 'bg-green-500/90 text-stone-900'
 // Cap's examples, in the Stromedy style everyone at Prime Capitol shoots (owner, Oct 20).
 const EX = { title: 'If You See This, RUN', idea: 'a prank where my roommate thinks the house is haunted', time: 'Friday evening, 2 hours' }
 
-export default function Tour({ onFinish, required = false }: { onFinish: () => void; required?: boolean }) {
+export default function Tour({ onFinish, onSkip, required = false }: { onFinish: () => void; onSkip?: () => void; required?: boolean }) {
   const { profile, user } = useSession()
   const name = profile.name || user.displayName || profile.email
   const first = (profile.name || user.displayName || '').split(' ')[0]
@@ -702,6 +702,7 @@ export default function Tour({ onFinish, required = false }: { onFinish: () => v
         <div className="chapter-rise space-y-2 pb-4" style={{ animationDelay: '480ms' }}>
           <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">Show me around</button>
           {!required && <button onClick={onFinish} className="w-full py-2 text-pt-muted text-[15px]">Not now</button>}
+          {required && onSkip && <button onClick={onSkip} className="w-full py-2 text-pt-muted text-[15px]">Skip for now</button>}
         </div>
       </div>
     ),

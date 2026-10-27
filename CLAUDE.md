@@ -1454,6 +1454,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Tests 455. Preview run 230 green. Server logs run 18 (Oct 27): data check clean, no new failed requests; live settings unchanged
       (leadTimeDays 3, schedule settings never saved / priority group empty, calendar not connected, 0 single gear pieces public,
       people: arts Farrell + Keith, creator Ariel only).
+    - SKIP FOR NOW (owner, Oct 27: "yes put the skip for now, and make everything live"): welcome screen of all 3 required tours
+      (Tour / GearTour / AdminTour `onSkip`) has "Skip for now" → tourState `skipTour(email)` (localStorage pc.tourSkip.<email>);
+      TourGate skips the tour while `tourSkipped` (7 days), then asks once more. Creator Home shows "New here? Take the practice tour"
+      (→ /tour) until `tourDoneHere`. Gear + admin tours now mark done when finished from the replay too. Owner guide updated.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
