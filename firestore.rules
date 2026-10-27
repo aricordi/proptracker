@@ -44,7 +44,8 @@ service cloud.firestore {
     // ─── Users ──────────────────────────────────────────────────
     function validUser(email) {
       let d = request.resource.data;
-      return d.keys().hasOnly(['email', 'name', 'role', 'active', 'invitedBy', 'invitedAt', 'updatedAt', 'updatedBy'])
+      return d.keys().hasOnly(['email', 'name', 'role', 'active', 'invitedBy', 'invitedAt', 'updatedAt', 'updatedBy', 'access'])
+        && d.get('access', 'props') in ['props', 'full']
         && d.email == email
         && email == email.lower()
         && d.role in ['owner', 'arts', 'creator', 'equipment', 'admin']
@@ -54,11 +55,15 @@ service cloud.firestore {
     match /users/{email} {
       allow read: if canSee() || (signedIn() && myEmail() == email);
       // Invites (owner, Oct 20): only the owner (any role) and admins (creators only).
+      // Test launch (owner, Oct 27): `access` 'props' (demo: search the props only; also when missing) or 'full'. ONLY the owner
+      // changes it; an admin's invites always start on Props only.
       allow create: if validUser(email)
-        && (isOwner() || (role() == 'admin' && request.resource.data.role == 'creator'));
+        && (isOwner() || (role() == 'admin' && request.resource.data.role == 'creator'
+                          && request.resource.data.get('access', 'props') == 'props'));
       allow update: if validUser(email)
         && (isOwner()
-            || (role() == 'admin' && resource.data.role == 'creator' && request.resource.data.role == 'creator'));
+            || (role() == 'admin' && resource.data.role == 'creator' && request.resource.data.role == 'creator'
+                && request.resource.data.get('access', 'props') == resource.data.get('access', 'props')));
       allow delete: if false; // deactivate instead, so history stays intact
     }
 

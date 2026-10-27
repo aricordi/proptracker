@@ -124,10 +124,16 @@ const ownerNav = [
     '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet'] },
 ]
 
+// Demo mode (test launch, Oct 27): the props list and Me, nothing to book.
+const demoNav = [
+  { to: '/browse',  label: 'Props', icon: searchIcon, also: ['/item'] },
+  { to: '/account', label: 'Me',    icon: accountIcon, also: ['/help'] },
+]
+
 export default function BottomNav() {
-  const { isStaff, role } = useSession()
+  const { isStaff, role, demo } = useSession()
   const nav: { to: string; label: string; icon: JSX.Element; also?: string[] }[] =
-    role === 'equipment' ? equipmentNav : role === 'owner' ? ownerNav : role === 'admin' ? adminNav : isStaff ? staffNav : creatorNav
+    demo ? demoNav : role === 'equipment' ? equipmentNav : role === 'owner' ? ownerNav : role === 'admin' ? adminNav : isStaff ? staffNav : creatorNav
   const path = useLocation().pathname
   // Other screens light up the tab with the longest matching prefix
   // (e.g. gear bookings belong to "Me" for creators, the gear shop to "Browse").

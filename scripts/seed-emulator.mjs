@@ -33,13 +33,14 @@ const meta = { createdAt: now, updatedAt: now, createdBy: 'seed', updatedBy: 'se
 
 const users = [
   { email: 'arts@example.com', name: 'Sam (Arts)', role: 'arts', active: true },
-  { email: 'creator@example.com', name: 'Riley (Creator)', role: 'creator', active: true },
+  { email: 'creator@example.com', name: 'Riley (Creator)', role: 'creator', active: true, access: 'full' },
   { email: 'gear@example.com', name: 'Dev (Equipment)', role: 'equipment', active: true },
   { email: 'admin@example.com', name: 'Sam (Admin)', role: 'admin', active: true },
-  { email: 'jana@example.com', name: 'Jana', role: 'creator', active: true },
-  { email: 'kyle@example.com', name: 'Kyle', role: 'creator', active: true },
-  { email: 'newbie@example.com', name: 'Nia', role: 'creator', active: true },
-  { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false },
+  { email: 'jana@example.com', name: 'Jana', role: 'creator', active: true, access: 'full' },
+  { email: 'kyle@example.com', name: 'Kyle', role: 'creator', active: true, access: 'full' },
+  { email: 'newbie@example.com', name: 'Nia', role: 'creator', active: true, access: 'full' },
+  { email: 'demo@example.com', name: 'Dee (props only)', role: 'creator', active: true, access: 'props' },   // test launch demo mode
+  { email: 'former@example.com', name: 'Former creator', role: 'creator', active: false, access: 'full' },
 ]
 const locations = [{ id: 'loc-main', name: 'Main prop room' }, { id: 'loc-cage', name: 'Costume cage' }]
 const bins = [

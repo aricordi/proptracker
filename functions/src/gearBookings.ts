@@ -3,7 +3,7 @@
 // what makes double-booking impossible (same idea as item_bookings for props).
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator } from './auth.js'
+import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator, isDemoCreator } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
@@ -463,7 +463,7 @@ export const handOverGear = onCall(CALLABLE, async req => {
   }
   if (!toEmail || toEmail === caller.email) throw new HttpsError('invalid-argument', 'Pick who you are handing it to.')
   const u = (await db.doc(`users/${toEmail}`).get()).data()
-  const toOk = toEmail === OWNER_EMAIL || (u?.active === true && ['creator', 'owner'].includes(u.role))
+  const toOk = toEmail === OWNER_EMAIL || (u?.active === true && ['creator', 'owner'].includes(u.role) && !isDemoCreator(u.role, u.access))
   if (!toOk) throw new HttpsError('failed-precondition', "That person can't book gear.")
   const toName = String(u?.name || (toEmail === OWNER_EMAIL ? 'Alex' : toEmail))
   if (toEmail !== OWNER_EMAIL && u?.role === 'creator') {

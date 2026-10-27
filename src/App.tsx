@@ -4,8 +4,8 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from './firebase'
 import { OWNER_EMAIL } from './config'
-import { SessionContext, makeSession, useSession, type Session } from './auth'
-import type { AppUser, Role } from './types'
+import { SessionContext, makeSession, useSession, type Session, type ViewAs } from './auth'
+import type { AppUser } from './types'
 import ViewAsBanner from './components/ViewAsBanner'
 import { subscribeToUser, normalizeEmail } from './services/users'
 import { ensureDefaultCategories } from './services/categories'
@@ -100,7 +100,9 @@ export function ScreenFallback() { return <div className="min-h-full bg-pt-bg" /
 function TourGate({ children }: { children: ReactNode }) {
   const { realRole, viewingAs, profile } = useSession()
   // Creators do the creator tour; the equipment team does the gear team tour; admins the admin tour (owner, Oct 20).
-  const required = (realRole === 'creator' || realRole === 'equipment' || realRole === 'admin') && !viewingAs
+  const { demo } = useSession()
+  // Demo mode (Props only) has no tour: there's nothing to practise yet. They get it once switched to Full app.
+  const required = (realRole === 'creator' || realRole === 'equipment' || realRole === 'admin') && !viewingAs && !demo
   const [done, setDone] = useTourDone(profile.email, required)
   const navigate = useNavigate()
   if (!required || done || tourSkipped(profile.email)) return <>{children}</>
@@ -210,10 +212,10 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [profile, setProfile] = useState<AppUser | null>(null)
-  const [viewAs, setViewAsState] = useState<Role | null>(() => {
-    try { return (sessionStorage.getItem('proptracker.viewAs') as Role | null) || null } catch { return null }
+  const [viewAs, setViewAsState] = useState<ViewAs | null>(() => {
+    try { return (sessionStorage.getItem('proptracker.viewAs') as ViewAs | null) || null } catch { return null }
   })
-  const setViewAs = (r: Role | null) => {
+  const setViewAs = (r: ViewAs | null) => {
     setViewAsState(r)
     try { r ? sessionStorage.setItem('proptracker.viewAs', r) : sessionStorage.removeItem('proptracker.viewAs') } catch { /* fine */ }
   }
@@ -301,6 +303,18 @@ export default function App() {
     <TourGate>
     <ViewAsFrame on={!!session.viewingAs}>
       <Suspense fallback={<ScreenFallback />}>
+      {session.demo ? (
+      // TEST LAUNCH (owner, Oct 27): demo mode = the props list only (search, prop pages, Me, Help). Everything else → Browse.
+      <Routes>
+        <Route path="/item/:id" element={<ItemDetailScreen />} />
+        <Route element={<ShellLayout />}>
+          <Route path="/browse" element={<HomeScreen />} />
+          <Route path="/account" element={<AccountScreen />} />
+          <Route path="/help" element={<HelpScreen />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/browse" replace />} />
+      </Routes>
+      ) : (
       <Routes>
         {/* Full-screen routes outside the shell */}
         <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
@@ -361,6 +375,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      )}
       </Suspense>
     </ViewAsFrame>
     </TourGate>

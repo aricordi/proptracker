@@ -1508,6 +1508,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Oct 27 (owner "deploy everything"): MERGED branch claude/loving-pascal-0sqqcq (Prime Capitol Google account) into this
       branch, tests 477 green, backend run 45 + website run 44: roles audit + late return fee + Google account are live. Owner next:
       IT creates the company account + shares the calendar; owner does the Google account setup screen; equipment team fills in gear values.
+    - TEST LAUNCH / DEMO MODE (owner, Oct 27: phase 1 = every creator sees ONLY the searchable props list; phase 2 = the owner moves 3–5
+      creators at a time to the full app; NOT deployed: server + SECURITY RULES → backend + website deploy, ask). Owner answers: NEW
+      creators start on Props only; ONLY THE OWNER switches; demo shows the PROPS LIST ONLY (no gear, schedule, AI); Suggest an edit
+      stays. `users/{email}.access` 'props' | 'full'; MISSING = PROPS ONLY (so existing creators, e.g. Ariel, are demo until switched).
+      Server (auth.ts): Caller.demo = isDemoCreator(role, access); requireRole REFUSES demo creators on EVERY callable unless
+      `{ demoOk: true }` (searchSimilar, registerPush, unregisterPush, testPush) with DEMO_MESSAGE + details.problem 'demo' → new
+      callables are closed to demo by default. filmingPeople (friend list, Book for, priority group, AI time finder, calendar import)
+      leaves demo creators out; bookShoot forEmail / bookWithFriends friends / handOverGear receiver refuse them. Rules: validUser
+      allows `access` in ['props','full'] (missing ok); only the OWNER may change it (admin updates must keep it; admin invites only
+      'props'). App: Session.demo (+ previewingDemo; View as "Creator (props only)" in Me; ViewAs type = Role | 'demo'); demo → own
+      Routes (/browse, /item/:id, /account, /help; everything else → /browse), tabs Props / Me (demoNav), no tour (TourGate), shootFlow
+      + canBook false (Browse = plain Props list), prop page hides ReservePanel, Me shows a "Sneak peek" card + Help. inviteUser
+      writes access 'props' for creators. People: creators section "N on Full app, M on Props only", pill per creator, EditSheet
+      "App access: Props only | Full app" (owner only; sheet stays open, live user). Analytics creatorPeople = Full app creators only.
+      Test helper put() gives test creators access 'full' unless set; tests/functions/demoMode.test.ts + rules test. Seed: demo@example.com
+      "Dee (props only)" + test login "Creator on Props only (demo)"; other seed creators 'full'. Tests 483.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

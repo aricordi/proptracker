@@ -22,7 +22,7 @@ import { friendlyError } from '../lib/errors'
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { isStaff, canSeeStaff } = useSession()   // admins see staff details; only arts/owner change things
+  const { isStaff, canSeeStaff, demo } = useSession()   // admins see staff details; only arts/owner change things; demo = look only
   const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'busy'>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const tags       = useTags()
@@ -219,7 +219,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {!item.archived && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
+        {!item.archived && !demo && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
 
         {/* Location */}
         {canSeeStaff && locationPath && (

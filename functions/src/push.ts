@@ -86,7 +86,7 @@ const sendAll = (list: Push[]) => Promise.all(list.map(p => sendPush(p).catch(e 
 // ─── Phones signing up ───────────────────────────────────────────────────────
 
 export const registerPush = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'])
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'], { demoOk: true })
   const token = typeof req.data?.token === 'string' ? req.data.token.trim() : ''
   if (token.length < 20 || token.length > 4096) throw new HttpsError('invalid-argument', 'That phone could not be signed up for notifications.')
   const platform = typeof req.data?.platform === 'string' ? req.data.platform.slice(0, 40) : ''
@@ -102,7 +102,7 @@ export const registerPush = onCall(CALLABLE, async req => {
 })
 
 export const unregisterPush = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'])
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'], { demoOk: true })
   const token = typeof req.data?.token === 'string' ? req.data.token.trim() : ''
   if (!token) return { ok: true }
   const ref = db.doc(`push_tokens/${tokenId(token)}`)
@@ -114,7 +114,7 @@ export const unregisterPush = onCall(CALLABLE, async req => {
 // A test can wait a few seconds first, so the person can close the app: iPhones often don't show a banner for the
 // app that's open on screen.
 export const testPush = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'])
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'], { demoOk: true })
   const wait = Math.min(Math.max(Number(req.data?.delaySeconds) || 0, 0), 15)
   if (wait) await new Promise(r => setTimeout(r, wait * 1000))
   const r = await sendPushDetailed({ to: [caller.email], url: '/account', tag: 'test', title: 'Notifications are on ✓',

@@ -16,9 +16,14 @@ export interface Session {
   canManagePeople: boolean  // invites creators + changes the booking rules: owner and admin only (owner, Oct 20)
   shootFlow: boolean     // creator-style app (Home / Book / Browse / Me): creators and the owner (who films too)
   canBook: boolean       // may book props and gear (creators + owner). Arts handle requests, they don't book (owner, Oct 19)
+  demo: boolean          // TEST LAUNCH (owner, Oct 27): a creator on "Props only": just search + browse the props list
   viewingAs: Role | null                 // set while the owner previews another role
-  setViewAs: (role: Role | null) => void // owner only
+  previewingDemo: boolean                // the owner is previewing "Creator (props only)"
+  setViewAs: (role: ViewAs | null) => void // owner only
 }
+// "View as" can also preview a creator in demo mode.
+export type ViewAs = Role | 'demo'
+export const isDemoAccess = (role: Role, access?: string) => role === 'creator' && access !== 'full'
 
 export const SessionContext = createContext<Session | null>(null)
 
@@ -31,9 +36,11 @@ export function useSession(): Session {
 
 // "View as" lets the owner see exactly which screens and buttons each role gets.
 // It only changes what the app shows; the server still knows who you really are.
-export function makeSession(user: User, profile: AppUser, viewAs: Role | null, setViewAs: (r: Role | null) => void): Session {
+export function makeSession(user: User, profile: AppUser, viewAs: ViewAs | null, setViewAs: (r: ViewAs | null) => void): Session {
   const realRole = profile.role
-  const role = realRole === 'owner' && viewAs ? viewAs : realRole
+  const previewingDemo = realRole === 'owner' && viewAs === 'demo'
+  const role: Role = realRole === 'owner' && viewAs ? (viewAs === 'demo' ? 'creator' : viewAs) : realRole
+  const demo = previewingDemo || (realRole === 'creator' && isDemoAccess(realRole, profile.access))
   return {
     user,
     profile,
@@ -46,8 +53,10 @@ export function makeSession(user: User, profile: AppUser, viewAs: Role | null, s
     canSeeStaff: role === 'owner' || role === 'arts' || role === 'admin',
     canSeeGear: role === 'owner' || role === 'equipment' || role === 'admin',
     canManagePeople: role === 'owner' || role === 'admin',
-    shootFlow: role === 'creator' || role === 'owner',
-    canBook: role === 'creator' || role === 'owner',   // admins don't film (owner, Oct 27)
+    shootFlow: !demo && (role === 'creator' || role === 'owner'),
+    canBook: !demo && (role === 'creator' || role === 'owner'),   // admins don't film (owner, Oct 27)
+    demo,
+    previewingDemo,
     viewingAs: role !== realRole ? role : null,
     setViewAs,
   }

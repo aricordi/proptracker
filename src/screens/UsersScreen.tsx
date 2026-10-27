@@ -77,9 +77,11 @@ export default function UsersScreen() {
         </Section>
 
         {grouped.slice(1).map(({ role, people }) => (
-          <Section key={role} title={ROLE_LABELS[role]} empty={people.length === 0 ? 'Nobody yet' : undefined}>
+          <Section key={role} title={role === 'creator' ? `${ROLE_LABELS[role]} · ${people.filter(u => u.active && u.access === 'full').length} on Full app, ${people.filter(u => u.active && u.access !== 'full').length} on Props only`
+            : ROLE_LABELS[role]} empty={people.length === 0 ? 'Nobody yet' : undefined}>
             {people.map(u => (
               <Row key={u.email} email={u.email} name={u.name} inactive={!u.active}
+                badge={u.role === 'creator' ? <AccessPill full={u.access === 'full'} /> : undefined}
                 onTap={canManage(u) ? () => setEditing(u) : undefined} />
             ))}
           </Section>
@@ -88,7 +90,7 @@ export default function UsersScreen() {
 
       <InviteSheet open={showInvite} onClose={() => setShowInvite(false)} isOwner={isOwner}
         onOpenExisting={e => { const u = users.find(x => normalizeEmail(x.email) === e); if (u && canManage(u)) setEditing(u) }} />
-      <EditSheet user={editing} onClose={() => setEditing(null)} isOwner={isOwner} />
+      <EditSheet user={editing ? users.find(x => x.email === editing.email) ?? editing : null} onClose={() => setEditing(null)} isOwner={isOwner} />
     </div>
   )
 }
@@ -104,8 +106,8 @@ function Section({ title, empty, children }: { title: string; empty?: string; ch
   )
 }
 
-function Row({ email, name, subtitle, inactive, onTap }: {
-  email: string; name?: string; subtitle?: string; inactive?: boolean; onTap?: () => void
+function Row({ email, name, subtitle, inactive, onTap, badge }: {
+  email: string; name?: string; subtitle?: string; inactive?: boolean; onTap?: () => void; badge?: React.ReactNode
 }) {
   const body = (
     <>
@@ -114,7 +116,7 @@ function Row({ email, name, subtitle, inactive, onTap }: {
         {name && <p className="text-pt-muted text-xs truncate">{email}</p>}
         {subtitle && <p className="text-pt-muted text-xs">{subtitle}</p>}
       </div>
-      {inactive && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full shrink-0">Access off</span>}
+      {inactive ? <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full shrink-0">Access off</span> : badge}
       {onTap && (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4 text-pt-muted shrink-0">
           <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
@@ -261,9 +263,9 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
 
   if (!user) return null
 
-  async function save(data: Partial<Pick<AppUser, 'role' | 'active'>>) {
+  async function save(data: Partial<Pick<AppUser, 'role' | 'active' | 'access'>>) {
     setBusy(true); setError(null)
-    try { await updateUser(user!.email, data); onClose() }
+    try { await updateUser(user!.email, data); if (!('access' in data)) onClose() }
     catch { setError("Couldn't save. Check your connection and try again.") }
     finally { setBusy(false) }
   }
@@ -278,7 +280,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
         </button>
         {isOwner && (
           <div>
-            <p className="text-pt-muted text-xs mb-2">Access</p>
+            <p className="text-pt-muted text-xs mb-2">Role</p>
             <RolePicker value={role} onChange={setRole} isOwner={isOwner} />
             {role !== user.role && (
               <button onClick={() => save({ role })} disabled={busy}
@@ -286,6 +288,23 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
                 Change to {ROLE_LABELS[role]}
               </button>
             )}
+          </div>
+        )}
+        {user.role === 'creator' && (
+          // TEST LAUNCH (owner, Oct 27): demo mode. Only the owner switches it (the security rules enforce that too).
+          <div>
+            <p className="text-pt-muted text-xs mb-2">App access</p>
+            <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 shadow-hairline">
+              {([['props', 'Props only'], ['full', 'Full app']] as const).map(([v, l]) => {
+                const on = (user.access === 'full' ? 'full' : 'props') === v
+                return <button key={v} disabled={busy || !isOwner || on} onClick={() => save({ access: v })} aria-pressed={on}
+                  className={`flex-1 py-2.5 rounded-[10px] text-sm ${on ? 'bg-pt-accent text-stone-900 font-semibold' : 'text-pt-muted'} disabled:cursor-default`}>{l}</button>
+              })}
+            </div>
+            <p className="text-pt-muted text-xs mt-2">{user.access === 'full'
+              ? 'Full app: books shoots, props and gear, with the practice tour on their next open.'
+              : 'Props only (demo mode): they can only search and look at the props. Nothing to book.'}
+              {!isOwner && ' Only the owner can change this.'}</p>
           </div>
         )}
         {error && <p className="text-red-400 text-sm">{error}</p>}
@@ -304,4 +323,9 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
       </div>
     </BottomSheet>
   )
+}
+
+// Creators' app access during the test launch (owner, Oct 27).
+function AccessPill({ full }: { full: boolean }) {
+  return <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${full ? 'bg-green-500/15 text-green-300' : 'bg-sky-500/15 text-sky-200'}`}>{full ? 'Full app' : 'Props only'}</span>
 }

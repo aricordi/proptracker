@@ -24,7 +24,12 @@ export interface Caller {
   name: string
   role: Role
   isStaff: boolean
+  demo?: boolean   // a creator in DEMO MODE ("Props only"): may only search and look at props (see requireRole)
 }
+// TEST LAUNCH (owner, Oct 27): creators start in demo mode (`users/{email}.access` missing or 'props') and can only search
+// and browse the props list; the owner switches launch creators to 'full' one by one. Only the owner can change it.
+export const isDemoCreator = (role: unknown, access: unknown) => role === 'creator' && access !== 'full'
+export const DEMO_MESSAGE = "Booking isn't open for you yet. For now you can search and browse the props."
 
 export async function getCaller(req: CallableRequest): Promise<Caller | null> {
   const token = req.auth?.token
@@ -36,18 +41,21 @@ export async function getCaller(req: CallableRequest): Promise<Caller | null> {
   const data = snap.data()
   if (!snap.exists || data?.active !== true) return null
   const role = data.role as Role
-  return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts' }
+  return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts', demo: isDemoCreator(role, data.access) }
 }
 
 // Admins don't film (owner, Oct 27): they only pass where 'admin' is listed. `noAdmin` is kept for old call sites.
 const ADMIN_COVERS: Role[] = []
 // Notice periods, pauses and late-gear blocks apply to creators.
 export const booksLikeCreator = (c: Caller) => c.role === 'creator'
-export async function requireRole(req: CallableRequest, allowed: Role[], opts: { noAdmin?: boolean } = {}): Promise<Caller> {
+// Demo-mode creators are refused EVERY function unless it says `demoOk` (searching props, notifications), so anything new
+// is closed to them by default.
+export async function requireRole(req: CallableRequest, allowed: Role[], opts: { noAdmin?: boolean; demoOk?: boolean } = {}): Promise<Caller> {
   const caller = await getCaller(req)
   const ok = !!caller && (allowed.includes(caller.role)
     || (caller.role === 'admin' && !opts.noAdmin && allowed.some(r => ADMIN_COVERS.includes(r))))
   if (!ok) throw new HttpsError('permission-denied', 'Not allowed')
+  if (caller!.demo && !opts.demoOk) throw new HttpsError('permission-denied', DEMO_MESSAGE, { problem: 'demo' })
   return caller!
 }
 

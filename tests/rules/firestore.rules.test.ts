@@ -236,6 +236,17 @@ describe('users and invites', () => {
   it('nobody can delete a user record', async () => {
     await assertFails(deleteDoc(doc(as(OWNER), 'users', CREATOR)))
   })
+  it('test launch: only the owner switches a creator between Props only and Full app', async () => {
+    await assertSucceeds(updateDoc(doc(as(OWNER), 'users', CREATOR), { access: 'full' }))
+    await assertSucceeds(updateDoc(doc(as(OWNER), 'users', CREATOR), { access: 'props' }))
+    await assertFails(updateDoc(doc(as(OWNER), 'users', CREATOR), { access: 'everything' }))
+    await assertFails(updateDoc(doc(as(ADMIN), 'users', CREATOR), { access: 'full' }))
+    await assertSucceeds(updateDoc(doc(as(ADMIN), 'users', CREATOR), { active: false }))   // admins still manage creators
+    await assertFails(updateDoc(doc(as(CREATOR), 'users', CREATOR), { access: 'full' }))
+    await assertFails(setDoc(doc(as(ADMIN), 'users', 'n1@example.com'), { ...invite('n1@example.com', 'creator'), access: 'full' }))
+    await assertSucceeds(setDoc(doc(as(ADMIN), 'users', 'n2@example.com'), { ...invite('n2@example.com', 'creator'), access: 'props' }))
+    await assertSucceeds(setDoc(doc(as(OWNER), 'users', 'n3@example.com'), { ...invite('n3@example.com', 'creator'), access: 'full' }))
+  })
 })
 
 describe('internal notes and server-only data', () => {

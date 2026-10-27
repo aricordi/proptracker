@@ -4,7 +4,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
-import { db, requireRole, CALLABLE, OWNER_EMAIL, type Caller } from './auth.js'
+import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, type Caller } from './auth.js'
 import { todayInStudio, isDay } from './booking.js'
 import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
@@ -43,6 +43,7 @@ async function shootFor(caller: Caller, forEmail: unknown): Promise<{ email: str
   if (email === OWNER_EMAIL) return { email, name: 'Owner' }
   const u = (await db.doc(`users/${email}`).get()).data()
   if (!u || u.active !== true) throw new HttpsError('not-found', 'That person has no active account.')
+  if (isDemoCreator(u.role, u.access)) throw new HttpsError('failed-precondition', `${u.name || email} is still on Props only (demo mode), so they can't have shoots yet.`, { problem: 'demo' })
   return { email, name: u.name || email }
 }
 
@@ -372,7 +373,8 @@ export const saveScheduleSettings = onCall(CALLABLE, async req => {
 // People who film (owner, Oct 27): active creators + the owner (who isn't in users). Arts, equipment and admins never.
 export async function filmingPeople() {
   const snap = await db.collection('users').where('active', '==', true).get()
-  const people = snap.docs.filter(u => u.get('role') === 'creator' || u.id === OWNER_EMAIL)
+  // Demo-mode creators (Props only) can't book, so they're left out until the owner switches them to Full app.
+  const people = snap.docs.filter(u => (u.get('role') === 'creator' && !isDemoCreator('creator', u.get('access'))) || u.id === OWNER_EMAIL)
     .map(u => ({ email: u.id, name: String(u.get('name') || u.id), role: u.id === OWNER_EMAIL ? 'owner' : 'creator' }))
   if (!people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex', role: 'owner' })
   return people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
@@ -509,6 +511,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   for (const email of friendEmails) {
     const u = email === OWNER_EMAIL ? { active: true, name: 'Owner' } : (await db.doc(`users/${email}`).get()).data()
     if (!u || u.active !== true) throw new HttpsError('not-found', `${email} has no active account.`)
+    if (isDemoCreator((u as { role?: string }).role, (u as { access?: string }).access)) throw new HttpsError('failed-precondition', `${u.name || email} can't book yet (Props only for now).`, { problem: 'demo' })
     friends.push({ email, name: u.name || email })
   }
   const now = nowStamp()

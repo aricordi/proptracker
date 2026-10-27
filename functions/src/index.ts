@@ -56,7 +56,7 @@ export const analyzePropPhoto = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY],
 // ─── 2. "Similar, might work too" search ────────────────────────────────────
 
 export const searchSimilar = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'admin'])
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'admin'], { demoOk: true })
   const query = typeof req.data?.query === 'string' ? req.data.query.trim().slice(0, 200) : ''
   if (query.length < 3) return { results: [] }
 

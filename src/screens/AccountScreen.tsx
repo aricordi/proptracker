@@ -21,17 +21,30 @@ export const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function AccountScreen() {
-  const { user, profile, realRole, role, setViewAs, shootFlow, isGearStaff } = useSession()
+  const { user, profile, realRole, role, setViewAs, shootFlow, isGearStaff, demo, previewingDemo } = useSession()
   const navigate = useNavigate()
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{shootFlow ? 'Me' : 'Account'}</span>{shootFlow && <AiButton />}</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{shootFlow || demo ? 'Me' : 'Account'}</span>{shootFlow && <AiButton />}</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
+        {demo && (
+          // Test launch (owner, Oct 27): what this mode is, and that booking comes later.
+          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-1">
+            <p className="text-pt-text font-medium">Sneak peek</p>
+            <p className="text-pt-muted text-sm">For now you can search and look through everything in the Prime Capitol prop room. Booking shoots, props and gear opens up soon; we'll let you know.</p>
+            <p className="text-pt-muted text-sm">Something wrong with a prop? Open it and tap <b className="text-pt-text">Suggest an edit</b>.</p>
+          </div>
+        )}
         <NotificationsCard />
         {shootFlow && <CreatorLinks email={profile.email} />}
+        {demo && (
+          <button onClick={() => navigate('/help')} className="w-full flex items-center gap-3 px-4 py-3 text-left bg-pt-surface shadow-hairline rounded-2xl">
+            <span className="flex-1 min-w-0"><span className="block text-pt-text">Help</span><span className="block text-pt-muted text-xs">Sign-in trouble, notifications, how things work</span></span><span className="text-pt-muted">›</span>
+          </button>
+        )}
         {!shootFlow && isGearStaff && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
             {([['Gear team tour', 'Practise the gear room: kits, the queue, check-ins, the schedule', '/tour/gear'], ['Help', 'How do I…? Booking, gear, check-in, sign-in', '/help']] as const).map(([t, d, to]) => (
@@ -52,10 +65,14 @@ export default function AccountScreen() {
             <div className="grid grid-cols-2 gap-2">
               {(['owner', 'admin', 'arts', 'equipment', 'creator'] as const).map(r => (
                 <button key={r} onClick={() => setViewAs(r === 'owner' ? null : r)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-medium ${role === r ? 'bg-sky-500 text-stone-900' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
-                  {ROLE_LABELS[r]}
+                  className={`flex-1 py-2 rounded-xl text-sm font-medium ${role === r && !previewingDemo ? 'bg-sky-500 text-stone-900' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
+                  {ROLE_LABELS[r]}{r === 'creator' ? ' (full app)' : ''}
                 </button>
               ))}
+              <button onClick={() => setViewAs('demo')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium ${previewingDemo ? 'bg-sky-500 text-stone-900' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>
+                Creator (props only)
+              </button>
             </div>
           </div>
         )}

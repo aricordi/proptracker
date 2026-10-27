@@ -15,6 +15,8 @@ function toValue(v: unknown): unknown {
   return { stringValue: String(v) }
 }
 export async function put(path: string, data: Record<string, unknown>) {
+  // Test creators are launched (Full app) unless a test says otherwise: a missing `access` means demo mode (Props only).
+  if (/^users\/[^/]+$/.test(path) && data.role === 'creator' && !('access' in data)) data = { ...data, access: 'full' }
   const fields = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, toValue(v)]))
   const res = await fetch(`${FS}/${path}`, { method: 'PATCH', headers: ADMIN, body: JSON.stringify({ fields }) })
   if (!res.ok) throw new Error(await res.text())

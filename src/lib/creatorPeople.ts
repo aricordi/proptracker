@@ -8,11 +8,12 @@ export function countedEmails(users: AppUser[]): Set<string> {
   return new Set([OWNER_EMAIL, ...users.filter(u => u.role === 'creator').map(u => u.email)])
 }
 
-// The list to show, including people with nothing yet: active creators + the owner.
+// The list to show, including people with nothing yet: active creators on the FULL APP + the owner. Creators on Props only
+// (test launch demo mode, Oct 27) can't book, so they'd only sit at the bottom as "posting less"; they're left out until switched.
 export function creatorPeople(users: AppUser[]): { email: string; name: string }[] {
   const owner = users.find(u => u.email === OWNER_EMAIL)
   return [
     { email: OWNER_EMAIL, name: owner?.name || 'Alex' },
-    ...users.filter(u => u.active && u.role === 'creator').map(u => ({ email: u.email, name: u.name || u.email })),
+    ...users.filter(u => u.active && u.role === 'creator' && u.access === 'full').map(u => ({ email: u.email, name: u.name || u.email })),
   ]
 }

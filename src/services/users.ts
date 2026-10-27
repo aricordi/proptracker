@@ -41,6 +41,8 @@ export async function inviteUser(email: string, role: Role, name?: string): Prom
     email: id,
     role,
     active: true,
+    // Test launch (owner, Oct 27): every new creator starts on Props only; the owner switches them to Full app.
+    ...(role === 'creator' ? { access: 'props' } : {}),
     ...(name?.trim() ? { name: name.trim() } : {}),
     invitedBy: actor(),
     invitedAt: now,
@@ -48,7 +50,7 @@ export async function inviteUser(email: string, role: Role, name?: string): Prom
   return 'invited'
 }
 
-export async function updateUser(email: string, data: Partial<Pick<AppUser, 'role' | 'active' | 'name'>>) {
+export async function updateUser(email: string, data: Partial<Pick<AppUser, 'role' | 'active' | 'name' | 'access'>>) {
   return updateDoc(doc(col, normalizeEmail(email)), {
     ...data,
     updatedAt: new Date().toISOString(),

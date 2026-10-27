@@ -66,6 +66,7 @@ export interface AppUser {
   name?: string;
   role: Role;
   active: boolean;
+  access?: 'props' | 'full';   // creators (test launch, Oct 27): 'props' or missing = demo mode (search the props only)
   invitedBy?: string;
   invitedAt?: string;
   updatedAt?: string;
