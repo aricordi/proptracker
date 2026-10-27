@@ -1451,6 +1451,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (6) PLAIN ERRORS: `src/lib/errors.ts` friendlyError() used by every screen (was ~20 copies that showed raw "internal",
       "Missing or insufficient permissions", and chopped our own messages at the first colon). Tests: tests/unit/errors.test.ts.
       (7) NO SIGNAL banner (`src/components/OfflineBanner.tsx`, amber pill under the clock). (8) Browse count line no longer wraps.
+      Tests 455. Preview run 230 green. Server logs run 18 (Oct 27): data check clean, no new failed requests; live settings unchanged
+      (leadTimeDays 3, schedule settings never saved / priority group empty, calendar not connected, 0 single gear pieces public,
+      people: arts Farrell + Keith, creator Ariel only).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
