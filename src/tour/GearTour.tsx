@@ -122,9 +122,9 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
       body: <>The number on the right is how many you have. <b>Loose</b> means it isn't in a kit and is internal only, so creators can't book it. <b>Bookable</b> means creators can take it on its own.</> },
     { id: 'additem', scene: 'items', part: 2, target: 'addgear', title: <>Tap <b>+ Add gear</b></>, body: "Let's add a brand new camera." },
     { id: 'itemform', scene: 'itemsheet', part: 2, target: 'itemform', top: true, next: C, hint: 'Type a name first', title: 'Name it and pick its type',
-      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). <b>Internal only</b> keeps it for the team or for a kit; <b>Creators can book</b> offers it on its own as a single item. A camera body goes in a kit, so leave it internal. Always fill in the <b>replacement value</b>: creators see what each kit is worth, because late returns carry a fee of 10% of the value.</> },
+      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). <b>Internal only</b> keeps it for the team or for a kit; <b>Creators can book</b> offers it on its own as a single item. A camera body goes in a kit, so leave it internal.</> },
     { id: 'itemsave', scene: 'itemsheet', part: 2, target: 'itemsave', title: <>Tap <b>Save</b></> },
-    { id: 'itemnew', scene: 'items', part: 2, target: 'newitem', next: C, title: "There it is, '1 loose'", body: "It's on the shelf, internal only, so creators can't see it yet. Time to put it in a kit." },
+    { id: 'itemnew', scene: 'items', part: 2, target: 'newitem', next: C, title: "There it is, '1 loose'", body: "It's on the shelf, internal only, so creators can't see it yet. Always fill in its replacement value: creators see what each kit is worth, because late returns carry a fee of 10% of the value. Now let's put it in a kit." },
     // 3 · Build a kit
     intro(3, 'items', "Most creators grab a kit: one case, every piece inside, booked as a whole. Single items are for the odd extra thing."),
     { id: 'tobundles', scene: 'items', part: 3, target: 'nav-bundles', title: <>Tap <b>Bundles</b></> },
@@ -529,8 +529,7 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
               </div>
               <div className="space-y-1"><span className="text-pt-muted text-[13px]">Who can book it on its own?</span>
                 <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 shadow-hairline"><span className="flex-1 py-2 rounded-[10px] text-sm text-center bg-pt-border text-pt-text font-semibold">Internal only</span><span className="flex-1 py-2 rounded-[10px] text-sm text-center text-pt-muted">Creators can book</span></div></div>
-              <label className="block space-y-1"><span className="text-pt-muted text-[13px]">Replacement value ($ each)</span><input value="4500" disabled className={field} />
-                <span className="block text-pt-muted text-xs">Creators see what a kit is worth: late returns cost 10% of its value.</span></label>
+              <label className="block space-y-1"><span className="text-pt-muted text-[13px]">Replacement value ($ each)</span><input value="4500" disabled className={field} /></label>
             </div>
             <button {...T('itemsave')} onClick={tap('itemsave')} disabled={itemName.trim().length < 2} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Save</button>
           </div>
