@@ -9,6 +9,7 @@ import { useScheduleSettings, INVITE_HOLD_MINUTES, UNDO_MINUTES } from '../servi
 import { RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
+import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
 import { LATE_START_MIN, KIND, THEMES } from '../lib/analytics'
 import { LOW_SHOW_UP, OUTPUT, ATTENTION_MEANS } from '../lib/insights'
 import { formatDay } from '../lib/dates'
@@ -38,6 +39,7 @@ export default function RulesSheetScreen() {
       ['Gear: notice', `${GEAR_LEAD_TIME_DAYS} open days`, 'How far before the shoot a creator must book gear.', owner],
       ['Pickup opens', `${PICKUP_OPENS_MINUTES} min before`, 'When the creator can do the pickup check (tick every piece).', owner],
       ['Gear is late', `${GEAR_LATE_MINUTES} min after the booked end`, 'After this the creator is flagged "late gear" and can\'t book more gear until it\'s back.', owner],
+      ['Late return fee', `${LATE_FEE_PERCENT}% of the gear's value`, 'Company rule (Oct 27). Goes on whoever had the gear last. The app keeps the record (Analytics → Late returns: how late, the value, who); nobody is charged automatically, and admins can excuse one as an exception. Props late are logged with no fee for now.', owner],
     ] },
     { title: 'Schedule and houses', edit: isOwner ? { label: 'Schedule settings', to: '/schedule/settings' } : undefined, rows: [
       ['Slots', `${s.slots.length} a day, ${s.slotMinutes / 60} h each (${fmtTime(s.slots[0])} to ${fmtTime((s.slots[s.slots.length - 1] + s.slotMinutes) % 1440)})`, 'The fixed grid creators book at the houses.', owner],

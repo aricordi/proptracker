@@ -5,7 +5,7 @@
 //   Internal only / Creators can book → Save)
 //   3 Build a kit (Bundles → + Bundle → name → pieces → Save; add-on extras) + quiz  4 Run the queue (Today / Out /
 //   To check in…, open a booking, decline with a reason)  5 Hand it over (the pickup check: tick every piece, Missing?,
-//   sign) + quiz  6 Check it back in (late, To check in, return photo, tick, damage note, Checked in)
+//   sign) + quiz  6 Check it back in (late + the 10% late return fee, To check in, return photo, tick, damage note, Checked in) + quiz
 //   7 The paper trail (Problems, History, Found it, broken pieces) + quiz  8 Run the schedule (book or block a slot,
 //   move/cancel with no strike, Schedule team: check-ins, reports, creators/pauses) + quiz  9 Stay in the loop (REAL).
 // Scenes copy the real screens (GearBookingsScreen, GearBookingScreen, GearItemsScreen + ItemSheet, GearBundlesScreen,
@@ -122,7 +122,7 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
       body: <>The number on the right is how many you have. <b>Loose</b> means it isn't in a kit and is internal only, so creators can't book it. <b>Bookable</b> means creators can take it on its own.</> },
     { id: 'additem', scene: 'items', part: 2, target: 'addgear', title: <>Tap <b>+ Add gear</b></>, body: "Let's add a brand new camera." },
     { id: 'itemform', scene: 'itemsheet', part: 2, target: 'itemform', top: true, next: C, hint: 'Type a name first', title: 'Name it and pick its type',
-      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). <b>Internal only</b> keeps it for the team or for a kit; <b>Creators can book</b> offers it on its own as a single item. A camera body goes in a kit, so leave it internal.</> },
+      body: <>Try <b>Sony FX3 body</b>. Cameras get a <b>serial number</b> (then it counts as one). <b>Internal only</b> keeps it for the team or for a kit; <b>Creators can book</b> offers it on its own as a single item. A camera body goes in a kit, so leave it internal. Always fill in the <b>replacement value</b>: creators see what each kit is worth, because late returns carry a fee of 10% of the value.</> },
     { id: 'itemsave', scene: 'itemsheet', part: 2, target: 'itemsave', title: <>Tap <b>Save</b></> },
     { id: 'itemnew', scene: 'items', part: 2, target: 'newitem', next: C, title: "There it is, '1 loose'", body: "It's on the shelf, internal only, so creators can't see it yet. Time to put it in a kit." },
     // 3 · Build a kit
@@ -165,7 +165,7 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
     // 6 · Check it back in
     intro(6, 'queue', "3 PM. Riley's done filming. Gear comes back, and you make sure it's all there before the next person needs it."),
     { id: 'outtab', scene: 'queue', part: 6, target: 'latecard', look: true, next: C, title: 'Late = 30 minutes after the booked end',
-      body: "A red ring and a Late pill. Late creators can't book more gear until it's back, and they get a reminder. Gear can also be handed straight to another creator: that booking ends and theirs starts, and they tick every piece at their pickup." },
+      body: "A red ring and a Late pill. Late creators can't book more gear until it's back, and they get a reminder. Company rule: late returns carry a fee of 10% of the gear's value, on whoever had it last. The app records how late it was and what it was worth; admins see it in Analytics → Late returns. Gear can also be handed straight to another creator: that booking ends and theirs starts, and they tick every piece at their pickup." },
     { id: 'tocheckin', scene: 'queue', part: 6, target: 'tab-checkin', title: <>Tap <b>To check in</b></> },
     { id: 'opencheckin', scene: 'queue', part: 6, target: 'retcard', title: "Tap Riley's return" },
     { id: 'retphoto', scene: 'booking', part: 6, target: 'retphoto', look: true, next: C, title: 'Their return photo',
@@ -174,6 +174,9 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
     { id: 'checknote', scene: 'booking', part: 6, target: 'checknote', next: C, title: 'Anything damaged? Write it down',
       body: <>e.g. <b>"lens cap scratched"</b>. The note stays on this booking, with who had it. Nothing to report? Just Continue.</> },
     { id: 'checkedin', scene: 'booking', part: 6, target: 'checkedin', title: <>Tap <b>Checked in</b></> },
+    { id: 'quiz6', scene: 'booking', part: 6, title: '', quiz: {
+      q: 'Shared gear comes back 2 hours late. Whose record does the late return go on?', options: ['Everyone on the booking', 'The last person to have it', 'Nobody, it came back'], correct: 1,
+      explain: "Whoever returned it or handed it over (or, if you returned it for them, whoever signed for it at pickup). It's logged with how late it was and the gear's value: late returns carry a fee of 10% of the value. Admins can excuse it as an exception." } },
     // 7 · The paper trail
     intro(7, 'booking', "Something went missing? Scratched lens? The app remembers who had what, and when. Here's where to look."),
     { id: 'problems', scene: 'booking', part: 7, target: 'problems', look: true, next: C, title: 'Problems: what went wrong',
@@ -526,7 +529,8 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
               </div>
               <div className="space-y-1"><span className="text-pt-muted text-[13px]">Who can book it on its own?</span>
                 <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 shadow-hairline"><span className="flex-1 py-2 rounded-[10px] text-sm text-center bg-pt-border text-pt-text font-semibold">Internal only</span><span className="flex-1 py-2 rounded-[10px] text-sm text-center text-pt-muted">Creators can book</span></div></div>
-              <label className="block space-y-1"><span className="text-pt-muted text-[13px]">Replacement value ($, staff only)</span><input placeholder="Optional" disabled className={field} /></label>
+              <label className="block space-y-1"><span className="text-pt-muted text-[13px]">Replacement value ($ each)</span><input value="4500" disabled className={field} />
+                <span className="block text-pt-muted text-xs">Creators see what a kit is worth: late returns cost 10% of its value.</span></label>
             </div>
             <button {...T('itemsave')} onClick={tap('itemsave')} disabled={itemName.trim().length < 2} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Save</button>
           </div>

@@ -1,6 +1,7 @@
 // What each phone notification says, and who gets it. Pure functions (no database), so every
 // message is unit-tested. push.ts delivers them; reminders are worked out here too.
 import { fmtTime, addMinutes, isGearLate } from './gearBooking.js'
+import { LATE_FEE_PERCENT } from './gearStock.js'
 import { responsible } from './gearCrew.js'
 import { returnDueDay, lastDayToBook, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
 import { checkinWindow, isMissed, explainUntil, type ScheduleSettings } from './schedule.js'
@@ -163,7 +164,7 @@ export function propsReminders(id: string, r: Doc, now: string, closed: ClosedDa
 export function gearReminders(id: string, g: Doc, now: string): Reminder[] {
   if (!g || g.status !== 'out' || !g.creatorEmail) return []
   const url = `/gear/bookings/${id}`, to = responsible(g), tag = `gear-${id}`
-  if (isGearLate(g as { status: string; to: string }, now)) return [{ key: `gearlate_${id}`, push: { to, url, tag, title: 'Your gear is late', body: `Please bring back "${g.title}" now. Late gear pauses new holds.` } }]
-  if (now >= addMinutes(g.to, -30) && now < g.to) return [{ key: `geardue_${id}`, push: { to, url, tag, title: `Gear due back at ${stampTime(g.to)}`, body: `"${g.title}": everything back in the case, batteries charging, then a photo.` } }]
+  if (isGearLate(g as { status: string; to: string }, now)) return [{ key: `gearlate_${id}`, push: { to, url, tag, title: 'Your gear is late', body: `Please bring back "${g.title}" now. Late returns carry a fee of ${LATE_FEE_PERCENT}% of the gear's value and pause new holds.` } }]
+  if (now >= addMinutes(g.to, -30) && now < g.to) return [{ key: `geardue_${id}`, push: { to, url, tag, title: `Gear due back at ${stampTime(g.to)}`, body: `"${g.title}": everything back in the case, batteries charging, then a photo. Late returns carry a ${LATE_FEE_PERCENT}% fee.` } }]
   return []
 }

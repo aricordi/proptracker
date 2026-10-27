@@ -6,7 +6,9 @@ import {
   subscribeToGearBooking, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
   fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking,
 } from '../services/gear'
-import { GearArt, Pill, PieceChecklist, STATUS_LABEL } from '../components/GearUi'
+import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote } from '../components/GearUi'
+import { fmtMoney } from '../../functions/src/gearStock'
+import { lateFor, stampLabel } from '../lib/lateReturns'
 import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
@@ -144,7 +146,11 @@ export default function GearBookingScreen() {
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Back by</span>
             <span className="text-pt-text">{b.closedDay ? `${formatDay(b.to.slice(0, 10))} · 10 AM` : fmtTime(b.end)}</span></div>
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Where</span><span className="text-pt-text">Equipment cage</span></div>
+          {!!b.value && <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Value</span><span className="text-pt-text">{fmtMoney(b.value)}{b.valueMissing ? ' +' : ''}</span></div>}
         </div>
+        {b.late ? (
+          <p className="text-amber-100 text-sm bg-amber-500/10 rounded-2xl px-4 py-3">Came back <b>{lateFor(b.late.minutes)} late</b> (due {stampLabel(b.late.dueAt)}, back {stampLabel(b.late.backAt)}), last with {b.late.byName}. The late return fee applies: {b.late.feePercent}% of the gear's value{b.late.value ? ` (worth ${fmtMoney(b.late.value)})` : ''}. The team decides on any exception.</p>
+        ) : (b.status === 'held' || b.status === 'out') && <LateFeeNote value={b.value ?? 0} missing={b.valueMissing ?? 0} />}
 
         {/* ── Pickup check (creator, in the pickup window) ── */}
         {b.status === 'held' && (mine || isGearStaff) && (win === 'early' ? (

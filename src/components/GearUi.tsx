@@ -10,6 +10,7 @@ import {
   GEAR_TIME_MESSAGES, type GearHold, type GearCategory,
 } from '../services/gear'
 import { formatDay } from '../lib/dates'
+import { LATE_FEE_PERCENT, fmtMoney } from '../../functions/src/gearStock'
 
 const TIMES: number[] = []
 for (let t = GEAR_DAY_START; t <= GEAR_DAY_END; t += GEAR_STEP) TIMES.push(t)
@@ -153,5 +154,16 @@ export function PieceChecklist({ lines, ticked, missing, onTick, onMissing }: {
         )
       })}
     </div>
+  )
+}
+
+// LATE RETURN FEE (owner, Oct 27: company-wide rule): creators see the value and the rule before they take gear.
+// The app doesn't charge anything; the record is kept for the team.
+export function LateFeeNote({ value, missing = 0, className = '' }: { value: number; missing?: number; className?: string }) {
+  const worth = value > 0 ? <>Worth <b className="text-pt-text">{fmtMoney(value)}</b>{missing ? ' (some pieces not valued yet)' : ''}. </> : null
+  return (
+    <p className={`text-[13px] leading-snug text-amber-100/90 bg-amber-500/10 rounded-xl px-3 py-2.5 ${className}`} data-tour="latefee">
+      {worth}Late returns carry a fee of <b className="text-pt-text">{LATE_FEE_PERCENT}% of the value</b>. Gear is late 30 minutes after its end time.
+    </p>
   )
 }

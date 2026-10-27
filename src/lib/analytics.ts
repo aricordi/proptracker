@@ -5,7 +5,7 @@
 // with a date, so any of them can be grouped by week or month, creator, house, flag type or staff member.
 import { pickupDay, type ClosedDays } from '../../functions/src/booking'
 import { isGearLate, nowStamp } from '../../functions/src/gearBooking'
-import { isLate, wasReturnedLate } from '../../functions/src/booking'
+import { isLate, wasReturnedLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 
 export type Grain = 'week' | 'month'
 export type House = 'cliff1' | 'cliff2' | 'offsite'
@@ -23,7 +23,7 @@ export const KIND: Record<Kind, { label: string; means: string }> = {
   'missed-checkin': { label: 'No check-in', means: 'Never checked in with a set photo (still waiting for a decision).' },
   'no-wrap': { label: 'No wrap', means: "Checked in but never wrapped (didn't say what they filmed)." },
   'late-props': { label: 'Late props', means: 'Props came back after the deadline, or are still out.' },
-  'late-gear': { label: 'Late gear', means: 'Gear came back more than 30 minutes late, or is still out.' },
+  'late-gear': { label: 'Late gear', means: 'Gear came back more than 30 minutes after its end time, or is still out. Late return fee: 10% of its value (on whoever had it last).' },
   'props-damaged': { label: 'Props damaged or missing', means: 'Checked in by the arts department as damaged or missing.' },
   'gear-missing': { label: 'Gear pieces missing', means: 'A piece was missing at check-in or at the next pickup, on their watch.' },
   'invite-lapsed': { label: "Didn't confirm", means: 'A friend held a slot for them and they let the hold run out.' },
@@ -48,6 +48,7 @@ export interface AProps { id: string; creatorEmail: string; creatorName?: string
   history?: Hist[]; lines?: { itemName: string; checkIn?: { result: string } }[]; returnInfo?: { at: string } | null; scheduleShootId?: string }
 export interface AGear { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; date: string; to: string
   returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null; history?: Hist[]
+  value?: number; valueMissing?: number; late?: { minutes: number; dueAt: string; backAt: string; by: string; byName?: string; value: number; valueMissing: number } | null
   problems?: { kind: string; name?: string; usedBy?: string[] }[]; returnedAt?: string }
 export interface AReport { id: string; onEmail: string; onName: string; date: string; overMinutes: number; mess: boolean; status: string; onShootId: string; byName?: string }
 export interface AStrike { id: string; email: string; reason: string; at: string; note?: string; about?: string; removedAt?: string; shootId?: string; flagId?: string }
@@ -58,7 +59,11 @@ export interface Fact { id: string; email: string; name: string; date: string; h
 // id = stable flag id ('<kind>:<source id>…'), used to remember what an admin did about it (flag_reviews).
 // src = where it came from (for the evidence on the flag sheet); strikeId = the strike that came with it, if any.
 export interface Incident { id: string; kind: Kind; email: string; name: string; date: string; house?: House; text: string; to?: string; open?: boolean
-  src: { type: 'shoot' | 'report' | 'props' | 'gear' | 'strike' | 'invite'; id: string }; shootId?: string; strikeId?: string }
+  src: { type: 'shoot' | 'report' | 'props' | 'gear' | 'strike' | 'invite'; id: string }; shootId?: string; strikeId?: string; late?: LateInfo }
+// LATE RETURNS (owner, Oct 27): how late, and what it was worth, for the late return fee (gear only for now: 10% of the
+// value; props are logged too, with no fee). dueAt/backAt are studio times 'YYYY-MM-DDTHH:MM'; minutes = past the end
+// time for gear (late from 30 min), past the 10 AM deadline for props. value null = not recorded (older bookings).
+export interface LateInfo { minutes: number; dueAt: string; backAt?: string; still: boolean; fee: boolean; value: number | null; valueMissing: number }
 export interface Job { team: 'props' | 'gear'; kind: 'packed' | 'checked-in'; by: string; date: string; hours: number; onTime?: boolean; to: string; title: string }
 export interface Backlog { propsToPack: number; propsPackLate: number; propsToCheckIn: number; gearToCheckIn: number; gearOutLate: number; propsOutLate: number }
 
@@ -121,10 +126,12 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     name(r.creatorEmail, r.creatorName)
     const pr = (kind: Kind) => ({ id: `${kind}:${r.id}`, src: { type: 'props' as const, id: r.id }, shootId: r.scheduleShootId })
     // Creator side
-    if (isLate(r.status, r.endDate, closed, nowDate)) { backlog.propsOutLate++; add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props still out, late`, to, open: true }) }
+    const propsDue = `${returnDueDay(r.endDate, closed)}T${String(RETURN_DEADLINE_HOUR).padStart(2, '0')}:00`
+    const propsLate = (backAt: string | undefined): LateInfo => ({ minutes: Math.max(0, Math.round(minutesLocal(propsDue, backAt ?? now))), dueAt: propsDue, backAt, still: !backAt, fee: false, value: null, valueMissing: 0 })
+    if (isLate(r.status, r.endDate, closed, nowDate)) { backlog.propsOutLate++; add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props still out, late`, to, open: true, late: propsLate(undefined) }) }
     else {
       const back = h.find(e => e.status === 'return_pending')?.at ?? r.returnInfo?.at
-      if (back && wasReturnedLate(r.endDate, back, closed)) add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props came back late`, to })
+      if (back && wasReturnedLate(r.endDate, back, closed)) add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props came back late`, to, late: propsLate(local(back)) })
     }
     const bad = (r.lines ?? []).filter(l => l.checkIn && l.checkIn.result !== 'ok')
     if (bad.length) add({ ...pr('props-damaged'), kind: 'props-damaged', email: r.creatorEmail, date: r.endDate, text: `${bad.map(l => `${l.itemName} (${l.checkIn!.result})`).join(', ')} on "${r.title}"`, to })
@@ -143,7 +150,17 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     const users = g.usedBy?.length ? g.usedBy : [g.pickup?.by && [g.creatorEmail, ...(g.crewEmails ?? [])].includes(g.pickup.by) ? g.pickup.by : g.creatorEmail]
     const lateNow = isGearLate(g, now)
     if (lateNow) backlog.gearOutLate++
-    if (lateNow || g.returnedLate) for (const e of users) add({ id: `late-gear:${g.id}:${slug(e)}`, src: { type: 'gear', id: g.id }, kind: 'late-gear', email: e, date: g.date, text: lateNow ? `"${g.title}" gear still out, late` : `"${g.title}" gear came back late`, to, open: lateNow })
+    // One late return, on the LAST person to have it (owner, Oct 27): whoever returned or handed it over (saved on the
+    // booking), else whoever signed for it at pickup. Older returns without a record: whoever signed for it.
+    if (lateNow || g.returnedLate) {
+      const holder = g.pickup?.by && [g.creatorEmail, ...(g.crewEmails ?? [])].includes(g.pickup.by) ? g.pickup.by : g.creatorEmail
+      const who = g.late?.by ?? holder
+      const backAt = g.late?.backAt ?? g.returnedAt
+      const v = g.late ?? (typeof g.value === 'number' ? { value: g.value, valueMissing: g.valueMissing ?? 0 } : null)
+      const late: LateInfo = { minutes: Math.max(0, Math.round(minutesLocal(g.to, lateNow ? now : backAt ?? now))), dueAt: g.to, backAt: lateNow ? undefined : backAt,
+        still: lateNow, fee: true, value: v ? v.value : null, valueMissing: v ? v.valueMissing : 0 }
+      add({ id: `late-gear:${g.id}:${slug(who)}`, src: { type: 'gear', id: g.id }, kind: 'late-gear', email: who, name: who === g.late?.by ? g.late?.byName : undefined, date: g.date, text: lateNow ? `"${g.title}" gear still out, late` : `"${g.title}" gear came back late`, to, open: lateNow, late })
+    }
     for (const [n, p] of (g.problems ?? []).entries()) {
       if (p.kind !== 'missing_at_checkin' && p.kind !== 'missing_after') continue
       for (const e of p.usedBy?.length ? p.usedBy : users) add({ id: `gear-missing:${g.id}:${n}:${slug(e)}`, src: { type: 'gear', id: g.id }, kind: 'gear-missing', email: e, date: g.date, text: `${p.name ?? 'A piece'} missing from "${g.title}"`, to })

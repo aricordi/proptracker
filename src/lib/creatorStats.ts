@@ -11,7 +11,7 @@ export interface StatShoot {
   status: 'booked' | 'cancelled'; checkin?: { at: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
 }
 export interface StatProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; endDate: string; returnInfo?: { at: string } | null; checkedInAt?: string }
-export interface StatGear { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; to: string; date: string; returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null }
+export interface StatGear { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; to: string; date: string; returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null; late?: { by: string } | null }
 export interface StatReport { id: string; onEmail: string; onName: string; date: string; overMinutes: number; mess: boolean; status: string; note?: string; onShootId: string }
 export interface StatStrike { id?: string; email: string; reason: string; at: string; shootId?: string; note?: string; about?: string; removedAt?: string }
 
@@ -94,8 +94,8 @@ export function creatorStats(opts: {
   for (const g of opts.gear) {
     if (g.date < from) continue
     const to = `/gear/bookings/${g.id}`
-    // Shared gear: whoever used it (ticked at the return), else whoever signed for it, else the booker.
-    const who = g.usedBy?.length ? g.usedBy : [g.pickup?.by && [g.creatorEmail, ...(g.crewEmails ?? [])].includes(g.pickup.by) ? g.pickup.by : g.creatorEmail]
+    // Late gear goes on the LAST person to have it (owner, Oct 27): saved at the return / hand-over, else whoever signed for it.
+    const who = [g.late?.by ?? (g.pickup?.by && [g.creatorEmail, ...(g.crewEmails ?? [])].includes(g.pickup.by) ? g.pickup.by : g.creatorEmail)]
     const lateNow = isGearLate(g, now), lateBack = !!g.returnedLate
     if (!lateNow && !lateBack) continue
     for (const email of who) {

@@ -33,7 +33,7 @@ export function warnText(i: Incident): string {
     case 'missed-checkin': return `You didn't check in on ${d}. Please check in with a set photo every time you shoot.`
     case 'no-wrap': return `You didn't wrap your ${d} shoot. Please tap Wrap and say what you filmed.`
     case 'late-props': return stillOut(i) ? 'Your props are late. Please bring them back today.' : `Your props from ${d} came back late. Please return them on time.`
-    case 'late-gear': return stillOut(i) ? 'Your gear is late. Please bring it back now.' : `Your gear from ${d} came back late. Please return it on time.`
+    case 'late-gear': return stillOut(i) ? 'Your gear is late. Please bring it back now. Late returns carry a fee of 10% of the gear\'s value.' : `Your gear from ${d} came back late. Late returns carry a fee of 10% of the gear's value. Please return it on time.`
     case 'props-damaged': return `Props from your ${d} shoot came back damaged or missing. Please talk to the arts department.`
     case 'gear-missing': return `A gear piece was missing after your ${d} shoot. Please talk to the equipment team.`
     case 'invite-lapsed': return `A friend held a slot for you on ${d} and it ran out. Please confirm or decline invites quickly.`

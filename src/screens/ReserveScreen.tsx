@@ -19,7 +19,8 @@ import {
   freeQty, holdWindow, checkGearTimes, earliestGearDay, fmtHours, fmtTime, GEAR_TIME_MESSAGES, type GearBundle, type GearHold,
   byCount,
 } from '../services/gear'
-import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes } from '../components/GearUi'
+import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes, LateFeeNote } from '../components/GearUi'
+import { offerValue } from '../../functions/src/gearStock'
 import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
 import { useBackToBack } from '../hooks/useGearCrew'
@@ -294,6 +295,8 @@ export default function ReserveScreen() {
           {!hasGear && <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">No gear yet. Cameras, lights and sound come as bundles.</p>}
           {hasGear && (
             <>
+              {(() => { const v = gearLines.reduce((t, l) => { const o = l.offer ? offerValue(l.offer) : { value: 0, missing: 1 }; return { value: t.value + o.value * l.qty, missing: t.missing + o.missing } }, { value: 0, missing: 0 })
+                return <LateFeeNote value={v.value} missing={v.missing} /> })()}
               {shoot ? (sharing.length ? (
                 <p className="text-pt-text text-[15px] bg-pt-surface rounded-2xl px-4 py-3">Gear hours <b>{fmtHours(gh.start, gh.end)}</b> <span className="text-pt-muted">· the whole back-to-back block</span></p>
               ) : <GearShootHours />) : <GearWhenPicker hoursOnly />}

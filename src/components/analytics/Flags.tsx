@@ -5,6 +5,7 @@
 //  - decide it (missed check-in: they filmed / no-show · strike; report: dismiss / uphold · strike)
 //  - send them a note (phone notification), give a strike for it, excuse it (stops counting), mark it handled
 //  - remove the strike that came with it
+import { lateFor, stampLabel, valueLabel, fmtMoney, LATE_FEE_PERCENT } from '../../lib/lateReturns'
 import { useState } from 'react'
 import Avatar from '../Avatar'
 import BottomSheet from '../BottomSheet'
@@ -23,7 +24,7 @@ export interface FlagCtx {
 }
 export type FlagFilter = 'todo' | 'handled' | 'excused' | 'all'
 
-const STATE_STYLE: Record<FlagState, string> = {
+export const STATE_STYLE: Record<FlagState, string> = {
   decide: 'bg-amber-500/15 text-amber-200', todo: 'bg-pt-accent/15 text-pt-accent', handled: 'bg-green-500/15 text-green-300', excused: 'bg-pt-border text-pt-muted' }
 const mins = (stamp: string) => Number(stamp.slice(11, 13)) * 60 + Number(stamp.slice(14, 16))
 const hoursOf = (x: { from: string; to: string }) => fmtHours(mins(x.from), mins(x.to))
@@ -70,7 +71,7 @@ export function FlagList({ xs, f, ctx, showWho, limit, tourId }: { xs: { i: Inci
           {showWho && <Avatar email={i.email} name={i.name} size={32} />}
           <span className="flex-1 min-w-0">
             <span className="block text-pt-text text-[15px] truncate">{showWho ? `${i.name} · ` : ''}{KIND[i.kind].label}</span>
-            <span className="block text-pt-muted text-xs truncate">{formatDay(i.date)} · {i.text}</span>
+            <span className="block text-pt-muted text-xs truncate">{formatDay(i.date)} · {i.late ? `${lateFor(i.late.minutes)} late${i.kind === 'late-gear' && i.late.value ? ` · ${fmtMoney(i.late.value)}` : ''} · ` : ''}{i.text}</span>
           </span>
           <span className="flex flex-col items-end gap-1 shrink-0">
             <span className={`text-xs rounded-full px-2 py-1 ${STATE_STYLE[s]}`}>{STATE_LABEL[s]}</span>
@@ -239,11 +240,22 @@ function Evidence({ i, ctx }: { i: Incident; ctx: FlagCtx }) {
     if (g) {
       rows.push(['Booking', `“${g.title}” · ${hoursOf(g)}`])
       if (g.pickup) rows.push(['Picked up by', ctx.staffName(g.pickup.by)])
-      if (g.returnedAt) rows.push(['Brought back', when(g.returnedAt)])
+      // returnedAt is a studio time 'YYYY-MM-DDTHH:MM' (not a UTC timestamp); the late rows below already show it.
+      if (g.returnedAt && !i.late) rows.push(['Brought back', stampLabel(g.returnedAt)])
       if (g.usedByNames?.length) rows.push(['Used by', g.usedByNames.join(', ')])
       if (g.checkIn?.note) rows.push(['Check-in note', `“${g.checkIn.note}”`])
       if (g.return) photos.push({ urls: g.return.photos, title: 'Return photo' })
     }
+  }
+  if (i.late) {
+    // Late return fee (owner, Oct 27): admins see exactly how late, to decide on exceptions.
+    rows.push(['Due back', stampLabel(i.late.dueAt) + (i.kind === 'late-gear' ? ' (late from 30 min after)' : '')])
+    rows.push([i.late.still ? 'Still out' : 'Came back', i.late.still ? `${lateFor(i.late.minutes)} so far` : `${i.late.backAt ? stampLabel(i.late.backAt) + ' · ' : ''}${lateFor(i.late.minutes)} late`])
+    if (i.kind === 'late-gear') {
+      rows.push(['Last had it', i.name])
+      rows.push(['Value', valueLabel(i.late)])
+      rows.push(['Late fee', `Applies: ${LATE_FEE_PERCENT}% of the value (not charged by the app). Excuse it to make an exception.`])
+    } else rows.push(['Late fee', 'No fee for props for now (logged only)'])
   }
   if (i.src.type === 'strike') {
     const s = ctx.raw.strikes.get(i.src.id)

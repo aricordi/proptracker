@@ -88,9 +88,12 @@ await put('checkouts/co1', { label: 'Bar fight shoot', startedAt: now, itemIds: 
 // Gear: the owner's test gear (scripts/test-gear.json, also the live "Add test gear" button), plus a C-stand extra.
 const testGear = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./test-gear.json', import.meta.url), 'utf8'))
 const gearName = Object.fromEntries(testGear.items.map(i => [i.id, i.name]))
-for (const { id, ...g } of testGear.items) await put(`gear_items/${id}`, { serial: null, value: null, notes: '', photos: [], archived: false, ...g, ...meta })
+// Practice replacement values (emulator only, for the late return fee screens; real values are set by the gear team).
+const gearValue = { 'tg-fx3': 4500, 'tg-a7s': 3800, 'tg-1635': 1200, 'tg-npfz': 80, 'tg-mcpro': 300, 'tg-rode': 250, 'tg-mavic': 900,
+  'tg-mavic-rc': 150, 'tg-mavic-bat': 100, 'tg-mini5': 800, 'tg-mini5-rc': 150, 'tg-mini5-bat': 80 }
+for (const { id, ...g } of testGear.items) await put(`gear_items/${id}`, { serial: null, notes: '', photos: [], archived: false, ...g, value: gearValue[id] ?? null, ...meta })
 for (const { id, pieces, ...b } of testGear.bundles) await put(`gear_bundles/${id}`, { photos: [], archived: false, kind: 'bundle', ...b,
-  pieces: pieces.map(([itemId, qty]) => ({ itemId, qty, name: gearName[itemId] })), ...meta })
+  pieces: pieces.map(([itemId, qty]) => ({ itemId, qty, name: gearName[itemId], value: gearValue[itemId] ?? null })), ...meta })
 await put('gear_items/g-cst', { name: 'C-stand', category: 'Grip', have: 4, serial: null, value: null, notes: '', photos: [], archived: false, ...meta })
 await put('gear_bundles/x-cst', { name: 'C-stand', category: 'Grip', description: '', photos: [], archived: false,
   kind: 'extra', pieces: [{ itemId: 'g-cst', qty: 4, name: 'C-stand' }], ...meta })

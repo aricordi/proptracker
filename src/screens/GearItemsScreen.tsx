@@ -41,6 +41,12 @@ export default function GearItemsScreen() {
         <p className="text-pt-muted text-sm">
           Every piece of gear you own. Creators book it two ways: a <button onClick={() => navigate('/gear/bundles')} className="text-pt-accent">bundle</button> (a grab-and-go kit), or a single piece you set to <b className="text-pt-text">Creators can book</b>. Pieces set to <b className="text-pt-text">Internal only</b> never show to creators.
         </p>
+        {/* Late return fee (owner, Oct 27): creators see a kit's value; late returns cost 10% of it. */}
+        {!showArchived && (() => { const noValue = (items ?? []).filter(i => !i.archived && (i.value === null || i.value === undefined)); return noValue.length > 0 && (
+          <div className="text-amber-100 text-sm bg-amber-500/10 rounded-xl px-3 py-2.5 space-y-1" data-tour="novalue">
+            <p><b>{noValue.length} piece{noValue.length === 1 ? ' has' : 's have'} no value yet.</b> Late returns carry a fee of 10% of the value, so creators need to see what each kit is worth. Tap a piece and fill in its replacement value.</p>
+            <p className="text-amber-200/80 text-xs truncate">{noValue.slice(0, 5).map(i => i.name).join(', ')}{noValue.length > 5 ? '…' : ''}</p>
+          </div>) })()}
         {looseTotal > 0 && !showArchived && (
           <p className="text-sky-200 text-sm bg-sky-500/10 border border-sky-500/30 rounded-xl px-3 py-2">
             {looseTotal} internal piece{looseTotal === 1 ? ' isn\'t' : 's aren\'t'} in any bundle, so creators can't book {looseTotal === 1 ? 'it' : 'them'}. That's fine for team-only gear.
@@ -66,7 +72,7 @@ export default function GearItemsScreen() {
                     <div className="min-w-0 flex-1">
                       <p className="text-pt-text text-sm truncate">{i.name}</p>
                       <p className="text-pt-muted text-xs truncate">
-                        {i.public ? 'Creators can book · ' : 'Internal only · '}{i.serial ? `Serial ${i.serial} · ` : ''}{inB ? `${inB} in bundles` : 'Not in a bundle'}
+                        {i.public ? 'Creators can book · ' : 'Internal only · '}{i.value != null ? `$${i.value.toLocaleString('en-CA')} each · ` : <span className="text-amber-300">No value · </span>}{i.serial ? `Serial ${i.serial} · ` : ''}{inB ? `${inB} in bundles` : 'Not in a bundle'}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -143,8 +149,9 @@ function ItemSheet({ item, inBundles, onClose }: { item: Partial<GearItem>; inBu
             ? `Creators see it under "Single items" and can book the ${Math.max(0, (serial.trim() ? 1 : Number(have) || 0) - inBundles)} not in a bundle. Same pickup check and return photo as a kit.`
             : 'Only the team uses it. Creators can still get it inside a bundle.'}</p>
         </div>
-        <label className="block space-y-1"><span className={label}>Replacement value ($, staff only)</span>
-          <input type="number" min={0} value={value} onChange={e => setValue(e.target.value)} placeholder="Optional" className={input} /></label>
+        <label className="block space-y-1"><span className={label}>Replacement value ($ each)</span>
+          <input type="number" min={0} value={value} onChange={e => setValue(e.target.value)} placeholder="e.g. 4500" className={input} />
+          <span className="block text-pt-muted text-xs">Creators see what a kit is worth: late returns cost 10% of its value.</span></label>
         <label className="block space-y-1"><span className={label}>Notes (team only)</span>
           <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" className={input} /></label>
         <ProofPhotos cameraOnly={false} folder="gear/items" urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo (optional)" max={3} />

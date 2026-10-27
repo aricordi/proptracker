@@ -9,7 +9,7 @@ import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { todayInStudio } from './booking.js'
 import { crewProblem, crewHours, isResponsible, type CrewShoot, type CrewMember } from './gearCrew.js'
-import { byCount } from './gearStock.js'
+import { byCount, linesValue, LATE_FEE_PERCENT } from './gearStock.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
   isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, type GearHold,
@@ -59,6 +59,30 @@ async function hasLateGear(email: string) {
   return [...own.docs, ...shared.docs].some(b => isGearLate({ status: b.get('status'), to: b.get('to') }, nowStamp()) && holderOf(b.data()) === email)
 }
 
+// LATE RETURN FEE (owner, Oct 27): each booking keeps the value of what was booked (from All gear, at booking time)
+// and, when it comes back late, a record of how late, what it was worth and who had it last. Nothing is charged.
+async function readValues(tx: FirebaseFirestore.Transaction, offers: FirebaseFirestore.DocumentSnapshot[]) {
+  const ids = [...new Set(offers.flatMap(o => ((o.get('pieces') as { itemId: string }[] | undefined) ?? []).map(p => p.itemId)))]
+  const snaps = ids.length ? await tx.getAll(...ids.map(i => db.doc(`gear_items/${i}`))) : []
+  return new Map(ids.map((id, i) => { const v = snaps[i].get('value'); return [id, typeof v === 'number' && Number.isFinite(v) ? v : null] }))
+}
+const valueFields = (lines: { pieces?: { qty: number; value?: number | null }[] }[]) => { const v = linesValue(lines); return { value: v.value, valueMissing: v.missing } }
+// The last person to have it (owner, Oct 27): whoever returns or hands it over, if they're on the booking;
+// otherwise (the team returning it for them) whoever signed for it at pickup.
+function lastHolder(b: FirebaseFirestore.DocumentData, caller: { email: string; name: string }) {
+  const email = isResponsible(b, caller.email) ? caller.email : holderOf(b)
+  const name = email === caller.email ? caller.name
+    : email === b.creatorEmail ? String(b.creatorName ?? email) : String(((b.crew ?? []) as CrewMember[]).find(c => c.email === email)?.name ?? email)
+  return { email, name }
+}
+export const lateText = (m: number) => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`
+export function lateRecord(b: FirebaseFirestore.DocumentData, at: string, who: { email: string; name: string }) {
+  if (!wasGearReturnedLate({ to: b.to, returnedAt: at })) return null
+  const minutes = Math.max(0, Math.round((new Date(at + ':00Z').getTime() - new Date(b.to + ':00Z').getTime()) / 60000))
+  const v = typeof b.value === 'number' ? { value: b.value as number, valueMissing: Number(b.valueMissing) || 0 } : valueFields(b.lines ?? [])
+  return { minutes, dueAt: b.to as string, backAt: at, by: who.email, byName: who.name, ...v, feePercent: LATE_FEE_PERCENT }
+}
+
 interface LineIn { offerId: string; qty: number }
 function tidyLines(v: unknown): LineIn[] {
   if (!Array.isArray(v)) return []
@@ -103,6 +127,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
     const offerRefs = lines.map(l => db.doc(`gear_bundles/${l.offerId}`))
     const holdRefs = lines.map(l => db.doc(`gear_holds/${l.offerId}`))
     const [offers, holds] = await Promise.all([tx.getAll(...offerRefs), tx.getAll(...holdRefs)])
+    const values = await readValues(tx, offers)
     const taken: { name: string; free: number; wanted: number }[] = []
     const out = lines.map((l, i) => {
       const o = offers[i]
@@ -117,7 +142,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
       return {
         offerId: l.offerId, kind, name: String(o.get('name') ?? ''), qty: l.qty,
         photo: ((o.get('photos') as string[] | undefined) ?? [])[0] ?? null,
-        pieces: pieces.map(p => ({ itemId: p.itemId, qty: kind === 'extra' ? l.qty : p.qty, name: p.name ?? '' })),
+        pieces: pieces.map(p => ({ itemId: p.itemId, qty: kind === 'extra' ? l.qty : p.qty, name: p.name ?? '', value: values.get(p.itemId) ?? null })),
         entries,
       }
     })
@@ -134,7 +159,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
       ...(shoot ? { shootId: shoot.id, scheduleShootId: shoot.id } : shootIdOf(d.shootId) ? { shootId: shootIdOf(d.shootId) } : {}),
       ...(crew.length ? crewFields(crew) : {}),
       date, start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay,
-      lines: out.map(({ entries: _e, ...l }) => l), offerIds: out.map(l => l.offerId),
+      lines: out.map(({ entries: _e, ...l }) => l), offerIds: out.map(l => l.offerId), ...valueFields(out),
       status: 'held', createdAt: now, updatedAt: now,
       history: [{ at: now, by: caller.email, action: 'held', note: `${date} ${fmtHours(start, end)}${crew.length ? ` · shared with ${names(crew)}` : ''}` }],
     })
@@ -221,6 +246,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
     const ids = [...new Set([...before.keys(), ...lines.map(l => l.offerId)])]
     const offerRefs = ids.map(o => db.doc(`gear_bundles/${o}`)), holdRefs = ids.map(o => db.doc(`gear_holds/${o}`))
     const [offers, holds] = await Promise.all([tx.getAll(...offerRefs), tx.getAll(...holdRefs)])
+    const values = await readValues(tx, offers)
     const taken: { name: string; free: number; wanted: number }[] = []
     const saved = lines.map(l => {
       const i = ids.indexOf(l.offerId), o = offers[i]
@@ -235,7 +261,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
       return {
         offerId: l.offerId, kind, name: String(o.get('name') ?? ''), qty: l.qty,
         photo: ((o.get('photos') as string[] | undefined) ?? [])[0] ?? null,
-        pieces: pieces.map(p => ({ itemId: p.itemId, qty: kind === 'extra' ? l.qty : p.qty, name: p.name ?? '' })),
+        pieces: pieces.map(p => ({ itemId: p.itemId, qty: kind === 'extra' ? l.qty : p.qty, name: p.name ?? '', value: values.get(p.itemId) ?? null })),
       }
     })
     if (taken.length) {
@@ -249,7 +275,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
     })
     const now = new Date().toISOString()
     tx.update(ref, {
-      lines: saved, offerIds: saved.map(l => l.offerId), start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay, updatedAt: now,
+      lines: saved, offerIds: saved.map(l => l.offerId), ...valueFields(saved), start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay, updatedAt: now,
       ...(crew ? crewFields(crew) : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'edited',
         note: `${saved.length} item${saved.length === 1 ? '' : 's'} · ${fmtHours(start, end)}${crew ? crew.length ? ` · shared with ${names(crew)}` : ' · not shared' : ''}` }),
@@ -409,12 +435,12 @@ export const returnGear = onCall(CALLABLE, async req => {
     holds.forEach((h, i) => { if (h.exists) tx.update(holdRefs[i], { entries: ((h.get('entries') as GearHold[] | undefined) ?? []).filter(e => e.bookingId !== id) }) })
     const { usedBy, usedByNames, usedNote } = whoUsed(b, usedIn)
     const now = new Date().toISOString(), at = nowStamp()
-    const late = wasGearReturnedLate({ to: b.to, returnedAt: at })
+    const late = lateRecord(b, at, lastHolder(b, caller))
     tx.update(ref, {
-      status: 'returned', updatedAt: now, returnedAt: at, returnedLate: late,
+      status: 'returned', updatedAt: now, returnedAt: at, returnedLate: !!late, ...(late ? { late } : {}),
       return: { at: now, by: caller.email, photos },
       usedBy, usedByNames,
-      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote ? { note: [late ? 'Returned late' : '', usedNote].filter(Boolean).join(' · ') } : {}) }),
+      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote ? { note: [late ? `Returned late (${lateText(late.minutes)} after the end time)` : '', usedNote].filter(Boolean).join(' · ') } : {}) }),
     })
   })
   return { ok: true }
@@ -470,9 +496,9 @@ export const handOverGear = onCall(CALLABLE, async req => {
     const now = new Date().toISOString()
     handedBy = caller.name
     kept.forEach(k => tx.set(k.ref, { entries: k.entries }, { merge: true }))
-    const late = wasGearReturnedLate({ to: b.to, returnedAt: at })
+    const late = lateRecord(b, at, lastHolder(b, caller))
     tx.update(ref, {
-      status: 'checked_in', updatedAt: now, returnedAt: at, returnedLate: late, usedBy, usedByNames,
+      status: 'checked_in', updatedAt: now, returnedAt: at, returnedLate: !!late, ...(late ? { late } : {}), usedBy, usedByNames,
       handedTo: { email: toEmail, name: toName, bookingId: next.id, at: now },
       checkIn: { at: now, by: caller.email, missing: [], note: `Handed over to ${toName}. They tick every piece at their pickup.` },
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'handed_over', note: [`To ${toName}`, usedNote, late ? 'late' : ''].filter(Boolean).join(' · ') }),
@@ -480,7 +506,7 @@ export const handOverGear = onCall(CALLABLE, async req => {
     tx.set(next, {
       title: str(req.data?.title, 120) || String(b.title ?? 'Shoot'), notes: '', creatorEmail: toEmail, creatorName: toName,
       date: today, start: startMin, end, from, to, pickupDay: today, closedDay: false,
-      lines: b.lines, offerIds, status: 'held', createdAt: now, updatedAt: now,
+      lines: b.lines, offerIds, ...valueFields(b.lines ?? []), status: 'held', createdAt: now, updatedAt: now,
       handedFrom: { bookingId: id, email: caller.email, name: caller.name },
       history: [{ at: now, by: caller.email, action: 'held', note: `Handed over by ${caller.name} · ${fmtHours(startMin, end)}` }],
     })

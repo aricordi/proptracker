@@ -1,6 +1,6 @@
 // App tour: a hands-on practice STORY with a guide character (owner, Oct 20: "fun and exciting… like Duolingo… lean into
 // the story… nobody has used this before"). Welcome (what the app is for) → meet Cap (the Prime Capitol eagle) → 10 chapters (CHAPTERS in Fun.tsx), each opened by a ChapterCard with the badge
-// just earned, plus 4 pop quizzes (QuizCard) so people learn instead of tapping Continue:
+// just earned, plus 5 pop quizzes (QuizCard; ch9 has the late return fee one, Oct 27) so people learn instead of tapping Continue:
 //   1 Find your way around  2 Book your first shoot (with a friend → find it again: Home → your shoot card)
 //   3 Stock up for your shoot (+ Add → search, − n + on photos → gear (no times: the shoot's hours) → review → send → back on
 //   the shoot) + quiz  4 Keep tabs on it (shoot → request → Change → search → See all results → the closet for this request → + →
@@ -27,7 +27,8 @@ import { useScheduleSettings, fmtSlot, listFilmingFriends, INVITE_HOLD_MINUTES }
 import { thumbOf } from '../services/itemShape'
 import { ideaToProps } from '../services/ai'
 import { pushState, turnOnPush, isIOS, type PushState } from '../services/push'
-import { GearArt, Pill, PieceChecklist } from '../components/GearUi'
+import { GearArt, Pill, PieceChecklist, LateFeeNote } from '../components/GearUi'
+import { LATE_FEE_PERCENT, fmtMoney } from '../../functions/src/gearStock'
 import { TAB_ICONS } from '../components/BottomNav'
 import BottomSheet from '../components/BottomSheet'
 import BrandMark from '../components/BrandMark'
@@ -55,15 +56,16 @@ interface Step { id: string; scene: Scene; part?: number; target?: string; title
 
 const START = 13 * 60, SLOT = 120, HOLD = INVITE_HOLD_MINUTES
 // The tour's gear room: what creators pick from in chapter 3 (practice only, not the real inventory).
-interface PracticeGear { id: string; kind: 'bundle' | 'extra'; name: string; category: string; pieces: { name: string; qty: number }[]; offered?: number }
+// value = what it's worth (a kit, or one extra): the late return fee is 10% of it (owner, Oct 27).
+interface PracticeGear { id: string; kind: 'bundle' | 'extra'; name: string; category: string; pieces: { name: string; qty: number }[]; offered?: number; value: number }
 const PRACTICE_GEAR: PracticeGear[] = [
-  { id: 'fx3', kind: 'bundle', name: 'Sony FX3 kit', category: 'Camera', pieces: [{ name: 'Sony FX3 body', qty: 1 }, { name: '24-70mm lens', qty: 1 }, { name: 'Battery', qty: 3 }, { name: 'CFexpress card', qty: 2 }, { name: 'Top handle', qty: 1 }] },
-  { id: 'a7s', kind: 'bundle', name: 'Sony A7S III kit', category: 'Camera', pieces: [{ name: 'Sony A7S III body', qty: 1 }, { name: '24-70mm lens', qty: 1 }, { name: 'Battery', qty: 3 }, { name: 'SD card', qty: 2 }] },
-  { id: 'mavic', kind: 'bundle', name: 'DJI Mavic Air drone', category: 'Drones', pieces: [{ name: 'Mavic Air drone', qty: 1 }, { name: 'Controller', qty: 1 }, { name: 'Drone battery', qty: 3 }, { name: 'Charging hub', qty: 1 }, { name: 'Spare propellers', qty: 1 }] },
-  { id: 'mini5', kind: 'bundle', name: 'DJI Mini 5 drone', category: 'Drones', pieces: [{ name: 'Mini 5 drone', qty: 1 }, { name: 'Controller', qty: 1 }, { name: 'Drone battery', qty: 3 }, { name: 'Charger', qty: 1 }] },
-  { id: 'bat', kind: 'extra', name: 'Extra camera battery', category: 'Power', pieces: [], offered: 6 },
-  { id: 'led', kind: 'extra', name: 'LED panel light', category: 'Lighting', pieces: [], offered: 4 },
-  { id: 'mic', kind: 'extra', name: 'Wireless mic (DJI Mic)', category: 'Audio', pieces: [], offered: 4 },
+  { id: 'fx3', kind: 'bundle', name: 'Sony FX3 kit', category: 'Camera', pieces: [{ name: 'Sony FX3 body', qty: 1 }, { name: '24-70mm lens', qty: 1 }, { name: 'Battery', qty: 3 }, { name: 'CFexpress card', qty: 2 }, { name: 'Top handle', qty: 1 }], value: 6500 },
+  { id: 'a7s', kind: 'bundle', name: 'Sony A7S III kit', category: 'Camera', pieces: [{ name: 'Sony A7S III body', qty: 1 }, { name: '24-70mm lens', qty: 1 }, { name: 'Battery', qty: 3 }, { name: 'SD card', qty: 2 }], value: 5200 },
+  { id: 'mavic', kind: 'bundle', name: 'DJI Mavic Air drone', category: 'Drones', pieces: [{ name: 'Mavic Air drone', qty: 1 }, { name: 'Controller', qty: 1 }, { name: 'Drone battery', qty: 3 }, { name: 'Charging hub', qty: 1 }, { name: 'Spare propellers', qty: 1 }], value: 1400 },
+  { id: 'mini5', kind: 'bundle', name: 'DJI Mini 5 drone', category: 'Drones', pieces: [{ name: 'Mini 5 drone', qty: 1 }, { name: 'Controller', qty: 1 }, { name: 'Drone battery', qty: 3 }, { name: 'Charger', qty: 1 }], value: 1100 },
+  { id: 'bat', kind: 'extra', name: 'Extra camera battery', category: 'Power', pieces: [], offered: 6, value: 120 },
+  { id: 'led', kind: 'extra', name: 'LED panel light', category: 'Lighting', pieces: [], offered: 4, value: 250 },
+  { id: 'mic', kind: 'extra', name: 'Wireless mic (DJI Mic)', category: 'Audio', pieces: [], offered: 4, value: 400 },
 ]
 // Same class strings as the real screens.
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
@@ -110,6 +112,7 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
   const [gearPick, setGearPick] = useState<Record<string, number>>({})
   const chosen = PRACTICE_GEAR.filter(g => (gearPick[g.id] ?? 0) > 0)
   const gearCount = chosen.length
+  const gearValue = chosen.reduce((n, g) => n + g.value * (gearPick[g.id] ?? 0), 0) || 6500
   const hasCamera = chosen.some(g => g.category === 'Camera')
   const gearNames = chosen.map(g => g.kind === 'extra' && gearPick[g.id] > 1 ? `${g.name} ×${gearPick[g.id]}` : g.name).join(', ') || 'Camera kit'
   // Pickup checklist: each piece of the kits you picked, plus the add-ons (one line each, at most 6, to keep it short).
@@ -206,6 +209,8 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
     ...(friends.length ? [{ id: 'share', scene: 'review' as Scene, part: 3, target: 'share', next: C,
       title: 'Filming back to back? Share the gear',
       body: <>{friends.map(f => firstOf(f.name)).join(' and ')} film{friends.length > 1 ? '' : 's'} right after you, so one booking covers all of you: one pickup, one return. When you bring it back you tick who actually used it: only they're responsible. Tap a name to keep the gear just yours.</> }] : []),
+    { id: 'latefee', scene: 'review', part: 3, target: 'latefee', look: true, next: C, title: <>Gear has a price tag: bring it back on time</>,
+      body: <>Your gear is worth {fmtMoney(gearValue)}. Company rule: gear that comes back late carries a fee of {LATE_FEE_PERCENT}% of its value, and every late return is recorded. It's late 30 minutes after your end time.</> },
     { id: 'make', scene: 'review', part: 3, target: 'make', title: "Need something that's not in the closet?", body: <>Tap <b>+ Request something we don't have</b>. The arts team will make or find it. Just ask by {formatDay(cut.builds)}.</> },
     { id: 'makeform', scene: 'review', part: 3, target: 'make', title: <>Describe it, then tap <b>Add request</b></>, body: 'e.g. "a fake birthday cake" or "a pirate hat". Use − and + for how many.' },
     { id: 'send', scene: 'review', part: 3, target: 'send', title: <>Send it: tap <b>Send props + gear</b></>, body: "Props go to the arts team, gear to the equipment team, and you land back on your shoot. (Practice, so nothing's really sent.)" },
@@ -254,7 +259,7 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
     { id: 'pickback', scene: 'pickup', part: 7, target: 'back', title: <>Tap <b>Back</b></>, body: "Now the gear. It's on the same card." },
     { id: 'opengear', scene: 'requests', part: 7, target: 'gearrow', title: 'Tap your gear', body: 'Pick it up from the equipment cage, from 30 minutes before your time.' },
     { id: 'pieces', scene: 'gearpickup', part: 7, target: 'pieces', top: true, next: C, hint: 'Tick (or mark missing) every piece first', title: 'Tick every piece in the case', body: 'Something not there? Tap Missing? next to it, so nobody blames you.' },
-    { id: 'gearsign', scene: 'gearpickup', part: 7, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: "From here until it's back, the kit is in your hands." },
+    { id: 'gearsign', scene: 'gearpickup', part: 7, target: 'gearsign', title: <>Tap <b>Sign: I've got it</b></>, body: <>From here until it's back, the kit is in your hands. Bring it back on time: late returns cost {LATE_FEE_PERCENT}% of its value.</> },
     { id: 'quiz7', scene: 'gearpickup', part: 7, title: '', quiz: {
       q: 'You open the gear case and the spare battery is missing. What do you do?', options: ["Sign anyway, it's probably fine", 'Tap Missing? before signing', 'Text the team about it later'], correct: 1,
       explain: 'Once you sign, the whole kit is yours. Marking it missing first keeps your record clean.' } },
@@ -276,9 +281,13 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
     { id: 'returned', scene: 'returnall', part: 9, target: 'returned', title: <>Tap <b>Return all 2</b></>, body: 'Add a note first if it helps. Tip: if someone else needs the gear before it goes back, open the gear and tap Hand it over. They tick every piece and sign on their phone.' },
     { id: 'seereq', scene: 'returnall', part: 9, target: 'seereq', title: <>Tap <b>See my requests</b></> },
     { id: 'final', scene: 'requests', part: 9, target: 'card', look: true, next: C, title: 'Both on their way home', body: 'Each team checks its part in. When both bars are full, you are done.' },
+    { id: 'quiz9fee', scene: 'requests', part: 9, title: '', quiz: {
+      q: <>You bring your {fmtMoney(gearValue)} gear back 2 hours after your end time. What happens?</>,
+      options: ["Nothing, it's only 2 hours", `A late return fee of ${LATE_FEE_PERCENT}% of the value is recorded`, 'They just send a reminder'], correct: 1,
+      explain: <>It's a company rule: gear is late 30 minutes after your end time, and late returns carry a fee of {LATE_FEE_PERCENT}% of the gear's value ({fmtMoney(gearValue * LATE_FEE_PERCENT / 100)} here). Running late? Tell the equipment team right away.</> } },
     { id: 'quiz9', scene: 'requests', part: 9, title: '', quiz: {
       q: 'When do props need to come back?', options: ['The night of the shoot', 'Within a week', 'Whenever, no rush'], correct: 0,
-      explain: 'They count as late from 10 AM the next open day, and late returns pause new props and gear.' } },
+      explain: 'They count as late from 10 AM the next open day, and late returns pause new props and gear. Every late return is recorded.' } },
     // 10 · Stay in the loop (real)
     intro(10, 'notify', "Last one, and this one is for real: turn on notifications so you never miss an invite, a pickup or a reminder."),
     { id: 'notify', scene: 'notify', part: 10, target: 'notifycard', look: true, next: C, hint: 'Turn them on first', title: 'Turn on notifications', body: push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (steps on the card). Home will remind you.' : "Tap the gold button, then Allow when your phone asks. We won't spam you, promise." },
@@ -999,6 +1008,7 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
           </div>
           <div className="space-y-2">
             <div className="flex items-baseline justify-between"><p className="text-pt-muted text-xs">Gear ({gearCount}) · equipment team</p><span className="text-pt-accent text-sm">+ Add gear</span></div>
+            <LateFeeNote value={gearValue} />
             {friends.length > 0 && (
               <div {...T('share')} className="bg-sky-500/10 rounded-2xl px-4 py-3 space-y-2">
                 <p className="text-sky-100 text-[15px] font-semibold">Share this gear with your friends?</p>

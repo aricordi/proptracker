@@ -16,7 +16,10 @@ import Avatar from '../components/Avatar'
 import BottomSheet from '../components/BottomSheet'
 import { Icon } from '../components/Icon'
 import { MetricCards, ColumnChart, SectionHead, RankList, NeedsYou, needsYouItems, showRateTone, StandingTiles, StandingList, TypicalKey, OutputBar, OutPill, OUT_STYLE, vsTypicalText, type StandFilter } from '../components/analytics/Parts'
-import { FlagFilters, FlagList, withState, notLookedAt, type FlagCtx, type FlagFilter } from '../components/analytics/Flags'
+import { FlagFilters, FlagList, FlagSheet, STATE_STYLE, withState, notLookedAt, type FlagCtx, type FlagFilter } from '../components/analytics/Flags'
+import { lateRows, latePeople, lateTotals, lateCsv, lateFor, stampLabel, fmtMoney, LATE_FEE_PERCENT, type LateRow } from '../lib/lateReturns'
+import { STATE_LABEL } from '../lib/flagState'
+import type { Incident } from '../lib/analytics'
 import { useManageCreator } from '../components/ManageCreator'
 import { useAnalyticsData } from '../hooks/useAnalytics'
 import { formatDay } from '../lib/dates'
@@ -24,9 +27,10 @@ import { KIND, THEMES, SERIOUS_KINDS, type House, type Kind } from '../lib/analy
 import { PRESETS, rangeFor, customRange, grainsFor, defaultGrain, bucketSpan, slice, value, fmt, compare, seriesOf, rowsBy, sortRows, toCsv, shift,
   METRICS, DIMS, HOUSE_LABEL, standings, sortStandings, comingThisMonth, typicalSeries, OUTPUT, ATTENTION_MEANS, type StandSort, type Output, type Preset, type Grain, type Metric, type Dim, type Data, type Range, type Row } from '../lib/insights'
 
-type Tab = 'creators' | 'flags' | 'teams' | 'trends'
+type Tab = 'creators' | 'late' | 'flags' | 'teams' | 'trends'
 // Owner, Oct 20: accountability first ("organised by creator rather than by time"); trends over time come last.
-const TABS: [Tab, string][] = [['creators', 'Creators'], ['flags', 'Flags'], ['teams', 'Teams'], ['trends', 'Trends']]
+// Late returns (owner, Oct 27): the audit log for the late return fee, right after Creators.
+const TABS: [Tab, string][] = [['creators', 'Creators'], ['late', 'Late returns'], ['flags', 'Flags'], ['teams', 'Teams'], ['trends', 'Trends']]
 const DIM_ORDER: Dim[] = ['creator', 'house', 'period', 'theme', 'kind', 'staff']
 const CAP = 5
 const cap = <T,>(xs: T[], all: boolean) => all ? xs : xs.slice(0, CAP)
@@ -123,6 +127,7 @@ export default function AnalyticsScreen() {
       <div className="px-4 pt-4 space-y-4">
         {table ? <AdvancedView {...ctx} qs={qs} /> : <>
           {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(['most', 'least', 'flags', 'name'].includes(qs.get('sort') ?? '') ? qs.get('sort') : 'most') as StandSort} level={(qs.get('level') as StandFilter) || ''} />}
+          {tab === 'late' && <LateTab {...ctx} />}
           {tab === 'flags' && <FlagsTab {...ctx} m={qs.get('m') as Metric} />}
           {tab === 'teams' && <TeamsTab {...ctx} m={qs.get('m') as Metric} />}
           {tab === 'trends' && <TrendsTab {...ctx} m={qs.get('m') as Metric} />}
@@ -337,6 +342,12 @@ function PersonView(c: Ctx & { m: Metric }) {
     <SectionHead title="Month by month" sub={`Shoots filmed; the white lines are the typical creator · above typical ${above} of the last ${months.length} months`} />
     <ColumnChart data={months} grain="month" m="filmed" typical={typical} avgWord="a month" onZoom={b => { const [f, t] = bucketSpan(b, 'month', six); c.drill({ from: f, to: t, g: null }) }} />
     <div id="their-flags" className="scroll-mt-32" />
+    {(() => { const lt = lateTotals(lateRows(c.cur.incidents)); return (
+      <button onClick={() => c.drill({ tab: 'late', m: null })} className="w-full flex items-center gap-3 bg-pt-surface rounded-2xl px-3 py-3 text-left" data-tour="theirlate">
+        <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px]">Late returns · {lt.count}</span>
+          <span className="block text-pt-muted text-xs">{lt.count ? `${lt.gear} gear (fee applies) · ${lt.props} props${lt.stillOut ? ` · ${lt.stillOut} still out` : ''}` : `Nothing late ${c.range.phrase}`}</span></span>
+        <span className="text-pt-muted">›</span>
+      </button>) })()}
     <SectionHead title={`Their flags · ${flagXs.length}`} sub="Tap one to see what happened and what you can do about it" onMore={() => c.drill({ tab: 'flags', m: null })} more="Flags tab" />
     <FlagFilters tourId="flagfilters" xs={flagXs} f={fs} onF={f => c.set({ fs: f === 'all' ? null : f })} serious={{ on: sev, toggle: () => c.set({ sev: sev ? null : '1' }) }} />
     <FlagList tourId="flaglist" xs={flagXs} f={fs} ctx={c.flagCtx} showWho={false} limit={6} />
@@ -358,6 +369,94 @@ function PersonView(c: Ctx & { m: Metric }) {
       ))}
     </div>
     {more('shoots', shoots.length)}
+  </>
+}
+
+// ── Late returns: the audit log for the late return fee (owner, Oct 27) ──
+// Gear returned late carries a fee of 10% of its value (on whoever had it last); props are logged with no fee for now.
+// Nothing is charged by the app: this is the record to enforce it from. Excusing one (on its sheet) makes an exception.
+function LateTab(c: Ctx) {
+  const [open, setOpen] = useState<Incident | null>(null)
+  const [all, setAll] = useState(false)
+  const type = (['gear', 'props'].includes(c.qs.get('lt') ?? '') ? c.qs.get('lt') : '') as '' | 'gear' | 'props'
+  const show = (['excused', 'all'].includes(c.qs.get('ls') ?? '') ? c.qs.get('ls') : '') as '' | 'excused' | 'all'
+  const counted = lateRows(c.cur.incidents), excused = lateRows(c.excusedCur)
+  const t = lateTotals(counted), people = latePeople(counted)
+  const states = new Map(withState([...counted, ...excused].map(r => r.i), excused.map(r => r.i), c.flagCtx.reviews).map(x => [x.i.id, x.s]))
+  const pool = (show === 'excused' ? excused : show === 'all' ? [...counted, ...excused] : counted).filter(r => !type || r.kind === type)
+    .sort((x, y) => y.late.dueAt.localeCompare(x.late.dueAt))
+  const list = all ? pool : pool.slice(0, 12)
+  const subject = c.who ? `${c.nameOf(c.who)} returned things late` : 'Things came back late'
+  const pMax = Math.max(1, ...people.map(p => p.count))
+  const download = () => {
+    const blob = new Blob([lateCsv(pool, r => STATE_LABEL[states.get(r.i.id) ?? 'todo'])], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob), el = document.createElement('a')
+    el.href = url; el.download = `prime-capitol-late-returns-${c.range.from}-to-${c.range.to}.csv`; el.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  const tile = (n: string, label: string, tone = 'text-pt-text') => (
+    <div className="bg-pt-surface rounded-2xl p-3"><p className={`text-[22px] font-semibold tabular-nums ${tone}`}>{n}</p><p className="text-pt-muted text-xs leading-snug">{label}</p></div>)
+  const chip = (on: boolean, label: string, onClick: () => void) => <button key={label} onClick={onClick} className={`shrink-0 px-3 py-1.5 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{label}</button>
+  return <>
+    <div data-tour="lateheadline">
+      <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">{t.count ? <>{subject} {t.count} {t.count === 1 ? 'time' : 'times'} {c.range.phrase}</> : <>Nothing came back late {c.range.phrase}</>}</p>
+      <p className="text-pt-muted text-[15px] mt-1">{t.count ? `${t.gear} gear (the fee applies) · ${t.props} props (no fee for now)` : 'Nice.'}</p>
+    </div>
+    <div className="grid grid-cols-2 gap-2" data-tour="latetiles">
+      {tile(String(t.gear), `Gear late · fee applies (${LATE_FEE_PERCENT}% of value)`, t.gear ? 'text-amber-200' : 'text-pt-text')}
+      {tile(String(t.props), 'Props late · no fee for now')}
+      {tile(String(t.stillOut), 'Still out and late right now', t.stillOut ? 'text-red-300' : 'text-pt-text')}
+      {tile(t.gearValue ? fmtMoney(t.gearValue) : '$0', 'Value of the late gear')}
+    </div>
+    <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-3 py-3"><b className="text-pt-text">Company rule:</b> gear returned late carries a fee of {LATE_FEE_PERCENT}% of its value, on whoever had it last. Gear is late 30 minutes after its end time; props at 10 AM the day after the shoot. The app keeps the record; nobody is charged automatically. To make an exception, open one and <b className="text-pt-text">Excuse it</b>.</p>
+    {!c.who && <>
+      <SectionHead title="Who returns late most" sub="Tap someone to see just theirs" />
+      <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]" data-tour="latepeople">
+        {people.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">Nobody. Nice.</p>}
+        {people.slice(0, 10).map(p => (
+          <button key={p.email} onClick={() => c.drill({ who: p.email })} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+            <Avatar email={p.email} name={p.name} size={32} />
+            <span className="flex-1 min-w-0">
+              <span className="block text-pt-text text-[15px] truncate">{p.name}</span>
+              <span className="block text-pt-muted text-xs truncate">{[p.gear && `${p.gear} gear`, p.props && `${p.props} props`, `${lateFor(p.minutes)} late in all`, p.gearValue && `${fmtMoney(p.gearValue)} of gear`].filter(Boolean).join(' · ')}</span>
+              <span className="block h-1 rounded-full bg-white/[0.06] mt-1.5 overflow-hidden"><i className="block h-full bg-amber-300/80" style={{ width: `${(p.count / pMax) * 100}%` }} /></span>
+            </span>
+            <span className="text-pt-text tabular-nums text-[17px] font-semibold">{p.count}</span>
+            {p.stillOut > 0 && <span className="text-xs rounded-full px-2 py-0.5 bg-red-500/15 text-red-300">Still out</span>}
+          </button>
+        ))}
+      </div>
+    </>}
+    <SectionHead title={`Every late return · ${pool.length}`} sub="Tap one for the times, the value and the photos, and to excuse it" />
+    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+      {chip(!type, 'Gear + props', () => c.set({ lt: null }))}{chip(type === 'gear', 'Gear', () => c.set({ lt: 'gear' }))}{chip(type === 'props', 'Props', () => c.set({ lt: 'props' }))}
+      <span className="w-px bg-white/10 shrink-0" />
+      {chip(!show, 'Counted', () => c.set({ ls: null }))}{chip(show === 'excused', `Excused · ${excused.length}`, () => c.set({ ls: 'excused' }))}{chip(show === 'all', 'All', () => c.set({ ls: 'all' }))}
+    </div>
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]" data-tour="latelist">
+      {pool.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">None in this view.</p>}
+      {list.map((r: LateRow) => {
+        const st = states.get(r.i.id) ?? 'todo'
+        return (
+          <button key={r.i.id} onClick={() => setOpen(r.i)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+            {!c.who && <Avatar email={r.i.email} name={r.i.name} size={32} />}
+            <span className="flex-1 min-w-0">
+              <span className="block text-pt-text text-[15px] truncate">{!c.who ? `${r.i.name} · ` : ''}{r.late.still ? `${lateFor(r.late.minutes)} late so far` : `${lateFor(r.late.minutes)} late`}</span>
+              <span className="block text-pt-muted text-xs truncate">{formatDay(r.i.date)} · {r.i.text.replace(/ (came back late|still out, late)$/, '')}{r.kind === 'gear' ? ` · ${r.late.value === null ? 'value not recorded' : r.late.value ? fmtMoney(r.late.value) : 'no value set'}` : ''}</span>
+              <span className="block text-pt-muted text-xs truncate">Due {stampLabel(r.late.dueAt)}{r.late.backAt ? ` · back ${stampLabel(r.late.backAt)}` : ''}</span>
+            </span>
+            <span className="flex flex-col items-end gap-1 shrink-0">
+              {r.late.still ? <span className="text-xs rounded-full px-2 py-0.5 bg-red-500/15 text-red-300">Still out</span>
+                : st === 'excused' ? <span className={`text-xs rounded-full px-2 py-1 ${STATE_STYLE.excused}`}>Excused</span>
+                : <span className={`text-xs rounded-full px-2 py-1 ${r.kind === 'gear' ? 'bg-amber-500/15 text-amber-200' : 'bg-pt-border text-pt-muted'}`}>{r.kind === 'gear' ? 'Fee applies' : 'No fee'}</span>}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+    {!all && pool.length > list.length && <button onClick={() => setAll(true)} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">Show all {pool.length}</button>}
+    <button onClick={download} disabled={!pool.length} className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-pt-surface text-pt-text text-[15px] disabled:opacity-50"><Icon name="download" className="w-5 h-5" />Download this log as a spreadsheet</button>
+    <FlagSheet flag={open} ctx={c.flagCtx} onClose={() => setOpen(null)} excused={!!open && c.flagCtx.excused.some(x => x.id === open.id)} />
   </>
 }
 

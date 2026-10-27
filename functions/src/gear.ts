@@ -18,6 +18,8 @@ const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(
 const category = (v: unknown): GearCategory => GEAR_CATEGORIES.includes(v as GearCategory) ? v as GearCategory : 'Other'
 const photosOf = (v: unknown) => Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 10) : []
 
+// Each piece's value (dollars, each) or null when not set: copied onto bundles so creators see what they're borrowing.
+const valueOf = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : null
 const asItem = (id: string, d: FirebaseFirestore.DocumentData): StockItem => ({ id, name: String(d.name ?? ''), have: Number(d.have) || 0, archived: d.archived === true })
 const asBundle = (id: string, d: FirebaseFirestore.DocumentData): StockBundle => ({ id, pieces: Array.isArray(d.pieces) ? d.pieces : [], archived: d.archived === true, kind: d.kind })
 
@@ -39,7 +41,7 @@ function writeItemOffers(tx: Tx, itemIds: string[], items: Map<string, FirebaseF
       const loose = looseCount({ id, name, have: Number(d.have) || 0 }, bundled), peak = peakHeld(entries, now)
       if (peak > loose) throw new HttpsError('failed-precondition', `Creators have ${peak} "${name}" booked at the same time, so only ${loose} would be left to book. Change it after those bookings (or cancel them).`)
       tx.set(db.doc(`gear_bundles/${itemOfferId(id)}`), { name, kind: 'item', itemId: id, category: category(d.category), description: '', photos: photosOf(d.photos),
-        pieces: [{ itemId: id, qty: loose, name }], archived: false, updatedAt: at, updatedBy: by, ...(offer ? {} : { createdAt: at, createdBy: by }) }, { merge: true })
+        pieces: [{ itemId: id, qty: loose, name, value: valueOf(d.value) }], archived: false, updatedAt: at, updatedBy: by, ...(offer ? {} : { createdAt: at, createdBy: by }) }, { merge: true })
     } else if (offer && offer.archived !== true) {
       if (activeHolds(entries).length) throw new HttpsError('failed-precondition', `Creators have "${name}" booked. It can go internal (or be archived) after those bookings are done, or cancel them.`)
       tx.set(db.doc(`gear_bundles/${itemOfferId(id)}`), { archived: true, updatedAt: at, updatedBy: by }, { merge: true })
@@ -72,12 +74,13 @@ export const saveGearItem = onCall(CALLABLE, async req => {
     const all = bundles.docs.map(b => asBundle(b.id, b.data()))
     const problem = haveProblem(item, archived ? 0 : have, all)
     if (problem) throw new HttpsError('failed-precondition', archived ? `Can't archive it: ${problem}` : problem)
-    // Bundles keep a copy of each piece's name (creators can't read the gear list).
+    // Bundles keep a copy of each piece's name and value (creators can't read the gear list; the value is for the
+    // late return fee, owner Oct 27).
     for (const b of bundles.docs) {
-      const ps = (b.get('pieces') as { itemId: string; qty: number; name?: string }[] | undefined) ?? []
-      if (b.get('kind') !== 'item' && ps.some(p => p.itemId === ref.id && p.name !== name)) tx.update(b.ref, { pieces: ps.map(p => p.itemId === ref.id ? { ...p, name } : p) })
+      const ps = (b.get('pieces') as { itemId: string; qty: number; name?: string; value?: number | null }[] | undefined) ?? []
+      if (b.get('kind') !== 'item' && ps.some(p => p.itemId === ref.id && (p.name !== name || (p.value ?? null) !== value))) tx.update(b.ref, { pieces: ps.map(p => p.itemId === ref.id ? { ...p, name, value } : p) })
     }
-    const next = { name, category: category(d.category), have, photos: photosOf(d.photos), archived, public: isPublic }
+    const next = { name, category: category(d.category), have, photos: photosOf(d.photos), archived, public: isPublic, value }
     writeItemOffers(tx, [ref.id], new Map([[ref.id, next]]), all, offerMap(bundles), holds, caller.email)
     tx.set(ref, {
       name, category: category(d.category), have, serial: serial || null, value, notes: str(d.notes, 500),
@@ -119,8 +122,8 @@ export const saveGearBundle = onCall(CALLABLE, async req => {
     writeItemOffers(tx, touched, new Map(items.docs.map(i => [i.id, i.data()])), after, offerMap(bundles), itemHolds, caller.email)
     tx.set(ref, {
       name, kind, category: category(d.category), description: str(d.description, 500), photos: photosOf(d.photos),
-      // Each piece carries its name so creators can see what's in the case.
-      pieces: pieces.map(p => ({ ...p, name: String(items.docs.find(i => i.id === p.itemId)?.get('name') ?? '') })),
+      // Each piece carries its name and value so creators can see what's in the case and what it's worth.
+      pieces: pieces.map(p => { const it = items.docs.find(i => i.id === p.itemId); return { ...p, name: String(it?.get('name') ?? ''), value: valueOf(it?.get('value')) } }),
       archived: false, updatedAt: now, updatedBy: caller.email,
       ...(snap.exists ? {} : { createdAt: now, createdBy: caller.email }),
     }, { merge: true })

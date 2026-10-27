@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useGearCart } from '../gearCart'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, nextFreeStart, fmtHours, type GearBundle, type GearHold } from '../services/gear'
-import { GearWhenPicker, GearShootHours, GearArt, Pill, DayTimeline, useGearWhen } from '../components/GearUi'
+import { GearWhenPicker, GearShootHours, GearArt, Pill, DayTimeline, useGearWhen, LateFeeNote } from '../components/GearUi'
+import { offerValue } from '../../functions/src/gearStock'
 import { useSession } from '../auth'
 import { useActiveShoot } from '../activeShoot'
 import AddingToBar from '../components/AddingToBar'
@@ -75,6 +76,7 @@ export default function GearOfferScreen() {
         <p className="text-pt-muted text-[13px] leading-snug px-1">
           <Icon name="battery" className="w-4 h-4 inline -mt-0.5 mr-1" />Batteries are charged when gear comes back, but a bundle can go straight out again, so we can't promise a full charge.
         </p>
+        {(() => { const v = offerValue(b); return <LateFeeNote value={v.value} missing={v.missing} /> })()}
 
         {creator ? <><AddingToBar kind="gear" />{shoot ? <GearShootHours /> : isStaff && <GearWhenPicker />}</> : <GearWhenPicker />}
         {showFree && !w.problem && (

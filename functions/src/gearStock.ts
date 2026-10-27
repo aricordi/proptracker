@@ -13,7 +13,7 @@
 export const GEAR_CATEGORIES = ['Camera', 'Lens', 'Lighting', 'Audio', 'Drones', 'Power', 'Grip', 'Monitors', 'Other'] as const
 export type GearCategory = typeof GEAR_CATEGORIES[number]
 
-export interface BundlePiece { itemId: string; qty: number; name?: string }   // name: copied in by the server
+export interface BundlePiece { itemId: string; qty: number; name?: string; value?: number | null }   // name + value: copied in by the server
 export interface StockItem { id: string; name: string; have: number; archived?: boolean }
 export type OfferKind = 'bundle' | 'extra' | 'item'
 // Booked by count (pick how many) rather than whole.
@@ -86,3 +86,29 @@ export function peakHeld(entries: { from: string; to: string; qty: number }[], n
   for (const e of live) peak = Math.max(peak, live.filter(x => x.from <= e.from && e.from < x.to).reduce((n, x) => n + x.qty, 0))
   return peak
 }
+
+// LATE RETURN FEE (owner, Oct 27: company-wide rule, 10% of the equipment's value). The app doesn't charge anything;
+// it keeps the value so every late return can be enforced later. Pieces carry their value (each, in dollars) copied
+// from All gear; null = not set yet.
+export const LATE_FEE_PERCENT = 10
+export interface ValuedPiece { qty: number; value?: number | null }
+// Value of one bundle, or of ONE unit for extras / single items. missing = pieces with no value set.
+export function offerValue(o: { kind?: string; pieces?: ValuedPiece[] }): { value: number; missing: number } {
+  const ps = (o.pieces ?? []).slice(0, byCount(o.kind) ? 1 : undefined)
+  let value = 0, missing = 0
+  for (const p of ps) {
+    if (typeof p.value === 'number' && Number.isFinite(p.value)) value += p.value * (byCount(o.kind) ? 1 : p.qty)
+    else missing++
+  }
+  return { value, missing }
+}
+// Value of a whole booking (its line pieces already hold the booked quantities).
+export function linesValue(lines: { pieces?: ValuedPiece[] }[]): { value: number; missing: number } {
+  let value = 0, missing = 0
+  for (const l of lines) for (const p of l.pieces ?? []) {
+    if (typeof p.value === 'number' && Number.isFinite(p.value)) value += p.value * p.qty
+    else missing++
+  }
+  return { value, missing }
+}
+export const fmtMoney = (n: number) => `$${Math.round(n).toLocaleString('en-CA')}`

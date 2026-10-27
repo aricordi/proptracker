@@ -111,8 +111,8 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
       body: "Riley filmed 1 this month; the typical creator filmed 4 (the white tick on the bar). The light part of the bar is shoots they've booked but not filmed yet." },
     { id: 'tilesall', scene: 'admin', part: 3, target: 'tile-less', title: <>Tap <b>Posting less</b> again</>, body: 'Back to everyone.' },
     { id: 'openanalytics', scene: 'admin', part: 3, target: 'openanalytics', title: <>Tap <b>Open analytics</b></>, body: 'The full picture, one creator at a time.' },
-    { id: 'antabs', scene: 'analytics', part: 3, target: 'antabs', look: true, next: C, title: 'Four tabs, creators first',
-      body: ul([['Creators', 'everyone ranked by shoots filmed'], ['Flags', 'who has the most, and what kind'], ['Teams', 'the arts department and equipment team, per person'], ['Trends', 'the whole studio over time']]) },
+    { id: 'antabs', scene: 'analytics', part: 3, target: 'antabs', look: true, next: C, title: 'Five tabs, creators first',
+      body: ul([['Creators', 'everyone ranked by shoots filmed'], ['Late returns', 'the log for the late return fee: who, how late, the gear value'], ['Flags', 'who has the most, and what kind'], ['Teams', 'the arts department and equipment team, per person'], ['Trends', 'the whole studio over time']]) },
     { id: 'anperiod', scene: 'analytics', part: 3, target: 'anperiod', look: true, next: C, title: 'Pick the dates once',
       body: "This month, last month, 12 weeks… everything on every tab follows it. Every time you tap into something, the phone's Back takes you one step out." },
     { id: 'sortleast', scene: 'analytics', part: 3, target: 'sort-least', title: <>Tap <b>Least filmed</b></>, body: 'The people filming the least float to the top.' },
@@ -129,7 +129,11 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
       body: 'Gold columns are Devon; the white lines are the typical creator that month. One slow month is normal; a pattern is worth a chat.' },
     { id: 'torecord', scene: 'report', part: 4, target: 'recordbtn', title: <>Tap <b>Record ›</b></>, body: 'Strikes and pauses live on their record.' },
     { id: 'flaglist', scene: 'person', part: 4, target: 'flaglist', look: true, next: C, title: 'The full record: every flag, with the day',
-      body: ul([['No-show', 'booked, never came'], ['Started late', 'checked in 15+ min after the start'], ['Ran over / mess', 'reported by the next creator'], ['Late props / gear', 'brought back late'], ['Strike', 'on their record, with the reason']]) },
+      body: ul([['No-show', 'booked, never came'], ['Started late', 'checked in 15+ min after the start'], ['Ran over / mess', 'reported by the next creator'], ['Late props / gear', 'brought back late (gear: the 10% late return fee applies)'], ['Strike', 'on their record, with the reason']]) },
+    { id: 'quiz4', scene: 'person', part: 4, title: '', quiz: {
+      q: "Jordan's gear came back an hour late because the team moved his shoot. The late return fee shouldn't apply. What do you do?",
+      options: ['Nothing, the fee is automatic', 'Open it in Analytics → Late returns and tap Excuse it, with the reason', 'Delete the booking'], correct: 1,
+      explain: "Every late return is logged with how late it was and the gear's value (the fee is 10% of it). Nothing is charged by the app, and excusing one makes it an exception: it stops counting, and the reason stays on record." } },
     // 5 · Give a strike
     intro(5, 'person', "Devon brought the A7S kit back a day late. That's worth a strike. Here's how to give one fairly."),
     { id: 'givestrike', scene: 'person', part: 5, target: 'givestrike', title: <>Tap <b>Give a strike</b></> },
@@ -449,8 +453,8 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
           </div>
         </div>
         <div className="px-4 border-b border-white/[0.06]">
-          <div {...T('antabs')} className="flex gap-5">
-            {['Creators', 'Flags', 'Teams', 'Trends'].map((l, n) => <span key={l} className={`relative py-3 text-[15px] ${n === 0 ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}{n === 0 && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}</span>)}
+          <div {...T('antabs')} className="flex gap-5 overflow-x-auto no-scrollbar">
+            {['Creators', 'Late returns', 'Flags', 'Teams', 'Trends'].map((l, n) => <span key={l} className={`relative py-3 text-[15px] ${n === 0 ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}{n === 0 && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}</span>)}
           </div>
           <div className="flex items-center gap-2 py-2"><span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</span><span className="text-pt-muted text-sm">Everyone · every house</span></div>
         </div>

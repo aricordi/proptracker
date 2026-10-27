@@ -58,7 +58,7 @@ export * from '../../functions/src/gearBooking'
 
 export interface GearBookingLine {
   offerId: string; kind: OfferKind; name: string; qty: number; photo?: string | null
-  pieces: { itemId: string; qty: number; name: string }[]
+  pieces: { itemId: string; qty: number; name: string; value?: number | null }[]
 }
 export interface GearMissing { offerId: string; itemId: string; name: string; qty: number }
 export interface GearBooking {
@@ -79,6 +79,9 @@ export interface GearBooking {
   pickup?: { at: string; by: string; missing: GearMissing[] }
   return?: { at: string; by: string; photos: string[] }
   returnedAt?: string; returnedLate?: boolean
+  // Late return fee (owner, Oct 27): value when booked, and the late record (how late, worth, who had it last).
+  value?: number; valueMissing?: number
+  late?: { minutes: number; dueAt: string; backAt: string; by: string; byName: string; value: number; valueMissing: number; feePercent: number }
   checkIn?: { at: string; by: string; missing: GearMissing[]; note?: string }
   problems?: (GearMissing & { kind: 'missing_after' | 'missing_at_checkin'; at: string; reportedOn?: string })[]
   alerts?: { kind: string; at: string; count: number }[]

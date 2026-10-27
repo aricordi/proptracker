@@ -20,7 +20,7 @@ describe('creator dashboard numbers', () => {
       shoot('old', 'kyle@x', '2026-10-01', { checkin: { at: '2026-10-01T17:00:00.000Z' } }),  // before the period
     ],
     props: [{ id: 'r1', creatorEmail: 'kyle@x', title: 'Diner', status: 'collected', endDate: '2026-11-05' }],
-    gear: [{ id: 'g1', creatorEmail: 'ana@x', title: 'Cam', status: 'returned', to: '2026-11-02T15:00', date: '2026-11-02', returnedLate: true, usedBy: ['ana@x', 'jana@x'] }],
+    gear: [{ id: 'g1', creatorEmail: 'ana@x', title: 'Cam', status: 'returned', to: '2026-11-02T15:00', date: '2026-11-02', returnedLate: true, usedBy: ['ana@x', 'jana@x'], crewEmails: ['jana@x'], late: { by: 'jana@x' } }],
     reports: [
       { id: 'p1', onEmail: 'ana@x', onName: 'Ana', date: '2026-11-03', overMinutes: 20, mess: true, status: 'upheld', onShootId: 'b' },
       { id: 'p2', onEmail: 'ana@x', onName: 'Ana', date: '2026-11-03', overMinutes: 10, mess: false, status: 'dismissed', onShootId: 'b' },
@@ -36,9 +36,9 @@ describe('creator dashboard numbers', () => {
     expect(stats[0].email).toBe('ana@x')
   })
   it('collects every flag', () => {
-    expect(by['ana@x'].counts).toEqual({ 'late-start': 1, 'no-show': 1, 'ran-over': 1, mess: 1, 'late-gear': 1 })
+    expect(by['ana@x'].counts).toEqual({ 'late-start': 1, 'no-show': 1, 'ran-over': 1, mess: 1 })
     expect(by['kyle@x'].counts).toEqual({ 'late-cancel': 1, 'missed-checkin': 1, 'late-props': 1, strike: 1 })
-    expect(by['jana@x'].counts).toEqual({ 'late-gear': 1 })   // used the shared gear
+    expect(by['jana@x'].counts).toEqual({ 'late-gear': 1 })   // the last person to have it (owner, Oct 27)
     expect(flagTotal(by['riley@x'])).toBe(0)
   })
 })

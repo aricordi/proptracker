@@ -1,5 +1,6 @@
 // Help for creators: short answers to "how do I…?", searchable. Numbers come from the live settings,
 // so the answers stay right when the team changes the rules.
+import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBookingSettings } from '../hooks/useBookings'
@@ -50,6 +51,7 @@ export default function HelpScreen() {
       { q: "What if we don't have what I need?", words: 'build make find custom missing', a: <>In <b>Your shoot</b>, tap "Request something we don't have" and describe it (a reference photo helps). The arts department will make or find it; this needs {b.buildLeadDays} open days' notice.</> },
       { q: 'Can I change a request after sending it?', words: 'edit change remove add more', a: <>Yes, until the arts department starts picking: open the request and tap <b>Change</b> to change how many, take things out or add something to make or find. Gear can be changed until you pick it up. After that, tap <b>+ Add more</b> to add to the same shoot.</> },
       { q: 'How do pickup and returns work?', words: 'pickup return photo late', a: <>Props: when they're packed, sign for them on your phone at pickup, and bring them back with a quick photo. Gear: from {PICKUP_OPENS_MINUTES} minutes before your time, tick every piece in the case, sign, and at the end take a photo of everything back in the case with batteries charging. Gear is late {GEAR_LATE_MINUTES} minutes after your end time; late props or gear stop you booking more until they're back.</> },
+      { q: 'Is there a fee for returning gear late?', words: 'late fee penalty charge cost money value 10 percent fine', a: <>Yes, it's a company rule: gear returned late carries a fee of <b>{LATE_FEE_PERCENT}% of its value</b>. You see what a kit is worth on its page, when you send your request and on your gear booking. Gear is late {GEAR_LATE_MINUTES} minutes after your end time, and the fee goes on whoever had it last. Every late return is recorded. Running late? Tell the equipment team right away.</> },
       { q: 'What does ✦ Ideas do?', words: 'ai idea suggest video', a: <>Describe your video idea and the AI suggests props and gear from our inventory, grouped by scene, with why each one fits. Always check each suggestion before adding it. Search and browse are always there too.</> },
     ] },
     { title: 'On the day', icon: 'clapper', items: [

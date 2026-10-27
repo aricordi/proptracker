@@ -1480,6 +1480,30 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       of people who film `filmingPeople()` (active creators + the owner, who isn't in users) used by listSchedulePeople,
       listFilmingFriends, askForTime and the calendar import guesses; askForTime no longer open to arts. App: FindSheet/MoveSheet
       apply the lock to the owner's own shoots; Schedule hides Book/AI/Find for non-bookers. Tests 458 (admin.test.ts).
+    - LATE RETURN FEE (owner, Oct 27: new COMPANY-WIDE rule, late return fee = 10% of the equipment's value; "we don't have to
+      calculate the 10% yet, just track the lateness… an auditable log in the analytics… per creator"; NOT deployed: backend +
+      website, ask). Owner answers: creators see RULE + VALUE; GEAR ONLY for now (props logged, "no fee"); late = the SAME moment
+      the app already calls it late (gear 30 min after the booked end, props 10 AM next open day) and ADMINS SEE HOW LATE to make
+      exceptions (= Excuse it on the flag); shared gear → the LAST PERSON TO HAVE IT. Nothing is charged by the app.
+      gearStock.ts: LATE_FEE_PERCENT 10, offerValue (bundle total / one unit of an extra or item), linesValue, fmtMoney. Pieces on
+      bundles/item offers carry `value` (copied from gear_items.value by saveGearItem / saveGearBundle / writeItemOffers, like names).
+      gearBookings.ts: create/edit read gear_items values IN the transaction → line pieces `value` + booking `value`/`valueMissing`
+      (snapshot at booking time; hand-over copies them). returnGear + handOverGear write `late` {minutes (past the booked END),
+      dueAt (= to), backAt, by, byName, value, valueMissing, feePercent} when late; by = `lastHolder` (caller if on the booking,
+      else holderOf = pickup signer). Pushes (gear due / late) mention the fee. App: analytics late-gear = ONE incident on late.by
+      (else pickup signer; was everyone ticked as used) with `late: LateInfo` {minutes, dueAt, backAt, still, fee, value,
+      valueMissing}; late-props get LateInfo too (fee false, due = returnDueDay 10:00). `src/lib/lateReturns.ts` (pure, tested):
+      lateRows/latePeople/lateTotals/lateCsv/lateFor/stampLabel. Analytics tab LATE RETURNS (?tab=late, &lt=gear|props,
+      &ls=excused|all): headline, 4 tiles, company-rule note, Who returns late most, every late return (how late, due/back, value,
+      Fee applies / No fee / Still out / Excused) → FlagSheet (evidence rows Due back / Came back / Last had it / Value / Late fee;
+      Excuse it = exception), Download this log (CSV). Creator page "Late returns · N" card. Flag rows show "2 h 10 min late ·
+      $4,740". creatorStats late-gear also on the last holder. LateFeeNote (GearUi) on the kit page, /reserve gear section, gear
+      booking (held/out); booking page shows Value + a "came back X late" box. All gear: "Replacement value ($ each)" + amber
+      "N pieces have no value yet" + per-row value. Rules sheet row, Help Q "Is there a fee…", tours: creator ch3 step `latefee`
+      (review scene, practice kit values PRACTICE_GEAR.value) + ch7 sign text + quiz9fee; gear tour value field + ch6 text + quiz6;
+      admin tour 5 tabs incl. Late returns + quiz4 (excuse an exception). Seed: emulator-only practice values (seed-emulator.mjs
+      gearValue). LIVE GEAR HAS NO VALUES YET: the equipment team must fill them in (until then "Value not set").
+      Tests 470 (tests/functions/lateFee.test.ts, tests/unit/lateReturns.test.ts; creatorStats test updated).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
