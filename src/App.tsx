@@ -32,6 +32,7 @@ const HealthScreen = lazy(() => import('./screens/HealthScreen'))
 const UsersScreen = lazy(() => import('./screens/UsersScreen'))
 const CategoriesScreen = lazy(() => import('./screens/CategoriesScreen'))
 const EmailSettingsScreen = lazy(() => import('./screens/EmailSettingsScreen'))
+const GoogleAccountScreen = lazy(() => import('./screens/GoogleAccountScreen'))
 const ActivityScreen = lazy(() => import('./screens/ActivityScreen'))
 const PersonHistoryScreen = lazy(() => import('./screens/PersonHistoryScreen'))
 const ImportScreen = lazy(() => import('./screens/ImportScreen'))
@@ -347,6 +348,7 @@ export default function App() {
           <Route path="/users" element={<PeopleOnly><UsersScreen /></PeopleOnly>} />
           <Route path="/categories" element={<OwnerOnly><CategoriesScreen /></OwnerOnly>} />
           <Route path="/email" element={<OwnerOnly><EmailSettingsScreen /></OwnerOnly>} />
+          <Route path="/google" element={<OwnerOnly><GoogleAccountScreen /></OwnerOnly>} />
           <Route path="/ai" element={<OwnerOnly><AiSettingsScreen /></OwnerOnly>} />
           <Route path="/costs" element={<OwnerOnly><CostsScreen /></OwnerOnly>} />
           <Route path="/help" element={<HelpScreen />} />

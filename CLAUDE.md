@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 455 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 466 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -385,7 +385,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
   Manager as SMTP_PASSWORD (never in chat) → Claude sets SMTP_SECRET_READY = true + backend deploy (owner OK) →
   owner sets Admin → Email: Gmail/Workspace preset, login alex@primecapitol.ca, from = alias, name "Prime App",
   then "Send test email". Timed reminders (checkLateAndAtRisk) still need the Cloud Scheduler OK.
-  ON HOLD (Oct 17): owner has no Workspace ADMIN access yet (can't add alias / app password). Resume when they do.
+  ON HOLD (Oct 17): owner has no Workspace ADMIN access yet (can't add alias / app password). REPLACED Oct 27 by the
+  PRIME CAPITOL GOOGLE ACCOUNT (OAuth, gmail.send; no app password) — see that entry.
 - PROPOSED BUILD STEPS (Oct 16, awaiting owner go-ahead): (1) schedule core: houses, slot grid, blocks, instant
   booking/cancel with no double-booking (transactions like props), Book screen + team Schedule/Block, How it works,
   settings; (2) Google Calendar: one-time import of future events + one-way copy of every booking/block (owner shares
@@ -1504,6 +1505,29 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       admin tour 5 tabs incl. Late returns + quiz4 (excuse an exception). Seed: emulator-only practice values (seed-emulator.mjs
       gearValue). LIVE GEAR HAS NO VALUES YET: the equipment team must fill them in (until then "Value not set").
       Tests 470 (tests/functions/lateFee.test.ts, tests/unit/lateReturns.test.ts; creatorStats test updated).
+    - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
+      IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
+      dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
+      ONE dedicated account (e.g. bookings@primecapitol.ca) for CALENDAR + EMAIL, OAuth client kept in the OWNER'S Google Cloud
+      (proptracker-9732e, consent screen External → must be PUBLISHED or refresh tokens die after 7 days; unverified warning is
+      expected: Advanced → Go to Prime Capitol; IT may need to mark the client ID Trusted in Admin console → API controls).
+      Scopes: calendar.events + gmail.send (+ openid email). `functions/src/googleLink.ts` (pure: SCOPES, authUrl, safeOrigin
+      allowlist of the app's addresses, redirectUriFor, grantedOf, secretEnd; tests/unit/googleLink.test.ts) +
+      `functions/src/googleAccount.ts`: owner callables googleAccountStatus / saveGoogleClient (client ID + secret, secret never
+      returned) / googleConnectStart (state in `private_google_states`, 15 min, single use; emulator = pretend connect as
+      bookings@example.com) / googleDisconnect (revokes at Google); public onRequest `googleConnectDone` (redirect URI
+      https://northamerica-northeast1-proptracker-9732e.cloudfunctions.net/googleConnectDone; code → refresh token + userinfo
+      email → back to <origin>/google?connected=1 or ?error=…). Secrets in `private_google/{client,link}` (no rules = server
+      only; rules test). invalid_grant → link.broken (screen says reconnect). calendarAccess()/calendarAccount(): calendar.ts now
+      uses the connected account when it has calendar access, else the old service account (unchanged behaviour until connected).
+      email.ts: settings `service: 'smtp' | 'google'`; google = Gmail API messages.send with a nodemailer-built message
+      (outbox.via = account); "from" alias must be in that Gmail's "Send mail as". All 5 in deploy/log invoker lists.
+      App: `/google` GoogleAccountScreen (owner; Team → Money & connections → Google account): status card, 3-step setup with the
+      redirect URI to copy, Connect with Google, Connect again / Disconnect, "For Prime Capitol's IT" (trust + revoke).
+      Email screen: "Send with: Prime Capitol Google account | An email service + password". Schedule settings calendar step 2
+      shows the company account when connected (else the server address + a link to /google). Tests: googleAccount.test.ts.
+      OWNER STEPS: IT creates the account + shares the calendar; owner makes consent screen (publish) + Web client with the
+      redirect URI, enables Gmail API, pastes ID + secret, connects as the company account.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
