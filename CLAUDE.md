@@ -1466,6 +1466,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       filters creatorStats the same way. Was: active creators + admins, and anyone with a shoot. Checked on the emulator (a filmed shoot
       by the equipment test login no longer appears; a creator's does). Owner guide updated.
       LIVE Oct 27 (website run 43, owner "once it works push it live").
+    - SCHEDULE PEOPLE LISTS (owner, Oct 27: "I'm not there as a possible priority person… Farrell, Keith and Leon appear but they
+      aren't creators"): app-side wrapper `listSchedulePeople` in src/services/schedule.ts keeps only role 'creator' and always adds the
+      owner ("Alex (you)"); used by Schedule settings (priority group) and the team's "Book for" lists. Server callable unchanged
+      (still returns every active user). Checked on the emulator. Preview only until the owner OKs live.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

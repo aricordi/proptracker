@@ -5,6 +5,7 @@ import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
 import { cleanScheduleSettings, DEFAULT_SCHEDULE, type ScheduleSettings, type ScheduleDay, type Place, type ShootKind, type BlockType, type House } from '../../functions/src/schedule'
 import { friendlyError } from '../lib/errors'
+import { OWNER_EMAIL } from '../config'
 
 export * from '../../functions/src/schedule'
 // Owner (Oct 19, option A): the "monthly vs extra" choice is hidden until the wishlist + fair draw exists.
@@ -127,7 +128,15 @@ export const addScheduleBlock = httpsCallable<{ date: string; house: House; star
 export const removeScheduleBlock = httpsCallable<{ date: string; id: string }, { ok: boolean }>(functions, 'removeScheduleBlock')
 export const saveScheduleSettings = httpsCallable<Partial<ScheduleSettings>, ScheduleSettings>(functions, 'saveScheduleSettings')
 export const listFilmingFriends = httpsCallable<Record<string, never>, { people: { email: string; name: string }[] }>(functions, 'listFilmingFriends')
-export const listSchedulePeople = httpsCallable<Record<string, never>, { people: { email: string; name: string; role: string }[] }>(functions, 'listSchedulePeople')
+const listSchedulePeopleRaw = httpsCallable<Record<string, never>, { people: { email: string; name: string; role: string }[] }>(functions, 'listSchedulePeople')
+// People who film (owner, Oct 27): creators and the owner only. Arts, equipment and admins never show up in the
+// priority group or "Book for" lists. The owner isn't always in the people list, so they're added.
+export async function listSchedulePeople(_: Record<string, never>) {
+  const r = await listSchedulePeopleRaw({})
+  const people = r.data.people.filter(p => p.role === 'creator' && p.email !== OWNER_EMAIL)
+  people.push({ email: OWNER_EMAIL, name: r.data.people.find(p => p.email === OWNER_EMAIL)?.name || 'Alex (you)', role: 'owner' })
+  return { data: { people: people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })) } }
+}
 
 export const myCalendarLink = httpsCallable<{ reset?: boolean }, { url: string; webcal: string }>(functions, 'myCalendarLink')
 export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boolean; account: string }>(functions, 'testCalendarLink')
