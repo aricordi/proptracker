@@ -1505,6 +1505,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       admin tour 5 tabs incl. Late returns + quiz4 (excuse an exception). Seed: emulator-only practice values (seed-emulator.mjs
       gearValue). LIVE GEAR HAS NO VALUES YET: the equipment team must fill them in (until then "Value not set").
       Tests 470 (tests/functions/lateFee.test.ts, tests/unit/lateReturns.test.ts; creatorStats test updated).
+    - LIVE Oct 27 (owner "deploy everything"): MERGED branch claude/loving-pascal-0sqqcq (Prime Capitol Google account) into this
+      branch, tests 477 green, backend run 45 + website run 44: roles audit + late return fee + Google account are live. Owner next:
+      IT creates the company account + shares the calendar; owner does the Google account setup screen; equipment team fills in gear values.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
