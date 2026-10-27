@@ -12,6 +12,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import { creatorStats, flagTotal, FLAG_LABEL, SERIOUS, type CreatorStats, type FlagKind } from '../lib/creatorStats'
 import type { AppUser } from '../types'
+import { creatorPeople, countedEmails } from '../lib/creatorPeople'
 
 export type Period = '30' | 'month' | '90'
 export const PERIODS: [Period, string][] = [['30', 'Last 30 days'], ['month', 'This month'], ['90', 'Last 90 days']]
@@ -49,11 +50,12 @@ export default function CreatorsScreen() {
   useEffect(() => subscribeToReservations({ email: '', all: true }, setProps), [])
   useEffect(() => subscribeToGearBookings(null, setGear), [])
 
-  const people = useMemo(() => users.filter(u => u.active && (u.role === 'creator' || u.role === 'admin')).map(u => ({ email: u.email, name: u.name || u.email })), [users])
+  const people = useMemo(() => creatorPeople(users), [users])
+  const counted = useMemo(() => countedEmails(users), [users])
   const stats = useMemo(() => {
-    const list = creatorStats({ from, now, closed: settings, shoots: shoots ?? [], props, gear, reports, strikes, people })
+    const list = creatorStats({ from, now, closed: settings, shoots: shoots ?? [], props, gear, reports, strikes, people }).filter(c => counted.has(c.email))
     return sort === 'flags' ? [...list].sort((a, b) => flagTotal(b, SERIOUS) - flagTotal(a, SERIOUS) || flagTotal(b) - flagTotal(a)) : list
-  }, [from, now, settings, shoots, props, gear, reports, strikes, people, sort])
+  }, [from, now, settings, shoots, props, gear, reports, strikes, people, counted, sort])
   const sum = (f: (c: CreatorStats) => number) => stats.reduce((n, c) => n + f(c), 0)
   const tiles: [string, number, string][] = [
     ['Shoots filmed', sum(c => c.filmed), 'text-pt-text'],

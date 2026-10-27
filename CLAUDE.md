@@ -1459,6 +1459,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       TourGate skips the tour while `tourSkipped` (7 days), then asks once more. Creator Home shows "New here? Take the practice tour"
       (→ /tour) until `tourDoneHere`. Gear + admin tours now mark done when finished from the replay too. Owner guide v32.
       LIVE Oct 27 (website run 42, owner "make everything live"): lazy-user pass + earlier deep-check fixes + Skip for now.
+    - ONLY CREATORS + OWNER IN ANALYTICS (owner, Oct 27: "I don't want admins or arts or equipment people showing up as creators on the
+      analytics, only creators and me"): `src/lib/creatorPeople.ts` creatorPeople(users) = owner + active creators (the zero rows) and
+      countedEmails(users) = owner + every creator (incl. inactive, for history). useAnalytics filters facts / incidents / excused /
+      upcoming / pausedNow to countedEmails (team jobs + backlog untouched, so the Teams tab still shows staff work); CreatorsScreen
+      filters creatorStats the same way. Was: active creators + admins, and anyone with a shoot. Checked on the emulator (a filmed shoot
+      by the equipment test login no longer appears; a creator's does). Owner guide updated.
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and
