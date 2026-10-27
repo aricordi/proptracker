@@ -1,4 +1,4 @@
-// Owner (Oct 20): an admin is a VIEWER who manages the creators. They book their own shoots like a creator, see
+// Owner (Oct 20/27): an admin is a VIEWER who manages the creators. They don't film (no shoots, props or gear), see
 // everything the arts department and the equipment team see, and handle strikes and pauses. They can't change props,
 // gear, the queues, the schedule (blocks) or any setting other than the booking rules.
 import { beforeEach, describe, it, expect } from 'vitest'
@@ -17,11 +17,20 @@ beforeEach(async () => {
 })
 
 describe('admin role', () => {
-  it('books their own shoot like a creator, but cannot change gear or the schedule', async () => {
-    expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 780 }, ADMIN)).ok).toBe(true)
+  it("doesn't film (owner, Oct 27): can't book shoots, props or gear, or change gear or the schedule", async () => {
+    expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 780 }, ADMIN)).error).toBe('PERMISSION_DENIED')
+    expect((await call('createReservation', { title: 'x', startDate: DAY, endDate: DAY, lines: [] }, ADMIN)).error).toBe('PERMISSION_DENIED')
+    expect((await call('createGearBooking', { title: 'x', date: DAY, start: 780, end: 900, lines: [] }, ADMIN)).error).toBe('PERMISSION_DENIED')
+    expect((await call('listFilmingFriends', {}, ADMIN)).error).toBe('PERMISSION_DENIED')
     expect((await call('saveGearItem', { name: 'Light', category: 'Lighting', have: 2 }, ADMIN)).error).toBe('PERMISSION_DENIED')
     expect((await call('addScheduleBlock', { date: DAY, house: 'cliff1', start: 420, end: 540, type: 'cleaners' }, ADMIN)).error).toBe('PERMISSION_DENIED')
     expect((await call('bookShoot', { place: 'cliff1', date: addDays(DAY, 1), start: 420, forEmail: CREATOR }, ADMIN)).error).toBe('PERMISSION_DENIED')
+    // ...and is never on a creator's friend list or given strikes.
+    expect((await call('listFilmingFriends', {}, CREATOR)).result.people.map((p: { email: string }) => p.email)).not.toContain(ADMIN)
+    expect((await call('giveStrike', { email: ADMIN, about: 'gear', note: 'Late' }, 'alexisricordi@gmail.com')).error).toBe('NOT_FOUND')
+  })
+  it('can still search props, get notifications and the schedule calendar feed', async () => {
+    for (const fn of ['registerPush', 'unregisterPush', 'myCalendarLink']) expect((await call(fn, fn === 'registerPush' ? { token: 'x'.repeat(40) } : {}, ADMIN)).error).not.toBe('PERMISSION_DENIED')
   })
   it('cannot use owner-only tools or change the schedule settings / calendar connection', async () => {
     for (const fn of ['costReport', 'cleanUpPhotos', 'rebuildSearchIndex', 'importInfo']) expect((await call(fn, {}, ADMIN)).error).toBe('PERMISSION_DENIED')
@@ -53,5 +62,22 @@ describe('admin role', () => {
     expect((await getDoc(`user_status/${CREATOR}`))).toMatchObject({ pausedUntil: addDays(todayInStudio(), 7), manualPause: true })
     expect((await call('liftPause', { email: CREATOR }, ADMIN)).ok).toBe(true)
     expect((await getDoc(`user_status/${CREATOR}`))?.pausedUntil ?? null).toBeNull()
+  })
+})
+
+// Owner (Oct 27): "I might not always have priority". The owner booking for themselves follows the priority lock unless
+// they're in the priority group; booking a creator into a locked slot by hand still works (team override).
+describe('owner and the priority lock', () => {
+  const OWNER = 'alexisricordi@gmail.com'
+  let THU = addDays(todayInStudio(), 8)
+  while (new Date(`${THU}T12:00:00Z`).getUTCDay() !== 4) THU = addDays(THU, 1)
+  it('locks the owner out of a priority slot for themselves, but not for a creator', async () => {
+    const own = await call('bookShoot', { place: 'cliff1', date: THU, start: 780 }, OWNER)
+    expect(own.error).toBeTruthy()
+    expect((await call('bookShoot', { place: 'cliff1', date: THU, start: 780, forEmail: CREATOR }, OWNER)).result).toHaveProperty('id')
+  })
+  it('lets the owner book it once they are in the priority group', async () => {
+    await put('app_settings/schedule', { priority: [{ email: OWNER, name: 'Alex' }] })
+    expect((await call('bookShoot', { place: 'cliff1', date: THU, start: 1020 }, OWNER)).result).toHaveProperty('id')
   })
 })

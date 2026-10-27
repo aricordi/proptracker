@@ -14,7 +14,7 @@ import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
-import { importShootAsTeam, removeImportedShoot } from './scheduling.js'
+import { importShootAsTeam, removeImportedShoot, filmingPeople } from './scheduling.js'
 import { stamp, addMinutes } from './gearBooking.js'
 
 const TEAM = ['owner', 'equipment']
@@ -26,13 +26,13 @@ const FEED_URL = 'https://northamerica-northeast1-proptracker-9732e.cloudfunctio
 
 // Your private link (made once, then reused). `reset: true` makes a new one and the old link stops working.
 export const myCalendarLink = onCall(CALLABLE, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment', 'admin'])
   const existing = await db.collection('calendar_tokens').where('email', '==', caller.email).get()
   let token = existing.docs[0]?.id
   if (!token || req.data?.reset === true) {
     await Promise.all(existing.docs.map(d => d.ref.delete()))
     token = randomBytes(18).toString('hex')
-    await db.doc(`calendar_tokens/${token}`).set({ email: caller.email, all: TEAM.includes(caller.role), createdAt: new Date().toISOString() })
+    await db.doc(`calendar_tokens/${token}`).set({ email: caller.email, all: TEAM.includes(caller.role) || caller.role === 'admin', createdAt: new Date().toISOString() })
   }
   const base = process.env.FUNCTIONS_EMULATOR === 'true' ? `http://127.0.0.1:5001/${process.env.GCLOUD_PROJECT}/northamerica-northeast1/shootsCalendar` : FEED_URL
   return { url: `${base}?t=${token}`, webcal: `${base.replace(/^https?:/, 'webcal:')}?t=${token}` }
@@ -273,7 +273,7 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
 // Read the shared calendar (never writes) and compare with what was imported before.
 async function scanCalendar(cal: string) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-  const people = (await db.collection('users').where('active', '==', true).get()).docs.map(u => ({ email: u.id, name: String(u.get('name') || u.id) }))
+  const people = (await filmingPeople()).map(p => ({ email: p.email, name: p.name }))
   // What was imported before, with a snapshot of the event then (owner, Oct 19: the team keeps adding events straight
   // in Google Calendar while testing, so the import is re-run: new events, changed ones and deleted ones show up).
   const imports = new Map((await db.collection('calendar_imports').get()).docs.map(d => [d.id, d.data()]))

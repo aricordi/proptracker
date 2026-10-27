@@ -1470,6 +1470,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       aren't creators"): app-side wrapper `listSchedulePeople` in src/services/schedule.ts keeps only role 'creator' and always adds the
       owner ("Alex (you)"); used by Schedule settings (priority group) and the team's "Book for" lists. Server callable unchanged
       (still returns every active user). Checked on the emulator. Preview only until the owner OKs live.
+    - ROLES AUDIT (owner, Oct 27: "I should be able to tick myself, I might not always have priority… keep in mind everybody's
+      role"; NOT deployed: backend + website, ask). Owner answers: (1) the OWNER follows the PRIORITY LOCK when booking for
+      themselves (only that rule; still skips 1-slot-a-day, 48 h notice, strikes); (2) ADMINS DON'T FILM: no shoots/props/gear
+      booking (ADMIN_COVERS = [], booksLikeCreator = creator only, app canBook = creator/owner), not in friend lists, the priority
+      group, strikes, hand-over or shared-gear crews; they keep search, push and the calendar feed (all shoots); (3) the schedule
+      team (owner/equipment) still overrides the lock when booking FOR someone else. Server: scheduling.ts `skipsLock(caller,
+      forEmail)` in bookShoot / moveShoot / bookWithFriends; askForTime's findOptions skips the lock only for equipment; ONE list
+      of people who film `filmingPeople()` (active creators + the owner, who isn't in users) used by listSchedulePeople,
+      listFilmingFriends, askForTime and the calendar import guesses; askForTime no longer open to arts. App: FindSheet/MoveSheet
+      apply the lock to the owner's own shoots; Schedule hides Book/AI/Find for non-bookers. Tests 458 (admin.test.ts).
     - BIN-BY-BIN CHECK (owner, Oct 19/20: "they take out a bin, open the app, fix everything in that one bin"; app only, no rules
       change; LIVE Oct 19 (website run 22, owner OK)): `BinQrScreen` (/bin/:qrSlug, staff) = "Check this bin" (bins.checkStartedAt) → per prop
       Here (item.binCheck {binId, at, by}; counts when at ≥ checkStartedAt) / Not here (sheet → binId+locationId '' and

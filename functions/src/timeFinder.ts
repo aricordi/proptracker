@@ -119,6 +119,7 @@ export function cleanAsk(v: Record<string, unknown>, today: string, fallback: Ti
 export function findOptions(
   ask: TimeAsk, me: Person, friends: Person[], days: Record<string, ScheduleDay>, friendBusy: Record<string, { from: string; to: string }[]>,
   s: ScheduleSettings, now: string, isTeam: boolean, max = 5,
+  skipLock = isTeam,   // the owner skips the day limit but not the priority lock (owner, Oct 27)
 ): TimeOption[] {
   const out: TimeOption[] = []
   const k = ask.mySlots + friends.length
@@ -132,7 +133,7 @@ export function findOptions(
         const starts = s.slots.slice(i, i + k)
         if (!inTime(starts[0], ask.timeOfDay)) continue
         if (starts.some((st, j) => j > 0 && st !== starts[j - 1] + s.slotMinutes)) continue
-        if (starts.some(st => slotState(days[date], date, house, st, s, me.email, now, isTeam).t !== 'free')) continue
+        if (starts.some(st => slotState(days[date], date, house, st, s, me.email, now, skipLock).t !== 'free')) continue
         const busy = friends.some((f, j) => {
           const from = stamp(date, starts[ask.mySlots + j]), to = addMinutes(from, s.slotMinutes)
           return (friendBusy[f.email] ?? []).some(b => b.from < to && from < b.to)

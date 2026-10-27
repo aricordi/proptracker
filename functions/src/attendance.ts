@@ -131,7 +131,7 @@ export const liftPause = onCall(CALLABLE, async req => {
 const STRIKE_ABOUT = ['props', 'gear', 'schedule', 'behaviour', 'other']
 async function creatorNamed(email: string) {
   const u = (await db.doc(`users/${email}`).get()).data()
-  if (!u || !['creator', 'admin'].includes(u.role)) throw new HttpsError('not-found', "That person isn't a creator in the app.")
+  if (!u || u.role !== 'creator') throw new HttpsError('not-found', "That person isn't a creator in the app.")
   return String(u.name || email)
 }
 

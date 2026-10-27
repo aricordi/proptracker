@@ -23,6 +23,9 @@ const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 const BOOKERS = ['owner', 'creator', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 const isTeam = (c: Caller) => TEAM.includes(c.role)
+// The priority lock: the schedule team can override it when booking for someone else, but the owner booking for
+// themselves follows it like a creator (owner, Oct 27: "I might not always have priority").
+const skipsLock = (c: Caller, forEmail: string) => isTeam(c) && !(c.role === 'owner' && forEmail === c.email)
 const fail = (problem: ScheduleProblem, message = SCHEDULE_MESSAGES[problem]) =>
   new HttpsError('failed-precondition', message, { problem })
 const shortNoticeFail = (s: ScheduleSettings) =>
@@ -118,7 +121,7 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   const spot = readSpot(d, s)
   const who = await shootFor(caller, d.forEmail)
-  if (spot.place !== 'offsite' && !isTeam(caller) && priorityLocked(spot.date, spot.place, s, who.email, nowStamp())) throw fail('locked')
+  if (spot.place !== 'offsite' && !skipsLock(caller, who.email) && priorityLocked(spot.date, spot.place, s, who.email, nowStamp())) throw fail('locked')
 
   // Monthly (guaranteed) slots count only at Cliff 1; everything else is an extra slot.
   const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE && d.kind === 'monthly' ? 'monthly' : 'extra'
@@ -205,7 +208,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
   const spot = readSpot({ ...d, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
   await assertNoLinksForDayChange(id, pre.date, spot.date)
-  if (spot.place !== 'offsite' && !team && priorityLocked(spot.date, spot.place, s, pre.creatorEmail, now)) throw fail('locked')
+  if (spot.place !== 'offsite' && !skipsLock(caller, pre.creatorEmail) && priorityLocked(spot.date, spot.place, s, pre.creatorEmail, now)) throw fail('locked')
   // A monthly slot stays monthly at Cliff 1 (checked against the new month); anywhere else it becomes an extra slot.
   let kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE ? pre.kind : 'extra'
   if (kind === 'monthly' && monthOf(spot.date) !== pre.month && await monthlyUsed(pre.creatorEmail, monthOf(spot.date), id) >= s.monthlySlots) kind = 'extra'
@@ -366,24 +369,26 @@ export const saveScheduleSettings = onCall(CALLABLE, async req => {
   return clean
 })
 
+// People who film (owner, Oct 27): active creators + the owner (who isn't in users). Arts, equipment and admins never.
+export async function filmingPeople() {
+  const snap = await db.collection('users').where('active', '==', true).get()
+  const people = snap.docs.filter(u => u.get('role') === 'creator' || u.id === OWNER_EMAIL)
+    .map(u => ({ email: u.id, name: String(u.get('name') || u.id), role: u.id === OWNER_EMAIL ? 'owner' : 'creator' }))
+  if (!people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex', role: 'owner' })
+  return people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
+}
+
 // People the schedule team can book for or add to the priority group (the team can't read users directly).
 export const listSchedulePeople = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'])
-  const snap = await db.collection('users').where('active', '==', true).get()
-  return {
-    people: snap.docs.map(u => ({ email: u.id, name: String(u.get('name') || u.id), role: String(u.get('role')) }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })),
-  }
+  return { people: await filmingPeople() }
 })
 
-// People you can film with (Book a shoot → "+ 1 friend"): active creators and the owner, names only.
+// People you can film with (Book a shoot → "+ 1 friend"): active creators and the owner, names only (admins don't film).
 export const listFilmingFriends = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
-  const snap = await db.collection('users').where('active', '==', true).get()
-  const people = snap.docs.filter(u => u.id !== caller.email && (['creator', 'owner', 'admin'].includes(u.get('role')) || u.id === OWNER_EMAIL))
-    .map(u => ({ email: u.id, name: String(u.get('name') || u.id) }))
-  if (caller.email !== OWNER_EMAIL && !people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex' })
-  return { people: people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' })) }
+  const people = (await filmingPeople()).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
+  return { people }
 })
 
 // Place a shoot for someone with no rule checks except "the slot is free" (used by the calendar import).
@@ -507,7 +512,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
     friends.push({ email, name: u.name || email })
   }
   const now = nowStamp()
-  if (!isTeam(caller) && priorityLocked(spot.date, house, s, caller.email, now)) throw fail('locked')
+  if (!skipsLock(caller, caller.email) && priorityLocked(spot.date, house, s, caller.email, now)) throw fail('locked')
   const total = mySlots + friends.length
   const starts = Array.from({ length: total }, (_, j) => spot.start + j * s.slotMinutes)
   if (starts.some(st => !s.slots.includes(st))) throw new HttpsError('failed-precondition', 'There aren\'t enough back-to-back slots left that day. Start earlier.')

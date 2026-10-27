@@ -57,9 +57,9 @@ type SheetState =
 
 // The house schedule: Cliff 1, Cliff 2 and offsite shoots, by day, in 2-hour slots.
 export default function ScheduleScreen() {
-  const { profile, role } = useSession()
-  // team = the schedule team who change things (owner, equipment). Admins only look (owner, Oct 20): they open anyone's
-  // shoot and the Schedule team page, but book, block and move like a creator.
+  const { profile, role, canBook } = useSession()
+  // team = the schedule team who change things (owner, equipment). Admins only look (owner, Oct 20/27): they open anyone's
+  // shoot and the Schedule team page, but don't film, so they never book, block or move.
   const team = role === 'owner' || role === 'equipment'
   const teamView = team || role === 'admin'
   const s = useScheduleSettings()
@@ -195,15 +195,15 @@ export default function ScheduleScreen() {
             <Icon name="calendar" className="w-5 h-5 text-sky-300" /><span className="flex-1 text-pt-text text-sm">{calWaiting} change{calWaiting === 1 ? '' : 's'} couldn't reach Google Calendar · try again</span><span className="text-pt-muted">›</span>
           </button>
         )}
-        <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>
+        {canBook && <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>}
         {/* Small on purpose (owner, Oct 19): the ✦ AI button at the top is the main way in. */}
-        <button onClick={() => ai.open('time')} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF] active:scale-[0.98] transition-transform">
+        {canBook && <button onClick={() => ai.open('time')} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF] active:scale-[0.98] transition-transform">
           <span className="text-[#BF9DFF]">✦</span><span className="flex-1 min-w-0 truncate">Or ask AI to find a time</span><span className="text-pt-muted">›</span>
-        </button>
+        </button>}
 
         <div className="flex items-center justify-between gap-2 pt-6 mt-2 border-t border-pt-border">
           <p className="text-pt-text font-semibold">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })}{date === today ? ' · Today' : ''}</p>
-          {house !== 'offsite' && <button onClick={() => setSheet({ kind: 'find' })} className="text-pt-accent text-sm shrink-0 tap">Find a time</button>}
+          {house !== 'offsite' && canBook && <button onClick={() => setSheet({ kind: 'find' })} className="text-pt-accent text-sm shrink-0 tap">Find a time</button>}
         </div>
         {house !== 'offsite' && <p className="text-pt-muted text-xs -mt-1">{s.houses[house].address}</p>}
         {notes.map((n, i) => (
@@ -216,7 +216,7 @@ export default function ScheduleScreen() {
             {s.slots.map(start => (
               <SlotRow key={start} day={day} date={date} house={house} start={start} team={team} email={profile.email} now={now}
                 onTap={st => {
-                  if (st.t === 'free') setSheet(team ? { kind: 'block', date, house, start } : { kind: 'book', house, date, start })
+                  if (st.t === 'free') { if (team) setSheet({ kind: 'block', date, house, start }); else if (canBook) setSheet({ kind: 'book', house, date, start }) }
                   else if (st.t === 'booked') {
                     const isMine = st.entry.email === profile.email || (mine ?? []).some(x => x.id === st.entry.shootId)
                     setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date, house, start } })
@@ -237,7 +237,7 @@ export default function ScheduleScreen() {
                 <Pill tone="info">Offsite</Pill>
               </button>
             ))}
-            <button onClick={() => setSheet({ kind: 'offsite', date: date })} className={btnGrey}>+ Add an offsite or location shoot</button>
+            {(canBook || team) && <button onClick={() => setSheet({ kind: 'offsite', date: date })} className={btnGrey}>+ Add an offsite or location shoot</button>}
           </div>
         )}
 
@@ -531,7 +531,9 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const today = todayInStudio()
-  const results = findFree(days, today, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team, 10)
+  const { role, profile } = useSession()
+  // Moving the owner's own shoot follows the priority lock; the team moving someone else's doesn't.
+  const results = findFree(days, today, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), 10)
   async function go(date: string, house: House, start: number) {
     const key = `${date}${house}${start}`
     setBusy(key); setErr('')
@@ -704,6 +706,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   days: Record<string, ScheduleDay>; from: string; house?: House; team: boolean; email: string; now: string
   onClose: () => void; onPick: (date: string, house: House, start: number, friends: Friend[]) => void; onOffsite: () => void
 }) {
+  const { role } = useSession()
   const s = useScheduleSettings()
   const profiles = useProfiles()
   // Picks from ✦ Prop ideas waiting for this new shoot: start on the first day they can still be added.
@@ -724,7 +727,8 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   // Times first, soonest first. One row per time with a button for each house that's free then,
   // so people pick the house themselves (no default).
   const results = useMemo(() => {
-    const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team, 2000)
+    // The owner booking for themselves follows the priority lock (owner, Oct 27); only equipment overrides it here.
+    const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team && role !== 'owner', 2000)
       // Skip days a picked friend already films at a house (they get one slot a day too).
       .filter(r => team || chosen.every(f => houseSlotsOn(days[r.date], f.email, now) < s.slotsPerDay))
     const byTime = new Map<string, { date: string; start: number; houses: House[] }>()

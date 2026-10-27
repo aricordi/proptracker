@@ -437,10 +437,10 @@ export const handOverGear = onCall(CALLABLE, async req => {
   }
   if (!toEmail || toEmail === caller.email) throw new HttpsError('invalid-argument', 'Pick who you are handing it to.')
   const u = (await db.doc(`users/${toEmail}`).get()).data()
-  const toOk = toEmail === OWNER_EMAIL || (u?.active === true && ['creator', 'owner', 'admin'].includes(u.role))
+  const toOk = toEmail === OWNER_EMAIL || (u?.active === true && ['creator', 'owner'].includes(u.role))
   if (!toOk) throw new HttpsError('failed-precondition', "That person can't book gear.")
   const toName = String(u?.name || (toEmail === OWNER_EMAIL ? 'Alex' : toEmail))
-  if (toEmail !== OWNER_EMAIL && (u?.role === 'creator' || u?.role === 'admin')) {
+  if (toEmail !== OWNER_EMAIL && u?.role === 'creator') {
     await assertNotPaused(toEmail).catch(() => { throw new HttpsError('failed-precondition', `${toName.split(' ')[0]}'s gear bookings are paused, so they can't take it.`, { problem: 'paused' }) })
     if (await hasLateGear(toEmail)) throw new HttpsError('failed-precondition', `${toName.split(' ')[0]} has gear that's late coming back, so they can't take more.`, { problem: 'late' })
   }

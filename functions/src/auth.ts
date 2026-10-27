@@ -39,10 +39,10 @@ export async function getCaller(req: CallableRequest): Promise<Caller | null> {
   return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts' }
 }
 
-// An admin passes wherever a creator may (their own bookings), nothing more. `noAdmin` is kept for old call sites.
-const ADMIN_COVERS: Role[] = ['creator']
-// Notice periods, pauses and late-gear blocks apply to creators and admins alike.
-export const booksLikeCreator = (c: Caller) => c.role === 'creator' || c.role === 'admin'
+// Admins don't film (owner, Oct 27): they only pass where 'admin' is listed. `noAdmin` is kept for old call sites.
+const ADMIN_COVERS: Role[] = []
+// Notice periods, pauses and late-gear blocks apply to creators.
+export const booksLikeCreator = (c: Caller) => c.role === 'creator'
 export async function requireRole(req: CallableRequest, allowed: Role[], opts: { noAdmin?: boolean } = {}): Promise<Caller> {
   const caller = await getCaller(req)
   const ok = !!caller && (allowed.includes(caller.role)

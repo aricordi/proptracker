@@ -9,7 +9,7 @@ export interface Session {
   realRole: Role      // the person's actual role
   isOwner: boolean
   isStaff: boolean    // owner or arts department: may CHANGE props, queues, bins…
-  isAdmin: boolean    // admin (owner, Oct 20): a viewer. Sees staff + gear screens, books own shoots, invites creators, booking rules
+  isAdmin: boolean    // admin (owner, Oct 20/27): a viewer who manages creators. Sees staff + gear screens, invites creators, booking rules; never books
   isGearStaff: boolean   // owner or equipment team: may CHANGE gear, the gear queue, the schedule team's things
   canSeeStaff: boolean   // may LOOK at the arts department's screens (isStaff + admin)
   canSeeGear: boolean    // may LOOK at the equipment/schedule team's screens (isGearStaff + admin)
@@ -47,7 +47,7 @@ export function makeSession(user: User, profile: AppUser, viewAs: Role | null, s
     canSeeGear: role === 'owner' || role === 'equipment' || role === 'admin',
     canManagePeople: role === 'owner' || role === 'admin',
     shootFlow: role === 'creator' || role === 'owner',
-    canBook: role === 'creator' || role === 'owner' || role === 'admin',
+    canBook: role === 'creator' || role === 'owner',   // admins don't film (owner, Oct 27)
     viewingAs: role !== realRole ? role : null,
     setViewAs,
   }

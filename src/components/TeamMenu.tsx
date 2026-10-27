@@ -64,7 +64,6 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'daily', title: 'Every day', icon: 'calendar', items: [
       I('calendar', '/calendar', 'Requests calendar', 'Every props request by shoot day', 'calendar'),
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Missed check-ins and reports to decide', 'clock'),
-      I('bookgear', '/gear', 'Book gear', 'Hold gear for one of your shoots', 'basket'),
     ] },
     { key: 'people', title: 'Creators', icon: 'people', items: [
       I('analytics', '/analytics', 'Analytics', 'Who films more or less, every flag, the teams', 'chart'),

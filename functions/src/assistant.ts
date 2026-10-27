@@ -7,7 +7,7 @@ import { db, requireRole, CALLABLE } from './auth.js'
 import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from './booking.js'
 import { nowStamp } from './gearBooking.js'
 import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
-import { loadScheduleSettings } from './scheduling.js'
+import { loadScheduleSettings, filmingPeople } from './scheduling.js'
 import type { ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, isFakeMode, safeText, asData } from './gemini.js'
@@ -208,14 +208,13 @@ async function freeOnShootDay(email: string, shootId: string, itemIds: string[])
 // ─── Ask for a time (type or talk) ───────────────────────────────────────────
 
 export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
-  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
+  const caller = await requireRole(req, ['owner', 'creator', 'equipment'])
   const text = str(req.data?.text, 400)
   if (text.length < 3) throw new HttpsError('invalid-argument', 'Say when you want to film.')
   const settle = await reserveAi(caller.email, 'times')
   const s = await loadScheduleSettings()
   const today = todayInStudio(), now = nowStamp()
-  const users = await db.collection('users').where('active', '==', true).get()
-  const people = users.docs.map(d => ({ email: d.id, name: String(d.get('name') || d.id) })).filter(p => p.email !== caller.email)
+  const people = (await filmingPeople()).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
   // The previous search comes back from the phone: rebuild it from known fields only (never passed on as-is).
   const previous: TimeAsk | null = req.data?.previous && typeof req.data.previous === 'object'
     ? cleanAsk(req.data.previous as Record<string, unknown>, today, roughParse('', today, people)) : null
@@ -277,7 +276,7 @@ Not about filming times → {"offTopic":true}.`
     friendBusy[f.email] = q.docs.filter(d => d.get('status') === 'booked').map(d => ({ from: d.get('from'), to: d.get('to') }))
   }
   const me = { email: caller.email, name: caller.name }
-  const options = findOptions(ask, me, friends, days, friendBusy, s, now, team)
+  const options = findOptions(ask, me, friends, days, friendBusy, s, now, team, 5, caller.role === 'equipment')
   // Say exactly what is being searched, so a misunderstanding is visible straight away.
   const h = (n: number) => `${n * s.slotMinutes / 60} h`
   const where = ask.houses.length === 1 ? s.houses[ask.houses[0]].name : 'either house'
