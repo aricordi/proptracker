@@ -4,18 +4,19 @@
 //    updates by itself. The link holds a random token, kept in calendar_tokens (server-only).
 // 2) The shared Google Calendar: every booking, move, cancel and blocked time is copied there
 //    (one-way; the app stays the source of truth). Off until the team pastes the calendar's ID in
-//    Schedule → Settings and shares that calendar with the app's server account.
+//    Schedule → Settings and shares that calendar with the Prime Capitol Google account (googleAccount.ts;
+//    before that's connected: the app's server account).
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
-import { GoogleAuth } from 'google-auth-library'
 import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
 import { importShootAsTeam, removeImportedShoot, filmingPeople } from './scheduling.js'
 import { stamp, addMinutes } from './gearBooking.js'
+import { calendarAccess, calendarAccount } from './googleAccount.js'
 
 const TEAM = ['owner', 'equipment']
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
@@ -79,7 +80,7 @@ export const shootsCalendar = onRequest({ invoker: 'public' }, async (req, res) 
 
 // ─── 2. Shared Google Calendar (one-way copy) ────────────────────────────────
 
-const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/calendar.events'] })
+// Who talks to Google: the connected Prime Capitol account (Admin → Google account), else the server's robot address.
 // Google event IDs may only use the letters a–v and digits, so encode ours as hex with a prefix.
 const hex = (s: string) => Buffer.from(s).toString('hex')
 export const shootEventId = (shootId: string) => `s${hex(shootId)}`
@@ -90,7 +91,7 @@ async function calendarId(): Promise<string> {
   return typeof d?.googleCalendarId === 'string' ? d.googleCalendarId.trim() : ''
 }
 async function gcal(method: 'PUT' | 'POST' | 'DELETE', cal: string, path: string, body?: unknown) {
-  const token = (await (await auth.getClient()).getAccessToken()).token
+  const { token } = await calendarAccess()
   const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal)}/events${path}`
   return fetch(url, { method, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
 }
@@ -225,8 +226,8 @@ export const testCalendarLink = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner'])   // the connection itself: the owner only (owner, Oct 20)
   const cal = await calendarId()
   if (!cal) throw new HttpsError('failed-precondition', 'Paste the Google Calendar ID in Schedule settings first.')
-  if (isEmulator()) return { ok: true, account: 'test-calendar@example.iam.gserviceaccount.com' }
-  const account = (await auth.getCredentials()).client_email ?? ''
+  const { account } = await calendarAccount()
+  if (isEmulator()) return { ok: true, account }
   try {
     const id = `t${hex(String(Date.now()))}`
     const start = new Date(), end = new Date(start.getTime() + 30 * 60_000)
@@ -287,7 +288,7 @@ async function scanCalendar(cal: string) {
       { id: 'demo2', summary: 'Cleaners', location: '2375 Cliff Road', start: { dateTime: `${d}T07:00:00-04:00` }, end: { dateTime: `${d}T09:00:00-04:00` } },
     ]
   } else {
-    const token = (await (await auth.getClient()).getAccessToken()).token
+    const { token } = await calendarAccess()
     let pageToken = ''
     do {
       const q = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', maxResults: '250', timeMin: new Date().toISOString(), timeMax: new Date(Date.now() + 120 * 86400000).toISOString(), ...(pageToken ? { pageToken } : {}) })

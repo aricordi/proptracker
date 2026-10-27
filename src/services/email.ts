@@ -6,6 +6,7 @@ import { db, functions, auth } from '../firebase'
 // Google Secret Manager as SMTP_PASSWORD.
 export interface EmailSettings {
   enabled: boolean
+  service: 'smtp' | 'google'   // 'google' = the connected Prime Capitol Google account (no password)
   host: string
   port: number
   user: string
@@ -26,7 +27,7 @@ export interface OutboxEmail {
 }
 
 export const EMPTY_EMAIL_SETTINGS: EmailSettings = {
-  enabled: false, host: 'smtp.gmail.com', port: 465, user: '', fromName: 'Prime Capitol', fromAddress: '', appUrl: '',
+  enabled: false, service: 'smtp', host: 'smtp.gmail.com', port: 465, user: '', fromName: 'Prime Capitol', fromAddress: '', appUrl: '',
 }
 
 export function subscribeToEmailSettings(cb: (s: EmailSettings) => void) {

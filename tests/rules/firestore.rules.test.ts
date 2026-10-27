@@ -487,3 +487,18 @@ describe('admin (a viewer who manages creators)', () => {
     await assertFails(setDoc(doc(as(ADMIN), 'flag_reviews', 'x'), { status: 'excused' }))
   })
 })
+
+describe('Prime Capitol Google account secrets', () => {
+  it('nobody can read or write them from a phone, not even the owner (server only)', async () => {
+    await env.withSecurityRulesDisabled(async ctx => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'private_google', 'link'), { email: 'bookings@example.com', refreshToken: 'secret' })
+      await setDoc(doc(db, 'private_google_states', 's1'), { email: OWNER })
+    })
+    for (const who of [OWNER, ADMIN, ARTS, GEAR, CREATOR]) {
+      await assertFails(getDoc(doc(as(who), 'private_google', 'link')))
+      await assertFails(getDoc(doc(as(who), 'private_google_states', 's1')))
+    }
+    await assertFails(setDoc(doc(as(OWNER), 'private_google', 'client'), { clientId: 'x', clientSecret: 'y' }))
+  })
+})

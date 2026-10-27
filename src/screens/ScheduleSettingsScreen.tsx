@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { fmtTime } from '../../functions/src/gearBooking'
-import { importInfo } from '../services/importer'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase'
 import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, testCalendarLink, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
 
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
@@ -163,12 +164,19 @@ export default function ScheduleSettingsScreen() {
 // The app's address comes from the server (owner); the test also names it if sharing is missing.
 const CAL_API = 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=proptracker-9732e'
 
+// Which address to share the calendar with: the connected Prime Capitol Google account, else the server's address.
+const googleAccountStatus = httpsCallable<Record<string, never>, { server: string; connected: { email: string; calendar: boolean; broken: string } | null }>(functions, 'googleAccountStatus')
+
 function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: string; savedId: string; onId: (v: string) => void; save: () => Promise<void>; onImport: () => void; onApprove: () => void }) {
   const [account, setAccount] = useState('')
   const [copied, setCopied] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  useEffect(() => { importInfo().then(r => setAccount(r.data.serviceAccount)).catch(() => {}) }, [])
+  const [company, setCompany] = useState(false)
+  useEffect(() => { googleAccountStatus({}).then(r => {
+    const c = r.data.connected
+    if (c?.calendar && !c.broken) { setAccount(c.email); setCompany(true) } else setAccount(r.data.server)
+  }).catch(() => {}) }, [])
   const connected = msg?.ok === true
   async function copy() { try { await navigator.clipboard.writeText(account); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* shown on screen anyway */ } }
   async function test() {
@@ -200,6 +208,7 @@ function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: s
       {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm tap">Open Google Cloud → tap Enable ›</a>)}
       {step(2, 'Share the calendar with the app', <>
         <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → <b>"Make changes to events"</b>. (The app only ever changes events it added itself.)</p>
+        {!company && <p className="text-amber-300 text-xs">Prime Capitol's calendar can't be shared outside the company? Connect the company account first: <Link to="/google" className="text-pt-accent">Admin → Google account ›</Link></p>}
         {account
           ? <button onClick={copy} className="w-full text-left bg-pt-bg rounded-xl px-3 py-2 text-[13px] text-pt-text break-all">{account} <span className="text-pt-accent font-semibold">{copied ? ' Copied ✓' : ' Copy'}</span></button>
           : <p className="text-pt-muted text-xs">Tap Test below to see the address.</p>}

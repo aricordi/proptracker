@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase'
 import {
   subscribeToEmailSettings, saveEmailSettings, subscribeToOutbox, sendTestEmail,
   EMPTY_EMAIL_SETTINGS, type EmailSettings, type OutboxEmail,
@@ -15,6 +17,8 @@ const SERVICES = [
   { key: 'resend', label: 'Resend',            host: 'smtp.resend.com',      port: 465, user: 'resend', hint: 'Login = resend. Password = your Resend API key. Needs a verified domain.' },
   { key: 'brevo',  label: 'Brevo',             host: 'smtp-relay.brevo.com', port: 587, user: '',       hint: 'Login + password = your Brevo SMTP login and key. Needs a verified domain.' },
 ]
+
+const googleAccountStatus = httpsCallable<Record<string, never>, { connected: { email: string; gmail: boolean; broken: string } | null }>(functions, 'googleAccountStatus')
 
 const STATUS_STYLE: Record<string, string> = {
   sent: 'text-green-400', skipped: 'text-pt-muted', failed: 'text-red-300',
@@ -33,16 +37,21 @@ export default function EmailSettingsScreen() {
     setForm({ ...s, appUrl: s.appUrl || window.location.origin })
   }), [])
   useEffect(() => subscribeToOutbox(setOutbox), [])
+  // The connected Prime Capitol Google account (Admin → Google account), if any.
+  const [google, setGoogle] = useState<{ email: string; gmail: boolean; broken: string } | null | undefined>(undefined)
+  useEffect(() => { googleAccountStatus({}).then(r => setGoogle(r.data.connected)).catch(() => setGoogle(null)) }, [])
+  const viaGoogle = form.service === 'google'
+  const googleOk = !!google && google.gmail && !google.broken
 
   const service = SERVICES.find(s => s.host === form.host)
   const set = (patch: Partial<EmailSettings>) => { setForm(f => ({ ...f, ...patch })); setState('idle') }
   const changed = JSON.stringify(form) !== JSON.stringify(saved)
-  const ready = !!form.host && !!form.user && /@/.test(form.fromAddress || form.user)
+  const ready = viaGoogle ? googleOk : !!form.host && !!form.user && /@/.test(form.fromAddress || form.user)
 
   async function save() {
     setState('busy')
     try {
-      await saveEmailSettings({ ...form, fromAddress: form.fromAddress || form.user })
+      await saveEmailSettings({ ...form, fromAddress: form.fromAddress || (viaGoogle ? '' : form.user) })
       setState('saved')
     } catch { setState('error') }
   }
@@ -77,7 +86,23 @@ export default function EmailSettingsScreen() {
         </div>
 
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
-          <p className="text-pt-text font-medium">Email service</p>
+          <p className="text-pt-text font-medium">Send with</p>
+          <div className="grid grid-cols-2 gap-2">
+            {([['google', 'Prime Capitol Google account'], ['smtp', 'An email service + password']] as const).map(([k, l]) => (
+              <button key={k} onClick={() => set({ service: k })}
+                className={`px-3 py-2.5 rounded-xl text-sm text-left ${form.service === k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>{l}</button>
+            ))}
+          </div>
+          {viaGoogle ? <>
+            {google === undefined ? <p className="text-pt-muted text-xs">Checking the account…</p>
+              : googleOk ? <p className="text-green-400 text-sm">Emails go out from {google!.email} ✓</p>
+              : <p className="text-amber-300 text-sm">{google ? (google.broken || 'The account is connected but "send emails" was unticked.') : 'No Prime Capitol Google account connected yet.'} <Link to="/google" className="text-pt-accent">Set it up ›</Link></p>}
+            <label className="block space-y-1">
+              <span className={label}>Send from (address people see)</span>
+              <input value={form.fromAddress} onChange={e => set({ fromAddress: e.target.value.trim() })} placeholder={google?.email ?? 'the connected account'} className={input} autoCapitalize="none" />
+              <span className="block text-pt-muted text-xs">Leave empty to use the account itself. Another address (like an alias) must first be added in that account's Gmail → Settings → Accounts → "Send mail as".</span>
+            </label>
+          </> : <>
           <div className="flex gap-2 flex-wrap">
             {SERVICES.map(s => (
               <button key={s.key} onClick={() => set({ host: s.host, port: s.port, user: s.user || (form.user === 'resend' ? '' : form.user) })}
@@ -95,14 +120,6 @@ export default function EmailSettingsScreen() {
             <span className={label}>Send from (address people see)</span>
             <input value={form.fromAddress} onChange={e => set({ fromAddress: e.target.value.trim() })} placeholder={form.user.includes('@') ? form.user : 'same as login'} className={input} autoCapitalize="none" />
           </label>
-          <label className="block space-y-1">
-            <span className={label}>Sender name</span>
-            <input value={form.fromName} onChange={e => set({ fromName: e.target.value })} className={input} />
-          </label>
-          <label className="block space-y-1">
-            <span className={label}>Link in emails</span>
-            <input value={form.appUrl} onChange={e => set({ appUrl: e.target.value.trim() })} className={input} autoCapitalize="none" />
-          </label>
           <details className="text-pt-muted text-xs">
             <summary>Advanced</summary>
             <div className="grid grid-cols-3 gap-2 mt-2">
@@ -113,6 +130,15 @@ export default function EmailSettingsScreen() {
             </div>
           </details>
           <p className="text-pt-muted text-xs">The password isn't stored here. It's kept in Google Secret Manager as <b>SMTP_PASSWORD</b>.</p>
+          </>}
+          <label className="block space-y-1">
+            <span className={label}>Sender name</span>
+            <input value={form.fromName} onChange={e => set({ fromName: e.target.value })} className={input} />
+          </label>
+          <label className="block space-y-1">
+            <span className={label}>Link in emails</span>
+            <input value={form.appUrl} onChange={e => set({ appUrl: e.target.value.trim() })} className={input} autoCapitalize="none" />
+          </label>
         </div>
 
         <button onClick={save} disabled={!changed || state === 'busy'}

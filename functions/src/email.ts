@@ -4,12 +4,15 @@
 // Resend or Brevo later): the server name, login and "from" address live in
 // app_settings/email (owner edits them on Admin → Email); only the password is
 // secret, in Google Secret Manager as SMTP_PASSWORD.
+// OR (owner, Oct 27) service 'google': sent as the connected Prime Capitol Google account (Admin → Google account,
+// googleAccount.ts) through Gmail's "send only" permission. No password needed.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { onCall } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
 import { logger } from 'firebase-functions'
-import nodemailer from 'nodemailer'
+import nodemailer, { type SendMailOptions } from 'nodemailer'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
+import { gmailAccess } from './googleAccount.js'
 
 // Flip to true once SMTP_PASSWORD exists in Secret Manager: a deploy fails if the
 // code even mentions a secret that doesn't exist. Until then, emails are only
@@ -20,6 +23,7 @@ const smtpSecrets = SMTP_PASSWORD ? [SMTP_PASSWORD] : []
 
 export interface EmailSettings {
   enabled: boolean
+  service: 'smtp' | 'google'
   host: string        // e.g. smtp.gmail.com
   port: number        // 465 (secure) or 587
   user: string        // login, e.g. the Gmail address
@@ -37,6 +41,7 @@ async function loadEmailSettings(): Promise<EmailSettings | null> {
   const port = Number(d.port)
   return {
     enabled: d.enabled === true,
+    service: d.service === 'google' ? 'google' : 'smtp',
     host: oneLine(d.host, 200),
     port: port === 465 || port === 587 ? port : 465,
     user: oneLine(d.user, 200),
@@ -85,6 +90,23 @@ export const sendQueuedEmail = onDocumentCreated({ document: 'outbox/{id}', secr
     text: `${String(mail.body ?? '').slice(0, 5000)}${link}\n\n— ${settings.fromName}`,
   }
 
+  if (settings.service === 'google') {
+    try {
+      const g = await gmailAccess()
+      if (!g) { await snap.ref.update({ status: 'failed', error: 'The Prime Capitol Google account isn\'t connected (Admin → Google account)' }); return }
+      if (g.fake || process.env.FUNCTIONS_EMULATOR === 'true') {
+        await snap.ref.update({ status: 'sent', sent: true, sentTo: to, sentAt: new Date().toISOString(), fake: true, via: g.account })
+        return
+      }
+      await sendWithGmail(g.token, { ...message, from: `"${settings.fromName}" <${settings.fromAddress || g.account}>` })
+      await snap.ref.update({ status: 'sent', sent: true, sentTo: to, sentAt: new Date().toISOString(), via: g.account })
+    } catch (err) {
+      logger.warn('Email failed', { id: snap.id, error: String(err) })
+      await snap.ref.update({ status: 'failed', error: oneLine(err instanceof Error ? err.message : err, 300) })
+    }
+    return
+  }
+
   // Practice mode: the local emulator (no password) or host "fake" pretends to send.
   const pass = password()
   if (settings.host === 'fake' || (!pass && process.env.FUNCTIONS_EMULATOR === 'true')) {
@@ -107,6 +129,17 @@ export const sendQueuedEmail = onDocumentCreated({ document: 'outbox/{id}', secr
     await snap.ref.update({ status: 'failed', error: oneLine(err instanceof Error ? err.message : err, 300) })
   }
 })
+
+// Gmail "send only": nodemailer builds the email, Gmail sends it. The "from" must be the account itself or an
+// address set up in its Gmail → Settings → Accounts → "Send mail as" (else Gmail quietly uses the account's own).
+async function sendWithGmail(token: string, message: SendMailOptions) {
+  const built = await nodemailer.createTransport({ streamTransport: true, buffer: true }).sendMail(message)
+  const raw = (built.message as Buffer).toString('base64url')
+  const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }),
+  })
+  if (!r.ok) throw new Error(`Gmail said ${r.status}: ${(await r.text()).slice(0, 200)}`)
+}
 
 // Owner: send a test email to yourself to check the settings work.
 export const sendTestEmail = onCall(CALLABLE, async req => {
