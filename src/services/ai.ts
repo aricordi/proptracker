@@ -77,3 +77,7 @@ export interface IdeaPick { kind: 'prop' | 'gear'; id: string; why: string }
 export interface IdeaResult { groups: { title: string; picks: IdeaPick[] }[]; missing: { name: string; why: string }[]; note?: string; searched?: string[]; reply?: string; chips?: string[]; fallback?: boolean }
 // A video idea → props and gear from the inventory, grouped by scene (each with why it fits).
 export const ideaToProps = httpsCallable<{ idea: string; shootId?: string; exclude?: string[]; searched?: string[]; history?: string[]; more?: boolean }, IdeaResult>(functions, 'ideaToProps', { timeout: 130_000 })
+
+// "How do I…?": answered only from the app guide for your role, with buttons to the right screens.
+export interface AppAnswer { answer: string; steps: string[]; links: { path: string; label: string }[] }
+export const askApp = httpsCallable<{ question: string; history?: string[] }, AppAnswer>(functions, 'askApp')

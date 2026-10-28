@@ -14,8 +14,10 @@ export const useAssistant = () => useContext(Ctx)
 
 export function AssistantProvider({ children }: { children: ReactNode }) {
   // Props-only (demo) creators get the chat too (owner, Oct 28), in its locked "prop ideas only" form (see Assistant).
-  const { canBook, demo } = useSession()
-  const allowed = canBook || demo
+  // Staff who don't film (arts, equipment, admins) get it too, as a "how do I…?" guide only (owner, Oct 28).
+  const { canBook, demo, role } = useSession()
+  const allowed = true
+  const variant = canBook ? 'full' : demo ? 'demo' : `help-${role}`
   const [shown, setShown] = useState(false)
   const [started, setStarted] = useState(false)
   // Each open() asks for a mode; the counter lets the chat notice a new request even for the same mode.
@@ -27,7 +29,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       {children}
       {allowed && started && (
         <Suspense fallback={null}>
-          <Assistant key={demo ? 'demo' : 'full'} shown={shown} ask={ask} onClose={() => setShown(false)} />
+          <Assistant key={variant} shown={shown} ask={ask} onClose={() => setShown(false)} />
         </Suspense>
       )}
     </Ctx.Provider>

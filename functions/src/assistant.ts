@@ -6,14 +6,35 @@ import { logger } from 'firebase-functions/v2'
 import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from './booking.js'
-import { nowStamp } from './gearBooking.js'
+import { nowStamp, GEAR_LEAD_TIME_DAYS } from './gearBooking.js'
 import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
-import type { ScheduleDay } from './schedule.js'
+import { INVITE_HOLD_MINUTES, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, asData } from './gemini.js'
 import { loadSettings } from './reservations.js'
-import { plainNeeds, rankedPicks, type Pick } from './ideaHelpers.js'
+import { guideFor, searchGuide, TABS, type GuideRole } from './appGuide.js'
+import { plainNeeds, rankedPicks, signalsFrom, goesWith, type Pick, type PropSignals } from './ideaHelpers.js'
+
+// What creators actually request, as totals (see ideaHelpers.ts). Read at most every 10 minutes per server copy.
+let signalCache: { at: number; s: PropSignals } | null = null
+async function propSignals(): Promise<PropSignals> {
+  if (signalCache && Date.now() - signalCache.at < 10 * 60_000) return signalCache.s
+  const since = addDays(todayInStudio(), -365)
+  const snap = await db.collection('reservations').where('startDate', '>=', since).select('itemIds', 'status').get()
+  const s = signalsFrom(snap.docs.filter(d => !['cancelled', 'declined'].includes(d.get('status')))
+    .map(d => ({ itemIds: ((d.get('itemIds') ?? []) as unknown[]).filter((x): x is string => typeof x === 'string') })))
+  signalCache = { at: Date.now(), s }
+  return s
+}
+// The caller's OWN recent video names (never anyone else's), so suggestions fit their style.
+async function myRecentVideos(email: string): Promise<string[]> {
+  const snap = await db.collection('reservations').where('creatorEmail', '==', email).orderBy('startDate').limitToLast(8).get().catch(() => null)   // uses the existing index
+  return [...new Set((snap?.docs ?? []).reverse().map(d => safeText(d.get('title'), 60)).filter(Boolean))].slice(0, 5)
+}
+const usable = (x: FirebaseFirestore.DocumentSnapshot) => x.exists && x.get('archived') !== true && collectionOf(x.data()) === 'company'
+  && x.get('condition') !== 'damaged' && x.get('status') !== 'damaged'   // (old records say damaged in `status`)
+  && Number(x.get('quantity') ?? 1) - Number(x.get('missingQty') ?? 0) > 0
 
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -113,6 +134,7 @@ This creator only has the props catalogue for now: suggest props, costumes and s
 never mention booking, schedules, dates or times.` : ''}
 Write "reply", "why" and "chips" in the language the creator writes in; keep item names in English (the catalogue is English).`
   let cost = 0, fallback = false
+  const [signals, mine] = await Promise.all([propSignals().catch(() => signalsFrom([])), demo ? Promise.resolve([] as string[]) : myRecentVideos(caller.email)])
   try {
     // 1. What the video needs, by scene.
     let needs: { scene: string; items: string[] }[] = plainNeeds(idea)
@@ -127,7 +149,8 @@ Focus on the creator's NEWEST message (for example "something for a seance" mean
 board, a dark tablecloth, incense), using their earlier messages as the context of the video. If they only name things
 ("a top hat", "cowboy stuff"), those things are what they need. Horror, crime, fights and gore are normal for comedy and
 horror sketches: suggest the fake/prop versions (prop knife, fake blood, toy gun).
-List the physical props, costumes${demo ? ' and set dressing' : ', set dressing and filming gear'}, grouped by scene, character or purpose.
+List the physical props, costumes${demo ? ' and set dressing' : ', set dressing and filming gear'}, grouped by scene, character or purpose.${mine.length ? `
+Their recent videos (only to match their style; don't mention them): ${JSON.stringify(mine)}` : ''}
 Return ONLY {"reply":"...","needs":[{"scene":"For the cop","items":["police uniform","police badge"]}],"chips":["..."]}:
 reply = 1-2 short sentences with ONE creative tip for the scene (do not list the items); 2-6 groups, titles start with
 "For "${demo ? '' : ' (one gear group may be "To film it")'}, 1-6 short concrete item names per group; chips = 3 short follow-up asks the
@@ -173,12 +196,11 @@ Not about props for a video at all (e.g. homework, a recipe, chat) → {"reply":
     const tags = Object.fromEntries(tagSnap.docs.map(d => [d.id, String(d.get('label') ?? '')]))
     const freeOn = await freeOnShootDay(caller.email, shootId, snaps.filter(x => x.exists).map(x => x.id))
     // Only props someone could actually borrow: company, not archived, not damaged, at least one not missing.
-    const props = snaps.filter(x => x.exists && x.get('archived') !== true && collectionOf(x.data()) === 'company' && x.get('condition') !== 'damaged' && x.get('status') !== 'damaged'   // (old records say damaged in `status`)
-        && Number(x.get('quantity') ?? 1) - Number(x.get('missingQty') ?? 0) > 0)
+    const props = snaps.filter(usable)
       .map(x => ({
         id: x.id, name: String(x.get('name') ?? ''), cat: cats[x.get('categoryId')] ?? '',
         words: [...((x.get('tags') ?? []) as string[]).map(t => tags[t]).filter(Boolean), ...((x.get('searchWords') ?? []) as string[]).slice(0, 8)].slice(0, 12).join(', '),
-        qty: Number(x.get('quantity') ?? 1), free: freeOn[x.id],
+        qty: Number(x.get('quantity') ?? 1), free: freeOn[x.id], used: signals.uses[x.id] ?? 0,
       }))
     const gear = demo ? [] : (await db.collection('gear_bundles').get()).docs.filter(d => d.get('archived') !== true && !exclude.has(d.id))
       .map(d => ({ id: d.id, name: String(d.get('name') ?? ''), cat: String(d.get('category') ?? ''), kind: d.get('kind') === 'extra' || d.get('kind') === 'item' ? 'single item' : 'bundle' }))
@@ -197,13 +219,13 @@ Not about props for a video at all (e.g. homework, a recipe, chat) → {"reply":
         system: `${context}
 TASK: choose the best props${demo ? '' : ' and gear'} for the creator's video from the SHORTLIST only (their newest message comes first;
 earlier messages are the video's context).
-SHORTLIST PROPS (id | name | category | tags and search words | how many we have | free on their shoot day):
-${props.map(p => `${p.id} | ${p.name} | ${p.cat} | ${p.words} | ${p.qty} | ${p.free === undefined ? '?' : p.free > 0 ? 'free' : 'taken'}`).join('\n') || '(none)'}
+SHORTLIST PROPS (id | name | category | tags and search words | how many we have | free on their shoot day | times creators requested it this year):
+${props.map(p => `${p.id} | ${p.name} | ${p.cat} | ${p.words} | ${p.qty} | ${p.free === undefined ? '?' : p.free > 0 ? 'free' : 'taken'} | ${p.used}`).join('\n') || '(none)'}
 ${demo ? '' : `SHORTLIST GEAR (id | name | category | type):
 ${gear.map(g => `${g.id} | ${g.name} | ${g.cat} | ${g.kind}`).join('\n') || '(none)'}
 `}WHAT THE VIDEO NEEDS (from step 1): ${JSON.stringify(needs)}
 Return ONLY {"groups":[{"title":"For the cop","picks":[{"kind":"prop","id":"<id from the shortlist>","why":"max 8 words"}]}],"missing":[{"name":"thing","why":"max 10 words"}]}
-Rules: use the scene titles above; max 5 picks per group; ONLY ids from the shortlist, kind "prop" for props${demo ? '' : ' and "gear"\nfor gear'}; each id once; only clear fits (a close substitute is fine, say so in "why"); prefer props that are free; "missing" = important needs with no good match
+Rules: use the scene titles above; max 5 picks per group; ONLY ids from the shortlist, kind "prop" for props${demo ? '' : ' and "gear"\nfor gear'}; each id once; only clear fits (a close substitute is fine, say so in "why"); prefer props that are free; when two fit equally, prefer the one creators requested more (it has worked on our shoots); "missing" = important needs with no good match
 on the shortlist (0-4). Empty answer: {"groups":[],"missing":[]}.`,
         user: userPart(history, idea),
       }, 1500, 0.2).catch(e => { logger.warn('Idea step 3 failed', String(e)); return null })
@@ -222,6 +244,14 @@ on the shortlist (0-4). Empty answer: {"groups":[],"missing":[]}.`,
         return { kind, id, why: safeText(p?.why, 80) }
       }).filter(Boolean).slice(0, 5),
     })).filter((g: { picks: Pick[] }) => g.picks.length)
+    // "Often used with these": props creators usually request together with the picks (real requests, totals only).
+    const pickedProps = groups.flatMap((g: { picks: Pick[] }) => g.picks.filter(p => p.kind === 'prop').map(p => p.id))
+    const extra = pickedProps.length ? goesWith(pickedProps, signals, new Set([...exclude, ...seen] as string[]), 5) : []
+    if (extra.length) {
+      const ok = (await db.getAll(...extra.map(x => db.doc(`items/${x.id}`)))).filter(usable).map(x => x.id)
+      const picks = extra.filter(x => ok.includes(x.id)).slice(0, 3).map(x => ({ kind: 'prop' as const, id: x.id, why: `Requested together ${x.times} times` }))
+      if (picks.length) groups.push({ title: 'Often used with these', picks })
+    }
     const pickedNames = new Set(groups.flatMap((g: { picks: Pick[] }) => g.picks.map(p => (props.find(x => x.id === p.id)?.name ?? '').toLowerCase())))
     const known = new Set(searched.map(x => x.toLowerCase()))
     const missing = (Array.isArray(data.missing) ? data.missing : []).slice(0, 4)
@@ -336,4 +366,53 @@ Not about filming times → {"offTopic":true}.`
     friends,
     options,
   }
+})
+
+// ─── How do I…? (owner, Oct 28: "people will use the AI for everything… it should help them navigate the app") ───
+// Answers ONLY from the app guide (appGuide.ts), and only the part for the asker's role, with buttons to real screens.
+// The AI sees no data at all here: just the guide, the live rule numbers and the question.
+export const askApp = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
+  const caller = await requireRole(req, ['owner', 'admin', 'arts', 'equipment', 'creator'], { demoOk: true })
+  const role: GuideRole = caller.demo ? 'demo' : caller.role
+  const question = str(req.data?.question, 300)
+  if (question.length < 3) throw new HttpsError('invalid-argument', 'Ask me how to do something in the app.')
+  const history = (Array.isArray(req.data?.history) ? req.data.history : []).slice(-3).map((x: unknown) => str(x, 200)).filter(Boolean) as string[]
+  const entries = guideFor(role)
+  const linkOf = (ids: string[]) => [...new Set(ids)].map(id => entries.find(e => e.id === id)).filter(e => e?.path && !e.path.includes(':'))
+    .slice(0, 3).map(e => ({ path: e!.path!, label: e!.title }))
+  // Without the AI (test mode, busy, refused): the closest guide entries, word for word.
+  const plain = () => {
+    const hit = searchGuide(question, entries, 3)
+    return hit.length ? { answer: hit[0].about, steps: [] as string[], links: linkOf(hit.map(e => e.id)) }
+      : { answer: 'I\'m not sure about that one. Try Me → Help, or ask the team.', steps: [] as string[], links: linkOf(['help']) }
+  }
+  const settle = await reserveAi(caller.email, 'help', !!caller.demo)
+  const key = apiKey()
+  if (!key || isFakeMode(key)) { await settle(0); return plain() }
+  let cost = 0
+  try {
+    const [b, sch] = role === 'demo' ? [null, null] : await Promise.all([loadSettings(), loadScheduleSettings()])
+    const live = b && sch ? `LIVE RULES (use these numbers): props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}, gear ${GEAR_LEAD_TIME_DAYS}; closed days don't count; house slots are ${sch.slotMinutes / 60} h, ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props + gear for ${sch.pauseDays} days.` : ''
+    const r = await askJson(key, {
+      system: `${APP_CONTEXT}
+TASK: explain how to do things in the app to this person, using ONLY the GUIDE below (it is everything they can use).
+They are: ${role === 'demo' ? 'a creator on "Props only" (booking not open yet)' : role}. ${TABS[role]}
+${live}
+GUIDE (id | screen | how it works):
+${entries.map(e => `${e.id} | ${e.title} | ${e.about}`).join('\n')}
+Rules: never invent screens, buttons or rules that aren't in the GUIDE; if the GUIDE doesn't answer it, say you're not sure and
+suggest Me → Help or asking the team. Answer in their language, plain and friendly. "answer" = 1-2 short sentences;
+"steps" = 0-5 short taps in order (like "Tap Book", "Tap Book a shoot"); "screens" = 0-3 GUIDE ids to open.
+Return ONLY {"answer":"...","steps":["..."],"screens":["id"]}.`,
+      user: `${history.length ? `EARLIER QUESTIONS:\n${history.map(h => `<creator_text>${asData(h, 200)}</creator_text>`).join('\n')}\nQUESTION:\n` : ''}<creator_text>${asData(question, 300)}</creator_text>`,
+    }, 600, 0.2).catch(e => { logger.warn('askApp failed', String(e)); return null })
+    if (r) cost = r.costUsd
+    const answer = r && !r.blocked ? safeText(r.data.answer, 400) : ''
+    if (!answer) return plain()
+    return {
+      answer,
+      steps: (Array.isArray(r!.data.steps) ? r!.data.steps : []).map((x: unknown) => safeText(x, 90)).filter(Boolean).slice(0, 5),
+      links: linkOf((Array.isArray(r!.data.screens) ? r!.data.screens : []).map((x: unknown) => str(x, 40))),
+    }
+  } finally { await settle(cost) }
 })

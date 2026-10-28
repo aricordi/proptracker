@@ -1,3 +1,4 @@
+import AiButton from '../components/AiButton'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import CreatorDashboard from '../components/CreatorDashboard'
@@ -15,7 +16,7 @@ export default function AdminScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2">{shootFlow ? 'Team' : isAdmin ? 'Dashboard' : 'Admin'}</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{shootFlow ? 'Team' : isAdmin ? 'Dashboard' : 'Admin'}</span><AiButton /></h1>
       </div>
       <div className="px-4 pb-8 space-y-6">
         {owner && <DailyTiles items={OWNER_DAILY} onOpen={to => navigate(to)} />}

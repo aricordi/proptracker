@@ -41,3 +41,16 @@ describe('AI chat routing', () => {
     expect(r('anything on the weekend?', 'props').helpers).toEqual(['time'])
   })
 })
+
+describe('how-do-I questions go to the app guide', () => {
+  const ctx = { last: null, shoots: [] }
+  it('questions about using the app', () => {
+    for (const q of ['How do I book a shoot?', 'where are my requests', 'how do I return gear', 'Can I change my request?', 'what is a strike', "I can't find the check in button", 'help'])
+      expect(routeMessage(q, ctx).helpers, q).toEqual(['help'])
+  })
+  it('not when it is really a time search or a prop idea', () => {
+    expect(routeMessage('can I book Friday at 3pm', ctx).helpers).toContain('time')
+    expect(routeMessage('how do I find 2 hours next week', ctx).helpers).toContain('time')
+    expect(routeMessage('what props for a seance video', ctx).helpers).toEqual(['props'])
+  })
+})

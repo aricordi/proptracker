@@ -43,6 +43,21 @@ describe('video idea → props and gear', () => {
   })
 })
 
+describe('learning from past requests', () => {
+  it('works with real requests around, never repeats a prop, and only suggests borrowable company props', async () => {
+    for (const id of ['hat', 'cane', 'cape', 'wand', 'rabbit', 'cards', 'gloves']) await put(`items/${id}`, { name: `Magician ${id}`, collection: 'company', quantity: 1, archived: false })
+    await put('items/mine', { name: 'Magician private hat', collection: 'personal', quantity: 1 })
+    await put('items/broken', { name: 'Magician broken wand', collection: 'company', quantity: 1, condition: 'damaged' })
+    for (let i = 0; i < 3; i++) await put(`reservations/r${i}`, { creatorEmail: ANA, title: `Magic show ${i}`, startDate: todayInStudio(), status: 'requested', itemIds: ['hat', 'gloves', 'mine', 'broken'] })
+    const r = await call('ideaToProps', { idea: 'A magician show with a top hat and gloves' }, ANA)
+    expect(r.ok).toBe(true)
+    const ids = r.result.groups.flatMap((g: any) => g.picks.map((p: any) => p.id))
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).not.toContain('mine')
+    expect(ids).not.toContain('broken')
+  })
+})
+
 describe('limits', () => {
   it('daily limit per person', async () => {
     await put('app_settings/ai', { monthlyCapUsd: 50, perPersonDaily: 1 })

@@ -10,6 +10,10 @@ creators reserve props, the arts department picks/packs them, everything is logg
   https://claude.ai/artifact/EAKCeBrx2mW7h1QxiXDVzR . Whenever a rule, role, setting or automatic job changes, update
   that file and republish it to the SAME URL (Artifact tool, `url` + file) so the owner never loses track.
 
+- AI APP GUIDE (owner, Oct 28, standing rule, never wait to be asked): `functions/src/appGuide.ts` is what the ✦ AI knows
+  about every screen, button, tab, rule and role. ANY change to a screen, button, tab, flow, rule or role updates the
+  matching GUIDE entry (and TABS) IN THE SAME COMMIT. tests/unit/appGuide.test.ts fails when a route has no entry.
+  Settings numbers are injected live by askApp, so don't hard-code them in the guide.
 - The owner has almost no coding experience. Claude does the technical work; the
   owner makes the decisions.
 - Explain things in plain language. No jargon without a one-line explanation.
@@ -1580,6 +1584,23 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (recent emails, other SMTP services) with a link back. Schedule settings' calendar card = status + link (checklist removed).
       Tests 496. Checked on the emulator: demo chat (ideas, "can I book" → local no, See it → prop page), full chat (props + times),
       Calendar & email all three steps green.
+    - SMARTER AI + "HOW DO I…" GUIDE (owner, Oct 28: "as useful as possible… learn from the prop matching already happening…
+      don't overbuild"; "people will use the AI for everything… help people navigate… understand how the app works and each
+      screen… updated every time we make changes without me prompting"; NOT deployed: backend (new callable askApp, in
+      deploy/log lists) + website, ask). LEARNING (ideaHelpers.ts signalsFrom/goesWith, unit-tested): totals from the last 365 days
+      of requests (not cancelled/declined; cached 10 min per server copy; only itemIds read): the shortlist tells the AI how
+      often each prop was requested ("prefer proven props when equal"), and a new group "Often used with these" = props
+      requested together with the picks ≥2 times (usable company props only, never one already shown). The caller's OWN 5
+      recent video names go to step 1 as style context (never anyone else's; not for demo). No names/notes/dates reach
+      the AI or other creators. APP GUIDE: `functions/src/appGuide.ts` (GUIDE entries {id,title,path,who roles,about,words},
+      TABS per role, NOT_SCREENS aliases, guideFor(role), searchGuide = no-AI word match). Callable `askApp` (everyone incl.
+      demo, own budget helper 'help'): AI answers ONLY from the asker's role's entries + live rule numbers (booking + schedule
+      settings), returns {answer, steps ≤5, links ≤3 to real paths of that role}; busy/refused/test mode → searchGuide.
+      App: aiRoute `isHelpQuestion` (how/where/what/can I… with no day/time/number and not a prop idea → 'help'; Helper type
+      now props|time|help); Assistant sendHelp (steps list + "Open X ›" buttons; "Looking at how the app works…");
+      openers/chips mention it. Chat now for EVERYONE: staff who don't book (arts, equipment, admin) get a help-only chat
+      (STAFF_STARTERS per role) from a ✦ AI button on the Admin/Dashboard header; demo can ask help too.
+      Tests 506 (unit appGuide (route coverage, roles), aiRoute help, ideaHelpers signals; functions assistant learning test).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

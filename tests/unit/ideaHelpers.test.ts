@@ -1,6 +1,6 @@
 // When the AI is busy or refuses, the idea helper still answers from smart search.
 import { describe, it, expect } from 'vitest'
-import { plainNeeds, rankedPicks } from '../../functions/src/ideaHelpers'
+import { plainNeeds, rankedPicks, signalsFrom, goesWith } from '../../functions/src/ideaHelpers'
 
 describe('plainNeeds', () => {
   it('searches the whole idea and each of its parts', () => {
@@ -24,5 +24,17 @@ describe('rankedPicks', () => {
   })
   it('drops a group with nothing usable', () => {
     expect(rankedPicks([{ scene: 'For x', items: ['y'] }], { y: ['gone'] }, new Set())).toEqual([])
+  })
+})
+
+describe('learning from real requests', () => {
+  const s = signalsFrom([{ itemIds: ['badge', 'uniform', 'cuffs'] }, { itemIds: ['badge', 'uniform'] }, { itemIds: ['badge', 'menu'] }, { itemIds: ['uniform', 'uniform'] }])
+  it('counts how often each prop is requested (once per request)', () => {
+    expect(s.uses).toEqual({ badge: 3, uniform: 3, cuffs: 1, menu: 1 })
+  })
+  it('suggests what is usually requested with the picks, skipping shown ones and one-offs', () => {
+    expect(goesWith(['badge'], s, new Set())).toEqual([{ id: 'uniform', times: 2 }])
+    expect(goesWith(['badge'], s, new Set(['uniform']))).toEqual([])
+    expect(goesWith(['badge', 'cuffs'], s, new Set(), 3, 1).map(x => x.id)).toEqual(['uniform', 'menu'])
   })
 })

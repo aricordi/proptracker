@@ -5,7 +5,7 @@
 //   - "4 hours with Kyle next week" → the schedule
 //   - "a séance video, filming Friday night" → both (props first, then times)
 //   - short follow-ups ("make it spookier", "anything earlier?") → whatever the chat was just doing
-export type Helper = 'props' | 'time'
+export type Helper = 'props' | 'time' | 'help'
 export interface RouteShoot { id: string; date: string }   // date 'YYYY-MM-DD', soonest first
 export interface Route { helpers: Helper[]; shootId?: string }
 
@@ -28,6 +28,16 @@ const TIME_WEAK = /\b(mornings?|afternoons?|evenings?|nights?|weekends?|earlier|
 const PROPS_STRONG = /\b(props?|costumes?|wardrobe|outfits?|masks?|set dressing|gear|camera|lights?|video|skit|prank|sketch|scene|idea|parody|episode|theme|vibe|spookier|funnier|scarier|something for)\b/i
 // "my next shoot", "my Saturday shoot", "the shoot on Oct 27", "the 27th shoot"
 const SHOOT_REF = /\b(my|the|our|this|that)\s+(\w+\s+){0,3}shoot\b|\bshoot (on|for) /i
+
+// "How do I…?" about the app itself (owner, Oct 28: the AI also helps people find their way). A question about how
+// or where, with no specific day, time or length in it ("how do I book a shoot?" yes; "can I book Friday at 3?" no:
+// that's a time search), and not a prop idea.
+const HELP_START = /^\s*(how (do|can|should|would) (i|we|you)|how to|how does|how is|where (is|are|do|can|does)|what (is|are|does|do|happens)|can i|is there|why (can'?t|cant|is|does|did|do)|i can'?t|i cant|i don'?t (know|see|understand)|help( me)?\b|what'?s the)/i
+const SPECIFIC = /\d|\b(today|tomorrow|tonight|this week|next week|this weekend|next weekend|asap|soonest|earliest)\b/i
+const IDEA = /\b(props? for|ideas? for|my video|a video|skit|prank|sketch|scene|parody|costume for|something for)\b/i
+export function isHelpQuestion(t: string) {
+  return HELP_START.test(t) && !SPECIFIC.test(t) && !DAY_RE.test(t) && !IDEA.test(t)
+}
 
 function words(t: string) { return t.trim().split(/\s+/).filter(Boolean).length }
 
@@ -55,6 +65,7 @@ export function findShoot(text: string, shoots: RouteShoot[]): string | undefine
 
 export function routeMessage(text: string, ctx: { last: Helper | null; shoots: RouteShoot[] }): Route {
   const t = text.trim()
+  if (isHelpQuestion(t)) return { helpers: ['help'] }
   const booking = /\b(book|slots?|available|availability|find (me )?(a |some )?(time|slot)|when can)\b/i.test(t)
   // A booked shoot named in the message: props for it (unless they're asking to book another time).
   const shootId = booking ? undefined : findShoot(t, ctx.shoots)

@@ -21,3 +21,30 @@ export function rankedPicks(needs: { scene: string; items: string[] }[], nearByP
   })).filter(g => g.picks.length)
 }
 
+
+// ─── Learning from real requests (owner, Oct 28: "learn from the prop matching already happening") ───────────
+// Only totals across everyone's requests: how often each prop was asked for, and which props were asked for in the
+// same request. No names, titles, notes or dates leave the server, and only company props that can be borrowed
+// are ever suggested from it.
+export interface PropSignals { uses: Record<string, number>; pairs: Record<string, Record<string, number>> }
+
+export function signalsFrom(requests: { itemIds: string[] }[]): PropSignals {
+  const uses: Record<string, number> = {}, pairs: Record<string, Record<string, number>> = {}
+  for (const r of requests) {
+    const ids = [...new Set(r.itemIds)].slice(0, 40)   // a huge request says little about what goes together
+    for (const a of ids) {
+      uses[a] = (uses[a] ?? 0) + 1
+      if (ids.length < 2 || ids.length > 25) continue
+      const row = (pairs[a] ??= {})
+      for (const b of ids) if (b !== a) row[b] = (row[b] ?? 0) + 1
+    }
+  }
+  return { uses, pairs }
+}
+
+// Props often requested together with the picked ones (at least `min` times), best first, never one already shown.
+export function goesWith(picked: string[], s: PropSignals, skip: Set<string>, max = 3, min = 2): { id: string; times: number }[] {
+  const score: Record<string, number> = {}
+  for (const p of picked) for (const [b, n] of Object.entries(s.pairs[p] ?? {})) if (!skip.has(b) && !picked.includes(b)) score[b] = (score[b] ?? 0) + n
+  return Object.entries(score).filter(([, n]) => n >= min).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, max).map(([id, times]) => ({ id, times }))
+}

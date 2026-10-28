@@ -224,6 +224,11 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <h3>Creators on "Props only" get the AI too (Oct 28)</h3>
   <p>A purple "Got a video idea? Ask AI which props fit" button sits at the top of their Props page. It's the same chat, <b>locked to prop ideas</b>: they describe a video and get props from the closet, grouped by scene, and tapping one opens the prop page. No times, no booking, no gear, nothing added anywhere. If they ask to book, it says booking isn't open for them yet. The server enforces this too, so it can't be got around.</p>
   <p>Their use comes out of <b>its own slice</b> of the AI budget (default <span class="num">$10</span> of the $50 a month, and <span class="num">10</span> uses per person per day), so it can never use up the full app's AI. Change both in <span class="path">Team → AI helpers</span>, under "Creators on Props only".</p>
+  <h3>Ask it how to use the app (Oct 28)</h3>
+  <p>Anyone can ask "How do I return my gear?", "Where are my requests?", "How do I give a strike?" and get a short answer with the taps to make and <b>Open …</b> buttons to the right screen. It only knows the screens <b>that person</b> can use, so creators never hear about staff tools. It uses the live rule numbers (notice days, hold minutes, strikes). The arts team, gear team and admins now have the ✦ AI button too (on their Admin/Dashboard page), for these how-to questions only.</p>
+  <p class="muted">It answers from a written guide of every screen that I update with every change. The app's automatic checks fail if a screen is added without a guide entry, so it can't fall behind.</p>
+  <h3>It learns from real requests (Oct 28)</h3>
+  <p>When it picks props, it now knows how often creators actually requested each one (proven props win when two fit equally), and it adds <b>"Often used with these"</b>: props creators usually request together with its picks. It also looks at the creator's own recent video names to match their style. Only totals are used: no one sees anyone else's requests or names.</p>
   <h3>Made sturdier (Oct 28)</h3>
   <ul>
     <li>If Google's AI is busy or slow, the chat still answers with the closest props by name and tags ("Quick match") instead of failing.</li>
