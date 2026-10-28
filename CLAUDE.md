@@ -1601,6 +1601,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       openers/chips mention it. Chat now for EVERYONE: staff who don't book (arts, equipment, admin) get a help-only chat
       (STAFF_STARTERS per role) from a ✦ AI button on the Admin/Dashboard header; demo can ask help too.
       Tests 506 (unit appGuide (route coverage, roles), aiRoute help, ideaHelpers signals; functions assistant learning test).
+    - LIVE Oct 28 (owner "ok to deploy both"): backend run 49 + website run 48 = AI deep dive, Props-only AI, Calendar & email page,
+      smarter AI + "How do I…" guide. (Website run 48 shows red only because the publish tool's extra lookup AFTER "release complete"
+      failed; the release itself went out. If it happens again, check the log for "Deploy complete!" before re-running.)
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
