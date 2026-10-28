@@ -1544,6 +1544,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       what will move → Move everything → done). Moved rows show "Moved to …"; merged person shows "Used to be …".
       Tests 488 (tests/functions/emailMove.test.ts). Checked in a browser on the emulator (Kyle → kyle.new).
       LIVE Oct 28 (owner OK): backend run 47 + website run 46 (also brings bins in number order). Owner to move Aaron's old email.
+      → OLD RECORD DELETED (owner, Oct 28: "merge people and delete the old one"): after the move users/{from} is DELETED (was kept
+      as movedTo); the new record keeps movedFrom[], email_moves keeps the log. Exception to "users are only deactivated".
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

@@ -2,7 +2,8 @@
 // People are filed under their email (users/{email}) and the email is copied onto their shoots, requests, gear,
 // strikes, invites, reports… `changeUserEmail` (owner only) moves ALL of it to the new address in one go. If the new
 // address already has an account (Aaron's case) the two are MERGED into one person. The old address is switched off
-// and marked movedTo, so it can't sign in. Nothing is deleted except the old copies of what was moved.
+// and its record DELETED (owner, Oct 28: "merge people and delete the old one"), so it can't sign in and is gone from
+// People. The new record keeps movedFrom[] and `email_moves` logs every move.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions/v2'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
@@ -114,7 +115,7 @@ export const changeUserEmail = onCall({ ...CALLABLE, timeoutSeconds: 540, memory
   const w = db.bulkWriter()
   // 1. The person: new record (merged), old one switched off and pointing at the new one.
   w.set(db.doc(`users/${to}`), mergeUser({ ...oldSnap.data(), email: from }, newSnap.data(), to, caller.email, at))
-  w.update(oldSnap.ref, { active: false, movedTo: to, movedAt: at, movedBy: caller.email, updatedAt: at, updatedBy: caller.email })
+  w.delete(oldSnap.ref)
   // 2. Profile photo + channel: the new one's own fields win.
   if (oldProfile.exists) {
     const np = (await db.doc(`profiles/${to}`).get()).data() ?? {}

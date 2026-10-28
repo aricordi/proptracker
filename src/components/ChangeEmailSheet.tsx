@@ -28,7 +28,7 @@ export default function ChangeEmailSheet({ user, onClose, onDone }: { user: AppU
       <div className="space-y-4">
         <p className="text-pt-text">{who} is now <span className="font-semibold break-all">{done.to}</span>.
           {done.merging ? ' Their two accounts are now one.' : ''}</p>
-        <p className="text-pt-muted text-sm">The old email can't sign in any more. Ask them to sign in with the new one, then turn
+        <p className="text-pt-muted text-sm">The old email is deleted from People and can't sign in any more. Ask them to sign in with the new one, then turn
           notifications on again (Me → Notifications){done.phones ? '' : ' if they want them'}.</p>
         <button onClick={onDone} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Done</button>
       </div>
@@ -67,7 +67,7 @@ export default function ChangeEmailSheet({ user, onClose, onDone }: { user: AppU
                 ? preview.summary.map(s => <p key={s.what} className="text-pt-muted">{s.count} {s.what}</p>)
                 : <p className="text-pt-muted">No shoots or requests yet</p>}
             </div>
-            <p className="text-pt-muted text-xs">The old email is switched off. {preview.phones ? `Their ${preview.phones === 1 ? 'phone' : `${preview.phones} phones`} will need to turn notifications on again.` : ''}</p>
+            <p className="text-pt-muted text-xs">The old email is then deleted from People. {preview.phones ? `Their ${preview.phones === 1 ? 'phone' : `${preview.phones} phones`} will need to turn notifications on again.` : ''}</p>
             <button onClick={() => run(true)} disabled={busy}
               className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
               {busy ? 'Moving… (this can take a minute)' : `Move everything to ${preview.to}`}

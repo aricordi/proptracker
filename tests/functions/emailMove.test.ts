@@ -39,7 +39,7 @@ describe('changeUserEmail', () => {
     expect(r.applied).toBe(true)
     const nu = (await getDoc(`users/${NEW}`))!
     expect(nu).toMatchObject({ active: true, access: 'full', name: 'Aaron B', role: 'creator', movedFrom: [OLD] })
-    expect(await getDoc(`users/${OLD}`)).toMatchObject({ active: false, movedTo: NEW })
+    expect(await exists(`users/${OLD}`)).toBe(false)
     expect((await getDoc(`shoots/${shoot.id}`))!.creatorEmail).toBe(NEW)
     const dayDoc = (await getDoc(`schedule_days/${day}`))!
     expect(dayDoc.cliff2['780'].email).toBe(NEW)
@@ -57,7 +57,7 @@ describe('changeUserEmail', () => {
     expect((await getDoc('items/i1'))!.updatedBy).toBe(OLD)   // props are never touched
     // the new email works, the old one can't sign in
     expect((await call('listFilmingFriends', {}, OLD)).error).toBe('PERMISSION_DENIED')
-    expect((await call('changeUserEmail', { from: OLD, to: 'x@example.com' }, OWNER)).message).toMatch(/already moved/)
+    expect((await call('changeUserEmail', { from: OLD, to: 'x@example.com' }, OWNER)).error).toBe('NOT_FOUND')
   })
   it('moves to a brand-new email (no account there yet)', async () => {
     const r = (await call('changeUserEmail', { from: FRIEND, to: 'fran.new@example.com', apply: true }, OWNER)).result
