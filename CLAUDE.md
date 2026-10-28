@@ -1531,6 +1531,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       every callable public, data check clean. BINS: `compareBinLabels` (functions/src/binNames.ts: ignores dots/spaces, numeric:
       "Bin 2" before "Bin 10", "B3" before "B.31") used by useBins → every bin list/picker in number order; BinQrScreen "Done ✓ · next:
       Bin 7" goes straight to the next UNCHECKED bin in number order (else /bins). Unit test in binNames.test.ts.
+    - CHANGE SOMEONE'S EMAIL (owner, Oct 27/28: Aaron got a new email; owner picked FULL MOVE; NOT deployed: new callable + rules
+      → backend + website deploy, ask). `functions/src/emailMove.ts` `changeUserEmail` (owner only; in deploy/log lists) {from, to,
+      apply}: without apply = preview (counts per collection, merging?, phones). Apply: users/{to} = mergeUser (new account's role +
+      name win, access 'full' if either, active, movedFrom[]); users/{from} → active false + movedTo/movedAt/movedBy (rules validUser
+      allows these keys); profiles + user_status moved (new's own fields win; longest pause kept) and old copies deleted; old
+      push_tokens + calendar_tokens deleted; then EVERY top-level collection except SKIP (props, photos, tokens, outbox, ai_usage…)
+      is walked and every value equal to the old email (and map keys, and the slug inside late-gear/gear-missing flag ids; flag_reviews
+      docs with the slug in their id are re-created under the new id) is swapped (`swapEmail`, lists de-duplicated); recountStrikes(to);
+      log in `email_moves` (server only). Items are never touched. Triggers stay quiet (pushes/calendar compare status/visible fields).
+      App: People → person → "Change their email…" (owner, not on moved records) → `src/components/ChangeEmailSheet.tsx` (type → Check
+      what will move → Move everything → done). Moved rows show "Moved to …"; merged person shows "Used to be …".
+      Tests 488 (tests/functions/emailMove.test.ts). Checked in a browser on the emulator (Kyle → kyle.new).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

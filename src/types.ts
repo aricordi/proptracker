@@ -71,6 +71,8 @@ export interface AppUser {
   invitedAt?: string;
   updatedAt?: string;
   updatedBy?: string;
+  movedTo?: string;         // this email was moved to a new one (changeUserEmail); switched off
+  movedFrom?: string[];     // the old email(s) this person used before
 }
 
 export interface Tag {

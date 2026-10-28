@@ -56,3 +56,13 @@ export async function assertNotPaused(email: string) {
     throw new HttpsError('failed-precondition', `Your prop and gear bookings are paused until ${st.pausedUntil} (strikes, or a pause from the team). Ask the schedule team if you think this is wrong.`, { problem: 'paused' })
   }
 }
+
+// After a person's records move to a new email (emailMove.ts): recount what still counts under the new one.
+export async function recountStrikes(email: string) {
+  const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  const ref = db.doc(`user_status/${email}`)
+  const status = (await ref.get()).data()
+  const recent = await countStrikes(email, s, status?.liftedAt)
+  if (status || recent) await ref.set({ email, strikes: recent, updatedAt: new Date().toISOString() }, { merge: true })
+  return recent
+}

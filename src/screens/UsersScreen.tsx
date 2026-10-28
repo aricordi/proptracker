@@ -5,6 +5,7 @@ import { OWNER_EMAIL, LIVE_APP_URL } from '../config'
 import { USING_EMULATORS } from '../firebase'
 import { subscribeToUsers, inviteUser, updateUser, normalizeEmail } from '../services/users'
 import BottomSheet from '../components/BottomSheet'
+import ChangeEmailSheet from '../components/ChangeEmailSheet'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser, Role } from '../types'
 
@@ -71,7 +72,7 @@ export default function UsersScreen() {
         <Section title="Owner">
           <Row email={OWNER_EMAIL} name={OWNER_EMAIL === me.email ? 'You' : undefined} subtitle="Full admin" />
           {grouped[0].people.map(u => (
-            <Row key={u.email} email={u.email} name={u.name} inactive={!u.active}
+            <Row key={u.email} email={u.email} name={u.name} inactive={!u.active} subtitle={u.movedTo ? `Moved to ${u.movedTo}` : undefined}
               onTap={canManage(u) ? () => setEditing(u) : undefined} />
           ))}
         </Section>
@@ -80,7 +81,7 @@ export default function UsersScreen() {
           <Section key={role} title={role === 'creator' ? `${ROLE_LABELS[role]} · ${people.filter(u => u.active && u.access === 'full').length} on Full app, ${people.filter(u => u.active && u.access !== 'full').length} on Props only`
             : ROLE_LABELS[role]} empty={people.length === 0 ? 'Nobody yet' : undefined}>
             {people.map(u => (
-              <Row key={u.email} email={u.email} name={u.name} inactive={!u.active}
+              <Row key={u.email} email={u.email} name={u.name} inactive={!u.active} subtitle={u.movedTo ? `Moved to ${u.movedTo}` : undefined}
                 badge={u.role === 'creator' ? <AccessPill full={u.access === 'full'} /> : undefined}
                 onTap={canManage(u) ? () => setEditing(u) : undefined} />
             ))}
@@ -257,9 +258,11 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
   const [role, setRole] = useState<Role>('creator')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [moving, setMoving] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => { if (user) { setRole(user.role); setError(null) } }, [user])
+  if (user && moving) return <ChangeEmailSheet user={user} onClose={() => setMoving(false)} onDone={onClose} />
 
   if (!user) return null
 
@@ -274,6 +277,8 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
     <BottomSheet open onClose={onClose} title={user.name || user.email}>
       <div className="space-y-4">
         {user.name && <p className="text-pt-muted text-sm break-all">{user.email}</p>}
+        {user.movedTo && <p className="bg-sky-500/15 text-sky-200 text-sm rounded-xl px-3 py-2 break-all">Moved to {user.movedTo}. Everything they had is under that email now.</p>}
+        {!!user.movedFrom?.length && <p className="text-pt-muted text-xs break-all">Used to be {user.movedFrom.join(', ')}</p>}
         <button onClick={() => navigate(`/people/${encodeURIComponent(user.email)}`)}
           className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text font-medium active:opacity-70">
           Bookings & history ›
@@ -306,6 +311,12 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
               : 'Props only (demo mode): they can only search and look at the props. Nothing to book.'}
               {!isOwner && ' Only the owner can change this.'}</p>
           </div>
+        )}
+        {isOwner && !user.movedTo && (
+          <button onClick={() => setMoving(true)} disabled={busy}
+            className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text font-medium active:opacity-70">
+            Change their email…
+          </button>
         )}
         {error && <p className="text-red-400 text-sm">{error}</p>}
         {user.active ? (

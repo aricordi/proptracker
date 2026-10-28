@@ -1,7 +1,8 @@
 import {
   collection, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc,
 } from 'firebase/firestore'
-import { db, auth } from '../firebase'
+import { httpsCallable } from 'firebase/functions'
+import { db, auth, functions } from '../firebase'
 import type { AppUser, Role } from '../types'
 
 const col = collection(db, 'users')
@@ -56,4 +57,15 @@ export async function updateUser(email: string, data: Partial<Pick<AppUser, 'rol
     updatedAt: new Date().toISOString(),
     updatedBy: actor(),
   })
+}
+
+// Owner only (Oct 27): move a person, and everything filed under their email, to a new email (merges with an
+// existing account at that email). First call without `apply` to see what would change.
+export interface EmailMovePreview {
+  from: string; to: string; merging: boolean; oldName: string | null; newName: string | null
+  summary: { what: string; count: number }[]; profile: boolean; phones: number; applied: boolean
+}
+export async function changeUserEmail(from: string, to: string, apply: boolean) {
+  const r = await httpsCallable<{ from: string; to: string; apply: boolean }, EmailMovePreview>(functions, 'changeUserEmail', { timeout: 540000 })({ from, to: normalizeEmail(to), apply })
+  return r.data
 }
