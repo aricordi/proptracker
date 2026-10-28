@@ -13,7 +13,7 @@ import { logger } from 'firebase-functions'
 import { GoogleAuth } from 'google-auth-library'
 import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
-import { authUrl, grantedOf, isClientId, redirectUriFor, safeOrigin, secretEnd, SCOPES } from './googleLink.js'
+import { authUrl, cleanClientId, cleanSecret, grantedOf, isClientId, isSecret, redirectUriFor, safeOrigin, secretEnd, SCOPES } from './googleLink.js'
 
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
 const project = () => process.env.GCLOUD_PROJECT ?? 'proptracker-9732e'
@@ -98,14 +98,14 @@ export const googleAccountStatus = onCall(CALLABLE, async req => {
 export const saveGoogleClient = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner'])
   const { clientId, clientSecret } = (req.data ?? {}) as { clientId?: unknown; clientSecret?: unknown }
-  const id = typeof clientId === 'string' ? clientId.trim() : ''
+  const id = typeof clientId === 'string' ? cleanClientId(clientId) : ''
   if (!isClientId(id)) throw new HttpsError('invalid-argument', 'That doesn\'t look like a client ID. It ends with .apps.googleusercontent.com.')
-  const secret = typeof clientSecret === 'string' ? clientSecret.replace(/[\s\u200B-\u200D\uFEFF"'`]/g, '') : ''
+  const secret = typeof clientSecret === 'string' ? cleanSecret(clientSecret) : ''
   const old = (await clientDoc().get()).data() as Client | undefined
   if (!secret && !old?.clientSecret) throw new HttpsError('invalid-argument', 'Paste the client secret too.')
-  if (secret && !/^[A-Za-z0-9_-]{10,100}$/.test(secret)) throw new HttpsError('invalid-argument', /[*•]/.test(secret)
+  if (secret && !isSecret(secret)) throw new HttpsError('invalid-argument', /[*•]/.test(secret)
     ? 'That\'s the hidden version of the secret. In Google Cloud open the client, tap Add secret and copy the new one (starts with GOCSPX-).'
-    : 'That doesn\'t look like a client secret. It usually starts with GOCSPX-.')
+    : `That doesn't look like a client secret (got ${secret.length} characters). Use the copy button next to the secret in Google Cloud; it starts with GOCSPX-.`)
   await clientDoc().set({ clientId: id, clientSecret: secret || old!.clientSecret, savedAt: new Date().toISOString(), savedBy: caller.email })
   cached = null
   return { ok: true }

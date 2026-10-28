@@ -25,3 +25,18 @@ describe('Prime Capitol Google account helpers', () => {
     expect(redirectUriFor('proptracker-9732e', false)).toBe('https://northamerica-northeast1-proptracker-9732e.cloudfunctions.net/googleConnectDone')
   })
 })
+
+import { cleanClientId as cid, cleanSecret as cs, isSecret as okSecret } from '../../functions/src/googleLink'
+describe('pasted client id / secret', () => {
+  it('pulls the secret out of whatever the phone copied', () => {
+    expect(cs('GOCSPX-abc_DEF-123456789xyz')).toBe('GOCSPX-abc_DEF-123456789xyz')
+    expect(cs('Client secret\nGOCSPX-abc_DEF-123456789xyz content_copy')).toBe('GOCSPX-abc_DEF-123456789xyz')
+    expect(cs('​GOCSPX-abc_DEF-123456789xyz ')).toBe('GOCSPX-abc_DEF-123456789xyz')
+    expect(cs(' abcdefghijkl ')).toBe('abcdefghijkl')
+    expect(okSecret(cs('GOCSPX-abc_DEF-123456789xyz'))).toBe(true)
+    expect(okSecret(cs('****xYz9'))).toBe(false)
+  })
+  it('pulls the client ID out too', () => {
+    expect(cid('Client ID 1234-abc123.apps.googleusercontent.com content_copy')).toBe('1234-abc123.apps.googleusercontent.com')
+  })
+})

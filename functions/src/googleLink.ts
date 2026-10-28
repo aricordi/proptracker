@@ -25,6 +25,14 @@ export const redirectUriFor = (project: string, emulator: boolean) => emulator
 // A client ID from Google Cloud looks like "1234-abc.apps.googleusercontent.com".
 export const isClientId = (s: unknown): s is string => typeof s === 'string' && /^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(s)
 
+// Phones copy extras around the text (labels, "content_copy" from the copy icon, spaces, line breaks, invisible
+// marks). Pull out just the ID / secret; Google itself checks they're right when connecting.
+const INVISIBLE = /[\s\u00A0\u200B-\u200D\u2060\uFEFF"'`“”‘’]/g
+export const cleanClientId = (v: string) =>
+  v.match(/[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com/)?.[0] ?? v.replace(INVISIBLE, '')
+export const cleanSecret = (v: string) => v.match(/GOCSPX-[A-Za-z0-9_-]+/)?.[0] ?? v.replace(INVISIBLE, '')
+export const isSecret = (s: string) => /^[A-Za-z0-9_-]{10,200}$/.test(s)
+
 export function authUrl(o: { clientId: string; redirectUri: string; state: string; loginHint?: string }) {
   const q = new URLSearchParams({
     client_id: o.clientId,
