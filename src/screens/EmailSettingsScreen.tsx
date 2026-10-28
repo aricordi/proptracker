@@ -74,6 +74,7 @@ export default function EmailSettingsScreen() {
         <h1 className="font-display text-xl text-pt-text">Email</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
+        <Link to="/connections" className="block bg-pt-accent/10 text-pt-accent text-sm rounded-2xl px-4 py-3">The simple way: turn emails on in <b>Calendar &amp; email</b> ›. This page is for the recent-emails list and other email services.</Link>
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           <label className="flex items-center justify-between gap-3">
             <span>
@@ -96,7 +97,7 @@ export default function EmailSettingsScreen() {
           {viaGoogle ? <>
             {google === undefined ? <p className="text-pt-muted text-xs">Checking the account…</p>
               : googleOk ? <p className="text-green-400 text-sm">Emails go out from {google!.email} ✓</p>
-              : <p className="text-amber-300 text-sm">{google ? (google.broken || 'The account is connected but "send emails" was unticked.') : 'No Prime Capitol Google account connected yet.'} <Link to="/google" className="text-pt-accent">Set it up ›</Link></p>}
+              : <p className="text-amber-300 text-sm">{google ? (google.broken || 'The account is connected but "send emails" was unticked.') : 'No Prime Capitol Google account connected yet.'} <Link to="/connections" className="text-pt-accent">Set it up ›</Link></p>}
             <label className="block space-y-1">
               <span className={label}>Send from (address people see)</span>
               <input value={form.fromAddress} onChange={e => set({ fromAddress: e.target.value.trim() })} placeholder={google?.email ?? 'the connected account'} className={input} autoCapitalize="none" />

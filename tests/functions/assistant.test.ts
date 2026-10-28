@@ -36,7 +36,7 @@ describe('video idea → props and gear', () => {
     expect(r.ok).toBe(true)
     expect(typeof r.result.reply).toBe('string')
     expect(Array.isArray(r.result.chips)).toBe(true)
-    expect((await call('ideaToProps', { idea: 'seance' }, ANA)).message).toMatch(/a little more/)
+    expect((await call('ideaToProps', { idea: 'abc' }, ANA)).message).toMatch(/a little more/)
   })
   it('needs a real idea', async () => {
     expect((await call('ideaToProps', { idea: 'hi' }, ANA)).message).toMatch(/a little more/)
@@ -56,5 +56,32 @@ describe('limits', () => {
   it('monthly budget', async () => {
     await put('app_settings/ai', { monthlyCapUsd: 0.01, perPersonDaily: 25 })
     expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).message).toMatch(/resting until the 1st/)
+  })
+})
+
+describe('props-only (demo) creators', () => {
+  const DEE = 'dee@example.com'
+  beforeEach(async () => { await put(`users/${DEE}`, { email: DEE, role: 'creator', active: true, name: 'Dee', access: 'props' }) })
+  it('get prop ideas only: no gear, no shoot, counted on their own budget', async () => {
+    await put('items/hat', { name: 'Top hat', collection: 'company', quantity: 1, archived: false })
+    const r = await call('ideaToProps', { idea: 'A magician show with a top hat', shootId: 'whatever' }, DEE)
+    expect(r.ok).toBe(true)
+    expect(r.result.groups.flatMap((g: any) => g.picks).some((p: any) => p.kind === 'gear')).toBe(false)
+    const m = (await getDoc(`ai_usage/${month}`))!
+    expect(m.by.demo).toBe(1)
+    expect(m.demoSpentUsd).toBe(m.spentUsd)   // test mode costs nothing, but it is tracked separately
+  })
+  it('stop at their own budget while full-app creators keep going', async () => {
+    await put('app_settings/ai', { monthlyCapUsd: 50, perPersonDaily: 25, demoMonthlyCapUsd: 0.01 })
+    expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, DEE)).message).toMatch(/resting until the 1st/)
+    expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).ok).toBe(true)
+  })
+  it('have their own (smaller) daily limit', async () => {
+    await put('app_settings/ai', { monthlyCapUsd: 50, perPersonDaily: 25, demoPerPersonDaily: 1 })
+    expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, DEE)).ok).toBe(true)
+    expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, DEE)).message).toMatch(/today's AI help \(1 times\)/)
+  })
+  it('still cannot find times or book', async () => {
+    expect((await call('askForTime', { text: 'two hours next week' }, DEE)).error).toBe('PERMISSION_DENIED')
   })
 })

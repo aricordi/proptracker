@@ -29,6 +29,7 @@ import MyRequestsButton from '../components/MyRequestsButton'
 import BottomSheet from '../components/BottomSheet'
 import { readRequestDraft, writeRequestDraft } from '../lib/requestDraft'
 import AiButton from '../components/AiButton'
+import { useAssistant } from '../assistant'
 import { Icon } from '../components/Icon'
 
 type AvailabilityFilter = Availability | 'all' | 'archived'
@@ -42,7 +43,8 @@ const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnl
 ]
 
 export default function HomeScreen() {
-  const { isStaff, isOwner, shootFlow, canBook } = useSession()
+  const { isStaff, isOwner, shootFlow, canBook, demo } = useSession()
+  const ai = useAssistant()
   // Owner only: switch between Prime Capitol's props and your own.
   const [collection, setCollection] = useState<PropCollection>(() => {
     try { return localStorage.getItem('pt-collection') === 'personal' ? 'personal' : 'company' } catch { return 'company' }
@@ -231,7 +233,14 @@ export default function HomeScreen() {
         <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5">
           <BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{toRequest ? 'Add to your request' : shootFlow ? 'Browse' : 'Props'}</span>
           {shootFlow && !toRequest && <><AiButton mode="props" /><MyRequestsButton /></>}
+          {demo && <AiButton mode="props" />}
         </h1>
+        {demo && (
+          // Props only (owner, Oct 28): get people used to the AI before booking opens.
+          <button onClick={() => ai.open('props')} className="mt-3 w-full min-h-[44px] flex items-center gap-2 rounded-full px-4 py-2.5 text-left text-[14px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
+            <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Got a video idea? Ask AI which props fit</span><span aria-hidden>›</span>
+          </button>
+        )}
         {shootFlow && !toRequest && <div className="mt-2.5"><BrowseTabs /></div>}
         {isOwner && !toRequest && (
           <div className="flex gap-1 mt-2.5 p-1 bg-pt-surface shadow-hairline rounded-xl">

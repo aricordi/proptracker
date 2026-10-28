@@ -45,13 +45,12 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'rules', title: 'Rules & settings', icon: 'filter', items: [
       I('rulessheet', '/rules-sheet', 'Settings sheet', 'Every rule at a glance', 'table'),
       I('rules', '/booking-rules', 'Booking rules', 'Notice for props, closed days, turnaround', 'clock'),
-      I('schedulesettings', '/schedule/settings', 'Schedule settings', 'Houses, slots, priority days, strikes, calendar', 'calendar'),
+      I('schedulesettings', '/schedule/settings', 'Schedule settings', 'Houses, slots, priority days, strikes', 'calendar'),
     ] },
     { key: 'money', title: 'Money & connections', icon: 'lock', items: [
       I('costs', '/costs', 'Running costs', 'What the app costs this month', 'chart'),
       I('ai', '/ai', 'AI helpers', 'Monthly AI budget and daily limit', 'sparkle'),
-      I('google', '/google', 'Google account', 'The Prime Capitol account for calendar + email', 'calendar'),
-      I('email', '/email', 'Email', 'Sending service and a test email', 'chat'),
+      I('connections', '/connections', 'Calendar & email', 'One Google account for the shared calendar and emails', 'calendar'),
     ] },
     { key: 'more', title: 'Help & records', icon: 'help', items: [
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),

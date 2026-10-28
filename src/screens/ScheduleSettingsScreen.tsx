@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
-import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, testCalendarLink, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
+import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
 
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -93,9 +93,7 @@ export default function ScheduleSettingsScreen() {
           <p className="text-pt-muted text-xs">Need more for someone? Book it for them yourself (Book for → their name). Offsite shoots don't count.</p>
         </section>
 
-        <CalendarSetup id={s.googleCalendarId} savedId={live.googleCalendarId}
-          onId={v => set({ googleCalendarId: v })} save={save} onImport={() => navigate('/schedule/import')}
-          onApprove={() => navigate('/schedule/calendar')} />
+        <CalendarSetup savedId={live.googleCalendarId} onImport={() => navigate('/schedule/import')} onApprove={() => navigate('/schedule/calendar')} />
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-2">
           <h2 className="text-pt-text font-semibold">Check-ins and strikes</h2>
@@ -160,71 +158,25 @@ export default function ScheduleSettingsScreen() {
   )
 }
 
-// Shared Google Calendar: a numbered checklist, so setting it up needs no guessing.
-// The app's address comes from the server (owner); the test also names it if sharing is missing.
-const CAL_API = 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com?project=proptracker-9732e'
+// Shared Google Calendar: set up on ONE page now ("Calendar & email", owner Oct 28); this card just says where it stands.
+const googleAccountStatus = httpsCallable<Record<string, never>, { connected: { email: string; calendar: boolean; broken: string } | null }>(functions, 'googleAccountStatus')
 
-// Which address to share the calendar with: the connected Prime Capitol Google account, else the server's address.
-const googleAccountStatus = httpsCallable<Record<string, never>, { server: string; connected: { email: string; calendar: boolean; broken: string } | null }>(functions, 'googleAccountStatus')
-
-function CalendarSetup({ id, savedId, onId, save, onImport, onApprove }: { id: string; savedId: string; onId: (v: string) => void; save: () => Promise<void>; onImport: () => void; onApprove: () => void }) {
-  const [account, setAccount] = useState('')
-  const [copied, setCopied] = useState(false)
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [company, setCompany] = useState(false)
-  useEffect(() => { googleAccountStatus({}).then(r => {
-    const c = r.data.connected
-    if (c?.calendar && !c.broken) { setAccount(c.email); setCompany(true) } else setAccount(r.data.server)
-  }).catch(() => {}) }, [])
-  const connected = msg?.ok === true
-  async function copy() { try { await navigator.clipboard.writeText(account); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* shown on screen anyway */ } }
-  async function test() {
-    setBusy(true); setMsg(null)
-    try {
-      if (id !== savedId) await save()
-      const r = await testCalendarLink({}); setAccount(r.data.account); setMsg({ ok: true, text: 'Connected ✓' })
-    } catch (e) {
-      const t = errorText(e)
-      const acc = (e as { details?: { account?: string } }).details?.account
-      if (acc) setAccount(acc)
-      setMsg({ ok: false, text: /has not been used|SERVICE_DISABLED|disabled/i.test(t) ? 'Step 1 isn\'t done yet: turn on the Google Calendar API.'
-        : /404|notFound|Not Found/i.test(t) ? 'That calendar ID wasn\'t found. Check step 3.'
-        : /403|401|share/i.test(t) ? 'Not shared yet. Do step 2, wait a minute, then test again.' : t })
-    } finally { setBusy(false) }
-  }
-  const step = (n: number, title: string, body: React.ReactNode) => (
-    <div className="flex gap-3">
-      <span className={`w-6 h-6 rounded-full grid place-items-center text-xs font-bold shrink-0 ${connected ? 'bg-green-500/20 text-green-400' : 'bg-pt-accent/20 text-pt-accent'}`}>{connected ? '✓' : n}</span>
-      <div className="flex-1 min-w-0 space-y-2"><p className="text-pt-text text-[15px] font-medium">{title}</p>{body}</div>
-    </div>
-  )
+function CalendarSetup({ savedId, onImport, onApprove }: { savedId: string; onImport: () => void; onApprove: () => void }) {
+  const [account, setAccount] = useState<string | null | undefined>(undefined)
+  useEffect(() => { googleAccountStatus({}).then(r => { const c = r.data.connected; setAccount(c?.calendar && !c.broken ? c.email : null) }).catch(() => setAccount(null)) }, [])
+  const linked = !!account && !!savedId
   return (
-    <section className="bg-pt-surface rounded-2xl p-4 space-y-4">
+    <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-pt-text font-semibold">Shared Google Calendar</h2>
-        {connected && <span className="rounded-full px-3 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Connected</span>}
+        {account !== undefined && <span className={`rounded-full px-3 py-1 text-xs font-semibold ${linked ? 'bg-green-500/15 text-green-400' : 'bg-pt-bg text-pt-muted'}`}>{linked ? 'Linked' : 'Not set up'}</span>}
       </div>
-      {step(1, 'Turn on the Calendar API', <a href={CAL_API} target="_blank" rel="noreferrer" className="inline-block text-pt-accent text-sm tap">Open Google Cloud → tap Enable ›</a>)}
-      {step(2, 'Share the calendar with the app', <>
-        <p className="text-pt-muted text-xs">Google Calendar on a computer → the calendar → ⋮ → Settings and sharing → Share with specific people → add this address → <b>"Make changes to events"</b>. (The app only ever changes events it added itself.)</p>
-        {!company && <p className="text-amber-300 text-xs">Prime Capitol's calendar can't be shared outside the company? Connect the company account first: <Link to="/google" className="text-pt-accent">Admin → Google account ›</Link></p>}
-        {account
-          ? <button onClick={copy} className="w-full text-left bg-pt-bg rounded-xl px-3 py-2 text-[13px] text-pt-text break-all">{account} <span className="text-pt-accent font-semibold">{copied ? ' Copied ✓' : ' Copy'}</span></button>
-          : <p className="text-pt-muted text-xs">Tap Test below to see the address.</p>}
-      </>)}
-      {step(3, 'Paste the calendar ID', <>
-        <p className="text-pt-muted text-xs">Same settings page → Integrate calendar → Calendar ID.</p>
-        <input value={id} onChange={e => { onId(e.target.value.trim()); setMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} />
-      </>)}
-      {step(4, 'Test it', <>
-        <button disabled={busy || !id} onClick={test} className="bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 py-2 text-sm disabled:opacity-40">{busy ? 'Testing…' : 'Save & test'}</button>
-        {msg && <p className={`text-sm ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>}
-      </>)}
-      <p className="text-pt-muted text-xs border-t border-pt-border pt-3">From then on, every booking, move, cancel and blocked time made in the app is added to the calendar right away. The app never moves anything by itself, and events that were already in the calendar (the old ones you import) are never changed or deleted.</p>
-      <button onClick={onApprove} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">What the app has added ›</button>
-      <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Import from the calendar (new + changed) ›</button>
+      <p className="text-pt-muted text-xs">{linked ? `Bookings go to the calendar through ${account}.` : 'Set up the calendar and emails together, in three steps.'}</p>
+      <Link to="/connections" className="block w-full text-center bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 text-sm">{linked ? 'Calendar & email ›' : 'Set it up in Calendar & email ›'}</Link>
+      {linked && <>
+        <button onClick={onApprove} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">What the app has added ›</button>
+        <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Import from the calendar (new + changed) ›</button>
+      </>}
     </section>
   )
 }
-

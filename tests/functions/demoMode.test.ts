@@ -22,7 +22,7 @@ describe('demo mode (Props only)', () => {
   it('refuses booking shoots, props and gear, the AI and the friend list, with a plain message', async () => {
     for (const [name, data] of [['bookShoot', { place: 'cliff2', date: day, start: 780 }], ['createReservation', { title: 'x', startDate: day, endDate: day, lines: [{ itemId: 'a', qty: 1 }] }],
       ['createGearBooking', { title: 'x', date: day, start: 600, end: 720, lines: [{ offerId: 'a', qty: 1 }] }], ['askForTime', { text: 'two hours next week' }],
-      ['ideaToProps', { idea: 'a haunted house prank video' }], ['listFilmingFriends', {}], ['myCalendarLink', {}]] as [string, object][]) {
+      ['listFilmingFriends', {}], ['myCalendarLink', {}]] as [string, object][]) {
       const r = await call(name, data, DEMO)
       expect(r.error, name).toBe('PERMISSION_DENIED')
       expect(r.message, name).toMatch(/search and browse the props/)

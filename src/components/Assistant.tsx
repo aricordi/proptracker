@@ -6,6 +6,9 @@
 // - PLAN MY SHOOT (owner, Oct 19): walks through it in order: 1 time (book a new one or pick a booked shoot),
 //   2 props (the ideas chat for that shoot), 3 gear (NOT AI: the list of gear free for the shoot's hours),
 //   4 review = the normal "Your shoot" page already filled in, where the creator changes anything and sends it.
+// PROPS ONLY (demo) creators (owner, Oct 28): the same chat, locked to prop ideas. No plan, no times, no ticks or
+// "add to a shoot", no gear; each suggestion just opens the prop page. The server enforces the same (ideaToProps
+// demo mode; every other helper refuses them), so nothing here can book anything even if the screen were changed.
 // It stays in its box: each message goes to one of the two server helpers (ideaToProps / askForTime), which check
 // the budget, treat the words as data only, and return fixed answers the server has checked. The AI can't book,
 // read or change anything itself; every Book / Add button here is a normal tap by the person.
@@ -40,7 +43,7 @@ import { friendlyError } from '../lib/errors'
 
 type Msg =
   | { who: 'me'; text: string; mode: Helper }
-  | { who: 'bot'; text: string; result?: IdeaResult; alt?: { q: string; to: Helper } }   // alt = "Meant a time instead?"
+  | { who: 'bot'; text: string; result?: IdeaResult; alt?: { q: string; to: Helper }; retry?: string; search?: string }   // alt = "Meant a time instead?"; retry/search = ways out when it fails
   | { who: 'choose' }
   | { who: 'options'; options: TimeAskResult['options'] }
   | { who: 'booked'; inviteIds: string[]; shootId: string; label: string }
@@ -66,6 +69,8 @@ const OPENERS: Record<Helper, string> = {
 }
 // No "props or time" switch (owner, Oct 20): src/lib/aiRoute.ts reads each message and runs one helper or both.
 const GREETING = 'Tell me your video idea, or when you want to film, or both. I\'ll find the props we have and the times that are free.'
+const DEMO_OPENER = 'Tell me your video idea and I\'ll find props from our closet that fit, scene by scene. Then keep going: "make it spookier", "something for the ending"… Tap any prop to see it.'
+const DEMO_NO_TIME = 'Booking isn\'t open for you yet, so I can\'t look at times. Tell me about the video and I\'ll find props for it.'
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 const propsErr = (e: unknown) => friendlyError(e, "The AI helper didn't answer. Try again.")
@@ -94,7 +99,7 @@ function useShootRequests(shootId: string | undefined, email: string) {
 
 export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask: { mode?: AssistantMode; shootId?: string; n: number }; onClose: () => void }) {
   const navigate = useNavigate()
-  const { profile, user } = useSession()
+  const { profile, user, demo } = useSession()
   const items = useItems()
   const bookings = useBookings()
   const settings = useBookingSettings()
@@ -114,16 +119,17 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
 
   const hello = `Hi${first ? ` ${first}` : ''}!`
   const helper = ask.mode === 'plan' ? undefined : ask.mode
-  const fresh = (m?: Helper): Msg[] => m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : [{ who: 'bot', text: `${hello} ${GREETING}` }, { who: 'choose' }]
+  const fresh = (m?: Helper): Msg[] => demo ? [{ who: 'bot', text: `${hello} ${DEMO_OPENER}` }]
+    : m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : [{ who: 'bot', text: `${hello} ${GREETING}` }, { who: 'choose' }]
   // Examples of both kinds, plus your next booked shoot when you have one.
   const mixed = () => [
     ...(upcoming[0] ? [`Props for my ${WEEKDAY[new Date(upcoming[0].date + 'T12:00:00').getDay()]} shoot`] : []),
     STARTERS.props[1], 'Find me 2 hours this week', STARTERS.props[0], STARTERS.time[0],
   ]
   // `mode` = what the chat was last doing, so short follow-ups ("anything earlier?") keep going.
-  const [mode, setMode] = useState<Helper | null>(helper ?? null)
+  const [mode, setMode] = useState<Helper | null>(demo ? 'props' : helper ?? null)
   const [msgs, setMsgs] = useState<Msg[]>(() => fresh(helper))
-  const [chips, setChips] = useState<string[]>(() => helper ? STARTERS[helper] : mixed())
+  const [chips, setChips] = useState<string[]>(() => demo ? STARTERS.props : helper ? STARTERS[helper] : mixed())
   // Plan my shoot: which step, and which shoot it's for (set once the time is booked or picked).
   const [plan, setPlan] = useState<{ step: Step; shootId?: string; label?: string } | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
@@ -163,7 +169,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     started.current = true
     if (ask.shootId) planProps(ask.shootId); else startPlan()
   }, [])
-  const restart = () => { setMode(null); setPlan(null); setMsgs(fresh()); setChips(mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
+  const restart = () => { setMode(demo ? 'props' : null); setPlan(null); setMsgs(fresh()); setChips(demo ? STARTERS.props : mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
 
   // ── Plan my shoot ──
   const bot = (text: string, ...extra: Msg[]) => setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'bot', text }, ...extra])
@@ -219,15 +225,22 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
     // Which helper(s): a forced one ("Meant a time instead?"), the plan's current step, or read from the words.
-    const route: Route = force ? { helpers: [force] } : more || plan?.step === 'props' ? { helpers: ['props'] }
+    // Props only: the words never reach the time finder (the server would refuse anyway).
+    if (demo && !force && !more) {
+      const r = routeMessage(q, { last: 'props', shoots: [] })
+      if (!r.helpers.includes('props')) {
+        setText(''); setMsgs(x => [...x, { who: 'me', text: q, mode: 'props' }, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return
+      }
+    }
+    const route: Route = demo ? { helpers: ['props'] } : force ? { helpers: [force] } : more || plan?.step === 'props' ? { helpers: ['props'] }
       : plan?.step === 'time' ? { helpers: ['time'] }
       : routeMessage(q, { last: mode, shoots: upcoming.map(x => ({ id: x.id, date: x.date })) })
     const hs = route.helpers, both = hs.length > 1
-    const target = route.shootId ?? shoot?.id
+    const target = demo ? undefined : route.shootId ?? shoot?.id
     const named = route.shootId && route.shootId !== shoot?.id ? upcoming.find(x => x.id === route.shootId) : undefined
     if (route.shootId) choose(route.shootId)
     // Offer "Meant … instead?" only when the chat just picked a direction (not on every follow-up).
-    const offer = !both && !force && !plan && !more && mode !== hs[0]
+    const offer = !demo && !both && !force && !plan && !more && mode !== hs[0]
     setMode(hs[hs.length - 1])
     setText(''); setChips([]); setBusy(true)
     setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: hs[0] },
@@ -250,14 +263,20 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       const idea = more ? (history[history.length - 1] ?? q) : q
       const r = (await ideaToProps({
         idea, history: more ? history.slice(0, -1) : history, exclude: [...new Set([...shownIds, ...sentPropIds, ...sentGearIds])], ...(more ? { searched, more: true } : {}),
-        ...(shootId ? { shootId } : {}),
+        ...(shootId && !demo ? { shootId } : {}),
       })).data
-      const kept = { ...r, groups: r.groups.map(g => ({ ...g, picks: g.picks.filter(p => !shownIds.includes(p.id)) })).filter(g => g.picks.length) }
+      const kept = { ...r, groups: r.groups.map(g => ({ ...g, picks: g.picks.filter(p => !shownIds.includes(p.id) && (p.kind === 'prop' ? itemById.has(p.id) : !demo)) })).filter(g => g.picks.length) }
       const found = kept.groups.length + kept.missing.length > 0
-      setMsgs(x => [...x, { who: 'bot', text: r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search and browse.'), ...(found ? { result: kept } : {}), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
-      const next = [...(plan?.step === 'props' ? [NEXT_GEAR] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan ? [TIME_CHIP] : [])]
+      // Nothing (new) found: offer a plain search for the same words, so the chat is never a dead end.
+      setMsgs(x => [...x, { who: 'bot', text: r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
+        ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
+      const next = [...(plan?.step === 'props' ? [NEXT_GEAR] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
       return [...new Set(next)].slice(0, 5)
-    } catch (e) { setMsgs(x => [...x, { who: 'bot', text: propsErr(e) }]); return [] }
+    } catch (e) {
+      // Busy, offline, today's limit: say so plainly, and offer to try again or search the closet instead.
+      const limit = /resource-exhausted/.test(String((e as { code?: string })?.code ?? ''))
+      setMsgs(x => [...x, { who: 'bot', text: propsErr(e), search: q, ...(limit ? {} : { retry: q }) }]); return []
+    }
   }
 
   async function sendTime(q: string, offerOther: boolean): Promise<string[]> {
@@ -265,7 +284,12 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       const r = (await askForTime({ text: q, ...(previous ? { previous } : {}) })).data
       setPrevious(r.ask)
       setMsgs(x => [...x, { who: 'bot', text: r.reply, ...(offerOther ? { alt: { q, to: 'props' as const } } : {}) }, ...(r.options.length ? [{ who: 'options' as const, options: r.options }] : [])])
-      return r.friends.length ? ['Anything on the weekend?', `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours'] : ['Anything earlier?', 'Evenings only', `Only ${s.houses.cliff1.name}`]
+      // Follow-ups that change something (never "Evenings only" when it already is).
+      const a = r.ask as { timeOfDay?: string; houses?: string[] }
+      const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h
+      const next = r.friends.length ? ['Anything on the weekend?', one('cliff2') ? '' : `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours']
+        : ['Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only', one('cliff1') ? `Only ${s.houses.cliff2.name}` : `Only ${s.houses.cliff1.name}`]
+      return next.filter(Boolean)
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]); return [] }
   }
 
@@ -350,7 +374,9 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     if (i.condition === 'damaged') return 0
     return freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' }, bookings[id] ?? [], shoot.date, shoot.date, today, turnaround(i), settings)
   }
-  const tick = (k: string, name: string, inBasket: boolean) => inBasket && !sel.includes(k)
+  const tick = (k: string, name: string, inBasket: boolean) => demo
+    ? <button onClick={() => go(`/item/${k.slice(2)}`)} aria-label={`See ${name}`} className="w-11 h-11 rounded-full grid place-items-center shrink-0 bg-pt-border text-pt-text text-xl">›</button>
+    : inBasket && !sel.includes(k)
     ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent" title="Already in your shoot">✓</span>
     : <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} aria-label={`${sel.includes(k) ? 'Untick' : 'Tick'} ${name}`}
         className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${sel.includes(k) ? 'pop bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-xl'}`}>
@@ -370,7 +396,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
                   <button onClick={() => go(`/item/${p.id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
                     <span className="w-[52px] h-[52px] rounded-xl bg-pt-border overflow-hidden shrink-0">{it.photos[0] && <img loading="lazy" decoding="async" src={thumbOf(it, it.photos[0])} alt="" className="w-full h-full object-cover" />}</span>
                     <span className="min-w-0"><b className="block text-sm truncate">{it.name}</b><span className="block text-xs text-[#CDB8FF]">{p.why}</span>
-                      <span className="block text-xs text-pt-muted">{free === null ? 'Check it ›' : free > 0 ? 'Free · check it ›' : 'Taken that day · check it ›'}</span></span>
+                      <span className="block text-xs text-pt-muted">{demo ? `${it.quantity > 1 ? `We have ${it.quantity} · ` : ''}See it ›` : free === null ? 'Check it ›' : free > 0 ? 'Free · check it ›' : 'Taken that day · check it ›'}</span></span>
                   </button>
                   {tick(`p:${p.id}`, it.name, !!cart.lines[p.id])}
                 </div>
@@ -391,14 +417,14 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       ))}
       {result.missing.length > 0 && (
         <div className="space-y-2">
-          <p className="text-pt-muted text-xs font-semibold">We don't have it</p>
+          <p className="text-pt-muted text-xs font-semibold">{demo ? 'Not in the closet yet' : 'We don\'t have it'}</p>
           {result.missing.map(m => {
             const k = `b:${m.name}`, asked = cart.builds.some(b => b.description === m.name)
             return (
               <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                 <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></span>
-                <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{m.why || 'The arts team can make or find it'}</span></span>
-                {asked && !sel.includes(k) ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 opacity-60">Asked ✓</span>
+                <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{demo ? (m.why || 'Not in the closet yet') : m.why || 'The arts team can make or find it'}</span></span>
+                {demo ? null : asked && !sel.includes(k) ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 opacity-60">Asked ✓</span>
                   : <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} className={`shrink-0 text-xs font-semibold rounded-full px-3 min-h-[44px] ${sel.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-violet-500/20 text-violet-200'}`}>{sel.includes(k) ? 'Ticked ✓' : 'Ask for it'}</button>}
               </div>
             )
@@ -431,7 +457,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
               return <span key={k} className="flex-1"><span className={`block h-1 rounded-full ${done || now ? 'bg-[#BF9DFF]' : 'bg-pt-border'}`} /><span className={`block text-xs mt-1 ${now ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{done ? '✓ ' : ''}{t}</span></span>
             })}
           </div>
-        ) : <p className="text-pt-muted text-[13px]">Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</p>}
+        ) : <p className="text-pt-muted text-[13px]">{demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
@@ -440,7 +466,14 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
             <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{m.text}</p>
+            {m.result?.fallback && <p className="text-pt-muted text-xs">Quick match: the AI was busy, so these are the closest props by name and tags.</p>}
             {m.result && renderResult(m.result)}
+            {(m.retry || m.search) && i === lastBot && !busy && (
+              <div className="flex flex-wrap gap-2">
+                {m.retry && <button onClick={() => send(m.retry!)} className="rounded-full px-4 min-h-[44px] text-[13px] font-semibold bg-[#BF9DFF]/20 text-[#CDB8FF]">Try again</button>}
+                {m.search && <button onClick={() => go(`/browse?q=${encodeURIComponent(m.search!.slice(0, 80))}`)} className="rounded-full px-4 min-h-[44px] text-[13px] font-semibold bg-pt-border">Search the closet for "{m.search.length > 24 ? `${m.search.slice(0, 24)}…` : m.search}"</button>}
+              </div>
+            )}
             {m.alt && i === lastBot && !busy && !plan && (
               <button onClick={() => send(m.alt!.q, false, m.alt!.to)} className="tap text-[13px] text-[#CDB8FF] underline underline-offset-2">
                 {m.alt.to === 'time' ? 'Meant a time to film? Find one' : 'Meant props for this? Find some'}</button>
@@ -586,7 +619,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
         <div className="flex items-center gap-2 pb-2">
           <label htmlFor="aiAsk" className="sr-only">Message</label>
           <input id="aiAsk" value={text} onChange={e => setText(e.target.value.slice(0, 600))} onKeyDown={e => { if (e.key === 'Enter') send() }}
-            placeholder={listening ? 'Listening…' : plan?.step === 'time' ? 'When do you want to film?' : plan?.step === 'props' ? 'What\'s your video about?' : 'Your video idea, or when to film…'}
+            placeholder={listening ? 'Listening…' : demo ? 'Describe your video idea…' : plan?.step === 'time' ? 'When do you want to film?' : plan?.step === 'props' ? 'What\'s your video about?' : 'Your video idea, or when to film…'}
             className="flex-1 min-w-0 bg-pt-surface border border-pt-border rounded-2xl px-4 py-3 text-base focus:outline-none focus:border-[#BF9DFF]" />
           {Speech && (
             <button onClick={talk} aria-label={listening ? 'Stop listening' : 'Talk'}

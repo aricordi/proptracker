@@ -233,9 +233,13 @@ Return ONLY JSON: {"same": true|false, "confidence": "high"|"medium"|"low", "rea
 // The app's own instructions go in `system` (the model treats them as the rules); anything a
 // person typed goes in `user`, wrapped as data. Google's safety filters are on; a blocked or
 // broken answer comes back as {} so callers fall back gracefully.
-const SAFETY = ['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH', 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'HARM_CATEGORY_DANGEROUS_CONTENT']
-  .map(category => ({ category, threshold: 'BLOCK_MEDIUM_AND_ABOVE' }))
-export async function askJson(apiKey: string, prompt: string | { system: string; user: string }, maxOutputTokens = 1500, temperature = 0.3): Promise<{ data: Record<string, unknown>; costUsd: number }> {
+// "Dangerous content" only blocks the worst: this is a comedy/horror studio, and fake blood, a prop knife or a
+// zombie make-up idea must not be refused as if it were real (they were, at "medium"; Oct 28).
+const SAFETY = [
+  ...['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH', 'HARM_CATEGORY_SEXUALLY_EXPLICIT'].map(category => ({ category, threshold: 'BLOCK_MEDIUM_AND_ABOVE' })),
+  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
+]
+export async function askJson(apiKey: string, prompt: string | { system: string; user: string }, maxOutputTokens = 1500, temperature = 0.3): Promise<{ data: Record<string, unknown>; costUsd: number; blocked?: boolean }> {
   const parts = typeof prompt === 'string' ? { system: '', user: prompt } : prompt
   const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
     method: 'POST',
@@ -252,11 +256,13 @@ export async function askJson(apiKey: string, prompt: string | { system: string;
   const usage = json.usageMetadata ?? {}
   const costUsd = ((usage.promptTokenCount ?? 0) * PRICE_PER_M.in
     + ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)) * PRICE_PER_M.out) / 1_000_000
-  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  // Refused by the safety filters (the question, or the answer): callers fall back to plain search, not "off topic".
+  const blocked = !!json.promptFeedback?.blockReason || json.candidates?.[0]?.finishReason === 'SAFETY'
+  const text: string = (json.candidates?.[0]?.content?.parts ?? []).map((p: any) => p?.text ?? '').join('')
   const match = text.match(/\{[\s\S]*\}/)
   let data: Record<string, unknown> = {}
   try { data = match ? JSON.parse(match[0]) : {} } catch { data = {} }
-  return { data, costUsd }
+  return { data, costUsd, ...(blocked ? { blocked } : {}) }
 }
 
 // Words from the AI that are shown to people: plain short text only. No links, web addresses,
@@ -334,6 +340,24 @@ export async function embedText(apiKey: string | undefined, text: string, taskTy
   const values = json.embedding?.values as number[] | undefined
   if (!values?.length) throw new Error('Empty embedding')
   return normalize(values)
+}
+
+// Many texts in ONE request (the idea helper looks up to 24 needs at once; 24 separate calls hit Google's
+// rate limit on a busy day). Same vectors as embedText.
+export async function embedTexts(apiKey: string | undefined, texts: string[], taskType: EmbedTask): Promise<number[][]> {
+  if (!texts.length) return []
+  if (isFakeMode(apiKey)) return texts.map(fakeEmbedding)
+  if (!apiKey) throw new Error('Gemini API key is not configured')
+  const res = await fetch(`${BASE_URL}/models/${EMBEDDING_MODEL}:batchEmbedContents`, {
+    method: 'POST',
+    headers: keyHeaders(apiKey),
+    body: JSON.stringify({ requests: texts.map(text => ({ model: `models/${EMBEDDING_MODEL}`, content: { parts: [{ text }] }, taskType, outputDimensionality: EMBEDDING_DIMENSIONS })) }),
+  })
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const json = await res.json() as any
+  const out = (json.embeddings ?? []) as { values?: number[] }[]
+  if (out.length !== texts.length || out.some(e => !e.values?.length)) throw new Error('Empty embedding')
+  return out.map(e => normalize(e.values!))
 }
 
 // Shortened embeddings aren't guaranteed to be unit length; normalize so

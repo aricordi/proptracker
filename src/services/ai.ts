@@ -74,6 +74,6 @@ export const makeMissingThumbs = httpsCallable<{ countOnly?: boolean }, ThumbsRu
 // ─── Creator AI helpers ──────────────────────────────────────────────────────
 
 export interface IdeaPick { kind: 'prop' | 'gear'; id: string; why: string }
-export interface IdeaResult { groups: { title: string; picks: IdeaPick[] }[]; missing: { name: string; why: string }[]; note?: string; searched?: string[]; reply?: string; chips?: string[] }
+export interface IdeaResult { groups: { title: string; picks: IdeaPick[] }[]; missing: { name: string; why: string }[]; note?: string; searched?: string[]; reply?: string; chips?: string[]; fallback?: boolean }
 // A video idea → props and gear from the inventory, grouped by scene (each with why it fits).
-export const ideaToProps = httpsCallable<{ idea: string; shootId?: string; exclude?: string[]; searched?: string[]; history?: string[]; more?: boolean }, IdeaResult>(functions, 'ideaToProps')
+export const ideaToProps = httpsCallable<{ idea: string; shootId?: string; exclude?: string[]; searched?: string[]; history?: string[]; more?: boolean }, IdeaResult>(functions, 'ideaToProps', { timeout: 130_000 })

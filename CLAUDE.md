@@ -203,7 +203,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 466 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 496 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1546,6 +1546,40 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       LIVE Oct 28 (owner OK): backend run 47 + website run 46 (also brings bins in number order). Owner to move Aaron's old email.
       → OLD RECORD DELETED (owner, Oct 28: "merge people and delete the old one"): after the move users/{from} is DELETED (was kept
       as movedTo); the new record keeps movedFrom[], email_moves keeps the log. Exception to "users are only deactivated". LIVE Oct 28 (backend run 48 + website run 47).
+    - AI DEEP DIVE + PROPS-ONLY AI + CALENDAR & EMAIL PAGE (owner, Oct 28: "make the AI the highlight… robust, edge cases";
+      "bring the AI to props-only users, super locked down, props for ideas only, can't hurt the full version"; "calendar and
+      email flow is confusing"; NOT deployed: functions (no rules change) → backend + website deploy, ask).
+      SERVER (assistant.ts, gemini.ts, new ideaHelpers.ts pure + tests/unit/ideaHelpers.test.ts): ideaToProps never fails because
+      the AI hiccuped: step 1 failing/blocked/empty → `plainNeeds(idea)` (the idea + its parts split on , and with…) and
+      `fallback: true`; step 3 failing/blocked → `rankedPicks` (closest props per need in smart-search order, "Close match for …");
+      explicit `offTopic` from step 1 is the only "not a video idea" answer. Embeddings: ONE batchEmbedContents call (`embedTexts`),
+      else one by one with allSettled; nothing at all → HttpsError 'aborted' "busy… or search the props" (not 'unavailable', which the
+      app shows as No signal). askJson returns `blocked` (promptFeedback / finishReason SAFETY); DANGEROUS_CONTENT threshold =
+      BLOCK_ONLY_HIGH (horror/crime sketch props were being refused). Prompts: names-only asks count as needs, horror → prop
+      versions, reply/why/chips in the creator's language. Shortlist excludes legacy status 'damaged' and props with every unit
+      missing; `missing` drops names already picked; timeoutSeconds 120 (app callable timeout 130 s); min idea 4 chars.
+      FIXED: ai_usage `by.<helper>` was written as a literal dotted field name (the owner's AI screen breakdown never showed);
+      now nested `by: {helper: increment}`.
+      PROPS-ONLY (DEMO) AI: ideaToProps `{ demoOk: true }`; demo callers: no gear, shootId ignored, no availability, prompts say
+      never mention booking/dates; budget helper 'demo' with its OWN slice: app_settings/ai `demoMonthlyCapUsd` (default 10) and
+      `demoPerPersonDaily` (default 10, capped by perPersonDaily); ai_usage month doc `demoSpentUsd`. Full-app users are never
+      stopped by the demo slice. Every other AI/booking callable still refuses demo creators. App: AssistantProvider available for
+      demo (always mode props, no shootId; Assistant keyed demo/full); Assistant `demo`: DEMO_OPENER, no plan/time/ticks/add-to-shoot/
+      gear, time-only messages answered locally (DEMO_NO_TIME, no server call), result rows "See it ›" open the prop page, missing =
+      "Not in the closet yet". Demo Browse: ✦ AI button + violet pill "Got a video idea? Ask AI which props fit".
+      ALL USERS: failed/empty answers carry `retry` ("Try again", not for daily/budget limits) and `search` ("Search the closet for …"
+      → /browse?q=); "Quick match" note on fallback answers; picks for props not in the phone's list are dropped; time follow-up chips
+      don't repeat the current filter ("Evenings only" → "Mornings instead"). AiSettingsScreen: "Creators on Props only" slice +
+      daily uses, demo spend. Help Q updated.
+      CALENDAR & EMAIL (`src/screens/ConnectionsScreen.tsx`, /connections AND /google (Google's sign-in returns to /google);
+      GoogleAccountScreen.tsx DELETED): status strip Account / Calendar / Emails, then 3 cards: 1 connect the company account (one-time
+      Google Cloud setup a–d folded inside: consent screen + publish, Gmail + Calendar APIs, Web client with redirect URI, client
+      ID/secret; IT note), 2 share the shooting calendar with that account + Calendar ID → Save & test (saveScheduleSettings with the
+      full live settings + testCalendarLink), Bring in what's there / What the app added, 3 Turn on emails (email settings service
+      'google', sender name, optional alias, test). Team menu: "Calendar & email" replaces Google account + Email; /email stays
+      (recent emails, other SMTP services) with a link back. Schedule settings' calendar card = status + link (checklist removed).
+      Tests 496. Checked on the emulator: demo chat (ideas, "can I book" → local no, See it → prop page), full chat (props + times),
+      Calendar & email all three steps green.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
