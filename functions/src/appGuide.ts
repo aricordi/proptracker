@@ -144,8 +144,8 @@ export const GUIDE: GuideEntry[] = [
   // ── Owner only ──
   { id: 'schedulesettings', path: '/schedule/settings', title: 'Schedule settings', who: OWNER, words: 'slots priority group release strikes notice houses',
     about: 'Houses, slot times, house slots a day, moving notice, check-in and strike numbers, priority days, Sunday release time and the priority group. Save at the bottom.' },
-  { id: 'connections', path: '/connections', title: 'Calendar & email', who: OWNER, words: 'google calendar email connect account share calendar id',
-    about: 'Three steps: 1 connect the Prime Capitol Google account (one-time Google Cloud setup inside), 2 share the shooting calendar with it and paste the Calendar ID → Save & test, 3 Turn on emails → test.' },
+  { id: 'connections', path: '/connections', title: 'Calendar & email', who: OWNER, words: 'google calendar email connect account share calendar id client secret gocspx access',
+    about: 'Three steps: 1 connect the Prime Capitol Google account (one-time Google Cloud setup inside), 2 share the shooting calendar with it and paste the Calendar ID → Save & test, 3 Turn on emails → test. The client secret starts with GOCSPX- and Google shows it in full only once (else open the client → Add secret). "You need additional access" in Google Cloud = signed in with the wrong Google account: switch to the one that owns the project.' },
   { id: 'calimport', path: '/schedule/import', title: 'Import from Google Calendar', who: OWNER, words: 'import existing events clash',
     about: 'Brings existing calendar events in as shoots or blocked time (real hours kept, clashes marked). Checked again every 15 minutes for changes.' },
   { id: 'calsync', path: '/schedule/calendar', title: 'What the app added to the calendar', who: OWNER, words: 'calendar events remove retry',

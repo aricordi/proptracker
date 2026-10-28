@@ -17,6 +17,9 @@ interface Status {
   connected: { email: string; calendar: boolean; gmail: boolean; connectedAt: string; connectedBy: string; broken: string } | null
 }
 const googleAccountStatus = httpsCallable<Record<string, never>, Status>(functions, 'googleAccountStatus')
+// Phones add invisible extras when copying (spaces, line breaks, zero-width marks, quotes).
+const cleanPaste = (v: string) => v.replace(/[\s\u200B-\u200D\uFEFF"'`]/g, '')
+
 const saveGoogleClient = httpsCallable<{ clientId: string; clientSecret: string }, { ok: boolean }>(functions, 'saveGoogleClient')
 const googleConnectStart = httpsCallable<{ origin: string; loginHint?: string }, { url: string }>(functions, 'googleConnectStart')
 const googleDisconnect = httpsCallable<Record<string, never>, { ok: boolean }>(functions, 'googleDisconnect')
@@ -157,11 +160,12 @@ export default function ConnectionsScreen() {
                 {sub('b', <><p>Turn on the <a href={GMAIL_API} target="_blank" rel="noreferrer" className="text-pt-accent">Gmail API</a> and the <a href={CAL_API} target="_blank" rel="noreferrer" className="text-pt-accent">Calendar API</a> (tap Enable on each).</p></>)}
                 {sub('c', <><p>In <a href={CREDENTIALS} target="_blank" rel="noreferrer" className="text-pt-accent">Credentials</a>: Create credentials → OAuth client ID → <b>Web application</b> → under "Authorized redirect URIs" add:</p>{copyBox(s.redirectUri)}</>)}
                 {sub('d', <>
-                  <p>Paste the client ID and secret Google shows you:</p>
-                  <input value={clientId} onChange={e => setClientId(e.target.value.trim())} placeholder="1234-abc.apps.googleusercontent.com" className={field} autoCapitalize="none" aria-label="Client ID" />
-                  <input value={secret} onChange={e => setSecret(e.target.value.trim())} placeholder={s.secret ? `Secret saved (${s.secret}) · paste to replace` : 'Client secret'} className={field} autoCapitalize="none" autoComplete="off" aria-label="Client secret" />
+                  <p>Paste the client ID and the client secret (starts with <b>GOCSPX-</b>). Google shows the full secret only once, right after you create it. Missed it? Open the client and tap <b>Add secret</b>.</p>
+                  <input value={clientId} onChange={e => setClientId(cleanPaste(e.target.value))} placeholder="1234-abc.apps.googleusercontent.com" className={field} autoCapitalize="none" aria-label="Client ID" />
+                  <input value={secret} onChange={e => setSecret(cleanPaste(e.target.value))} placeholder={s.secret ? `Secret saved (${s.secret}) · paste to replace` : 'Client secret'} className={field} autoCapitalize="none" autoComplete="off" aria-label="Client secret" />
+                  {/[*•]/.test(secret) && <p className="text-amber-300 text-sm">That's the hidden version of the secret (with dots or stars). Google only shows the full secret once. In the client's page tap <b>Add secret</b>, then tap the copy button next to the new one (it starts with GOCSPX-).</p>}
                   <button onClick={() => run('save', async () => { await saveGoogleClient({ clientId, clientSecret: secret }); setSecret('') }, load)}
-                    disabled={!!busy || !clientId || (!secret && !s.secret) || (clientId === s.clientId && !secret)} className={btn}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+                    disabled={!!busy || !clientId || (!secret && !s.secret) || (clientId === s.clientId && !secret) || /[*•]/.test(secret)} className={btn}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
                   <p className="text-xs">Kept on the server only. Phones never see the secret again.</p>
                 </>)}
               </div>
