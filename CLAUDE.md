@@ -1604,6 +1604,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Oct 28 (owner "ok to deploy both"): backend run 49 + website run 48 = AI deep dive, Props-only AI, Calendar & email page,
       smarter AI + "How do I…" guide. (Website run 48 shows red only because the publish tool's extra lookup AFTER "release complete"
       failed; the release itself went out. If it happens again, check the log for "Deploy complete!" before re-running.)
+    - CLIENT SECRET PASTE (owner, Oct 28: "doesn't look like a client secret", no stars): phones copy extras around the text
+      (labels, the copy icon's "content_copy", line breaks, invisible marks). googleLink.ts cleanClientId / cleanSecret (pull out
+      "<n>-<x>.apps.googleusercontent.com" / "GOCSPX-…", else strip invisible chars) + isSecret, used by the Connections boxes
+      and saveGoogleClient; hidden secrets (stars/dots) get "tap Add secret". Google shows a secret in full ONLY ONCE. Also:
+      "You need additional access" in Google Cloud = wrong Google account (owner project = alexisricordi@gmail.com).
+      LIVE Oct 28 (backend run 50 + website run 49, owner "deploy now").
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
