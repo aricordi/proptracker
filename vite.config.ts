@@ -56,7 +56,8 @@ export default defineConfig({
         navigateFallback: '/index.html',
         // Never answer Firebase's own pages (/__/auth/handler = Google sign-in) with the app:
         // doing so turned "Sign in with Google" into a new tab of the home page (Oct 15).
-        navigateFallbackDenylist: [/^\/__\//],
+        // /privacy.html + /terms.html are plain pages Google's consent screen links to (Oct 30).
+        navigateFallbackDenylist: [/^\/__\//, /^\/(privacy|terms)(\.html)?$/],
         // Phone notifications: show pushes and open the tapped screen (public/push-sw.js).
         importScripts: ['push-sw.js'],
         runtimeCaching: [
