@@ -1613,7 +1613,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - POLICY PAGES (Oct 30, Google's consent screen needs them to publish): public/privacy.html + public/terms.html (plain pages,
       contact alexisricordi@gmail.com), https://proptracker.arbcreative.co/privacy.html + /terms.html; vite navigateFallbackDenylist
       keeps the app from answering them. docs/brand/prime-capitol-logo-120.png = 120px logo (owner advised to leave the consent-screen
-      logo empty: a logo triggers Google's brand verification). NOT deployed yet.
+      logo empty: a logo triggers Google's brand verification). LIVE Oct 30 (website run 50).
     - APP CALENDAR + OLD CALENDARS + BIRTHDAYS + OFFSITE AT THE TOP (owner, Oct 30; NOT deployed: functions + SECURITY RULES → backend +
       website, ask). Owner: today 4 messy Google calendars (Cliff 2, Stromedy Talent ~Cliff 1, Stromedy Studios, Stromedy); everyone is
       onboarded by November, then the old calendars are retired. Owner picked: a NEW app calendar (owned by the admin, shared with the
@@ -1639,6 +1639,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       cake with flickering candles + confetti bursts "Happy birthday, <name>!" (Thank you!); someone else's = bottom card "It's Kyle's
       birthday today!" with avatars + confetti (Will do); each once a day per phone (localStorage pc.bday.<date>.<email>). Help Q, app
       guide (account, connections, calimport, schedule entries). Tests 512 (+ rules birthday test). Checked in a browser on the emulator.
+      LIVE Oct 30 (owner "deploy everything"): backend run 51 + website run 50.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
