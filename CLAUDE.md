@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 512 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 514 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1640,6 +1640,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       birthday today!" with avatars + confetti (Will do); each once a day per phone (localStorage pc.bday.<date>.<email>). Help Q, app
       guide (account, connections, calimport, schedule entries). Tests 512 (+ rules birthday test). Checked in a browser on the emulator.
       LIVE Oct 30 (owner "deploy everything"): backend run 51 + website run 50.
+      → CAREFUL IMPORT (owner, Oct 30: "the logic is all messed up… Cliff 2 calendar seems empty… check the address… 'Valentyna away'
+      useless… birthdays not on the schedule"; NOT deployed: functions only → backend + website, ask). `functions/src/calendarText.ts`
+      (pure, tests/unit/calendarText.test.ts): houseFromText (2371 / "cliff 2" → cliff2, 2375 / "cliff 1" → cliff1, bare "cliff" = unknown)
+      wins over the feed's usual house in guessFor; ignoreReason (eventType birthday/outOfOffice/workingLocation/focusTime, or words away,
+      OOO, out of office, vacation, holiday, day off, sick, PTO, leave, birthday/bday; never when the event names a house) → kind 'ignored'
+      (+ why), never imported, not counted as new. readCalendar also gets Google's own calendar name (GET calendars/{id}); preview returns
+      calendars [{name, house, title, found, hidden}] → Connections "Save & check" says per calendar: Google's name, events in the next 4
+      months, to check, hidden ("nothing in the next 4 months… check the ID"). Import screen hides ignored rows ("Show N hidden events
+      (people away, birthdays)"; shown greyed with the reason, no actions). Birthdays stay app-only (profiles), never on the schedule.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

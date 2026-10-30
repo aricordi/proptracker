@@ -18,6 +18,8 @@ import { importShootAsTeam, removeImportedShoot, filmingPeople } from './schedul
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
+import { houseFromText, ignoreReason } from './calendarText.js'
+export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
@@ -286,7 +288,7 @@ export const testCalendarLink = onCall(CALLABLE, async req => {
 // keep pointing at their original Google event (calendarEventId), so the app updates that event
 // instead of creating a second copy.
 
-export interface GEvent { id: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string }
+export interface GEvent { id: string; summary?: string; location?: string; eventType?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string }
 
 const torontoStamp = (iso: string) => {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso))
@@ -297,7 +299,7 @@ const torontoStamp = (iso: string) => {
 // Best guesses from the event's words; the team can change every one.
 export function guessImport(e: { title: string; location: string; date: string; startMin: number; endMin: number }, people: { email: string; name: string }[], slots: number[]) {
   const text = `${e.title} ${e.location}`.toLowerCase()
-  const house = /cliff\s*2|2371/.test(text) ? 'cliff2' : /cliff|2375/.test(text) ? 'cliff1' : 'offsite'
+  const house = houseFromText(text) ?? 'offsite'
   const isBlock = /clean|maint|repair|plumb|event|party|airbnb|rental|guest|blocked|closed/.test(text)
   const person = people.find(p => { const first = p.name.split(/\s+/)[0]?.toLowerCase(); return first && first.length > 1 && new RegExp(`\\b${first.replace(/[^a-z0-9]/g, '')}\\b`).test(text) })
   // The 2-hour slot the event starts in (or the closest one).
@@ -309,42 +311,42 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
   await requireRole(req, ['owner'])
   const cals = await sources()
   if (!cals.length) throw new HttpsError('failed-precondition', 'Paste a Google Calendar ID in Calendar & email first.')
-  const { events, people } = await scanCalendar(cals)
-  return { events, people, calendars: cals.map(c => ({ name: c.name, house: c.house })) }
+  const { events, people, counts } = await scanCalendar(cals)
+  return { events, people, calendars: counts }
 })
 
 // One Google event as the import sees it: a timed event, or one entry per day of an all-day event.
-export interface ScanItem { id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean }
+export interface ScanItem { id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean; eventType?: string }
 export function eventDays(e: GEvent): ScanItem[] {
-  const title = e.summary ?? '(no title)', location = e.location ?? ''
+  const title = e.summary ?? '(no title)', location = e.location ?? '', eventType = e.eventType
   if (e.start?.dateTime && e.end?.dateTime) {
     const from = torontoStamp(e.start.dateTime), to = torontoStamp(e.end.dateTime)
     const date = from.slice(0, 10), startMin = Number(from.slice(11, 13)) * 60 + Number(from.slice(14, 16))
     const endMin = (to.slice(0, 10) > date ? 1440 : 0) + Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16))
-    return [{ id: e.id, title, location, date, startMin, endMin, allDay: false }]
+    return [{ id: e.id, title, location, date, startMin, endMin, allDay: false, eventType }]
   }
   // All-day (e.g. a day booked off): the whole day, one entry per day (end date is the day AFTER), at most 14.
   if (e.start?.date && e.end?.date) {
     const out: ScanItem[] = []
     const multi = addDays(e.start.date, 1) < e.end.date
-    for (let d = e.start.date; d < e.end.date && out.length < 14; d = addDays(d, 1)) out.push({ id: multi ? `${e.id}_${d.replace(/-/g, '')}` : e.id, title, location, date: d, startMin: 0, endMin: 1440, allDay: true })
+    for (let d = e.start.date; d < e.end.date && out.length < 14; d = addDays(d, 1)) out.push({ id: multi ? `${e.id}_${d.replace(/-/g, '')}` : e.id, title, location, date: d, startMin: 0, endMin: 1440, allDay: true, eventType })
     return out
   }
   return []
 }
 
-async function readCalendar(cal: Source): Promise<GEvent[]> {
+async function readCalendar(cal: Source): Promise<{ items: GEvent[]; title: string }> {
   if (isEmulator()) {
     const d = addDays(todayInStudio(), 3)
     const off = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', timeZoneName: 'shortOffset' }).formatToParts(new Date(`${d}T12:00:00Z`))
       .find(x => x.type === 'timeZoneName')!.value.replace('GMT-', '-0') + ':00'   // -04:00 in summer, -05:00 in winter
     // Tests stand in their own events: test_calendar/events (the app calendar) or test_calendar/<calendar ID>.
     const fake = (await db.doc(`test_calendar/${cal.name === 'App calendar' ? 'events' : cal.id.replace(/[^a-zA-Z0-9]/g, '_')}`).get()).data()
-    if (fake) return fake.items as GEvent[]
-    return cal.name === 'App calendar' ? [
+    if (fake) return { items: fake.items as GEvent[], title: String(fake.title ?? cal.name) }
+    return { title: cal.name, items: cal.name === 'App calendar' ? [
       { id: 'demo1', summary: 'Jana - Cliff 1', start: { dateTime: `${d}T13:00:00${off}` }, end: { dateTime: `${d}T15:00:00${off}` } },
       { id: 'demo2', summary: 'Cleaners', location: '2375 Cliff Road', start: { dateTime: `${d}T07:00:00${off}` }, end: { dateTime: `${d}T09:00:00${off}` } },
-    ] : []
+    ] : [] }
   }
   const { token } = await calendarAccess()
   const items: GEvent[] = []
@@ -357,7 +359,10 @@ async function readCalendar(cal: Source): Promise<GEvent[]> {
     const j = await r.json() as { items?: GEvent[]; nextPageToken?: string }
     items.push(...(j.items ?? [])); pageToken = j.nextPageToken ?? ''
   } while (pageToken && items.length < 1500)
-  return items
+  // Google's own name for the calendar, so the team can tell a wrong ID from an empty calendar.
+  const meta = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}`, { headers: { Authorization: `Bearer ${token}` } })
+  const title = meta.ok ? String(((await meta.json()) as { summary?: string }).summary ?? '') : ''
+  return { items, title }
 }
 
 // Read every calendar (never writes) and compare with what was imported before.
@@ -369,10 +374,18 @@ async function scanCalendar(cals: Source[]) {
   const imports = new Map((await db.collection('calendar_imports').get()).docs.map(d => [d.id, d.data()]))
   const live: (ScanItem & { cal: Source })[] = []
   const seen = new Set<string>()
+  const counts: { name: string; house: string; title: string; found: number; hidden: number }[] = []
   for (const cal of cals) {
-    for (const e of await readCalendar(cal)) {
+    const { items, title } = await readCalendar(cal)
+    const row = { name: cal.name, house: cal.house, title, found: 0, hidden: 0 }
+    counts.push(row)
+    for (const e of items) {
       if (e.status === 'cancelled' || /^[sbt][0-9a-f]+$/.test(e.id)) continue   // the app's own events
-      for (const it of eventDays(e)) if (!seen.has(it.id)) { seen.add(it.id); live.push({ ...it, cal }) }   // same event in two calendars: once
+      for (const it of eventDays(e)) {
+        if (seen.has(it.id)) continue   // same event in two calendars: once
+        seen.add(it.id); live.push({ ...it, cal }); row.found++
+        if (ignoreReason(it)) row.hidden++
+      }
     }
   }
   // Same time, and (when we know them) the same title and place.
@@ -381,15 +394,20 @@ async function scanCalendar(cals: Source[]) {
   const guessFor = (it: ScanItem, cal: Source) => {
     const g = guessImport(it, people, s.slots)
     // Mixed calendar: someone's name → their shoot; a house but nobody named (e.g. "Stromedy - Cliff 2") → blocked time.
-    if (cal.house === 'any') return (it.allDay && g.action === 'shoot') || (g.action === 'skip' && g.house !== 'offsite') ? { ...g, action: 'block' } : g
-    // A calendar that's for one house: everything in it is at that house; nobody named → blocked time to check.
-    return { ...g, house: cal.house, start: g.house === 'offsite' ? (s.slots.find(x => x >= it.startMin) ?? s.slots[0]) : g.start, action: g.action === 'skip' || it.allDay ? 'block' : g.action }
+    // The address/name in the event wins (owner, Oct 30: the calendars aren't tidy); else the calendar's usual house.
+    const said = houseFromText(`${it.title} ${it.location}`)
+    if (cal.house === 'any' || said) return (it.allDay && g.action === 'shoot') || (g.action === 'skip' && g.house !== 'offsite') ? { ...g, action: 'block' } : g
+    // A calendar that's for one house and the event doesn't say otherwise: at that house; nobody named → blocked time to check.
+    return { ...g, house: cal.house, start: s.slots.find(x => x >= it.startMin) ?? s.slots[0], action: g.action === 'skip' || it.allDay ? 'block' : g.action }
   }
   const events: Record<string, unknown>[] = []
   for (const it of live) {
     const { cal, ...base } = it
     const tag = { calendar: cal.name, feedId: cal.id }
     const was = imports.get(it.id)
+    const why = ignoreReason(base)
+    // Time off and birthdays: not shoots or blocks. Listed as 'ignored' (hidden on the screen unless asked for).
+    if (!was && why) { events.push({ ...base, ...tag, kind: 'ignored', why, guess: { ...guessFor(base, cal), action: 'skip' } }); continue }
     if (!was) { events.push({ ...base, ...tag, kind: 'new', guess: guessFor(base, cal) }); continue }
     // Already imported: only show it again if it was changed in Google Calendar since (skipped ones stay skipped).
     if (was.action === 'skip' || (was.date && same(base, was))) continue
@@ -408,7 +426,7 @@ async function scanCalendar(cals: Source[]) {
       calendar: cals.find(c => c.id === String(was.feedId ?? appCal))?.name ?? '', allDay: !!was.allDay,
       guess: { action: 'remove', email: was.email ?? '', house: was.house ?? 'cliff1', start: was.startMin }, wasAction: was.action })
   }
-  return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)), imports }
+  return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)), imports, counts }
 }
 
 async function removeImportedBlock(date: string, blockId: string) {

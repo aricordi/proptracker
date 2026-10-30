@@ -22,7 +22,7 @@ const googleAccountStatus = httpsCallable<Record<string, never>, Status>(functio
 
 const saveGoogleClient = httpsCallable<{ clientId: string; clientSecret: string }, { ok: boolean }>(functions, 'saveGoogleClient')
 const googleConnectStart = httpsCallable<{ origin: string; loginHint?: string }, { url: string }>(functions, 'googleConnectStart')
-const previewCalendarImport = httpsCallable<Record<string, never>, { events: { calendar?: string; kind: string }[]; calendars: { name: string }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
+const previewCalendarImport = httpsCallable<Record<string, never>, { events: { calendar?: string; kind: string }[]; calendars: { name: string; title: string; found: number; hidden: number }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
 const googleDisconnect = httpsCallable<Record<string, never>, { ok: boolean }>(functions, 'googleDisconnect')
 
 const PROJECT = 'proptracker-9732e'
@@ -105,8 +105,14 @@ export default function ConnectionsScreen() {
       await saveScheduleSettings({ ...sched, calendarFeeds: list })
       if (!list.length) { setFeedMsg({ ok: true, text: 'Saved. No old calendars are read.' }); return }
       const r = (await previewCalendarImport({})).data
-      const count = (n: string) => r.events.filter(e => e.calendar === n && e.kind === 'new').length
-      setFeedMsg({ ok: true, text: `Read ✓ ${list.map(f => `${f.name}: ${count(f.name)} new`).join(' · ')}. Check them on the import screen.` })
+      const fresh = (n: string) => r.events.filter(e => e.calendar === n && e.kind === 'new').length
+      // Per calendar: Google's own name for it (spots a wrong ID), what's coming up, and what's hidden (time off, birthdays).
+      const lines = r.calendars.filter(c => c.name !== 'App calendar').map(c => {
+        const google = c.title && c.title !== c.name ? ` (Google calls it "${c.title}")` : ''
+        if (!c.found) return `${c.name}${google}: nothing in the next 4 months. If it should have events, check the ID is this calendar's.`
+        return `${c.name}${google}: ${c.found} event${c.found === 1 ? '' : 's'} in the next 4 months, ${fresh(c.name)} to check${c.hidden ? `, ${c.hidden} time off / birthdays hidden` : ''}.`
+      })
+      setFeedMsg({ ok: true, text: `Read ✓ ${lines.join(' ')}` })
     } catch (e) { setFeedMsg({ ok: false, text: `${errorText(e)} Share each calendar with ${c?.email ?? 'the account'} ("See all event details"), wait a minute, then try again.` }) }
     finally { setBusy('') }
   }

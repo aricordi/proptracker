@@ -8,7 +8,7 @@ import { fmtTime } from '../../functions/src/gearBooking'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 
 // kind: new = not seen before; changed = moved/renamed in Google Calendar since the last import; removed = deleted there.
-interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed'; calendar?: string; feedId?: string; allDay?: boolean
+interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed' | 'ignored'; why?: string; calendar?: string; feedId?: string; allDay?: boolean
   was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; house: string; start: number } }
 interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; email: string; house: string; start: number; type: BlockType }
 const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[] }>(functions, 'previewCalendarImport')
@@ -45,8 +45,11 @@ export default function CalendarImportScreen() {
   // Several calendars (owner, Oct 30): look at one at a time; "Import" only acts on what's showing.
   const [cal, setCal] = useState('')
   const calendars = [...new Set((events ?? []).map(e => e.calendar ?? '').filter(Boolean))]
-  const shown = (events ?? []).filter(e => !cal || e.calendar === cal)
-  const todo = shown.filter(e => !done[e.id])
+  // Time off and birthdays (owner, Oct 30: "useless for us") are hidden unless asked for; they're never imported.
+  const [showHidden, setShowHidden] = useState(false)
+  const hiddenCount = (events ?? []).filter(e => e.kind === 'ignored' && (!cal || e.calendar === cal)).length
+  const shown = (events ?? []).filter(e => (!cal || e.calendar === cal) && (showHidden || e.kind !== 'ignored'))
+  const todo = shown.filter(e => !done[e.id] && e.kind !== 'ignored')
   async function run() {
     setBusy(true); setErr('')
     try {
@@ -81,23 +84,28 @@ export default function CalendarImportScreen() {
         </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {!events && !err && <p className="text-pt-muted text-sm">Reading the calendar…</p>}
-        {events && events.length === 0 && <p className="text-pt-muted text-sm">Nothing left to import.</p>}
+        {events && events.every(e => e.kind === 'ignored') && <p className="text-pt-muted text-sm">Nothing left to import.</p>}
         {calendars.length > 1 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
             {['', ...calendars].map(n => (
               <button key={n || 'all'} onClick={() => setCal(n)} className={`shrink-0 rounded-full px-3 py-1.5 text-sm ${cal === n ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>
-                {n || 'All calendars'} · {(events ?? []).filter(e => !done[e.id] && (!n || e.calendar === n)).length}
+                {n || 'All calendars'} · {(events ?? []).filter(e => !done[e.id] && e.kind !== 'ignored' && (!n || e.calendar === n)).length}
               </button>
             ))}
           </div>
+        )}
+        {hiddenCount > 0 && (
+          <button onClick={() => setShowHidden(v => !v)} className="tap text-pt-muted text-sm">
+            {showHidden ? 'Hide' : 'Show'} {hiddenCount} hidden event{hiddenCount === 1 ? '' : 's'} (people away, birthdays) ›
+          </button>
         )}
         {shown.map(e => {
           const r = rows[e.id]; const d = done[e.id]
           if (!r) return null
           return (
-            <div key={e.id} className={`bg-pt-surface rounded-2xl p-3 space-y-2 ${d === 'ok' ? 'opacity-50' : ''}`}>
+            <div key={e.id} className={`bg-pt-surface rounded-2xl p-3 space-y-2 ${d === 'ok' || e.kind === 'ignored' ? 'opacity-50' : ''}`}>
               <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}{d?.startsWith('Imported · CLASH') && <span className="text-red-300 text-xs">Imported · Clash</span>}</div>
-              <p className="text-pt-muted text-xs">{e.kind !== 'new' && <span className={`mr-1 font-semibold ${e.kind === 'removed' ? 'text-red-300' : 'text-amber-300'}`}>{e.kind === 'removed' ? 'Deleted in Google Calendar ·' : 'Changed ·'}</span>}{e.calendar && <span className="mr-1 text-pt-text">{e.calendar} ·</span>}{formatDay(e.date)} · {e.allDay ? 'All day' : `${fmtTime(e.startMin)}–${fmtTime(e.endMin)}`}{e.location ? ` · ${e.location}` : ''}</p>
+              <p className="text-pt-muted text-xs">{e.kind === 'ignored' && <span className="mr-1 font-semibold">Hidden ({e.why}) · not brought in ·</span>}{e.kind !== 'new' && e.kind !== 'ignored' && <span className={`mr-1 font-semibold ${e.kind === 'removed' ? 'text-red-300' : 'text-amber-300'}`}>{e.kind === 'removed' ? 'Deleted in Google Calendar ·' : 'Changed ·'}</span>}{e.calendar && <span className="mr-1 text-pt-text">{e.calendar} ·</span>}{formatDay(e.date)} · {e.allDay ? 'All day' : `${fmtTime(e.startMin)}–${fmtTime(e.endMin)}`}{e.location ? ` · ${e.location}` : ''}</p>
               {e.kind === 'changed' && e.was && <p className="text-pt-muted text-xs">Was {formatDay(e.was.date)} · {fmtTime(e.was.startMin)}–{fmtTime(e.was.endMin)}{e.was.title !== e.title ? ` · "${e.was.title}"` : ''}</p>}
               {d && d !== 'ok' && <p className="text-red-300 text-xs">{d}</p>}
               {d !== 'ok' && clashOf(e).length > 0 && <p className="text-red-300 text-xs font-semibold">⚠ Clash: same house and time as {clashOf(e).join(', ')}. Both will be imported.</p>}
@@ -108,7 +116,7 @@ export default function CalendarImportScreen() {
                   ))}
                 </div>
               )}
-              {d !== 'ok' && e.kind !== 'removed' && <>
+              {d !== 'ok' && e.kind !== 'removed' && e.kind !== 'ignored' && <>
                 <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
                   {(['shoot', 'block', 'skip'] as const).map(a => (
                     <button key={a} onClick={() => set(e.id, { action: a })} className={`flex-1 py-1 rounded-md text-xs ${r.action === a ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{a === 'shoot' ? 'Shoot' : a === 'block' ? 'Blocked time' : 'Skip'}</button>

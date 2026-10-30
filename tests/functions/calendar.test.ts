@@ -190,7 +190,12 @@ describe('old calendars (read only)', () => {
       { id: C2, name: 'Cliff 2', house: 'cliff2' }, { id: STR, name: 'Stromedy', house: 'any' }] })
     await put('test_calendar/events', { items: [] })
     const key = (id: string) => `test_calendar/${id.replace(/[^a-zA-Z0-9]/g, '_')}`
-    await put(key(C2), { items: [{ id: 'c2a', summary: 'Ana shoot', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T15:00:00${TZ}` } }] })
+    await put(key(C2), { title: 'Cliff 2.0 bookings', items: [
+      { id: 'c2a', summary: 'Ana shoot', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T15:00:00${TZ}` } },
+      // The address wins over the calendar's usual house (owner, Oct 30).
+      { id: 'c2b', summary: 'Ben shoot', location: '2375 Cliff Road', start: { dateTime: `${FRI}T09:00:00${TZ}` }, end: { dateTime: `${FRI}T11:00:00${TZ}` } },
+      { id: 'away1', summary: 'Valentyna away', start: { date: FRI }, end: { date: addDays(FRI, 1) } },
+    ] })
     const SAT = addDays(FRI, 1), SUN = addDays(FRI, 2)
     await put(key(STR), { items: [
       { id: 'off1', summary: 'Stromedy off', start: { date: SAT }, end: { date: addDays(SUN, 1) } },   // two all-day days
@@ -200,6 +205,9 @@ describe('old calendars (read only)', () => {
     expect(p.ok, p.message).toBe(true)
     const byId = Object.fromEntries(p.result.events.map((e: any) => [e.id, e]))
     expect(byId.c2a).toMatchObject({ calendar: 'Cliff 2', kind: 'new', guess: { house: 'cliff2', action: 'shoot', email: ANA } })
+    expect(byId.c2b.guess).toMatchObject({ house: 'cliff1', action: 'shoot', email: BEN })
+    expect(byId.away1).toMatchObject({ kind: 'ignored', why: 'Someone away' })
+    expect(p.result.calendars.find((c: any) => c.name === 'Cliff 2')).toMatchObject({ title: 'Cliff 2.0 bookings', found: 3, hidden: 1 })
     expect(byId[`off1_${SAT.replace(/-/g, '')}`]).toMatchObject({ calendar: 'Stromedy', allDay: true, startMin: 0, endMin: 1440 })
     expect(byId[`off1_${SUN.replace(/-/g, '')}`]).toBeTruthy()
     expect(byId.st1.guess).toMatchObject({ house: 'cliff2', action: 'block' })   // a house, nobody named → blocked time
