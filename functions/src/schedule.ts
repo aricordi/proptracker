@@ -13,6 +13,7 @@ export type Place = House | 'offsite'
 export const HOUSES: House[] = ['cliff1', 'cliff2']
 export type ShootKind = 'monthly' | 'extra' | 'offsite'
 
+export interface CalendarFeed { id: string; name: string; house: House | 'any' }
 export interface ScheduleSettings {
   houses: Record<House, { name: string; address: string }>
   slots: number[]          // start of each 2-hour slot, minutes after midnight, in order
@@ -23,7 +24,10 @@ export interface ScheduleSettings {
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
   slotsPerDay: number      // house slots a creator may book per day (Cliff 1 + Cliff 2 together); the team can add more
-  googleCalendarId: string // shared Google Calendar the app copies bookings to ('' = off)
+  googleCalendarId: string // the APP's own Google Calendar: every booking/block is copied there ('' = off)
+  // Old calendars the team still uses (owner, Oct 30: Cliff 2, Stromedy Talent, Stromedy Studios, Stromedy…): READ ONLY,
+  // their events wait on the import screen for a person. `house` = what that calendar is usually for ('any' = guess).
+  calendarFeeds: CalendarFeed[]
   checkinBefore: number    // check-in opens this many minutes before the start
   explainHours: number     // a missed check-in can be explained for this many hours after the end
   strikeCount: number      // this many strikes…
@@ -47,6 +51,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   noticeHours: 48,
   slotsPerDay: 1,          // owner, Oct 18: one 2-hour house slot a day; more only when the team books it
   googleCalendarId: '',
+  calendarFeeds: [],
   checkinBefore: 15,
   explainHours: 12,
   strikeCount: 2,
@@ -88,6 +93,10 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
     slotsPerDay: int(x.slotsPerDay, 1, 9, D.slotsPerDay),
     googleCalendarId: str(x.googleCalendarId, 200),
+    calendarFeeds: Array.isArray(x.calendarFeeds)
+      ? x.calendarFeeds.map((f: any) => ({ id: str(f?.id, 200), name: str(f?.name, 40), house: f?.house === 'cliff1' || f?.house === 'cliff2' ? f.house : 'any' }))
+        .filter((f: CalendarFeed, i: number, all: CalendarFeed[]) => f.id && all.findIndex(o => o.id === f.id) === i).slice(0, 6)
+      : [],
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     explainHours: int(x.explainHours, 0, 168, D.explainHours),
     strikeCount: int(x.strikeCount, 1, 20, D.strikeCount),
@@ -103,7 +112,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 // it then fills every slot it touches.
 export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number } }
 // Old calendar events that overlap at the same house are imported anyway and listed here (owner, Oct 19: old events only).
-export interface ClashEntry { house: House; slot: string; shootId: string; name: string; email?: string; start: number; end: number }
+export interface ClashEntry { house: House; slot: string; shootId: string; name: string; email?: string; start: number; end: number; blockId?: string }
 export const INVITE_HOLD_MINUTES = 20
 export const holdActive = (e: SlotEntry | undefined, now: string) => !!e?.hold && e.hold.until > now
 export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string }
@@ -170,8 +179,9 @@ export type SlotState =
 // equipment) is never locked out of priority days.
 export function slotState(day: ScheduleDay | undefined, date: string, house: House, start: number, s: ScheduleSettings, email: string, now: string, isTeam: boolean): SlotState {
   const block = blockAt(day, house, start, s.slotMinutes)
-  if (block) return { t: 'block', block }
   const entry = day?.[house]?.[slotKey(start)]
+  // A booked shoot under an imported block (an old-calendar clash) stays visible; the clash tag says what's on top.
+  if (block && !(entry && !entry.hold)) return { t: 'block', block }
   if (entry?.hold) { if (entry.hold.until > now) return { t: 'held', entry, until: entry.hold.until } }   // an ended hold counts as free
   else if (entry) return { t: 'booked', entry }
   if (stamp(date, start) <= now) return { t: 'past' }

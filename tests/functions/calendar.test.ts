@@ -1,6 +1,12 @@
 // "Add to my calendar" links: a private feed of your shoots (the team's lists everyone's).
 import { beforeEach, describe, it, expect } from 'vitest'
 import { put, call, getDoc, waitFor, clearDatabase } from './helpers'
+
+const docs = async (col: string) => {
+  const res = await fetch(`http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents/${col}?pageSize=100`, { headers: { Authorization: 'Bearer owner' } })
+  const list = (await res.json()).documents ?? []
+  return Promise.all(list.map((d: { name: string }) => getDoc(d.name.split('/documents/')[1]))) as Promise<Record<string, any>[]>
+}
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com', OWNER = 'alexisricordi@gmail.com'
@@ -176,3 +182,44 @@ describe('automatic calendar check', () => {
   })
 })
 
+
+describe('old calendars (read only)', () => {
+  it('reads each old calendar: its house, all-day events, a clash on a booked shoot alerts the team; a calendar taken off the list removes nothing', async () => {
+    const C2 = 'cliff2cal@group.calendar.google.com', STR = 'stromedy@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [
+      { id: C2, name: 'Cliff 2', house: 'cliff2' }, { id: STR, name: 'Stromedy', house: 'any' }] })
+    await put('test_calendar/events', { items: [] })
+    const key = (id: string) => `test_calendar/${id.replace(/[^a-zA-Z0-9]/g, '_')}`
+    await put(key(C2), { items: [{ id: 'c2a', summary: 'Ana shoot', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T15:00:00${TZ}` } }] })
+    const SAT = addDays(FRI, 1), SUN = addDays(FRI, 2)
+    await put(key(STR), { items: [
+      { id: 'off1', summary: 'Stromedy off', start: { date: SAT }, end: { date: addDays(SUN, 1) } },   // two all-day days
+      { id: 'st1', summary: 'Stromedy - Cliff 2', start: { dateTime: `${FRI}T17:00:00${TZ}` }, end: { dateTime: `${FRI}T19:00:00${TZ}` } },
+    ] })
+    const p = await call('previewCalendarImport', {}, OWNER)
+    expect(p.ok, p.message).toBe(true)
+    const byId = Object.fromEntries(p.result.events.map((e: any) => [e.id, e]))
+    expect(byId.c2a).toMatchObject({ calendar: 'Cliff 2', kind: 'new', guess: { house: 'cliff2', action: 'shoot', email: ANA } })
+    expect(byId[`off1_${SAT.replace(/-/g, '')}`]).toMatchObject({ calendar: 'Stromedy', allDay: true, startMin: 0, endMin: 1440 })
+    expect(byId[`off1_${SUN.replace(/-/g, '')}`]).toBeTruthy()
+    expect(byId.st1.guess).toMatchObject({ house: 'cliff2', action: 'block' })   // a house, nobody named → blocked time
+    expect(byId[`off1_${SAT.replace(/-/g, '')}`].guess.action).toBe('skip')       // no house → waits for a person to pick
+
+    // Ben already booked 5–7 PM at Cliff 2; Stromedy's time lands on top of it → clash, Ben's shoot stays, team is told.
+    await call('bookShoot', { place: 'cliff2', date: FRI, start: 1020 }, BEN)
+    const r = await call('applyCalendarImport', { items: [{ ...byId.st1, action: 'block', house: 'cliff2', type: 'other', start: 1020, end: 1140 }] }, OWNER)
+    expect(r.result.results[0].message).toMatch(/CLASH with Ben/)
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.cliff2['1020'].email).toBe(BEN)
+    expect(d.clashes.some((c: any) => c.slot === '1020' && c.blockId)).toBe(true)
+    const pushes = (await docs('push_log')).filter((x: any) => x.title === 'Calendar clash')
+    expect(pushes[0].to).toEqual(expect.arrayContaining([MAANIK, OWNER]))
+    const log = await call('previewCalendarImport', {}, OWNER)   // the imported one is gone from the list
+    expect(log.result.events.some((e: any) => e.id === 'st1')).toBe(false)
+
+    // Stromedy taken off the list: its imported block is NOT treated as deleted.
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: C2, name: 'Cliff 2', house: 'cliff2' }] })
+    const p2 = (await call('previewCalendarImport', {}, OWNER)).result.events
+    expect(p2.some((e: any) => e.id === 'st1')).toBe(false)
+  })
+})

@@ -8,7 +8,7 @@ import { fmtTime } from '../../functions/src/gearBooking'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 
 // kind: new = not seen before; changed = moved/renamed in Google Calendar since the last import; removed = deleted there.
-interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed'
+interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed'; calendar?: string; feedId?: string; allDay?: boolean
   was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; house: string; start: number } }
 interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; email: string; house: string; start: number; type: BlockType }
 const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[] }>(functions, 'previewCalendarImport')
@@ -42,12 +42,16 @@ export default function CalendarImportScreen() {
     }).catch(e => setErr(errorText(e)))
   }, [reload])
   const set = (id: string, p: Partial<Row>) => setRows(r => ({ ...r, [id]: { ...r[id], ...p } }))
-  const todo = (events ?? []).filter(e => !done[e.id])
+  // Several calendars (owner, Oct 30): look at one at a time; "Import" only acts on what's showing.
+  const [cal, setCal] = useState('')
+  const calendars = [...new Set((events ?? []).map(e => e.calendar ?? '').filter(Boolean))]
+  const shown = (events ?? []).filter(e => !cal || e.calendar === cal)
+  const todo = shown.filter(e => !done[e.id])
   async function run() {
     setBusy(true); setErr('')
     try {
       const items = todo.map(e => { const r = rows[e.id]; return { id: e.id, title: e.title, location: e.location, date: e.date, action: r.action, email: r.email, house: r.house, type: r.type,
-        start: e.startMin, end: e.endMin, where: e.location || e.title } })   // always the real hours (owner, Oct 19)
+        start: e.startMin, end: e.endMin, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay } })   // always the real hours (owner, Oct 19)
       const res = await apply({ items })
       const next = { ...done }
       for (const x of res.data.results) next[x.id] = x.ok ? (x.message?.startsWith('Imported · CLASH') ? x.message : 'ok') : (x.message || 'Failed')
@@ -65,11 +69,11 @@ export default function CalendarImportScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-32">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/schedule/settings')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">Import calendar</h1>
       </div>
       <div className="p-4 space-y-3">
-        <p className="text-pt-muted text-sm">Run this whenever someone adds or changes events straight in Google Calendar. It shows <b>new</b> events, ones <b>changed</b> there since the last import, and ones <b>deleted</b> there. For each, choose a shoot (who and which house), blocked time, or skip. Our guesses are filled in.</p>
+        <p className="text-pt-muted text-sm">This reads every calendar on the <b>Calendar &amp; email</b> page. Run it whenever someone adds or changes events straight in Google Calendar. It shows <b>new</b> events, ones <b>changed</b> there since the last import, and ones <b>deleted</b> there. For each, choose a shoot (who and which house), blocked time, or skip. Our guesses are filled in.</p>
         <p className="text-pt-muted text-sm">Nothing in Google Calendar is ever changed. Every event keeps its <b>real hours</b> (2:30–5 PM stays 2:30–5 PM and holds the slots it touches). Old events that overlap at the same house are still imported, marked <span className="text-red-300 font-semibold">Clash</span>.</p>
         <div className="flex items-center gap-3 bg-pt-surface rounded-2xl px-4 py-3">
           <span className="flex-1 min-w-0 text-pt-muted text-xs">Checked automatically every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.changed || last?.removed ? ` · followed ${last.changed ?? 0} change${last.changed === 1 ? '' : 's'}, ${last.removed ?? 0} deletion${last.removed === 1 ? '' : 's'}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
@@ -78,13 +82,22 @@ export default function CalendarImportScreen() {
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {!events && !err && <p className="text-pt-muted text-sm">Reading the calendar…</p>}
         {events && events.length === 0 && <p className="text-pt-muted text-sm">Nothing left to import.</p>}
-        {(events ?? []).map(e => {
+        {calendars.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+            {['', ...calendars].map(n => (
+              <button key={n || 'all'} onClick={() => setCal(n)} className={`shrink-0 rounded-full px-3 py-1.5 text-sm ${cal === n ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>
+                {n || 'All calendars'} · {(events ?? []).filter(e => !done[e.id] && (!n || e.calendar === n)).length}
+              </button>
+            ))}
+          </div>
+        )}
+        {shown.map(e => {
           const r = rows[e.id]; const d = done[e.id]
           if (!r) return null
           return (
             <div key={e.id} className={`bg-pt-surface rounded-2xl p-3 space-y-2 ${d === 'ok' ? 'opacity-50' : ''}`}>
               <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}{d?.startsWith('Imported · CLASH') && <span className="text-red-300 text-xs">Imported · Clash</span>}</div>
-              <p className="text-pt-muted text-xs">{e.kind !== 'new' && <span className={`mr-1 font-semibold ${e.kind === 'removed' ? 'text-red-300' : 'text-amber-300'}`}>{e.kind === 'removed' ? 'Deleted in Google Calendar ·' : 'Changed ·'}</span>}{formatDay(e.date)} · {fmtTime(e.startMin)}–{fmtTime(e.endMin)}{e.location ? ` · ${e.location}` : ''}</p>
+              <p className="text-pt-muted text-xs">{e.kind !== 'new' && <span className={`mr-1 font-semibold ${e.kind === 'removed' ? 'text-red-300' : 'text-amber-300'}`}>{e.kind === 'removed' ? 'Deleted in Google Calendar ·' : 'Changed ·'}</span>}{e.calendar && <span className="mr-1 text-pt-text">{e.calendar} ·</span>}{formatDay(e.date)} · {e.allDay ? 'All day' : `${fmtTime(e.startMin)}–${fmtTime(e.endMin)}`}{e.location ? ` · ${e.location}` : ''}</p>
               {e.kind === 'changed' && e.was && <p className="text-pt-muted text-xs">Was {formatDay(e.was.date)} · {fmtTime(e.was.startMin)}–{fmtTime(e.was.endMin)}{e.was.title !== e.title ? ` · "${e.was.title}"` : ''}</p>}
               {d && d !== 'ok' && <p className="text-red-300 text-xs">{d}</p>}
               {d !== 'ok' && clashOf(e).length > 0 && <p className="text-red-300 text-xs font-semibold">⚠ Clash: same house and time as {clashOf(e).join(', ')}. Both will be imported.</p>}

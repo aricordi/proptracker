@@ -1,7 +1,8 @@
 // Owner only: "Calendar & email" (owner, Oct 28: "the shared Google Calendar flow and email flow is confusing").
 // ONE page, three steps, top to bottom, each showing whether it's done:
 //   1 connect the Prime Capitol Google account (one-time Google Cloud setup folded away inside it),
-//   2 link the shooting calendar (share it with that account, paste its ID, test),
+//   2 link the calendars: the APP's own calendar (the app writes every booking/block there, one colour per place) and,
+//     read only, the old calendars the team still uses (owner, Oct 30) whose events wait on the import screen,
 //   3 turn on emails (sent from that same account).
 // The old pages still exist for the rare extras: /google (IT details), /email (recent emails, other email services).
 import { useEffect, useState } from 'react'
@@ -9,7 +10,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { friendlyError } from '../lib/errors'
-import { useScheduleSettings, saveScheduleSettings, testCalendarLink, errorText } from '../services/schedule'
+import { useScheduleSettings, saveScheduleSettings, testCalendarLink, errorText, type CalendarFeed } from '../services/schedule'
 import { subscribeToEmailSettings, saveEmailSettings, sendTestEmail, EMPTY_EMAIL_SETTINGS, type EmailSettings } from '../services/email'
 import { cleanClientId, cleanSecret } from '../../functions/src/googleLink'
 
@@ -21,6 +22,7 @@ const googleAccountStatus = httpsCallable<Record<string, never>, Status>(functio
 
 const saveGoogleClient = httpsCallable<{ clientId: string; clientSecret: string }, { ok: boolean }>(functions, 'saveGoogleClient')
 const googleConnectStart = httpsCallable<{ origin: string; loginHint?: string }, { url: string }>(functions, 'googleConnectStart')
+const previewCalendarImport = httpsCallable<Record<string, never>, { events: { calendar?: string; kind: string }[]; calendars: { name: string }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
 const googleDisconnect = httpsCallable<Record<string, never>, { ok: boolean }>(functions, 'googleDisconnect')
 
 const PROJECT = 'proptracker-9732e'
@@ -55,6 +57,11 @@ export default function ConnectionsScreen() {
   const [calId, setCalId] = useState('')
   useEffect(() => { setCalId(sched.googleCalendarId ?? '') }, [sched.googleCalendarId])
   const [calMsg, setCalMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [feeds, setFeeds] = useState<CalendarFeed[]>([])
+  const feedsKey = JSON.stringify(sched.calendarFeeds ?? [])
+  useEffect(() => { setFeeds(sched.calendarFeeds ?? []) }, [feedsKey])   // eslint-disable-line react-hooks/exhaustive-deps
+  const feedsChanged = JSON.stringify(feeds.filter(f => f.id)) !== feedsKey
+  const [feedMsg, setFeedMsg] = useState<{ ok: boolean; text: string } | null>(null)
   // Step 3 bits.
   const [mail, setMail] = useState<EmailSettings>(EMPTY_EMAIL_SETTINGS)
   const [from, setFrom] = useState(''), [name, setName] = useState('')
@@ -89,6 +96,19 @@ export default function ConnectionsScreen() {
         : /404|notFound|Not Found/i.test(t) ? 'That calendar ID wasn\'t found. Copy it again from the calendar\'s settings.'
         : /403|401|share/i.test(t) ? `The calendar isn't shared with ${c?.email ?? 'the account'} yet (or not with "Make changes to events"). Share it, wait a minute, then try again.` : t })
     } finally { setBusy('') }
+  }
+  // Old calendars: save the list, then read them once (read only) to show they work.
+  async function saveFeeds() {
+    setBusy('feeds'); setFeedMsg(null)
+    try {
+      const list = feeds.filter(f => f.id.trim()).map(f => ({ ...f, id: f.id.trim(), name: f.name.trim() || 'Old calendar' }))
+      await saveScheduleSettings({ ...sched, calendarFeeds: list })
+      if (!list.length) { setFeedMsg({ ok: true, text: 'Saved. No old calendars are read.' }); return }
+      const r = (await previewCalendarImport({})).data
+      const count = (n: string) => r.events.filter(e => e.calendar === n && e.kind === 'new').length
+      setFeedMsg({ ok: true, text: `Read ✓ ${list.map(f => `${f.name}: ${count(f.name)} new`).join(' · ')}. Check them on the import screen.` })
+    } catch (e) { setFeedMsg({ ok: false, text: `${errorText(e)} Share each calendar with ${c?.email ?? 'the account'} ("See all event details"), wait a minute, then try again.` }) }
+    finally { setBusy('') }
   }
   async function saveMail(enabled: boolean) {
     setBusy('mail'); setMailMsg('')
@@ -176,18 +196,44 @@ export default function ConnectionsScreen() {
             </details>
           </section>
 
-          {/* 2 · The shooting calendar */}
+          {/* 2 · The calendars */}
           <section className={`${card} ${accountOk ? '' : 'opacity-60'}`}>
-            {head(2, calendarOk, 'Link the shooting calendar', calendarOk ? 'Bookings go to the calendar right away.' : 'Let the account add your bookings to the shared calendar.')}
-            {sub('a', <><p>On a computer, in Google Calendar: the shooting calendar → ⋮ → <b>Settings and sharing</b> → Share with specific people → add this address with <b>"Make changes to events"</b>:</p>
+            {head(2, calendarOk, 'Link the calendars', calendarOk ? 'Bookings go to the app calendar right away.' : 'One new calendar the app writes to, plus the old ones it reads.')}
+            <p className="text-pt-text text-sm font-semibold">The app calendar</p>
+            {sub('a', <><p>In Google Calendar, whoever should own it (e.g. your admin) makes a new calendar, like <b>"Prime Capitol Shoots"</b>, then ⋮ → <b>Settings and sharing</b> → Share with specific people → add this address with <b>"Make changes to events"</b>:</p>
               {c ? copyBox(c.email) : <p className="text-amber-300">Connect the account in step 1 first.</p>}</>)}
             {sub('b', <><p>Same settings page → Integrate calendar → copy the <b>Calendar ID</b> and paste it here:</p>
-              <input value={calId} onChange={e => { setCalId(e.target.value.trim()); setCalMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} autoCapitalize="none" aria-label="Calendar ID" />
+              <input value={calId} onChange={e => { setCalId(e.target.value.trim()); setCalMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} autoCapitalize="none" aria-label="App calendar ID" />
               <button onClick={linkCalendar} disabled={!!busy || !calId || !accountOk} className={btn}>{busy === 'cal' ? 'Checking…' : 'Save & test'}</button>
               {calMsg && <p className={`text-sm ${calMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{calMsg.text}</p>}</>)}
-            <p className="text-pt-muted text-xs border-t border-pt-border pt-3">From then on, every booking, move, cancel and blocked time made in the app goes in the calendar. The app never moves anything by itself, and never changes the events that were already there.</p>
-            <div className="flex gap-2">
-              <button onClick={() => navigate('/schedule/import')} className={`flex-1 ${quiet}`}>Bring in what's there ›</button>
+            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey), with the props and gear on each shoot. Share this one calendar with everyone who needs to see the schedule.</p>
+
+            <div className="border-t border-pt-border pt-3 space-y-3">
+              <p className="text-pt-text text-sm font-semibold">Old calendars (read only)</p>
+              <p className="text-pt-muted text-[13px]">The calendars the team still uses until everyone is on the app. Share each with {c?.email ?? 'the account'} (<b>"See all event details"</b> is enough) and paste its ID. The app only reads them: it never adds, changes or removes anything there, and their new events wait on the import screen until you check them.</p>
+              {feeds.map((f, i) => (
+                <div key={i} className="bg-pt-bg rounded-xl p-3 space-y-2">
+                  <div className="flex gap-2">
+                    <input value={f.name} onChange={e => setFeeds(l => l.map((x, j) => j === i ? { ...x, name: e.target.value.slice(0, 40) } : x))} placeholder="Name, e.g. Cliff 2" className={`${field} bg-pt-surface`} aria-label="Calendar name" />
+                    <button onClick={() => setFeeds(l => l.filter((_, j) => j !== i))} className="tap text-pt-muted text-sm px-2" aria-label="Remove this calendar">✕</button>
+                  </div>
+                  <input value={f.id} onChange={e => setFeeds(l => l.map((x, j) => j === i ? { ...x, id: e.target.value.trim() } : x))} placeholder="Calendar ID" className={`${field} bg-pt-surface`} autoCapitalize="none" aria-label="Calendar ID" />
+                  <div className="grid grid-cols-3 gap-1 text-xs">
+                    {([['cliff1', `All ${sched.houses.cliff1.name}`], ['cliff2', `All ${sched.houses.cliff2.name}`], ['any', 'Mixed / not sure']] as const).map(([h, l]) => (
+                      <button key={h} onClick={() => setFeeds(list => list.map((x, j) => j === i ? { ...x, house: h } : x))}
+                        className={`rounded-lg py-2 ${f.house === h ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-2">
+                {feeds.length < 6 && <button onClick={() => setFeeds(l => [...l, { id: '', name: '', house: 'any' }])} className={`flex-1 ${quiet}`}>+ Add an old calendar</button>}
+                <button onClick={saveFeeds} disabled={!!busy || !accountOk || (!feedsChanged && !feeds.length)} className={`flex-1 ${btn}`}>{busy === 'feeds' ? 'Checking…' : 'Save & check'}</button>
+              </div>
+              {feedMsg && <p className={`text-sm ${feedMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{feedMsg.text}</p>}
+            </div>
+            <div className="flex gap-2 border-t border-pt-border pt-3">
+              <button onClick={() => navigate('/schedule/import')} className={`flex-1 ${quiet}`}>Check old events ›</button>
               <button onClick={() => navigate('/schedule/calendar')} className={`flex-1 ${quiet}`}>What the app added ›</button>
             </div>
           </section>
