@@ -1641,7 +1641,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       guide (account, connections, calimport, schedule entries). Tests 512 (+ rules birthday test). Checked in a browser on the emulator.
       LIVE Oct 30 (owner "deploy everything"): backend run 51 + website run 50.
       → CAREFUL IMPORT (owner, Oct 30: "the logic is all messed up… Cliff 2 calendar seems empty… check the address… 'Valentyna away'
-      useless… birthdays not on the schedule"; NOT deployed: functions only → backend + website, ask). `functions/src/calendarText.ts`
+      useless… birthdays not on the schedule"). `functions/src/calendarText.ts`
       (pure, tests/unit/calendarText.test.ts): houseFromText (2371 / "cliff 2" → cliff2, 2375 / "cliff 1" → cliff1, bare "cliff" = unknown)
       wins over the feed's usual house in guessFor; ignoreReason (eventType birthday/outOfOffice/workingLocation/focusTime, or words away,
       OOO, out of office, vacation, holiday, day off, sick, PTO, leave, birthday/bday; never when the event names a house) → kind 'ignored'
@@ -1649,6 +1649,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       calendars [{name, house, title, found, hidden}] → Connections "Save & check" says per calendar: Google's name, events in the next 4
       months, to check, hidden ("nothing in the next 4 months… check the ID"). Import screen hides ignored rows ("Show N hidden events
       (people away, birthdays)"; shown greyed with the reason, no actions). Birthdays stay app-only (profiles), never on the schedule.
+      LIVE Oct 30 (owner "deploy please"): backend run 52 + website run 51.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
