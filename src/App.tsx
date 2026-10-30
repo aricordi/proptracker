@@ -69,6 +69,7 @@ import { useTourDone, skipTour, tourSkipped } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
+import BirthdayParty from './components/BirthdayParty'
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 import OfflineBanner from './components/OfflineBanner'
 
@@ -295,6 +296,7 @@ export default function App() {
     <ShootDaySync />
     <ActiveShootProvider>
     <Splash />
+    <BirthdayParty />
     <Prefetch />
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />

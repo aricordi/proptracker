@@ -55,7 +55,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 <header class="top">
   <div class="kicker">Prime Capitol · how the app works</div>
   <h1>The Owner's Guide</h1>
-  <p class="lede">Everything the app does, who can do what, what runs by itself, and where to change things. Updated October 28, 2026.</p>
+  <p class="lede">Everything the app does, who can do what, what runs by itself, and where to change things. Updated October 30, 2026.</p>
 </header>
 
 <nav class="toc" aria-label="Chapters">
@@ -95,8 +95,14 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <p class="muted">Tip: on <span class="path">Me → My account</span> you can "View as" another role to see exactly what they see. The server still treats you as the owner while you preview.</p>
 </section>
 
+<section id="birthdays">
+  <h2>Birthdays</h2>
+  <p>Everyone can add their birthday on <span class="path">Me → Birthday</span> (just the month and day, no year). On the day, the app throws them a little party when they open it (cake, candles, confetti), and everyone else gets a pop-up "It's Kyle's birthday today!" once. It's the same for creators and staff. They can remove it there any time.</p>
+</section>
+
 <section id="book">
   <h2>Booking shoots</h2>
+  <p><b>Offsite shoots (Oct 30):</b> <span class="path">Book a shoot</span> now starts with <b>At the houses | Somewhere else</b>. Somewhere else = any start and end time and an address; it goes on the schedule and in the app calendar so everyone knows the gear is out.</p>
   <p>Bookings are <b>confirmed instantly</b> when the time is free. Two people can never get the same slot, even if they tap at the same moment.</p>
   <p><b>My shoots (Oct 20):</b> everyone has a list of just their own shoots, soonest first (Today, This week, Later), with what each still needs: props and gear show a gold ✓ with where they are, or a <b>+</b> with the last day to add them. Check in is right there on the day. Find it on Book ("Your shoots" at the top, then <b>All my shoots</b>), on Home next to "Coming up", or <span class="path">Me → My shoots</span>. Past shoots are on the second tab.</p>
   <h3>The houses and slots</h3>
@@ -186,9 +192,17 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <p><b>Everything is on one page now (Oct 28):</b> <span class="path">Team → Money &amp; connections → Calendar &amp; email</span>. Three steps, top to bottom, each turns green when it's done:</p>
   <ol class="steps">
     <li><b>Connect the Prime Capitol Google account.</b> The first time only, open "one-time Google Cloud setup" on that card and do a–d (consent screen → Publish app, turn on the Gmail and Calendar APIs, make a "Web application" client with the address shown, paste its ID and secret). Then tap <b>Connect with Google</b> and sign in <b>as the company account</b> (not your own Gmail). If Google says "hasn't verified this app", tap Advanced → Go to Prime Capitol. If it says the admin blocks it, send IT the note on that card.</li>
-    <li><b>Link the shooting calendar.</b> In Google Calendar, share the shooting calendar with the company account ("Make changes to events"), copy its Calendar ID into the app, tap <b>Save &amp; test</b>. Then "Bring in what's there" to import the existing events.</li>
+    <li><b>Link the calendars (Oct 30).</b> <b>The app calendar:</b> a NEW calendar (e.g. "Prime Capitol Shoots") owned by whoever should own it (your admin), shared with the company account ("Make changes to events"). Paste its ID, tap <b>Save &amp; test</b>. Every booking, move, cancel and blocked time made in the app goes there right away, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey), and each shoot lists its props and gear. Share this one calendar with everyone who needs the schedule.<br><b>The old calendars (read only):</b> + Add an old calendar for each one the team still uses (up to 6), with a name, its ID and whether it's all Cliff 1, all Cliff 2 or mixed. Share each with the company account ("See all event details" is enough), then <b>Save &amp; check</b>. The app never adds, changes or removes anything in them.</li>
     <li><b>Turn on emails.</b> One tap. They're sent from the same account. Then "Send me a test email".</li>
   </ol>
+  <h3>Checking the old calendars' events (Oct 30)</h3>
+  <ul>
+    <li><span class="path">Calendar &amp; email → Check old events</span> lists new events from every calendar, each labelled with its calendar (chips let you look at one calendar at a time; Import only acts on what's showing). Nothing comes in until you tap Import, because the old calendars aren't tidy.</li>
+    <li>Guesses: an event in an "all Cliff 2" calendar is at Cliff 2; a person's name means their shoot; a house with nobody named (e.g. "Stromedy - Cliff 2") means blocked time; all-day events (days booked off) block the whole day once you pick the house.</li>
+    <li>If blocked time lands on a shoot someone already booked in the app, the shoot stays, gets a red <b>Clash</b> tag, and the equipment team and you get a notification to sort it out with them.</li>
+    <li>Every 15 minutes the app follows changes and deletions of events it already brought in. Taking a calendar off the list never removes anything.</li>
+    <li>Once everyone books in the app (November), stop adding to the old calendars and remove them from the list.</li>
+  </ul>
   <p class="muted">IT's only job: create the account and share the shooting calendar with it. Schedule settings now just shows whether the calendar is linked and links to this page.</p>
   <p class="muted">Before the company account is connected, the calendar uses the app's own server address, which only works for calendars that may be shared outside the company.</p>
   <p class="muted">"What the app added" (on Calendar &amp; email and Schedule settings) lists everything the app has added, each with a Remove button, and anything Google refused, to try again.</p>

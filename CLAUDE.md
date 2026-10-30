@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 496 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 512 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1610,6 +1610,35 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       and saveGoogleClient; hidden secrets (stars/dots) get "tap Add secret". Google shows a secret in full ONLY ONCE. Also:
       "You need additional access" in Google Cloud = wrong Google account (owner project = alexisricordi@gmail.com).
       LIVE Oct 28 (backend run 50 + website run 49, owner "deploy now").
+    - POLICY PAGES (Oct 30, Google's consent screen needs them to publish): public/privacy.html + public/terms.html (plain pages,
+      contact alexisricordi@gmail.com), https://proptracker.arbcreative.co/privacy.html + /terms.html; vite navigateFallbackDenylist
+      keeps the app from answering them. docs/brand/prime-capitol-logo-120.png = 120px logo (owner advised to leave the consent-screen
+      logo empty: a logo triggers Google's brand verification). NOT deployed yet.
+    - APP CALENDAR + OLD CALENDARS + BIRTHDAYS + OFFSITE AT THE TOP (owner, Oct 30; NOT deployed: functions + SECURITY RULES → backend +
+      website, ask). Owner: today 4 messy Google calendars (Cliff 2, Stromedy Talent ~Cliff 1, Stromedy Studios, Stromedy); everyone is
+      onboarded by November, then the old calendars are retired. Owner picked: a NEW app calendar (owned by the admin, shared with the
+      company account "Make changes to events") + the old ones as READ-ONLY feeds; careful import (every new event waits for a person);
+      a clash = flag + tell the team. schedule.ts: `calendarFeeds` [{id, name, house cliff1|cliff2|any}] ≤6 (googleCalendarId = the APP
+      calendar, written to); ClashEntry.blockId; slotState shows a BOOKED shoot even under an imported block (clash). calendar.ts:
+      sources() = app calendar (name 'App calendar') + feeds; readCalendar (emulator: test_calendar/events for the app calendar,
+      test_calendar/<id with non-alphanumerics → _> for feeds); one unreadable calendar stops the whole scan (else its events would look
+      deleted); eventDays(): timed events + ALL-DAY events (0–1440, one entry per day `<id>_YYYYMMDD` when multi-day, ≤14); guessFor: a
+      one-house feed puts everything at that house (nobody named / all-day → block), a mixed feed: house + nobody named → block, no house →
+      skip (team picks). calendar_imports snapshot now has feedId + allDay; "removed" only for calendars still read (imports before Oct 30
+      = the app calendar). Imported BLOCK on a booked shoot → day.clashes {…, blockId} + push "Calendar clash" to gear-team + owner (once
+      per new name; saved clashWith); removeImportedBlock clears them. App calendar events: colorId (EVENT_COLOURS cliff1 5 / cliff2 7 /
+      offsite 10 / block 8) + description lists the shoot's Gear and Props (shootNeeds: reservations/gear_bookings by scheduleShootId);
+      new triggers syncPropsToCalendar / syncGearToCalendar refresh the shoot's event when its lines change (no invoker list: triggers).
+      App: ConnectionsScreen step 2 "Link the calendars" (app calendar ID + Save & test; Old calendars list: name, ID, All Cliff 1 / All
+      Cliff 2 / Mixed, + Add, Save & check = save + previewCalendarImport counts per calendar); CalendarImportScreen: calendar name + "All
+      day" on each event, chips per calendar, Import acts only on what's showing, Back = navigate(-1). Test in calendar.test.ts.
+      OFFSITE: FindSheet starts with a slim "At the houses | Somewhere else ›" switch (opens OffsiteSheet); the bottom row is gone.
+      BIRTHDAYS: profiles.birthday 'MM-DD' (no year) + profiles.name (rules validProfile: regex, name ≤80); `src/lib/birthdays.ts`
+      (isBirthday, birthdaysOn: Feb 29 → Feb 28 in other years, firstName; unit test); Me → profile card "Birthday" month + day selects
+      (Save / Remove); `src/components/BirthdayParty.tsx` (in App after Splash, 2.4 s delay, not while View as): your day = full-screen
+      cake with flickering candles + confetti bursts "Happy birthday, <name>!" (Thank you!); someone else's = bottom card "It's Kyle's
+      birthday today!" with avatars + confetti (Will do); each once a day per phone (localStorage pc.bday.<date>.<email>). Help Q, app
+      guide (account, connections, calimport, schedule entries). Tests 512 (+ rules birthday test). Checked in a browser on the emulator.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

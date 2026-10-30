@@ -1,4 +1,5 @@
 import AiButton from '../components/AiButton'
+import { MONTHS, daysIn, isBirthday, makeBirthday } from '../lib/birthdays'
 import { useEffect, useRef, useState } from 'react'
 import { NotificationsCard } from '../components/Notifications'
 import { signOut } from 'firebase/auth'
@@ -126,7 +127,30 @@ function ProfileCard({ name, email, roleLabel }: { name: string; email: string; 
             className="flex-1 min-w-0 bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent" />
           {dirty && <button disabled={!!busy} onClick={() => run('channel', () => saveProfile(email, { channel: channel.trim() }), 'Saved ✓')} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 disabled:opacity-40">Save</button>}
         </div></label>
+      <BirthdayField email={email} name={name} saved={mine?.birthday ?? ''} busy={!!busy} run={run} />
       {msg && <p className="text-sm text-pt-muted">{msg}</p>}
+    </div>
+  )
+}
+
+// Your birthday (month + day, no year): the app throws you a little party on the day and tells the team.
+function BirthdayField({ email, name, saved, busy, run }: { email: string; name: string; saved: string; busy: boolean; run: (label: string, f: () => Promise<unknown>, done: string) => void }) {
+  const [m, setM] = useState(0), [d, setD] = useState(0)
+  useEffect(() => { setM(isBirthday(saved) ? Number(saved.slice(0, 2)) : 0); setD(isBirthday(saved) ? Number(saved.slice(3)) : 0) }, [saved])
+  const next = m && d ? makeBirthday(m, Math.min(d, daysIn(m))) : ''
+  const sel = 'flex-1 min-w-0 bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
+  return (
+    <div><span className="block text-pt-muted text-xs mb-1">Birthday <span className="text-pt-muted/70">(just the day, no year)</span></span>
+      <div className="flex gap-2">
+        <select value={m} onChange={e => setM(Number(e.target.value))} className={sel} aria-label="Birthday month">
+          <option value={0}>Month</option>{MONTHS.map((x, i) => <option key={x} value={i + 1}>{x}</option>)}
+        </select>
+        <select value={d} onChange={e => setD(Number(e.target.value))} className={`${sel} max-w-[96px]`} aria-label="Birthday day">
+          <option value={0}>Day</option>{Array.from({ length: m ? daysIn(m) : 31 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}
+        </select>
+        {next && next !== saved && <button disabled={busy} onClick={() => run('bday', () => saveProfile(email, { birthday: next, name }), 'Saved ✓ We\'ll celebrate on the day.')} className="shrink-0 bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 disabled:opacity-40">Save</button>}
+      </div>
+      {saved && <button disabled={busy} onClick={() => run('bday', () => saveProfile(email, { birthday: '' }), 'Birthday removed.')} className="tap text-pt-muted text-xs mt-1">Remove my birthday</button>}
     </div>
   )
 }

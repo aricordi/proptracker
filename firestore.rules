@@ -241,11 +241,14 @@ service cloud.firestore {
       allow read: if canSeeGear() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
       allow write: if false;
     }
-    // Profiles: a small photo + channel name. Everyone in the company sees them; you edit your own;
+    // Profiles: a small photo + channel name (+ birthday as MM-DD, no year, and a display name for the birthday
+    // pop-up; owner, Oct 30). Everyone in the company sees them; you edit your own;
     // the owner and schedule team can tidy anyone's (e.g. remove a photo).
     function validProfile() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'tourDoneAt', 'updatedAt'])
+      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'tourDoneAt', 'updatedAt', 'birthday', 'name'])
+        && d.get('birthday', '') is string && (d.get('birthday', '') == '' || d.get('birthday', '').matches('^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'))
+        && d.get('name', '') is string && d.get('name', '').size() <= 80
         && d.get('tourDoneAt', '') is string && d.get('tourDoneAt', '').size() <= 40
         && d.get('photoURL', '') is string && d.get('photoURL', '').size() <= 1000
         && d.get('googlePhoto', '') is string && d.get('googlePhoto', '').size() <= 1000

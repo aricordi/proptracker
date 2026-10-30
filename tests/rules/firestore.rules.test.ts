@@ -468,6 +468,11 @@ describe('swap requests and profiles', () => {
     await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: '2026-10-19T21:00:00.000Z' }, { merge: true }))
     await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: 'x'.repeat(41) }, { merge: true }))
     await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { tourDoneAt: true }, { merge: true }))
+    // Birthday = MM-DD only (no year), plus a display name for the pop-up.
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '03-14', name: 'Ana' }, { merge: true }))
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '' }, { merge: true }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '1990-03-14' }, { merge: true }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '13-01' }, { merge: true }))
   })
 })
 

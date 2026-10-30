@@ -762,6 +762,11 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   return (
     <BottomSheet open onClose={onClose} title="Book a shoot">
       {pending && <p className="mb-4 rounded-xl px-3 py-3 text-sm bg-[#BF9DFF]/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">✦ The props and gear you picked go into this shoot once it's booked{minDay > todayInStudio() ? `. Times start ${formatDay(minDay, { weekday: 'long', month: 'short', day: 'numeric' })}, the first day there's still time to get them ready` : ''}.</p>}
+      {/* Where first (owner, Oct 30: offsite was hidden at the bottom). One slim row so the times stay high up. */}
+      <div className="flex bg-pt-bg rounded-full p-0.5 gap-0.5 text-sm mb-4">
+        <span className="flex-1 rounded-full min-h-[36px] grid place-items-center bg-pt-border text-pt-text font-semibold">At the houses</span>
+        <button onClick={onOffsite} className="flex-1 rounded-full min-h-[36px] text-pt-muted">Somewhere else ›</button>
+      </div>
       <p className="text-pt-muted text-xs mb-2">Who's filming?</p>
       <div className="flex bg-pt-bg rounded-full p-1 gap-1">
         {who.map((label, n) => (
@@ -842,10 +847,6 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
           <button key={h} onClick={() => setWhere(h)} className={`px-3 py-1.5 rounded-full ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Any house' : `Only ${s.houses[h].name}`}</button>
         ))}
       </div>
-      <button onClick={onOffsite} className="mt-4 w-full text-left bg-pt-bg rounded-xl p-4 flex items-center gap-3">
-        <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold">Shooting somewhere else?</span><span className="block text-pt-muted text-xs">Offsite or location shoot · any hours</span></span>
-        <span className="text-pt-muted">›</span>
-      </button>
     </BottomSheet>
   )
 }

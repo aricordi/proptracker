@@ -147,11 +147,14 @@
 @keyframes ring-fill { from { stroke-dashoffset: var(--from); } to { stroke-dashoffset: var(--to); } }
 .ring-fill { stroke-dashoffset: var(--to); animation: ring-fill 1s cubic-bezier(.32,.72,0,1) .45s both; }
 @keyframes confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 90px)) rotate(var(--r)); } }
+@keyframes bday-flame { 0%, 100% { transform: scale(1) rotate(-3deg); } 50% { transform: scale(1.12, .92) rotate(3deg); } }
+.bday-flame { transform-box: fill-box; transform-origin: 50% 100%; animation: bday-flame .5s ease-in-out infinite; }
 .confetti-bit { position: absolute; left: 50%; top: 40%; border-radius: 2px; animation: confetti 1.3s cubic-bezier(.2,.7,.3,1) both; }
 @media (prefers-reduced-motion: reduce) {
   .coach-hole, .coach-card, .coach-arrow { transition: none; }
   .coach-in, .coach-nudge, .coach-finger, .coach-ripple, .cap-bob, .chapter-rise, .badge-pop, .ring-fill { animation: none; }
   .confetti-bit { display: none; }
+  .bday-flame { animation: none; }
 }
 
 /* iPhone zooms the page when you tap a text box whose text is under 16px (owner, Oct 19): keep them at 16px on phones */
