@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 514 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 524 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1650,6 +1650,34 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       months, to check, hidden ("nothing in the next 4 months… check the ID"). Import screen hides ignored rows ("Show N hidden events
       (people away, birthdays)"; shown greyed with the reason, no actions). Birthdays stay app-only (profiles), never on the schedule.
       LIVE Oct 30 (owner "deploy please"): backend run 52 + website run 51.
+    - MONTHLY CLIFF 1 DRAW + CLEAR CALENDAR EVENTS (owner, Nov 1: "creators are asking… they should be booked for the month at
+      the beginning of the month… start in December"; owner picked: wishlist + fair draw; EVERY creator (Props only too) + owner;
+      no wishes → the app places them; "spread out, no 4 days back to back"; calendar: bring in clear new events by themselves;
+      NOT deployed: functions + SECURITY RULES → backend + website, ask). `functions/src/monthlyDraw.ts` (pure, tests/unit/
+      monthlyDraw.test.ts): WISHLIST_OPEN_DAY 15, DRAW_DAY 20, DRAW_MINUTE 18:00, MAX_WISHES 8, MIN_GAP_DAYS 2 (never same/next day);
+      runDraw = perPerson rounds, seeded shuffle by month, snake order, best still-free wish (partners paired only when BOTH wished
+      touching slots naming each other), else auto (aims for round's week, usual weekdays/starts, gap); priority days only for the
+      priority group; busyDays (existing house slots). `functions/src/draw.ts`: saveWishlist (owner+creator, not demo; window 15th 00:00
+      → 20th 18:00 of the month before; Cliff 1 grid slots; partner from filmingPeople) → `monthly_wishes/{month}_{email}`;
+      runMonthlyDrawFor (claims `monthly_draws/{month}` status running → done/failed; free = Cliff 1 slots not taken/blocked/past;
+      usual from last 90 days; books via placeShootAsTeam(kind 'monthly', extra {draw: month}, note "<Month> guaranteed slot · from
+      the draw (wish #n / back to back with X / placed by the app)"); one push per person + summary to gear-team + owner;
+      shootChange skips by 'monthly draw'); callables runMonthlyDraw / undoMonthlyDraw (owner, month not started; undo keeps shoots
+      with props/gear via openLinks, cancelShootAsTeam in scheduling.ts); drawTick (called from pushReminders via dynamic import, no
+      new Cloud Scheduler job): 15th 9 AM "wishlist open" push, 20th noon "draw tonight" push (push_sent keys), 20th ≥ 6 PM runs the
+      draw (one retry after a failure). People = active creators (any access) + owner (`drawPeople`). Rules: monthly_wishes read own
+      or canSeeGear; monthly_draws read isMember/canSeeGear; no client writes. Callables savewishlist runmonthlydraw undomonthlydraw
+      in deploy/log lists. App: `src/services/draw.ts`, `src/screens/WishlistScreen.tsx` (/schedule/wishlist: status by window,
+      ranked wishes ↑↓✕, + Add a wish sheet = month day strip (priority days off for non-priority), Cliff 1 slot grid, optional
+      friend, Save; after the draw "Your <Month> slots ✓"), `src/components/MonthlyDrawCard.tsx` (Book screen card, canBook),
+      `src/screens/DrawScreen.tsx` (/schedule/draw, SeeGear; this + next month; wishes count, Run the draw now / Undo (owner),
+      results per person with how). TeamMenu: Monthly draw for owner (Rules & settings), admin, equipment. How it works, Help Q,
+      app guide (wishlist, draw). MONTHLY_SLOTS_ON stays false (no self-booked "monthly" choice; only the draw gives them).
+      CALENDAR: calendarText.ts blockTypeOf + isClearEvent (house known from address/name or one-house feed AND a matched creator,
+      or a block that says what it is: cleaners/maintenance/rental/event or "stromedy"); guessFor returns type + sure;
+      runCalendarCheck also applies NEW sure events (broughtIn count; newEvents = unclear only); imported SHOOT clashes now push too
+      (saved clashWith). Import screen: "Set everything showing to Skip ›", "brought in N clear new events" in the status line.
+      Tests 524. Checked on the emulator: Book card, team draw run (24 slots, spread), creator's results, wishlist add sheet (fake clock).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

@@ -1,3 +1,4 @@
+import MonthlyDrawCard from '../components/MonthlyDrawCard'
 import { Icon } from '../components/Icon'
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
@@ -163,6 +164,8 @@ export default function ScheduleScreen() {
         {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}
         {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
+
+        {canBook && <MonthlyDrawCard email={profile.email} />}
 
         {/* Your own shoots at a glance (owner, Oct 20): soonest first, tap one to open it, "All" for the full list. */}
         {next && (

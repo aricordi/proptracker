@@ -38,6 +38,7 @@ export default function ScheduleRulesScreen() {
           <Li>Every creator is guaranteed <b>{s.monthlySlots} {c1} slots a month</b>. Choose "Monthly slot" when you book.</Li>
           <Li>Anything beyond that is an <b>extra slot</b>, booked the same way whenever it's free.</Li>
           </>}
+          <Li>Every creator gets <b>{s.monthlySlots} guaranteed {c1} slots a month</b> from a fair draw: rank up to 8 wishes between the 15th and the 20th (6 PM) of the month before (Book → wishlist card). Each round everyone gets one, in a random order that flips every round; never two on the same or next day; no wishes = the app picks from your usual days. Book extra slots any time they're free.</Li>
           <Li><b>{s.slotsPerDay === 1 ? 'One house slot' : `${s.slotsPerDay} house slots`} a day</b> ({s.slotsPerDay * s.slotMinutes / 60} hours) per creator, across both houses. Need more? Ask the schedule team; they can book it for you. Offsite shoots don't count.</Li>
         </ul>
 
