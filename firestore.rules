@@ -254,6 +254,16 @@ service cloud.firestore {
         && d.get('googlePhoto', '') is string && d.get('googlePhoto', '').size() <= 1000
         && d.get('channel', '') is string && d.get('channel', '').size() <= 60;
     }
+    // Monthly Cliff 1 draw (Nov 1): your own wishes (team sees all); the draw's result is readable by everyone in the
+    // company who uses the schedule. Server writes only.
+    match /monthly_wishes/{id} {
+      allow read: if canSeeGear() || (signedIn() && resource.data.email == myEmail());
+      allow write: if false;
+    }
+    match /monthly_draws/{month} {
+      allow read: if isMember() || canSeeGear();
+      allow write: if false;
+    }
     match /profiles/{email} {
       allow read: if isMember() || canSeeGear();
       allow create, update: if validProfile() && ((signedIn() && myEmail() == email && (isMember() || canSeeGear())) || isGearStaff());

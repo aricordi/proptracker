@@ -394,10 +394,10 @@ export const listFilmingFriends = onCall(CALLABLE, async req => {
 })
 
 // Place a shoot for someone with no rule checks except "the slot is free" (used by the calendar import).
-export async function placeShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}) {
+export async function placeShootAsTeam(spot: Spot, who: { email: string; name: string }, by: string, extra: Record<string, unknown> = {}, opts: { kind?: ShootKind; note?: string } = {}) {
   const s = await loadScheduleSettings()
   if (!isDay(spot.date)) throw fail('bad-date')
-  const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : 'extra'
+  const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : opts.kind ?? 'extra'
   const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
@@ -407,10 +407,26 @@ export async function placeShootAsTeam(spot: Spot, who: { email: string; name: s
     tx.set(ref, {
       creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked',
       bookedBy: by, createdAt: at, updatedAt: at, ...extra,
-      history: [{ at, by, action: 'booked', note: `${spotLabel(spot, s)} · imported from Google Calendar` }],
+      history: [{ at, by, action: 'booked', note: opts.note ?? `${spotLabel(spot, s)} · imported from Google Calendar` }],
     })
   })
   return ref.id
+}
+
+// Take a shoot off the schedule as the system (the monthly draw's undo). False when it was no longer booked.
+export async function cancelShootAsTeam(id: string, by: string, note: string) {
+  const ref = db.doc(`shoots/${id}`)
+  let done = false
+  await db.runTransaction(async tx => {
+    const sh = (await tx.get(ref)).data()
+    if (!sh || sh.status !== 'booked') return
+    const write = await editDays(tx, [sh.date], days => takeOut(days[sh.date], sh as Spot, id))
+    write()
+    const at = new Date().toISOString()
+    tx.update(ref, { status: 'cancelled', cancelledAt: at, cancelledBy: by, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note }) })
+    done = true
+  })
+  return done
 }
 
 // A shoot from the old Google Calendar (owner, Oct 19): keeps its REAL hours even when they don't match the grid

@@ -201,4 +201,6 @@ export async function runReminders(now = nowStamp()) {
 
 export const pushReminders = onSchedule({ schedule: 'every 10 minutes', timeZone: 'America/Toronto', timeoutSeconds: 120 }, async () => {
   await runReminders()
+  // The monthly Cliff 1 draw rides on this same job (no extra scheduled job): wishlist nudges + the draw on the 20th.
+  try { await (await import('./draw.js')).drawTick() } catch (e) { logger.warn('Draw tick failed', String(e)) }
 })

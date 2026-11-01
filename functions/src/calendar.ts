@@ -18,7 +18,7 @@ import { importShootAsTeam, removeImportedShoot, filmingPeople } from './schedul
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
-import { houseFromText, ignoreReason } from './calendarText.js'
+import { houseFromText, ignoreReason, blockTypeOf, isClearEvent } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
@@ -392,6 +392,11 @@ async function scanCalendar(cals: Source[]) {
   const same = (a: Record<string, any>, b: Record<string, any>) => a.date === b.date && a.startMin === b.startMin && a.endMin === b.endMin
     && (!b.title || a.title === b.title) && (!b.location || a.location === b.location)
   const guessFor = (it: ScanItem, cal: Source) => {
+    const g0 = guessFor0(it, cal)
+    const known = !!houseFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
+    return { ...g0, type: blockTypeOf(`${it.title} ${it.location}`), sure: isClearEvent(it, g0, known) }
+  }
+  const guessFor0 = (it: ScanItem, cal: Source) => {
     const g = guessImport(it, people, s.slots)
     // Mixed calendar: someone's name → their shoot; a house but nobody named (e.g. "Stromedy - Cliff 2") → blocked time.
     // The address/name in the event wins (owner, Oct 30: the calendars aren't tidy); else the calendar's usual house.
@@ -480,8 +485,14 @@ async function applyImports(list: any[], by: string) {
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
         const r = await importShootAsTeam({ place, date: String(it.date), start, end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
           { email: String(it.email).toLowerCase(), name: u.name || it.email }, caller.email, { calendarEventId: id, importedFrom: 'google-calendar' }, was?.shootId)
-        if (r.clashWith.length) clash = r.clashWith
-        saved = { shootId: r.id, email: String(it.email).toLowerCase(), house: place }
+        if (r.clashWith.length) {
+          clash = r.clashWith
+          if (clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
+            await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/schedule',
+              body: `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}. Sort it out with them.` }).catch(() => 0)
+          }
+        }
+        saved = { shootId: r.id, email: String(it.email).toLowerCase(), house: place, clashWith: clash }
       } else if (it.action === 'block') {
         const house = (it.house === 'cliff2' ? 'cliff2' : 'cliff1') as House
         const type = (Object.keys(BLOCK_TYPES).includes(it.type) ? it.type : 'other') as BlockType
@@ -528,12 +539,14 @@ export async function runCalendarCheck() {
   const status = db.doc('app_settings/calendarCheck')
   try {
     const { events } = await scanCalendar(cals) as { events: any[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
-    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed').map(e => e.kind === 'removed'
+    // Changes and deletions of imported events, plus NEW events that are clear (owner, Nov 1); unclear ones wait.
+    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && e.guess.sure)).map(e => e.kind === 'removed'
       ? { id: e.id, action: 'remove', date: e.date }
       : { id: e.id, action: e.guess.action, email: e.guess.email, house: e.guess.house, type: e.guess.type, date: e.date, start: e.startMin, end: e.endMin, title: e.title, location: e.location, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay })
     const results = auto.length ? await applyImports(auto, 'calendar check') : []
-    const out = { at: new Date().toISOString(), newEvents: events.filter(e => e.kind === 'new').length,
-      changed: auto.filter(a => a.action !== 'remove').length, removed: auto.filter(a => a.action === 'remove').length,
+    const out = { at: new Date().toISOString(), newEvents: events.filter(e => e.kind === 'new' && !e.guess.sure).length,
+      broughtIn: auto.filter((a, i) => events.find(e => e.id === a.id)?.kind === 'new' && results[i]?.ok).length,
+      changed: auto.filter(a => events.find(e => e.id === a.id)?.kind === 'changed').length, removed: auto.filter(a => a.action === 'remove').length,
       failed: results.filter(r => !r.ok).map(r => `${r.id}: ${r.message ?? ''}`).slice(0, 10), error: '' }
     await status.set(out)
     return out

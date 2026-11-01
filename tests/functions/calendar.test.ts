@@ -172,13 +172,31 @@ describe('automatic calendar check', () => {
     await put('test_calendar/events', { items: [ev('a1', '17:00', '19:00'), ev('new1', '09:00', '11:00')] })
     const r = await call('checkCalendarNow', {}, OWNER)
     expect(r.ok, r.message).toBe(true)
-    expect(r.result).toMatchObject({ changed: 1, removed: 0, newEvents: 1 })
+    // The new one names Ana and Cliff 1, so it's clear enough to come in by itself (owner, Nov 1).
+    expect(r.result).toMatchObject({ changed: 1, removed: 0, newEvents: 0, broughtIn: 1 })
     const d = (await getDoc(`schedule_days/${FRI}`))!
     expect(d.cliff1['780']).toBeUndefined()
     expect(d.cliff1['1020'].email).toBe(ANA)
-    expect(d.cliff1['540']).toBeUndefined()   // the new one waits for a person
-    expect((await getDoc('app_settings/calendarCheck'))!.newEvents).toBe(1)
+    expect(d.cliff1['540'].email).toBe(ANA)
     expect((await call('checkCalendarNow', {}, ANA)).error).toBe('PERMISSION_DENIED')
+  })
+
+  it('brings in CLEAR new events from an old calendar by itself; unclear ones wait', async () => {
+    const OLD = 'old@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: OLD, name: 'Old', house: 'any' }] })
+    await put('test_calendar/events', { items: [] })
+    const at = (id: string, summary: string, location: string, s: string, e: string) => ({ id, summary, location, start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [
+      at('clear1', 'Ana filming', '2375 Cliff Road', '13:00', '15:00'),
+      at('clear2', 'Cleaners', '2371 Cliff Road', '07:00', '09:00'),
+      at('unsure', 'Meeting', '', '17:00', '19:00'),
+    ] })
+    const r = await call('checkCalendarNow', {}, OWNER)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result).toMatchObject({ broughtIn: 2, newEvents: 1 })
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.cliff1['780'].email).toBe(ANA)
+    expect(d.blocks.some((b: any) => b.house === 'cliff2' && b.type === 'cleaners')).toBe(true)
   })
 })
 

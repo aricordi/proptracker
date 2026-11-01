@@ -29,7 +29,7 @@ export default function CalendarImportScreen() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<Record<string, string>>({})
   // The automatic check (every 15 minutes) already mirrors events changed or deleted in Google Calendar.
-  const [last, setLast] = useState<{ at?: string; changed?: number; removed?: number; error?: string } | null>(null)
+  const [last, setLast] = useState<{ at?: string; changed?: number; removed?: number; broughtIn?: number; error?: string } | null>(null)
   useEffect(() => onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setLast(d.data() ?? null), () => {}), [])
   const [checking, setChecking] = useState(false)
   const [reload, setReload] = useState(0)
@@ -79,7 +79,7 @@ export default function CalendarImportScreen() {
         <p className="text-pt-muted text-sm">This reads every calendar on the <b>Calendar &amp; email</b> page. Run it whenever someone adds or changes events straight in Google Calendar. It shows <b>new</b> events, ones <b>changed</b> there since the last import, and ones <b>deleted</b> there. For each, choose a shoot (who and which house), blocked time, or skip. Our guesses are filled in.</p>
         <p className="text-pt-muted text-sm">Nothing in Google Calendar is ever changed. Every event keeps its <b>real hours</b> (2:30–5 PM stays 2:30–5 PM and holds the slots it touches). Old events that overlap at the same house are still imported, marked <span className="text-red-300 font-semibold">Clash</span>.</p>
         <div className="flex items-center gap-3 bg-pt-surface rounded-2xl px-4 py-3">
-          <span className="flex-1 min-w-0 text-pt-muted text-xs">Checked automatically every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.changed || last?.removed ? ` · followed ${last.changed ?? 0} change${last.changed === 1 ? '' : 's'}, ${last.removed ?? 0} deletion${last.removed === 1 ? '' : 's'}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
+          <span className="flex-1 min-w-0 text-pt-muted text-xs">Checked automatically every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.broughtIn ? ` · brought in ${last.broughtIn} clear new event${last.broughtIn === 1 ? '' : 's'}` : ''}{last?.changed || last?.removed ? ` · followed ${last.changed ?? 0} change${last.changed === 1 ? '' : 's'}, ${last.removed ?? 0} deletion${last.removed === 1 ? '' : 's'}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
           <button disabled={checking} onClick={runCheck} className="shrink-0 text-pt-accent text-sm tap disabled:opacity-40">{checking ? 'Checking…' : 'Check now'}</button>
         </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
@@ -93,6 +93,10 @@ export default function CalendarImportScreen() {
               </button>
             ))}
           </div>
+        )}
+        {todo.some(e => e.kind === 'new') && (
+          <button onClick={() => setRows(r => Object.fromEntries(Object.entries(r).map(([id, row]) => [id, todo.some(e => e.id === id && e.kind === 'new') ? { ...row, action: 'skip' as const } : row])))}
+            className="tap text-pt-accent text-sm">Set everything showing to Skip ›</button>
         )}
         {hiddenCount > 0 && (
           <button onClick={() => setShowHidden(v => !v)} className="tap text-pt-muted text-sm">

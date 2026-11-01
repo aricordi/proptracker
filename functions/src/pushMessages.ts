@@ -123,6 +123,7 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (hist.length <= ((b?.history ?? []) as unknown[]).length) return []
   const h = hist.at(-1)!
   if (!h.by || h.by === a.creatorEmail) return []
+  if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
   const url = `/schedule?shoot=${id}`, tag = `shoot-${id}`
   if (h.action === 'booked' && !b) return [{ to: [a.creatorEmail], url, tag, title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'moved') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot moved', body: `Now ${placeName(a, s)} · ${when(a)}.` }]
