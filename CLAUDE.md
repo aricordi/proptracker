@@ -1752,6 +1752,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Schedule / Queue / Gear; owner daily tile Requests. Schedule settings "Books without approval" list. Help, How it works, Rules
       sheet, appGuide, owner guide updated. Tests 532. Checked on the emulator (Kyle requests from the month → Equipment approves).
       NEXT: "Give it to Kyle" bump, chat-first assistant, gear grab-and-go, shorter training.
+    - MAANIK'S LAPTOP VIEW (owner, Nov 2: "he does everything on his desktop… a more power user interface"): MOCKUP v1
+      https://claude.ai/artifact/1isLGLUyiGDKDuagpzZwgU (scratchpad maanik-desk.html; nothing built). Opens by itself on wide screens
+      (≥1100px) for equipment (and owner/admin?), phones keep the normal app. Sidebar (Requests & schedule / Gear today / Check-ins &
+      reports / Creators / All gear & kits / Block time · rules, with counts); top KPI strip (requests waiting, waiting > 12 h, shoots
+      today, kits out, gear late, house use); WEEK BOARD = 7 days × Cliff 1|Cliff 2 × 9 slots (approved solid, request dashed amber,
+      move = blue + ghost of the old slot, Kyle gold, blocks hatched, red dot = creator has flags), Week | Month; right INSPECTOR =
+      queue oldest first with ticks + "Approve N ticked", selected request (ask, flags pills, filmed 30 d / booked this month / this
+      week, 8-week sparkline, before/after/other house/props), Approve / Deny reasons / Give this time to Kyle. Keyboard A/D/J/K/W/M/←→.
+      Waiting for the owner's feedback.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
