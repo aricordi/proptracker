@@ -13,7 +13,7 @@ import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn,
   cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
-  SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type Place, type House,
+  SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
 
@@ -30,6 +30,13 @@ const fail = (problem: ScheduleProblem, message = SCHEDULE_MESSAGES[problem]) =>
   new HttpsError('failed-precondition', message, { problem })
 const shortNoticeFail = (s: ScheduleSettings) =>
   fail('short-notice', `Less than ${s.noticeHours} hours to go. Swap with someone instead, or cancel (it counts as a no-show).`)
+
+// Owner, Nov 2: NO instant bookings. A creator's booking is a REQUEST that holds the slot until the equipment team (or an
+// admin / the owner) approves or denies it. The schedule team booking for someone, the owner booking for themselves, and the
+// people on the "books without approval" list (Kyle) are approved at once.
+export const APPROVERS = ['owner', 'equipment', 'admin'] as const
+export const needsApproval = (caller: Caller, forEmail: string, s: ScheduleSettings) =>
+  !isTeam(caller) && !s.instantBookers.some(p => p.email === forEmail.toLowerCase())
 
 export async function loadScheduleSettings(): Promise<ScheduleSettings> {
   return cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -71,9 +78,11 @@ function readSpot(d: Record<string, any>, s: ScheduleSettings): Spot {
 const dayRefOf = (date: string) => db.doc(`schedule_days/${date}`)
 
 // Put a shoot into / take it out of its day's document (in memory; written by the caller).
-function placeIn(day: ScheduleDay, spot: Spot, entry: { shootId: string; name: string; email: string; kind: ShootKind }, s: ScheduleSettings) {
+type Entry = { shootId: string; name: string; email: string; kind: ShootKind; pending?: boolean; move?: boolean }
+const flags = (e: Entry) => ({ ...(e.pending ? { pending: true } : {}), ...(e.move ? { move: true } : {}) })
+function placeIn(day: ScheduleDay, spot: Spot, entry: Entry, s: ScheduleSettings) {
   if (spot.place === 'offsite') {
-    day.offsite = [...(day.offsite ?? []), { shootId: entry.shootId, name: entry.name, email: entry.email, start: spot.start, end: spot.end, where: spot.where }]
+    day.offsite = [...(day.offsite ?? []), { shootId: entry.shootId, name: entry.name, email: entry.email, start: spot.start, end: spot.end, where: spot.where, ...flags(entry) }]
     return
   }
   if (blockAt(day, spot.place, spot.start, s.slotMinutes)) throw fail('blocked')
@@ -81,8 +90,22 @@ function placeIn(day: ScheduleDay, spot: Spot, entry: { shootId: string; name: s
   // A held slot is only free again once the hold has ended, or for the person it's held for.
   if (taken?.hold) { if (holdActive(taken, nowStamp()) && taken.email !== entry.email) throw fail('held') }
   else if (taken && taken.shootId !== entry.shootId) throw fail('taken')
-  day[spot.place] = { ...(day[spot.place] ?? {}), [slotKey(spot.start)]: { shootId: entry.shootId, name: entry.name, email: entry.email, kind: entry.kind } }
+  day[spot.place] = { ...(day[spot.place] ?? {}), [slotKey(spot.start)]: { shootId: entry.shootId, name: entry.name, email: entry.email, kind: entry.kind, ...flags(entry) } }
 }
+// Approval helpers on a day doc: clear the "requested" mark, drop a waiting move, or finish an approved move.
+const strip = <T extends { pending?: boolean; move?: boolean }>(e: T): T => { const { pending: _p, move: _m, ...rest } = e; return rest as T }
+function eachEntry(day: ScheduleDay, shootId: string, fn: (e: SlotEntry | OffsiteEntry) => SlotEntry | OffsiteEntry | null) {
+  for (const h of ['cliff1', 'cliff2'] as const) {
+    const slots = day[h]; if (!slots) continue
+    const next: Record<string, SlotEntry> = {}
+    for (const [k, e] of Object.entries(slots)) { const r = e.shootId === shootId ? fn(e) : e; if (r) next[k] = r as SlotEntry }
+    day[h] = next
+  }
+  if (day.offsite) day.offsite = day.offsite.map(e => e.shootId === shootId ? fn(e) : e).filter(Boolean) as OffsiteEntry[]
+}
+const approveIn = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e.move ? e : strip(e))
+const dropMove = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e.move ? null : e)
+const keepOnlyMove = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e.move ? strip(e) : null)
 function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootId: string) {
   if (spot.place === 'offsite') { day.offsite = (day.offsite ?? []).filter(o => o.shootId !== shootId); return }
   // Every slot this shoot fills (an imported off-grid shoot can fill two), and any clash listing.
@@ -113,7 +136,7 @@ function assertDayLimit(day: ScheduleDay, email: string, adding: number, s: Sche
 
 async function monthlyUsed(email: string, month: string, exceptId?: string) {
   const mine = await db.collection('shoots').where('creatorEmail', '==', email).where('month', '==', month).get()
-  return mine.docs.filter(x => x.id !== exceptId && x.get('status') === 'booked' && x.get('kind') === 'monthly').length
+  return mine.docs.filter(x => x.id !== exceptId && ['booked', 'requested'].includes(x.get('status')) && x.get('kind') === 'monthly').length
 }
 
 export const bookShoot = onCall(CALLABLE, async req => {
@@ -131,19 +154,21 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
+  const pending = needsApproval(caller, who.email, s)
   await db.runTransaction(async tx => {
     const write = await editDays(tx, [spot.date], days => {
       if (spot.place !== 'offsite' && !isTeam(caller)) assertDayLimit(days[spot.date], who.email, 1, s)
-      placeIn(days[spot.date], spot, { shootId: ref.id, name: who.name, email: who.email, kind }, s)
+      placeIn(days[spot.date], spot, { shootId: ref.id, name: who.name, email: who.email, kind, pending }, s)
     })
     write()
     tx.set(ref, {
       creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date),
-      from: win.from, to: win.to, kind, status: 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
-      history: [{ at, by: caller.email, action: 'booked', note: `${spotLabel(spot, s)}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
+      from: win.from, to: win.to, kind, status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
+      ...(pending ? { requestedAt: at } : {}),
+      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(spot, s)}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
     })
   })
-  return { id: ref.id, kind }
+  return { id: ref.id, kind, status: pending ? 'requested' : 'booked' }
 })
 
 // Cancel. With less than the notice period (48 h) left, a creator's cancel counts as a no-show:
@@ -161,22 +186,33 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     if (!b) throw new HttpsError('not-found', 'Shoot not found.')
     const team = isTeam(caller)
     if (!team && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not allowed')
-    if (b.status !== 'booked') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
+    if (b.status !== 'booked' && b.status !== 'requested') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started. Ask the schedule team if something went wrong.')
-    noShow = !team && isShortNotice(b.from, now, s) && !withinUndo(b.createdAt)
+    // Withdrawing a request that was never approved is always free.
+    noShow = !team && b.status === 'booked' && isShortNotice(b.from, now, s) && !withinUndo(b.createdAt)
     who = { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
-    const write = await editDays(tx, [b.date], days => takeOut(days[b.date], b as Spot, id))
+    const mr = b.moveRequest as Spot | undefined
+    const write = await editDays(tx, [b.date, ...(mr ? [mr.date] : [])], days => {
+      takeOut(days[b.date], b as Spot, id)
+      if (mr) takeOut(days[mr.date], mr, id)
+    })
     write()
     const at = new Date().toISOString()
     tx.update(ref, {
       status: 'cancelled', cancelledBy: caller.email, updatedAt: at, ...(noShow ? { lateCancel: true, noShow: 'late-cancel' } : {}),
+      ...(mr ? { moveRequest: FieldValue.delete() } : {}),
       history: FieldValue.arrayUnion({ at, by: caller.email, action: 'cancelled',
         ...(team && b.creatorEmail !== caller.email ? { note: 'by the schedule team' } : noShow ? { note: `less than ${s.noticeHours} h before · counts as a no-show` } : {}) }),
     })
   })
   if (noShow) await addStrike(who.email, who.name, 'late-cancel', id, caller.email)
-  // Props and gear for this shoot aren't needed any more. Ones already picked up stay out until returned.
+  return { ok: true, lateCancel: noShow, ...await releaseLinks(caller, id, who.email) }
+})
+
+// Props and gear for a shoot that won't happen aren't needed any more. Ones already picked up stay out until returned.
+async function releaseLinks(caller: Caller, id: string, whoEmail: string) {
+  const who = { email: whoEmail }
   const links = await openLinks(id)
   let cancelledProps = 0, cancelledGear = 0
   for (const p of links.props.filter(x => ['requested', 'preparing', 'packed'].includes(x.status))) {
@@ -190,8 +226,8 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     try { await leaveCrew(g.id, who.email, caller.email, 'is off the shared gear (their shoot was cancelled)') } catch (e) { console.warn('leave shared gear', id, g.id, e) }
   }
   const stillOut = links.props.length - cancelledProps + links.gear.length - cancelledGear
-  return { ok: true, lateCancel: noShow, cancelledProps, cancelledGear, stillOut }
-})
+  return { cancelledProps, cancelledGear, stillOut }
+}
 
 // Move to another free slot (or other offsite hours) in one step: the old slot is only
 // given up if the new one is free. Creators need the notice period; the team doesn't.
@@ -214,28 +250,114 @@ export const moveShoot = onCall(CALLABLE, async req => {
   let kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE ? pre.kind : 'extra'
   if (kind === 'monthly' && monthOf(spot.date) !== pre.month && await monthlyUsed(pre.creatorEmail, monthOf(spot.date), id) >= s.monthlySlots) kind = 'extra'
 
+  let result: 'moved' | 'requested' = 'moved'
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
     if (!b) throw new HttpsError('not-found', 'Shoot not found.')
     if (!team && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not allowed')
-    if (b.status !== 'booked') throw new HttpsError('failed-precondition', 'This shoot is cancelled.')
+    if (b.status !== 'booked' && b.status !== 'requested') throw new HttpsError('failed-precondition', 'This shoot is cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started.')
-    if (!team && isShortNotice(b.from, now, s)) throw shortNoticeFail(s)
-    const write = await editDays(tx, [b.date, spot.date], days => {
+    // A request that isn't approved yet just moves (it stays a request). An approved shoot's move is a NEW request
+    // (owner, Nov 2): the new spot is held as "move" and the old spot stays theirs until it's approved.
+    const stillRequest = b.status === 'requested'
+    const asRequest = !stillRequest && needsApproval(caller, b.creatorEmail, s)
+    if (!team && !stillRequest && isShortNotice(b.from, now, s)) throw shortNoticeFail(s)
+    const old = b.moveRequest as Spot | undefined
+    const write = await editDays(tx, [b.date, spot.date, ...(old ? [old.date] : [])], days => {
+      if (old) dropMove(days[old.date], id)
       if (spot.place !== 'offsite' && !team) assertDayLimit(days[spot.date], b.creatorEmail, 1, s, [id])
-      takeOut(days[b.date], b as Spot, id)
-      placeIn(days[spot.date], spot, { shootId: id, name: b.creatorName, email: b.creatorEmail, kind }, s)
+      if (!asRequest) takeOut(days[b.date], b as Spot, id)
+      placeIn(days[spot.date], spot, { shootId: id, name: b.creatorName, email: b.creatorEmail, kind, pending: asRequest || stillRequest, move: asRequest }, s)
     })
     write()
     const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
     const at = new Date().toISOString()
+    if (asRequest) {
+      result = 'requested'
+      tx.update(ref, {
+        moveRequest: { ...spot, from: win.from, to: win.to, kind, at }, updatedAt: at,
+        history: FieldValue.arrayUnion({ at, by: caller.email, action: 'move-requested', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}` }),
+      })
+      return
+    }
     tx.update(ref, {
-      ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, updatedAt: at,
+      ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, updatedAt: at, ...(old ? { moveRequest: FieldValue.delete() } : {}),
       history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${team && b.creatorEmail !== caller.email ? ' · by the schedule team' : ''}` }),
     })
   })
-  return { ok: true, kind }
+  return { ok: true, kind, status: result }
 })
+
+// ─── Approvals (owner, Nov 2): the equipment team, admins and the owner approve or deny every creator request ───
+// A request (status 'requested') becomes a booking; a waiting move (moveRequest) moves the booking. Denying needs a
+// reason the creator reads; a denied request frees its slot and anything added to it.
+export const decideBooking = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, [...APPROVERS])
+  const id = str(req.data?.id, 100), approve = req.data?.approve === true, reason = str(req.data?.reason, 300)
+  if (!approve && reason.length < 3) throw new HttpsError('invalid-argument', 'Write a short reason so they know why.')
+  const ref = db.doc(`shoots/${id}`)
+  const s = await loadScheduleSettings()
+  let denied = false, who = ''
+  await db.runTransaction(async tx => {
+    const b = (await tx.get(ref)).data()
+    if (!b) throw new HttpsError('not-found', 'Shoot not found.')
+    const at = new Date().toISOString(), by = caller.email, name = caller.name
+    const mr = b.moveRequest as (Spot & { from: string; to: string; kind: ShootKind }) | undefined
+    if (b.status === 'booked' && mr) {
+      const write = await editDays(tx, [b.date, mr.date], days => {
+        if (approve) { if (b.date !== mr.date) takeOut(days[b.date], b as Spot, id); keepOnlyMove(days[mr.date], id) }
+        else dropMove(days[mr.date], id)
+      })
+      write()
+      const spot: Spot = { place: mr.place, date: mr.date, start: mr.start, end: mr.end, where: mr.where }
+      tx.update(ref, {
+        ...(approve ? { ...spot, month: monthOf(mr.date), from: mr.from, to: mr.to, kind: mr.kind } : {}),
+        moveRequest: FieldValue.delete(), updatedAt: at,
+        history: FieldValue.arrayUnion(approve
+          ? { at, by, action: 'move-approved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)} · approved by ${name}` }
+          : { at, by, action: 'move-denied', note: `${spotLabel(spot, s)} · ${reason}` }),
+      })
+      return
+    }
+    if (b.status !== 'requested') throw new HttpsError('failed-precondition', 'Someone already decided on this one.')
+    const write = await editDays(tx, [b.date], days => approve ? approveIn(days[b.date], id) : takeOut(days[b.date], b as Spot, id))
+    write()
+    tx.update(ref, approve
+      ? { status: 'booked', approvedBy: by, approvedAt: at, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'approved', note: `by ${name}` }) }
+      : { status: 'denied', deniedBy: by, deniedAt: at, deniedReason: reason, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'denied', note: reason }) })
+    denied = !approve; who = b.creatorEmail
+  })
+  if (denied) await releaseLinks(caller, id, who)
+  return { ok: true }
+})
+
+// Requests nobody decided on by the time the slot starts are dropped (owner, Nov 2). Called by the 10-minute timer.
+export async function expireRequests(now = nowStamp()) {
+  let expired = 0
+  const pending = await db.collection('shoots').where('status', '==', 'requested').get()
+  for (const d of pending.docs.filter(x => (x.get('from') ?? '') <= now)) {
+    await db.runTransaction(async tx => {
+      const b = (await tx.get(d.ref)).data()
+      if (!b || b.status !== 'requested') return
+      const write = await editDays(tx, [b.date], days => takeOut(days[b.date], b as Spot, d.id)); write()
+      const at = new Date().toISOString()
+      tx.update(d.ref, { status: 'expired', updatedAt: at, history: FieldValue.arrayUnion({ at, by: 'schedule', action: 'expired', note: 'nobody approved it before the start' }) })
+      expired++
+    })
+  }
+  const moves = await db.collection('shoots').where('moveRequest.from', '<=', now).get()
+  for (const d of moves.docs) {
+    await db.runTransaction(async tx => {
+      const b = (await tx.get(d.ref)).data(); const mr = b?.moveRequest
+      if (!b || !mr || mr.from > now) return
+      const write = await editDays(tx, [mr.date], days => dropMove(days[mr.date], d.id)); write()
+      const at = new Date().toISOString()
+      tx.update(d.ref, { moveRequest: FieldValue.delete(), updatedAt: at, history: FieldValue.arrayUnion({ at, by: 'schedule', action: 'move-expired', note: 'nobody approved the move before the new time' }) })
+      expired++
+    })
+  }
+  return expired
+}
 
 // ─── Swaps: two creators trade house slots. Allowed any time before either starts,
 // and the only way to give up a slot inside the notice period without a no-show. ──
@@ -539,6 +661,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   if (kind === 'monthly' && await monthlyUsed(caller.email, monthOf(spot.date)) + mySlots > s.monthlySlots) throw fail('no-monthly-left')
 
   const until = addMinutes(now, INVITE_HOLD_MINUTES), at = new Date().toISOString()
+  const pending = needsApproval(caller, caller.email, s)
   const shootRefs = starts.slice(0, mySlots).map(() => db.collection('shoots').doc())
   const inviteRefs = friends.map(() => db.collection('schedule_invites').doc())
   const withNames = friends.map(f => f.name).join(' and ')
@@ -548,7 +671,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
         assertDayLimit(days[spot.date], caller.email, mySlots, s)
         friends.forEach(f => assertDayLimit(days[spot.date], f.email, 1, s, [], f.name))
       }
-      shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind }, s))
+      shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind, pending }, s))
       friends.forEach((f, j) => placeHold(days[spot.date], house, starts[mySlots + j],
         { shootId: '', name: f.name, email: f.email, kind: 'extra', hold: { until, inviteId: inviteRefs[j].id, fromName: caller.name } }, s))
     })
@@ -558,8 +681,8 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
       const win = slotWindow(sp.date, sp.start, s.slotMinutes)
       tx.set(ref, {
         creatorEmail: caller.email, creatorName: caller.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind,
-        status: 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
-        history: [{ at, by: caller.email, action: 'booked', note: `${spotLabel(sp, s)}${withNames ? ` · with ${withNames}` : ''}` }],
+        status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, ...(pending ? { requestedAt: at } : {}),
+        history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)}${withNames ? ` · with ${withNames}` : ''}` }],
       })
     })
     friends.forEach((f, j) => tx.set(inviteRefs[j], {
@@ -568,7 +691,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
       until, status: 'pending', createdAt: at,
     }))
   })
-  return { shootIds: shootRefs.map(r => r.id), inviteIds: inviteRefs.map(r => r.id), until }
+  return { shootIds: shootRefs.map(r => r.id), inviteIds: inviteRefs.map(r => r.id), until, status: pending ? 'requested' : 'booked' }
 })
 
 // A friend confirms (or declines) the slot held for them. The person who invited can also withdraw it.
@@ -603,18 +726,19 @@ export const answerInvite = onCall(CALLABLE, async req => {
       outcome = 'expired'; return
     }
     const sp: Spot = { place: inv.place, date: inv.date, start: inv.start, end: inv.end, where: '' }
+    const pending = needsApproval(caller, inv.toEmail, s)
     const write = await editDays(tx, [inv.date], days => {
       if (!ours(days)) throw fail('taken')
       clear(days)
       assertDayLimit(days[inv.date], inv.toEmail, 1, s)
-      placeIn(days[inv.date], sp, { shootId: shootRef.id, name: inv.toName, email: inv.toEmail, kind: 'extra' }, s)
+      placeIn(days[inv.date], sp, { shootId: shootRef.id, name: inv.toName, email: inv.toEmail, kind: 'extra', pending }, s)
     })
     write()
     const win = slotWindow(sp.date, sp.start, s.slotMinutes)
     tx.set(shootRef, {
       creatorEmail: inv.toEmail, creatorName: inv.toName, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind: 'extra',
-      status: 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, invitedBy: inv.fromEmail,
-      history: [{ at, by: caller.email, action: 'booked', note: `${spotLabel(sp, s)} · invited by ${inv.fromName}` }],
+      status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, invitedBy: inv.fromEmail, ...(pending ? { requestedAt: at } : {}),
+      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)} · invited by ${inv.fromName}` }],
     })
     tx.update(ref, { status: 'accepted', answeredAt: at, shootId: shootRef.id })
     outcome = 'accepted'

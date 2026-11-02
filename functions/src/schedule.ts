@@ -20,6 +20,7 @@ export interface ScheduleSettings {
   slotMinutes: number      // 120
   monthlySlots: number     // guaranteed Cliff 1 slots per creator per month
   priority: { email: string; name: string }[]   // priority group (Thursdays + Saturdays at Cliff 1)
+  instantBookers: { email: string; name: string }[]   // book WITHOUT approval (owner, Nov 2: Kyle / Stromedy always wins)
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
@@ -46,6 +47,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   slotMinutes: 120,
   monthlySlots: 4,
   priority: [],
+  instantBookers: [],
   priorityWeekdays: [4, 6],
   releaseMinute: 18 * 60,
   noticeHours: 48,
@@ -88,6 +90,9 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     priority: Array.isArray(x.priority)
       ? x.priority.filter((p: any) => emailOk(p?.email)).map((p: any) => ({ email: p.email.toLowerCase(), name: str(p.name, 80) || p.email })).slice(0, 100)
       : [],
+    instantBookers: Array.isArray(x.instantBookers)
+      ? x.instantBookers.filter((p: any) => emailOk(p?.email)).map((p: any) => ({ email: p.email.toLowerCase(), name: str(p.name, 80) || p.email })).slice(0, 20)
+      : [],
     priorityWeekdays: days,
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
@@ -110,12 +115,14 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 // The hold lasts INVITE_HOLD_MINUTES (owner, Oct 17: 20 min); after that the slot is free again for everyone.
 // `time` = the real hours of a shoot imported from Google Calendar that doesn't match the 2-hour grid (e.g. 2:30–5 PM);
 // it then fills every slot it touches.
-export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number } }
+// `pending` = a creator's REQUEST waiting for the equipment team (owner, Nov 2: no instant bookings): it holds the slot so nobody
+// else can request it. `move` = the NEW spot of an approved shoot whose move is waiting for approval (the old spot stays theirs).
+export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number }; pending?: boolean; move?: boolean }
 // Old calendar events that overlap at the same house are imported anyway and listed here (owner, Oct 19: old events only).
 export interface ClashEntry { house: House; slot: string; shootId: string; name: string; email?: string; start: number; end: number; blockId?: string }
 export const INVITE_HOLD_MINUTES = 20
 export const holdActive = (e: SlotEntry | undefined, now: string) => !!e?.hold && e.hold.until > now
-export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string }
+export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string; pending?: boolean; move?: boolean }
 export type BlockType = 'cleaners' | 'maintenance' | 'event' | 'rental' | 'other'
 export const BLOCK_TYPES: Record<BlockType, string> = {
   cleaners: 'Cleaners', maintenance: 'Maintenance', event: 'Event', rental: 'External rental', other: 'Blocked',

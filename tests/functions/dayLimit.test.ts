@@ -13,6 +13,8 @@ beforeEach(async () => {
   await put(`users/${MAANIK}`, { email: MAANIK, role: 'equipment', active: true, name: 'Maanik' })
   await put(`users/${ANA}`, { email: ANA, role: 'creator', active: true, name: 'Ana' })
   await put(`users/${BEN}`, { email: BEN, role: 'creator', active: true, name: 'Ben' })
+  // These tests cover the booking rules themselves; the approval step (owner, Nov 2) is tested in requests.test.ts.
+  await put('app_settings/schedule', { instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
 })
 const book = (who: string, data: Record<string, unknown>) => call('bookShoot', { place: 'cliff2', date: FRI, start: 780, ...data }, who)
 
@@ -68,7 +70,7 @@ describe('one house slot a day', () => {
   })
 
   it('the limit is a setting the team can change', async () => {
-    await put('app_settings/schedule', { slotsPerDay: 2 })
+    await put('app_settings/schedule', { slotsPerDay: 2, instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
     expect((await book(ANA, {})).ok).toBe(true)
     expect((await book(ANA, { start: 900 })).ok).toBe(true)
     expect((await book(ANA, { start: 1020 })).ok).toBe(false)

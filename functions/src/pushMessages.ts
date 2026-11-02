@@ -122,6 +122,15 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   const hist = (a.history ?? []) as { by?: string; action?: string; note?: string }[]
   if (hist.length <= ((b?.history ?? []) as unknown[]).length) return []
   const h = hist.at(-1)!
+  const url0 = `/schedule?shoot=${id}`, tag0 = `shoot-${id}`
+  // Requests (owner, Nov 2): the creator asks, the equipment team decides.
+  if (h.action === 'requested') return [{ to: ['gear-team'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}: ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'move-requested') return [{ to: ['gear-team'], url: '/approvals', tag: `req-${id}`, title: 'Move request', body: `${a.creatorName} wants to move to ${placeName(a.moveRequest ?? a, s)} · ${when(a.moveRequest ?? a)}.` }]
+  if (h.action === 'approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking approved ✓', body: `${placeName(a, s)} · ${when(a)} is in the calendar.` }]
+  if (h.action === 'denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking not approved', body: `${placeName(a, s)} · ${when(a)}: ${h.note ?? ''}`.trim() }]
+  if (h.action === 'move-approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move approved ✓', body: `Your shoot is now ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'move-denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move not approved', body: `You keep ${placeName(a, s)} · ${when(a)}. ${h.note ?? ''}`.trim() }]
+  if (h.action === 'expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Request ran out', body: `Nobody approved ${placeName(a, s)} · ${when(a)} in time. Request another time?` }]
   if (!h.by || h.by === a.creatorEmail) return []
   if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
   const url = `/schedule?shoot=${id}`, tag = `shoot-${id}`

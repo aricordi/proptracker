@@ -20,7 +20,8 @@ export async function shootToAddTo(caller: Caller, raw: unknown): Promise<Linked
   if (!id) throw new HttpsError('invalid-argument', 'Unknown shoot.')
   const sh = (await db.doc(`shoots/${id}`).get()).data()
   if (!sh) throw new HttpsError('not-found', 'That shoot is no longer on the schedule.')
-  if (sh.status !== 'booked') throw new HttpsError('failed-precondition', 'That shoot was cancelled, so nothing can be added to it.')
+  // A request waiting for approval can take props and gear too (if it's denied, they're cancelled with it).
+  if (sh.status !== 'booked' && sh.status !== 'requested') throw new HttpsError('failed-precondition', 'That shoot was cancelled, so nothing can be added to it.')
   if (sh.creatorEmail !== caller.email && caller.role !== 'owner') throw new HttpsError('permission-denied', 'You can only add to your own shoots.')
   return { id, date: sh.date, start: sh.start, end: sh.end, place: sh.place, where: sh.where ?? '', creatorEmail: sh.creatorEmail }
 }

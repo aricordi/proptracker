@@ -17,6 +17,8 @@ beforeEach(async () => {
   await put(`users/${ANA}`, { email: ANA, role: 'creator', active: true, name: 'Ana' })
   await put(`users/${BEN}`, { email: BEN, role: 'creator', active: true, name: 'Ben' })
   await put(`users/${MAANIK}`, { email: MAANIK, role: 'equipment', active: true, name: 'Maanik' })
+  // These tests cover the booking rules themselves; the approval step (owner, Nov 2) is tested in requests.test.ts.
+  await put('app_settings/schedule', { instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
 })
 
 const feed = async (url: string) => (await fetch(url)).text()

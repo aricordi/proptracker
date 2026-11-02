@@ -15,7 +15,8 @@ beforeEach(async () => {
   await put(`users/${ANA}`, { email: ANA, role: 'creator', active: true, name: 'Ana' })
   await put(`users/${BEN}`, { email: BEN, role: 'creator', active: true, name: 'Ben' })
   await put(`users/${JANA}`, { email: JANA, role: 'creator', active: true, name: 'Jana' })
-  await put('app_settings/schedule', { priority: [{ email: JANA, name: 'Jana' }] })
+  // These tests cover the booking rules themselves; the approval step (owner, Nov 2) is tested in requests.test.ts.
+  await put('app_settings/schedule', { priority: [{ email: JANA, name: 'Jana' }], instantBookers: [ANA, BEN, JANA].map(email => ({ email, name: email })) })
 })
 
 const book = (who: string, data: Record<string, unknown>) => call('bookShoot', { place: 'cliff1', date: FRI, start: 780, kind: 'monthly', ...data }, who)

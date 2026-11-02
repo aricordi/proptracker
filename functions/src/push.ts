@@ -199,8 +199,21 @@ export async function runReminders(now = nowStamp()) {
   return sendOnce(list)
 }
 
+// A request still waiting after 12 hours: one reminder to the equipment team (owner, Nov 2).
+async function nudgeWaitingRequests() {
+  const cutoff = new Date(Date.now() - 12 * 3600_000).toISOString()
+  const waiting = (await db.collection('shoots').where('status', '==', 'requested').get()).docs.filter(d => (d.get('requestedAt') ?? d.get('createdAt') ?? '') <= cutoff)
+  if (!waiting.length) return
+  const names = [...new Set(waiting.map(d => d.get('creatorName') as string))].slice(0, 3).join(', ')
+  await sendOnce(waiting.map(d => ({ key: `reqwait_${d.id}`, push: { to: ['gear-team'], url: '/approvals', tag: 'req-waiting',
+    title: `${waiting.length} booking request${waiting.length === 1 ? '' : 's'} waiting`, body: `From ${names}. They've been waiting over 12 hours.` } })))
+}
+
 export const pushReminders = onSchedule({ schedule: 'every 10 minutes', timeZone: 'America/Toronto', timeoutSeconds: 120 }, async () => {
   await runReminders()
+  // Requests nobody decided on by their start time are dropped (owner, Nov 2); waiting ones nudge the team once after 12 hours.
+  try { await (await import('./scheduling.js')).expireRequests() } catch (e) { logger.warn('Expire requests failed', String(e)) }
+  try { await nudgeWaitingRequests() } catch (e) { logger.warn('Request reminder failed', String(e)) }
   // The monthly Cliff 1 draw was RETIRED (owner, Nov 2): the equipment team puts the guaranteed slots in the Google Calendar
   // and the calendar check brings them in. draw.ts stays (its callables are unused) so a deploy doesn't have to delete functions.
 })
