@@ -1,6 +1,6 @@
 // App tour: a hands-on practice STORY with a guide character (owner, Oct 20: "fun and exciting… like Duolingo… lean into
 // the story… nobody has used this before"). Welcome (what the app is for) → meet Cap (the Prime Capitol eagle) → 10 chapters (CHAPTERS in Fun.tsx), each opened by a ChapterCard with the badge
-// just earned, plus 6 pop quizzes (QuizCard; ch2 the monthly draw (Nov 2), ch9 the late return fee (Oct 27)) so people learn instead of tapping Continue:
+// just earned, plus 5 pop quizzes (QuizCard; ch9 has the late return fee one, Oct 27) so people learn instead of tapping Continue:
 //   1 Find your way around  2 Book your first shoot (with a friend → find it again: Home → your shoot card)
 //   3 Stock up for your shoot (+ Add → search, − n + on photos → gear (no times: the shoot's hours) → review → send → back on
 //   the shoot) + quiz  4 Keep tabs on it (shoot → request → Change → search → See all results → the closet for this request → + →
@@ -18,7 +18,6 @@
 // (friend search) and the real AI helper for the video idea (~half a cent, counted in the AI budget; falls back to
 // `ideaMatches` on the phone). Camera photos stay on the phone. The "find a time" options are made-up examples.
 // Required once for creators (App.tsx TourGate; can pause and resume); anyone can replay it at /tour.
-import { WISHLIST_OPEN_DAY, DRAW_DAY, DRAW_MINUTE, MAX_WISHES } from '../../functions/src/monthlyDraw'
 import { Icon, IconText, type IconName } from '../components/Icon'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
@@ -197,10 +196,6 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
     { id: 'gohome', scene: 'booked', part: 2, target: 'nav-home', title: <>Tap <b>Home</b></>, body: 'Bottom left. Home always shows what is coming up.' },
     { id: 'opencard', scene: 'home2', part: 2, target: 'shootcard', title: 'Tap your shoot', body: 'Your next shoot is always the big gold card. Hard to miss.' },
     { id: 'shootinfo', scene: 'shoot', part: 2, target: 'shootsheet', look: true, top: true, next: C, title: "Welcome to your shoot's page", body: "Date, time, house, and a checklist of what it still needs. On the day, you'll check in right here too." },
-    { id: 'quizdraw', scene: 'shoot', part: 2, title: '', quiz: {
-      q: <>Bonus round! Every creator gets <b>{s.monthlySlots} guaranteed {s.houses.cliff1.name} slots</b> a month. How do you get yours?</>,
-      options: ['Be the fastest to book on the 1st', `Make a wishlist (${WISHLIST_OPEN_DAY}th to ${DRAW_DAY}th); a fair draw hands them out`, 'Message the team'], correct: 1,
-      explain: <>From the {WISHLIST_OPEN_DAY}th, Book → the gold wishlist card: pick up to {MAX_WISHES} slots, favourite first. On the {DRAW_DAY}th at {fmtTime(DRAW_MINUTE)} the app deals them out in rounds, one each per round, in a random order that flips every round. Never two on the same or next day. No wishes? It picks your usual days. Saving early doesn't help: it's not a race.</> } },
     // 3 · Stock up for your shoot
     intro(3, 'shoot', 'Props, costumes, cameras, lights. Pick what you need and send it to the teams in one go. Like shopping, but free.'),
     { id: 'addprops', scene: 'shoot', part: 3, target: 'addprops', title: <>Tap <b>+ Add</b> next to Props &amp; costumes</>, body: 'The closet opens with this shoot already picked, so everything lands in the right place.' },
@@ -1436,7 +1431,6 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
           ['calendar', `Props from the closet: book ${settings.leadTimeDays} open days ahead. To make or find: ${settings.buildLeadDays}. Gear: ${GEAR_LEAD_TIME_DAYS}.`],
           ['people', `A friend's invite holds the slot for you for ${HOLD} minutes. Confirm it, or it opens to everyone.`],
           ['swap', `Moving or cancelling is free with ${s.noticeHours} hours' notice. Closer than that, swap with someone instead.`],
-          ['star', `Your ${s.monthlySlots} ${s.houses.cliff1.name} slots a month: make a wishlist from the ${WISHLIST_OPEN_DAY}th, the draw hands them out on the ${DRAW_DAY}th at ${fmtTime(DRAW_MINUTE)}. Not a race.`],
           ['camera', `Check in at the house: it opens ${s.checkinBefore} minutes before your time.`],
           ['stop', `No-shows and late cancels give a strike. ${s.strikeCount} in ${s.strikeDays} days pauses props and gear for ${s.pauseDays} days. Late returns block new props and gear.`],
           ['help', 'Forgot something? Me → Help, or Me → App tour to do this again.'],

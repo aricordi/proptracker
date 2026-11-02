@@ -47,7 +47,6 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('rulessheet', '/rules-sheet', 'Settings sheet', 'Every rule at a glance', 'table'),
       I('rules', '/booking-rules', 'Booking rules', 'Notice for props, closed days, turnaround', 'clock'),
       I('schedulesettings', '/schedule/settings', 'Schedule settings', 'Houses, slots, priority days, strikes', 'calendar'),
-      I('draw', '/schedule/draw', 'Monthly draw', 'Guaranteed Cliff 1 slots: wishes and the draw', 'star'),
     ] },
     { key: 'money', title: 'Money & connections', icon: 'lock', items: [
       I('costs', '/costs', 'Running costs', 'What the app costs this month', 'chart'),
@@ -66,7 +65,6 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'daily', title: 'Every day', icon: 'calendar', items: [
       I('calendar', '/calendar', 'Requests calendar', 'Every props request by shoot day', 'calendar'),
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Missed check-ins and reports to decide', 'clock'),
-      I('draw', '/schedule/draw', 'Monthly draw', 'Who got which Cliff 1 slots', 'star'),
     ] },
     { key: 'people', title: 'Creators', icon: 'people', items: [
       I('analytics', '/analytics', 'Analytics', 'Who films more or less, every flag, the teams', 'chart'),
@@ -91,7 +89,6 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'schedule', title: 'Schedule', icon: 'calendar', items: [
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins, reports, creators, pauses', 'clock'),
-      I('draw', '/schedule/draw', 'Monthly draw', 'Who got which Cliff 1 slots', 'star'),
     ] },
     { key: 'more', title: 'Help & account', icon: 'help', items: [
       I('geartour', '/tour/gear', 'Gear team tour', 'Practise the gear room again', 'flask'),

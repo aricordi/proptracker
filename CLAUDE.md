@@ -1719,6 +1719,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       — request holds slot; 12 h reminder + dropped at slot start; own cancel free, move = new request; offsite = request too;
       guaranteed slots imported as approved; gear late = 30 min after slot; props through chat, arts still pack; admins approve;
       old screens under "More"; check-in at shoot time). Waiting for the owner's answers before building.
+      OWNER ANSWERS (Nov 2): all guesses right EXCEPT props stay more manual: keep a PROPS TAB to browse visually + chat search.
+      NEW: (a) MONTH CALENDAR VIEW = the main way to book (creators look for empty spots like in Google Calendar): month grid,
+      free-spot count per day, tap day → times → Request. (b) KYLE / STROMEDY = top priority, must not need the app: his own
+      Google Calendar (Stromedy feed) events win; staff "Give it to Kyle" bumps the holder (bumped creator gets sorry + closest
+      free times, next request goes first); if Kyle uses the app his requests are instant and can take any slot. (c) Clickable
+      example prompts in the chat. (d) TRAINING: drop the long tours; the chat explains itself (~15 s), staff get a one-page guide.
+      MOCKUP v2 (same link): tabs Chat / Calendar (month) / Props / More; team "Kyle · always wins" task; v2 To confirm list.
+    - DRAW RETIRED (Nov 2, owner "we do have to remove the draw"): app UI removed (WishlistScreen, DrawScreen, MonthlyDrawCard,
+      DrawExplainer, services/draw.ts, routes, team menu items, Help topic → one Q, Rules sheet row, Schedule settings text, tour
+      quizzes + cheat lines, appGuide entries). SERVER: draw.ts + monthlyDraw.ts KEPT (callables unused; removing functions would
+      need `firebase deploy --force`), but drawTick is no longer called from pushReminders → no wishlist pushes, no draw. Needs a
+      BACKEND deploy (drawTick off) + website deploy, ask. Guaranteed slots = equipment team adds them to Google Calendar.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { DrawExplainer } from '../components/DrawExplainer'
 import { Link, useNavigate } from 'react-router-dom'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { httpsCallable } from 'firebase/functions'
@@ -81,9 +80,7 @@ export default function ScheduleSettingsScreen() {
             <button onClick={() => set({ monthlySlots: Math.min(31, s.monthlySlots + 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
             <span className="text-pt-muted text-sm">per creator, per month</span>
           </div>
-          <p className="text-pt-muted text-sm">Handed out by the monthly draw: wishlist from the 15th, automatic draw on the 20th at 6 PM. 0 = no draw.</p>
-          <button onClick={() => navigate('/schedule/draw')} className="text-pt-accent text-sm tap">Monthly draw page ›</button>
-          <DrawExplainer team />
+          <p className="text-pt-muted text-sm">The equipment team puts the guaranteed slots in the Google Calendar; the app brings them in by itself.</p>
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">

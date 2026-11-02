@@ -1,7 +1,6 @@
 // Settings sheet (owner, Oct 20: "a sheet that tells them about the assumptions of what the settings are, so they can
 // address changes that need to be made"). Every rule the app runs on, with its live value, what it means, and who can
 // change it. Read only: admins change the booking rules on their own screen; everything else is the owner's.
-import { WISHLIST_OPEN_DAY, DRAW_DAY, DRAW_MINUTE, MAX_WISHES } from '../../functions/src/monthlyDraw'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { useBookingSettings } from '../hooks/useBookings'
@@ -51,15 +50,8 @@ export default function RulesSheetScreen() {
       ['Priority days', list(s.priorityWeekdays.map(d => DAYS[d])), `Only the priority group can book these; unclaimed slots open to everyone on Sunday at ${fmtTime(s.releaseMinute)}.`, owner],
       ['Priority group', `${s.priority.length} ${s.priority.length === 1 ? 'person' : 'people'}`, list(s.priority.map(p => p.name)), owner],
     ] },
-    { title: `Monthly ${s.houses.cliff1.name} draw`, edit: { label: 'Monthly draw page', to: '/schedule/draw' }, rows: [
-      ['Guaranteed slots', `${s.monthlySlots} per creator, per month`, `Every active creator (Props only ones too) and the owner get this many ${s.houses.cliff1.name} slots for the next month.`, owner],
-      ['Wishlist open', `${WISHLIST_OPEN_DAY}th to the ${DRAW_DAY}th, ${fmtTime(DRAW_MINUTE)}`, `Creators rank up to ${MAX_WISHES} wished slots (Book → wishlist card). Saving early doesn't help: every wish counts the same.`, 'built into the app'],
-      ['The draw', `the ${DRAW_DAY}th at ${fmtTime(DRAW_MINUTE)}, automatic`, `${s.monthlySlots} rounds, one slot per person per round. Random turn order that flips every round. Each turn takes your best wish still free.`, 'built into the app'],
-      ['Spread out', 'at least 1 day in between', 'Never two of someone\'s draw slots on the same day or on days next to each other.', 'built into the app'],
-      ['No wishes left', 'the app picks', 'About one a week, on the days and times that person usually films.', 'built into the app'],
-      ['Partners', 'both must wish for it', 'Two people are placed back to back only when each picked the other on touching slots.', 'built into the app'],
-      ['Priority days', list(s.priorityWeekdays.map(d => DAYS[d])), 'Draw slots on these days only go to the priority group.', owner],
-      ['Run early / Undo', 'owner only', 'Run the draw before the 20th, or undo it until the month starts (shoots that already have props or gear stay).', owner],
+    { title: `Guaranteed ${s.houses.cliff1.name} slots`, rows: [
+      ['Guaranteed slots', `${s.monthlySlots} per creator, per month`, 'The equipment team puts them in the Google Calendar; the app brings them in by itself.', owner],
     ] },
     { title: 'Comparing creators (Dashboard and Analytics)', rows: [
       ['Minimum shoots', 'none', 'There is no minimum. Creators are compared with each other.', owner],

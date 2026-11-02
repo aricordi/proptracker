@@ -60,8 +60,6 @@ const ScheduleSettingsScreen = lazy(() => import('./screens/ScheduleSettingsScre
 const ScheduleRulesScreen = lazy(() => import('./screens/ScheduleRulesScreen'))
 const CalendarImportScreen = lazy(() => import('./screens/CalendarImportScreen'))
 const ScheduleTeamScreen = lazy(() => import('./screens/ScheduleTeamScreen'))
-const WishlistScreen = lazy(() => import('./screens/WishlistScreen'))
-const DrawScreen = lazy(() => import('./screens/DrawScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import { warmItems } from './hooks/useItems'
@@ -356,8 +354,6 @@ export default function App() {
           <Route path="/schedule/import" element={<ScheduleSettingsOnly><CalendarImportScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/calendar" element={<ScheduleSettingsOnly><CalendarSyncScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/team" element={<SeeGear><ScheduleTeamScreen /></SeeGear>} />
-          <Route path="/schedule/wishlist" element={<NotArts to="/calendar"><WishlistScreen /></NotArts>} />
-          <Route path="/schedule/draw" element={<SeeGear><DrawScreen /></SeeGear>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<PeopleOnly><BookingRulesScreen /></PeopleOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />

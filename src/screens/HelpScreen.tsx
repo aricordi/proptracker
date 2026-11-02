@@ -5,9 +5,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useScheduleSettings, fmtSlot, INVITE_HOLD_MINUTES, UNDO_MINUTES, MONTHLY_SLOTS_ON } from '../services/schedule'
-import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
-import { nth } from '../components/DrawExplainer'
-import { WISHLIST_OPEN_DAY, DRAW_DAY, DRAW_MINUTE, MAX_WISHES } from '../../functions/src/monthlyDraw'
+import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES } from '../../functions/src/gearBooking'
 import { IconText, type IconName } from '../components/Icon'
 
 interface Q { q: string; a: ReactNode; words?: string; go?: [string, string] }
@@ -32,18 +30,8 @@ export default function HelpScreen() {
       { q: 'Can I practise first?', words: 'tour tutorial practice demo learn walkthrough', go: ['/tour', 'App tour'], a: <>Yes. <b>Me → App tour</b> walks you through booking a pretend shoot, adding real props and gear, sending it, picking it up, checking in and returning it. Nothing in the tour is real: nothing is booked or sent.</> },
       { q: 'How is the app laid out?', words: 'tabs home book browse me', a: <><b>Home</b>: your next shoot and what it still needs. <b>Book</b>: the house schedule. <b>Browse</b>: every prop, costume and piece of gear. <b>Me</b>: your profile, requests and these help pages.</> },
     ] },
-    { title: `Your ${s.monthlySlots} monthly ${c1} slots (the draw)`, icon: 'star', items: [
-      { q: `How do I get my guaranteed ${c1} slots?`, words: 'monthly four 4 guaranteed wishlist draw lottery', go: ['/schedule/wishlist', 'Wishlist'], a: <>Everyone gets <b>{s.monthlySlots} {c1} slots a month</b>. From the <b>{nth(WISHLIST_OPEN_DAY)}</b> (you get a notification) go to <b>Book</b> → the gold <b>wishlist</b> card and pick up to {MAX_WISHES} slots for next month, favourite first. On the <b>{nth(DRAW_DAY)} at {fmtTime(DRAW_MINUTE)}</b> the app hands them out in a fair draw. Your slots show up in My shoots with a notification.</> },
-      { q: 'How does the draw decide who gets what?', words: 'draw lottery fair rounds order random turn', a: <>It goes in {s.monthlySlots} rounds. In each round everyone gets <b>one</b> slot. The turn order is random and <b>flips every round</b> (whoever went last goes first next), so nobody is always first. On your turn you get your best wish that's still free.</> },
-      { q: 'Does making my wishlist early help?', words: 'race first early fast late', a: <>No. It's not a race. Every wish saved before the {nth(DRAW_DAY)} at {fmtTime(DRAW_MINUTE)} counts the same. You can change and reorder it as often as you like until then.</> },
-      { q: 'Why didn\'t I get my first wish?', words: 'first wish lost didn\'t get', a: <>Someone whose turn came before yours in that round wished for the same slot. Each of your slots says which wish it came from ("Wish #3"). The order changes every month.</> },
-      { q: 'I forgot to make a wishlist', words: 'missed forgot no wishes auto', a: <>You still get your {s.monthlySlots} slots. The app picks them for you, about one a week, on the days and times you usually film.</> },
-      { q: 'Can I get my slots in a row?', words: 'back to back days next day same day spread', a: <>Not from the draw. It always leaves at least one day between your slots, so they're spread through the month. Need more? Book extra slots on the schedule any time they're free.</> },
-      { q: 'How do I film back to back with a friend?', words: 'partner friend together collab pair', a: <>Both of you add a wish naming each other, on slots right next to each other on the same day (e.g. you 1–3 PM, them 3–5 PM). The draw only pairs you when <b>both</b> asked for it.</> },
-      { q: `Can I wish for ${prio || 'priority days'}?`, words: 'priority thursday saturday locked', a: <>Only if you're in the priority group: those days at {c1} are theirs. Everyone else picks from the other days.</> },
-      { q: 'I can\'t make one of my draw slots', words: 'move swap cancel draw slot', a: <>Treat it like any shoot: open it and Move, Swap or Cancel. With {s.noticeHours} hours' notice or more it's free; after that, only a swap avoids a no-show.</> },
-    ] },
     { title: 'Booking a shoot', icon: 'calendar', items: [
+      { q: `How do I get my guaranteed ${c1} slots?`, words: 'monthly four 4 guaranteed slots', a: <>Everyone gets {s.monthlySlots} {c1} slots a month. The equipment team schedules them for you and they show up on your calendar and in My shoots. Need more? Book extra slots any time they're free.</> },
       { q: 'Can the app remember my birthday?', words: 'birthday celebrate party', go: ['/account', 'Me'], a: <>Yes: <b>Me</b> → your profile → <b>Birthday</b> (just the month and day, no year) → Save. On the day, the app throws you a little party, and your team gets a pop-up so they can wish you a happy birthday. Remove it there any time.</> },
       { q: 'How do I book filming time?', words: 'reserve slot house', go: ['/schedule?book=1', 'Book a shoot'], a: <>Go to <b>Book</b> → <b>Book a shoot</b>, say who's filming (just you, or with 1 or 2 friends): the soonest free times show first, with a button for each house that's free then ({c1} or {c2}). Tap the one you want. Filming elsewhere? Tap "Somewhere else" at the top. Houses are booked in {s.slotMinutes / 60}-hour slots from {slots}. It's confirmed instantly. A booking takes the whole house.</> },
       { q: 'Can I book more than one slot a day?', words: 'two slots 4 hours long day limit extra', a: <>Each creator can book <b>{s.slotsPerDay === 1 ? 'one' : s.slotsPerDay} {s.slotMinutes / 60}-hour house slot{s.slotsPerDay === 1 ? '' : 's'} a day</b> ({c1} and {c2} together). Filming with friends? Each of you books your own slot, back to back. Need longer? Ask the schedule team; they can add it for you.</> },

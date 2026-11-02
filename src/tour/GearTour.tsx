@@ -14,7 +14,6 @@
 // SEALED: practice data only (made-up gear, bookings and people). Nothing is saved, booked or sent, except turning on
 // notifications in chapter 9 and marking the tour done. Required once for the equipment team (App.tsx TourGate);
 // anyone on the gear side can replay it at /tour/gear.
-import { DRAW_DAY, DRAW_MINUTE } from '../../functions/src/monthlyDraw'
 import { TeamMenu, teamMenu } from '../components/TeamMenu'
 import { useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
@@ -219,10 +218,6 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
     { id: 'quiz8', scene: 'team', part: 8, title: '', quiz: {
       q: "The house floods and you cancel Riley's shoot. Does Riley get a strike?", options: ['Yes', 'No, team cancels never count', 'Only if it was a Thursday'], correct: 1,
       explain: 'Strikes are only for no-shows, late cancels by the creator, and reports you uphold.' } },
-    { id: 'quizdraw', scene: 'team', part: 8, title: '', quiz: {
-      q: <>It's the {DRAW_DAY}th, 6:05 PM. Who hands out next month's guaranteed {s.houses.cliff1.name} slots?</>,
-      options: ['You, slot by slot', 'The app, by itself, from everyone\'s wishlists', 'Whoever books first'], correct: 1,
-      explain: <>The draw runs on its own at {fmtTime(DRAW_MINUTE)}: {s.monthlySlots} rounds, one each per round, never two on the same or next day; no wishes = the app picks their usual days. You'll see the result in Admin → Monthly draw (with "How the draw works" if someone asks). Anyone short? Book their extras by hand.</> } },
     // 9 · Stay in the loop (real)
     intro(9, 'team', "Last one, and it's real: turn on notifications so you hear about new bookings, returns, missing pieces and reports."),
     { id: 'toadmin9', scene: 'schedule', part: 9, target: 'nav-admin', title: <>Tap <b>Admin</b></> },
@@ -760,7 +755,7 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
     rules: () => (
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
-        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">The gear room in seven lines. Replay it from Admin → Gear team tour any time.</p></div>
+        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">The gear room in six lines. Replay it from Admin → Gear team tour any time.</p></div>
         {([
           ['box', 'Every piece goes in All gear first. Internal only pieces are invisible to creators unless they are in a bundle; Creators can book offers the ones not in a kit as single items.'],
           ['tools', 'A piece lives in one bundle at a time. Bundles are booked whole. Pieces are locked while a bundle is booked or out.'],
@@ -768,7 +763,6 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
           ['check', 'Late = 30 minutes after the booked end. Check returns in: tick every piece, write down any damage.'],
           ['eye', "Who had what: the booking's Problems and History. Tap Found it when a missing piece turns up."],
           ['calendar', `Book or block any free slot. Team moves and cancels never give a strike. Decide missed check-ins after ${s.explainHours} hours.`],
-          ['star', `Monthly ${s.houses.cliff1.name} slots: the draw runs by itself on the ${DRAW_DAY}th at ${fmtTime(DRAW_MINUTE)}. Results and "How the draw works": Admin → Monthly draw.`],
         ] as [IconName, string][]).map(([i, t], n) => <div key={t} className="chapter-rise flex gap-3 rounded-2xl bg-pt-surface shadow-hairline p-4" style={{ animationDelay: `${n * 60}ms` }}><Icon name={i} className="w-6 h-6 text-pt-accent shrink-0" /><p className="text-[16px] text-pt-text">{t}</p></div>)}
         <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">Got it</button>
       </div>

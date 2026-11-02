@@ -8,8 +8,8 @@ import { friendlyError } from '../lib/errors'
 import { OWNER_EMAIL } from '../config'
 
 export * from '../../functions/src/schedule'
-// Owner (Oct 19, option A): the "monthly vs extra" choice is hidden until the wishlist + fair draw exists.
-// Every booking is just a shoot (saved as 'extra'); the draw will hand out the guaranteed monthly slots.
+// Owner (Oct 19, option A): the "monthly vs extra" choice stays hidden. Guaranteed monthly slots come from the Google Calendar
+// (the equipment team adds them; the draw was retired Nov 2). Every booking made in the app is saved as 'extra'.
 export const MONTHLY_SLOTS_ON = false
 
 export interface Shoot {

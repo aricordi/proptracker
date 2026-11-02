@@ -10,8 +10,6 @@
 // BookingRulesScreen, AccountScreen). When one of those screens changes a lot, update its scene here too.
 // SEALED: practice data only (made-up creators, requests and strikes). Nothing is saved, given or sent, except turning on
 // notifications in chapter 9 and marking the tour done. Required once for admins (App.tsx TourGate); replay at /tour/admin.
-import { fmtTime } from '../../functions/src/gearBooking'
-import { DRAW_DAY, DRAW_MINUTE } from '../../functions/src/monthlyDraw'
 import { TeamMenu, teamMenu } from '../components/TeamMenu'
 import { useState, type ReactNode } from 'react'
 import { useSession } from '../auth'
@@ -199,10 +197,6 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
     { id: 'quiz8', scene: 'rules', part: 8, title: '', quiz: {
       q: 'A new arts department helper starts Monday. Who invites them?', options: ['You, as Arts department', 'The owner', 'They sign themselves up'], correct: 1,
       explain: 'You invite creators. Staff roles (arts, equipment, admin) are invited by the owner.' } },
-    { id: 'quizdraw', scene: 'rules', part: 8, title: '', quiz: {
-      q: <>Jordan asks: "Why didn't I get my first wish in the monthly {s.houses.cliff1.name} draw?" What do you say?</>,
-      options: ['Someone saved their wishlist before you', 'Someone whose turn came before yours that round wished for it too', 'The owner picks who gets what'], correct: 1,
-      explain: <>The draw ({DRAW_DAY}th, {fmtTime(DRAW_MINUTE)}) goes in {s.monthlySlots} rounds: one slot each per round, random turn order that flips every round. When someone saved doesn't matter. Dashboard → Monthly draw shows who got what and from which wish; the full explanation is there and on the Settings sheet.</> } },
     // 9 · Stay in the loop (real)
     intro(9, 'rules', "Last one, and it's real: turn on notifications so you hear about your own shoots, invites and anything about your bookings."),
     { id: 'toadmin9', scene: 'rules', part: 9, target: 'nav-dashboard', title: <>Tap <b>Dashboard</b></> },
@@ -760,7 +754,7 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
     cheat: () => (
       <div className="pt-safe px-4 pb-8 space-y-4">
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
-        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">Your job in seven lines. Replay it from Dashboard → Admin tour any time.</p></div>
+        <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">Your job in six lines. Replay it from Dashboard → Admin tour any time.</p></div>
         {([
           ['eye', 'Queues and the schedule are for looking. The arts department and the equipment team do the changing.'],
           ['people', 'Your Dashboard ranks every creator by shoots filmed against the typical creator (posting more, typical, posting less), with behaviour problems flagged separately. Tap anyone for their report card; Back zooms out; the table icon breaks it all down.'],
@@ -768,7 +762,6 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
           ['restore', 'Removing a strike keeps it on the record as removed. It lifts an automatic pause, never one you started.'],
           ['clock', `Missed check-in: wait for their explanation (${s.explainHours} hours), then They filmed or No-show. Reports: Dismiss or Strike.`],
           ['lock', "You invite creators only. Booking rules change for everyone at once. Settings and anything technical: ask the owner."],
-          ['star', `Draw questions? Dashboard → Monthly draw → How the draw works. Rounds, one slot each, random order that flips; when they saved never matters.`],
         ] as [IconName, string][]).map(([i, t], n) => <div key={t} className="chapter-rise flex gap-3 rounded-2xl bg-pt-surface shadow-hairline p-4" style={{ animationDelay: `${n * 60}ms` }}><Icon name={i} className="w-6 h-6 text-pt-accent shrink-0" /><p className="text-[16px] text-pt-text">{t}</p></div>)}
         <button onClick={advance} className="w-full rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">Got it</button>
       </div>
