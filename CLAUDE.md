@@ -229,7 +229,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
    failures, the workflow now retries once and sets a 7-day image cleanup policy).
 4. Owner opens the preview, tests, then runs "Rebuild smart search" on Health.
 5. ✅ Hosting deployed to live (Oct 13, run 1).
-6. Remove the obsolete `embedding` arrays from props: owner OK Nov 2, button "Remove old AI data from props".
+6. ✅ Obsolete `embedding` arrays: checked Nov 2 (button "Remove old AI data from props"), none left on the 1,245 live props.
 7. After hosting goes live: delete the OLD Gemini key (it was exposed in the old website code).
 
 ### Next sprint (owner's plan, Oct 13 — NOT started; plan with the owner first)
@@ -1703,6 +1703,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       with no value → removes just that field; updatedAt untouched; onItemWritten skips unchanged text so no AI cost; activity logs
       nothing). Tested on the emulator (the emulator rejects currentDocument.updateTime, so that guard isn't used; the field mask
       already protects other edits).
+      CHECK RUN 1 (Nov 2, live, read only): 1,245 props, 0 with the old field → nothing to remove, remove mode NOT run.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
