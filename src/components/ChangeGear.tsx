@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useActiveShoot } from '../activeShoot'
-import { useShoot } from '../services/schedule'
+import { useShoot, isLive } from '../services/schedule'
 import { useBackToBack } from '../hooks/useGearCrew'
 import { crewHours } from '../../functions/src/gearCrew'
 import { editGearBooking, subscribeToGearBundles, fmtTime, GEAR_DAY_START, GEAR_DAY_END, GEAR_STEP, type GearBooking, type GearBundle } from '../services/gear'
@@ -25,7 +25,7 @@ export default function ChangeGear({ b }: { b: GearBooking }) {
   const [err, setErr] = useState('')
   // Shared gear: friends filming back to back can be added or taken off; the hours follow the block.
   const shoot = useShoot(b.scheduleShootId ?? null) ?? null
-  const friends = useBackToBack(shoot && shoot.status === 'booked' ? shoot : null)
+  const friends = useBackToBack(shoot && isLive(shoot) ? shoot : null)
   const [crewSel, setCrewSel] = useState<Set<string>>(new Set())
   const crewOptions = [...friends, ...(b.crew ?? []).filter(c => !friends.some(f => f.id === c.shootId)).map(c => ({ id: c.shootId, name: c.name, start: 0, end: 0 }))]
   const picked = friends.filter(f => crewSel.has(f.id))

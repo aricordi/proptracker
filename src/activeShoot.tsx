@@ -8,7 +8,7 @@ import { useGearCart } from './gearCart'
 import { useBookingSettings } from './hooks/useBookings'
 import { todayInStudio, lastDayToBook, pickupDay, addDays } from '../functions/src/booking'
 import { nowStamp, GEAR_DAY_START, GEAR_DAY_END, GEAR_LEAD_TIME_DAYS } from '../functions/src/gearBooking'
-import { useMyShoots, useScheduleSettings, fmtSlot, type Shoot } from './services/schedule'
+import { useMyShoots, useScheduleSettings, fmtSlot, isLive, type Shoot } from './services/schedule'
 import { formatDay } from './lib/dates'
 
 const KEY = 'primeapp.activeShoot.v1'
@@ -35,7 +35,7 @@ export function ActiveShootProvider({ children }: { children: ReactNode }) {
   const mine = useMyShoots(profile.email, todayInStudio())
   const [id, setId] = useState<string | null>(() => { try { return localStorage.getItem(KEY) } catch { return null } })
   const now = nowStamp()
-  const upcoming = useMemo(() => (mine ?? []).filter(x => x.status === 'booked' && x.to > now), [mine, now.slice(0, 15)])   // eslint-disable-line react-hooks/exhaustive-deps
+  const upcoming = useMemo(() => (mine ?? []).filter(x => isLive(x) && x.to > now), [mine, now.slice(0, 15)])   // eslint-disable-line react-hooks/exhaustive-deps
   const shoot = upcoming.find(x => x.id === id) ?? null
   const chosenAt = useRef(0)
   // id: a shoot id, '' = the person picked "Just browsing", null = never chose (the app picks for them, below).

@@ -8,7 +8,7 @@ import { useActiveShoot, useCutoffs } from '../activeShoot'
 import { useAssistant } from '../assistant'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
-import type { Shoot } from '../services/schedule'
+import { isLive, type Shoot } from '../services/schedule'
 import UnsentBasket from './UnsentBasket'
 
 export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear'; sharedBy?: string; sharedWith?: string }
@@ -82,7 +82,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
   const cut = useCutoffs()(shoot)
   const today = todayInStudio()
   const linked = useLinked(shoot, mine, mine || team)
-  const open = shoot.status === 'booked'
+  const open = isLive(shoot)
   function add(to: string) { choose(shoot.id); navigate(to) }
 
   const section = (_kind: 'props' | 'gear', title: string, by: string, list: Linked[], to: string, extra?: string) => (

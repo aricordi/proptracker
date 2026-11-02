@@ -1731,6 +1731,27 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       quizzes + cheat lines, appGuide entries). SERVER: draw.ts + monthlyDraw.ts KEPT (callables unused; removing functions would
       need `firebase deploy --force`), but drawTick is no longer called from pushReminders → no wishlist pushes, no draw. Needs a
       BACKEND deploy (drawTick off) + website deploy, ask. Guaranteed slots = equipment team adds them to Google Calendar.
+    - BOOKING REQUESTS + MONTH VIEW (owner, Nov 2, chat-first step 1; NOT deployed: backend + website MUST ship together, ask).
+      SERVER: every creator booking = status 'requested' (slot held, day-doc entry `pending: true`); APPROVERS owner/equipment/admin
+      via callable `decideBooking({id, approve, reason})` (deny needs a reason ≥3 → 'denied' + deniedReason, links released; approve
+      → 'booked' + approvedBy/At). Moving an approved shoot by a creator = `moveRequest` {spot, from, to, kind, at} + a `move: true,
+      pending: true` entry; old slot kept until approved. Requested shoots move directly. Withdrawing a request = free.
+      Settings `instantBookers` [{email,name}] ≤20 (Kyle / Stromedy) + the team booking for someone = approved at once.
+      pushReminders: `expireRequests` (dropped at start → 'expired') + `nudgeWaitingRequests` (>12 h, push key reqwait_<id>).
+      Pushes: requested / move-requested → gear-team (url /approvals); approved / denied / expired → creator. Props + gear can be
+      added to a requested shoot. Tests requests.test.ts (8); other test files set instantBookers. `decidebooking` in invoker lists.
+      APP: services/schedule `isLive` (booked|requested) used by useMyShoots, activeShoot, ShootNeeds, ChangeGear, My requests.
+      `src/components/MonthGrid.tsx` (shared month grid: free count per day, creator gold ring = own shoot, team amber request badge).
+      Book screen: Month | Day switch (Month first, remembered in sessionStorage pc.scheduleView) at the top; tap a day →
+      DayPickSheet (both houses hour by hour, gold Free, dashed amber "asked", Somewhere else, Full day view). BookSheet "Ask for this
+      slot" / "Request this time"; Move "Ask for this"; Offsite "Ask for this". Shoot sheet status pill (Waiting for approval /
+      Approved / Not approved + reason / Ran out / Cancelled), move note. Home next-shoot "Waiting for OK", My shoots "Waiting for
+      approval" / "Move asked". TEAM: `/approvals` ApprovalsScreen (SeeGear): month grid team mode + request cards (filmed of booked
+      30 d, coming up, strikes/paused, no-shows, same week, other requests, before/after/other house) + Approve / Deny with reason chips;
+      day sheet. Tabs: equipment Requests / Queue / Schedule / All gear / Admin (Bundles → Admin menu); admin Dashboard / Requests /
+      Schedule / Queue / Gear; owner daily tile Requests. Schedule settings "Books without approval" list. Help, How it works, Rules
+      sheet, appGuide, owner guide updated. Tests 532. Checked on the emulator (Kyle requests from the month → Equipment approves).
+      NEXT: "Give it to Kyle" bump, chat-first assistant, gear grab-and-go, shorter training.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

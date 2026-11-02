@@ -13,10 +13,10 @@ const I = (id: string, to: string, title: string, detail: string, icon: IconName
 
 // Big tiles at the top of the owner's page: the things used every day.
 export const OWNER_DAILY: MenuItem[] = [
+  I('approvals', '/approvals', 'Requests', 'Approve or deny bookings', 'calendar'),
   I('propsqueue', '/reservations', 'Props queue', 'Pick, pack, check in', 'box'),
   I('gearqueue', '/gear/bookings', 'Gear queue', 'Pickups and returns', 'camera'),
-  I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins and reports', 'calendar'),
-  I('addprop', '/add', 'Add a prop', 'Snap it, AI fills it in', 'plus'),
+  I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins and reports', 'clock'),
 ]
 
 export function teamMenu(who: MenuWho): MenuGroup[] {
@@ -31,6 +31,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('suggestions', '/suggestions', 'Suggested edits', 'Creators’ corrections to props', 'pencil'),
     ] },
     { key: 'props', title: 'Props & storage', icon: 'box', items: [
+      I('addprop', '/add', 'Add a prop', 'Snap it, AI fills it in', 'plus'),
       I('personal', '/personal', 'My personal props', 'Your own props at home (only you see them)', 'lock'),
       I('bins', '/bins', 'Bins & storage', 'Storage areas, bins, QR codes', 'archive'),
       I('categories', '/categories', 'Categories', 'Add, rename or hide categories', 'filter'),
@@ -65,6 +66,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'daily', title: 'Every day', icon: 'calendar', items: [
       I('calendar', '/calendar', 'Requests calendar', 'Every props request by shoot day', 'calendar'),
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Missed check-ins and reports to decide', 'clock'),
+      I('browse', '/browse', 'Props', 'Look through the closet', 'search'),
     ] },
     { key: 'people', title: 'Creators', icon: 'people', items: [
       I('analytics', '/analytics', 'Analytics', 'Who films more or less, every flag, the teams', 'chart'),

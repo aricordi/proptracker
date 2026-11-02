@@ -18,7 +18,9 @@ export interface Shoot {
   place: Place; where?: string
   date: string; month: string; start: number; end: number; from: string; to: string
   kind: ShootKind
-  status: 'booked' | 'cancelled'
+  status: 'booked' | 'cancelled' | 'requested' | 'denied' | 'expired'
+  requestedAt?: string; approvedBy?: string; approvedAt?: string; deniedReason?: string; deniedBy?: string
+  moveRequest?: { place: Place; date: string; start: number; end: number; where: string; from: string; to: string; at: string }
   bookedBy: string; lateCancel?: boolean
   createdAt: string
   history: { at: string; by: string; action: string; note?: string }[]
@@ -28,6 +30,9 @@ export interface Shoot {
   outcome?: 'filmed' | 'noshow'
   noShow?: 'late-cancel' | 'missed'
 }
+
+// A shoot that's on the schedule: approved, or a request waiting for the equipment team (owner, Nov 2).
+export const isLive = (s: { status: string }) => s.status === 'booked' || s.status === 'requested'
 
 // Settings (slot times, priority group…), live. Defaults until loaded.
 export function useScheduleSettings(): ScheduleSettings {
@@ -52,7 +57,7 @@ export function useMyShoots(email: string, fromDate: string): Shoot[] | null {
   const [list, setList] = useState<Shoot[] | null>(null)
   useEffect(() => onSnapshot(
     query(collection(db, 'shoots'), where('creatorEmail', '==', email), where('date', '>=', fromDate), orderBy('date')),
-    snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot)).filter(s => s.status === 'booked').sort((a, b) => a.from.localeCompare(b.from))),
+    snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot)).filter(isLive).sort((a, b) => a.from.localeCompare(b.from))),
     () => setList([])), [email, fromDate])
   return list
 }
@@ -66,9 +71,9 @@ export function useShoot(id: string | null): Shoot | null | undefined {
   return s
 }
 
-export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string }, { id: string; kind: ShootKind }>(functions, 'bookShoot')
+export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string }, { id: string; kind: ShootKind; status: 'booked' | 'requested' }>(functions, 'bookShoot')
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
-export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string }, { ok: boolean; kind: ShootKind }>(functions, 'moveShoot')
+export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')
 export const answerSwap = httpsCallable<{ id: string; accept: boolean }, { ok: boolean }>(functions, 'answerSwap')
 
@@ -114,7 +119,7 @@ export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgo
   }, [email])
   return { incoming, outgoing }
 }
-export const bookWithFriends = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind }, { shootIds: string[]; inviteIds: string[]; until: string }>(functions, 'bookWithFriends')
+export const bookWithFriends = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
 export const answerInvite = httpsCallable<{ id: string; accept: boolean }, { ok: boolean; shootId: string | null }>(functions, 'answerInvite')
 export interface TimeAskResult {
   reply: string
@@ -144,6 +149,7 @@ export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boole
 export const checkInShoot = httpsCallable<{ id: string; photos: string[]; report?: { overMinutes?: number; mess?: boolean; photos?: string[] } }, { ok: boolean; reported: string | null }>(functions, 'checkInShoot')
 export const wrapShoot = httpsCallable<{ id: string; title: string }, { ok: boolean }>(functions, 'wrapShoot')
 export const explainMissedCheckIn = httpsCallable<{ id: string; text: string }, { ok: boolean }>(functions, 'explainMissedCheckIn')
+export const decideBooking = httpsCallable<{ id: string; approve: boolean; reason?: string }, { ok: boolean }>(functions, 'decideBooking')
 export const decideShoot = httpsCallable<{ id: string; outcome: 'filmed' | 'noshow' }, { ok: boolean }>(functions, 'decideShoot')
 export const reviewReport = httpsCallable<{ id: string; uphold: boolean }, { ok: boolean }>(functions, 'reviewReport')
 export const liftPause = httpsCallable<{ email: string }, { ok: boolean }>(functions, 'liftPause')

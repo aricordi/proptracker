@@ -8,7 +8,7 @@ export const LATE_START_MINUTES = 15   // checked in more than 15 min after the 
 
 export interface StatShoot {
   id: string; creatorEmail: string; creatorName: string; date: string; from: string; to: string; place: string; where?: string
-  status: 'booked' | 'cancelled'; checkin?: { at: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
+  status: string; checkin?: { at: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
 }
 export interface StatProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; endDate: string; returnInfo?: { at: string } | null; checkedInAt?: string }
 export interface StatGear { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; to: string; date: string; returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null; late?: { by: string } | null }

@@ -24,9 +24,9 @@ const OWNER: GuideRole[] = ['owner']
 export const TABS: Record<GuideRole, string> = {
   creator: 'Bottom tabs: Home, Book, Browse, Me. The purple ✦ AI button sits at the top of Home, Book, Browse and Me.',
   owner: 'Bottom tabs: Home, Book, Browse, Me, Team (the Team tab has every staff and settings tool, in folding groups).',
-  admin: 'Bottom tabs: Dashboard, Queue (props), Gear (gear queue), Schedule, Props (browse).',
+  admin: 'Bottom tabs: Dashboard, Requests (approve bookings), Schedule, Queue (props), Gear (gear queue). Props (browse) is in the Dashboard menu.',
   arts: 'Bottom tabs: Queue, Props, Calendar, Add, Admin.',
-  equipment: 'Bottom tabs: Queue (gear), Schedule, Bundles, All gear, Admin.',
+  equipment: 'Bottom tabs: Requests (approve bookings), Queue (gear), Schedule, All gear, Admin (Bundles are in the Admin menu).',
   demo: 'Bottom tabs: Props and Me. Booking is not open yet for this account ("Props only"); the owner switches people to the full app.',
 }
 
@@ -34,6 +34,8 @@ export const GUIDE: GuideEntry[] = [
   // ── Everyone ──
   { id: 'browse', path: '/browse', title: 'Browse / Props', who: ALL, words: 'search find catalogue closet costume filter category',
     about: 'The whole props and costumes closet with photos. Type in the search box (it also finds related words, like "president" for a Lincoln mask), tap a category chip, or Status to filter. Tap a photo to open the prop page. Browse only shows Prime Capitol\'s props (the owner\'s personal props are on their own page). Creators with a shoot picked see Free/Taken for that shoot and a + on each photo to add it.' },
+  { id: 'approvals', path: '/approvals', title: 'Requests (approve bookings)', who: ['owner', 'equipment', 'admin'], words: 'approve deny request booking waiting pending queue calendar month',
+    about: 'Every creator booking is a request until someone approves it (no instant bookings). This page shows the month calendar (amber number = requests waiting that day, green = free spots; tap a day to see both houses hour by hour) and each waiting request, soonest first, with what you need to decide: how many they filmed in the last 30 days, what they already have coming up, strikes or a pause, other requests they made, and who is before/after them at the house. Approve, or Deny with a reason the creator reads. A request nobody decides on by its start time is dropped. A move of an approved shoot shows as "wants to move"; the old time stays theirs until you approve.' },
   { id: 'personal', path: '/personal', title: 'My personal props (owner)', who: ['owner'], words: 'personal own home my props private',
     about: 'The owner\'s own props (at home), kept off Browse so Browse only shows Prime Capitol\'s closet. Open it from Team → Props & storage → My personal props. Same search, categories and prop pages as Browse; nobody else can see these. To make a new personal prop, use Add a prop and pick "Belongs to: Personal".' },
   { id: 'item', path: '/item/:id', title: 'Prop page', who: ALL, words: 'details photos quantity wrong name suggest edit',
@@ -55,9 +57,9 @@ export const GUIDE: GuideEntry[] = [
   { id: 'home', path: '/', title: 'Home', who: FILMERS, words: 'next shoot to do streak usuals',
     about: 'Your next shoot card (Time / Props / Gear with each cutoff, and Check in when it opens), the search bar, your usual props, To do (invites, swaps, missed check-ins, shoots that still need props), Coming up, and Book a shoot.' },
   { id: 'book', path: '/schedule', title: 'Book (schedule)', who: [...FILMERS, 'equipment', 'admin'], words: 'book a shoot slot house cliff time friend back to back priority',
-    about: 'Tap "Book a shoot": choose Just me / + 1 friend / + 2 friends, pick a day in the strip, then tap a gold house button on a free time. With friends, your slot is booked and each friend\'s next slot is held for them to confirm. The top switch "At the houses | Somewhere else" picks the place: Somewhere else books an offsite shoot with any hours and an address. The day view shows Cliff 1 | Cliff 2 | Offsite with who is in each slot. Priority days at Cliff 1 are locked for the priority group until the Sunday release.' },
+    about: 'The Book tab opens on a MONTH | DAY switch. Month = a calendar with the number of free 2-hour spots each day (green lots, amber a few, grey full); tap a day to see both houses hour by hour and tap a gold time to ask for it. Every creator booking is a REQUEST: the time is held for you (dashed amber, "Waiting for approval") until the equipment team or an admin approves it (you get a notification); undecided requests are dropped at their start time; withdrawing is free. Or tap "Book a shoot": choose Just me / + 1 friend / + 2 friends, pick a day in the strip, then tap a gold house button on a free time. With friends, your slot is booked and each friend\'s next slot is held for them to confirm. The top switch "At the houses | Somewhere else" picks the place: Somewhere else books an offsite shoot with any hours and an address. The day view shows Cliff 1 | Cliff 2 | Offsite with who is in each slot. Priority days at Cliff 1 are locked for the priority group until the Sunday release.' },
   { id: 'shootsheet', title: 'Your shoot (shoot page)', who: FILMERS, words: 'move swap cancel check in wrap history shoot details',
-    about: 'Tap your shoot on Book, Home or My shoots. It shows the time and place, Props & costumes and Gear for that shoot with the last day to add each, On the day (check in with a set photo, then wrap), and More: Move, Swap with someone, Cancel, History.' },
+    about: 'Tap your shoot on Book, Home or My shoots. It shows the status (Waiting for approval / Approved / Not approved with the reason), the time and place, Props & costumes and Gear for that shoot with the last day to add each, On the day (check in with a set photo, then wrap), and More: Move, Swap with someone, Cancel, History. Moving an approved shoot asks the team again; you keep the old time until they approve.' },
   { id: 'shoots', path: '/shoots', title: 'My shoots', who: FILMERS, words: 'my shoots upcoming past prep',
     about: 'All your shoots: Coming up (Today / This week / Later) with what is still missing (+ Props by…, + Gear by…) and Past (filmed, no-show, not checked in). Also from Book → "All my shoots".' },
   { id: 'gear', path: '/gear', title: 'Browse → Gear', who: FILMERS, words: 'camera light drone kit bundle single item rent',
@@ -145,7 +147,7 @@ export const GUIDE: GuideEntry[] = [
 
   // ── Owner only ──
   { id: 'schedulesettings', path: '/schedule/settings', title: 'Schedule settings', who: OWNER, words: 'slots priority group release strikes notice houses',
-    about: 'Houses, slot times, house slots a day, moving notice, check-in and strike numbers, priority days, Sunday release time and the priority group. Save at the bottom.' },
+    about: 'Books without approval (people whose bookings are approved at once, e.g. Kyle), houses, slot times, house slots a day, moving notice, check-in and strike numbers, priority days, Sunday release time and the priority group. Save at the bottom.' },
   { id: 'connections', path: '/connections', title: 'Calendar & email', who: OWNER, words: 'google calendar email connect account share calendar id client secret gocspx access',
     about: 'Three steps: 1 connect the Prime Capitol Google account (one-time Google Cloud setup inside), 2 the APP CALENDAR (a new calendar, e.g. "Prime Capitol Shoots", owned by whoever should own it and shared with the account with "Make changes to events"): paste its ID → Save & test; every booking, move, cancel and block goes there, one colour per place, with the shoot props and gear; then add the OLD calendars (up to 6, read only, "See all event details" is enough): name, ID and whether it is all Cliff 1, all Cliff 2 or mixed → Save & check, 3 Turn on emails → test. The client secret starts with GOCSPX- and Google shows it in full only once (else open the client → Add secret). "You need additional access" in Google Cloud = signed in with the wrong Google account: switch to the one that owns the project.' },
   { id: 'calimport', path: '/schedule/import', title: 'Import from Google Calendar', who: OWNER, words: 'import existing events clash old calendars stromedy all day',

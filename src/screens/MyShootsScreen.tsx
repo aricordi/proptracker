@@ -84,6 +84,8 @@ export default function MyShootsScreen() {
             <b className="block text-pt-text text-[16px] truncate">{place(x)} · {fmtSlot(x.start, x.end - x.start)}</b>
             <span className={`block text-[13px] ${isPast ? pastState.cls : x.date === today ? 'text-pt-accent font-semibold' : 'text-pt-muted'}`}>
               {isPast ? pastState.text : x.checkin ? 'Checked in ✓' : whenLabel(x.date, today)}
+              {!isPast && x.status === 'requested' && <span className="text-amber-300 font-semibold"> · Waiting for approval</span>}
+              {!isPast && x.moveRequest && <span className="text-amber-300 font-semibold"> · Move asked</span>}
               {!isPast && p[0]?.title ? <span className="text-pt-muted font-normal"> · {p[0].title}</span> : !isPast && g[0]?.title ? <span className="text-pt-muted font-normal"> · {g[0].title}</span> : null}
             </span>
           </span>

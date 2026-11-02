@@ -60,6 +60,7 @@ const ScheduleSettingsScreen = lazy(() => import('./screens/ScheduleSettingsScre
 const ScheduleRulesScreen = lazy(() => import('./screens/ScheduleRulesScreen'))
 const CalendarImportScreen = lazy(() => import('./screens/CalendarImportScreen'))
 const ScheduleTeamScreen = lazy(() => import('./screens/ScheduleTeamScreen'))
+const ApprovalsScreen = lazy(() => import('./screens/ApprovalsScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import { warmItems } from './hooks/useItems'
@@ -354,6 +355,7 @@ export default function App() {
           <Route path="/schedule/import" element={<ScheduleSettingsOnly><CalendarImportScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/calendar" element={<ScheduleSettingsOnly><CalendarSyncScreen /></ScheduleSettingsOnly>} />
           <Route path="/schedule/team" element={<SeeGear><ScheduleTeamScreen /></SeeGear>} />
+          <Route path="/approvals" element={<SeeGear><ApprovalsScreen /></SeeGear>} />
           <Route path="/reservations" element={<ReservationsScreen />} />
           <Route path="/booking-rules" element={<PeopleOnly><BookingRulesScreen /></PeopleOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useMyShoots, type Shoot } from '../services/schedule'
+import { useMyShoots, isLive, type Shoot } from '../services/schedule'
 import { useActiveShoot, useCutoffs, useShootLabel } from '../activeShoot'
 import { useBookingSettings } from '../hooks/useBookings'
 import { todayInStudio, addDays, isLate } from '../../functions/src/booking'
@@ -40,7 +40,7 @@ export default function MyRequestsScreen() {
     const names = [...new Set([...g.props.map(p => p.title), ...g.gear.map(x => x.title)].filter(Boolean))]
     const sh = g.shoot
     const cut = sh ? cutoffs(sh) : null
-    const canAdd = !!sh && sh.status === 'booked' && !!cut && today <= cut.gear
+    const canAdd = !!sh && isLive(sh) && !!cut && today <= cut.gear
     return (
       <div key={g.key} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
         <button onClick={() => sh && navigate(`/schedule?shoot=${sh.id}`)} disabled={!sh} className="w-full flex items-center gap-3 text-left px-1">

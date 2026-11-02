@@ -73,6 +73,10 @@ const homeIcon = (
 )
 
 // Creators: everything revolves around the shoot (Home → Book a time → Browse props + gear → Me).
+const requestsIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" /></svg>
+)
+
 const creatorNav = [
   { to: '/',         label: 'Home',   icon: homeIcon },
   { to: '/schedule', label: 'Book',   icon: scheduleIcon, also: ['/shoots'] },
@@ -92,27 +96,28 @@ const gearIcon = (
 
 // Equipment team: gear only. Same shape as the arts department (owner, Oct 20: "unify that design"):
 // the queue first, then their screens, then an Admin menu (AdminScreen) with everything else, incl. their account.
+// Nov 2: Requests first (every creator booking waits for the equipment team); Bundles moved into the Admin menu.
 const equipmentNav = [
+  { to: '/approvals',     label: 'Requests', icon: requestsIcon },
   { to: '/gear/bookings', label: 'Queue', icon: queueIcon },
   { to: '/schedule',      label: 'Schedule', icon: scheduleIcon },
-  { to: '/gear/bundles', label: 'Bundles',  icon: gearIcon },
   { to: '/gear/items',   label: 'All gear', icon: cameraIcon },
   { to: '/admin',        label: 'Admin',    icon: adminIcon, also: ['/account', '/help', '/tour'] },
 ]
 
 // For the practice tours' pretend tab bars.
 export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
-  Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon, Gear: gearIcon, Props: searchIcon, Dashboard: adminIcon }
+  Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon, Gear: gearIcon, Props: searchIcon, Dashboard: adminIcon, Requests: requestsIcon }
 
 // Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
 // Owner (Oct 20): the Dashboard is the admin's home; Props = the closet (it used to open the props queue a second time).
 const adminNav = [
   { to: '/',         label: 'Dashboard', icon: adminIcon, also: ['/admin', '/add', '/suggestions', '/duplicates', '/activity', '/health', '/users', '/people',
     '/categories', '/booking-rules', '/bins', '/creators', '/calendar', '/account', '/schedule/team', '/analytics', '/rules-sheet'] },
+  { to: '/approvals', label: 'Requests', icon: requestsIcon },
+  { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
   { to: '/reservations', label: 'Queue', icon: queueIcon },
   { to: '/gear/bookings', label: 'Gear', icon: gearIcon, also: ['/gear'] },
-  { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
-  { to: '/browse',   label: 'Props',    icon: searchIcon, also: ['/item'] },
 ]
 
 // The owner films too: the creator tabs, plus "Team" for everything only the owner and staff can do.
@@ -121,7 +126,7 @@ const ownerNav = [
   { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests'] },
   { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
     '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
-    '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet'] },
+    '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet', '/approvals', '/personal'] },
 ]
 
 // Demo mode (test launch, Oct 27): the props list and Me, nothing to book.

@@ -42,6 +42,8 @@ export default function RulesSheetScreen() {
       ['Late return fee', `${LATE_FEE_PERCENT}% of the gear's value`, 'Company rule (Oct 27). Goes on whoever had the gear last. The app keeps the record (Analytics → Late returns: how late, the value, who); nobody is charged automatically, and admins can excuse one as an exception. Props late are logged with no fee for now.', owner],
     ] },
     { title: 'Schedule and houses', edit: isOwner ? { label: 'Schedule settings', to: '/schedule/settings' } : undefined, rows: [
+      ['Approval', 'Every creator booking', 'A creator\'s booking (and moving an approved shoot) is a request: the slot is held, the equipment team, an admin or the owner approves or declines it on Requests. Undecided requests are dropped at their start time; a reminder goes to the team after 12 h.', owner],
+      ['Books without approval', s.instantBookers.length ? list(s.instantBookers.map(p => p.name)) : 'Nobody', 'People whose bookings are approved at once (e.g. Kyle / Stromedy).', owner],
       ['Slots', `${s.slots.length} a day, ${s.slotMinutes / 60} h each (${fmtTime(s.slots[0])} to ${fmtTime((s.slots[s.slots.length - 1] + s.slotMinutes) % 1440)})`, 'The fixed grid creators book at the houses.', owner],
       ['House slots a day', `${s.slotsPerDay} per creator`, 'How many house slots one creator can book on the same day (the team can book more for them).', owner],
       ['Moving or cancelling for free', `${s.noticeHours} h before`, 'Inside this, a creator cancel counts as a no-show (a strike); only a swap avoids it.', owner],

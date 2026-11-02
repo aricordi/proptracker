@@ -152,7 +152,7 @@ export default function CreatorHomeScreen() {
             <span className="relative block font-display text-[44px] leading-[0.95] font-extrabold tracking-tighter mt-2">{formatDay(next.date, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
             <span className="relative block text-[17px] font-semibold mt-1">{next.place === 'offsite' ? (next.where || 'Offsite') : s.houses[next.place].name} · {fmtSlot(next.start, next.end - next.start)}</span>
             <span className="relative grid grid-cols-3 gap-2 my-4">
-              {step('Time', true, 'Booked', today)}
+              {step('Time', true, next.status === 'requested' ? 'Waiting for OK' : 'Booked', today)}
               {step('Props', !!linked[next.id]?.props, 'Requested', cutoffs(next).props)}
               {step('Gear', !!linked[next.id]?.gear, 'Held', cutoffs(next).gear)}
             </span>

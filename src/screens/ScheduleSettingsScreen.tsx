@@ -26,6 +26,9 @@ export default function ScheduleSettingsScreen() {
   const inGroup = (email: string) => s.priority.some(p => p.email === email)
   const toggle = (p: { email: string; name: string }) =>
     set({ priority: inGroup(p.email) ? s.priority.filter(x => x.email !== p.email) : [...s.priority, { email: p.email, name: p.name }] })
+  const isInstant = (email: string) => s.instantBookers.some(p => p.email === email)
+  const toggleInstant = (p: { email: string; name: string }) =>
+    set({ instantBookers: isInstant(p.email) ? s.instantBookers.filter(x => x.email !== p.email) : [...s.instantBookers, { email: p.email, name: p.name }] })
   const outsiders = s.priority.filter(p => !people.some(x => x.email === p.email))
 
   async function save() {
@@ -123,6 +126,20 @@ export default function ScheduleSettingsScreen() {
             <span className="text-pt-muted text-sm">hours' notice to move or cancel for free</span>
           </div>
           <p className="text-pt-muted text-xs">Closer than that, a creator can only swap with someone; cancelling counts as a no-show. Your own changes never count.</p>
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <h2 className="text-pt-text font-semibold">Books without approval ({s.instantBookers.length})</h2>
+          <p className="text-pt-muted text-xs">Every creator's booking waits for the equipment team, an admin or you to approve it. People ticked here (e.g. Kyle / Stromedy) get theirs at once.</p>
+          <div className="max-h-60 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
+            {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
+            {[...people, ...s.instantBookers.filter(p => !people.some(x => x.email === p.email)).map(p => ({ ...p, role: '' }))].map(p => (
+              <label key={p.email} className="flex items-center gap-3 px-3 py-3">
+                <input type="checkbox" checked={isInstant(p.email)} onChange={() => toggleInstant(p)} />
+                <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
+              </label>
+            ))}
+          </div>
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">

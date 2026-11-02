@@ -28,7 +28,7 @@ export default function ScheduleRulesScreen() {
         <ul className="list-disc pl-5 space-y-2">
           <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>: {s.slots.map(t => fmtSlot(t, s.slotMinutes)).join(', ')}.</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
-          <Li>Bookings are <b>confirmed instantly</b> when the slot is free and these rules allow it, up to {BOOK_AHEAD_DAYS} days ahead.</Li>
+          <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {BOOK_AHEAD_DAYS} days ahead. A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
           <Li>Filming with someone? In <b>Book a shoot</b> pick "+ 1 friend" or "+ 2 friends": you each get a slot back to back, and theirs is held for them to confirm.</Li>
         </ul>
 
@@ -85,7 +85,7 @@ export default function ScheduleRulesScreen() {
 
         <H>Moving, swapping and cancelling</H>
         <ul className="list-disc pl-5 space-y-2">
-          <Li>More than <b>{s.noticeHours} hours</b> before your shoot, you can <b>move</b> it to any free slot or <b>cancel</b> it for free. A move happens in one step: you keep your slot until the new one is yours.</Li>
+          <Li>More than <b>{s.noticeHours} hours</b> before your shoot, you can <b>move</b> it to any free slot or <b>cancel</b> it for free. Moving an approved shoot is a request too: you keep your slot until the new one is approved.</Li>
           <Li>Closer than {s.noticeHours} hours, you can only <b>swap</b> with another creator. Cancelling then <b>counts as a no-show</b>.</Li>
           <Li>To swap, open your shoot → <b>Swap with someone</b>, or tap someone's slot → <b>Ask to swap</b>. When they accept, both shoots switch instantly. A swap never counts against anyone.</Li>
           <Li>Booked something by mistake? You can cancel it for free within 10 minutes of booking.</Li>
