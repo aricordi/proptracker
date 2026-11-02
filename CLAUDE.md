@@ -1694,6 +1694,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       sessionStorage 'pc.browseShown' so Back lands on the same spot); `byName` uses one shared Intl.Collator. After: Browse 0.06–0.24 s.
       Other screens measured fine (Schedule, Me, Dashboard, Analytics, queues 0–0.13 s); Health 1.3 s and Bins 0.9 s (staff tools)
       left as is. Optional later (owner OK needed, go-live item 6): remove the legacy `embedding` arrays from old props.
+    - LIVE Nov 2 (website run 53, owner "yes put it live"): draw explained everywhere + speed fix.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
