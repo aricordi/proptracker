@@ -370,6 +370,7 @@ export default function App() {
           <Route path="/admin" element={<TeamOnly><AdminScreen /></TeamOnly>} />
           <Route path="/health" element={<StaffOnly><HealthScreen /></StaffOnly>} />
           <Route path="/users" element={<PeopleOnly><UsersScreen /></PeopleOnly>} />
+          <Route path="/personal" element={<OwnerOnly><HomeScreen personal /></OwnerOnly>} />
           <Route path="/categories" element={<OwnerOnly><CategoriesScreen /></OwnerOnly>} />
           <Route path="/email" element={<OwnerOnly><EmailSettingsScreen /></OwnerOnly>} />
           {/* Calendar & email (owner, Oct 28): one page. /google stays because Google sends people back there after signing in. */}

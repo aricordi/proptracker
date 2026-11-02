@@ -9,7 +9,7 @@ import { useNavigate, useSearchParams, useNavigationType } from 'react-router-do
 import ItemCard, { type Badge } from '../components/ItemCard'
 import DateRangePicker from '../components/DateRangePicker'
 import LateBanner from '../components/LateBanner'
-import { COLLECTION_LABELS, type PropCollection } from '../../functions/src/collections'
+import { type PropCollection } from '../../functions/src/collections'
 import { useMyLateBookings } from '../hooks/useLateBookings'
 import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useCart } from '../cart'
@@ -44,15 +44,13 @@ const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnl
 
 const PAGE = 40
 
-export default function HomeScreen() {
+export default function HomeScreen({ personal = false }: { personal?: boolean }) {
   const { isStaff, isOwner, shootFlow, canBook, demo } = useSession()
   const ai = useAssistant()
-  // Owner only: switch between Prime Capitol's props and your own.
-  const [collection, setCollection] = useState<PropCollection>(() => {
-    try { return localStorage.getItem('pt-collection') === 'personal' ? 'personal' : 'company' } catch { return 'company' }
-  })
-  const pickCollection = (c: PropCollection) => { setCollection(c); try { localStorage.setItem('pt-collection', c) } catch { /* ignore */ } }
-  const shownCollection: PropCollection = isOwner ? collection : 'company'
+  // Owner only (Nov 2: "I rarely search my own props"): Browse always shows Prime Capitol's props;
+  // the owner's personal props live on their own page, Team → Props & storage → My personal props (/personal).
+  const shownCollection: PropCollection = isOwner && personal ? 'personal' : 'company'
+  const scrollKey = personal ? 'pc.personalScroll' : 'pc.browseScroll', shownKey = personal ? 'pc.personalShown' : 'pc.browseShown'
   const allItems   = useItems()
   const tags       = useTags()
   const locations  = useLocations()
@@ -213,21 +211,21 @@ export default function HomeScreen() {
   useEffect(() => {
     const box = rootRef.current?.closest<HTMLElement>('.overflow-y-auto')
     if (!box) return
-    const save = () => { try { sessionStorage.setItem('pc.browseScroll', String(box.scrollTop)) } catch { /* private mode */ } }
+    const save = () => { try { sessionStorage.setItem(scrollKey, String(box.scrollTop)) } catch { /* private mode */ } }
     box.addEventListener('scroll', save, { passive: true })
     return () => box.removeEventListener('scroll', save)
   }, [])
   // Draw the cards in pages as you scroll (owner, Nov 2: laggy): 1,000+ cards at once froze phones.
   const [shown, setShown] = useState(() => {
     if (navType !== 'POP') return PAGE
-    try { return Math.max(PAGE, Number(sessionStorage.getItem('pc.browseShown') || 0)) } catch { return PAGE }
+    try { return Math.max(PAGE, Number(sessionStorage.getItem(shownKey) || 0)) } catch { return PAGE }
   })
   const firstFilter = useRef(true)
   useEffect(() => {
     if (firstFilter.current) { firstFilter.current = false; return }
     setShown(PAGE)
   }, [q, categoryFilter, availability, shownCollection])
-  useEffect(() => { try { sessionStorage.setItem('pc.browseShown', String(shown)) } catch { /* private mode */ } }, [shown])
+  useEffect(() => { try { sessionStorage.setItem(shownKey, String(shown)) } catch { /* private mode */ } }, [shown])
   const moreRef = useRef<HTMLDivElement>(null)
   const hasMore = matched.length > shown
   useEffect(() => {
@@ -244,7 +242,7 @@ export default function HomeScreen() {
     restored.current = true
     const box = rootRef.current?.closest<HTMLElement>('.overflow-y-auto')
     let top = 0
-    try { top = Number(sessionStorage.getItem('pc.browseScroll') || 0) } catch { /* private mode */ }
+    try { top = Number(sessionStorage.getItem(scrollKey) || 0) } catch { /* private mode */ }
     if (box && top) box.scrollTop = top
   }, [allItems.length, navType])
 
@@ -253,28 +251,20 @@ export default function HomeScreen() {
     <div ref={rootRef} className="min-h-full bg-pt-bg">
       {/* Title and tabs scroll away with the page (owner, Oct 20: the old fold-away header was choppy). */}
       <div className="pt-safe px-4">
-        <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5">
+        {personal && <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] py-1">‹ Back</button>}
+        {personal ? <h1 className="font-display text-[30px] leading-tight text-pt-text">My personal props</h1> : <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5">
           <BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{toRequest ? 'Add to your request' : shootFlow ? 'Browse' : 'Props'}</span>
           {shootFlow && !toRequest && <><AiButton mode="props" /><MyRequestsButton /></>}
           {demo && <AiButton mode="props" />}
-        </h1>
+        </h1>}
+        {personal && <p className="text-pt-muted text-sm mt-1">Only you can see these. They never show on Browse for anyone.</p>}
         {demo && (
           // Props only (owner, Oct 28): get people used to the AI before booking opens.
           <button onClick={() => ai.open('props')} className="mt-3 w-full min-h-[44px] flex items-center gap-2 rounded-full px-4 py-2.5 text-left text-[14px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
             <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Got a video idea? Ask AI which props fit</span><span aria-hidden>›</span>
           </button>
         )}
-        {shootFlow && !toRequest && <div className="mt-2.5"><BrowseTabs /></div>}
-        {isOwner && !toRequest && (
-          <div className="flex gap-1 mt-2.5 p-1 bg-pt-surface shadow-hairline rounded-xl">
-            {(['company', 'personal'] as PropCollection[]).map(c => (
-              <button key={c} onClick={() => pickCollection(c)}
-                className={`flex-1 py-1.5 rounded-lg text-sm font-medium ${shownCollection === c ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>
-                {COLLECTION_LABELS[c]}
-              </button>
-            ))}
-          </div>
-        )}
+        {shootFlow && !toRequest && !personal && <div className="mt-2.5"><BrowseTabs /></div>}
       </div>
 
       {/* Search + one row of chips stay pinned under the status bar. */}

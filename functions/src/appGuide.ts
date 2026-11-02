@@ -33,7 +33,9 @@ export const TABS: Record<GuideRole, string> = {
 export const GUIDE: GuideEntry[] = [
   // ── Everyone ──
   { id: 'browse', path: '/browse', title: 'Browse / Props', who: ALL, words: 'search find catalogue closet costume filter category',
-    about: 'The whole props and costumes closet with photos. Type in the search box (it also finds related words, like "president" for a Lincoln mask), tap a category chip, or Status to filter. Tap a photo to open the prop page. Creators with a shoot picked see Free/Taken for that shoot and a + on each photo to add it.' },
+    about: 'The whole props and costumes closet with photos. Type in the search box (it also finds related words, like "president" for a Lincoln mask), tap a category chip, or Status to filter. Tap a photo to open the prop page. Browse only shows Prime Capitol\'s props (the owner\'s personal props are on their own page). Creators with a shoot picked see Free/Taken for that shoot and a + on each photo to add it.' },
+  { id: 'personal', path: '/personal', title: 'My personal props (owner)', who: ['owner'], words: 'personal own home my props private',
+    about: 'The owner\'s own props (at home), kept off Browse so Browse only shows Prime Capitol\'s closet. Open it from Team → Props & storage → My personal props. Same search, categories and prop pages as Browse; nobody else can see these. To make a new personal prop, use Add a prop and pick "Belongs to: Personal".' },
   { id: 'item', path: '/item/:id', title: 'Prop page', who: ALL, words: 'details photos quantity wrong name suggest edit',
     about: 'Photos, how many we have, condition and notes. "Add to this shoot" (people who book) adds it to the shoot you are adding to. "Something wrong? Suggest an edit" sends a fix to the arts team.' },
   { id: 'account', path: '/account', title: 'Me / Account', who: ALL, words: 'profile photo channel name sign out notifications birthday',

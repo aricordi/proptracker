@@ -229,8 +229,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
    failures, the workflow now retries once and sets a 7-day image cleanup policy).
 4. Owner opens the preview, tests, then runs "Rebuild smart search" on Health.
 5. ✅ Hosting deployed to live (Oct 13, run 1).
-6. Later, with approval: remove the obsolete `embedding` arrays from props
-   (they make every phone download extra data).
+6. Remove the obsolete `embedding` arrays from props: owner OK Nov 2, button "Remove old AI data from props".
 7. After hosting goes live: delete the OLD Gemini key (it was exposed in the old website code).
 
 ### Next sprint (owner's plan, Oct 13 — NOT started; plan with the owner first)
@@ -1695,6 +1694,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Other screens measured fine (Schedule, Me, Dashboard, Analytics, queues 0–0.13 s); Health 1.3 s and Bins 0.9 s (staff tools)
       left as is. Optional later (owner OK needed, go-live item 6): remove the legacy `embedding` arrays from old props.
     - LIVE Nov 2 (website run 53, owner "yes put it live"): draw explained everywhere + speed fix.
+    - PERSONAL PROPS OFF BROWSE + OLD EMBEDDINGS (owner, Nov 2: "yes let's do that [remove embeddings] and hide the personal props
+      behind something in the admin menu only visible to me"). HomeScreen `personal` prop: Browse ALWAYS shows company props (the
+      owner's Prime Capitol/Personal switch + pt-collection localStorage removed); `/personal` (OwnerOnly) = HomeScreen personal
+      ("My personal props", ‹ Back, own scroll keys pc.personalScroll/pc.personalShown); TeamMenu owner Props & storage → "My
+      personal props"; appGuide 'personal' entry. GO-LIVE ITEM 6: `.github/workflows/remove-old-embeddings.yml` "Remove old AI
+      data from props" (mode check = count only, remove = PATCH items/{id}?updateMask.fieldPaths=embedding&currentDocument.exists=true
+      with no value → removes just that field; updatedAt untouched; onItemWritten skips unchanged text so no AI cost; activity logs
+      nothing). Tested on the emulator (the emulator rejects currentDocument.updateTime, so that guard isn't used; the field mask
+      already protects other edits).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

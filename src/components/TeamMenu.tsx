@@ -31,6 +31,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('suggestions', '/suggestions', 'Suggested edits', 'Creators’ corrections to props', 'pencil'),
     ] },
     { key: 'props', title: 'Props & storage', icon: 'box', items: [
+      I('personal', '/personal', 'My personal props', 'Your own props at home (only you see them)', 'lock'),
       I('bins', '/bins', 'Bins & storage', 'Storage areas, bins, QR codes', 'archive'),
       I('categories', '/categories', 'Categories', 'Add, rename or hide categories', 'filter'),
       I('duplicates', '/duplicates', 'Find duplicates', 'Look-alike props to merge', 'search'),
