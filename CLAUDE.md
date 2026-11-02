@@ -1704,6 +1704,21 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       nothing). Tested on the emulator (the emulator rejects currentDocument.updateTime, so that guard isn't used; the field mask
       already protects other edits).
       CHECK RUN 1 (Nov 2, live, read only): 1,245 props, 0 with the old field → nothing to remove, remove mode NOT run.
+    - CHAT-FIRST REDESIGN (owner, Nov 2, after talking to the equipment guy; "humongous priority"; PLANNING, nothing built):
+      creators can barely use apps; today they message on Slack ("yo, booking Thursday Cliff 1 at 5am"). OWNER DECISIONS:
+      (1) the creator app becomes a CHAT (in the app, not Slack for now): type what you want, it gets done; it infers the stage
+      and PROMPTS (check-in at shoot time via notification → chat, house clean / ran over questions; time-based, NOT location).
+      (2) EVERY creator booking needs MANUAL APPROVAL by the equipment guy (Maanik) or ADMINS: no instant bookings; a request
+      HOLDS the slot (separate "requested" state so nobody double-books), approved → official calendar. Equipment guy gets ONE
+      TASK LIST: approve/deny bookings (with abuse/overbooking flags), gear check-ins/outs, reports.
+      (3) NO GEAR BOOKING: booking a shoot implies gear. Gear = grab-and-go: on a SHOOT DAY ONLY, "checking out FX3 case 1" + photo,
+      return + photo. Reserving a case only within 24 h of your shoot; otherwise first come, first served.
+      (4) REMOVE THE MONTHLY DRAW/WISHLIST: the equipment guy puts the 4 guaranteed Cliff 1 slots in the Google Calendar himself;
+      the app imports them (calendar check). URGENT before Nov 15 (drawTick sends the "wishlist open" push on the 15th, 9 AM).
+      MOCKUP v1: https://claude.ai/artifact/3yvqDPMXy7xn1hiuPxzm3R (Creator chat / Equipment team task list / To confirm: 10 guesses
+      — request holds slot; 12 h reminder + dropped at slot start; own cancel free, move = new request; offsite = request too;
+      guaranteed slots imported as approved; gear late = 30 min after slot; props through chat, arts still pack; admins approve;
+      old screens under "More"; check-in at shoot time). Waiting for the owner's answers before building.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
