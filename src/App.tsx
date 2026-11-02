@@ -64,6 +64,7 @@ const WishlistScreen = lazy(() => import('./screens/WishlistScreen'))
 const DrawScreen = lazy(() => import('./screens/DrawScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
+import { warmItems } from './hooks/useItems'
 import { AssistantProvider } from './assistant'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
@@ -93,6 +94,9 @@ function usePrefetchTabs(on: boolean) {
 function Prefetch() {
   usePrefetchTabs(true)
   useEffect(() => { refreshPush() }, [])   // keep this phone's notification sign-up fresh
+  // Start loading the props list in the background (the equipment team can't read props).
+  const { realRole } = useSession()
+  useEffect(() => realRole === 'equipment' ? undefined : warmItems(realRole === 'owner' ? 'all' : 'company'), [realRole])
   return null
 }
 

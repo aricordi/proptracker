@@ -42,6 +42,8 @@ const AVAILABILITY_OPTIONS: { value: AvailabilityFilter; label: string; staffOnl
   { value: 'archived',    label: 'Archived', staffOnly: true },
 ]
 
+const PAGE = 40
+
 export default function HomeScreen() {
   const { isStaff, isOwner, shootFlow, canBook, demo } = useSession()
   const ai = useAssistant()
@@ -215,6 +217,27 @@ export default function HomeScreen() {
     box.addEventListener('scroll', save, { passive: true })
     return () => box.removeEventListener('scroll', save)
   }, [])
+  // Draw the cards in pages as you scroll (owner, Nov 2: laggy): 1,000+ cards at once froze phones.
+  const [shown, setShown] = useState(() => {
+    if (navType !== 'POP') return PAGE
+    try { return Math.max(PAGE, Number(sessionStorage.getItem('pc.browseShown') || 0)) } catch { return PAGE }
+  })
+  const firstFilter = useRef(true)
+  useEffect(() => {
+    if (firstFilter.current) { firstFilter.current = false; return }
+    setShown(PAGE)
+  }, [q, categoryFilter, availability, shownCollection])
+  useEffect(() => { try { sessionStorage.setItem('pc.browseShown', String(shown)) } catch { /* private mode */ } }, [shown])
+  const moreRef = useRef<HTMLDivElement>(null)
+  const hasMore = matched.length > shown
+  useEffect(() => {
+    const el = moreRef.current
+    if (!el || !hasMore) return
+    const io = new IntersectionObserver(e => { if (e[0].isIntersecting) setShown(n => n + PAGE * 2) }, { rootMargin: '1200px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasMore, shown])
+
   const restored = useRef(false)
   useLayoutEffect(() => {
     if (restored.current || navType !== 'POP' || !allItems.length) return
@@ -329,10 +352,11 @@ export default function HomeScreen() {
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          {matched.map(card)}
+          {matched.slice(0, shown).map(card)}
         </div>
+        {hasMore && <div ref={moreRef} className="h-10" aria-hidden />}
 
-        {similar.length > 0 && (
+        {!hasMore && similar.length > 0 && (
           <>
             <div className="flex items-center gap-3 py-4">
               <div className="flex-1 h-px bg-pt-border" />

@@ -1678,6 +1678,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       runCalendarCheck also applies NEW sure events (broughtIn count; newEvents = unclear only); imported SHOOT clashes now push too
       (saved clashWith). Import screen: "Set everything showing to Skip ›", "brought in N clear new events" in the status line.
       Tests 524. Checked on the emulator: Book card, team draw run (24 slots, spread), creator's results, wishlist add sheet (fake clock).
+      LIVE Nov 2 (owner "yes deploy both"): backend run 53 + website run 52.
+    - DRAW EXPLAINED (owner, Nov 2: "explained and clear in the tutorial, help, and setup pages so we never forget"; app only):
+      `src/components/DrawExplainer.tsx` = ONE explanation (DrawSteps 6 steps, +2 for the team; DrawFaq "Questions people ask",
+      +3 team ones; live numbers from settings + monthlyDraw constants) as a folding "How the draw works" card on WishlistScreen,
+      DrawScreen (team) and Schedule settings (under Monthly slots, + "Monthly draw page ›"). Rules sheet section "Monthly Cliff 1
+      draw". Help topic "Your N monthly Cliff 1 slots (the draw)" (9 Qs). Tours: pop quiz 'quizdraw' (creator ch2, admin ch8, gear
+      ch8) + a cheat-sheet line in all 3. appGuide wishlist/draw entries carry the FAQ answers. When the draw rules change, change
+      DrawExplainer (and the Rules sheet rows), nowhere else.
+    - SPEED (owner, Nov 2: "a bit laggy"; app only): measured on the emulator with 1,500 props and the CPU slowed 4×. Browse froze
+      2.8–3.6 s on every visit (each screen opened its own props listener → all props re-read and re-decoded from the phone's
+      storage, and all ~1,200 cards drawn at once). FIX: `src/hooks/useItems.ts` = ONE shared live props list (store per scope,
+      only changed props re-shaped, kept 30 min after the last screen closes, `warmItems` starts it right after sign-in in App's
+      Prefetch, not for equipment); HomeScreen draws 40 cards then more as you scroll (IntersectionObserver, count kept in
+      sessionStorage 'pc.browseShown' so Back lands on the same spot); `byName` uses one shared Intl.Collator. After: Browse 0.06–0.24 s.
+      Other screens measured fine (Schedule, Me, Dashboard, Analytics, queues 0–0.13 s); Health 1.3 s and Bins 0.9 s (staff tools)
+      left as is. Optional later (owner OK needed, go-live item 6): remove the legacy `embedding` arrays from old props.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

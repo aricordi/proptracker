@@ -26,6 +26,8 @@ export function matchesQuery(item: Item, query: string, tagById: Record<string, 
   return words.every(w => haystack.includes(w))
 }
 
+// One shared collator: localeCompare with options builds a new one on every call (slow on 1,000+ props).
+const collator = new Intl.Collator('en', { sensitivity: 'base', numeric: true })
 export function byName(a: Item, b: Item) {
-  return a.name.localeCompare(b.name, 'en', { sensitivity: 'base', numeric: true })
+  return collator.compare(a.name, b.name)
 }

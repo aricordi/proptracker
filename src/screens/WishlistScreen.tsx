@@ -1,6 +1,7 @@
 // Monthly Cliff 1 wishlist (owner, Nov 1): between the 15th and the 20th at 6 PM, rank up to 8 Cliff 1 slots for next
 // month (optionally with a friend right after you). The fair draw on the 20th gives everyone their guaranteed slots,
 // spread out (never two on the same or next day). No wishes? The app picks from your usual days and times.
+import { DrawExplainer } from '../components/DrawExplainer'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
@@ -53,6 +54,7 @@ export default function WishlistScreen() {
       </div>
       <div className="px-4 pt-1 space-y-5">
         <p className="text-pt-muted text-sm">Everyone gets <b className="text-pt-text">{s.monthlySlots} guaranteed {s.houses.cliff1.name} slots</b> in {monthShort(month)}. Rank the ones you'd like; a fair draw on <b className="text-pt-text">{stampLabel(win.closes)}</b> hands them out. It's not a race: when you save doesn't matter.</p>
+        <DrawExplainer />
 
         {done ? (
           <section className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">

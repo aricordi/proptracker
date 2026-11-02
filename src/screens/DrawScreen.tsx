@@ -8,6 +8,7 @@ import { formatDay } from '../lib/dates'
 import { todayInStudio } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import { useScheduleSettings, fmtSlot } from '../services/schedule'
+import { DrawExplainer } from '../components/DrawExplainer'
 import { useAllWishes, useDraw, runMonthlyDraw, undoMonthlyDraw, wishWindow, drawMonthFor, monthAfter, monthLabel, howLabel } from '../services/draw'
 
 const stampLabel = (st: string) => `${formatDay(st.slice(0, 10), { weekday: 'short', month: 'short', day: 'numeric' })}, ${fmtTime(Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16)))}`
@@ -54,6 +55,8 @@ export default function DrawScreen() {
           ))}
         </div>
         <p className="text-pt-muted text-sm">Every creator gets {s.monthlySlots} guaranteed {s.houses.cliff1.name} slots. Wishes open <b className="text-pt-text">{formatDay(win.opens.slice(0, 10), { weekday: 'short', month: 'short', day: 'numeric' })}</b>; the draw runs by itself on <b className="text-pt-text">{stampLabel(win.closes)}</b>. Nobody gets two slots on the same day or on days next to each other; people without wishes get their usual days, one a week.</p>
+
+        <DrawExplainer team />
 
         <section className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-2">
           <div className="flex items-center justify-between"><h2 className="text-pt-text font-semibold">Wishes</h2><span className="text-pt-muted text-sm">{wishes.length} {wishes.length === 1 ? 'person' : 'people'}</span></div>
