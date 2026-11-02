@@ -1791,6 +1791,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       requestSwap/answerSwap refuse shoots with a pending moveRequest; data_check.py accepts 'requested' shoots holding slots.
       Tests 540 (requests.test.ts: deny releases props, move approval blocked by props, no swap while moving, request counts
       toward one slot a day).
+    - LIVE PEOPLE (owner, Nov 2): ALL creators are invited and Maanik is on the equipment role (older notes saying "Ariel only /
+      no equipment yet" are out of date). Creators stay on Props only until the owner switches each to Full app (People).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
