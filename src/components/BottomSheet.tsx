@@ -65,7 +65,7 @@ export default function BottomSheet({ open, onClose, title, children, locked }: 
 
       {/* Sheet */}
       <div ref={sheet} onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} onTouchCancel={onEnd}
-        className="relative bg-pt-surface rounded-t-[28px] pb-safe max-h-[85vh] flex flex-col shadow-float sheet-up">
+        className="relative w-full bg-pt-surface rounded-t-[28px] pb-safe max-h-[85vh] flex flex-col shadow-float sheet-up md:max-w-[600px] md:mx-auto md:mb-6 md:rounded-b-[28px]">
         {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-2 shrink-0">
           <div className="w-9 h-[5px] rounded-full bg-white/20" />

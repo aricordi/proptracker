@@ -2,6 +2,7 @@ import AiButton from '../components/AiButton'
 import { MONTHS, daysIn, isBirthday, makeBirthday } from '../lib/birthdays'
 import { useEffect, useRef, useState } from 'react'
 import { NotificationsCard } from '../components/Notifications'
+import { LaptopLayoutCard } from '../desk/LaptopLayoutCard'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { useSession } from '../auth'
@@ -40,6 +41,7 @@ export default function AccountScreen() {
           </div>
         )}
         <NotificationsCard />
+        <LaptopLayoutCard />
         {shootFlow && <CreatorLinks email={profile.email} />}
         {demo && (
           <button onClick={() => navigate('/help')} className="w-full flex items-center gap-3 px-4 py-3 text-left bg-pt-surface shadow-hairline rounded-2xl">

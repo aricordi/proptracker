@@ -114,6 +114,16 @@ const shoots = [
   { id: 'sh10', d: 8, place: 'cliff1', start: 1020, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
   // Yesterday: Kyle never checked in (shows in Schedule team → Check-ins).
   { id: 'sh6', d: -1, place: 'cliff2', start: 780, email: 'kyle@example.com', name: 'Kyle', kind: 'extra' },
+  // Past shoots filmed back to back (who films with whom, Nov 2): Riley + Kyle three times, Jana + Riley once.
+  { id: 'sh11', d: -4, place: 'cliff1', start: 780, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra', filmed: true },
+  { id: 'sh12', d: -4, place: 'cliff1', start: 900, email: 'kyle@example.com', name: 'Kyle', kind: 'extra', filmed: true },
+  { id: 'sh13', d: -9, place: 'cliff2', start: 1140, email: 'kyle@example.com', name: 'Kyle', kind: 'extra', filmed: true },
+  { id: 'sh14', d: -9, place: 'cliff2', start: 1260, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra', filmed: true },
+  { id: 'sh15', d: -15, place: 'cliff1', start: 540, email: 'jana@example.com', name: 'Jana', kind: 'extra', filmed: true },
+  { id: 'sh16', d: -15, place: 'cliff1', start: 660, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra', filmed: true },
+  // Booking requests waiting for the equipment team (Nov 2: every creator booking needs approval).
+  { id: 'sh17', d: 3, place: 'cliff1', start: 1140, email: 'jana@example.com', name: 'Jana', kind: 'extra', requested: true },
+  { id: 'sh18', d: 3, place: 'cliff1', start: 1260, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'extra', requested: true },
 ]
 // Right now (if a slot is running): Riley at Cliff 2 can check in; Jana had the slot before (to report).
 const nowMin = (([h, m]) => h * 60 + m)(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number))
@@ -126,11 +136,12 @@ const scheduleDays = {}
 for (const x of shoots) {
   const date = dayOf(x.d), pad = n => String(n).padStart(2, '0'), hm = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`
   await put(`shoots/${x.id}`, { creatorEmail: x.email, creatorName: x.name, place: x.place, where: x.where ?? '', date, month: date.slice(0, 7),
-    start: x.start, end: x.start + 120, from: `${date}T${hm(x.start)}`, to: `${date}T${hm(x.start + 120)}`, kind: x.kind, status: 'booked',
+    start: x.start, end: x.start + 120, from: `${date}T${hm(x.start)}`, to: `${date}T${hm(x.start + 120)}`, kind: x.kind, status: x.requested ? 'requested' : 'booked',
+    ...(x.requested ? { requestedAt: now } : {}), ...(x.filmed ? { outcome: 'filmed' } : {}),
     bookedBy: x.email, createdAt: now, updatedAt: now, history: [{ at: now, by: x.email, action: 'booked', note: 'seed' }] })
   const day = scheduleDays[date] ??= { date }
   if (x.place === 'offsite') (day.offsite ??= []).push({ shootId: x.id, name: x.name, email: x.email, start: x.start, end: x.start + 120, where: x.where })
-  else (day[x.place] ??= {})[String(x.start)] = { shootId: x.id, name: x.name, email: x.email, kind: x.kind }
+  else (day[x.place] ??= {})[String(x.start)] = { shootId: x.id, name: x.name, email: x.email, kind: x.kind, ...(x.requested ? { pending: true } : {}) }
 }
 scheduleDays[dayOf(1)].blocks = [{ id: 'blk1', house: 'cliff1', start: 420, end: 540, type: 'cleaners', note: 'Cleaners' }]
 for (const [date, day] of Object.entries(scheduleDays)) await put(`schedule_days/${date}`, day)

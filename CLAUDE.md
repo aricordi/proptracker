@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 524 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 536 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1760,7 +1760,31 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       move = blue + ghost of the old slot, Kyle gold, blocks hatched, red dot = creator has flags), Week | Month; right INSPECTOR =
       queue oldest first with ticks + "Approve N ticked", selected request (ask, flags pills, filmed 30 d / booked this month / this
       week, 8-week sparkline, before/after/other house/props), Approve / Deny reasons / Give this time to Kyle. Keyboard A/D/J/K/W/M/←→.
-      Waiting for the owner's feedback.
+      Owner: "looks good" (Nov 2) → built, see next entry.
+    - LAPTOP VIEW BUILT + WHO FILMS WITH WHOM (owner, Nov 2: mockup "looks good"; "intake people's bookings… who they like to film
+      with"; "a desktop view for the admin analytics page as well"; app only, NO server/rules change; preview only, live needs OK
+      and must ship with the booking-requests deploy). `src/desk/desk.tsx`: useDesk (≥1100 px + role owner/equipment/admin, not
+      demo; off = localStorage pc.deskOff via setDeskOff), DeskSidebar per role (equipment: Requests & schedule / Gear queue /
+      Check-ins & reports / Day view / All gear / Kits / More; admin: Dashboard / Analytics / Requests / Creators / Props queue /
+      Gear queue / Day view / More; owner: Requests / Analytics / Creators / queues / My home / Book a shoot / Props / Team; amber
+      badge = waiting requests via useWaitingCount), useKeys, FULL_WIDTH ['/approvals','/analytics'] (other pages sit 760 px wide
+      in the middle). ShellLayout swaps the tab bar for the sidebar. BottomSheet is 600 px wide centred on md+ screens.
+      `src/desk/DeskApprovals.tsx` (ApprovalsScreen renders it when desk.on): header Week|Month, ‹ ›, Today, KPI strip (6), WEEK
+      BOARD (7 days × houses × slots; pending amber hatched, move blue, instantBookers gold, blocks hatched, held, past faded, red
+      dot = strikes/no-show 30 d; click request → select, booked → /schedule?shoot=), offsite row, legend; right panel 344 px:
+      queue oldest first + ticks + "Approve N ticked", Inspector (ask, flags, 3 stats, 8-week sparkline, around, usual partners),
+      Approve / Deny (reasons, Enter, Esc), toast. Keys A D J K W M ← → T Esc. `src/desk/requestFacts.ts` = shared waitingRequests
+      / factsFor / reqKey / REASONS (the phone RequestCard uses it too; ApprovalsScreen now loads 90 days of shoots).
+      `src/desk/LaptopLayoutCard.tsx` on Me. Icons list/grid/home added.
+      COLLABS `src/lib/collabs.ts` (pure, tests/unit/collabs.test.ts): collabPairs = same day + same house + unbroken back-to-back
+      block (chains count every pair) or invitedBy; booked + requested only; once per day per pair. partnersOf, usual (≥2 days,
+      USUAL_TIMES), neighboursOf. Shown: request card/inspector "Usually films with" + flag "Back to back with X · usual partner";
+      Analytics PersonView "Films with" (in the date range, tap = that person); desk right panel "Who films together" (top 8 pairs).
+      ANALYTICS DESK (AnalyticsScreen deskOn): wide header (title, date pill, tools), sticky tabs + filter row, grid list | 420 px
+      side; Creators + who = list (listCtx: same filters without the person) left + PersonView right (Close ×); other tabs right =
+      Needs you now + Who films together; Advanced view full width. Seed: past back-to-back shoots sh11–sh16 (filmed) + requests
+      sh17/sh18. Help Q "Is there a bigger view for my computer?", appGuide approvals/analytics/account, owner guide "On a laptop".
+      Tests 536. Checked on the emulator at 1440×900 (equipment: board, A approves + next, D reasons, Esc; admin + owner analytics).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

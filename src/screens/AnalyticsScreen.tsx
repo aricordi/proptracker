@@ -21,6 +21,8 @@ import { lateRows, latePeople, lateTotals, lateCsv, lateFor, stampLabel, fmtMone
 import { STATE_LABEL } from '../lib/flagState'
 import type { Incident } from '../lib/analytics'
 import { useManageCreator } from '../components/ManageCreator'
+import { useDesk } from '../desk/desk'
+import { collabPairs, partnersOf, type CollabShoot } from '../lib/collabs'
 import { useAnalyticsData } from '../hooks/useAnalytics'
 import { formatDay } from '../lib/dates'
 import { KIND, THEMES, SERIOUS_KINDS, type House, type Kind } from '../lib/analytics'
@@ -79,61 +81,58 @@ export default function AnalyticsScreen() {
     ...(kind ? [{ label: KIND[kind].label, clear: () => set({ kind: null }) }] : []),
   ]
   const zoomTo_ = (bucket: string) => { const [f, t] = bucketSpan(bucket, grain, range); drill({ from: f, to: t, g: null }) }
-  const ctx: Ctx = { a, cur, prev, range, grain, scope, who, house, theme, kind, people, staffName, nameOf, set, drill, navigate, zoom: zoomTo_, tab, pausedNow, today, flagCtx, excusedCur, qs, statuses }
+  // Laptop: the creators list keeps showing everyone while one creator's report card is open beside it.
+  const deskOn = useDesk().on
+  const listScope = { house: (house || undefined) as House | undefined, kinds }
+  const curList = useMemo(() => deskOn && who ? slice(a, range.from, range.to, listScope) : null, [deskOn, a, range.from, range.to, who, house, theme, kind])   // eslint-disable-line react-hooks/exhaustive-deps
+  const prevList = useMemo(() => deskOn && who ? slice(a, range.prevFrom, range.prevTo, listScope) : null, [deskOn, a, range.prevFrom, range.prevTo, who, house, theme, kind])   // eslint-disable-line react-hooks/exhaustive-deps
+  // Who films with whom (owner, Nov 2), from the shoots in the date range.
+  const shootList = useMemo(() => [...raw.shoots.values()].filter(x => x.date >= range.from && x.date <= range.to) as unknown as CollabShoot[], [raw, range.from, range.to])
+  const ctx: Ctx = { a, cur, prev, range, grain, scope, who, house, theme, kind, people, staffName, nameOf, set, drill, navigate, zoom: zoomTo_, tab, pausedNow, today, flagCtx, excusedCur, qs, statuses, shootList }
+  const listCtx: Ctx = curList && prevList ? { ...ctx, who: '', cur: curList, prev: prevList, scope: listScope } : ctx
 
   if (loading) return <div className="min-h-full bg-pt-bg pt-safe px-4"><p className="text-pt-muted text-sm pt-10 text-center">Loading analytics…</p></div>
 
-  return (
-    <div className="min-h-full bg-pt-bg pb-16">
-      <div className="pt-safe px-4">
-        <div className="flex items-center gap-2">
-          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1 tap">‹ Back</button>
-          <span className="flex-1" />
-          <button onClick={() => table ? set({ view: null }) : drill({ view: 'table' })} aria-label={table ? 'Close the advanced view' : 'Advanced view'} title="Advanced view"
-            className={`w-11 h-11 rounded-full grid place-items-center ${table ? 'bg-pt-accent text-stone-900' : 'bg-pt-surface text-pt-text'}`}><Icon name="table" /></button>
-          <button onClick={() => navigate('/rules-sheet')} aria-label="Settings sheet" title="Settings sheet" className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="note" /></button>
-        </div>
-        <h1 className="font-display text-[34px] text-pt-text leading-tight">{table ? 'Advanced view' : 'Analytics'}</h1>
-        <div className="flex items-center gap-2 mt-1 mb-3 flex-wrap">
-          <button onClick={() => setPeriodOpen(true)} data-tour="period" className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-full bg-pt-surface shadow-hairline text-pt-text text-[15px]">
-            <Icon name="calendar" className="w-4 h-4 text-pt-accent" />{range.label}<span className="text-pt-muted">▾</span>
-          </button>
-          {range.zoomed
-            ? <button onClick={() => set({ from: null, to: null, g: null })} className="px-3 py-2 rounded-full bg-pt-accent/15 text-pt-accent text-sm">Zoom out to {PRESETS.find(p => p[0] === preset)![1].toLowerCase()}</button>
-            : <span className="text-pt-muted text-sm">{range.dates}</span>}
-        </div>
-      </div>
-
-      <div className="sticky z-10 bg-pt-bg px-4 border-b border-white/[0.06]" style={{ top: 'env(safe-area-inset-top)' }}>
-        {!table && (
-          <div role="tablist" className="flex gap-5 overflow-x-auto no-scrollbar">
-            {TABS.map(([v, l]) => (
-              <button key={v} role="tab" aria-selected={tab === v} onClick={() => set({ tab: v === 'creators' ? null : v, m: null })}
-                className={`relative py-3 text-[15px] shrink-0 ${tab === v ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>
-                {l}{tab === v && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="flex items-center gap-2 py-2 overflow-x-auto no-scrollbar" data-tour="scope">
-          <button onClick={() => setFilterOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</button>
-          {chips.length === 0 && <span className="text-pt-muted text-sm whitespace-nowrap">Everyone · every house</span>}
-          {chips.map((c, i) => <span key={c.label} className="shrink-0 flex items-center gap-1">{i > 0 && <span className="text-pt-muted">›</span>}
-            <button onClick={c.clear} aria-label={`Remove ${c.label}`} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-pt-accent/15 text-pt-accent text-sm whitespace-nowrap">{c.label}<span aria-hidden>×</span></button></span>)}
-          {chips.length > 1 && <button onClick={() => set({ who: null, house: null, theme: null, kind: null })} className="shrink-0 text-pt-muted text-sm px-1">Clear all</button>}
-        </div>
-      </div>
-
-      <div className="px-4 pt-4 space-y-4">
-        {table ? <AdvancedView {...ctx} qs={qs} /> : <>
-          {tab === 'creators' && <CreatorsTab {...ctx} m={qs.get('m') as Metric} sort={(['most', 'least', 'flags', 'name'].includes(qs.get('sort') ?? '') ? qs.get('sort') : 'most') as StandSort} level={(qs.get('level') as StandFilter) || ''} />}
-          {tab === 'late' && <LateTab {...ctx} />}
-          {tab === 'flags' && <FlagsTab {...ctx} m={qs.get('m') as Metric} />}
-          {tab === 'teams' && <TeamsTab {...ctx} m={qs.get('m') as Metric} />}
-          {tab === 'trends' && <TrendsTab {...ctx} m={qs.get('m') as Metric} />}
-        </>}
-      </div>
-
+  const tools = <>
+    <button onClick={() => table ? set({ view: null }) : drill({ view: 'table' })} aria-label={table ? 'Close the advanced view' : 'Advanced view'} title="Advanced view"
+      className={`w-11 h-11 rounded-full grid place-items-center ${table ? 'bg-pt-accent text-stone-900' : 'bg-pt-surface text-pt-text'}`}><Icon name="table" /></button>
+    <button onClick={() => navigate('/rules-sheet')} aria-label="Settings sheet" title="Settings sheet" className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="note" /></button>
+  </>
+  const rangeRow = <>
+    <button onClick={() => setPeriodOpen(true)} data-tour="period" className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-full bg-pt-surface shadow-hairline text-pt-text text-[15px]">
+      <Icon name="calendar" className="w-4 h-4 text-pt-accent" />{range.label}<span className="text-pt-muted">▾</span>
+    </button>
+    {range.zoomed
+      ? <button onClick={() => set({ from: null, to: null, g: null })} className="px-3 py-2 rounded-full bg-pt-accent/15 text-pt-accent text-sm">Zoom out to {PRESETS.find(p => p[0] === preset)![1].toLowerCase()}</button>
+      : <span className="text-pt-muted text-sm">{range.dates}</span>}
+  </>
+  const tabsRow = !table && (
+    <div role="tablist" className="flex gap-5 overflow-x-auto no-scrollbar">
+      {TABS.map(([v, l]) => (
+        <button key={v} role="tab" aria-selected={tab === v} onClick={() => set({ tab: v === 'creators' ? null : v, m: null })}
+          className={`relative py-3 text-[15px] shrink-0 ${tab === v ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>
+          {l}{tab === v && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}
+        </button>
+      ))}
+    </div>
+  )
+  const scopeRow = (
+    <div className="flex items-center gap-2 py-2 overflow-x-auto no-scrollbar" data-tour="scope">
+      <button onClick={() => setFilterOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</button>
+      {chips.length === 0 && <span className="text-pt-muted text-sm whitespace-nowrap">Everyone · every house</span>}
+      {chips.map((c, i) => <span key={c.label} className="shrink-0 flex items-center gap-1">{i > 0 && <span className="text-pt-muted">›</span>}
+        <button onClick={c.clear} aria-label={`Remove ${c.label}`} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-pt-accent/15 text-pt-accent text-sm whitespace-nowrap">{c.label}<span aria-hidden>×</span></button></span>)}
+      {chips.length > 1 && <button onClick={() => set({ who: null, house: null, theme: null, kind: null })} className="shrink-0 text-pt-muted text-sm px-1">Clear all</button>}
+    </div>
+  )
+  const tabBody = (cx: Ctx) => table ? <AdvancedView {...cx} qs={qs} /> : <>
+    {tab === 'creators' && <CreatorsTab {...cx} m={qs.get('m') as Metric} sort={(['most', 'least', 'flags', 'name'].includes(qs.get('sort') ?? '') ? qs.get('sort') : 'most') as StandSort} level={(qs.get('level') as StandFilter) || ''} />}
+    {tab === 'late' && <LateTab {...cx} />}
+    {tab === 'flags' && <FlagsTab {...cx} m={qs.get('m') as Metric} />}
+    {tab === 'teams' && <TeamsTab {...cx} m={qs.get('m') as Metric} />}
+    {tab === 'trends' && <TrendsTab {...cx} m={qs.get('m') as Metric} />}
+  </>
+  const sheets = <>
       <BottomSheet open={periodOpen} onClose={() => setPeriodOpen(false)} title="Date range">
         <div className="space-y-4 pb-4">
           <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
@@ -158,6 +157,70 @@ export default function AnalyticsScreen() {
       </BottomSheet>
 
       <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} {...{ people, who, house, theme, set }} />
+  </>
+
+  // Laptop (owner, Nov 2: "a desktop view for the admin analytics page"): one wide header, the tab on the left and a side
+  // panel on the right. On the Creators tab the list stays on the left and the picked creator's report card opens on the
+  // right (no more jumping back and forth); on the other tabs the right side shows what needs you and who films together.
+  if (deskOn) {
+    const split = !table && tab === 'creators' && !!who
+    return (
+      <div className="min-h-full bg-pt-bg pb-16">
+        <div className="max-w-[1480px] mx-auto px-8">
+          <div className="flex items-center gap-3 pt-6 pb-1 flex-wrap">
+            <h1 className="font-display text-[30px] text-pt-text leading-tight mr-3">{table ? 'Advanced view' : 'Analytics'}</h1>
+            {rangeRow}
+            <span className="flex-1" />
+            {tools}
+          </div>
+          <div className="sticky top-0 z-10 bg-pt-bg border-b border-white/[0.06] flex items-center gap-6 flex-wrap">
+            {tabsRow}
+            <div className="flex-1 min-w-[280px]">{scopeRow}</div>
+          </div>
+          {table ? <div className="pt-6 space-y-4">{tabBody(ctx)}</div> : (
+            <div className="grid grid-cols-[minmax(0,1fr)_420px] gap-8 pt-6 items-start">
+              <div className="min-w-0 space-y-4">{tabBody(split ? listCtx : ctx)}</div>
+              <aside className="sticky top-16 max-h-[calc(100vh-5rem)] overflow-y-auto space-y-4 pb-8 no-scrollbar">
+                {split ? <>
+                  <div className="flex items-center justify-between"><p className="text-pt-muted text-sm">Report card</p>
+                    <button onClick={() => set({ who: null, fs: null, sev: null })} className="text-pt-muted text-sm hover:text-pt-text">Close ×</button></div>
+                  <PersonView key={who} {...ctx} m={qs.get('m') as Metric} />
+                </> : <>
+                  {tab === 'creators' && <p className="bg-pt-surface rounded-2xl px-4 py-3 text-pt-muted text-sm">Click a creator on the left: their report card opens here.</p>}
+                  {tab !== 'creators' && <>
+                    <SectionHead title="Needs you now" sub="Live, whatever the date range" />
+                    <NeedsYou items={needsYouItems(a, pausedNow, to => navigate(to), notLookedAt(a.incidents, flagCtx.reviews, shift(today, -27)))} />
+                  </>}
+                  <FilmsTogether c={ctx} />
+                </>}
+              </aside>
+            </div>
+          )}
+        </div>
+        {sheets}
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-full bg-pt-bg pb-16">
+      <div className="pt-safe px-4">
+        <div className="flex items-center gap-2">
+          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1 tap">‹ Back</button>
+          <span className="flex-1" />
+          {tools}
+        </div>
+        <h1 className="font-display text-[34px] text-pt-text leading-tight">{table ? 'Advanced view' : 'Analytics'}</h1>
+        <div className="flex items-center gap-2 mt-1 mb-3 flex-wrap">{rangeRow}</div>
+      </div>
+
+      <div className="sticky z-10 bg-pt-bg px-4 border-b border-white/[0.06]" style={{ top: 'env(safe-area-inset-top)' }}>
+        {tabsRow}
+        {scopeRow}
+      </div>
+
+      <div className="px-4 pt-4 space-y-4">{tabBody(ctx)}</div>
+      {sheets}
     </div>
   )
 }
@@ -170,6 +233,7 @@ interface Ctx {
   set: (p: Record<string, string | number | null>, push?: boolean) => void; drill: (p: Record<string, string | number | null>) => void
   navigate: ReturnType<typeof useNavigate>; zoom: (bucket: string) => void; tab: Tab; pausedNow: string[]; today: string
   flagCtx: FlagCtx; excusedCur: ReturnType<typeof useAnalyticsData>['a']['excused']; qs: URLSearchParams; statuses: ReturnType<typeof useAnalyticsData>['statuses']
+  shootList: CollabShoot[]
 }
 
 function FilterSheet({ open, onClose, people, who, house, theme, set }: { open: boolean; onClose: () => void; people: { email: string; name: string }[]; who: string; house: string; theme: string
@@ -341,6 +405,7 @@ function PersonView(c: Ctx & { m: Metric }) {
     <Top c={c} m={c.m} chart={false} metrics={['filmed', 'showRate', 'flags', 'serious']} onCard={onCard} />
     <SectionHead title="Month by month" sub={`Shoots filmed; the white lines are the typical creator · above typical ${above} of the last ${months.length} months`} />
     <ColumnChart data={months} grain="month" m="filmed" typical={typical} avgWord="a month" onZoom={b => { const [f, t] = bucketSpan(b, 'month', six); c.drill({ from: f, to: t, g: null }) }} />
+    <FilmsWith c={c} />
     <div id="their-flags" className="scroll-mt-32" />
     {(() => { const lt = lateTotals(lateRows(c.cur.incidents)); return (
       <button onClick={() => c.drill({ tab: 'late', m: null })} className="w-full flex items-center gap-3 bg-pt-surface rounded-2xl px-3 py-3 text-left" data-tour="theirlate">
@@ -369,6 +434,41 @@ function PersonView(c: Ctx & { m: Metric }) {
       ))}
     </div>
     {more('shoots', shoots.length)}
+  </>
+}
+
+// ── Who films with whom (owner, Nov 2): back to back at the same house on the same day, or they joined the other's invite ──
+function FilmsWith({ c }: { c: Ctx }) {
+  const ps = partnersOf(c.who, c.shootList)
+  return <>
+    <SectionHead title="Films with" sub={`Back to back at the same house, or joined their invite · ${c.range.phrase.replace(/^in /, '')}`} />
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {ps.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">Filmed alone {c.range.phrase}.</p>}
+      {ps.slice(0, 6).map(p => (
+        <button key={p.email} onClick={() => c.drill({ who: p.email, m: null })} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+          <Avatar email={p.email} name={p.name} size={28} />
+          <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] truncate">{p.name}{p.times >= 2 && <span className="text-pt-accent text-xs"> · usual partner</span>}</span>
+            <span className="block text-pt-muted text-xs">{plural(p.times, 'day')} together · last {formatDay(p.last)}{p.invited ? ` · ${plural(p.invited, 'invite')}` : ''}</span></span>
+          <span className="text-pt-muted">›</span>
+        </button>
+      ))}
+    </div>
+  </>
+}
+function FilmsTogether({ c }: { c: Ctx }) {
+  const pairs = collabPairs(c.shootList).slice(0, 8)
+  return <>
+    <SectionHead title="Who films together" sub={`Most days back to back · ${c.range.phrase.replace(/^in /, '')}`} />
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {pairs.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">Nobody filmed back to back {c.range.phrase}.</p>}
+      {pairs.map(p => (
+        <button key={`${p.a}|${p.b}`} onClick={() => c.drill({ who: p.a, tab: 'creators', m: null })} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+          <span className="flex -space-x-2"><Avatar email={p.a} name={p.aName} size={26} /><Avatar email={p.b} name={p.bName} size={26} /></span>
+          <span className="flex-1 min-w-0 text-pt-text text-[14px] truncate">{p.aName.split(' ')[0]} + {p.bName.split(' ')[0]}</span>
+          <span className="text-pt-muted text-xs tabular-nums">{plural(p.times, 'day')}</span>
+        </button>
+      ))}
+    </div>
   </>
 }
 

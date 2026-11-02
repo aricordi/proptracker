@@ -70,6 +70,7 @@ export default function HelpScreen() {
       { q: 'What gets me a strike?', words: 'strike penalty pause blocked', a: <>Not showing up, cancelling inside {s.noticeHours} hours, a report the team upholds, or a strike an admin gives you (always with the reason, which you can see). <b>{s.strikeCount} strikes in {s.strikeDays} days</b> pauses your prop and gear requests for {s.pauseDays} days (you can still book house time). Your strikes are on the Me tab.</> },
     ] },
     { title: 'Still stuck?', icon: 'chat', items: [
+      { q: 'Is there a bigger view for my computer?', words: 'laptop desktop computer wide sidebar keyboard shortcuts', a: <>Yes, for the owner, the equipment team and admins. On a laptop-size screen the app shows a sidebar instead of the tab bar; Requests becomes a week board of both houses with the waiting list on the right (keys: A approve, D deny, J/K next, W/M week or month, arrows change week), and Analytics opens a creator's report card beside the list. "Use the phone layout" at the bottom of the sidebar turns it off; Me → Laptop layout turns it back on.</> },
       { q: 'Who do I ask?', words: 'contact help team support', a: <>Bookings and the schedule: the schedule team (Maanik). Props and costumes: the arts department. Gear: the equipment team. Strikes, pauses or a new person to invite: an admin. Something broken in the app: tell the owner, with a screenshot if you can.</> },
     ] },
   ]
