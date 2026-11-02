@@ -16,6 +16,7 @@ beforeEach(async () => {
   await put(`users/${ARTS}`, { email: ARTS, role: 'arts', active: true, name: 'Farrell' })
   for (const [e, n] of [[ANA, 'Ana'], [BEN, 'Ben'], [KYLE, 'Kyle']]) await put(`users/${e}`, { email: e, role: 'creator', active: true, name: n, access: 'full' })
   await put('app_settings/schedule', { instantBookers: [{ email: KYLE, name: 'Kyle' }] })
+  await put('items/chairs', { name: 'Diner chair', quantity: 4, condition: 'good', collection: 'company', archived: false })
 })
 
 const book = (who: string, data: Record<string, unknown> = {}) => call('bookShoot', { place: 'cliff1', date: FRI, start: 780, ...data }, who)
@@ -93,5 +94,40 @@ describe('booking requests', () => {
     expect(day.cliff1['780'].shootId).toBe(r.result.id)
     expect(day.cliff2?.['900']).toBeUndefined()
     expect(await getDoc(`shoots/${r.result.id}`)).toMatchObject({ status: 'booked', place: 'cliff1', start: 780 })
+  })
+
+  it('props added to a request are let go when it is denied', async () => {
+    const r = await book(ANA)
+    const p = await call('createReservation', { title: 'Diner', startDate: FRI, endDate: FRI, lines: [{ itemId: 'chairs', qty: 2 }], scheduleShootId: r.result.id }, ANA)
+    expect(p.ok).toBe(true)
+    expect((await decide(MAANIK, r.result.id, false, 'House is busy')).ok).toBe(true)
+    expect((await getDoc(`reservations/${p.result.id}`))!.status).toBe('cancelled')
+  })
+
+  it('a move to another day can\'t be approved while props are booked for the old day', async () => {
+    const r = await book(ANA)
+    await decide(MAANIK, r.result.id, true)
+    await call('moveShoot', { id: r.result.id, place: 'cliff1', date: MON, start: 900 }, ANA)
+    // props added after the move was asked for, for the current day
+    expect((await call('createReservation', { title: 'Diner', startDate: FRI, endDate: FRI, lines: [{ itemId: 'chairs', qty: 1 }], scheduleShootId: r.result.id }, ANA)).ok).toBe(true)
+    const a = await decide(MAANIK, r.result.id, true)
+    expect(a.ok).toBe(false)
+    expect((await getDoc(`shoots/${r.result.id}`))).toMatchObject({ date: FRI, status: 'booked' })
+    expect((await decide(MAANIK, r.result.id, false, 'Keep your Friday')).ok).toBe(true)
+  })
+
+  it('a shoot waiting for a move can\'t be swapped', async () => {
+    const a = await book(ANA), b = await call('bookShoot', { place: 'cliff2', date: FRI, start: 780 }, BEN)
+    await decide(MAANIK, a.result.id, true); await decide(MAANIK, b.result.id, true)
+    await call('moveShoot', { id: a.result.id, place: 'cliff1', date: MON, start: 900 }, ANA)
+    const sw = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    expect(sw.ok).toBe(false)
+    expect(sw.message).toMatch(/move/)
+  })
+
+  it('a waiting request counts toward the one-slot-a-day limit', async () => {
+    await book(ANA)
+    const second = await call('bookShoot', { place: 'cliff2', date: FRI, start: 1140 }, ANA)
+    expect(second.ok).toBe(false)
   })
 })

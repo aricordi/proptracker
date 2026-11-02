@@ -297,6 +297,9 @@ export const decideBooking = onCall(CALLABLE, async req => {
   if (!approve && reason.length < 3) throw new HttpsError('invalid-argument', 'Write a short reason so they know why.')
   const ref = db.doc(`shoots/${id}`)
   const s = await loadScheduleSettings()
+  // Approving a move to ANOTHER DAY while props or gear are booked for the old day would strand them: same rule as moving.
+  const pre = (await ref.get()).data()
+  if (approve && pre?.status === 'booked' && pre.moveRequest) await assertNoLinksForDayChange(id, pre.date, pre.moveRequest.date)
   let denied = false, who = ''
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
@@ -332,8 +335,10 @@ export const decideBooking = onCall(CALLABLE, async req => {
 })
 
 // Requests nobody decided on by the time the slot starts are dropped (owner, Nov 2). Called by the 10-minute timer.
+const SCHEDULE_CALLER: Caller = { email: 'schedule', name: 'Schedule', role: 'owner', isStaff: true }
 export async function expireRequests(now = nowStamp()) {
   let expired = 0
+  const dropped: { id: string; email: string }[] = []
   const pending = await db.collection('shoots').where('status', '==', 'requested').get()
   for (const d of pending.docs.filter(x => (x.get('from') ?? '') <= now)) {
     await db.runTransaction(async tx => {
@@ -343,8 +348,11 @@ export async function expireRequests(now = nowStamp()) {
       const at = new Date().toISOString()
       tx.update(d.ref, { status: 'expired', updatedAt: at, history: FieldValue.arrayUnion({ at, by: 'schedule', action: 'expired', note: 'nobody approved it before the start' }) })
       expired++
+      dropped.push({ id: d.id, email: b.creatorEmail })
     })
   }
+  // Anything added to a request that ran out (props, gear, a friend's shared gear) is let go too, like a denied request.
+  for (const x of dropped) { try { await releaseLinks(SCHEDULE_CALLER, x.id, x.email) } catch (e) { console.warn('release links of expired request', x.id, e) } }
   const moves = await db.collection('shoots').where('moveRequest.from', '<=', now).get()
   for (const d of moves.docs) {
     await db.runTransaction(async tx => {
@@ -371,6 +379,7 @@ export const requestSwap = onCall(CALLABLE, async req => {
   if (mine.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'You can only offer your own shoot.')
   if (theirs.creatorEmail === caller.email) throw new HttpsError('invalid-argument', 'Pick someone else\'s shoot.')
   if (mine.status !== 'booked' || theirs.status !== 'booked') throw new HttpsError('failed-precondition', 'One of these shoots is cancelled.')
+  if (mine.moveRequest || theirs.moveRequest) throw new HttpsError('failed-precondition', 'One of these shoots is waiting for a move to be approved. Wait for the answer first.')
   if (mine.place === 'offsite' || theirs.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
   if (mine.from <= now || theirs.from <= now) throw new HttpsError('failed-precondition', 'One of these shoots has already started.')
   await assertNoLinksForDayChange(mineId, mine.date, theirs.date)
@@ -410,7 +419,7 @@ export const answerSwap = onCall(CALLABLE, async req => {
     const aRef = db.doc(`shoots/${r.fromShootId}`), bRef = db.doc(`shoots/${r.toShootId}`)
     const [aS, bS] = await Promise.all([tx.get(aRef), tx.get(bRef)])
     const a = aS.data(), b = bS.data(), now = nowStamp()
-    const same = (x: any, y: any) => x && x.status === 'booked' && x.place === y.place && x.date === y.date && x.start === y.start
+    const same = (x: any, y: any) => x && x.status === 'booked' && !x.moveRequest && x.place === y.place && x.date === y.date && x.start === y.start
     if (!same(a, r.from) || !same(b, r.to) || a!.from <= now || b!.from <= now) {
       tx.update(ref, { status: 'expired', answeredAt: at })
       expired = true

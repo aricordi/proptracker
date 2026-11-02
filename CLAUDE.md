@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 536 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 540 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1785,6 +1785,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Needs you now + Who films together; Advanced view full width. Seed: past back-to-back shoots sh11–sh16 (filmed) + requests
       sh17/sh18. Help Q "Is there a bigger view for my computer?", appGuide approvals/analytics/account, owner guide "On a laptop".
       Tests 536. Checked on the emulator at 1440×900 (equipment: board, A approves + next, D reasons, Esc; admin + owner analytics).
+    - HARDENING BEFORE GO-LIVE (owner, Nov 2: "go live with everything but make sure the chat-first stuff is super solid"):
+      expireRequests now also lets go of props/gear/shared gear added to a request that ran out (releaseLinks as 'schedule');
+      decideBooking refuses to APPROVE a move to another day while props/gear are booked for the old day (assertNoLinksForDayChange);
+      requestSwap/answerSwap refuse shoots with a pending moveRequest; data_check.py accepts 'requested' shoots holding slots.
+      Tests 540 (requests.test.ts: deny releases props, move approval blocked by props, no swap while moving, request counts
+      toward one slot a day).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

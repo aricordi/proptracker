@@ -82,13 +82,14 @@ for date, d in days.items():
             if not sid: continue   # an invite hold, not a shoot
             referenced.add(sid)
             s = shoots.get(sid)
-            if date >= today and (not s or s.get('status') != 'booked'):
+            # A waiting request (Nov 2) holds its slot too; so does the new time of a move request (the shoot stays booked).
+            if date >= today and (not s or s.get('status') not in ('booked', 'requested')):
                 bad('schedule', f'{date} {house} {slot}: slot taken by a shoot that is {"missing" if not s else s.get("status")} (nobody can book it)')
     for o in d.get('offsite') or []:
         referenced.add(o.get('shootId'))
 for sid, s in shoots.items():
-    if s.get('status') == 'booked' and s.get('date', '') >= today and sid not in referenced:
-        bad('schedule', f'booked shoot {s.get("date")} {s.get("place")} ({s.get("creatorName")}) is missing from the schedule (someone else could book over it)')
+    if s.get('status') in ('booked', 'requested') and s.get('date', '') >= today and sid not in referenced:
+        bad('schedule', f'{s.get("status")} shoot {s.get("date")} {s.get("place")} ({s.get("creatorName")}) is missing from the schedule (someone else could book over it)')
 
 users = docs('users')
 for e, u in users.items():
