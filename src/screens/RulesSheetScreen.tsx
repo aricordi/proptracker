@@ -38,7 +38,11 @@ export default function RulesSheetScreen() {
     { title: 'Gear', rows: [
       ['Gear: reserve from', `${s.gearReserveHours} hours before the shoot`, 'Gear is grab-and-go: creators can reserve a kit from this many hours before their shoot, or take what\'s free on the day (from an hour before). Schedule settings.', owner],
       ['Pickup opens', `${PICKUP_OPENS_MINUTES} min before`, 'When the creator can do the pickup check (tick every piece).', owner],
-      ['Gear is late', `${GEAR_LATE_MINUTES} min after the booked end`, 'After this the creator is flagged "late gear" and can\'t book more gear until it\'s back.', owner],
+      ['Gear due back', `House shoots: when the shoot ends · offsite: ${s.gearOffsiteBackBy >= 1440 ? 'end of day' : fmtTime(s.gearOffsiteBackBy)}`, 'At the houses the gear may go to the next person; offsite shoots have until the end of the day. Schedule settings.', owner],
+      ['Houses-only kits', 'Set per kit', 'Kits switched to "Houses only" can\'t go on offsite shoots (keep the top cameras close). Set on each kit.', owner],
+      ['Filming guideline', 'Cliff 1 Thursdays + Saturdays', 'Creators outside the priority group attach a PDF guideline to request those slots. The team sees it on the request.', owner],
+      ['App-only from', s.appOnlyFrom ? formatDay(s.appOnlyFrom) : 'Not set', 'Banner in the creators\' chat: from this day only bookings made in the app count.', owner],
+      ['Gear is late', `${GEAR_LATE_MINUTES} min after it's due`, 'After this the creator is flagged "late gear" and can\'t book more gear until it\'s back.', owner],
       ['Late return fee', `${LATE_FEE_PERCENT}% of the gear's value`, 'Company rule (Oct 27). Goes on whoever had the gear last. The app keeps the record (Analytics → Late returns: how late, the value, who); nobody is charged automatically, and admins can excuse one as an exception. Props late are logged with no fee for now.', owner],
     ] },
     { title: 'Schedule and houses', edit: isOwner ? { label: 'Schedule settings', to: '/schedule/settings' } : undefined, rows: [
