@@ -35,7 +35,10 @@ const firebaseConfig = USING_EMULATORS
 function signInDomain() {
   const own = ['proptracker.arbcreative.co', 'proptracker-9732e.web.app', 'proptracker-9732e--preview-9kd7p2pf.web.app']
   const here = typeof window !== 'undefined' ? window.location.hostname : ''
-  return own.includes(here) ? here : import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
+  if (own.includes(here)) return here
+  // Practice site (its own Firebase project): same reason, its own <project>.web.app address.
+  if (import.meta.env.VITE_PRACTICE === '1' && here.endsWith('.web.app')) return here
+  return import.meta.env.VITE_FIREBASE_AUTH_DOMAIN
 }
 
 export const app = initializeApp(firebaseConfig);

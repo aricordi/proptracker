@@ -7,6 +7,7 @@ import { OWNER_EMAIL } from './config'
 import { SessionContext, makeSession, useSession, type Session, type ViewAs } from './auth'
 import type { AppUser } from './types'
 import ViewAsBanner from './components/ViewAsBanner'
+import PracticeBar, { IS_PRACTICE } from './components/PracticeBar'
 import { subscribeToUser, normalizeEmail } from './services/users'
 import { ensureDefaultCategories } from './services/categories'
 
@@ -152,6 +153,7 @@ function ViewAsFrame({ on, children }: { on: boolean; children: ReactNode }) {
   if (!on) return <>{children}</>
   return (
     <div className="flex flex-col h-full">
+      <PracticeBar />
       <ViewAsBanner />
       <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>
     </div>
@@ -316,7 +318,7 @@ export default function App() {
     <OfflineBanner />
     <AssistantProvider>
     <TourGate>
-    <ViewAsFrame on={!!session.viewingAs}>
+    <ViewAsFrame on={!!session.viewingAs || IS_PRACTICE}>
       <Suspense fallback={<ScreenFallback />}>
       {session.demo ? (
       // TEST LAUNCH (owner, Oct 27): demo mode = the props list only (search, prop pages, Me, Help). Everything else → Browse.

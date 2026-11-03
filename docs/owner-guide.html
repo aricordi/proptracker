@@ -152,6 +152,20 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <p><b>New flags on requests:</b> "10th this month" and "3 days in a row" help the team spot someone booking a lot.</p>
 </section>
 
+<section id="practice">
+  <h2>Practice site (Nov 3)</h2>
+  <p>A <b>separate copy of the app</b> to try every team's screens without anything real happening. It has its own address, its own database and its own server, so nothing you do there can book a real slot, reach the arts or equipment team, or change a real prop. The live app is only <b>read</b> to copy the props.</p>
+  <ul>
+    <li><b>What's in it:</b> a copy of every Prime Capitol prop (not your personal ones), the gear kits, categories, bins and booking rules, plus pretend people (Riley, Kyle, Jana, Sam the admin, the arts and equipment test people…) with shoots and requests already in progress.</li>
+    <li><b>Be anyone:</b> sign in with your own Google account, then tap <b>Switch</b> in the orange strip at the top and pick a person. You really become them: every screen, button and rule is the one they'd get. Switch back to "You (owner)" any time.</li>
+    <li><b>Notifications</b> only go to phones signed in on the practice site. <b>No emails</b> are sent and <b>Google Calendar</b> isn't connected there.</li>
+    <li><b>The AI</b> gives simple test answers (free). To try the real AI there, put the real AI key in the practice project's Secret Manager as <span class="path">GEMINI_API_KEY</span>.</li>
+    <li><b>Start over:</b> GitHub → Actions → <b>Practice site</b> → Run workflow → <b>Refill the practice data</b> (fresh copy of the props, fresh pretend people and shoots). After new app changes, run it with <b>Update the practice app</b>.</li>
+    <li><b>Cost:</b> cents to a few dollars a month (it has its own small server and 3 timed jobs).</li>
+  </ul>
+  <p><b>One-time setup</b> (Claude gave you the exact steps): make a new Firebase project, switch it to the pay-as-you-go plan, turn on Google sign-in and Storage, add its key to GitHub as <span class="path">PRACTICE_FIREBASE_SERVICE_ACCOUNT</span>, allow its sign-in page address, then run the button with <b>Both (first time)</b>.</p>
+</section>
+
 <section id="book">
   <h2>Booking shoots</h2>
   <h3>Guaranteed Cliff 1 slots (Nov 2)</h3>

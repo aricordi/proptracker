@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 606 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 610 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1917,6 +1917,26 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Plan my whole shoot / Is it approved? (or How does it work?), max 6. After replies the small chips use the same spot. Soft fade at
       the bottom of the message area.
       LIVE Nov 3 (website run 57, owner "push live"): chat design pass + suggestion cards.
+    - PRACTICE SITE (owner, Nov 3: "a test mode that doesn't book anything or send anything to the arts or equipment teams, but I
+      can test their workflows for all the versions of the app"; owner picked a SEPARATE practice site; NOT set up yet: owner does
+      the one-time setup, then runs the button; nothing changes on the live app). A separate Firebase project (owner creates it)
+      with its own database/storage/functions/website. `.github/workflows/practice-site.yml` "Practice site" (Both (first time) /
+      Update the practice app / Refill the practice data), secret PRACTICE_FIREBASE_SERVICE_ACCOUNT (Owner role on the practice
+      project); refuses proptracker-9732e. Update = enable APIs, create Firestore (Montréal) + placeholder secret GEMINI_API_KEY
+      'practice-no-ai' if missing, web config via `firebase apps:sdkconfig` → VITE_* + VITE_PRACTICE=1, writes
+      `functions/.env.<PID>` PRACTICE=1 (never committed), deploys functions+rules+indexes+storage+hosting with --force, gives the
+      compute SA serviceAccountTokenCreator (custom tokens), public invoker for every callable in deploy-backend.yml + practiceswitch.
+      Refill = `.github/scripts/practice_fill.py` (live READ only with FIREBASE_DEPLOY_SERVICE_ACCOUNT: company props + item_vectors
+      first (no re-embedding), categories, locations, bins, tags, gear_items, gear_bundles, app_settings/booking; clears every other
+      practice collection; removes practice-only props) then `scripts/seed-emulator.mjs` with SEED_PROJECT/SEED_TOKEN (pretend
+      people/shoots/requests; refuses the live project). Photos stay the live Storage links (shown by URL; practice clean-ups only
+      touch the practice bucket). Server: `functions/src/practiceMode.ts` isPractice() = PRACTICE=1 AND project ≠ live (unit test);
+      `functions/src/practice.ts` callable `practiceSwitch` (refused unless isPractice; caller must be the owner or an active
+      practice user; {list} → people; {email} → custom token, creates the Auth user if needed); gemini isFakeMode also on practice
+      with no/placeholder key (free test answers). App: `src/components/PracticeBar.tsx` (IS_PRACTICE = VITE_PRACTICE; orange strip
+      "Practice site · You're X (role)" + Switch sheet → signInWithCustomToken → '/'), Login badge "PRACTICE SITE"; signInDomain uses
+      the practice <PID>.web.app as authDomain (needs https://<PID>.web.app/__/auth/handler on the practice OAuth web client).
+      No email (no SMTP secret), no Google Calendar there; pushes only reach phones signed in on practice. Tests 610.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

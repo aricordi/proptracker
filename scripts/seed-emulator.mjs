@@ -4,8 +4,16 @@
 //
 // Usage (the emulator must already be running):  node scripts/seed-emulator.mjs [--reset]
 
-const BASE = 'http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents'
-const HEADERS = { 'Content-Type': 'application/json', Authorization: 'Bearer owner' } // emulator admin bypass
+// PRACTICE SITE (Nov 3): the same pretend people and shoots can fill the separate practice project instead
+// (SEED_PROJECT + SEED_TOKEN, set only by the "Practice site" GitHub button). It refuses the live project, always.
+const PROJECT = process.env.SEED_PROJECT || ''
+if (PROJECT === 'proptracker-9732e') throw new Error('Refusing to seed the LIVE project.')
+const BASE = PROJECT
+  ? `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`
+  : 'http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents'
+const HEADERS = PROJECT
+  ? { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.SEED_TOKEN}` }
+  : { 'Content-Type': 'application/json', Authorization: 'Bearer owner' } // emulator admin bypass
 
 function toValue(v) {
   if (v === null) return { nullValue: null }
@@ -24,7 +32,7 @@ async function put(path, data) {
 }
 
 // --reset wipes the emulator's database first (never the live one), for a clean start.
-if (process.argv.includes('--reset')) {
+if (process.argv.includes('--reset') && !PROJECT) {
   await fetch('http://127.0.0.1:8080/emulator/v1/projects/demo-proptracker/databases/(default)/documents', { method: 'DELETE' })
 }
 

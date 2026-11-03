@@ -81,3 +81,10 @@ describe('owner and the priority lock', () => {
     expect((await call('bookShoot', { place: 'cliff1', date: THU, start: 1020 }, OWNER)).result).toHaveProperty('id')
   })
 })
+
+describe('practice site switch', () => {
+  it('refuses everywhere except the practice site (owner, Nov 3)', async () => {
+    expect((await call('practiceSwitch', { list: true }, 'alexisricordi@gmail.com')).error).toBe('PERMISSION_DENIED')
+    expect((await call('practiceSwitch', { email: CREATOR }, 'alexisricordi@gmail.com')).error).toBe('PERMISSION_DENIED')
+  })
+})

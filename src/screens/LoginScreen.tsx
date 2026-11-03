@@ -3,6 +3,7 @@ import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCrede
 import { auth, USING_EMULATORS } from '../firebase'
 import BrandMark from '../components/BrandMark'
 import { inAppBrowser } from '../lib/inAppBrowser'
+import { IS_PRACTICE } from '../components/PracticeBar'
 
 // Emulator only: one-tap sign-in as a pretend Google account, so each role
 // can be tried without real accounts. Never shown on the live site.
@@ -79,6 +80,7 @@ export default function LoginScreen() {
     <div className="min-h-screen bg-pt-bg flex flex-col items-center justify-center p-8 pt-safe">
       <div className="mb-10 text-center">
         <BrandMark className="w-40 mx-auto mb-8 text-pt-text" />
+        {IS_PRACTICE && <p className="rounded-full bg-orange-500 text-stone-950 text-xs font-bold px-3 py-1">PRACTICE SITE · nothing here is real</p>}
         <h1 className="text-3xl font-semibold tracking-tight text-pt-text">Welcome</h1>
         <p className="text-pt-muted mt-2 text-sm">Props and gear for Prime Capitol shoots</p>
       </div>

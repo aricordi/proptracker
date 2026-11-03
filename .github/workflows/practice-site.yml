@@ -1,0 +1,157 @@
+# "Practice site" button (owner, Nov 3): a SEPARATE copy of the app (its own Firebase project, database, files and web
+# address) where the owner can try every team's workflow as different pretend people. Nothing here can reach the real
+# app: it deploys ONLY to the project of the PRACTICE_FIREBASE_SERVICE_ACCOUNT key and refuses the live project.
+# The live app is only ever READ (to copy the props), never written.
+name: Practice site
+
+on:
+  workflow_dispatch:
+    inputs:
+      what:
+        description: What to do
+        type: choice
+        default: Both (first time)
+        options:
+          - Both (first time)
+          - Update the practice app
+          - Refill the practice data
+
+concurrency: practice-site
+
+jobs:
+  practice:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HAS_KEY: ${{ secrets.PRACTICE_FIREBASE_SERVICE_ACCOUNT != '' }}
+      UPDATE: ${{ github.event.inputs.what != 'Refill the practice data' }}
+      REFILL: ${{ github.event.inputs.what != 'Update the practice app' }}
+    steps:
+      - name: Check the practice key is there
+        if: env.HAS_KEY != 'true'
+        run: |
+          echo "::error::Add the GitHub secret PRACTICE_FIREBASE_SERVICE_ACCOUNT first (see the owner's guide: Practice site)."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Read access to the live app, only to copy the props (GET requests only).
+      - name: Sign in to the live app (read only, for copying props)
+        if: env.REFILL == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Keep the read token
+        if: env.REFILL == 'true'
+        run: |
+          T=$(gcloud auth print-access-token); echo "::add-mask::$T"; echo "LIVE_TOKEN=$T" >> $GITHUB_ENV
+
+      - name: Sign in to the practice project
+        id: practice
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PRACTICE_FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Make sure it's the practice project, never the live one
+        run: |
+          PID="${{ steps.practice.outputs.project_id }}"
+          if [ -z "$PID" ] || [ "$PID" = "proptracker-9732e" ]; then echo "::error::The practice key points at '$PID'. It must be the practice project."; exit 1; fi
+          echo "PID=$PID" >> $GITHUB_ENV
+          T=$(gcloud auth print-access-token); echo "::add-mask::$T"; echo "PRACTICE_TOKEN=$T" >> $GITHUB_ENV
+          echo "Practice project: $PID"
+
+      - name: Install
+        run: |
+          npm ci
+          npm ci --prefix functions
+
+      - name: Turn on the Google services it needs
+        if: env.UPDATE == 'true'
+        run: |
+          gcloud services enable firestore.googleapis.com cloudfunctions.googleapis.com run.googleapis.com cloudbuild.googleapis.com \
+            artifactregistry.googleapis.com eventarc.googleapis.com pubsub.googleapis.com secretmanager.googleapis.com \
+            iamcredentials.googleapis.com iam.googleapis.com cloudscheduler.googleapis.com firebasestorage.googleapis.com \
+            fcm.googleapis.com identitytoolkit.googleapis.com firebasehosting.googleapis.com --project "$PID"
+
+      - name: Database and AI key (created only if missing)
+        if: env.UPDATE == 'true'
+        run: |
+          gcloud firestore databases describe --project "$PID" >/dev/null 2>&1 \
+            || gcloud firestore databases create --location=northamerica-northeast1 --project "$PID"
+          # Placeholder = the AI gives free test answers; put the real key in the practice project's Secret Manager to try the real AI.
+          gcloud secrets describe GEMINI_API_KEY --project "$PID" >/dev/null 2>&1 \
+            || printf 'practice-no-ai' | gcloud secrets create GEMINI_API_KEY --data-file=- --project "$PID"
+
+      - name: Practice web settings
+        if: env.UPDATE == 'true'
+        run: |
+          APP=$(npx firebase apps:list WEB --project "$PID" --json | jq -r '.result[0].appId // empty')
+          [ -n "$APP" ] || APP=$(npx firebase apps:create WEB "Practice" --project "$PID" --json | jq -r '.result.appId')
+          npx firebase apps:sdkconfig WEB "$APP" --project "$PID" --json > sdk.json
+          jq -r '.result.sdkConfig // .result.fileContents' sdk.json > cfg.json 2>/dev/null || true
+          jq -e .apiKey cfg.json >/dev/null 2>&1 || jq -r '.result.fileContents' sdk.json | sed -n '/{/,/}/p' > cfg.json
+          {
+            echo "VITE_FIREBASE_API_KEY=$(jq -r .apiKey cfg.json)"
+            echo "VITE_FIREBASE_AUTH_DOMAIN=$(jq -r .authDomain cfg.json)"
+            echo "VITE_FIREBASE_PROJECT_ID=$PID"
+            echo "VITE_FIREBASE_STORAGE_BUCKET=$(jq -r .storageBucket cfg.json)"
+            echo "VITE_FIREBASE_MESSAGING_SENDER_ID=$(jq -r .messagingSenderId cfg.json)"
+            echo "VITE_FIREBASE_APP_ID=$(jq -r .appId cfg.json)"
+            echo "VITE_PRACTICE=1"
+          } >> $GITHUB_ENV
+          # The server functions know they're on the practice site (never committed; the live project never gets this file).
+          echo "PRACTICE=1" > "functions/.env.$PID"
+
+      - name: Build the practice app
+        if: env.UPDATE == 'true'
+        run: npm run build
+
+      - name: Deploy functions, rules, indexes and the website to the PRACTICE project
+        if: env.UPDATE == 'true'
+        run: |
+          deploy() { npx firebase deploy --only functions,firestore,storage,hosting --project "$PID" --non-interactive --force; }
+          deploy || { echo "First attempt failed; waiting 60s and retrying once..."; sleep 60; deploy; }
+
+      - name: Let the practice server sign you in as practice people
+        if: env.UPDATE == 'true'
+        run: |
+          NUM=$(gcloud projects describe "$PID" --format='value(projectNumber)')
+          SA="$NUM-compute@developer.gserviceaccount.com"
+          gcloud iam service-accounts add-iam-policy-binding "$SA" --member="serviceAccount:$SA" \
+            --role=roles/iam.serviceAccountTokenCreator --project "$PID" --quiet >/dev/null && echo "✔ $SA can sign practice sign-ins"
+
+      - name: Let the app reach every function
+        if: env.UPDATE == 'true'
+        run: |
+          # Same list as the live "Deploy backend" button (the first "for svc in … ; do" loop there).
+          LIST=$(awk '/for svc in/{on=1} on{print} on && /; do/{exit}' .github/workflows/deploy-backend.yml | tr -d '\\' | sed 's/for svc in//; s/; do//')
+          [ -n "$LIST" ] || { echo "::error::Couldn't read the function list from deploy-backend.yml"; exit 1; }
+          for svc in $LIST practiceswitch; do
+            gcloud run services add-iam-policy-binding "$svc" --region northamerica-northeast1 \
+              --project "$PID" --member=allUsers --role=roles/run.invoker --quiet >/dev/null && echo "✔ $svc" || echo "– $svc (not found)"
+          done
+
+      - name: Copy the props from the live app (read only) and clear old practice activity
+        if: env.REFILL == 'true'
+        run: python3 .github/scripts/practice_fill.py "$LIVE_TOKEN" "$PID" "$PRACTICE_TOKEN"
+
+      - name: Add the pretend people, shoots and requests
+        if: env.REFILL == 'true'
+        env:
+          SEED_PROJECT: ${{ env.PID }}
+          SEED_TOKEN: ${{ env.PRACTICE_TOKEN }}
+        run: node scripts/seed-emulator.mjs
+
+      - name: Where to find it
+        run: |
+          echo "### Practice site ready" >> $GITHUB_STEP_SUMMARY
+          echo "Open https://$PID.web.app and sign in with your own Google account. Tap **Switch** in the orange strip to become any practice person." >> $GITHUB_STEP_SUMMARY
+          echo "Practice site: https://$PID.web.app"

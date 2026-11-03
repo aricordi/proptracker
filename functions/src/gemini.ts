@@ -2,6 +2,7 @@
 // Model names are in one place: when Google retires a model, change it here.
 import { createHash } from 'node:crypto'
 import { defineSecret } from 'firebase-functions/params'
+import { isPractice } from './practiceMode.js'
 
 // The Gemini key, kept in Google Secret Manager (declared once, shared by all functions).
 export const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY')
@@ -20,8 +21,11 @@ function keyHeaders(apiKey: string) {
 
 // In the local emulator with no real key, return fake-but-stable answers so
 // the app and tests work offline and cost nothing.
+// Test answers (free, offline): in the emulator with no key, and on the PRACTICE site until a real key is added there
+// (the practice deploy stores the placeholder 'practice-no-ai'). The live app always uses the real key.
 export function isFakeMode(apiKey: string | undefined) {
-  return !apiKey && process.env.FUNCTIONS_EMULATOR === 'true'
+  if (process.env.FUNCTIONS_EMULATOR === 'true' && !apiKey) return true
+  return isPractice() && (!apiKey || apiKey === 'practice-no-ai')
 }
 
 export interface PhotoAnalysis {
