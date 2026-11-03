@@ -106,8 +106,8 @@ export async function bookGear(data: Record<string, any>, email: string) {
     body: JSON.stringify({ fields: { gearReserveHours: toValue(336) } }) })
   if (!data.scheduleShootId && typeof data.date === 'string') {
     const id = `g${email.replace(/[^a-z0-9]/gi, '')}${data.date.replace(/-/g, '')}`
-    await put(`shoots/${id}`, { creatorEmail: email, creatorName: email.split('@')[0], status: 'booked', place: 'offsite', where: 'Test', date: data.date,
-      start: 360, end: 1440, from: `${data.date}T06:00`, to: `${data.date}T23:59`, kind: 'offsite', history: [] })
+    await put(`shoots/${id}`, { creatorEmail: email, creatorName: email.split('@')[0], status: 'booked', place: 'cliff2', where: '', date: data.date,
+      start: 360, end: 1440, from: `${data.date}T06:00`, to: `${data.date}T23:59`, kind: 'extra', history: [] })
     data = { ...data, scheduleShootId: id }
   }
   return call('createGearBooking', data, email)
