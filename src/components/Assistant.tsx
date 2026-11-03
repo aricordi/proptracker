@@ -32,7 +32,7 @@ import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useTurnaround } from '../hooks/useTurnaround'
 import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
-import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, useGearWindow, stampLabel } from '../activeShoot'
+import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, useGearWindow } from '../activeShoot'
 import { formatDay } from '../lib/dates'
 import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type ChatTurn, type ChatStateIn } from '../services/ai'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
@@ -209,7 +209,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const late = (kind: 'props' | 'builds' | 'gear') => !!planShoot && today > cutoffs(planShoot)[kind]
   function startPlan() {
     setPlan({ step: 'time' }); setChips([])
-    if (upcoming.length) bot('Let\'s plan your shoot, step by step: time, props, gear, then you check it all and send. Is it one you\'ve already booked, or a new time?', { who: 'shoots' })
+    if (upcoming.length) bot(`Let's plan your shoot, step by step: time, props${gearOn ? ', gear' : ''}, then you check it all and send. Is it one you've already booked, or a new time?`, { who: 'shoots' })
     else planTime()
   }
   function planTime() {
@@ -222,13 +222,16 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const name = sh ? label(sh) : where ?? 'your shoot'
     setPlan({ step: 'props', shootId, label: name }); setMode('props')
     const tooLate = sh && today > cutoffs(sh).props
-    if (tooLate) { setChips([SKIP_PROPS]); bot(`Step 2 · Props. It's too late to add props to ${name} (the last day was ${formatDay(cutoffs(sh).props)}). Let's look at gear.`); return }
+    if (tooLate) { setChips([SKIP_PROPS]); bot(`Step 2 · Props. It's too late to add props to ${name} (the last day was ${formatDay(cutoffs(sh).props)}). ${gearOn ? "Let's look at gear." : "Let's review."}`); return }
     setChips([...STARTERS.props.slice(0, 3), SKIP_PROPS])
     bot(`Step 2 · Props for ${name}. What's the video about? I'll find what we have and check it's free that day.${sh ? ` Props by ${formatDay(cutoffs(sh).props)}.` : ''}`, { who: 'already' })
   }
   // Ticked suggestions go into the shoot when you move on, so nothing is lost.
   function commitTicks() { if (plan?.shootId && sel.length) { addToShoot(plan.shootId, picks()); setSel([]) } }
+  // Gear isn't booked ahead (owner, Nov 3): the plan goes straight from props to review.
+  const gearOn = s.gearReserve
   function planGear() {
+    if (!gearOn) return planReview()
     commitTicks()
     setPlan(p => p && { ...p, step: 'gear' }); setChips([NEXT_REVIEW])
     if (late('gear')) { bot(`Step 3 · Gear. It's too late to add gear to ${planLabel}.`); return }
@@ -339,10 +342,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       if (intent === 'pickup') { say('Here\'s where your props are.', [{ who: 'pickup' }]); return true }
       if (intent === 'take-gear') {
         const live = sorted.filter(x => x.status === 'booked')
-        const now0 = live.find(x => gw(x).state === 'take'), soon = live.find(x => gw(x).state === 'reserve'), later = live.find(x => gw(x).state === 'early')
+        // Owner, Nov 3: gear isn't reserved any more; it's taken on the shoot day (from an hour before).
+        const now0 = live.find(x => gw(x).state === 'take'), later = live.find(x => gw(x).state === 'early' || gw(x).state === 'reserve')
         if (now0) { say(`Your shoot is on (${label(now0)}). Pick what you're taking, then tick every piece and take one photo.`, [{ who: 'actions', items: [{ label: 'Pick the gear', to: '/gear', shootId: now0.id }] }]); return true }
-        if (soon) { say(`You can reserve gear now for ${label(soon)}. Or just take what's free on the day, from an hour before.`, [{ who: 'actions', items: [{ label: 'Reserve gear', to: '/gear', shootId: soon.id }] }]); return true }
-        if (later) { say(`For ${label(later)}: you can reserve gear from ${stampLabel(gw(later).opens)}, or take what's free from an hour before your shoot. Nothing to do yet.`, [], [], true); return true }
+        if (later) { say(`For ${label(later)}: take what's free from an hour before your shoot. Nothing to do yet.`, [], [], true); return true }
         say('Gear goes with a shoot. Book a time first, then take what you need on the day.', [], ['Find me a time today', 'Earliest free slot'], true); return true
       }
       if (intent === 'move' || intent === 'swap') {
@@ -412,7 +415,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // Nothing (new) found: offer a plain search for the same words, so the chat is never a dead end.
       setMsgs(x => [...x, { who: 'bot', text: r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
         ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
-      const next = [...(plan?.step === 'props' ? [NEXT_GEAR] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
+      const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
       return [...new Set(next)].slice(0, 5)
     } catch (e) {
       // Busy, offline, today's limit: say so plainly, and offer to try again or search the closet instead.
@@ -608,17 +611,20 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // Starter cards (owner, Nov 3: "like the top apps"): concrete, about YOUR week, right above the typing box.
   const wd = (d: string) => WEEKDAY[new Date(d + 'T12:00:00').getDay()]
   const hasOut = (returns ?? []).length > 0
+  // Shoot day (owner, Nov 3): "Take gear" is a starter card, not a card in the chat.
+  const takeShoot = upcoming.find(x => x.status === 'booked' && gw(x).state === 'take')
   const propsShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from)).find(x => today <= cutoffs(x).props && !x.checkin)
   type Sugg = { icon: IconName; title: string; sub: string; ai?: boolean; go: () => void }
   const sugg: (Sugg | false)[] = helpOnly || demo ? [] : [
+    !!takeShoot && { icon: 'camera', title: 'Take gear', sub: 'Pick it, tick every piece, one photo', go: () => { choose(takeShoot.id); navigate('/gear') } },
     hasOut && { icon: 'box', title: 'Bring gear back', sub: 'A few taps, one photo', go: () => { send('I\'m returning everything') } },
     !!propsShoot && { icon: 'sparkle', ai: true, title: `Props for ${formatDay(propsShoot.date, { weekday: 'short' })}`, sub: `Ideas for that shoot · by ${formatDay(cutoffs(propsShoot).props)}`, go: () => { send(`Props for my ${wd(propsShoot.date)} shoot`) } },
     { icon: 'calendar', title: 'Book a time', sub: mixed()[0].replace(/^Book /, ''), go: () => { send(mixed()[0]) } },
     { icon: 'people', title: 'With a friend', sub: 'Back-to-back slots this week', go: () => { send('Find me 2 hours this week with a friend') } },
     { icon: 'sparkle', ai: true, title: 'Props for an idea', sub: STARTERS.props[1], go: () => { send(STARTERS.props[1]) } },
-    { icon: 'list', ai: true, title: 'Plan my whole shoot', sub: 'Time, props and gear', go: () => startPlan() },
+    { icon: 'list', ai: true, title: 'Plan my whole shoot', sub: 'Time and props', go: () => startPlan() },
     nextShoot ? { icon: 'check', title: 'Is it approved?', sub: 'Where your shoots are at', go: () => { send('Is my shoot approved?') } }
-      : { icon: 'help', title: 'How does it work?', sub: 'Booking, props, gear', go: () => { send('How does booking work?') } },
+      : { icon: 'help', title: 'How does it work?', sub: 'Booking and props', go: () => { send('How does booking work?') } },
   ]
   const suggestions = sugg.filter((x): x is Sugg => !!x).slice(0, 6)
 
@@ -641,8 +647,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         </>}
         {plan ? (
           <div className="flex gap-1.5 mt-1" aria-label="Plan my shoot steps">
-            {STEPS.map(([k, t], n) => {
-              const at = STEPS.findIndex(x => x[0] === plan.step), done = n < at, now = n === at
+            {STEPS.filter(x => gearOn || x[0] !== 'gear').map(([k, t], n, steps) => {
+              const at = steps.findIndex(x => x[0] === plan.step), done = n < at, now = n === at
               return <span key={k} className="flex-1"><span className={`block h-1 rounded-full ${done || now ? 'bg-[#BF9DFF]' : 'bg-pt-border'}`} /><span className={`block text-xs mt-1 ${now ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{done ? '✓ ' : ''}{t}</span></span>
             })}
           </div>
@@ -684,7 +690,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         ) : m.who === 'choose' ? (
           <div key={i} className="rise-in space-y-2">
-            {choice('plan', '✦', 'Plan my shoot with me', 'Time, props and gear, step by step. You check it all at the end')}
+            {choice('plan', '✦', 'Plan my shoot with me', gearOn ? 'Time, props and gear, step by step. You check it all at the end' : 'Time and props, step by step. You check it all at the end')}
           </div>
         ) : m.who === 'options' ? (
           <div key={i} className="rise-in space-y-2">
@@ -768,7 +774,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             )}
             <div className="flex gap-2">
               <button onClick={() => plan?.shootId && planProps(plan.shootId, plan.label)} className="flex-1 rounded-xl py-3 text-sm font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ More props</button>
-              <button onClick={planGear} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Gear</button>
+              {gearOn && <button onClick={planGear} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Gear</button>}
               <button onClick={() => go('/browse')} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Browse all</button>
             </div>
           </div>
@@ -810,7 +816,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             {!plan && (sel.length > 0
               ? <button onClick={() => addTo(m.shootId, m.label)} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold">Add the {sel.length} ticked to this shoot</button>
               : <button onClick={() => propsFor(m.shootId)} className="w-full rounded-xl py-3 font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Find props for this shoot</button>)}
-            {!plan && <button onClick={() => { choose(m.shootId); go('/browse') }} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Browse props &amp; gear</button>}
+            {!plan && <button onClick={() => { choose(m.shootId); go('/browse') }} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Browse props</button>}
           </div>
         ) : null)}
         {busy && <div role="status" aria-label="Thinking" className="rise-in flex items-center gap-3">
@@ -823,7 +829,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
       <div className="shrink-0 px-4 pt-2 pb-safe bg-pt-bg">
         {sel.length > 0 && plan?.step === 'props' ? (
-          <button onClick={planGear} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} &amp; go to gear ›</button>
+          <button onClick={planGear} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} &amp; {gearOn ? 'go to gear' : 'review'} ›</button>
         ) : plan && plan.step !== 'time' && plan.step !== 'review' && sel.length === 0 ? null : sel.length > 0 ? (
           <button onClick={() => setPicking(true)} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} to a shoot</button>
         ) : (cart.count + gearCart.count) > 0 && results.length > 0 ? (

@@ -100,7 +100,8 @@ export function useGearWindow() {
   const s = useScheduleSettings()
   return (sh: Shoot, now = nowStamp()): GearWindow => {
     const opens = gearReserveOpensAt(sh.from, s.gearReserveHours)
-    const state = now >= sh.to ? 'over' : canTakeGear(sh.from, sh.to, now) ? 'take' : now >= opens ? 'reserve' : 'early'
+    // Reserving ahead is off unless the owner turns it on (owner, Nov 3: first come, first served on the day).
+    const state = now >= sh.to ? 'over' : canTakeGear(sh.from, sh.to, now) ? 'take' : now >= opens && s.gearReserve ? 'reserve' : 'early'
     return { state, opens }
   }
 }

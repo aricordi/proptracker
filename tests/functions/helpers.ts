@@ -102,8 +102,9 @@ export async function soonSlot() {
 // Grab-and-go gear (Nov 2): creators reserve gear only for a shoot, from `gearReserveHours` before it. Older tests book
 // gear days ahead, so this opens the window wide (two weeks) and gives each booking a shoot on that day when it has none.
 export async function bookGear(data: Record<string, any>, email: string) {
-  await fetch(`${FS}/app_settings/schedule?updateMask.fieldPaths=gearReserveHours`, { method: 'PATCH', headers: ADMIN,
-    body: JSON.stringify({ fields: { gearReserveHours: toValue(336) } }) })
+  // Reserving gear ahead is off by default (owner, Nov 3); the older gear tests turn it on to test the rest.
+  await fetch(`${FS}/app_settings/schedule?updateMask.fieldPaths=gearReserveHours&updateMask.fieldPaths=gearReserve`, { method: 'PATCH', headers: ADMIN,
+    body: JSON.stringify({ fields: { gearReserveHours: toValue(336), gearReserve: toValue(true) } }) })
   if (!data.scheduleShootId && typeof data.date === 'string') {
     const id = `g${email.replace(/[^a-z0-9]/gi, '')}${data.date.replace(/-/g, '')}`
     await put(`shoots/${id}`, { creatorEmail: email, creatorName: email.split('@')[0], status: 'booked', place: 'cliff2', where: '', date: data.date,

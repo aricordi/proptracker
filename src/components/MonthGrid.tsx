@@ -47,7 +47,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : c.mine && !team ? 'shadow-[inset_0_0_0_2px_#C9A961]' : ''
           return (
             <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}: ${team ? `${c.requested} requests, ` : ''}${c.free} free`}
-              className={`relative aspect-[0.82] rounded-xl bg-pt-surface flex flex-col items-center justify-between py-1.5 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
+              className={`relative aspect-[0.82] lg:aspect-[1.35] rounded-xl bg-pt-surface flex flex-col items-center justify-between py-1.5 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               <span className={`text-[15px] font-semibold ${date === today ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
               {!past && (team
                 ? <span className="flex flex-col items-center gap-0.5">

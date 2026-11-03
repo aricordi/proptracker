@@ -1,5 +1,5 @@
 // "My shoots" (owner, Oct 20): just your own shoots, soonest first, so you can glance at when you're filming
-// and what each one still needs (props, gear), without digging through the schedule.
+// and what each one still needs (props and costumes), without digging through the schedule.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
@@ -91,20 +91,21 @@ export default function MyShootsScreen() {
           </span>
           <span className="text-pt-muted">›</span>
         </button>
-        {!isPast && !p.length && !g.length && today > cut.props && today > cut.gear ? (
-          <p className="px-1 text-pt-muted text-xs">No props or gear · too late to add now</p>
+        {!isPast && !p.length && !g.length && today > cut.props ? (
+          <p className="px-1 text-pt-muted text-xs">No props · too late to add now</p>
         ) : !isPast && (
           <div className="flex flex-wrap gap-2 px-1">
             {chip('p', 'Props', p.length ? (PROP_WORDS[p[0].status] ?? p[0].status) : null, cut.props, () => add(x, '/browse'))}
-            {chip('g', 'Gear', g.length ? (GEAR_WORDS[g[0].status] ?? g[0].status) + (shared ? ` · ${(shared.creatorName ?? '').split(' ')[0]}'s` : '') : null, cut.gear, () => add(x, '/gear'))}
+            {/* Gear isn't booked ahead (owner, Nov 3): only shown when gear was actually taken for this shoot. */}
+            {g.length > 0 && chip('g', 'Gear', (GEAR_WORDS[g[0].status] ?? g[0].status) + (shared ? ` · ${(shared.creatorName ?? '').split(' ')[0]}'s` : ''), cut.gear, () => add(x, '/gear'))}
           </div>
         )}
         {!isPast && x.date === today && !x.checkin && win === 'open' && (
           <button onClick={() => open(x)} className="w-full rounded-xl py-3 font-semibold text-stone-900 bg-pt-accent shadow-gold">Check in</button>
         )}
-        {!isPast && x.date !== today && !p.length && !g.length && ai.available && today <= cut.gear && (
+        {!isPast && x.date !== today && !p.length && ai.available && today <= cut.props && (
           <button onClick={() => ai.open('plan', x.id)} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF]">
-            <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Plan props and gear with AI</span><span className="text-pt-muted">›</span>
+            <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Plan props with AI</span><span className="text-pt-muted">›</span>
           </button>
         )}
       </div>

@@ -23,7 +23,7 @@ import type { Item } from '../types'
 import BrandMark from '../components/BrandMark'
 import { useGearCart } from '../gearCart'
 import { useActiveShoot } from '../activeShoot'
-import { BrowseTabs, AddingToChip, useAddingNote } from '../components/AddingToBar'
+import { AddingToChip, useAddingNote } from '../components/AddingToBar'
 import { useAddWithoutShoot } from '../components/AddWithoutShoot'
 import MyRequestsButton from '../components/MyRequestsButton'
 import BottomSheet from '../components/BottomSheet'
@@ -264,7 +264,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
             <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Got a video idea? Ask AI which props fit</span><span aria-hidden>›</span>
           </button>
         )}
-        {shootFlow && !toRequest && !personal && <div className="mt-2.5"><BrowseTabs /></div>}
+        {/* No Gear tab (owner, Nov 3): gear isn't booked ahead; it's taken on the shoot day from the chat. */}
       </div>
 
       {/* Search + one row of chips stay pinned under the status bar. */}

@@ -36,7 +36,7 @@ export default function RulesSheetScreen() {
       ['Props are late', `${RETURN_DEADLINE_HOUR} AM, next open day`, 'After this, the creator is flagged "late props" and can\'t book more props until they\'re back.', owner],
     ] },
     { title: 'Gear', rows: [
-      ['Gear: reserve from', `${s.gearReserveHours} hours before the shoot`, 'Gear is grab-and-go: creators can reserve a kit from this many hours before their shoot, or take what\'s free on the day (from an hour before). Schedule settings.', owner],
+      ['Gear: booking ahead', s.gearReserve ? `From ${s.gearReserveHours} hours before the shoot` : 'Off', s.gearReserve ? 'Creators can reserve a kit from this many hours before their shoot, or take what\'s free on the day (from an hour before). Schedule settings.' : 'Gear isn\'t booked ahead: creators take what\'s free on the shoot day, from an hour before (first come, first served). Schedule settings.', owner],
       ['Pickup opens', `${PICKUP_OPENS_MINUTES} min before`, 'When the creator can do the pickup check (tick every piece).', owner],
       ['Gear due back', `House shoots: when the shoot ends · offsite: ${s.gearOffsiteBackBy >= 1440 ? 'end of day' : fmtTime(s.gearOffsiteBackBy)}`, 'At the houses the gear may go to the next person; offsite shoots have until the end of the day. Schedule settings.', owner],
       ['Houses-only kits', 'Set per kit', 'Kits switched to "Houses only" can\'t go on offsite shoots (keep the top cameras close). Set on each kit.', owner],

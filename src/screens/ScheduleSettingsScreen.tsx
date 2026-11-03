@@ -135,14 +135,18 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
-          <h2 className="text-pt-text font-semibold">Gear (grab-and-go)</h2>
-          <div className="flex items-center gap-3">
-            <button onClick={() => set({ gearReserveHours: Math.max(1, s.gearReserveHours - 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
-            <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.gearReserveHours}</span>
-            <button onClick={() => set({ gearReserveHours: Math.min(336, s.gearReserveHours + 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
-            <span className="text-pt-muted text-sm">hours before a shoot creators can reserve gear</span>
-          </div>
-          <p className="text-pt-muted text-xs">Before that it's first come, first served: on the shoot day (from an hour before) they take what's free, tick every piece and take one photo.</p>
+          <h2 className="text-pt-text font-semibold">Gear (first come, first served)</h2>
+          {/* Owner, Nov 3: no booking gear ahead in this first version. Kept as a switch so it can come back later. */}
+          <label className="flex items-center gap-3 text-sm"><span className="flex-1 text-pt-text">Creators can reserve gear ahead</span>
+            <input type="checkbox" checked={s.gearReserve} onChange={e => set({ gearReserve: e.target.checked })} className="w-6 h-6 accent-[#C9A961]" /></label>
+          {s.gearReserve ? (
+            <div className="flex items-center gap-3">
+              <button onClick={() => set({ gearReserveHours: Math.max(1, s.gearReserveHours - 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+              <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.gearReserveHours}</span>
+              <button onClick={() => set({ gearReserveHours: Math.min(336, s.gearReserveHours + 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+              <span className="text-pt-muted text-sm">hours before a shoot creators can reserve gear</span>
+            </div>
+          ) : <p className="text-pt-muted text-xs">Off: gear isn't booked ahead. On the shoot day (from an hour before) creators take what's free, tick every piece and take one photo.</p>}
           <label className="flex items-center gap-3 text-sm"><span className="flex-1 text-pt-text">Offsite shoots bring gear back by</span>
             <select value={s.gearOffsiteBackBy} onChange={e => set({ gearOffsiteBackBy: Number(e.target.value) })} className="bg-pt-bg text-pt-text rounded-xl px-3 min-h-[44px]">
               {[1080, 1140, 1200, 1260, 1320, 1380, 1440].map(m => <option key={m} value={m}>{m === 1440 ? 'End of day (midnight)' : fmtTime(m)}</option>)}

@@ -8,7 +8,7 @@ import { useActiveShoot, useCutoffs, useGearWindow, stampLabel } from '../active
 import { useAssistant } from '../assistant'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
-import { isLive, type Shoot } from '../services/schedule'
+import { isLive, useScheduleSettings, type Shoot } from '../services/schedule'
 import UnsentBasket from './UnsentBasket'
 
 export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear'; sharedBy?: string; sharedWith?: string }
@@ -87,6 +87,8 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
   // Grab-and-go gear (Nov 2): reserve from 24 h before, take it on the day.
   const g = useGearWindow()(shoot)
   const gearLine = g.state === 'early' ? `Reserve from ${stampLabel(g.opens)}, or take it on the day` : g.state === 'take' ? 'Your shoot is on: take what you need' : g.state === 'reserve' ? 'You can reserve it now' : 'Shoot over'
+  // Owner, Nov 3: shoots only take props and costumes; gear isn't booked ahead. Gear taken on the day still shows here.
+  const gearOn = useScheduleSettings().gearReserve
 
   const section = (_kind: 'props' | 'gear', title: string, by: string, list: Linked[], to: string, extra?: string) => (
     <div className="bg-pt-bg rounded-xl p-3 space-y-2">
@@ -111,15 +113,16 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
     <div className="space-y-2">
       <p className="text-pt-muted text-xs">For this shoot</p>
       {mine && <UnsentBasket shootId={shoot.id} />}
-      {mine && open && ai.available && today <= cut.gear && (
+      {mine && open && ai.available && today <= cut.props && (
         <button onClick={() => ai.open('plan', shoot.id)} className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
           <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
-          <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">Props for your idea and the gear that's free, then you check it</span></span>
+          <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">{gearOn ? "Props for your idea and the gear that's free, then you check it" : 'Props and costumes for your idea, then you check it'}</span></span>
           <span className="text-pt-muted">›</span>
         </button>
       )}
       {mine && section('props', 'Props & costumes', cut.props, linked.props, '/browse', `new props by ${formatDay(cut.builds)}`)}
-      {section('gear', 'Gear', cut.gear, linked.gear, '/gear')}
+      {gearOn ? section('gear', 'Gear', cut.gear, linked.gear, '/gear')
+        : linked.gear.length > 0 && <div className="bg-pt-bg rounded-xl p-3 space-y-2"><p className="text-pt-text font-semibold">Gear</p>{linked.gear.map(l => <RequestRow key={l.id} l={l} />)}</div>}
       <p className="text-pt-muted text-xs px-1">Casting, locations and makeup come later.</p>
     </div>
   )

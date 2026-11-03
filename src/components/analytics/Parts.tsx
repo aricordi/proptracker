@@ -202,7 +202,7 @@ export function OutPill({ k }: { k: StandFilter }) {
 export function StandingTiles({ list, filter, onFilter, tourId }: { list: St[]; filter?: StandFilter | ''; onFilter?: (l: StandFilter | '') => void; tourId?: string }) {
   const count = (k: StandFilter) => k === 'attention' ? list.filter(s => s.attention).length : list.filter(s => s.output === k).length
   return (
-    <div data-tour={tourId} className="grid grid-cols-2 gap-2">
+    <div data-tour={tourId} className="grid grid-cols-2 lg:grid-cols-4 gap-2">
       {(['more', 'less', 'typical', 'attention'] as StandFilter[]).map(k => {
         const n = count(k), on = filter === k
         return (

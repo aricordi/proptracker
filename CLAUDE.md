@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 610 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 614 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1942,6 +1942,31 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       version of GEMINI_API_KEY in the practice project's Secret Manager (copying it automatically was refused as a secret-store
       write), then 'Update the practice app'. Practice AI budget = app_settings/ai $10/month (written by practice_fill.py).
       changeuseremail wasn't found on practice (owner-only tool, not needed there).
+    - CALMER CHAT + MONTH-ONLY CALENDAR + NO GEAR BOOKING + LAPTOP + NOTIFICATIONS (owner, Nov 3, after trying the practice
+      site; NOT deployed: backend (gearBookings, assistant, pushMessages, push, schedule settings) + website, ask). CHAT: check-in =
+      ONE line + "Selfie" button (ProofPhotos `selfie` = front camera, `compact` = one button); the selfie IS the check-in (auto);
+      someone filmed right before → "All good" / "Report it" (mess + photo, ran over 15/30/60, note). Wrap = one input row. Take-gear
+      card REMOVED → starter card "Take gear" (shoot day) above the typing box. Invites + incoming swaps = sky-blue "Needs your
+      answer" cards (ScheduleAsks `urgent`); SWAP PREVIEW: "Preview that day if you accept" = both houses × slots of that day, your
+      new slot gold, the requester's new slot blue, offsite names. CALENDAR (ScheduleScreen): MONTH ONLY (Day view, house tabs,
+      SlotRow, "Book a shoot" button removed; ?book=1 just shows the month unless ✦ picks are waiting → FindSheet). Tap a day →
+      DayPickSheet; tap a gold time → BookSheet asks "Just me / + 1 friend / + 2 friends" (friend search) = GROUP BOOKING (title
+      "Group booking · N slots", hours) via bookWithFriends (friends' next slots held 20 min to confirm); refuses when the next
+      slot(s) aren't free. Day sheet: "Book Offsite" button (no Full day view); free cells say "Guideline required" (needsGuideline).
+      NO GEAR BOOKING (owner: "first iteration… no booking whatsoever of the gear… checkout first come first serve"): schedule
+      setting `gearReserve` (default FALSE; Schedule settings switch "Creators can reserve gear ahead"); createGearBooking for
+      creators refuses with problem 'no-reserve' unless on (takeGear on the day still works; tests' bookGear turns it on).
+      useGearWindow never returns 'reserve' when off. Creator Browse has NO Gear tab (BrowseTabs removed from Props + Gear shop);
+      ShootNeeds = Props & costumes only (+ a Gear list only when gear was taken); My shoots no gear chip; Plan my shoot = time →
+      props → review (gearOn); ideaToProps sends no gear candidates when off; AI rulesText says gear isn't booked ahead; Help, How it
+      works, Rules sheet, Team guide, appGuide follow the setting. LAPTOP: FULL_EXACT ['/admin','/schedule','/creators'] + '/' for
+      admins; Schedule = month (shorter cells lg:aspect-[1.35]) + the picked day inline on the right (DayPickSheet `inline`);
+      Dashboard (CreatorDashboard desk) = 4 standing tiles, creators list | Needs you now + buttons (sticky), then the Team menu in 3
+      columns underneath (AdminScreen desk); Creators = one wide table (Filmed / Showed up bar + % / Coming up / Flags / Status,
+      sort by Filmed or Flags). Sidebar "Requests" (was "Requests & schedule"), "Schedule" (was Day view). NOTIFICATIONS: new
+      target 'approvers' = equipment + admins (booking requests, move requests, 12-h waiting nudge); invite ran out (both) /
+      withdrawn (friend); swap withdrawn / called off; props checked in → creator; a creator cancelling an APPROVED shoot → gear
+      team "Shoot cancelled"; check-in push says selfie; cutoff push "Last day to add props". Tests 614.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

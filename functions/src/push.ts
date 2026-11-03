@@ -23,14 +23,15 @@ const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
 const tokenId = (token: string) => createHash('sha256').update(token).digest('hex').slice(0, 40)
 const MAX_DEVICES = 8
 
-// 'arts-team' = the arts department, 'gear-team' = the equipment/schedule team. The owner gets team pings only
-// when that team has nobody in it yet (so the owner isn't flooded with every request).
+// 'arts-team' = the arts department, 'gear-team' = the equipment/schedule team, 'approvers' = everyone who approves
+// bookings (equipment team + admins, Nov 3). The owner gets team pings only when that team has nobody in it yet
+// (so the owner isn't flooded with every request).
 async function resolve(to: string[]): Promise<string[]> {
   const out = new Set<string>()
   for (const t of to) {
-    if (t === 'arts-team' || t === 'gear-team') {
-      const role = t === 'arts-team' ? 'arts' : 'equipment'
-      const team = (await db.collection('users').where('role', '==', role).where('active', '==', true).get()).docs.map(d => d.id)
+    if (t === 'arts-team' || t === 'gear-team' || t === 'approvers') {
+      const roles = t === 'arts-team' ? ['arts'] : t === 'gear-team' ? ['equipment'] : ['equipment', 'admin']
+      const team = (await db.collection('users').where('role', 'in', roles).where('active', '==', true).get()).docs.map(d => d.id)
       ;(team.length ? team : [OWNER_EMAIL]).forEach(e => out.add(e))
     } else if (t) out.add(t.toLowerCase())
   }
@@ -205,7 +206,7 @@ async function nudgeWaitingRequests() {
   const waiting = (await db.collection('shoots').where('status', '==', 'requested').get()).docs.filter(d => (d.get('requestedAt') ?? d.get('createdAt') ?? '') <= cutoff)
   if (!waiting.length) return
   const names = [...new Set(waiting.map(d => d.get('creatorName') as string))].slice(0, 3).join(', ')
-  await sendOnce(waiting.map(d => ({ key: `reqwait_${d.id}`, push: { to: ['gear-team'], url: '/approvals', tag: 'req-waiting',
+  await sendOnce(waiting.map(d => ({ key: `reqwait_${d.id}`, push: { to: ['approvers'], url: '/approvals', tag: 'req-waiting',
     title: `${waiting.length} booking request${waiting.length === 1 ? '' : 's'} waiting`, body: `From ${names}. They've been waiting over 12 hours.` } })))
 }
 

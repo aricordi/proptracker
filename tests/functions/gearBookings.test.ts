@@ -64,6 +64,13 @@ describe('holding gear', () => {
     expect((await call('createGearBooking', { title: 'x', date: DAY, start: 600, end: 900, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)).message).toMatch(/shoot on the schedule/)
     const far = addDays(today, 5)
     await put('shoots/far', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: far, start: 780, end: 900, from: `${far}T13:00`, to: `${far}T15:00`, kind: 'extra', history: [] })
+    // Owner, Nov 3: booking gear ahead is OFF by default (first come, first served on the day).
+    await put('app_settings/schedule', { gearReserve: false })
+    const off = await call('createGearBooking', { title: 'x', date: far, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'far' }, ANA)
+    expect(off.error).toBe('FAILED_PRECONDITION')
+    expect(off.details?.problem).toBe('no-reserve')
+    // Turned back on: only from 24 hours before the shoot.
+    await put('app_settings/schedule', { gearReserve: true, gearReserveHours: 24 })
     const early = await call('createGearBooking', { title: 'x', date: far, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'far' }, ANA)
     expect(early.error).toBe('FAILED_PRECONDITION')
     expect(early.message).toMatch(/24 hours before your shoot/)

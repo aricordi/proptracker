@@ -2,12 +2,12 @@
 // Live cards, most urgent first: an invite or swap to answer, a shoot happening now (check in → wrap, right here in the
 // chat), a missed check-in to explain, things to bring back, a request that wasn't approved, then the next shoots with
 // their status (waiting for approval / approved) and a nudge to add props. Nothing here needs the AI.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useSession } from '../auth'
-import { useActiveShoot, useCutoffs, useGearWindow } from '../activeShoot'
+import { useActiveShoot, useCutoffs } from '../activeShoot'
 import { useReturnGroups, returnCount } from '../hooks/useReturnables'
 import ProofPhotos from './ProofPhotos'
 import UnsentBasket from './UnsentBasket'
@@ -39,9 +39,8 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 30_000); return () => clearInterval(t) }, [])
   const today = todayInStudio()
-  const { upcoming, choose } = useActiveShoot()
+  const { upcoming } = useActiveShoot()
   const soonDays = useScheduleDays(todayInStudio(), addDays(todayInStudio(), 30))
-  const gw = useGearWindow()
   const cutoffs = useCutoffs()
   const recent = useMyShoots(email, addDays(today, -2))
   const swaps = useMySwaps(email)
@@ -87,16 +86,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       )}
       {paused && <div className="rise-in rounded-2xl px-4 py-3 bg-red-400/10 text-[14px] text-red-100">
         <b>Props are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
-      {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
-      {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
+      {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} urgent />)}
+      {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}
-      {/* Grab-and-go gear (Nov 2): from an hour before the shoot, take what's free. */}
-      {[...upcoming, ...live].filter((x, i, all) => all.findIndex(y => y.id === x.id) === i && x.status === 'booked' && gw(x, now).state === 'take').slice(0, 1).map(x => (
-        <div key={`g${x.id}`} className={card}>
-          <p className="text-[15px]"><b>Need gear for {label(x)}?</b> Take what's free now: pick it, tick every piece, one photo.</p>
-          <button onClick={() => { choose(x.id); navigate('/gear') }} className={gold}>Take gear</button>
-        </div>
-      ))}
       {missed.map(x => (
         <div key={x.id} className={card}>
           <p className="text-[15px]"><b>No check-in for {label(x)}.</b> Did you film? Tell the team before {fmtTime(Number(explainUntil(x, s).slice(11, 13)) * 60 + Number(explainUntil(x, s).slice(14, 16)))} or it may count as a no-show.</p>
@@ -167,9 +159,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   )
 }
 
-// Check in and wrap, right here (owner, Nov 2: "at the shoot time… was the house clean? did they run over?").
-// Step by step: a photo of the set → the slot before you (only when someone filmed right before) → check in → later,
-// one line: what did you film? Same server calls as the shoot page.
+// Check in and wrap, right here (owner, Nov 3: "smaller, just a selfie of them with their camera, nothing crazy").
+// One line + a selfie button. The photo is the check-in. Only when someone filmed right before you: one optional
+// "All good / Report it" question (mess and/or ran over). Later, one line: what did you film?
 function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
   const s = useScheduleSettings()
   const days = useScheduleDays(shoot.date, shoot.date)
@@ -177,59 +169,61 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
   const before = prev && prev.shootId && prev.shootId !== shoot.id ? prev : undefined
   const [photos, setPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
-  const [clean, setClean] = useState<boolean | null>(null)
+  const [report, setReport] = useState(false)
+  const [mess, setMess] = useState(false)
   const [messPhotos, setMessPhotos] = useState<string[]>([])
-  const [over, setOver] = useState<number | null>(null)
+  const [over, setOver] = useState(0)
   const [note, setNote] = useState('')
   const [title, setTitle] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  async function run(f: () => Promise<unknown>) { setBusy(true); setErr(''); try { await f() } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) } }
-  const askedBefore = !before || (clean !== null && over !== null)
-  const ready = photos.length > 0 && askedBefore && (clean !== false || messPhotos.length > 0) && !uploading
+  const tried = useRef(false)
+  async function run(f: () => Promise<unknown>) { setBusy(true); setErr(''); try { await f() } catch (e) { setErr(friendlyError(e)); tried.current = false } finally { setBusy(false) } }
+  const checkIn = (withReport: boolean) => run(() => checkInShoot({ id: shoot.id, photos,
+    ...(withReport && (over || mess) ? { report: { overMinutes: over || undefined, mess, photos: messPhotos, ...(note.trim() ? { note: note.trim() } : {}) } } : {}) }))
+  // Nobody filmed right before you: the selfie is all it takes.
+  useEffect(() => {
+    if (!before && photos.length && !uploading && !shoot.checkin && !tried.current) { tried.current = true; void checkIn(false) }
+  }, [before, photos.length, uploading, shoot.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (shoot.checkin) return (
-    <div className={card}>
-      <p className="text-[15px]"><b>You're filming: {label}.</b> When you're done, tell me what you filmed.</p>
-      <div className="flex gap-2">
-        <input value={title} onChange={e => setTitle(e.target.value.slice(0, 100))} placeholder="What did you film?" aria-label="What did you film?"
-          className="flex-1 min-w-0 bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
-        <button disabled={busy || title.trim().length < 2} onClick={() => run(() => wrapShoot({ id: shoot.id, title: title.trim() }))} className="shrink-0 rounded-xl px-4 font-bold text-stone-900 bg-pt-accent disabled:opacity-40">Wrap</button>
-      </div>
+    <div className="rise-in rounded-[20px] bg-pt-surface p-3 pl-4 flex items-center gap-2">
+      <input value={title} onChange={e => setTitle(e.target.value.slice(0, 100))} placeholder="Done? What did you film?" aria-label="What did you film?"
+        className="flex-1 min-w-0 bg-transparent min-h-[44px] text-base placeholder:text-pt-muted" />
+      <button disabled={busy || title.trim().length < 2} onClick={() => run(() => wrapShoot({ id: shoot.id, title: title.trim() }))}
+        className="shrink-0 rounded-full h-11 px-4 font-bold text-stone-900 bg-pt-accent disabled:opacity-40">Wrap</button>
       {err && <p className="text-red-300 text-sm">{err}</p>}
     </div>
   )
 
+  const shot = photos.length > 0 && !uploading
   return (
-    <div className="rise-in rounded-[20px] p-4 space-y-3 bg-pt-accent/[0.10]">
-      <p className="text-[16px]"><b>You're up: {label}.</b> Check in with a photo of the set.</p>
-      <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the set" max={3} />
-      {before && photos.length > 0 && (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <p className="text-[15px]">Was the house clean when you got there? <span className="text-pt-muted">({before.name} was in before you)</span></p>
-            <div className="flex gap-2">
-              <button onClick={() => setClean(true)} className={`flex-1 rounded-xl min-h-[44px] ${clean === true ? 'bg-pt-accent text-stone-900 font-bold' : 'bg-pt-border'}`}>Yes, clean</button>
-              <button onClick={() => setClean(false)} className={`flex-1 rounded-xl min-h-[44px] ${clean === false ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-pt-border'}`}>No, a mess</button>
-            </div>
-            {clean === false && <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={messPhotos} onChange={setMessPhotos} onUploading={setUploading} label="Photos of the mess" max={5} />}
+    <div className="rise-in rounded-[20px] p-3 pl-4 bg-pt-accent/[0.10] space-y-3">
+      <div className="flex items-center gap-3">
+        <p className="flex-1 min-w-0 text-[15px] leading-snug"><b>You're up</b> <span className="text-pt-muted">· {label}</span>
+          <span className="block text-[13px] text-pt-muted">{shot ? (busy ? 'Checking in…' : before && !report ? 'Got it.' : '') : 'Check in with a selfie with your camera.'}</span></p>
+        <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" max={1} />
+      </div>
+      {before && shot && !report && (
+        <div className="flex items-center gap-2">
+          <p className="flex-1 min-w-0 text-[14px]">All good with {before.name}'s slot before you?</p>
+          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-10 px-3 text-[14px] bg-pt-border">Report it</button>
+          <button disabled={busy} onClick={() => checkIn(false)} className="shrink-0 rounded-full h-10 px-4 text-[14px] font-bold text-stone-900 bg-pt-accent">All good</button>
+        </div>
+      )}
+      {before && shot && report && (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setMess(!mess)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${mess ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-pt-border'}`}>House was a mess</button>
+            {[15, 30, 60].map(m => <button key={m} onClick={() => setOver(over === m ? 0 : m)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${over === m ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-pt-border'}`}>Ran over {m} min</button>)}
           </div>
-          {clean !== null && (
-            <div className="space-y-2">
-              <p className="text-[15px]">Did they finish on time?</p>
-              <div className="flex flex-wrap gap-2">
-                {[0, 15, 30, 45, 60].map(m => <button key={m} onClick={() => setOver(m)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${over === m ? 'bg-pt-accent text-stone-900 font-bold' : 'bg-pt-border'}`}>{m === 0 ? 'On time' : `${m} min late`}</button>)}
-              </div>
-            </div>
-          )}
-          {(clean === false || (over ?? 0) > 0) && <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 300))} rows={2} placeholder="Anything to add? (optional)" className="w-full bg-pt-bg rounded-xl px-3 py-2 text-base" />}
+          {mess && <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={messPhotos} onChange={setMessPhotos} onUploading={setUploading} label="Photo of the mess" compact="Photo of the mess" max={3} />}
+          <input value={note} onChange={e => setNote(e.target.value.slice(0, 300))} placeholder="Anything to add? (optional)" className="w-full bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
+          <button disabled={busy || uploading || (!mess && !over) || (mess && !messPhotos.length)} onClick={() => checkIn(true)} className={gold}>
+            {busy ? 'Checking in…' : mess && !messPhotos.length ? 'Add a photo of the mess' : !mess && !over ? 'Tap what happened' : 'Check in and tell the team'}</button>
         </div>
       )}
       {err && <p className="text-red-300 text-sm">{err}</p>}
-      <button disabled={busy || !ready} className={gold}
-        onClick={() => run(() => checkInShoot({ id: shoot.id, photos, ...((over || clean === false) ? { report: { overMinutes: over || undefined, mess: clean === false, photos: messPhotos, ...(note.trim() ? { note: note.trim() } : {}) } } : {}) }))}>
-        {busy ? 'Checking in…' : !photos.length ? 'Take the photo first' : !askedBefore ? 'Answer the questions above' : (over || clean === false) ? 'Check in and tell the team' : 'Check in'}
-      </button>
     </div>
   )
 }
@@ -351,7 +345,7 @@ function ChatIntro({ onDone }: { onAsk?: (t: string) => void; onDone: () => void
   const tips = [
     'Type it like a text. Nothing is booked until you tap Request.',
     'Ask for anything: props for a video, cancel a shoot, returning gear, something broke.',
-    'Your to-dos (check-in, gear, returns, invites) show up right here.',
+    'Your to-dos (check-in, returns, invites) show up right here.',
   ]
   const last = n === tips.length - 1
   return (

@@ -44,6 +44,9 @@ export function useDesk() {
 
 /** Pages designed for the full width. Everything else sits phone-width in the middle. */
 export const FULL_WIDTH = ['/approvals', '/analytics']
+// Pages with their own laptop layout (owner, Nov 3: admins + the equipment team live on the laptop): only the page
+// itself (sub-pages like /schedule/settings stay phone width in the middle).
+export const FULL_EXACT = ['/admin', '/schedule', '/creators']   // + '/' for admins (their Dashboard)
 
 /** Requests waiting (new bookings + moves of approved shoots), live, for the sidebar badge. */
 export function useWaitingCount(enabled: boolean) {
@@ -61,10 +64,10 @@ export function useWaitingCount(enabled: boolean) {
 type Item = { to: string; label: string; icon: IconName; badge?: boolean; also?: string[] }
 const NAV: Record<string, (Item | '-')[]> = {
   equipment: [
-    { to: '/approvals', label: 'Requests & schedule', icon: 'calendar', badge: true },
+    { to: '/approvals', label: 'Requests', icon: 'calendar', badge: true },
     { to: '/gear/bookings', label: 'Gear log', icon: 'list' },
     { to: '/schedule/team', label: 'Check-ins & reports', icon: 'clock' },
-    { to: '/schedule', label: 'Day view', icon: 'pin' },
+    { to: '/schedule', label: 'Schedule', icon: 'calendar' },
     '-',
     { to: '/gear/items', label: 'All gear', icon: 'camera' },
     { to: '/gear/bundles', label: 'Kits', icon: 'box' },
@@ -73,16 +76,16 @@ const NAV: Record<string, (Item | '-')[]> = {
   admin: [
     { to: '/', label: 'Dashboard', icon: 'grid' },
     { to: '/analytics', label: 'Analytics', icon: 'chart', also: ['/rules-sheet'] },
-    { to: '/approvals', label: 'Requests & schedule', icon: 'calendar', badge: true },
+    { to: '/approvals', label: 'Requests', icon: 'calendar', badge: true },
     { to: '/creators', label: 'Creators', icon: 'people', also: ['/people'] },
     '-',
     { to: '/reservations', label: 'Props queue', icon: 'list' },
     { to: '/gear/bookings', label: 'Gear log', icon: 'box' },
-    { to: '/schedule', label: 'Day view', icon: 'pin' },
+    { to: '/schedule', label: 'Schedule', icon: 'calendar' },
     { to: '/admin', label: 'More', icon: 'grid', also: ['/account', '/help', '/users'] },
   ],
   owner: [
-    { to: '/approvals', label: 'Requests & schedule', icon: 'calendar', badge: true },
+    { to: '/approvals', label: 'Requests', icon: 'calendar', badge: true },
     { to: '/analytics', label: 'Analytics', icon: 'chart', also: ['/rules-sheet'] },
     { to: '/creators', label: 'Creators', icon: 'people', also: ['/people'] },
     { to: '/reservations', label: 'Props queue', icon: 'list' },

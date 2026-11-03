@@ -9,7 +9,7 @@ import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from
 import { nowStamp, fmtTime } from './gearBooking.js'
 import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
-import { INVITE_HOLD_MINUTES, type ScheduleDay } from './schedule.js'
+import { INVITE_HOLD_MINUTES, cleanScheduleSettings, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, asData } from './gemini.js'
 import { loadSettings } from './reservations.js'
@@ -205,7 +205,9 @@ Not about props for a video at all (e.g. homework, a recipe, chat) → {"reply":
         words: [...((x.get('tags') ?? []) as string[]).map(t => tags[t]).filter(Boolean), ...((x.get('searchWords') ?? []) as string[]).slice(0, 8)].slice(0, 12).join(', '),
         qty: Number(x.get('quantity') ?? 1), free: freeOn[x.id], used: signals.uses[x.id] ?? 0,
       }))
-    const gear = demo ? [] : (await db.collection('gear_bundles').get()).docs.filter(d => d.get('archived') !== true && !exclude.has(d.id))
+    // Gear isn't booked ahead (owner, Nov 3), so the AI only suggests props unless reserving is turned back on.
+    const gearOn = !demo && cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data()).gearReserve
+    const gear = !gearOn ? [] : (await db.collection('gear_bundles').get()).docs.filter(d => d.get('archived') !== true && !exclude.has(d.id))
       .map(d => ({ id: d.id, name: String(d.get('name') ?? ''), cat: String(d.get('category') ?? ''), kind: d.get('kind') === 'extra' || d.get('kind') === 'item' ? 'single item' : 'bundle' }))
     const propIds = new Set(props.map(p => p.id)), gearIds = new Set(gear.map(g => g.id))
 
@@ -378,7 +380,7 @@ Not about filming times → {"offTopic":true}.`
 
 // The live rule numbers, in one sentence the AI can quote (the same for "how do I…" and the chat).
 function rulesText(b: Awaited<ReturnType<typeof loadSettings>>, sch: Awaited<ReturnType<typeof loadScheduleSettings>>) {
-  return `props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}; gear is grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo); closed days don't count; house slots are ${sch.slotMinutes / 60} h, ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
+  return `props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}; gear is ${sch.gearReserve ? `grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo)` : "NOT booked ahead: it's checked out first come, first served on the shoot day, from an hour before (tick every piece + one photo); shoots only get props and costumes added"}; closed days don't count; house slots are ${sch.slotMinutes / 60} h, ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
 }
 
 // ─── How do I…? (owner, Oct 28: "people will use the AI for everything… it should help them navigate the app") ───

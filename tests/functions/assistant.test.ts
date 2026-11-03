@@ -16,10 +16,15 @@ describe('video idea → props and gear', () => {
   it('answers with groups of real ids and counts the use', async () => {
     const r = await call('ideaToProps', { idea: 'A cop pulls over his friend at a diner' }, ANA)
     expect(r.ok).toBe(true)
-    expect(r.result.groups.flatMap((g: any) => g.picks).some((p: any) => p.kind === 'gear' && p.id === 'fx3')).toBe(true)
+    // Gear isn't booked ahead (owner, Nov 3), so the ideas are props only…
+    expect(r.result.groups.flatMap((g: any) => g.picks).some((p: any) => p.kind === 'gear')).toBe(false)
     const m = (await getDoc(`ai_usage/${month}`))!
     expect(m.calls).toBe(1)
     expect((await getDoc(`ai_usage/${month}/people/${ANA}`))!.count).toBe(1)
+    // …unless booking gear ahead is turned back on.
+    await put('app_settings/schedule', { gearReserve: true })
+    const g = await call('ideaToProps', { idea: 'A cop pulls over his friend at a diner' }, ANA)
+    expect(g.result.groups.flatMap((x: any) => x.picks).some((p: any) => p.kind === 'gear' && p.id === 'fx3')).toBe(true)
   })
   it('"see more" never repeats what is already shown', async () => {
     await put('gear_bundles/light', { name: 'Light kit', kind: 'bundle', archived: false, category: 'Light', pieces: [] })

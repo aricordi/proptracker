@@ -15,6 +15,7 @@ import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
 import ShootNeeds from '../components/ShootNeeds'
+import { useDesk } from '../desk/desk'
 import AiButton from '../components/AiButton'
 import { useAssistant } from '../assistant'
 import { Pill } from '../components/GearUi'
@@ -26,14 +27,13 @@ import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
-  checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
-  inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
+  checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
+  monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, MONTHLY_SLOTS_ON, isLive,
 } from '../services/schedule'
 
 const calendarPending = httpsCallable<Record<string, never>, { pending: unknown[] }>(functions, 'calendarPending')
-const DAYS_SHOWN = 35
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const stampLabel = (s: string) => `${formatDay(s.slice(0, 10))}, ${fmtTime(Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16)))}`
 const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30)
@@ -71,10 +71,8 @@ export default function ScheduleScreen() {
   const profiles = useProfiles()
   const today = todayInStudio()
   const [date, setDate] = useState(today)
-  const [house, setHouse] = useState<Place>('cliff1')
-  // Month first (owner, Nov 2): creators look for empty spots like in Google Calendar. Day = the old one-house list.
-  const [view, setView] = useState<'month' | 'day'>(() => { try { return sessionStorage.getItem('pc.scheduleView') === 'day' ? 'day' : 'month' } catch { return 'month' } })
-  useEffect(() => { try { sessionStorage.setItem('pc.scheduleView', view) } catch { /* private mode */ } }, [view])
+  const desk = useDesk().on
+  // Month view only (owner, Nov 3): tap a day → its times → tap a time to book (with friends if you like).
   const [month, setMonth] = useState(today.slice(0, 7))
   const [sheet, setSheet] = useState<SheetState>(null)
   // After booking: if things were picked for a new shoot (✦ Prop ideas), put them in it and review it.
@@ -103,8 +101,9 @@ export default function ScheduleScreen() {
     const id = params.get('shoot'), book = params.get('book'), offsite = params.get('offsite')
     if (params.get('sent')) { setSent(params.get('sent')); const n = new URLSearchParams(params); n.delete('sent'); setParams(n, { replace: true }); return }
     if (id) { if (!(sheet?.kind === 'shoot' && sheet.id === id)) setSheet({ kind: 'shoot', id }) }
-    else if (book) { setSheet({ kind: 'find', fromToday: true }); setParams({}, { replace: true }) }
-    else if (offsite && /^\d{4}-\d{2}-\d{2}$/.test(offsite)) { setHouse('offsite'); setSheet({ kind: 'offsite', date: offsite }); setParams({}, { replace: true }) }
+    // ?book=1 = just the month (it is the booking screen); picks from ✦ Prop ideas still get "soonest times".
+    else if (book) { if (peekPendingAdds()) setSheet({ kind: 'find', fromToday: true }); setParams({}, { replace: true }) }
+    else if (offsite && /^\d{4}-\d{2}-\d{2}$/.test(offsite)) { setSheet({ kind: 'offsite', date: offsite }); setParams({}, { replace: true }) }
   }, [params])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const want = sheet?.kind === 'shoot' ? sheet.id : null, has = params.get('shoot')
@@ -121,8 +120,6 @@ export default function ScheduleScreen() {
   const ai = useAssistant()
   const status = useMyStatus(profile.email)
   const paused = !!status?.pausedUntil && status.pausedUntil > today
-  const day = days?.[date]
-  const myDays = useMemo(() => new Set((mine ?? []).map(x => x.date)), [mine])
   const next = (mine ?? []).find(x => x.to > now)
 
   // One rule for tapping a slot, used by the day list and the month's day sheet.
@@ -135,18 +132,9 @@ export default function ScheduleScreen() {
     else if (st.t === 'block' && team) setSheet({ kind: 'unblock', date: d, block: st.block })
   }
 
-  const notes: { tone: 'info' | 'gold' | 'muted'; text: React.ReactNode }[] = []
-  if (isNoCrewDay(date)) notes.push({ tone: 'info', text: <><b>Sunday · open filming.</b> First come, first served. The crew is off, so you run the shoot yourself.</> })
-  if (house !== 'offsite' && isPriorityDay(date, house, s) && !team) {
-    if (inPriorityGroup(profile.email, s)) notes.push({ tone: 'gold', text: <><b>Priority day.</b> You're in the priority group: book any free slot.</> })
-    else if (priorityLocked(date, house, s, profile.email, now)) notes.push({ tone: 'gold', text: <><b>Priority day.</b> Unclaimed slots open to everyone on <b>{stampLabel(releaseStamp(date, s))}</b>.</> })
-    else notes.push({ tone: 'gold', text: <><b>Released priority day.</b> Free slots are open to everyone.</> })
-  }
-  if (house === 'cliff2') notes.push({ tone: 'muted', text: `${s.houses.cliff2.name}: first come, first served. External rentals come first.` })
-
   return (
     <div className="min-h-full bg-pt-bg pb-8">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
+      <div className={`sticky top-0 bg-pt-bg pt-safe z-10 pb-2 ${desk ? "px-8" : "px-4"}`}>
         <div className="flex items-end justify-between py-2 gap-2">
           <h1 className="font-display text-[34px] text-pt-text">Schedule</h1>
           <div className="flex gap-2 pb-0.5">
@@ -157,54 +145,28 @@ export default function ScheduleScreen() {
             <RoundIcon icon="help" label="Help" to="/help" />
           </div>
         </div>
-        <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5 mb-2">
-          {(['month', 'day'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className={`flex-1 py-2 rounded-[10px] text-sm ${view === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
-              {v === 'month' ? 'Month' : 'Day'}
-            </button>
-          ))}
-        </div>
-        {view === 'day' && <>
-        <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
-          {([...HOUSES, 'offsite'] as Place[]).map(h => (
-            <button key={h} onClick={() => setHouse(h)}
-              className={`flex-1 py-2 rounded-[10px] text-sm ${house === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
-              {h === 'offsite' ? 'Offsite' : s.houses[h].name}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pt-3 pb-1 -mx-4 px-4">
-          {Array.from({ length: DAYS_SHOWN }, (_, i) => addDays(today, i)).map(d => (
-            <button key={d} onClick={() => setDate(d)}
-              className={`shrink-0 w-[52px] py-2 rounded-xl text-center border ${d === date ? 'border-pt-accent bg-pt-surface' : 'border-transparent bg-pt-surface'}`}>
-              <span className="block text-xs text-pt-muted">{formatDay(d, { weekday: 'short' })}</span>
-              <span className="block text-lg font-semibold text-pt-text leading-tight">{Number(d.slice(8))}</span>
-              <span className={`block mx-auto mt-0.5 w-1 h-1 rounded-full ${myDays.has(d) ? 'bg-pt-accent' : 'bg-transparent'}`} />
-            </button>
-          ))}
-        </div>
-        </>}
       </div>
 
+      <div className={desk ? 'px-8 pt-2 grid grid-cols-[minmax(0,1fr)_480px] gap-8 items-start' : ''}>
       <div className="px-4 pt-4 space-y-3">
         {paused && <div className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop bookings paused until {formatDay(status!.pausedUntil!)}</b> because of {status!.strikes ?? 2} strikes (no-shows or reports). You can still book house slots. Ask the schedule team if this looks wrong.</div>}
         {!paused && (status?.strikes ?? 0) > 0 && <div className="rounded-xl px-3 py-2 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">{status!.strikes} strike{status!.strikes === 1 ? '' : 's'} in the last {s.strikeDays} days. {s.strikeCount} pause your prop bookings for {s.pauseDays} days.</div>}
-        {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
+        {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}
-        {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
+        {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} urgent />)}
 
 
-        {view === 'month' && (
+        {(
           <section className="space-y-3 pb-2">
             <div className="flex items-center justify-between">
               <button disabled={month <= today.slice(0, 7)} onClick={() => setMonth(monthAdd(month, -1))} aria-label="Previous month" className="w-11 h-11 grid place-items-center rounded-full bg-pt-surface text-pt-text text-xl disabled:opacity-30">‹</button>
               <h2 className="text-pt-text text-[20px] font-semibold">{monthTitle(month)}</h2>
               <button disabled={month >= addDays(today, 115).slice(0, 7)} onClick={() => setMonth(monthAdd(month, 1))} aria-label="Next month" className="w-11 h-11 grid place-items-center rounded-full bg-pt-surface text-pt-text text-xl disabled:opacity-30">›</button>
             </div>
-            <p className="text-pt-muted text-xs">Free 2-hour spots at both houses. Tap a day to see its times.</p>
+            <p className="text-pt-muted text-xs">{canBook ? 'Free 2-hour spots at both houses. Tap a day, then a time to book it.' : 'Free 2-hour spots at both houses. Tap a day to see it.'}</p>
             {days === null ? <p className="text-pt-muted text-sm text-center py-6">Loading…</p>
-              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} onPick={d => { setDate(d); setSheet({ kind: 'day', date: d }) }} />}
+              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} selected={desk ? date : null}
+                  onPick={d => { setDate(d); if (!desk) setSheet({ kind: 'day', date: d }) }} />}
           </section>
         )}
 
@@ -217,7 +179,7 @@ export default function ScheduleScreen() {
             </div>
             <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
               {(mine ?? []).filter(x => x.to > now).slice(0, 6).map(x => (
-                <button key={x.id} onClick={() => { setDate(x.date); if (x.place !== house) setHouse(x.place); setSheet({ kind: 'shoot', id: x.id }) }}
+                <button key={x.id} onClick={() => { setDate(x.date); setSheet({ kind: 'shoot', id: x.id }) }}
                   className={`shrink-0 w-[148px] text-left rounded-2xl px-3 py-3 ${x.date === today ? 'bg-pt-accent/[0.16] shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]' : 'bg-pt-surface shadow-hairline'}`}>
                   <span className={`block text-xs font-semibold ${x.date === today ? 'text-pt-accent' : 'text-pt-muted'}`}>{whenLabel(x.date, today)}</span>
                   <span className="block text-pt-text font-semibold leading-tight mt-0.5">{formatDay(x.date, { weekday: 'short', month: 'short', day: 'numeric' })}</span>
@@ -239,46 +201,10 @@ export default function ScheduleScreen() {
             <Icon name="calendar" className="w-5 h-5 text-sky-300" /><span className="flex-1 text-pt-text text-sm">{calWaiting} change{calWaiting === 1 ? '' : 's'} couldn't reach Google Calendar · try again</span><span className="text-pt-muted">›</span>
           </button>
         )}
-        {canBook && <button onClick={() => setSheet({ kind: 'find', fromToday: true })} className={`${btnGold} py-4 text-[17px]`}>Book a shoot</button>}
         {/* Small on purpose (owner, Oct 19): the ✦ AI button at the top is the main way in. */}
         {canBook && <button onClick={() => ai.open('time')} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF] active:scale-[0.98] transition-transform">
           <span className="text-[#BF9DFF]">✦</span><span className="flex-1 min-w-0 truncate">Or ask AI to find a time</span><span className="text-pt-muted">›</span>
         </button>}
-
-        {view === 'day' && <>
-        <div className="flex items-center justify-between gap-2 pt-6 mt-2 border-t border-pt-border">
-          <p className="text-pt-text font-semibold">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })}{date === today ? ' · Today' : ''}</p>
-          {house !== 'offsite' && canBook && <button onClick={() => setSheet({ kind: 'find' })} className="text-pt-accent text-sm shrink-0 tap">Find a time</button>}
-        </div>
-        {house !== 'offsite' && <p className="text-pt-muted text-xs -mt-1">{s.houses[house].address}</p>}
-        {notes.map((n, i) => (
-          <div key={i} className={`rounded-xl px-3 py-3 text-sm border ${n.tone === 'gold' ? 'border-pt-accent/50 bg-pt-accent/10 text-pt-text' : n.tone === 'info' ? 'border-sky-400/40 bg-sky-400/10 text-pt-text' : 'border-pt-border bg-pt-surface text-pt-muted'}`}>{n.text}</div>
-        ))}
-
-        {days === null && <p className="text-pt-muted text-sm text-center py-6">Loading…</p>}
-        {days !== null && house !== 'offsite' && (
-          <div className="space-y-2">
-            {s.slots.map(start => (
-              <SlotRow key={start} day={day} date={date} house={house} start={start} team={team} email={profile.email} now={now}
-                onTap={st => tapSlot(st, date, house, start)} />
-            ))}
-          </div>
-        )}
-        {days !== null && house === 'offsite' && (
-          <div className="space-y-2">
-            {(day?.offsite ?? []).length === 0 && <p className="text-pt-muted text-sm">No offsite shoots this day.</p>}
-            {(day?.offsite ?? []).slice().sort((a, b) => a.start - b.start).map(o => (
-              <button key={o.shootId} onClick={() => (teamView || o.email === profile.email) && setSheet({ kind: 'shoot', id: o.shootId })}
-                className="w-full flex items-center gap-3 p-3 rounded-2xl bg-pt-surface text-left">
-                <Avatar email={o.email} name={o.name} />
-                <span className="flex-1 min-w-0"><span className="block font-semibold text-pt-text truncate">{o.email === profile.email ? 'You' : o.name}</span><span className="block text-pt-muted text-xs truncate">{o.where} · {fmtSlot(o.start, o.end - o.start)}</span></span>
-                <Pill tone="info">Offsite</Pill>
-              </button>
-            ))}
-            {(canBook || team) && <button onClick={() => setSheet({ kind: 'offsite', date: date })} className={btnGrey}>+ Add an offsite or location shoot</button>}
-          </div>
-        )}
-        </>}
 
         <button onClick={() => setSheet({ kind: 'calendar' })} className="!mt-8 w-full flex items-center gap-3 p-4 rounded-2xl bg-pt-surface shadow-hairline text-left">
           <span className="w-10 h-10 rounded-xl grid place-items-center bg-pt-bg text-lg shrink-0"><Icon name="calendar" className="w-5 h-5 text-pt-accent" /></span>
@@ -286,14 +212,21 @@ export default function ScheduleScreen() {
           <span className="text-pt-muted">›</span>
         </button>
       </div>
+      {desk && (
+        <div className="sticky top-4 pt-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
+          <DayPickSheet inline date={date} day={days?.[date]} team={team} teamView={teamView} canBook={canBook} now={now}
+            onClose={() => {}} onTap={(st, h, start) => tapSlot(st, date, h, start)}
+            onShoot={id => setSheet({ kind: 'shoot', id })} onOffsite={() => setSheet({ kind: 'offsite', date })} />
+        </div>
+      )}
+      </div>
 
       {sheet?.kind === 'day' && <DayPickSheet date={sheet.date} day={days?.[sheet.date]} team={team} teamView={teamView} canBook={canBook} now={now}
         onClose={() => setSheet(null)} onTap={(st, h, start) => tapSlot(st, sheet.date, h, start)}
         onShoot={id => setSheet({ kind: 'shoot', id })}
-        onOffsite={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: sheet.date }) }}
-        onFullDay={() => { setDate(sheet.date); setView('day'); setSheet(null) }} />}
+        onOffsite={() => setSheet({ kind: 'offsite', date: sheet.date })} />}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
-      {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []}
+      {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []} day={days?.[sheet.date]} now={now}
         dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={booked} />}
@@ -323,12 +256,12 @@ export default function ScheduleScreen() {
       )}
       {sheet?.kind === 'find' && days && (
         <FindSheet days={days} from={sheet.fromToday || date < today ? today : date} house={sheet.house} team={team} email={profile.email} now={now}
-          onOffsite={() => { setHouse('offsite'); setSheet({ kind: 'offsite', date: sheet.fromToday ? today : date }) }}
-          onClose={() => setSheet(null)} onPick={(d, h, st, friends) => { setDate(d); setHouse(h)
+          onOffsite={() => setSheet({ kind: 'offsite', date: sheet.fromToday ? today : date })}
+          onClose={() => setSheet(null)} onPick={(d, h, st, friends) => { setDate(d)
             setSheet(friends.length ? { kind: 'group', house: h, date: d, start: st, friends } : team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st }) }} />
       )}
       {sheet?.kind === 'move' && days && (
-        <MoveSheet shoot={sheet.shoot} days={days} team={team} now={now} onClose={() => setSheet(null)} onMoved={sh => { setDate(sh.date); setHouse(sh.place); setSheet({ kind: 'shoot', id: sh.id }) }} />
+        <MoveSheet shoot={sheet.shoot} days={days} team={team} now={now} onClose={() => setSheet(null)} onMoved={sh => { setDate(sh.date); setSheet({ kind: 'shoot', id: sh.id }) }} />
       )}
       {sheet?.kind === 'swap' && days && (
         <SwapSheet mine={sheet.mine} theirs={sheet.theirs} days={days} myShoots={mine ?? []} email={profile.email} now={now} onClose={() => setSheet(null)} />
@@ -338,10 +271,10 @@ export default function ScheduleScreen() {
 }
 
 // A day from the month view (owner, Nov 2): both houses side by side, one row per time. Free = gold, tap to request.
-function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, onFullDay }: {
+function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
   date: string; day?: ScheduleDay; team: boolean; teamView: boolean; canBook: boolean; now: string
   onClose: () => void; onTap: (st: ReturnType<typeof slotState>, h: House, start: number) => void
-  onShoot: (id: string) => void; onOffsite: () => void; onFullDay: () => void
+  onShoot: (id: string) => void; onOffsite: () => void; inline?: boolean
 }) {
   const s = useScheduleSettings()
   const { profile } = useSession()
@@ -350,7 +283,9 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
     const st = slotState(day, date, h, start, s, email, now, team)
     let label: React.ReactNode, cls = 'bg-pt-surface text-pt-muted'
     const early = houseFreeFrom(day, h, start, s)
-    if (st.t === 'free') { label = <>Free{early && <span className="block text-[11px] font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
+    // Cliff 1 priority days for people outside the priority group (owner, Nov 3): say it on the slot itself.
+    const guide = st.t === 'free' && !team && canBook && needsGuideline(date, h, email, s)
+    if (st.t === 'free') { label = <>Free{guide && <span className="block text-[11px] font-normal text-amber-200">Guideline required</span>}{early && <span className="block text-[11px] font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
     else if (st.t === 'booked') {
       const me = st.entry.email === email
       label = me ? 'You' : st.entry.name
@@ -370,8 +305,8 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
     )
   }
   const offsite = (day?.offsite ?? []).slice().sort((a, b) => a.start - b.start)
-  return (
-    <BottomSheet open onClose={onClose} title={`${formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}${isNoCrewDay(date) ? ' · no crew' : ''}`}>
+  const title = `${formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}${isNoCrewDay(date) ? ' · no crew' : ''}`
+  const body = (<>
       <div className="flex gap-2 pl-[78px] mb-1 text-xs text-pt-muted">
         {HOUSES.map(h => <span key={h} className="flex-1 text-center">{s.houses[h].name}</span>)}
       </div>
@@ -383,7 +318,7 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
           </div>
         ))}
       </div>
-      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold time to ask for it. The equipment team approves it, and it's held for you while you wait.</p>}
+      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold time to ask for it (you can add friends next). The equipment team approves it, and it's held for you while you wait.</p>}
       {offsite.length > 0 && (
         <div className="mt-4 space-y-1.5">
           <p className="text-pt-text text-sm font-semibold">Offsite this day</p>
@@ -395,61 +330,11 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
           ))}
         </div>
       )}
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        {(canBook || team) && <button onClick={onOffsite} className={btnGrey}>Somewhere else</button>}
-        <button onClick={onFullDay} className={`${btnGrey} ${canBook || team ? '' : 'col-span-2'}`}>Full day view</button>
-      </div>
-    </BottomSheet>
-  )
-}
-
-function SlotRow({ day, date, house, start, team, email, now, onTap }: {
-  day?: ScheduleDay; date: string; house: House; start: number; team: boolean; email: string; now: string
-  onTap: (st: ReturnType<typeof slotState>) => void
-}) {
-  const s = useScheduleSettings()
-  const profiles = useProfiles()
-  const st = slotState(day, date, house, start, s, email, now, team)
-  let title: React.ReactNode, sub: React.ReactNode = null, pill: React.ReactNode = null, face: React.ReactNode = null, cls = 'bg-pt-surface border-transparent'
-  if (st.t === 'block') { title = st.block.note || BLOCK_TYPES[st.block.type]; sub = st.block.note && st.block.note !== BLOCK_TYPES[st.block.type] ? BLOCK_TYPES[st.block.type] : null; pill = <Pill tone="muted">Blocked</Pill>; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] border-transparent' }
-  else if (st.t === 'booked') {
-    const isMine = st.entry.email === email
-    face = <Avatar email={st.entry.email} name={st.entry.name} ring={isMine} />
-    title = isMine ? 'You' : st.entry.name
-    const ch = st.entry.email ? profiles[st.entry.email]?.channel : ''
-    // Imported from the old calendar at its real hours (e.g. 2:30–5 PM), and old double bookings (clashes).
-    const real = st.entry.time ? `Really ${fmtTime(st.entry.time.start)}–${fmtTime(st.entry.time.end)}` : ''
-    const clash = (day?.clashes ?? []).filter(c => c.house === house && c.slot === slotKey(start))
-    sub = [real, ch, MONTHLY_SLOTS_ON ? (st.entry.kind === 'monthly' ? 'Monthly slot' : 'Extra slot') : ''].filter(Boolean).join(' · ')
-    if (clash.length) sub = <><span className="text-red-300 font-semibold">Clash · also {clash.map(c => c.name).join(', ')}</span>{sub ? ` · ${sub}` : ''}</>
-    if (isMine) { pill = <Pill tone="info">Yours</Pill>; cls = 'bg-pt-accent/10 border-pt-accent' }
-    // A request waiting for approval (or a move waiting): dashed amber, like the mockup.
-    if (st.entry.pending) { pill = <Pill tone="warn">{st.entry.move ? 'Move requested' : 'Requested'}</Pill>; cls = 'bg-amber-400/[0.06] border-dashed border-amber-400/50' }
-    if (clash.length) { pill = <Pill tone="taken">Clash</Pill>; cls = 'bg-red-500/[0.06] border-red-400/50' }
-  }
-  else if (st.t === 'past') { title = '—'; sub = 'Past'; cls = 'bg-pt-surface border-transparent opacity-45' }
-  else if (st.t === 'held') {
-    const forMe = st.entry.email === email
-    face = <Avatar email={st.entry.email} name={st.entry.name} />
-    title = <span className="text-amber-300">{forMe ? 'Held for you' : `Held for ${st.entry.name}`}</span>
-    sub = `${st.entry.hold?.fromName}'s collab · ${forMe ? 'confirm above' : `opens at ${fmtTime(Number(st.until.slice(11, 13)) * 60 + Number(st.until.slice(14, 16)))} if not confirmed`}`
-    pill = <Pill tone="warn">Held</Pill>; cls = 'bg-amber-400/[0.06] border-dashed border-amber-400/50'
-  }
-  else if (st.t === 'locked') { title = <span className="text-pt-muted">Priority only</span>; sub = `Opens ${stampLabel(st.opens)}`; pill = <Pill tone="muted"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" /></Pill> }
-  else { title = <span className="text-pt-accent">{team ? 'Free · book or block' : 'Free'}</span>; sub = isNoCrewDay(date) ? 'No crew' : null; cls = 'bg-pt-surface border-pt-accent/35' }
-  // A short block in the slot before: this slot can start early (owner, Nov 3).
-  const early = (st.t === 'free' || st.t === 'booked') ? houseFreeFrom(day, house, start, s) : null
-  if (early) sub = <>{sub}{sub ? ' · ' : ''}<span className="text-sky-300">House free from {fmtTime(early.at)} ({early.what.toLowerCase()} until {fmtTime(early.at)})</span></>
-  const tappable = st.t === 'free' || st.t === 'booked' || (st.t === 'block' && team)
-  return (
-    <button disabled={!tappable} onClick={() => onTap(st)}
-      className={`w-full flex items-center gap-3 p-3 rounded-2xl text-left border ${cls} ${tappable ? 'active:opacity-80' : ''}`}>
-      <span className="w-[86px] shrink-0 text-pt-muted text-[13px] tabular-nums whitespace-nowrap">{fmtSlot(start, s.slotMinutes)}</span>
-      {face}
-      <span className="flex-1 min-w-0"><span className="block font-semibold text-pt-text truncate">{title}</span>{sub && <span className="block text-pt-muted text-xs truncate">{sub}</span>}</span>
-      {pill}
-    </button>
-  )
+      {(canBook || team) && <button onClick={onOffsite} className={`mt-4 ${btnGrey}`}>Book Offsite</button>}
+  </>)
+  // Laptop: the day sits next to the month instead of sliding up.
+  if (inline) return <section className="rounded-[20px] shadow-hairline p-4"><h2 className="text-pt-text text-[20px] font-semibold mb-3">{title}</h2>{body}</section>
+  return <BottomSheet open onClose={onClose} title={title}>{body}</BottomSheet>
 }
 
 // Offsite or location shoot: any start and end time (half hours) + where. Also used to move one.
@@ -508,8 +393,11 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
   )
 }
 
-function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; team: boolean; mine: Shoot[]; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
+// Tap a free time on the calendar (owner, Nov 3): ask straight away whether friends are filming too. With friends, you
+// get your slot and the next one(s) at the same house are held for them to confirm (bookWithFriends).
+function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; team: boolean; mine: Shoot[]; day?: ScheduleDay; now: string; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
   const s = useScheduleSettings()
+  const profiles = useProfiles()
   const usedThatMonth = mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length
   const left = Math.max(0, s.monthlySlots - usedThatMonth)
   const [kind, setKind] = useState<ShootKind>(MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
@@ -523,19 +411,36 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
   const [guide, setGuide] = useState<Guideline | null>(null)
   const needG = !team && house !== 'offsite' && needsGuideline(date, house, profile.email, s)
   useEffect(() => { if (team) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team])
+  // Friends (creators only): how many, then search by name or channel.
+  const [friendCount, setFriendCount] = useState(0)
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [everyone, setEveryone] = useState<Friend[] | null>(null)
+  const [q, setQ] = useState('')
+  useEffect(() => { if (friendCount && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [friendCount, everyone])
+  const chosen = friends.slice(0, friendCount)
+  const h = house as House
+  // The slot(s) right after yours must be free for your friends.
+  const nextFree = Array.from({ length: friendCount }, (_, i) => start + (i + 1) * s.slotMinutes)
+    .every(st => s.slots.includes(st) && slotState(day, date, h, st, s, profile.email, now, false).t === 'free')
+  const term = q.trim().toLowerCase()
+  const matches = term ? (everyone ?? []).filter(p => !chosen.some(c => c.email === p.email)
+    && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
+  const withFriends = friendCount > 0
   async function book() {
     setBusy(true); setErr('')
     try {
-      const r = await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })
+      const id = withFriends
+        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), mySlots: 1, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
+        : (await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })).data.id
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
-      setDone(true); setTimeout(() => onBooked(r.data.id), 650)
+      setDone(true); setTimeout(() => onBooked(id), 650)
     }
     catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
-  const h = house as House
+  const verb = asks ? 'Request' : 'Book'
   return (
-    <BottomSheet open onClose={onClose} title={asks ? "Ask for this slot" : "Book this slot"}>
-      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes)}</p>
+    <BottomSheet open onClose={onClose} title={withFriends ? `Group booking · ${1 + friendCount} slots` : asks ? "Ask for this slot" : "Book this slot"}>
+      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes * (1 + friendCount))}{withFriends ? ` · ${(s.slotMinutes * (1 + friendCount)) / 60} hours` : ''}</p>
       <p className="text-pt-muted text-xs">{s.houses[h].address}</p>
       {team && (
         <label className="block mt-4"><span className="block text-pt-muted text-xs mb-2">Book for</span>
@@ -543,6 +448,46 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
             <option value="">Me</option>
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
+      )}
+      {!team && (
+        <div className="mt-4">
+          <p className="text-pt-muted text-xs mb-2">Who's filming? Need more than {s.slotMinutes / 60} hours? Add who you're filming with: one slot each, back to back, and they confirm theirs.</p>
+          <div className="flex bg-pt-bg rounded-full p-1 gap-1">
+            {['Just me', '+ 1 friend', '+ 2 friends'].map((label, n) => (
+              <button key={n} onClick={() => { setFriendCount(n); setFriends(f => f.slice(0, n)) }}
+                className={`flex-1 rounded-full min-h-[40px] text-sm ${friendCount === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{label}</button>
+            ))}
+          </div>
+          {withFriends && (
+            <div className="mt-3 space-y-2">
+              {!nextFree && <p className="rounded-xl px-3 py-2 text-sm bg-amber-400/10 text-pt-text">The {friendCount === 1 ? 'slot' : 'slots'} right after this one {friendCount === 1 ? "isn't" : "aren't"} free. Pick an earlier time, or fewer friends.</p>}
+              <div className="flex flex-wrap gap-2">
+                {chosen.map(f => (
+                  <button key={f.email} onClick={() => setFriends(x => x.filter(y => y.email !== f.email))} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                    <Avatar email={f.email} name={f.name} size={32} />{f.name.split(' ')[0]} · {fmtTime(start + (chosen.indexOf(f) + 1) * s.slotMinutes)}<span className="text-pt-muted">×</span>
+                  </button>
+                ))}
+              </div>
+              {chosen.length < friendCount && (
+                <div className="bg-pt-bg rounded-xl p-2">
+                  <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
+                  <div className="max-h-48 overflow-y-auto mt-1">
+                    {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
+                    {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one called "{q.trim()}".</p>}
+                    {matches.slice(0, 6).map(p => (
+                      <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
+                        <Avatar email={p.email} name={p.name} size={32} />
+                        <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
+                          {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {chosen.length === friendCount && <p className="text-pt-muted text-xs">{chosen.length > 1 ? 'Their slots are' : 'Their slot is'} held for {INVITE_HOLD_MINUTES} minutes for them to confirm.</p>}
+            </div>
+          )}
+        </div>
       )}
       {MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (
         <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Counts as</span>
@@ -558,7 +503,11 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       {dayFull && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
         You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
-      <button disabled={busy || done || dayFull || (needG && !guide)} onClick={book} className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : asks ? 'Request this time' : 'Book it'}</button>
+      <button disabled={busy || done || dayFull || (needG && !guide) || (withFriends && (!nextFree || chosen.length < friendCount))} onClick={book}
+        className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>
+        {done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
+          : withFriends && chosen.length < friendCount ? `Pick ${friendCount - chosen.length === 1 ? 'your friend' : 'your friends'}`
+          : withFriends ? `${verb} + invite ${chosen.length > 1 ? 'them' : chosen[0].name.split(' ')[0]}` : asks ? 'Request this time' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">{asks ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
     </BottomSheet>
   )

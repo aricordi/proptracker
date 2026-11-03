@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import BottomSheet from './BottomSheet'
-import { useActiveShoot, useShootLabel, useCutoffs, useGearWindow, stampLabel } from '../activeShoot'
+import { useActiveShoot, useShootLabel, useCutoffs, useGearWindow } from '../activeShoot'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import { fmtSlot } from '../services/schedule'
@@ -44,10 +44,10 @@ export function useAddingNote(kind: 'props' | 'gear'): { text: string; late: boo
   const cutoffs = useCutoffs()
   const gw = useGearWindow()
   if (!shoot) return { text: `Just browsing. Pick a shoot to see what's free and add ${kind}.`, late: false }
-  // Gear is grab-and-go (Nov 2): reserve from 24 h before, take it on the day.
+  // Gear is first come, first served on the shoot day (owner, Nov 3); no booking ahead.
   if (kind === 'gear') {
     const g = gw(shoot)
-    if (g.state === 'early') return { text: `Reserve from ${stampLabel(g.opens)}, or take what's free on the day`, late: true, early: true, opens: g.opens }
+    if (g.state === 'early') return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
     if (g.state === 'take') return { text: 'Your shoot is on: take what you need now', late: false, take: true }
     if (g.state === 'over') return { text: 'This shoot is over', late: true }
     return { text: 'Reserve gear for your shoot', late: false }
@@ -63,12 +63,12 @@ function ShootPicker({ open, onClose }: { open: boolean; onClose: () => void }) 
   return (
       <BottomSheet open={open} onClose={onClose} title="Which shoot?">
         <div className="space-y-2">
-          {upcoming.length === 0 && <p className="text-pt-muted text-sm">You have no shoots booked. Book a time first, then add props and gear to it.</p>}
+          {upcoming.length === 0 && <p className="text-pt-muted text-sm">You have no shoots booked. Book a time first, then add props to it.</p>}
           {upcoming.map(sh => (
             <button key={sh.id} onClick={() => { choose(sh.id); onClose() }}
               className={`w-full text-left rounded-xl px-3 py-3 ${shoot?.id === sh.id ? 'bg-pt-accent/15 border border-pt-accent/50' : 'bg-pt-bg'}`}>
               <span className="block text-pt-text text-[15px]">{label(sh)}</span>
-              <span className="block text-pt-muted text-xs">Props by {formatDay(cutoffs(sh).props)} · Gear: reserve 24 h before or take it on the day</span>
+              <span className="block text-pt-muted text-xs">Props by {formatDay(cutoffs(sh).props)}</span>
             </button>
           ))}
           <button onClick={() => { choose(''); onClose() }} className={`w-full text-left rounded-xl px-3 py-3 ${!shoot ? 'bg-pt-accent/15 border border-pt-accent/50' : 'bg-pt-bg'}`}>

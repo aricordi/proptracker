@@ -85,3 +85,30 @@ describe('timed reminders', () => {
     expect(gearReminders('g1', g, '2026-10-23T18:35')[0].key).toBe('gearlate_g1')
   })
 })
+
+describe('more notifications (Nov 3)', () => {
+  it('invites that ran out or were taken back tell the right person', () => {
+    const ran = inviteChange('i1', invite, { ...invite, status: 'expired' }, s)
+    expect(ran.map(p => p.to[0])).toEqual(['alex@x.com', 'ariel@x.com'])
+    expect(inviteChange('i1', invite, { ...invite, status: 'withdrawn' }, s)[0]).toMatchObject({ to: ['ariel@x.com'], title: 'Invite withdrawn' })
+  })
+  it('swaps that were withdrawn or called off', () => {
+    const sw = { fromEmail: 'a@x.com', fromName: 'Ana', toEmail: 'b@x.com', toName: 'Ben', status: 'pending', from: { place: 'cliff1', date: '2026-10-23', start: 780 }, to: { place: 'cliff2', date: '2026-10-24', start: 900 } }
+    expect(swapChange('s1', sw, { ...sw, status: 'withdrawn' }, s)[0]).toMatchObject({ to: ['b@x.com'], title: 'Swap withdrawn' })
+    expect(swapChange('s1', sw, { ...sw, status: 'expired' }, s)[0].to).toEqual(['a@x.com', 'b@x.com'])
+  })
+  it('props checked in → the creator hears it', () => {
+    const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', status: 'return_pending', history: [] }
+    expect(reservationChange('r1', r, { ...r, status: 'returned' })[0]).toMatchObject({ to: ['c@x.com'], title: 'Props checked in ✓' })
+  })
+  it('booking requests go to everyone who approves; a creator cancelling an approved shoot tells the team', () => {
+    const sh = { creatorEmail: 'c@x.com', creatorName: 'Cam', place: 'cliff1', date: '2026-10-23', start: 780, end: 900, status: 'requested', history: [{ by: 'c@x.com', action: 'requested' }] }
+    expect(shootChange('x1', null, sh, s)[0].to).toEqual(['approvers'])
+    const booked = { ...sh, status: 'booked', history: [...sh.history, { by: 'maanik@x.com', action: 'approved' }] }
+    const cancelled = { ...booked, status: 'cancelled', history: [...booked.history, { by: 'c@x.com', action: 'cancelled' }] }
+    expect(shootChange('x1', booked, cancelled, s)[0]).toMatchObject({ to: ['gear-team'], title: 'Shoot cancelled' })
+    // A request the creator takes back doesn't ping anyone (it just disappears from the list).
+    const withdrawn = { ...sh, status: 'cancelled', history: [...sh.history, { by: 'c@x.com', action: 'cancelled' }] }
+    expect(shootChange('x1', sh, withdrawn, s)).toEqual([])
+  })
+})

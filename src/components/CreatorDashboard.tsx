@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { SectionHead, NeedsYou, needsYouItems, StandingTiles, StandingList, TypicalKey, type StandFilter } from './analytics/Parts'
 import { notLookedAt } from './analytics/Flags'
 import { useAnalyticsData } from '../hooks/useAnalytics'
+import { useDesk } from '../desk/desk'
 import { rangeFor, defaultGrain, slice, rowsBy, shift, standings, sortStandings, comingThisMonth, type Preset } from '../lib/insights'
 
 const CHOICES: [Preset, string][] = [['tm', 'This month'], ['lm', 'Last month'], ['12w', '12 weeks']]
@@ -14,6 +15,8 @@ const SHOW = 8
 
 export default function CreatorDashboard() {
   const navigate = useNavigate()
+  // Laptop (owner, Nov 3: admins live on the laptop): creators on the left, what needs you on the right.
+  const desk = useDesk().on
   const [preset, setPreset] = useState<Preset>('tm')
   const [filter, setFilter] = useState<StandFilter | ''>('')
   const { a, people, pausedNow, loading, today, reviews } = useAnalyticsData(shift(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Toronto' }), -100))
@@ -26,6 +29,36 @@ export default function CreatorDashboard() {
   const shown = !filter ? list : filter === 'attention' ? list.filter(s => s.attention) : list.filter(s => s.output === filter)
   const max = Math.max(1, ...list.map(s => s.filmed))
   const q = `period=${preset}`
+  const show = desk ? 20 : SHOW
+  const needs = <NeedsYou items={needsYouItems(a, pausedNow, to => navigate(to), notLookedAt(a.incidents, reviews, shift(today, -27)))} />
+  const buttons = (
+    <div className="grid grid-cols-2 gap-2">
+      <button onClick={() => navigate(`/analytics?${q}`)} className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Open analytics</button>
+      <button onClick={() => navigate('/rules-sheet')} className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold">Settings sheet</button>
+    </div>
+  )
+  const people_ = <>
+    <SectionHead title={filter === 'more' ? 'Posting more' : filter === 'less' ? 'Posting less' : filter === 'typical' ? 'Typical' : filter === 'attention' ? 'Needs attention' : 'Every creator'} sub="Most shoots filmed first. Tap someone for their report card."
+      onMore={() => navigate(`/analytics?${q}`)} more="Analytics" />
+    <StandingList max={max} list={shown.slice(0, show)} onOpen={e => navigate(`/analytics?${q}&who=${encodeURIComponent(e)}`)} empty="Nobody in this group." />
+    {shown.length > show && <button onClick={() => navigate(`/analytics?${q}${filter ? `&level=${filter}` : ''}`)} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">See all {shown.length}</button>}
+    <TypicalKey typical={typical} />
+  </>
+  if (desk) return (
+    <div className="space-y-4" data-tour="dashboard">
+      <div className="flex items-center gap-4">
+        <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit" role="tablist" aria-label="Date range">
+          {CHOICES.map(([p, l]) => <button key={p} role="tab" aria-selected={preset === p} onClick={() => setPreset(p)} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${preset === p ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
+        </div>
+        <p className="text-pt-muted text-sm">{range.dates} · the typical creator filmed {Math.round(typical * 10) / 10}</p>
+      </div>
+      <StandingTiles tourId="tiles" list={list} filter={filter} onFilter={setFilter} />
+      <div className="grid grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+        <div className="space-y-4">{people_}</div>
+        <div className="space-y-4 sticky top-4"><SectionHead title="Needs you now" />{needs}{buttons}</div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-4" data-tour="dashboard">

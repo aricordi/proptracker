@@ -33,6 +33,11 @@ export function inviteChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): P
   }]
   if (b?.status === 'pending' && a.status === 'accepted') return [{ to: [a.fromEmail], tag: `invite-${id}`, url: '/schedule', title: `${first(a.toName)} confirmed ✓`, body: `${placeName(a, s)} · ${when(a)}. You're filming back to back.` }]
   if (b?.status === 'pending' && a.status === 'declined') return [{ to: [a.fromEmail], tag: `invite-${id}`, url: '/schedule', title: `${first(a.toName)} can't make it`, body: `Their slot (${when(a)}) is open again.` }]
+  // Nov 3: the hold ran out, or the inviter took it back.
+  if (b?.status === 'pending' && a.status === 'expired') return [
+    { to: [a.fromEmail], tag: `invite-${id}`, url: '/schedule', title: `${first(a.toName)} didn't confirm in time`, body: `Their slot (${when(a)}) is open to everyone again.` },
+    { to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'Invite ran out', body: `${first(a.fromName)}'s invite for ${when(a)} wasn't confirmed in time. The slot may still be free: book it yourself.` }]
+  if (b?.status === 'pending' && a.status === 'withdrawn') return [{ to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'Invite withdrawn', body: `${first(a.fromName)} took back the invite for ${when(a)}.` }]
   return []
 }
 
@@ -45,6 +50,8 @@ export function swapChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pus
   }]
   if (b?.status === 'pending' && a.status === 'accepted') return [{ to: [a.fromEmail], tag: `swap-${id}`, url: '/schedule', title: 'Swap done ✓', body: `${first(a.toName)} said yes. You're now on ${placeName(a.to, s)} · ${when(a.to)}.` }]
   if (b?.status === 'pending' && a.status === 'declined') return [{ to: [a.fromEmail], tag: `swap-${id}`, url: '/schedule', title: `${first(a.toName)} said no to the swap`, body: 'Your shoot stays as it was.' }]
+  if (b?.status === 'pending' && a.status === 'withdrawn') return [{ to: [a.toEmail], tag: `swap-${id}`, url: '/', title: 'Swap withdrawn', body: `${first(a.fromName)} took back the swap. Your shoot stays as it was.` }]
+  if (b?.status === 'pending' && a.status === 'expired') return [{ to: [a.fromEmail, a.toEmail], tag: `swap-${id}`, url: '/', title: 'Swap no longer possible', body: 'One of the shoots changed, so the swap was called off. Both shoots stay as they are.' }]
   return []
 }
 
@@ -63,6 +70,8 @@ export function reservationChange(id: string, b: Doc, a: Doc): Push[] {
       const dmg = ((a.returnInfo?.damaged ?? []) as { name: string; note?: string }[])
       return [{ to: ['arts-team'], url, tag, title: dmg.length ? 'Props returned · damage reported' : 'Props returned', body: `${a.creatorName}'s "${a.title}" is back.${dmg.length ? ` Damaged: ${dmg.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}.` : ''} Check it in.` }]
     }
+    // Nov 3: the creator knows their return is done and they're clear.
+    case 'returned': return [{ to: [a.creatorEmail], url, tag, title: 'Props checked in ✓', body: `"${a.title}" is checked back in. Thanks!` }]
     default: return []
   }
 }
@@ -136,8 +145,8 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   // Creators' shoot news opens the chat on that shoot (chat first, Nov 2): status, check-in and wrap are right there.
   const url0 = `/?shoot=${id}`, tag0 = `shoot-${id}`
   // Requests (owner, Nov 2): the creator asks, the equipment team decides.
-  if (h.action === 'requested') return [{ to: ['gear-team'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}: ${placeName(a, s)} · ${when(a)}.` }]
-  if (h.action === 'move-requested') return [{ to: ['gear-team'], url: '/approvals', tag: `req-${id}`, title: 'Move request', body: `${a.creatorName} wants to move to ${placeName(a.moveRequest ?? a, s)} · ${when(a.moveRequest ?? a)}.` }]
+  if (h.action === 'requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}: ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'move-requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'Move request', body: `${a.creatorName} wants to move to ${placeName(a.moveRequest ?? a, s)} · ${when(a.moveRequest ?? a)}.` }]
   if (h.action === 'approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking approved ✓', body: `${placeName(a, s)} · ${when(a)} is in the calendar.` }]
   if (h.action === 'denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking not approved', body: `${placeName(a, s)} · ${when(a)}: ${h.note ?? ''}`.trim() }]
   if (h.action === 'move-approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move approved ✓', body: `Your shoot is now ${placeName(a, s)} · ${when(a)}.` }]
@@ -149,6 +158,9 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
       ? `${placeName(a, s)} · ${when(a)} is needed for a priority booking, so it was cancelled (no strike). Your next request is first in line. Tap to pick another time or move it offsite.`
       : `Your shoot moved to ${placeName(a, s)} · ${when(a)} for a priority booking. Props and gear moved with it.` }]
   if (h.action === 'given') return []
+  // A creator cancelled an APPROVED shoot (Nov 3): the schedule team knows the slot is free again.
+  if (h.action === 'cancelled' && h.by === a.creatorEmail && b?.status === 'booked')
+    return [{ to: ['gear-team'], url: '/approvals', tag: `shoot-${id}`, title: 'Shoot cancelled', body: `${a.creatorName} cancelled ${placeName(a, s)} · ${when(a)}. The slot is free again.` }]
   if (!h.by || h.by === a.creatorEmail) return []
   if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
   const url = `/?shoot=${id}`, tag = `shoot-${id}`
@@ -169,7 +181,7 @@ export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSett
   const house = sh.place !== 'offsite'
   const win = checkinWindow(sh as { from: string; to: string }, now, s)
   // Check-in time (houses only): one ping when it opens.
-  if (house && win === 'open' && !sh.checkin) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Tap to check in with a photo of the set.` } })
+  if (house && win === 'open' && !sh.checkin) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Tap and take a quick selfie with your camera.` } })
   // An hour before (when check-in isn't open yet).
   else if (win === 'early' && now >= addMinutes(sh.from, -60)) out.push({ key: `hour_${id}`, push: { to, url, tag: `shoot-${id}`, title: `Your shoot starts at ${fmtTime(sh.start)}`, body: `${where}.${house ? ` Check-in opens ${s.checkinBefore} min before.` : ''}` } })
   // Checked in and the slot is over: one nudge to wrap ("what did you film?"), within 3 hours.
@@ -179,7 +191,7 @@ export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSett
   if (house && isMissed(sh as any, now) && now < explainUntil(sh as { to: string }, s)) out.push({ key: `missed_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Missed your check-in?', body: `Tell the schedule team what happened by ${stampTime(explainUntil(sh as { to: string }, s))}.` } })
   // Last day to add props + gear (from 9 AM), only if nothing is added yet.
   if (!hasNeeds && sh.date > now.slice(0, 10) && lastDayToBook(sh.date, propsLead, closed) === now.slice(0, 10) && Number(now.slice(11, 13)) >= 9)
-    out.push({ key: `cutoff_${id}`, push: { to, url, tag: `needs-${id}`, title: 'Last day to add props & gear', body: `For your ${dayLabel(sh.date)} shoot at ${where}.` } })
+    out.push({ key: `cutoff_${id}`, push: { to, url, tag: `needs-${id}`, title: 'Last day to add props', body: `For your ${dayLabel(sh.date)} shoot at ${where}.` } })
   return out
 }
 

@@ -138,8 +138,11 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
   // Creators: gear only goes with a shoot, and can be reserved from 24 hours before it (grab-and-go, Nov 2).
   if (booksLikeCreator(caller) && !opts.take) {
     if (!shoot) throw new HttpsError('invalid-argument', 'Gear goes with a shoot on the schedule.', { problem: 'no-shoot' })
+    const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+    // Owner, Nov 3: no booking gear ahead for now. It's checked out first come, first served on the shoot day.
+    if (!sch.gearReserve) throw new HttpsError('failed-precondition', "Gear isn't booked ahead. Take what's free on your shoot day, from an hour before.", { problem: 'no-reserve' })
     const from = stamp(shoot.date, shoot.start)
-    const hours = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data()).gearReserveHours
+    const hours = sch.gearReserveHours
     if (!canReserveGear(from, nowStamp(), hours)) {
       const at = gearReserveOpensAt(from, hours)
       throw new HttpsError('failed-precondition', `You can reserve gear from ${hours} hours before your shoot (${at.slice(5, 10).replace('-', '/')} ${fmtTime(Number(at.slice(11, 13)) * 60 + Number(at.slice(14, 16)))}). Or just take what's free on the day.`, { problem: 'too-early' })

@@ -16,10 +16,12 @@ interface Props {
   hint?: string
   max?: number
   cameraOnly?: boolean   // proof photos: the camera opens directly, no gallery (owner decision Oct 14)
+  selfie?: boolean       // front camera (owner, Nov 3: check in with a selfie with your camera)
+  compact?: string       // one small button with this label instead of the photo grid (one photo)
 }
 
 // Take or pick photos as proof; each uploads straight away. Opens the camera on phones.
-export default function ProofPhotos({ folder, urls, onChange, onUploading, label, hint, max = 10, cameraOnly = true }: Props) {
+export default function ProofPhotos({ folder, urls, onChange, onUploading, label, hint, max = 10, cameraOnly = true, selfie = false, compact }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const [slots, setSlots] = useState<Slot[]>([])
   const latest = useRef(urls)
@@ -66,6 +68,26 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
     if (slot.url) onChange(latest.current.filter(u => u !== slot.url))
   }
 
+  const picker = <input ref={input} type="file" accept="image/*" {...(cameraOnly ? { capture: selfie ? 'user' as const : 'environment' as const } : { multiple: true })} className="hidden"
+    onChange={e => { add(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+  if (compact) {
+    const s = slots[slots.length - 1]
+    return (
+      <div className="flex items-center gap-2 shrink-0">
+        {s && <span className="relative w-11 h-11 rounded-full overflow-hidden bg-pt-border shrink-0">
+          <img src={s.preview} alt="" className="w-full h-full object-cover" />
+          {!s.url && !s.failed && <span className="absolute inset-0 bg-black/50" aria-label="Uploading" />}
+        </span>}
+        {s?.failed && <span className="text-red-300 text-xs">{s.why ?? 'Failed'}</span>}
+        {(!s || s.failed) && <button onClick={() => { if (s) setSlots([]); input.current?.click() }} aria-label={label}
+          className="flex items-center gap-2 rounded-full h-11 px-4 font-bold text-stone-900 bg-pt-accent shadow-gold active:opacity-80">
+          <Icon name="camera" className="w-5 h-5" />{s?.failed ? 'Try again' : compact}
+        </button>}
+        {picker}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       <p className="text-pt-text text-sm font-medium">{label}</p>
@@ -90,8 +112,7 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
         )}
       </div>
       {cameraOnly && <p className="text-pt-muted text-xs">Opens your camera: take the photo now, on the spot.</p>}
-      <input ref={input} type="file" accept="image/*" {...(cameraOnly ? { capture: 'environment' as const } : { multiple: true })} className="hidden"
-        onChange={e => { add(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+      {picker}
     </div>
   )
 }

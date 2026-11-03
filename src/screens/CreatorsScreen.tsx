@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import { useDesk } from '../desk/desk'
 import { subscribeToUsers } from '../services/users'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
@@ -33,6 +34,7 @@ export function FlagPills({ c, max = 4 }: { c: CreatorStats; max?: number }) {
 
 export default function CreatorsScreen() {
   const navigate = useNavigate()
+  const desk = useDesk().on
   const today = todayInStudio(), now = nowStamp()
   const settings = useBookingSettings()
   const [period, setPeriod] = useState<Period>('30')
@@ -63,6 +65,59 @@ export default function CreatorsScreen() {
     ['Late returns', sum(c => (c.counts['late-props'] ?? 0) + (c.counts['late-gear'] ?? 0)), 'text-amber-200'],
     ['Strikes', sum(c => c.counts.strike ?? 0), 'text-red-300'],
   ]
+
+  // Laptop (owner, Nov 3): one wide table, every creator on one screen, click a column to sort.
+  if (desk) return (
+    <div className="min-h-full bg-pt-bg pb-10 px-8">
+      <div className="sticky top-0 bg-pt-bg z-10 pt-6 pb-4 space-y-4">
+        <div className="flex items-center gap-4">
+          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[15px]">‹ Back</button>
+          <h1 className="font-display text-[34px] text-pt-text flex-1">Creators</h1>
+          <div className="flex bg-pt-surface rounded-full p-0.5 text-sm">
+            {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`px-3.5 py-1.5 rounded-full ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-3">
+          {tiles.map(([t, n, cls]) => (
+            <div key={t} className="bg-pt-surface rounded-2xl p-4">
+              <p className={`text-[32px] font-bold leading-none tabular-nums ${n ? cls : 'text-pt-text'}`}>{n}</p>
+              <p className="text-pt-muted text-sm mt-1">{t}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-[20px] bg-pt-surface overflow-hidden">
+        <div className="grid grid-cols-[minmax(220px,1.4fr)_110px_minmax(160px,1fr)_90px_minmax(240px,2fr)_90px] gap-4 px-4 py-3 text-xs text-pt-muted border-b border-white/[0.06]">
+          <span>Creator</span>
+          <button onClick={() => setSort('filming')} className={`text-left ${sort === 'filming' ? 'text-pt-text font-semibold' : ''}`}>Filmed ↓</button>
+          <span>Showed up</span><span>Coming up</span>
+          <button onClick={() => setSort('flags')} className={`text-left ${sort === 'flags' ? 'text-pt-text font-semibold' : ''}`}>Flags ↓</button>
+          <span>Status</span>
+        </div>
+        {shoots === null && <p className="text-pt-muted text-sm text-center py-6">Loading…</p>}
+        {stats.map(c => {
+          const st = statuses[c.email]
+          const paused = !!st?.pausedUntil && st.pausedUntil > today
+          const rate = c.booked ? c.filmed / c.booked : 0
+          return (
+            <button key={c.email} onClick={() => navigate(`/people/${encodeURIComponent(c.email)}?period=${period}`)}
+              className="w-full grid grid-cols-[minmax(220px,1.4fr)_110px_minmax(160px,1fr)_90px_minmax(240px,2fr)_90px] gap-4 items-center px-4 py-3 text-left border-b border-white/[0.04] hover:bg-white/[0.03]">
+              <span className="flex items-center gap-3 min-w-0"><Avatar email={c.email} name={c.name} /><b className="text-pt-text truncate">{c.name}</b></span>
+              <span className="text-pt-text tabular-nums">{c.filmed} <span className="text-pt-muted text-sm">of {c.booked}</span></span>
+              <span className="flex items-center gap-2">{c.booked > 0 ? <>
+                <span className="flex-1 h-1.5 rounded-full bg-pt-border overflow-hidden"><i className={`block h-full rounded-full ${rate >= 0.9 ? 'bg-green-400' : rate >= 0.7 ? 'bg-pt-accent' : 'bg-red-400'}`} style={{ width: `${Math.round(rate * 100)}%` }} /></span>
+                <span className="text-pt-muted text-sm tabular-nums w-10 text-right">{Math.round(rate * 100)}%</span></> : <span className="text-pt-muted text-sm">—</span>}</span>
+              <span className="text-pt-text tabular-nums">{c.upcoming || '—'}</span>
+              <FlagPills c={c} max={5} />
+              <span>{paused ? <span className="text-xs rounded-full px-2 py-1 bg-red-500/20 text-red-300">Paused</span> : <span className="text-pt-muted text-sm">Active</span>}</span>
+            </button>
+          )
+        })}
+        {shoots !== null && stats.length === 0 && <p className="text-pt-muted text-sm text-center py-6">No creators yet.</p>}
+      </div>
+      <p className="text-pt-muted text-xs mt-3">Filmed = checked in on the day (or marked filmed by the schedule team). Started late = checked in more than 15 minutes after the slot began. Late cancels count as booked.</p>
+    </div>
+  )
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">

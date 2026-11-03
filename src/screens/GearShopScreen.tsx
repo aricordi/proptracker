@@ -8,7 +8,7 @@ import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, 
 import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, useGearWhen } from '../components/GearUi'
 import { useActiveShoot } from '../activeShoot'
-import { BrowseTabs, AddingToChip, useAddingNote } from '../components/AddingToBar'
+import { AddingToChip, useAddingNote } from '../components/AddingToBar'
 import MyRequestsButton from '../components/MyRequestsButton'
 import AiButton from '../components/AiButton'
 
@@ -56,7 +56,6 @@ export default function GearShopScreen() {
       {/* Same as Browse → Props: title and tabs scroll away; search, chips and the hours stay pinned. */}
       <div className="pt-safe px-4">
         <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5"><BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <><AiButton mode="props" /><MyRequestsButton /></>}</h1>
-        {creator && <div className="mt-2.5"><BrowseTabs /></div>}
       </div>
       <div className="sticky z-10 bg-pt-bg px-4 pt-2.5 pb-2" style={{ top: 'env(safe-area-inset-top)' }}>
         <div className="relative">
@@ -84,8 +83,8 @@ export default function GearShopScreen() {
           {creator && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {shoot ? `Gear for your shoot's hours · ${note.text}` : note.text}</span>}</p>
         {creator && shoot && note.early && (
           <div className="rounded-2xl bg-pt-surface shadow-hairline p-4 space-y-1">
-            <b className="block text-[15px] text-pt-text">Gear is grab-and-go</b>
-            <p className="text-pt-muted text-[14px]">For this shoot you can reserve gear from <b className="text-pt-text">{note.text.replace(/^Reserve from (.*?), or.*$/, '$1')}</b>. Or just come by on the day: take what's free from an hour before your shoot (tick every piece, one photo).</p>
+            <b className="block text-[15px] text-pt-text">Gear is first come, first served</b>
+            <p className="text-pt-muted text-[14px]">It isn't booked ahead. On your shoot day, from an hour before, take what's free (tick every piece, one photo).</p>
           </div>
         )}
         {creator && shoot && note.take && (
