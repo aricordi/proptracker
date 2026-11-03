@@ -1999,6 +1999,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       or gold return badge: props ready, to bring back); NoticeRow = just so you know (slim row, small icon, ✕, text link:
       schedule change, not approved / ran out, props paused, done confirmations); ChatCard ask (sky + avatar) = someone waits for
       your answer. Filming now = red live dot + wrap input. New chat cards: pick the FORM by the job, never just a colour.
+    - "$100K MISTAKES" REEL CHECK (owner, Nov 3: Instagram reel watched via VidIQ, 5 risks of home-built apps): (1) DATABASE OPEN:
+      checked, LOCKED: unauthenticated REST reads of 16 collections + Storage list on the practice project (same rules) all 403;
+      no "if true" rules; every callable checks the caller (practiceSwitch refuses outside practice); public HTTP = calendar
+      feed (secret token) + Google sign-in return (single-use state). (2) RUNAWAY FUNCTIONS: no trigger loops (makeItemThumbs
+      writes items only when thumbs are missing; onItemWritten skips unchanged text; the rest write other collections);
+      maxInstances 20 global; AI hard cap $50/month in code. (3) TEXTS: app sends none (push = opt-in). (4) ACCESSIBILITY:
+      BottomSheet = role dialog + Escape closes; QR image alt; clickable creator rows / Remove strike reachable by keyboard;
+      gold :focus-visible ring already everywhere. (5) HOSTING FLOOD: Firebase has NO hard bandwidth cap; only a Google Cloud
+      budget + automatic billing kill switch stops a runaway bill → OWNER DECISION pending (asked Nov 3).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

@@ -92,7 +92,7 @@ export default function PersonHistoryScreen() {
                       <span className="block text-pt-text text-sm">{f.text}</span>
                       <span className="block text-pt-muted text-xs">{FLAG_LABEL[f.kind]} · {formatDay(f.date)}{f.open ? ' · still open' : ''}</span>
                     </span>
-                    {canManagePeople && f.strikeId ? <span onClick={e => { e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) }} className="shrink-0 text-pt-accent text-xs tap">Remove</span>
+                    {canManagePeople && f.strikeId ? <span role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) } }} onClick={e => { e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) }} className="shrink-0 text-pt-accent text-xs tap">Remove</span>
                       : f.to && <span className="text-pt-muted">›</span>}
                   </button>
                 ))}

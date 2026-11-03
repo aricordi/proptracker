@@ -133,7 +133,7 @@ export default function BinsScreen() {
         if (w) {
           w.document.write(`<html><head><title>${bin.label} QR</title></head>
             <body style="margin:0;background:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:20px;font-family:sans-serif">
-              <img src="${dataUrl}" style="max-width:100%;border-radius:8px">
+              <img src="${dataUrl}" alt="QR code for ${bin.label}" style="max-width:100%;border-radius:8px">
               <p style="color:#aaa;margin-top:16px;font-size:14px;text-align:center">
                 Long-press the image, then choose<br><strong style="color:#fff">Save to Photos</strong>
               </p>

@@ -119,7 +119,8 @@ export default function ScheduleTeamScreen() {
             const st = statuses[p.email]
             const paused = !!st?.pausedUntil && st.pausedUntil > today
             return (
-              <div key={p.email} onClick={() => canManagePeople && navigate(`/people/${encodeURIComponent(p.email)}`)} className={`bg-pt-surface rounded-2xl p-3 flex items-center gap-3 ${canManagePeople ? 'cursor-pointer' : ''}`}>
+              <div key={p.email} onClick={() => canManagePeople && navigate(`/people/${encodeURIComponent(p.email)}`)}
+                {...(canManagePeople ? { role: 'button', tabIndex: 0, onKeyDown: (e: { key: string; preventDefault: () => void }) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(`/people/${encodeURIComponent(p.email)}`) } } } : {})} className={`bg-pt-surface rounded-2xl p-3 flex items-center gap-3 ${canManagePeople ? 'cursor-pointer' : ''}`}>
                 <Avatar email={p.email} name={p.name} />
                 <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold truncate">{p.name}</p>
                   <p className="text-pt-muted text-xs">{p.filmed} of {p.booked} filmed{p.missed ? ` · ${p.missed} missed` : ''}{st?.strikes ? ` · ${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : ''}</p></div>

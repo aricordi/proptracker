@@ -18,6 +18,13 @@ export default function BottomSheet({ open, onClose, title, children, locked }: 
     else document.body.style.overflow = ''
     return () => { document.body.style.overflow = '' }
   }, [open])
+  // Keyboard users can close it with Escape (accessibility).
+  useEffect(() => {
+    if (!open || locked) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, locked, onClose])
 
   // Swipe down to close (owner, Oct 19). Starts on the handle/title, or anywhere once the content is
   // scrolled to the top, so scrolling the sheet's content still works normally.
@@ -64,7 +71,7 @@ export default function BottomSheet({ open, onClose, title, children, locked }: 
       <div className="absolute inset-0 bg-black/55 fade-in" onClick={onClose} />
 
       {/* Sheet */}
-      <div ref={sheet} onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} onTouchCancel={onEnd}
+      <div ref={sheet} role="dialog" aria-modal="true" aria-label={title} onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd} onTouchCancel={onEnd}
         className="relative w-full bg-pt-surface rounded-t-[28px] pb-safe max-h-[85vh] flex flex-col shadow-float sheet-up md:max-w-[600px] md:mx-auto md:mb-6 md:rounded-b-[28px]">
         {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-2 shrink-0">
