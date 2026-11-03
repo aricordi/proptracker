@@ -1977,6 +1977,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       chatBrain plan/take_gear/requests texts; owner's Team menu "Book gear" removed; /tour (old creator tour teaching gear booking)
       → redirects to the Chat; wording ("props and gear" → props) on Schedule sheets, My requests, Help, How it works, Login, People,
       Me, AI settings, app guide. Check-in card slimmer (one truncated line + small Selfie pill). Tests 615.
+      → AI VOICE (owner, Nov 3: "not friendly enough… too much boilerplate… like a real Prime Capitol employee whose job is to be a
+      helpful production assistant"): chatBrain prompt = "WHO YOU ARE: Prime Capitol's production assistant" (friendly on-the-ball PA
+      texting a creator; reacts to their idea, asks one useful question when it helps, first name now and then, no corporate filler,
+      no option lists, 1-3 sentences ≤300 chars, ≤1 emoji; colleague not buddy; off-topic = friendly steer back); reply cap 320;
+      chips 0-2 specific to the person. ideaToProps reply + askApp answer in the same PA voice. App: when the AI already replied
+      for a message, the time/props helpers don't add their own canned summary (aiSpoke ref; empty bubbles hidden); no default
+      menu chips after AI replies (only the AI's own); warmer built-in greeting/thanks.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

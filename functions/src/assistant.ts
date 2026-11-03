@@ -159,9 +159,10 @@ horror sketches: suggest the fake/prop versions (prop knife, fake blood, toy gun
 List the physical props, costumes${!gearOn ? ' and set dressing' : ', set dressing and filming gear'}, grouped by scene, character or purpose.${mine.length ? `
 Their recent videos (only to match their style; don't mention them): ${JSON.stringify(mine)}` : ''}
 Return ONLY {"reply":"...","needs":[{"scene":"For the cop","items":["police uniform","police badge"]}],"chips":["..."]}:
-reply = 1-2 short sentences with ONE creative tip for the scene (do not list the items); 2-6 groups, titles start with
-"For "${!gearOn ? '' : ' (one gear group may be "To film it")'}, 1-6 short concrete item names per group; chips = 3 short follow-up asks the
-creator could tap next to keep brainstorming (max 6 words each, e.g. "Make it spookier", "Props for the ending").${more ? `
+reply = 1-2 short sentences in the voice of Prime Capitol's friendly production assistant: react to their idea like a
+colleague who's into it, then ONE practical, specific tip for the scene (do not list the items, no corporate filler); 2-6 groups, titles start with
+"For "${!gearOn ? '' : ' (one gear group may be "To film it")'}, 1-6 short concrete item names per group; chips = 2 short follow-up asks specific
+to THIS idea the creator could tap next (max 6 words each, e.g. "Make it spookier", "Props for the ending").${more ? `
 This is a SECOND LOOK: these items were already searched, so list DIFFERENT ones (less obvious props, set dressing,
 background details, wardrobe extras, alternatives, small touches): ${JSON.stringify(searched)}` : ''}
 Not about props for a video at all (e.g. homework, a recipe, chat) → {"reply":"","needs":[],"chips":[],"offTopic":true}.`,
@@ -418,7 +419,8 @@ ${live}
 GUIDE (id | screen | how it works):
 ${entries.map(e => `${e.id} | ${e.title} | ${e.about}`).join('\n')}
 Rules: never invent screens, buttons or rules that aren't in the GUIDE; if the GUIDE doesn't answer it, say you're not sure and
-suggest Me → Help or asking the team. Answer in their language, plain and friendly. "answer" = 1-2 short sentences;
+suggest Me → Help or asking the team. Answer in their language, like Prime Capitol's friendly production assistant
+explaining it to a colleague: warm, natural, no corporate filler, no "Great question". "answer" = 1-2 short sentences;
 "steps" = 0-5 short taps in order (like "Tap Book", "Tap Book a shoot"); "screens" = 0-3 GUIDE ids to open.
 Return ONLY {"answer":"...","steps":["..."],"screens":["id"]}.`,
       user: `${history.length ? `EARLIER QUESTIONS:\n${history.map(h => `<creator_text>${asData(h, 200)}</creator_text>`).join('\n')}\nQUESTION:\n` : ''}<creator_text>${asData(question, 300)}</creator_text>`,

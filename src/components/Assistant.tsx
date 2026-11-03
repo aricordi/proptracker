@@ -292,7 +292,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   // Do what the AI picked. Everything here is a card or a button; the person still taps to make anything happen.
   async function runTurn(turn: ChatTurn, q: string) {
-    const chipsOr = (c: string[]) => setChips(turn.chips.length ? turn.chips : c)
+    aiSpoke.current = !!turn.reply
     const say = (txt: string, extra: Msg[] = []) => setMsgs(x => [...x, { who: 'bot', text: txt }, ...extra])
     switch (turn.action) {
       case 'times': if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time')
@@ -302,12 +302,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         return runHelpers(turn.query || q, false, 'props', turn.shoot)
       case 'help':
         markMe('help')
-        setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); chipsOr(defaultChips()); return
+        setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); setChips(turn.chips); return
       case 'plan': if (turn.reply) say(turn.reply); startPlan(); return
-      case 'reply': say(turn.reply); chipsOr(defaultChips()); return
+      case 'reply': say(turn.reply); setChips(turn.chips); return
       default:
         // Shoots, returns, reports, gear…: the app's own facts decide the card (and win over the AI's words when they disagree).
-        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot })) { say(turn.reply || 'Here\'s what I can do.'); chipsOr(defaultChips()) }
+        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot })) { say(turn.reply || 'On it. What would you like to do?'); setChips(turn.chips) }
         else if (turn.chips.length) setChips(turn.chips)
     }
   }
@@ -325,8 +325,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const say = (reply: string, extra: Msg[] = [], chips: string[] = [], fact = false) => {
       setChips(chips); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
     }
-    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What do you need? A time to film, props, or a question.`, [], defaultChips()); return true }
-    if (intent === 'thanks') { say('Anytime. I\'m here if you need anything else.'); return true }
+    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What are you working on? I can find you a time at the houses or props for the shoot.`, [], defaultChips()); return true }
+    if (intent === 'thanks') { say('Anytime! Have a great shoot.'); return true }
     if (demo || helpOnly) return false
     const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
     const pick = ai?.shootId ? sorted.find(x => x.id === ai.shootId) : undefined
@@ -379,6 +379,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   }
 
   // The prop finder, the time finder and the how-to guide (each its own server helper, same budget and safety box).
+  // The AI's own line was just shown for this message: helpers skip their canned summary (owner, Nov 3: less boilerplate).
+  const aiSpoke = useRef(false)
   async function runHelpers(q: string, more: boolean, force?: Helper, shootId?: string) {
     const route: Route = helpOnly ? { helpers: ['help'] } : demo ? (routeMessage(q, { last: mode, shoots: [] }).helpers[0] === 'help' && !more && force !== 'props' ? { helpers: ['help'] } : { helpers: ['props'] }) : force ? { helpers: [force], ...(shootId ? { shootId } : {}) } : more || plan?.step === 'props' ? { helpers: ['props'] }
       : plan?.step === 'time' ? { helpers: ['time'] }
@@ -417,7 +419,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         missing: gearOn ? r.missing : r.missing.filter(m => !isFilmGear(m.name)) }
       const found = kept.groups.length + kept.missing.length > 0
       // Nothing (new) found: offer a plain search for the same words, so the chat is never a dead end.
-      setMsgs(x => [...x, { who: 'bot', text: r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
+      const quiet = aiSpoke.current && found; aiSpoke.current = false
+      setMsgs(x => [...x, { who: 'bot', text: quiet ? '' : r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
         ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
       const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
       return [...new Set(next)].slice(0, 5)
@@ -442,7 +445,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     try {
       const r = (await askForTime({ text: q, ...(previous ? { previous } : {}) })).data
       setPrevious(r.ask)
-      setMsgs(x => [...x, { who: 'bot', text: r.reply, ...(offerOther ? { alt: { q, to: 'props' as const } } : {}) }, ...(r.options.length ? [{ who: 'options' as const, options: r.options }] : [])])
+      const quiet = aiSpoke.current && r.options.length > 0; aiSpoke.current = false
+      setMsgs(x => [...x, ...(quiet ? [] : [{ who: 'bot' as const, text: r.reply, ...(offerOther ? { alt: { q, to: 'props' as const } } : {}) }]), ...(r.options.length ? [{ who: 'options' as const, options: r.options }] : [])])
       // Follow-ups that change something (never "Evenings only" when it already is).
       const a = r.ask as { timeOfDay?: string; houses?: string[] }
       const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h
@@ -671,7 +675,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
-            <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-white/[0.07]">{m.text}</p>
+            {m.text && <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-white/[0.07]">{m.text}</p>}
             {m.result?.fallback && <p className="text-pt-muted text-xs">Quick match: the AI was busy, so these are the closest props by name and tags.</p>}
             {m.guide && (m.guide.steps.length > 0 || m.guide.links.length > 0) && (
               <div className="rise-in space-y-2">
