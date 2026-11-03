@@ -1898,6 +1898,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (a turn can be 2 calls). ~0.1 ¢ per message (creator guide ≈ 3k tokens). Help Q "Is the chat a person?", appGuide home.
       Tests 606. Checked in a browser on the emulator with faked AI answers (off-topic, times, help, return-with-nothing-out → fact
       wins, cancel) and with the AI off (built-in answers).
+    - LIVE Nov 3 (owner "ok push live"): backend run 56 + website run 56 = CHAT FIRST + GIVE IT TO KYLE / priority booking + gear
+      grab-and-go + team guide + ROUND 3 (incl. guidelines/ storage rule) + AI CHAT BRAIN. Owner next: tick Kyle in Books without
+      approval, switch launch creators to Full app, optionally set App-only from; try the chat on a phone (real AI untested before this).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
