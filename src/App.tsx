@@ -20,7 +20,6 @@ const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
 const TeamGuideScreen = lazy(() => import('./screens/TeamGuideScreen'))
-const Tour = lazy(() => import('./tour/Tour'))
 const TeamTour = lazy(() => import('./tour/TeamTour'))
 const AnalyticsScreen = lazy(() => import('./screens/AnalyticsScreen'))
 const RulesSheetScreen = lazy(() => import('./screens/RulesSheetScreen'))
@@ -125,9 +124,9 @@ function TourGate({ children }: { children: ReactNode }) {
     ? <TeamTour role={realRole} required onFinish={finished} onSkip={skipped} /> : <TeamGuideScreen onDone={finished} />}</Suspense>
 }
 // Replaying the tour (Me → App tour, Help). Ends on Home, like the first time.
+// The old creator tour taught booking gear, which is off (owner, Nov 3): /tour now just opens the Chat, which explains itself.
 function TourReplay() {
-  const navigate = useNavigate()
-  return <Tour onFinish={() => navigate('/', { replace: true })} />
+  return <Navigate to="/" replace />
 }
 function AdminTourReplay() {
   const navigate = useNavigate()

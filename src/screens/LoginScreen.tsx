@@ -82,7 +82,7 @@ export default function LoginScreen() {
         <BrandMark className="w-40 mx-auto mb-8 text-pt-text" />
         {IS_PRACTICE && <p className="rounded-full bg-orange-500 text-stone-950 text-xs font-bold px-3 py-1">PRACTICE SITE · nothing here is real</p>}
         <h1 className="text-3xl font-semibold tracking-tight text-pt-text">Welcome</h1>
-        <p className="text-pt-muted mt-2 text-sm">Props and gear for Prime Capitol shoots</p>
+        <p className="text-pt-muted mt-2 text-sm">Shoots and props for Prime Capitol</p>
       </div>
 
       {insideApp && (

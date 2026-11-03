@@ -101,7 +101,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
         <div key={`b${x.id}`} className={card}>
           <p className="text-[15px]"><b>Schedule change.</b> {x.status === 'cancelled'
             ? <>{label(x)} is needed for a priority booking, so it was cancelled (no strike). Your next request is first in line.</>
-            : <>Your shoot moved to <b>{label(x)}</b> for a priority booking. Props and gear moved with it.</>}</p>
+            : <>Your shoot moved to <b>{label(x)}</b> for a priority booking. Props moved with it.</>}</p>
           {x.status === 'cancelled' ? (
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={gold}>Find another time</button>
@@ -198,10 +198,9 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
 
   const shot = photos.length > 0 && !uploading
   return (
-    <div className="rise-in rounded-[20px] p-3 pl-4 bg-pt-accent/[0.10] space-y-3">
+    <div className="rise-in rounded-2xl py-2.5 pl-4 pr-2.5 bg-pt-accent/[0.10] space-y-2.5">
       <div className="flex items-center gap-3">
-        <p className="flex-1 min-w-0 text-[15px] leading-snug"><b>You're up</b> <span className="text-pt-muted">· {label}</span>
-          <span className="block text-[13px] text-pt-muted">{shot ? (busy ? 'Checking in…' : before && !report ? 'Got it.' : '') : 'Check in with a selfie with your camera.'}</span></p>
+        <p className="flex-1 min-w-0 text-[14px] leading-snug truncate"><b>{shot ? (busy ? 'Checking in…' : 'Got it ✓') : "You're up"}</b> <span className="text-pt-muted">· {label}</span></p>
         <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" max={1} />
       </div>
       {before && shot && !report && (

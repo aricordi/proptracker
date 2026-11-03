@@ -22,7 +22,7 @@ export const CHAT_ACTIONS = {
   props: 'Suggest props, costumes or set dressing from the closet for a video idea or a scene. "query" = the idea in one clear line. If they name one of their shoots, set "shoot".',
   help: 'Explain how to do something in the app, using ONLY the GUIDE. Fill "steps" (taps, in order) and "screens" (GUIDE ids).',
   status: 'Show their upcoming shoots and whether each is approved.',
-  plan: 'Walk them through planning a whole shoot, step by step (time, props, gear, review).',
+  plan: 'Walk them through planning a whole shoot, step by step (time, props, review).',
   cancel: 'They want to cancel one of their shoots. Set "shoot" when it is clear which one.',
   move: 'They want to move / reschedule one of their existing shoots. Set "shoot" when clear.',
   swap: 'They want to trade their slot with another creator.',
@@ -30,9 +30,9 @@ export const CHAT_ACTIONS = {
   return: 'They are bringing back gear or props they have out.',
   report: 'Something they have out is broken, damaged, missing or not working.',
   pickup: 'They are picking up their props.',
-  take_gear: 'They want gear (camera, lights, kit…) for a shoot.',
+  take_gear: 'They want gear (camera, lights, kit…) for a shoot. Gear is never booked ahead: it is taken on the shoot day, from an hour before.',
   strikes: 'They ask about their strikes or a pause.',
-  requests: 'They want to see what they asked for (props/gear requests).',
+  requests: 'They want to see what they asked for (their props requests).',
 } as const
 export type ChatAction = keyof typeof CHAT_ACTIONS
 

@@ -362,7 +362,7 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
   const ends = HALF_HOURS.map(t => t + start + 30).filter(t => t <= start + 18 * 60)
   return (
     <BottomSheet open onClose={onClose} title={move ? 'Move your offsite shoot' : 'Offsite or location shoot'}>
-      <p className="text-pt-muted text-sm">No house is held. It goes on the schedule so props, gear and the team know, and so it counts toward production.</p>
+      <p className="text-pt-muted text-sm">No house is held. It goes on the schedule so the props team and the schedule team know, and so it counts toward production.</p>
       <div className="space-y-3 mt-4">
         {team && !move && (
           <label className="block"><span className="block text-pt-muted text-xs mb-2">Book for</span>
@@ -562,7 +562,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
           </div>
         )}
         {requested && <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
-          {mine ? <>Sent to the equipment team. The slot is held for you while they check it; you'll get a notification. You can already add props and gear.</> : <>Waiting for the equipment team to approve it.</>}</p>}
+          {mine ? <>Sent to the equipment team. The slot is held for you while they check it; you'll get a notification. You can already add props.</> : <>Waiting for the equipment team to approve it.</>}</p>}
         {shoot.status === 'denied' && <p className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text">Not approved{shoot.deniedReason ? `: ${shoot.deniedReason}` : '.'}</p>}
         {shoot.moveRequest && <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
           Move requested to <b>{shoot.moveRequest.place === 'offsite' ? shoot.moveRequest.where : s.houses[shoot.moveRequest.place].name} · {formatDay(shoot.moveRequest.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtSlot(shoot.moveRequest.start, shoot.moveRequest.end - shoot.moveRequest.start)}</b>. This time stays yours until it's approved.</p>}
@@ -849,7 +849,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   const who = ['Just me', '+ 1 friend', '+ 2 friends']
   return (
     <BottomSheet open onClose={onClose} title="Book a shoot">
-      {pending && <p className="mb-4 rounded-xl px-3 py-3 text-sm bg-[#BF9DFF]/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">✦ The props and gear you picked go into this shoot once it's booked{minDay > todayInStudio() ? `. Times start ${formatDay(minDay, { weekday: 'long', month: 'short', day: 'numeric' })}, the first day there's still time to get them ready` : ''}.</p>}
+      {pending && <p className="mb-4 rounded-xl px-3 py-3 text-sm bg-[#BF9DFF]/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">✦ The props you picked go into this shoot once it's booked{minDay > todayInStudio() ? `. Times start ${formatDay(minDay, { weekday: 'long', month: 'short', day: 'numeric' })}, the first day there's still time to get them ready` : ''}.</p>}
       {/* Where first (owner, Oct 30: offsite was hidden at the bottom). One slim row so the times stay high up. */}
       <div className="flex bg-pt-bg rounded-full p-0.5 gap-0.5 text-sm mb-4">
         <span className="flex-1 rounded-full min-h-[36px] grid place-items-center bg-pt-border text-pt-text font-semibold">At the houses</span>

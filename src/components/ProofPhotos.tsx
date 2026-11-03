@@ -74,14 +74,14 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
     const s = slots[slots.length - 1]
     return (
       <div className="flex items-center gap-2 shrink-0">
-        {s && <span className="relative w-11 h-11 rounded-full overflow-hidden bg-pt-border shrink-0">
+        {s && <span className="relative w-9 h-9 rounded-full overflow-hidden bg-pt-border shrink-0">
           <img src={s.preview} alt="" className="w-full h-full object-cover" />
           {!s.url && !s.failed && <span className="absolute inset-0 bg-black/50" aria-label="Uploading" />}
         </span>}
         {s?.failed && <span className="text-red-300 text-xs">{s.why ?? 'Failed'}</span>}
         {(!s || s.failed) && <button onClick={() => { if (s) setSlots([]); input.current?.click() }} aria-label={label}
-          className="flex items-center gap-2 rounded-full h-11 px-4 font-bold text-stone-900 bg-pt-accent shadow-gold active:opacity-80">
-          <Icon name="camera" className="w-5 h-5" />{s?.failed ? 'Try again' : compact}
+          className="flex items-center gap-1.5 rounded-full h-9 px-3.5 text-[14px] font-bold text-stone-900 bg-pt-accent active:opacity-80">
+          <Icon name="camera" className="w-4 h-4" />{s?.failed ? 'Try again' : compact}
         </button>}
         {picker}
       </div>

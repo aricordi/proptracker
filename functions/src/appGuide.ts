@@ -49,7 +49,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'signin', title: 'Signing in', who: ALL, words: 'login log in google blank popup invite',
     about: 'Sign in with Google using the exact email you were invited with. If an Instagram/Messenger/Gmail link opened it, open the page in Safari or Chrome instead. Blank Google page: turn off content blockers / private browsing, or tap "Sign in another way".' },
   { id: 'demo', title: 'Props only (sneak peek)', who: ['demo'], words: 'cant book booking not open full app access',
-    about: 'This account can search the props and ask the AI for prop ideas. Booking shoots, props and gear opens when the owner switches you to the full app; nothing to do on your side.' },
+    about: 'This account can search the props and ask the AI for prop ideas. Booking shoots and props opens when the owner switches you to the full app; nothing to do on your side.' },
   { id: 'ai', title: 'The ✦ AI helper', who: ALL, words: 'ai chat assistant ideas',
     about: 'Describe a video idea and it finds props we have, grouped by scene ("✦ More like these" for more; "Often used with these" are props creators usually request together). People who book can also ask for filming times ("2 hours with Kyle next week") and tap Book, or tap "Plan my shoot" to go time → props → review. It can also explain how to use the app. It never books or sends anything by itself: every Book/Add/Send is your tap.' },
 
@@ -69,9 +69,9 @@ export const GUIDE: GuideEntry[] = [
   { id: 'gearitem', path: '/gear/b/:id', title: 'Gear kit page', who: [...FILMERS, 'equipment', 'admin'], words: 'pieces in the case battery next free',
     about: 'What is in the case, when it is next free, similar free kits, the battery note (charge is not guaranteed) and the late return fee.' },
   { id: 'reserve', path: '/reserve', title: 'Your shoot (review & send)', who: FILMERS, words: 'basket cart send request review checkout make or find',
-    about: 'Everything you added for one shoot: props and gear with amounts. Type the video name, add "Request something we don\'t have" (the arts team makes or finds it, needs more notice), then Send. Until you send, it is only on your phone.' },
+    about: 'Everything you added for one shoot: props and costumes with amounts (gear isn\'t booked ahead). Type the video name, add "Request something we don\'t have" (the arts team makes or finds it, needs more notice), then Send. Until you send, it is only on your phone.' },
   { id: 'requests', path: '/requests', title: 'My requests', who: FILMERS, words: 'status where is my request packed ready change track',
-    about: 'Every props request and gear booking, grouped by shoot, with a progress bar (Requested → Being picked → Packed → Picked up → Returned; gear Held → Picked up → Returned → Checked in). Open one to change it (while still Requested/Held), see details, or "Return everything". Button with a box icon next to ✦ AI.' },
+    about: 'Every props request (and any gear you took on the day), grouped by shoot, with a progress bar (Requested → Being picked → Packed → Picked up → Returned; gear Picked up → Returned → Checked in). Open a props request to change it (while still Requested), see details, or "Return everything". Button with a box icon next to ✦ AI.' },
   { id: 'propsrequest', path: '/reservations/:id', title: 'A props request', who: [...FILMERS, 'arts', 'admin'], words: 'change request add more pickup sign return photo',
     about: 'Progress, the list of props, Change (steppers, remove, search the closet to add, Save) while Requested, pickup sign-off when Packed, and the return form (one camera photo of everything coming back). At pickup, "Something\'s missing" lets you tap the missing props (plus a note) before signing; the props team is told.' },
   { id: 'gearbooking', path: '/gear/bookings/:id', title: 'A gear booking', who: [...FILMERS, 'equipment', 'admin'], words: 'pickup tick pieces missing return hand over shared gear late fee',
@@ -81,7 +81,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'cutoffs', title: 'Last day to add props', who: FILMERS, words: 'cutoff notice deadline too late add by',
     about: 'Each shoot shows "Props by" and "New props by" (things to make or find) dates (gear isn\'t booked ahead), counted in open days before the shoot (closed days don\'t count). After that the + buttons disappear for that shoot.' },
   { id: 'onday', title: 'Shoot day: check in and wrap', who: FILMERS, words: 'check in set photo wrap report ran over mess no show',
-    about: 'Check in opens shortly before your slot: open the shoot, take a set photo, and you can report the slot before you (ran over, left a mess) with photos and a note. After filming tap Wrap and say what you filmed. Missed the check-in? You have a few hours to explain on the shoot page.' },
+    about: 'Check in opens shortly before your slot: in the Chat tap Selfie (a quick selfie with your camera) and you\'re checked in; if someone filmed right before you, tap All good or Report it (ran over, left a mess) with a photo and a note. After filming tap Wrap and say what you filmed. Missed the check-in? You have a few hours to explain on the shoot page.' },
   { id: 'moving', title: 'Moving, swapping, cancelling', who: FILMERS, words: 'reschedule move cancel swap late cancel strike',
     about: 'Shoot page → More. Moving or cancelling is free with enough notice; closer than that only a swap with another creator avoids counting as a no-show. Cancelling within a few minutes of booking is always free.' },
   { id: 'strikes', title: 'Strikes and pauses', who: [...FILMERS, 'admin', 'equipment'], words: 'strike pause penalty no show blocked',
@@ -93,7 +93,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'teamguide', path: '/team-guide', title: 'Team guide', who: ['owner', 'equipment', 'admin', 'arts'], words: 'guide training how to my job one page new staff onboarding',
     about: 'One short page per team (equipment, admins, arts department) with what to do each day and the live numbers. New team members see it once when they first open the app (it replaced the long practice tours, which can still be replayed). Open it again from the team menu → Team guide; the owner can switch between the three teams\' pages.' },
   { id: 'tour', path: '/tour', title: 'Practice tour', who: ['creator', 'owner'], words: 'tutorial practice learn walkthrough',
-    about: 'Creators get a 60-second hands-on intro at the top of the Chat instead of a tour: the Chat explains itself (a short "How this works" card the first time) and you just type what you need. The old practice tour still opens at /tour for anyone curious. The equipment team and admins get a SHORT hands-on tour (4 chapters, about 5 minutes: requests + priority booking, the gear log / scoreboard, blocks / flags, notifications) the first time, replayable from their menu (Equipment team tour / Admin tour).' },
+    about: 'Creators get a 60-second hands-on intro at the top of the Chat instead of a tour: the Chat explains itself (a short "How this works" card the first time) and you just type what you need. There is no creator practice tour any more (/tour opens the Chat). The equipment team and admins get a SHORT hands-on tour (4 chapters, about 5 minutes: requests + priority booking, the gear log / scoreboard, blocks / flags, notifications) the first time, replayable from their menu (Equipment team tour / Admin tour).' },
 
   // ── Arts department (props team) ──
   { id: 'queue', path: '/reservations', title: 'Props queue', who: ['owner', 'arts', 'admin'], words: 'queue to prepare pick pack ready out returns late',

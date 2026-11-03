@@ -62,11 +62,11 @@ export default function ScheduleRulesScreen() {
           <Li>Shooting somewhere else? Tap <b>Book a shoot</b> → <b>Somewhere else</b> (at the top): pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
         </ul>
 
-        <H>Props and gear for your shoot</H>
+        <H>Props for your shoot</H>
         <ul className="list-disc pl-5 space-y-2">
-          <Li><b>Book your time first.</b> Then add props, costumes and gear to that shoot from Browse (or from the shoot itself). Browsing is open any time.</Li>
+          <Li><b>Book your time first.</b> Then add props and costumes to that shoot from Props (or from the shoot itself). Browsing is open any time.</Li>
           <Li>Each team needs notice, counted in open days before the shoot{b.closedWeekdays.includes(0) ? ' (Sundays don\'t count)' : ''}: props we have <b>{b.leadTimeDays}</b>, new props to make or find <b>{b.buildLeadDays}</b>. {s.gearReserve ? <>Gear is grab-and-go: reserve it from <b>{s.gearReserveHours} hours</b> before your shoot, or take what's free on the day (from an hour before).</> : <>Gear isn't booked ahead: on your shoot day, from an hour before, take what's free (first come, first served).</>}</Li>
-          <Li>Cancelling a shoot cancels its props and gear requests too. A shoot with props or gear can move to another time the same day; to change the day, cancel those first.</Li>
+          <Li>Cancelling a shoot cancels its props requests too. A shoot with props can move to another time the same day; to change the day, cancel those first.</Li>
         </ul>
 
         <H>On the day</H>

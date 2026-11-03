@@ -8,6 +8,7 @@ import { subscribeToGearBundles, subscribeToGearHolds, subscribeToGearBookings, 
 import { useSession } from '../auth'
 import { GearWhenPicker, GearArt, useGearWhen } from '../components/GearUi'
 import { useActiveShoot } from '../activeShoot'
+import { useScheduleSettings } from '../services/schedule'
 import { AddingToChip, useAddingNote } from '../components/AddingToBar'
 import MyRequestsButton from '../components/MyRequestsButton'
 import AiButton from '../components/AiButton'
@@ -25,6 +26,8 @@ export default function GearShopScreen() {
   const propsCart = useCart()
   const { profile, role, shootFlow, isStaff, canBook } = useSession()
   const noShoot = useAddWithoutShoot()
+  // Owner, Nov 3: gear isn't booked ahead. Creators can only pick gear to TAKE on their shoot day (from an hour before).
+  const reserveOn = useScheduleSettings().gearReserve
   // Creators add gear to one of their booked shoots; without one they just browse.
   const creator = shootFlow   // creator layout (creators + the owner)
   const { shoot } = useActiveShoot()
@@ -115,8 +118,8 @@ export default function GearShopScreen() {
                 // Same badge colours as props: green = free/available, red = taken, amber = something missing.
                 const badge = homeOnly ? { label: 'Houses only', style: 'bg-black/70 text-white' } : showFree && !problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
                   : b.missing?.length ? { label: 'Piece missing', style: 'bg-amber-500/90 text-stone-900' } : { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
-                const canAdd = creator && !!shoot && ok && !note.late
-                const askShoot = creator && !shoot && canBook && !b.archived
+                const canAdd = creator && !!shoot && ok && !note.late && (note.take || reserveOn)
+                const askShoot = creator && !shoot && canBook && !b.archived && reserveOn
                 return (
                   <div key={b.id} className="relative w-full h-full">
                     <button onClick={() => navigate(`/gear/b/${b.id}`)} className="w-full h-full flex flex-col text-left bg-pt-surface shadow-card rounded-[20px] overflow-hidden">
@@ -165,7 +168,7 @@ export default function GearShopScreen() {
                       <p className="text-pt-text text-[15px] truncate">{x.name}</p>
                       <p className={`text-xs ${f || !showFree ? 'text-pt-muted' : 'text-red-300'}`}>{!showFree ? `${x.pieces[0]?.qty ?? 0} offered` : f ? `${f} free for your hours` : 'None free for your hours'}</p>
                     </div>
-                    {creator && !shoot && canBook ? (
+                    {creator && !(note.take || reserveOn) ? null : creator && !shoot && canBook ? (
                       <button onClick={() => noShoot.open(x.name, 'gear', x.id)} aria-label={`Add ${x.name}`}
                         className="w-11 h-11 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-lg shrink-0">+</button>
                     ) : (
@@ -191,11 +194,11 @@ export default function GearShopScreen() {
             <span>Taking {cart.count} now</span><span>Take it</span>
           </button>
         </div>
-      ) : cart.count + propsCart.count > 0 && (
+      ) : (reserveOn || !creator ? cart.count : 0) + propsCart.count > 0 && (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
           <button onClick={() => navigate('/reserve')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
-            <span>Your shoot · {[propsCart.count && `${propsCart.count} prop${propsCart.count !== 1 ? 's' : ''}`, cart.count && `${cart.count} gear`].filter(Boolean).join(' · ')}</span>
+            <span>Your shoot · {[propsCart.count && `${propsCart.count} prop${propsCart.count !== 1 ? 's' : ''}`, (reserveOn || !creator) && cart.count && `${cart.count} gear`].filter(Boolean).join(' · ')}</span>
             <span>Review</span>
           </button>
         </div>

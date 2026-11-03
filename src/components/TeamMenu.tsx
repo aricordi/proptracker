@@ -40,9 +40,8 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('import', '/import', 'Import props', 'Bring photos in from Google Drive', 'download'),
     ] },
     { key: 'gear', title: 'Gear', icon: 'camera', items: [
-      I('bundles', '/gear/bundles', 'Bundles & single items', 'What creators can book', 'box'),
+      I('bundles', '/gear/bundles', 'Bundles & single items', 'Kits creators take on the day', 'box'),
       I('allgear', '/gear/items', 'All gear', 'Every piece you own', 'tools'),
-      I('bookgear', '/gear', 'Book gear', 'Hold gear for one of your shoots', 'basket'),
     ] },
     { key: 'rules', title: 'Rules & settings', icon: 'filter', items: [
       I('rulessheet', '/rules-sheet', 'Settings sheet', 'Every rule at a glance', 'table'),

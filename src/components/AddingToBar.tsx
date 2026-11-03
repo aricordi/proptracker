@@ -50,7 +50,7 @@ export function useAddingNote(kind: 'props' | 'gear'): { text: string; late: boo
     if (g.state === 'early') return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
     if (g.state === 'take') return { text: 'Your shoot is on: take what you need now', late: false, take: true }
     if (g.state === 'over') return { text: 'This shoot is over', late: true }
-    return { text: 'Reserve gear for your shoot', late: false }
+    return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
   }
   const by = cutoffs(shoot)[kind], late = todayInStudio() > by
   return { text: late ? `Too late to add ${kind} to this shoot (cutoff was ${formatDay(by)})` : `Add ${kind} by ${formatDay(by)}`, late }
@@ -96,13 +96,13 @@ export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot'
             <span className="block text-pt-muted text-xs">Adding to</span>
             <span className="block text-pt-text truncate">{label(shoot)}</span>
             <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-muted'}`}>
-              {kind === 'shoot' ? [['Props', c!.props], ['new props', c!.builds], ['gear', c!.gear]]
+              {kind === 'shoot' ? [['Props', c!.props], ['new props', c!.builds]]
                   .map(([what, d]) => today > d ? `${what === 'Props' ? 'Too late' : 'too late'} for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`).join(' · ')
                 : late ? `Too late to add ${kind} (cutoff was ${formatDay(by!)})` : `Add ${kind} by ${formatDay(by!)}`}
             </span>
           </> : <>
             <span className="block text-pt-text">Just browsing</span>
-            <span className="block text-pt-muted text-xs">Pick one of your shoots to see what's free and add {kind === 'shoot' ? 'props and gear' : kind}.</span>
+            <span className="block text-pt-muted text-xs">Pick one of your shoots to see what's free and add {kind === 'shoot' ? 'props' : kind}.</span>
           </>}
         </span>
         <span className="text-pt-accent text-xs shrink-0 tap">{shoot ? 'Change' : 'Pick a shoot'}</span>

@@ -1,5 +1,5 @@
-// "My requests" (owner, Oct 20): every props request and gear booking you've made, lumped by shoot.
-// Each shoot shows its props and gear with where they are; tap one to open it, or add more before the cutoff.
+// "My requests" (owner, Oct 20): every props request (and gear you took) you've made, lumped by shoot.
+// Each shoot shows where its props are; tap one to open it, or add more props before the cutoff.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
@@ -40,7 +40,7 @@ export default function MyRequestsScreen() {
     const names = [...new Set([...g.props.map(p => p.title), ...g.gear.map(x => x.title)].filter(Boolean))]
     const sh = g.shoot
     const cut = sh ? cutoffs(sh) : null
-    const canAdd = !!sh && isLive(sh) && !!cut && today <= cut.gear
+    const canAdd = !!sh && isLive(sh) && !!cut && today <= cut.props
     return (
       <div key={g.key} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
         <button onClick={() => sh && navigate(`/schedule?shoot=${sh.id}`)} disabled={!sh} className="w-full flex items-center gap-3 text-left px-1">
@@ -70,7 +70,7 @@ export default function MyRequestsScreen() {
         )}
         {canAdd && (
           <button onClick={() => { choose(sh!.id); navigate('/browse') }} className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10">
-            + Add props or gear <span className="font-normal text-pt-muted">· {today <= cut!.props ? `props by ${formatDay(cut!.props)}, gear on the day` : 'gear on the day'}</span>
+            + Add props <span className="font-normal text-pt-muted">· by {formatDay(cut!.props)}</span>
           </button>
         )}
       </div>
@@ -95,8 +95,8 @@ export default function MyRequestsScreen() {
         {loading && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
         {!loading && shown.length === 0 && (
           <div className="text-center mt-12 space-y-3">
-            <p className="text-pt-muted text-sm">{tab === 'upcoming' ? 'No props or gear requested for an upcoming shoot.' : 'Nothing here yet.'}</p>
-            {tab === 'upcoming' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium tap">Browse props &amp; gear</button>}
+            <p className="text-pt-muted text-sm">{tab === 'upcoming' ? 'No props requested for an upcoming shoot.' : 'Nothing here yet.'}</p>
+            {tab === 'upcoming' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium tap">Browse props</button>}
           </div>
         )}
         {!loading && shown.map(card)}

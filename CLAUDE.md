@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 614 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 615 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1967,6 +1967,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       target 'approvers' = equipment + admins (booking requests, move requests, 12-h waiting nudge); invite ran out (both) /
       withdrawn (friend); swap withdrawn / called off; props checked in → creator; a creator cancelling an APPROVED shoot → gear
       team "Shoot cancelled"; check-in push says selfie; cutoff push "Last day to add props". Tests 614.
+      → GEAR SWEEP (owner, Nov 3: "you are still allowing me to add gear… the AI is still recommending gear… fine-toothed comb"):
+      (the practice site was mid-update when tried, but real gaps too) EVERY creator path now follows `gearReserve`: ReserveScreen
+      gear section hidden + gear lines ignored; GearShopScreen + only in TAKE mode (no AddWithoutShoot for gear, no "Your shoot · N
+      gear" bar); GearOfferScreen "Gear isn't booked ahead… Take gear in the chat" instead of Add to my shoot; UnsentBasket / Props
+      basket bar ignore the gear cart; useAddToShoot drops gear; chat drops gear picks AND filming-gear "make or find" items
+      (`functions/src/filmGear.ts` isFilmGear, PURE: never import gemini/firebase into app code), plan review hides gear; server
+      ideaToProps tells the AI "props, costumes and set dressing ONLY, never filming equipment" + filters missing with isFilmGear;
+      chatBrain plan/take_gear/requests texts; owner's Team menu "Book gear" removed; /tour (old creator tour teaching gear booking)
+      → redirects to the Chat; wording ("props and gear" → props) on Schedule sheets, My requests, Help, How it works, Login, People,
+      Me, AI settings, app guide. Check-in card slimmer (one truncated line + small Selfie pill). Tests 615.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

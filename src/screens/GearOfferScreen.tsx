@@ -5,6 +5,7 @@ import { subscribeToGearBundles, subscribeToGearHolds, freeQty, nextFreeStart, f
 import { GearWhenPicker, GearShootHours, GearArt, Pill, DayTimeline, useGearWhen, LateFeeNote } from '../components/GearUi'
 import { offerValue } from '../../functions/src/gearStock'
 import { useSession } from '../auth'
+import { useScheduleSettings } from '../services/schedule'
 import { useActiveShoot } from '../activeShoot'
 import { useAddingNote } from '../components/AddingToBar'
 import AddingToBar from '../components/AddingToBar'
@@ -23,6 +24,9 @@ export default function GearOfferScreen() {
   const { shoot } = useActiveShoot()
   const showFree = role !== 'creator' || !!shoot
   const note = useAddingNote('gear')
+  // Owner, Nov 3: no booking gear ahead; creators only pick it to take on their shoot day.
+  const reserveOn = useScheduleSettings().gearReserve
+  const canPick = !creator || note.take || reserveOn
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [zoom, setZoom] = useState<string | null>(null)
@@ -113,14 +117,15 @@ export default function GearOfferScreen() {
           </div>
         )}
 
-        {!showFree ? null : inCart ? (
+        {creator && !canPick ? (
+          <p className="rounded-2xl bg-pt-surface px-4 py-3 text-pt-muted text-[14px]">Gear isn't booked ahead. On your shoot day, from an hour before, take what's free: tap <b className="text-pt-text">Take gear</b> in the chat.</p>
+        ) : !showFree ? null : inCart ? (
           <div className="space-y-2">
             <button onClick={() => navigate(creator && note.take ? '/gear/take' : '/reserve')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">{creator && note.take ? 'Picked ✓ · Take it' : 'In your shoot ✓ · Review'}</button>
             <button onClick={() => cart.setQty(b.id, 0)} className="w-full py-2 text-pt-muted text-sm">Remove from my shoot</button>
           </div>
         ) : (
           <>
-          {creator && shoot && note.early && <p className="text-pt-muted text-[13px] text-center">Gear is grab-and-go: {note.text.toLowerCase()}.</p>}
           <button onClick={() => { cart.setQty(b.id, 1); navigate(-1) }} disabled={!free || (creator && note.late)}
             className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
             {creator && note.take ? 'Take this one' : `Add to my shoot · ${fmtHours(w.start, w.end)}`}

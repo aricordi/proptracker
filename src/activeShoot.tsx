@@ -144,10 +144,12 @@ export function useEarliestDayFor() {
 export function useAddToShoot() {
   const { choose } = useActiveShoot()
   const cart = useCart(), gear = useGearCart()
+  const gearOn = useScheduleSettings().gearReserve
   return (shootId: string, a: ShootAdds) => {
     choose(shootId)
     a.props.forEach(id => { if (!cart.lines[id]) cart.setQty(id, 1) })
-    a.gear.forEach(id => { if (!gear.lines[id]) gear.setQty(id, 1) })
+    // Gear isn't booked ahead (owner, Nov 3): picked gear never goes into a shoot.
+    if (gearOn) a.gear.forEach(id => { if (!gear.lines[id]) gear.setQty(id, 1) })
     a.builds.forEach(name => { if (!cart.builds.some(b => b.description === name)) cart.addBuild({ description: name, qty: 1 }) })
   }
 }

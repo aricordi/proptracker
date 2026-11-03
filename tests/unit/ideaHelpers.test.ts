@@ -38,3 +38,11 @@ describe('learning from real requests', () => {
     expect(goesWith(['badge', 'cuffs'], s, new Set(), 3, 1).map(x => x.id)).toEqual(['uniform', 'menu'])
   })
 })
+
+describe('filming gear is never a "make or find" (owner, Nov 3)', () => {
+  it('spots cameras, lights and sound, not everyday props', async () => {
+    const { isFilmGear } = await import('../../functions/src/filmGear')
+    for (const g of ['Camera', 'extra batteries', 'LED panel light', 'boom mic', 'Tripod', 'ring light', 'lav mics']) expect(isFilmGear(g)).toBe(true)
+    for (const p of ['Police badge', 'Crystal ball', 'Top hat', 'Fake blood', 'Candles', 'Spirit board']) expect(isFilmGear(p)).toBe(false)
+  })
+})

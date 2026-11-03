@@ -4,12 +4,15 @@ import { useNavigate } from 'react-router-dom'
 import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
 import { useActiveShoot, useShootLabel, useCutoffs } from '../activeShoot'
+import { useScheduleSettings } from '../services/schedule'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 
 export default function UnsentBasket({ shootId }: { shootId?: string }) {
   const navigate = useNavigate()
-  const cart = useCart(), gear = useGearCart()
+  const cart = useCart(), gearCart = useGearCart()
+  // Gear isn't booked ahead (owner, Nov 3): gear picked to take on the day isn't an unsent request.
+  const gear = useScheduleSettings().gearReserve ? gearCart : { count: 0 }
   const { shoot } = useActiveShoot()
   const label = useShootLabel(), cutoffs = useCutoffs()
   if (cart.count + gear.count === 0) return null

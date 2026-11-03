@@ -48,3 +48,5 @@ export function goesWith(picked: string[], s: PropSignals, skip: Set<string>, ma
   for (const p of picked) for (const [b, n] of Object.entries(s.pairs[p] ?? {})) if (!skip.has(b) && !picked.includes(b)) score[b] = (score[b] ?? 0) + n
   return Object.entries(score).filter(([, n]) => n >= min).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, max).map(([id, times]) => ({ id, times }))
 }
+
+export { FILM_GEAR, isFilmGear } from './filmGear.js'

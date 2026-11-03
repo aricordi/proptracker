@@ -22,6 +22,7 @@ import { SIMILAR_MIN_SCORE } from '../config'
 import type { Item } from '../types'
 import BrandMark from '../components/BrandMark'
 import { useGearCart } from '../gearCart'
+import { useScheduleSettings } from '../services/schedule'
 import { useActiveShoot } from '../activeShoot'
 import { AddingToChip, useAddingNote } from '../components/AddingToBar'
 import { useAddWithoutShoot } from '../components/AddWithoutShoot'
@@ -60,7 +61,9 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   const settings   = useBookingSettings()
   const late       = useMyLateBookings()
   const cart       = useCart()
-  const gearCart   = useGearCart()
+  // Gear picked to take on the day isn't part of "Your shoot" while booking gear ahead is off (owner, Nov 3).
+  const gearCartAll = useGearCart()
+  const gearCart = useScheduleSettings().gearReserve ? gearCartAll : { count: 0 }
   const turnaround = useTurnaround()
   const navigate   = useNavigate()
   const [showDates, setShowDates] = useState(false)

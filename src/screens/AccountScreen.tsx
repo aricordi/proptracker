@@ -36,7 +36,7 @@ export default function AccountScreen() {
           // Test launch (owner, Oct 27): what this mode is, and that booking comes later.
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-1">
             <p className="text-pt-text font-medium">Sneak peek</p>
-            <p className="text-pt-muted text-sm">For now you can search and look through everything in the Prime Capitol prop room. Booking shoots, props and gear opens up soon; we'll let you know.</p>
+            <p className="text-pt-muted text-sm">For now you can search and look through everything in the Prime Capitol prop room. Booking shoots and props opens up soon; we'll let you know.</p>
             <p className="text-pt-muted text-sm">Something wrong with a prop? Open it and tap <b className="text-pt-text">Suggest an edit</b>.</p>
           </div>
         )}
@@ -164,7 +164,7 @@ function CreatorLinks({ email }: { email: string }) {
   const paused = !!st?.pausedUntil && st.pausedUntil > todayInStudio()
   const rows: [string, string, string][] = [
     ['My shoots', 'When you\'re filming, soonest first, and what each shoot still needs', '/shoots'],
-    ['My requests', 'Every props and gear request, grouped by shoot, with where each one is', '/requests'],
+    ['My requests', 'Every props request, grouped by shoot, with where each one is', '/requests'],
     ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
     ['How it works', 'Slots, cutoffs, check-ins, strikes', '/schedule/how'],
   ]

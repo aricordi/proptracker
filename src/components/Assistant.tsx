@@ -1,5 +1,6 @@
 // The one AI chat ("✦ AI" on every creator screen; owner, Oct 19). It does two jobs in one conversation:
-// - PROP IDEAS: describe the video, keep going ("something for a séance"); real props and gear from the inventory,
+// - PROP IDEAS: describe the video, keep going ("something for a séance"); real props from the inventory (gear only when
+//   booking gear ahead is switched on; it's off since Nov 3),
 //   grouped by scene, never repeated. Tick what you want, add it all to a shoot (or book a new one).
 // - FIND A TIME: "4 hours with Kyle next week, evenings" → real free slots with a Book button. Booking with friends
 //   books your slot and holds theirs for 20 minutes.
@@ -32,6 +33,7 @@ import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useTurnaround } from '../hooks/useTurnaround'
 import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
+import { isFilmGear } from '../../functions/src/filmGear'
 import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, useGearWindow } from '../activeShoot'
 import { formatDay } from '../lib/dates'
 import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type ChatTurn, type ChatStateIn } from '../services/ai'
@@ -323,7 +325,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const say = (reply: string, extra: Msg[] = [], chips: string[] = [], fact = false) => {
       setChips(chips); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
     }
-    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What do you need? A time to film, props, gear, or a question.`, [], defaultChips()); return true }
+    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What do you need? A time to film, props, or a question.`, [], defaultChips()); return true }
     if (intent === 'thanks') { say('Anytime. I\'m here if you need anything else.'); return true }
     if (demo || helpOnly) return false
     const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
@@ -410,7 +412,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         idea, history: more ? history.slice(0, -1) : history, exclude: [...new Set([...shownIds, ...sentPropIds, ...sentGearIds])], ...(more ? { searched, more: true } : {}),
         ...(shootId && !demo ? { shootId } : {}),
       })).data
-      const kept = { ...r, groups: r.groups.map(g => ({ ...g, picks: g.picks.filter(p => !shownIds.includes(p.id) && (p.kind === 'prop' ? itemById.has(p.id) : !demo)) })).filter(g => g.picks.length) }
+      // Gear isn't booked ahead (owner, Nov 3): never show gear picks, and never offer filming equipment as "make or find".
+      const kept = { ...r, groups: r.groups.map(g => ({ ...g, picks: g.picks.filter(p => !shownIds.includes(p.id) && (p.kind === 'prop' ? itemById.has(p.id) : !demo && gearOn)) })).filter(g => g.picks.length),
+        missing: gearOn ? r.missing : r.missing.filter(m => !isFilmGear(m.name)) }
       const found = kept.groups.length + kept.missing.length > 0
       // Nothing (new) found: offer a plain search for the same words, so the chat is never a dead end.
       setMsgs(x => [...x, { who: 'bot', text: r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
@@ -762,13 +766,13 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               const row = (t: string, list: string[], empty: string) => (
                 <div><p className="text-pt-muted text-xs font-semibold">{t} · {list.length}</p><p className="text-sm">{list.length ? list.join(', ') : empty}</p></div>
               )
-              return <>{row('Props', props, 'None yet')}{builds.length > 0 && row('To make or find', builds, '')}{row('Gear', gear, 'None')}</>
+              return <>{row('Props', props, 'None yet')}{builds.length > 0 && row('To make or find', builds, '')}{gearOn && row('Gear', gear, 'None')}</>
             })()}
             {openRequest && (cart.count > 0) ? (<>
               <button onClick={() => go(`/reservations/${openRequest.id}`, { add: { lines: cart.lines, builds: cart.builds.map(b => ({ description: b.description, qty: b.qty, ...(b.refPhoto ? { refPhoto: b.refPhoto } : {}) })) } })}
                 className="w-full rounded-xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add the props to my sent request ›</button>
-              <p className="text-pt-muted text-xs -mt-1">Your request is still "Requested", so these join it. You check it and tap Save.{Object.keys(gearCart.lines).length ? ' Gear is sent on the Your shoot page.' : ''}</p>
-              {Object.keys(gearCart.lines).length > 0 && <button onClick={() => go('/reserve', { title: planIdea() })} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Send the gear ›</button>}
+              <p className="text-pt-muted text-xs -mt-1">Your request is still "Requested", so these join it. You check it and tap Save.{gearOn && Object.keys(gearCart.lines).length ? ' Gear is sent on the Your shoot page.' : ''}</p>
+              {gearOn && Object.keys(gearCart.lines).length > 0 && <button onClick={() => go('/reserve', { title: planIdea() })} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Send the gear ›</button>}
             </>) : (
               <button onClick={() => go('/reserve', { title: planIdea() })} className="w-full rounded-xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Review &amp; send ›</button>
             )}
@@ -832,8 +836,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <button onClick={planGear} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} &amp; {gearOn ? 'go to gear' : 'review'} ›</button>
         ) : plan && plan.step !== 'time' && plan.step !== 'review' && sel.length === 0 ? null : sel.length > 0 ? (
           <button onClick={() => setPicking(true)} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} to a shoot</button>
-        ) : (cart.count + gearCart.count) > 0 && results.length > 0 ? (
-          <button onClick={() => go('/reserve')} className="w-full mb-3 rounded-2xl py-3 font-semibold text-pt-accent bg-pt-accent/10">Review your shoot · {cart.count + gearCart.count}</button>
+        ) : (cart.count + (gearOn ? gearCart.count : 0)) > 0 && results.length > 0 ? (
+          <button onClick={() => go('/reserve')} className="w-full mb-3 rounded-2xl py-3 font-semibold text-pt-accent bg-pt-accent/10">Review your shoot · {cart.count + (gearOn ? gearCart.count : 0)}</button>
         ) : null}
         {welcome && suggestions.length > 0 && (
           <div className="-mx-4 px-4 scroll-px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory" aria-label="Suggestions">
@@ -927,7 +931,7 @@ function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: impo
     setBusy(true); setErr('')
     try {
       await cancelShoot({ id: sh!.id, ...(strike ? { confirmNoShow: true } : {}) })
-      setDone(sh!.status === 'requested' ? 'Request withdrawn ✓ The time is free again.' : 'Cancelled ✓ Props and gear on it were cancelled too.')
+      setDone(sh!.status === 'requested' ? 'Request withdrawn ✓ The time is free again.' : 'Cancelled ✓ Props on it were cancelled too.')
     } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
   }
   return (

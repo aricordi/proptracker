@@ -39,7 +39,7 @@ export function MyRequestsRow() {
     <button onClick={() => navigate('/requests')} className="w-full flex items-center gap-3 bg-pt-surface shadow-hairline rounded-2xl px-4 py-3 text-left">
       <span className="w-10 h-10 rounded-full grid place-items-center bg-pt-accent/15 text-pt-accent shrink-0"><Icon name="box" className="w-5 h-5" /></span>
       <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">My requests</b>
-        <span className="block text-pt-muted text-xs">{n ? `${n} in progress · props and gear for each shoot` : 'Props and gear for each shoot, and where they are'}</span></span>
+        <span className="block text-pt-muted text-xs">{n ? `${n} in progress · props for each shoot` : 'Props for each shoot, and where they are'}</span></span>
       <span className="text-pt-muted">›</span>
     </button>
   )

@@ -104,7 +104,7 @@ export default function CreatorHomeScreen() {
     ...invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => ({ key: i.id, text: `${i.fromName} invited you to film right after them: ${formatDay(i.date)} · ${fmtSlot(i.start, i.end - i.start)}. Held for you for a few minutes.`, action: 'Answer', go: () => navigate('/schedule') })),
     ...swaps.incoming.map(r => ({ key: r.id, text: `${r.fromName} asks to swap shoots with you`, action: 'Answer', go: () => navigate('/schedule') })),
     ...toExplain.map(x => ({ key: x.id, text: `You didn't check in for ${label(x)}. Say what happened.`, action: 'Explain', go: () => open(x.id) })),
-    ...needsStuff.map(x => ({ key: x.id, text: `Props or gear for ${label(x)}? Add by ${formatDay(cutoffs(x).props)}.`, action: '✦ Plan it', go: () => ai.open('plan', x.id) })),
+    ...needsStuff.map(x => ({ key: x.id, text: `Props for ${label(x)}? Add by ${formatDay(cutoffs(x).props)}.`, action: '✦ Plan it', go: () => ai.open('plan', x.id) })),
   ]
 
   // A step on the next-shoot card: done (✓) or still to add (+, with the cutoff).
@@ -163,7 +163,7 @@ export default function CreatorHomeScreen() {
         ) : (
           <div className="bg-pt-surface rounded-[28px] p-5 text-center space-y-3">
             <p className="text-pt-text text-lg font-semibold">No shoots booked</p>
-            <p className="text-pt-muted text-sm">Book a time at Cliff 1, Cliff 2 or somewhere else, then add props and gear to it.</p>
+            <p className="text-pt-muted text-sm">Book a time at Cliff 1, Cliff 2 or somewhere else, then add props to it.</p>
             <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Book a shoot</button>
           </div>
         )}

@@ -23,6 +23,7 @@ import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes, LateFeeNote 
 import { offerValue } from '../../functions/src/gearStock'
 import { thumbOf } from '../services/itemShape'
 import { useActiveShoot, useGearWindow, stampLabel } from '../activeShoot'
+import { useScheduleSettings } from '../services/schedule'
 import { useBackToBack } from '../hooks/useGearCrew'
 import { crewHours } from '../../functions/src/gearCrew'
 import AddingToBar from '../components/AddingToBar'
@@ -40,6 +41,7 @@ export default function ReserveScreen() {
   const navigate = useNavigate()
   const cart = useCart()
   const gear = useGearCart()
+  const scheduleSettings = useScheduleSettings()
   const { isStaff, isGearStaff, profile, shootFlow } = useSession()
   const items = useItems()
   const bookings = useBookings()
@@ -88,7 +90,9 @@ export default function ReserveScreen() {
   useEffect(() => subscribeToGearBundles(setOffers), [])
   useEffect(() => subscribeToGearHolds(setHolds), [])
   const day = dates?.start ?? gear.date
-  const gearLines = Object.entries(gear.lines).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty, offer: offers.find(o => o.id === id) }))
+  // Owner, Nov 3: gear isn't booked ahead, so "Your shoot" is props and costumes only (gear is taken on the day instead).
+  const gearBookable = scheduleSettings.gearReserve
+  const gearLines = !gearBookable ? [] : Object.entries(gear.lines).filter(([, q]) => q > 0).map(([id, qty]) => ({ id, qty, offer: offers.find(o => o.id === id) }))
   const hasGear = gearLines.length > 0
   // Friends filming back to back can share ONE gear booking for the whole block (owner, Oct 20:
   // "one booking for the group but everyone needs to be responsible"). On by default; untick to keep it yours.
@@ -126,7 +130,7 @@ export default function ReserveScreen() {
   const whyNot = canSubmit_why()
   function canSubmit_why(): string | null {
     if (busy || buildUploading) return null
-    if (!hasProps && !hasGear) return 'Add props or gear first'
+    if (!hasProps && !hasGear) return gearBookable ? 'Add props or gear first' : 'Add props first'
     if (needShoot) return 'Pick your shoot above'
     if (!day) return 'Pick the shoot day above'
     if (!title.trim()) return 'Type a video name to send'
@@ -292,7 +296,7 @@ export default function ReserveScreen() {
         </div>
 
         {/* Gear (equipment team) */}
-        <div className="space-y-2">
+        {gearBookable && <div className="space-y-2">
           <div className="flex items-baseline justify-between">
             <p className="text-pt-muted text-xs">Gear ({gearLines.length}) · equipment team</p>
             <button onClick={() => navigate('/gear')} className="text-pt-accent text-sm tap">+ Add gear</button>
@@ -345,7 +349,7 @@ export default function ReserveScreen() {
               )}
             </>
           )}
-        </div>
+        </div>}
 
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
       </div>

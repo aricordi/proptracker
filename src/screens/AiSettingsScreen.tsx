@@ -39,7 +39,7 @@ export default function AiSettingsScreen() {
         <h1 className="font-display text-[34px] text-pt-text">AI helpers</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
-        <p className="text-pt-muted text-sm">Creators use AI to turn a video idea into props and gear, and to find filming times. Each use costs a fraction of a cent. When the budget runs out the helpers pause until the 1st; search, browse and booking always keep working.</p>
+        <p className="text-pt-muted text-sm">Creators use AI to turn a video idea into props, to find filming times, and to answer questions. Each use costs a fraction of a cent. When the budget runs out the helpers pause until the 1st; search, browse and booking always keep working.</p>
         <div className="bg-pt-surface rounded-2xl p-4 space-y-2">
           <p className="text-pt-muted text-xs">This month</p>
           <p className="text-pt-text text-3xl font-bold">${spent.toFixed(2)} <span className="text-pt-muted text-base font-normal">of ${settings.monthlyCapUsd}</span></p>

@@ -13,7 +13,7 @@ const ROLE_ORDER: Role[] = ['owner', 'admin', 'arts', 'equipment', 'creator']
 
 // One line per role, shown under the picker so it's clear what each person will be able to do.
 const ROLE_HELP: Record<Role, string> = {
-  creator: 'Books shoots, props and gear. Sees only their own bookings.',
+  creator: 'Books shoots and props. Sees only their own bookings.',
   arts: 'Runs the props: adds and edits props, the props queue, check-ins, duplicates and bins.',
   equipment: 'Runs the gear and the schedule day to day: gear list, bundles, the gear queue, blocking time. Sees no props.',
   admin: 'Manages the creators: sees every queue and the schedule, the Creators dashboard, gives and removes strikes, pauses, invites creators, booking rules. Books their own shoots. Changes nothing else.',
@@ -307,7 +307,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
               })}
             </div>
             <p className="text-pt-muted text-xs mt-2">{user.access === 'full'
-              ? 'Full app: books shoots, props and gear, with the practice tour on their next open.'
+              ? 'Full app: books shoots and props.'
               : 'Props only (demo mode): they can only search and look at the props. Nothing to book.'}
               {!isOwner && ' Only the owner can change this.'}</p>
           </div>
