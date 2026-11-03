@@ -223,7 +223,7 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
 }
 
 // Bringing things back, right in the chat: one question at a time (ReturnFlow).
-export function ReturnCard({ groups, count, label }: { groups: ReturnGroup[]; count: number; label: (x: Shoot) => string }) {
+export function ReturnCard({ groups, count, label, onReturned }: { groups: ReturnGroup[]; count: number; label: (x: Shoot) => string; onReturned?: () => void }) {
   const [open, setOpen] = useState(false)
   const [pick, setPick] = useState(0)
   const [done, setDone] = useState(0)
@@ -238,7 +238,7 @@ export function ReturnCard({ groups, count, label }: { groups: ReturnGroup[]; co
             <button key={x.key} onClick={() => setPick(i)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-[13px] ${i === pick ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.shoot ? label(x.shoot) : formatDay(x.date)}</button>))}
           </div>
         )}
-        <ReturnFlow key={g.key} group={g} compact onDone={setDone} />
+        <ReturnFlow key={g.key} group={g} compact onDone={n => { setDone(n); onReturned?.() }} />
       </>}
     </div>
   )
@@ -285,7 +285,7 @@ export function PickupCard({ r }: { r: Reservation }) {
 }
 
 // "The tripod is broken": report a problem on gear or props you have out right now (owner, Nov 3).
-export function ReportCard({ groups, first }: { groups: ReturnGroup[]; first: string }) {
+export function ReportCard({ groups, first, onSent }: { groups: ReturnGroup[]; first: string; onSent?: () => void }) {
   const things = groups.flatMap(g => [
     ...g.gear.filter(b => b.status === 'out').flatMap(b => b.lines.flatMap(l => (l.pieces?.length ? l.pieces : [{ itemId: l.offerId, name: l.name }]).map(p => ({ key: `g|${b.id}|${p.itemId}`, kind: 'gear' as const, id: b.id, name: p.name || l.name })))),
     ...g.props.filter(r => r.status === 'collected').flatMap(r => r.lines.map(l => ({ key: `p|${r.id}|${l.itemId}`, kind: 'props' as const, id: r.id, name: l.itemName }))),
@@ -299,7 +299,7 @@ export function ReportCard({ groups, first }: { groups: ReturnGroup[]; first: st
   async function send() {
     if (!t) return
     setBusy(true); setErr('')
-    try { await reportProblem({ kind: t.kind, id: t.id, name: t.name, note: note.trim() }); setDone(true) }
+    try { await reportProblem({ kind: t.kind, id: t.id, name: t.name, note: note.trim() }); setDone(true); onSent?.() }
     catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
   }
   if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">Reported ✓ The team knows. Keep it safe and bring it back as usual.</p></div>

@@ -706,9 +706,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               className={`rounded-xl px-4 min-h-[44px] font-semibold ${k === 0 ? 'bg-pt-accent text-stone-900' : 'bg-pt-border text-pt-text'}`}>{a.label}</button>))}
           </div>
         ) : m.who === 'return' ? (
-          returns && returns.length ? <ReturnCard key={i} groups={returns} count={returns.reduce((n, g) => n + returnCount(g), 0)} label={label} /> : null
+          returns && returns.length ? <ReturnCard key={i} groups={returns} count={returns.reduce((n, g) => n + returnCount(g), 0)} label={label} onReturned={() => setMsgs(x => [...x.filter(y => y !== m), { who: 'bot', text: 'Returned ✓ The team will check it in. Thanks!' }])} /> : null
         ) : m.who === 'report' ? (
-          returns && returns.length ? <ReportCard key={i} groups={returns} first={m.text} /> : null
+          returns && returns.length ? <ReportCard key={i} groups={returns} first={m.text} onSent={() => setMsgs(x => [...x.filter(y => y !== m), { who: 'bot', text: 'Reported ✓ The team knows. Keep using it carefully and bring it back as usual.' }])} /> : null
         ) : m.who === 'pickup' ? (
           <PickupList key={i} />
         ) : m.who === 'cancel' ? (
