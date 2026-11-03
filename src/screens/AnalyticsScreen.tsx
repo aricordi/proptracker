@@ -253,7 +253,7 @@ function FilterSheet({ open, onClose, people, who, house, theme, set }: { open: 
         <div>
           <p className="text-pt-muted text-sm mb-2">Flag type</p>
           <div className="flex flex-wrap gap-2">
-            {[{ key: '', label: 'Any' }, ...THEMES].map(t => <button key={t.key} onClick={() => set({ theme: t.key || null, kind: null })} className={`px-3 py-1.5 rounded-full text-sm ${theme === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{t.label}</button>)}
+            {[{ key: '', label: 'Any' }, ...THEMES].map(t => <button key={t.key} onClick={() => set({ theme: t.key || null, kind: null })} className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${theme === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{t.label}</button>)}
           </div>
         </div>
         <div>
@@ -496,7 +496,7 @@ function LateTab(c: Ctx) {
   }
   const tile = (n: string, label: string, tone = 'text-pt-text') => (
     <div className="bg-pt-surface rounded-2xl p-3"><p className={`text-[22px] font-semibold tabular-nums ${tone}`}>{n}</p><p className="text-pt-muted text-xs leading-snug">{label}</p></div>)
-  const chip = (on: boolean, label: string, onClick: () => void) => <button key={label} onClick={onClick} className={`shrink-0 px-3 py-1.5 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{label}</button>
+  const chip = (on: boolean, label: string, onClick: () => void) => <button key={label} onClick={onClick} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{label}</button>
   return <>
     <div data-tour="lateheadline">
       <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">{t.count ? <>{subject} {t.count} {t.count === 1 ? 'time' : 'times'} {c.range.phrase}</> : <>Nothing came back late {c.range.phrase}</>}</p>
@@ -675,7 +675,7 @@ function AdvancedView(c: Ctx & { qs: URLSearchParams }) {
     <div>
       <p className="text-pt-muted text-sm mb-2">Break down by</p>
       <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4" data-tour="dims">
-        {DIM_ORDER.map(d => <button key={d} onClick={() => c.set({ dim: d, sort: null, dir: null })} className={`shrink-0 px-3 py-1.5 rounded-full text-sm ${dim === d ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{d === 'period' ? (c.grain === 'month' ? 'Month' : c.grain === 'week' ? 'Week' : 'Day') : DIMS[d].label}</button>)}
+        {DIM_ORDER.map(d => <button key={d} onClick={() => c.set({ dim: d, sort: null, dir: null })} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${dim === d ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{d === 'period' ? (c.grain === 'month' ? 'Month' : c.grain === 'week' ? 'Week' : 'Day') : DIMS[d].label}</button>)}
       </div>
     </div>
     <ColumnChart data={seriesOf(sort, c.a, c.range, c.grain, c.scope)} grain={c.grain} m={sort} onZoom={c.zoom} avgWord={`per ${c.grain}`} />

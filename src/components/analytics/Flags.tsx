@@ -51,8 +51,8 @@ export function FlagFilters({ xs, f, onF, tourId, serious }: { xs: { s: FlagStat
   const chips: [FlagFilter, string, number][] = [['todo', 'To do', n.todo], ['handled', 'Handled', n.handled], ['excused', 'Excused', n.excused], ['all', 'All', n.all]]
   return (
     <div data-tour={tourId} className="flex gap-2 overflow-x-auto no-scrollbar">
-      {chips.map(([v, l, k]) => <button key={v} onClick={() => onF(v)} className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${f === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l} · {k}</button>)}
-      {serious && <button onClick={serious.toggle} className={`shrink-0 px-3 py-1.5 rounded-full text-sm whitespace-nowrap ${serious.on ? 'bg-red-500/20 text-red-300 font-medium' : 'bg-pt-surface text-pt-muted'}`}>Serious only{serious.on ? ' ×' : ''}</button>}
+      {chips.map(([v, l, k]) => <button key={v} onClick={() => onF(v)} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm whitespace-nowrap ${f === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l} · {k}</button>)}
+      {serious && <button onClick={serious.toggle} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm whitespace-nowrap ${serious.on ? 'bg-red-500/20 text-red-300 font-medium' : 'bg-pt-surface text-pt-muted'}`}>Serious only{serious.on ? ' ×' : ''}</button>}
     </div>
   )
 }

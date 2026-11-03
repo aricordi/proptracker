@@ -48,7 +48,7 @@ export default function ReservationDetailScreen() {
   return (
     <div className="min-h-screen bg-pt-bg pb-12">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')} className="text-pt-text text-base font-medium py-1">‹ Back</button>
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <span className={`text-xs px-3 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
           {overdue ? 'Late' : statusLabel(res)}
         </span>

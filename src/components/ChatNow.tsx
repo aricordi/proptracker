@@ -124,7 +124,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
       {next.length > 0 && (
         <section className="rise-in">
-          <p className="text-pt-muted text-[13px] font-semibold px-1 mb-2">Coming up</p>
+          <p className="text-pt-muted text-[14px] font-semibold px-1 mb-2">Coming up</p>
           <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
             {next.map(x => {
               const c = cutoffs(x), waiting = x.status === 'requested'
@@ -132,15 +132,15 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
               const early = x.place !== 'offsite' ? houseFreeFrom(soonDays?.[x.date], x.place, x.start, s) : null
               const state = waiting ? 'Waiting for OK' : x.wrap ? 'Filmed' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved'
               return (
-                <div key={x.id} className={`flex items-center gap-3 pl-4 pr-3 py-3 ${focus === x.id ? 'bg-pt-accent/10' : ''}`}>
+                <div key={x.id} className={`flex items-center gap-3 pl-4 pr-3 py-3.5 min-h-[60px] ${focus === x.id ? 'bg-pt-accent/10' : ''}`}>
                   <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className="flex-1 min-w-0 flex items-center gap-3 text-left">
                     <span className="w-11 shrink-0 text-center">
-                      <span className="block text-[11px] font-semibold text-pt-muted">{formatDay(x.date, { weekday: 'short' })}</span>
+                      <span className="block text-[12px] font-semibold text-pt-muted">{formatDay(x.date, { weekday: 'short' })}</span>
                       <span className="block font-display text-[22px] leading-none font-extrabold">{Number(x.date.slice(8))}</span>
                     </span>
                     <span className="min-w-0">
-                      <span className="block text-[15px] font-semibold truncate">{place(x)} · {fmtSlot(x.start, x.end - x.start)}</span>
-                      <span className="flex items-center gap-1.5 text-[13px] text-pt-muted">
+                      <span className="block text-[16px] font-semibold truncate">{place(x)} · {fmtSlot(x.start, x.end - x.start)}</span>
+                      <span className="flex items-center gap-1.5 text-[14px] text-pt-muted">
                         <span className={`w-1.5 h-1.5 rounded-full ${waiting || x.moveRequest ? 'bg-amber-400' : 'bg-green-400'}`} aria-hidden />
                         {state} · {whenLabel(x.date, today)}
                       </span>
@@ -148,7 +148,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
                     </span>
                   </button>
                   {propsOpen && <button onClick={() => onProps(x.id)} aria-label={`Props for this shoot, by ${formatDay(c.props)}`}
-                    className="shrink-0 rounded-full h-9 px-3 text-[13px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Props</button>}
+                    className="shrink-0 rounded-full h-11 px-3.5 text-[14px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Props</button>}
                 </div>
               )
             })}
@@ -189,7 +189,7 @@ function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
 
   if (shoot.checkin) return (
     <div className="rise-in rounded-[22px] p-4 bg-pt-surface ring-1 ring-red-400/30">
-      <p className="flex items-center gap-2 text-[13px] font-extrabold text-red-300"><LiveDot className="bg-red-400" />Filming now · {shootPlace} · {fmtTime(shoot.start)}</p>
+      <p className="flex items-center gap-2 text-[14px] font-extrabold text-red-300"><LiveDot className="bg-red-400" />Filming now · {shootPlace} · {fmtTime(shoot.start)}</p>
       <div className="flex items-center gap-2 mt-3">
         <input value={title} onChange={e => setTitle(e.target.value.slice(0, 100))} placeholder="Done? What did you film?" aria-label="What did you film?"
           className="flex-1 min-w-0 bg-black/30 rounded-2xl px-4 min-h-[48px] text-base placeholder:text-pt-muted" />
@@ -208,8 +208,8 @@ function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
       {before && shot && !report ? (
         <div className="flex items-center gap-2">
           <p className="flex-1 min-w-0 text-[16px] font-semibold">All good with {before.name.split(' ')[0]}'s slot?</p>
-          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-11 px-4 text-[15px] font-semibold bg-stone-900/10">Report it</button>
-          <button disabled={busy} onClick={() => checkIn(false)} className="shrink-0 rounded-full h-11 px-5 text-[15px] font-bold text-pt-accent bg-stone-900">All good</button>
+          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-11 px-4 text-[16px] font-semibold bg-stone-900/10">Report it</button>
+          <button disabled={busy} onClick={() => checkIn(false)} className="shrink-0 rounded-full h-11 px-5 text-[16px] font-bold text-pt-accent bg-stone-900">All good</button>
         </div>
       ) : before && shot && report ? (
         <div className="space-y-2 rounded-2xl bg-pt-bg p-3 text-pt-text">
@@ -242,7 +242,7 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
       {open && <>
         {groups.length > 1 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar">{groups.map((x, i) => (
-            <button key={x.key} onClick={() => setPick(i)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-[13px] ${i === pick ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.shoot ? label(x.shoot) : formatDay(x.date)}</button>))}
+            <button key={x.key} onClick={() => setPick(i)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-[14px] ${i === pick ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.shoot ? label(x.shoot) : formatDay(x.date)}</button>))}
           </div>
         )}
         <ReturnFlow key={g.key} group={g} compact onDone={n => { setDone(n); onReturned?.() }} />
@@ -273,7 +273,7 @@ export function PickupCard({ r }: { r: Reservation }) {
         <button disabled={busy} onClick={() => sign(true)} className={primaryBtn}>Got everything</button>
       </> : undefined}>
       {missing !== null && <>
-        <p className="text-pt-muted text-[13px]">Tap what's missing.</p>
+        <p className="text-pt-muted text-[14px]">Tap what's missing.</p>
         <div className="flex flex-wrap gap-2">{r.lines.map(l => {
           const on = l.itemId in missing
           return <button key={l.itemId} onClick={() => setMissing(m => { const n = { ...(m ?? {}) }; if (on) delete n[l.itemId]; else n[l.itemId] = l.qty; return n })}
@@ -307,10 +307,10 @@ export function ReportCard({ groups, first, onSent }: { groups: ReturnGroup[]; f
     try { await reportProblem({ kind: t.kind, id: t.id, name: t.name, note: note.trim() }); setDone(true); onSent?.() }
     catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
   }
-  if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">Reported ✓ The team knows. Keep it safe and bring it back as usual.</p></div>
+  if (done) return <div className={card}><p className="text-[16px] text-green-400 font-semibold">Reported ✓ The team knows. Keep it safe and bring it back as usual.</p></div>
   return (
     <div className={card}>
-      <p className="text-[15px] font-semibold">Which piece?</p>
+      <p className="text-[16px] font-semibold">Which piece?</p>
       <div className="flex flex-wrap gap-2">{things.map(x => (
         <button key={x.key} onClick={() => setPick(x.key)} className={`px-3 min-h-[40px] rounded-full text-[14px] ${pick === x.key ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.name}</button>))}</div>
       <input value={note} onChange={e => setNote(e.target.value.slice(0, 300))} placeholder="What happened?" className="w-full bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
@@ -332,7 +332,7 @@ export function PickupList() {
   if (packed.length) return <div className="space-y-3">{packed.map(r => <PickupCard key={r.id} r={r} />)}</div>
   return (
     <div className={card}>
-      <p className="text-[15px]">{going.length ? `Nothing packed yet. ${going.length === 1 ? `"${going[0].title}" is` : `${going.length} requests are`} still with the props team.` : 'No props waiting for you right now.'}</p>
+      <p className="text-[16px]">{going.length ? `Nothing packed yet. ${going.length === 1 ? `"${going[0].title}" is` : `${going.length} requests are`} still with the props team.` : 'No props waiting for you right now.'}</p>
       <button onClick={() => navigate('/requests')} className={grey}>My requests</button>
     </div>
   )
@@ -351,7 +351,7 @@ function ChatIntro({ onDone }: { onAsk?: (t: string) => void; onDone: () => void
     <div className="rise-in flex items-center gap-3 rounded-2xl bg-white/[0.04] pl-4 pr-2 py-2.5">
       <span className="text-[#BF9DFF] shrink-0" aria-hidden>✦</span>
       <p className="flex-1 min-w-0 text-[14px] leading-snug"><span className="text-pt-muted">Tip {n + 1} of {tips.length}. </span>{tips[n]}</p>
-      <button onClick={() => last ? onDone() : setN(n + 1)} className="shrink-0 rounded-full px-3 h-9 text-[13px] font-semibold text-[#CDB8FF]">{last ? 'Got it' : 'Next'}</button>
+      <button onClick={() => last ? onDone() : setN(n + 1)} className="shrink-0 rounded-full px-4 h-11 text-[14px] font-semibold text-[#CDB8FF]">{last ? 'Got it' : 'Next'}</button>
     </div>
   )
 }

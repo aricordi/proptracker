@@ -24,7 +24,7 @@ export default function ReturnAllScreen() {
 
   const header = (
     <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
-      <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] py-1">‹ Back</button>
+      <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
     </div>
   )
 

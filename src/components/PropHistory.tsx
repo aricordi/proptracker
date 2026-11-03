@@ -45,7 +45,7 @@ export default function PropHistory({ item }: { item: Item }) {
       <div className="flex gap-2">
         {([['bookings', 'Who had it'], ['changes', 'Changes']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)}
-            className={`px-3 py-1 rounded-full text-sm ${tab === k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
+            className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
             {label}
           </button>
         ))}

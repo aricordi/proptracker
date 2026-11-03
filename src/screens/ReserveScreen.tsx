@@ -191,7 +191,7 @@ export default function ReserveScreen() {
     // Bottom padding = height of the floating Reserve button, so nothing hides behind it.
     <div className="min-h-screen bg-pt-bg pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="text-pt-text text-base font-medium py-1">‹ Back</button>
+        <button onClick={() => navigate(-1)} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <h1 className="font-display text-xl text-pt-text">Your shoot</h1>
         <div className="w-12" />
       </div>

@@ -43,7 +43,7 @@ export function SwapAsk({ r, incoming = false }: { r: SwapRequest; incoming?: bo
         <Icon name="swap" className="w-5 h-5 text-sky-200 shrink-0" />
         <SlotTile tag="You give" day={day(r.to.date)} time={fmtSlot(r.to.start, r.to.end - r.to.start)} place={place(r.to, s)} />
       </div>
-      <button onClick={() => setPeek(!peek)} className="mt-3 flex items-center gap-2 text-[15px] font-semibold text-sky-200 tap">
+      <button onClick={() => setPeek(!peek)} className="mt-3 flex items-center gap-2 text-[16px] font-semibold text-sky-200 tap">
         <Icon name="eye" className="w-4 h-4" />{peek ? 'Hide the day' : 'See who else films that day'}</button>
       {peek && <div className="mt-2"><SwapPreview r={r} /></div>}
       {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
@@ -63,7 +63,7 @@ export function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string; urge
   return (
     <ChatCard tone="ask" lead={<Avatar email={inv.fromEmail} name={inv.fromName} size={48} />} label="Needs your answer"
       title={`${inv.fromName.split(' ')[0]} invited you to film`}
-      side={<span className="shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 bg-amber-400/15 text-amber-200 text-[13px] font-bold"><Icon name="clock" className="w-3.5 h-3.5" />{until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` ${formatDay(inv.until.slice(0, 10), { weekday: 'short' })}` : ''}</span>}
+      side={<span className="shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 bg-amber-400/15 text-amber-200 text-[14px] font-bold"><Icon name="clock" className="w-3.5 h-3.5" />{until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` ${formatDay(inv.until.slice(0, 10), { weekday: 'short' })}` : ''}</span>}
       actions={<>
         <button disabled={busy} onClick={() => answer(false)} className={secondaryBtn}>Can't</button>
         <button disabled={busy} onClick={() => answer(true)} className={primaryBtn}>Confirm my slot</button>
@@ -89,12 +89,12 @@ function SwapPreview({ r }: { r: SwapRequest }) {
     const block = (day?.blocks ?? []).find(b => b.house === h && b.start < start + s.slotMinutes && b.end > start)
     const text = isNew ? 'You (after swap)' : isOld ? `${r.fromName.split(' ')[0]} (after swap)` : e?.shootId ? e.name : e?.hold ? `Held · ${e.name}` : block ? (block.note || 'Blocked') : ''
     const cls = isNew ? 'bg-pt-accent text-stone-900 font-bold' : isOld ? 'bg-sky-400/20 text-sky-100' : e?.shootId || e?.hold ? 'bg-pt-surface text-pt-text' : block ? 'bg-pt-surface text-pt-muted' : 'text-pt-muted/50'
-    return <span key={h} className={`flex-1 min-w-0 truncate rounded-lg px-2 py-1.5 text-[13px] text-center ${cls}`}>{text || 'Free'}</span>
+    return <span key={h} className={`flex-1 min-w-0 truncate rounded-lg px-2 py-1.5 text-[14px] text-center ${cls}`}>{text || 'Free'}</span>
   }
   const offsite = day?.offsite ?? []
   return (
     <div className="rounded-xl bg-pt-bg/60 p-2 space-y-1">
-      <p className="text-[13px] text-pt-muted px-1 pb-1">{formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })} after the swap</p>
+      <p className="text-[14px] text-pt-muted px-1 pb-1">{formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })} after the swap</p>
       <div className="flex gap-1.5 pl-[62px] text-[12px] text-pt-muted">{HOUSES.map(h => <span key={h} className="flex-1 text-center">{s.houses[h].name}</span>)}</div>
       {s.slots.map(start => (
         <div key={start} className="flex items-center gap-1.5">

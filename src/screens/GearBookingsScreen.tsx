@@ -44,7 +44,7 @@ export default function GearBookingsScreen() {
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {tabs.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
-              className={`shrink-0 px-3 py-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
+              className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
           ))}
         </div>
       </div>

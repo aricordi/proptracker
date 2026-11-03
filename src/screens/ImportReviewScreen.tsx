@@ -131,7 +131,7 @@ export default function ImportReviewScreen() {
             const n = job?.counts?.[t.key as keyof ImportJob['counts']] ?? 0
             return (
               <button key={t.key} onClick={() => { setTab(t.key); setMax(PAGE) }}
-                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tab === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
+                className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
                 {t.label} ({n})
               </button>
             )

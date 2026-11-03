@@ -546,11 +546,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     return freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' }, bookings[id] ?? [], shoot.date, shoot.date, today, turnaround(i), settings)
   }
   const tick = (k: string, name: string, inBasket: boolean) => demo
-    ? <button onClick={() => go(`/item/${k.slice(2)}`)} aria-label={`See ${name}`} className="w-11 h-11 rounded-full grid place-items-center shrink-0 bg-pt-border text-pt-text text-xl">›</button>
+    ? <button onClick={() => go(`/item/${k.slice(2)}`)} aria-label={`See ${name}`} className="w-11 h-11 rounded-full grid place-items-center shrink-0 bg-pt-border text-pt-text text-[22px]">›</button>
     : inBasket && !sel.includes(k)
     ? <span className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent/20 text-pt-accent" title="Already in your shoot">✓</span>
     : <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} aria-label={`${sel.includes(k) ? 'Untick' : 'Tick'} ${name}`}
-        className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${sel.includes(k) ? 'pop bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-xl'}`}>
+        className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${sel.includes(k) ? 'pop bg-[#BF9DFF] text-[#140f22]' : 'bg-pt-border text-pt-text text-[22px]'}`}>
         {sel.includes(k) ? '✓' : '+'}</button>
 
   const renderResult = (result: IdeaResult) => (
@@ -593,7 +593,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             const k = `b:${m.name}`, asked = cart.builds.some(b => b.description === m.name)
             return (
               <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
-                <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-2xl bg-violet-500/10 shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></span>
+                <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-[22px] bg-violet-500/10 shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></span>
                 <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{demo ? (m.why || 'Not in the closet yet') : m.why || 'The arts team can make or find it'}</span></span>
                 {demo ? null : asked && !sel.includes(k) ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 opacity-60">Asked ✓</span>
                   : <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} className={`shrink-0 text-xs font-semibold rounded-full px-3 min-h-[44px] ${sel.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-violet-500/20 text-violet-200'}`}>{sel.includes(k) ? 'Ticked ✓' : 'Ask for it'}</button>}
@@ -607,8 +607,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   const choice = (m: AssistantMode, icon: string, title: string, sub: string) => (
     <button onClick={() => m === 'plan' ? startPlan() : (setPlan(null), switchTo(m))} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
-      <span className="w-[42px] h-[42px] rounded-[13px] grid place-items-center text-xl bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">{icon}</span>
-      <span className="flex-1 min-w-0"><b className="block text-base">{title}</b><span className="text-pt-muted text-[13px]">{sub}</span></span>
+      <span className="w-[42px] h-[42px] rounded-[13px] grid place-items-center text-[22px] bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">{icon}</span>
+      <span className="flex-1 min-w-0"><b className="block text-base">{title}</b><span className="text-pt-muted text-[14px]">{sub}</span></span>
       <span className="text-pt-muted">›</span>
     </button>
   )
@@ -648,7 +648,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         ) : <>
         <div className="flex items-center justify-between py-3">
-          <button onClick={onClose} className="text-pt-accent text-[17px]">‹ Back</button>
+          <button onClick={onClose} className="text-pt-accent text-[16px]">‹ Back</button>
           {msgs.length > 2 && <button onClick={restart} className="tap text-pt-muted text-sm">New chat</button>}
         </div>
         <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
@@ -660,39 +660,39 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               return <span key={k} className="flex-1"><span className={`block h-1 rounded-full ${done || now ? 'bg-[#BF9DFF]' : 'bg-pt-border'}`} /><span className={`block text-xs mt-1 ${now ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{done ? '✓ ' : ''}{t}</span></span>
             })}
           </div>
-        ) : page ? null : <p className="text-pt-muted text-[13px]">{helpOnly ? 'Ask how anything in the app works.' : demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
+        ) : page ? null : <p className="text-pt-muted text-[14px]">{helpOnly ? 'Ask how anything in the app works.' : demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
         {welcome && (
           <div className="rise-in pt-1 pb-1">
-            <h2 className="font-display text-[30px] leading-tight font-extrabold tracking-tight">{first ? `Hi ${first}.` : 'Hi.'}</h2>
-            <p className="text-pt-muted text-[17px]">What are we making today?</p>
+            <h2 className="font-display text-[28px] leading-tight font-extrabold tracking-tight">{first ? `Hi ${first}.` : 'Hi.'}</h2>
+            <p className="text-pt-muted text-[16px]">What are we making today?</p>
           </div>
         )}
         {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time')} onProps={id => propsFor(id)} />}
         {msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
-          <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent">{m.text}</p>
+          <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
-            {m.text && <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-white/[0.07]">{m.text}</p>}
+            {m.text && <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[16px] bg-white/[0.07]">{m.text}</p>}
             {m.result?.fallback && <p className="text-pt-muted text-xs">Quick match: the AI was busy, so these are the closest props by name and tags.</p>}
             {m.guide && (m.guide.steps.length > 0 || m.guide.links.length > 0) && (
               <div className="rise-in space-y-2">
-                {m.guide.steps.length > 0 && <ol className="max-w-[86%] list-decimal pl-9 space-y-1 text-[15px]">{m.guide.steps.map((st, k) => <li key={k}>{st}</li>)}</ol>}
+                {m.guide.steps.length > 0 && <ol className="max-w-[86%] list-decimal pl-9 space-y-1 text-[16px]">{m.guide.steps.map((st, k) => <li key={k}>{st}</li>)}</ol>}
                 {m.guide.links.length > 0 && <div className="flex flex-wrap gap-2">{m.guide.links.map(l => (
-                  <button key={l.path} onClick={() => go(l.path)} className="rounded-full px-4 min-h-[44px] text-[13px] font-semibold bg-pt-accent/15 text-pt-accent">Open {l.label} ›</button>))}</div>}
+                  <button key={l.path} onClick={() => go(l.path)} className="rounded-full px-4 min-h-[44px] text-[14px] font-semibold bg-pt-accent/15 text-pt-accent">Open {l.label} ›</button>))}</div>}
               </div>
             )}
             {m.result && renderResult(m.result)}
             {(m.retry || m.search) && i === lastBot && !busy && (
               <div className="flex flex-wrap gap-2">
-                {m.retry && <button onClick={() => send(m.retry!)} className="rounded-full px-4 min-h-[44px] text-[13px] font-semibold bg-[#BF9DFF]/20 text-[#CDB8FF]">Try again</button>}
-                {m.search && <button onClick={() => go(`/browse?q=${encodeURIComponent(m.search!.slice(0, 80))}`)} className="rounded-full px-4 min-h-[44px] text-[13px] font-semibold bg-pt-border">Search the closet for "{m.search.length > 24 ? `${m.search.slice(0, 24)}…` : m.search}"</button>}
+                {m.retry && <button onClick={() => send(m.retry!)} className="rounded-full px-4 min-h-[44px] text-[14px] font-semibold bg-[#BF9DFF]/20 text-[#CDB8FF]">Try again</button>}
+                {m.search && <button onClick={() => go(`/browse?q=${encodeURIComponent(m.search!.slice(0, 80))}`)} className="rounded-full px-4 min-h-[44px] text-[14px] font-semibold bg-pt-border">Search the closet for "{m.search.length > 24 ? `${m.search.slice(0, 24)}…` : m.search}"</button>}
               </div>
             )}
             {m.alt && i === lastBot && !busy && !plan && (
-              <button onClick={() => send(m.alt!.q, false, m.alt!.to)} className="tap text-[13px] text-[#CDB8FF] underline underline-offset-2">
+              <button onClick={() => send(m.alt!.q, false, m.alt!.to)} className="tap text-[14px] text-[#CDB8FF] underline underline-offset-2">
                 {m.alt.to === 'time' ? 'Meant a time to film? Find one' : 'Meant props for this? Find some'}</button>
             )}
           </div>
@@ -707,7 +707,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
                 <span className="w-12 text-center shrink-0"><span className="block text-xs text-pt-muted">{formatDay(o.date, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(o.date.slice(8))}</b></span>
                 <span className="flex-1 min-w-0">
                   <b className="block">{house(o.place)} · {fmtSlot(o.start, o.slots.length * s.slotMinutes)}</b>
-                  <span className="block text-pt-muted text-[13px]">{o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ')}</span>
+                  <span className="block text-pt-muted text-[14px]">{o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ')}</span>
                 </span>
                 <button disabled={busy} onClick={() => book(o)} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'}</button>
               </div>
@@ -721,7 +721,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div key={i} className="rise-in space-y-2">
             {[...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 5).map(sh => (
               <button key={sh.id} disabled={plan?.step !== 'time'} onClick={() => planProps(sh.id)} className="w-full text-left rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3 disabled:opacity-50">
-                <b className="block text-[15px]">{label(sh)}</b>
+                <b className="block text-[16px]">{label(sh)}</b>
                 <span className="block text-xs text-pt-muted">Props by {formatDay(cutoffs(sh).props)} · Gear on the day</span>
               </button>
             ))}
@@ -746,7 +746,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
                   {already ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-pt-accent/15 text-pt-accent">On this shoot ✓</span>
                     : qty > 0
                     ? <button onClick={() => gearCart.setQty(b.id, 0)} aria-label={`Remove ${b.name}`} className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-accent text-stone-900">✓</button>
-                    : <button disabled={free === 0} onClick={() => gearCart.setQty(b.id, 1)} aria-label={`Add ${b.name}`} className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-border text-pt-text text-xl disabled:opacity-30">+</button>}
+                    : <button disabled={free === 0} onClick={() => gearCart.setQty(b.id, 1)} aria-label={`Add ${b.name}`} className="w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 bg-pt-border text-pt-text text-[22px] disabled:opacity-30">+</button>}
                 </div>
               )
             })}
@@ -803,7 +803,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div key={i} className="rise-in space-y-2">
             {[...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 5).map(sh => (
               <button key={sh.id} onClick={() => go(`/schedule?shoot=${sh.id}`)} className="w-full flex items-center gap-3 text-left rounded-[18px] bg-pt-surface px-4 py-3">
-                <b className="flex-1 min-w-0 text-[15px]">{label(sh)}</b>
+                <b className="flex-1 min-w-0 text-[16px]">{label(sh)}</b>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${sh.status === 'requested' ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{sh.status === 'requested' ? 'Waiting for OK' : sh.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
               </button>
             ))}
@@ -829,7 +829,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ) : null)}
         {busy && <div role="status" aria-label="Thinking" className="rise-in flex items-center gap-3">
           <p className="w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>
-          {thinking && <span className="text-pt-muted text-[13px]">{thinking === 'chat' ? '' : thinking === 'props' ? 'Looking through the props…' : thinking === 'help' ? 'Looking at how the app works…' : 'Checking the schedule…'}</span>}
+          {thinking && <span className="text-pt-muted text-[14px]">{thinking === 'chat' ? '' : thinking === 'props' ? 'Looking through the props…' : thinking === 'help' ? 'Looking at how the app works…' : 'Checking the schedule…'}</span>}
         </div>}
         {addedTo && <p className="text-pt-accent text-sm text-center">Added to {addedTo} ✓ <button onClick={() => go('/reserve')} className="tap underline">Review it</button></p>}
         <div ref={end} />
@@ -849,7 +849,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               <button key={x.title} onClick={x.go} className="snap-start shrink-0 w-[172px] rounded-2xl bg-pt-surface px-3.5 py-3 text-left">
                 <span className={`flex items-center gap-1.5 text-[14px] font-semibold ${x.ai ? 'text-[#CDB8FF]' : 'text-pt-text'}`}>
                   <Icon name={x.icon} className={`w-4 h-4 shrink-0 ${x.ai ? 'text-[#BF9DFF]' : 'text-pt-accent'}`} /><span className="truncate">{x.title}</span></span>
-                <span className="block mt-0.5 text-[13px] leading-snug text-pt-muted line-clamp-2">{x.sub}</span>
+                <span className="block mt-0.5 text-[14px] leading-snug text-pt-muted line-clamp-2">{x.sub}</span>
               </button>
             ))}
           </div>
@@ -858,14 +858,14 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
             {chips.map(c => {
               const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW
-              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3.5 h-9 text-[13px] ${special ? 'bg-[#BF9DFF]/15 text-[#CDB8FF] font-semibold' : 'bg-white/[0.06] text-pt-text'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
+              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3.5 h-9 text-[14px] ${special ? 'bg-[#BF9DFF]/15 text-[#CDB8FF] font-semibold' : 'bg-white/[0.06] text-pt-text'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
             })}
           </div>
         )}
         {listening && (
           <div className="mb-2 flex items-start gap-3 rounded-2xl bg-[#BF9DFF]/10 px-4 py-3 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.4)]" aria-live="polite">
             <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" aria-hidden />
-            <p className={`flex-1 min-w-0 text-[15px] ${heard ? 'text-pt-text' : 'text-[#CDB8FF]'}`}>{heard || 'Listening… just say it.'}</p>
+            <p className={`flex-1 min-w-0 text-[16px] ${heard ? 'text-pt-text' : 'text-[#CDB8FF]'}`}>{heard || 'Listening… just say it.'}</p>
             <button onClick={stopTalk} className="shrink-0 text-[#CDB8FF] text-sm font-semibold tap">Stop</button>
           </div>
         )}
@@ -878,14 +878,14 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               className="flex-1 min-w-0 bg-transparent py-3 text-base focus:outline-none focus:shadow-none" />
             {Speech && (listening || !text.trim()) && (
               <button onClick={talk} aria-label={listening ? 'Stop listening' : 'Talk'}
-                className={`w-10 h-10 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white' : 'text-[#BF9DFF]'}`}>
+                className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white' : 'text-[#BF9DFF]'}`}>
                 {listening
                   ? <span className="w-3.5 h-3.5 rounded-[3px] bg-white" aria-hidden />
                   : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>}
               </button>
             )}
             {(text.trim() || !Speech) && (
-              <button onClick={() => send()} disabled={!text.trim() || busy} aria-label="Send" className="w-10 h-10 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-lg font-bold disabled:opacity-40">↑</button>
+              <button onClick={() => send()} disabled={!text.trim() || busy} aria-label="Send" className="w-11 h-11 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-lg font-bold disabled:opacity-40">↑</button>
             )}
           </div>
         </div>
@@ -900,7 +900,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             const warn = [p.props.length && late(c.props) ? 'props' : '', p.builds.length && late(c.builds) ? 'new props' : '', p.gear.length && late(c.gear) ? 'gear' : ''].filter(Boolean)
             return (
               <button key={sh.id} onClick={() => addTo(sh.id)} className={`w-full text-left rounded-2xl px-4 py-3 ${shoot?.id === sh.id ? 'bg-pt-accent/15 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]' : 'bg-pt-bg'}`}>
-                <span className="block text-pt-text text-[15px] font-semibold">{label(sh)}</span>
+                <span className="block text-pt-text text-[16px] font-semibold">{label(sh)}</span>
                 <span className={`block text-xs ${warn.length ? 'text-red-300' : 'text-pt-muted'}`}>{warn.length ? `Too late for ${warn.join(' and ')}` : `Props by ${formatDay(c.props)} · Gear on the day`}</span>
               </button>
             )
@@ -923,10 +923,10 @@ function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: impo
   const [done, setDone] = useState('')
   const [err, setErr] = useState('')
   const sh = shoots.find(x => x.id === pick)
-  if (done) return <p className="rise-in text-green-400 text-[15px] font-semibold">{done}</p>
+  if (done) return <p className="rise-in text-green-400 text-[16px] font-semibold">{done}</p>
   if (!sh) return (
     <div className="rise-in space-y-2">
-      {shoots.slice(0, 5).map(x => <button key={x.id} onClick={() => setPick(x.id)} className="w-full text-left rounded-[18px] bg-pt-surface px-4 py-3 text-[15px] font-semibold">{label(x)}</button>)}
+      {shoots.slice(0, 5).map(x => <button key={x.id} onClick={() => setPick(x.id)} className="w-full text-left rounded-[18px] bg-pt-surface px-4 py-3 text-[16px] font-semibold">{label(x)}</button>)}
     </div>
   )
   const nowS = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).slice(0, 16).replace(' ', 'T')
@@ -940,8 +940,8 @@ function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: impo
   }
   return (
     <div className="rise-in rounded-[18px] bg-pt-surface p-4 space-y-3">
-      <b className="block text-[15px]">{label(sh)}</b>
-      <p className={`text-[13px] ${strike ? 'text-red-300' : 'text-pt-muted'}`}>{sh.status === 'requested' ? 'It\'s still a request, so withdrawing it is free.'
+      <b className="block text-[16px]">{label(sh)}</b>
+      <p className={`text-[14px] ${strike ? 'text-red-300' : 'text-pt-muted'}`}>{sh.status === 'requested' ? 'It\'s still a request, so withdrawing it is free.'
         : strike ? `It's less than ${s.noticeHours} hours away, so cancelling now counts as a no-show (a strike). A swap with someone avoids that.` : 'Cancelling now is free. Props and gear on this shoot are cancelled too.'}</p>
       {err && <p className="text-red-300 text-sm">{err}</p>}
       <div className="flex gap-2">

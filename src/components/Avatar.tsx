@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useProfiles, photoOf } from '../services/profiles'
 
 // Warm, calm colours for initials (picked from the email, so a person always gets the same one).
-const TONES = ['#8A6D3B', '#5B6C8F', '#6F7F5B', '#8F5B6C', '#5B8F87', '#7A5B8F', '#8F7A5B', '#5B7A8F']
+const TONES = ['#6E572F', '#485672', '#586548', '#724856', '#48726C', '#614872', '#726148', '#486172']
 
 export function initials(name: string) {
   const w = name.replace(/\(.*?\)/g, '').trim().split(/\s+/).filter(Boolean)

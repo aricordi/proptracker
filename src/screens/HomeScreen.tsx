@@ -167,7 +167,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
 
   function badgeFor(item: Item): Badge | undefined {
     if (!dates || item.archived) return undefined
-    if (item.condition === 'damaged') return { label: 'Damaged', style: 'bg-red-500/90 text-white' }
+    if (item.condition === 'damaged') return { label: 'Damaged', style: 'bg-red-600 text-white' }
     const free = freeFor(item) ?? 0
     if (free === 0) return { label: 'Booked', style: 'bg-stone-900/90 text-red-300' }
     if (item.quantity > 1) return { label: `${free} of ${item.quantity} free`, style: 'bg-green-500/90 text-stone-900' }
@@ -249,12 +249,12 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
     if (box && top) box.scrollTop = top
   }, [allItems.length, navType])
 
-  const chip = (on: boolean) => `shrink-0 px-3 py-1 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`
+  const chip = (on: boolean) => `shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`
   return (
     <div ref={rootRef} className="min-h-full bg-pt-bg">
       {/* Title and tabs scroll away with the page (owner, Oct 20: the old fold-away header was choppy). */}
       <div className="pt-safe px-4">
-        {personal && <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] py-1">‹ Back</button>}
+        {personal && <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>}
         {personal ? <h1 className="font-display text-[30px] leading-tight text-pt-text">My personal props</h1> : <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5">
           <BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{toRequest ? 'Add to your request' : shootFlow ? 'Browse' : 'Props'}</span>
           {shootFlow && !toRequest && <><AiButton mode="props" /><MyRequestsButton /></>}

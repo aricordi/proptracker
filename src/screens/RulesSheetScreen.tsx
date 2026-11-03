@@ -78,7 +78,7 @@ export default function RulesSheetScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-12">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1">‹ Back</button>
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <h1 className="font-display text-[34px] text-pt-text py-1">Settings sheet</h1>
         <p className="text-pt-muted text-sm">Every rule the app runs on right now. Something should change? Admins edit the booking rules; for anything else, tell the owner.</p>
       </div>

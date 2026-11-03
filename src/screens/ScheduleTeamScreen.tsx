@@ -57,7 +57,7 @@ export default function ScheduleTeamScreen() {
           <h1 className="font-display text-[34px] text-pt-text">Schedule team</h1>
         </div>
         <div className="flex gap-2">
-          {tabs.map(([v, l]) => <button key={v} onClick={() => setTab(v)} className={`px-3 py-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>)}
+          {tabs.map(([v, l]) => <button key={v} onClick={() => setTab(v)} className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>)}
         </div>
       </div>
       <div className="p-4 space-y-2">

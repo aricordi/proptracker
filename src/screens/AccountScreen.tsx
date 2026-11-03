@@ -120,7 +120,7 @@ function ProfileCard({ name, email, roleLabel }: { name: string; email: string; 
       <input ref={file} type="file" accept="image/*" className="hidden"
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) run('photo', () => uploadProfilePhoto(email, f), 'Photo updated ✓') }} />
       <div className="flex gap-2">
-        <button disabled={!!busy} onClick={() => file.current?.click()} className="flex-1 bg-pt-bg shadow-hairline rounded-xl py-2 text-sm text-pt-text disabled:opacity-40">{busy === 'photo' ? 'Uploading…' : 'Change photo'}</button>
+        <button disabled={!!busy} onClick={() => file.current?.click()} className="flex-1 bg-pt-bg shadow-hairline rounded-xl min-h-[44px] text-sm text-pt-text disabled:opacity-40">{busy === 'photo' ? 'Uploading…' : 'Change photo'}</button>
         {mine?.photoURL && <button disabled={!!busy} onClick={() => run('reset', () => saveProfile(email, { photoURL: '' }), 'Back to your Google photo')} className="flex-1 bg-pt-bg shadow-hairline rounded-xl py-2 text-sm text-pt-muted disabled:opacity-40">Use Google photo</button>}
       </div>
       <label className="block"><span className="block text-pt-muted text-xs mb-1">Channel name</span>
@@ -142,7 +142,7 @@ function BirthdayField({ email, name, saved, busy, run }: { email: string; name:
   const next = m && d ? makeBirthday(m, Math.min(d, daysIn(m))) : ''
   const sel = 'flex-1 min-w-0 bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
   return (
-    <div><span className="block text-pt-muted text-xs mb-1">Birthday <span className="text-pt-muted/70">(just the day, no year)</span></span>
+    <div><span className="block text-pt-muted text-xs mb-1">Birthday <span className="text-pt-muted">(just the day, no year)</span></span>
       <div className="flex gap-2">
         <select value={m} onChange={e => setM(Number(e.target.value))} className={sel} aria-label="Birthday month">
           <option value={0}>Month</option>{MONTHS.map((x, i) => <option key={x} value={i + 1}>{x}</option>)}

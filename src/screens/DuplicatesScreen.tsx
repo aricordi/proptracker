@@ -100,7 +100,7 @@ export default function DuplicatesScreen() {
             ['later', pairs ? `Later (${laterList.length})` : 'Later'],
           ] as const).map(([v, label]) => (
             <button key={v} onClick={() => setView(v)}
-              className={`px-3 py-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{label}</button>
+              className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${view === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{label}</button>
           ))}
         </div>
 

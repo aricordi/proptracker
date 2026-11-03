@@ -30,7 +30,7 @@ export function AddingToChip({ kind }: { kind: 'props' | 'gear' }) {
   return (
     <>
       <button onClick={() => setOpen(true)} aria-label={shoot ? 'Change which shoot you are adding to' : 'Pick a shoot'}
-        className={`shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm ${shoot ? (late ? 'bg-red-500/15 text-red-300' : 'bg-pt-accent/15 text-pt-accent font-medium shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]') : 'bg-pt-surface shadow-hairline text-pt-accent'}`}>
+        className={`shrink-0 flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-full text-sm ${shoot ? (late ? 'bg-red-500/15 text-red-300' : 'bg-pt-accent/15 text-pt-accent font-medium shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]') : 'bg-pt-surface shadow-hairline text-pt-accent'}`}>
         <Icon name="calendar" className="w-4 h-4" />{shoot ? `${formatDay(shoot.date)} · ${fmtSlot(shoot.start, shoot.end - shoot.start)}` : 'Pick a shoot'}<span aria-hidden className="text-xs">▾</span>
       </button>
       <ShootPicker open={open} onClose={() => setOpen(false)} />

@@ -178,7 +178,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
           : <div className="flex-1" />}
       </aside>
       {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
-      {toast && <div role="status" className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-50 px-4 py-2.5 rounded-xl shadow-float text-[14px] font-semibold ${toast.ok ? 'bg-pt-raised text-pt-text' : 'bg-red-500/90 text-white'}`}>{toast.text}</div>}
+      {toast && <div role="status" className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-50 px-4 py-2.5 rounded-xl shadow-float text-[14px] font-semibold ${toast.ok ? 'bg-pt-raised text-pt-text' : 'bg-red-600 text-white'}`}>{toast.text}</div>}
     </div>
   )
 }

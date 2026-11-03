@@ -38,7 +38,7 @@ const CameraIcon = ({ className }: { className: string }) => (
 function badge(item: Item) {
   if (item.archived)                 return { label: 'Archived',  style: 'bg-pt-border text-pt-muted' }
   if (item.status === 'checked-out') return { label: 'Out',       style: 'bg-amber-500/90 text-stone-900' }
-  if (item.condition === 'damaged')  return { label: 'Damaged',   style: 'bg-red-500/90 text-white' }
+  if (item.condition === 'damaged')  return { label: 'Damaged',   style: 'bg-red-600 text-white' }
   return { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
 }
 

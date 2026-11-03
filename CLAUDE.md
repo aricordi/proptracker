@@ -2015,6 +2015,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       projects/<id>/billingInfo {billingAccountName: ''} (billing OFF → app offline; data kept unless left off for long; owner
       re-links in Billing). Skipped on practice. NEEDS (owner, console): the budget above + role "Project Billing Manager"
       (roles/billing.projectManager) on proptracker-9732e for 727332101415-compute@developer.gserviceaccount.com. Tests 617.
+    - DESIGN SKILLS INSTALLED + MEASURED PASS (owner, Nov 3: "install these skills and get the design tip top"): project skills in
+      `.claude/skills/`: ui-ux-pro-max (rules + offline search.py; its colour/landing recommendations DON'T fit us, Black & Gold is
+      locked), mobile-app-ui-design, taste-skill (tells list), frontend-ui-ux, premium-frontend-ui (landing-page oriented; mostly not
+      for this app). NOT installed: swiftui-skills (native iOS, we're a web app), shadcn (component kit = rewrite), bergside style
+      catalogue (new identities). AUDIT = scratchpad audit.cjs (Playwright on the emulator, 390×844: WCAG contrast of every text,
+      tap boxes < 44, font sizes, text < 12px) for creator / equipment / admin / arts. FIXED: chat type scale = 12/14/16/18/22/28
+      only (was 14 sizes; ChatCard, ChatNow, ScheduleAsks, Assistant); no 11px; every tab/filter pill min-h 40 + gap-1
+      (`min-h-[40px] inline-flex items-center gap-1 rounded-full`, app-wide); Back buttons 44px; chat mic/send 44px, ✦ Props
+      pill + tips Next 44px, Coming-up rows 60px; touch screens: text inputs/selects min 44px (index.css); Avatar colours darker
+      (white initials ≥ 4.5:1); Damaged badge bg-red-600; SlotTile place text-pt-text/75. Result: 0 low-contrast texts and 0 text
+      under 12px on all audited screens. New pills: use the 40px pill classes above.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

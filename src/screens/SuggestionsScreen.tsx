@@ -23,7 +23,7 @@ export default function SuggestionsScreen() {
         <div className="flex gap-2">
           {([[true, 'To check'], [false, 'Done']] as const).map(([v, label]) => (
             <button key={label} onClick={() => setOpen(v)}
-              className={`px-3 py-1 rounded-full text-sm ${open === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{label}</button>
+              className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${open === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{label}</button>
           ))}
         </div>
       </div>

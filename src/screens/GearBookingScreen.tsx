@@ -80,7 +80,7 @@ export default function GearBookingScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-2 py-2 flex items-center">
-        <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] px-2 py-1">‹ Back</button>
+        <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] px-2 min-h-[44px] inline-flex items-center">‹ Back</button>
       </div>
       <div className="px-4 space-y-4">
         <div className="space-y-1">

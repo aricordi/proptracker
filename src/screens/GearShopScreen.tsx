@@ -74,7 +74,7 @@ export default function GearShopScreen() {
             {creator && <AddingToChip kind="gear" />}
             {cats.length > 1 && [null, ...cats].map(c => (
               <button key={c ?? 'all'} onClick={() => setCat(c)}
-                className={`shrink-0 px-3 py-1 rounded-full text-sm transition-colors ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c ?? 'All'}</button>
+                className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm transition-colors ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c ?? 'All'}</button>
             ))}
           </div>
         )}
@@ -116,7 +116,7 @@ export default function GearShopScreen() {
                 const homeOnly = creator && !!b.housesOnly && shoot?.place === 'offsite'
                 const ok = !problem && !homeOnly && free(b) > 0, inCart = !!cart.lines[b.id]
                 // Same badge colours as props: green = free/available, red = taken, amber = something missing.
-                const badge = homeOnly ? { label: 'Houses only', style: 'bg-black/70 text-white' } : showFree && !problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
+                const badge = homeOnly ? { label: 'Houses only', style: 'bg-black/70 text-white' } : showFree && !problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-600 text-white' })
                   : b.missing?.length ? { label: 'Piece missing', style: 'bg-amber-500/90 text-stone-900' } : { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
                 const canAdd = creator && !!shoot && ok && !note.late && (note.take || reserveOn)
                 const askShoot = creator && !shoot && canBook && !b.archived && reserveOn

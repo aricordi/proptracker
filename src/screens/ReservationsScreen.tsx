@@ -73,7 +73,7 @@ export default function ReservationsScreen() {
             const n = byTab[t.key]?.length ?? 0
             return (
               <button key={t.key} onClick={() => setTabKey(t.key)}
-                className={`shrink-0 px-3 py-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>
+                className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>
                 {t.label}{t.key !== 'done' && t.key !== 'past' ? ` (${n})` : ''}
               </button>
             )

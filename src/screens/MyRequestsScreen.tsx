@@ -80,12 +80,12 @@ export default function MyRequestsScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] py-1">‹ Back</button>
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
         <div className="flex gap-2">
           {(['upcoming', 'past'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-3 py-1 rounded-full text-sm ${tab === t ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
+              className={`px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === t ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
               {t === 'upcoming' ? `Upcoming${groups.upcoming.length ? ` (${groups.upcoming.length})` : ''}` : 'Past'}
             </button>
           ))}

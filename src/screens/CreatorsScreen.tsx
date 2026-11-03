@@ -122,10 +122,10 @@ export default function CreatorsScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] py-1">‹ Back</button>
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <h1 className="font-display text-[34px] text-pt-text py-1">Creators</h1>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 px-3 py-1 rounded-full text-sm ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
+          {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
         </div>
       </div>
       <div className="px-4 space-y-4">
