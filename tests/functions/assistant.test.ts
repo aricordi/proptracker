@@ -64,8 +64,8 @@ describe('limits', () => {
     expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).ok).toBe(true)
     expect((await call('ideaToProps', { idea: 'Bank heist gone wrong' }, ANA)).message).toMatch(/today's AI help/)
   })
-  it('no more than 6 uses a minute', async () => {
-    for (let i = 0; i < 6; i++) expect((await call('ideaToProps', { idea: `Bank heist number ${i}` }, ANA)).ok).toBe(true)
+  it('no more than 10 uses a minute', async () => {
+    for (let i = 0; i < 10; i++) expect((await call('ideaToProps', { idea: `Bank heist number ${i}` }, ANA)).ok).toBe(true)
     expect((await call('ideaToProps', { idea: 'Bank heist again' }, ANA)).message).toMatch(/Wait a minute/)
   })
   it('monthly budget', async () => {
@@ -98,5 +98,21 @@ describe('props-only (demo) creators', () => {
   })
   it('still cannot find times or book', async () => {
     expect((await call('askForTime', { text: 'two hours next week' }, DEE)).error).toBe('PERMISSION_DENIED')
+  })
+})
+
+describe('the chat\'s brain (askChat)', () => {
+  it('without the AI (test mode) it says so, so the chat answers on its own; nothing is counted', async () => {
+    const r = await call('askChat', { message: 'yo can i get cliff 1 thursday at 5', history: [], state: { shoots: [], out: { props: 0, gear: [] } } }, ANA)
+    expect(r.ok).toBe(true)
+    expect(r.result).toEqual({ fallback: true })
+    expect(await getDoc(`ai_usage/${month}`)).toBeFalsy()
+  })
+  it('needs a message, and Props-only creators and staff may use it', async () => {
+    expect((await call('askChat', { message: '  ' }, ANA)).ok).toBe(false)
+    await put('users/dee@example.com', { email: 'dee@example.com', role: 'creator', access: 'props', active: true, name: 'Dee' })
+    await put('users/gear@example.com', { email: 'gear@example.com', role: 'equipment', active: true, name: 'Maanik' })
+    expect((await call('askChat', { message: 'hi' }, 'dee@example.com')).ok).toBe(true)
+    expect((await call('askChat', { message: 'how do I block time?' }, 'gear@example.com')).ok).toBe(true)
   })
 })

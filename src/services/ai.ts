@@ -81,3 +81,10 @@ export const ideaToProps = httpsCallable<{ idea: string; shootId?: string; exclu
 // "How do I…?": answered only from the app guide for your role, with buttons to the right screens.
 export interface AppAnswer { answer: string; steps: string[]; links: { path: string; label: string }[] }
 export const askApp = httpsCallable<{ question: string; history?: string[] }, AppAnswer>(functions, 'askApp')
+
+// The chat's brain (owner, Nov 3): reads any message and answers with a short reply + ONE action the app turns into a
+// card or button. It can't do anything itself. { fallback: true } = no AI right now; the chat answers on its own.
+export type ChatAction = 'reply' | 'times' | 'props' | 'help' | 'status' | 'plan' | 'cancel' | 'move' | 'swap' | 'offsite' | 'return' | 'report' | 'pickup' | 'take_gear' | 'strikes' | 'requests'
+export interface ChatTurn { action: ChatAction; reply: string; shoot?: string; query?: string; steps: string[]; screens: string[]; chips: string[]; links: { path: string; label: string }[] }
+export interface ChatStateIn { shoots: { id: string; label: string; status: string }[]; out: { props: number; gear: string[] }; paused?: string; strikes?: number }
+export const askChat = httpsCallable<{ message: string; history: { who: 'me' | 'bot'; text: string }[]; state: ChatStateIn }, ChatTurn | { fallback: true }>(functions, 'askChat', { timeout: 60_000 })

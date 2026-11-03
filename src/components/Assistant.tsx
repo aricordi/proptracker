@@ -21,7 +21,7 @@ import type { AssistantMode } from '../assistant'
 import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, type Helper, type Route } from '../lib/aiRoute'
 import { ReturnCard, ReportCard, PickupList } from './ChatNow'
 import GuidelinePicker from './GuidelinePicker'
-import { useReturnGroups, returnCount } from '../hooks/useReturnables'
+import { useReturnGroups, returnCount, canReturnProps, canReturnGear } from '../hooks/useReturnables'
 import ChatNow from './ChatNow'
 import BrandMark from './BrandMark'
 type Step = 'time' | 'props' | 'gear' | 'review'
@@ -34,7 +34,7 @@ import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
 import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, useGearWindow, stampLabel } from '../activeShoot'
 import { formatDay } from '../lib/dates'
-import { ideaToProps, askApp, type IdeaResult, type AppAnswer } from '../services/ai'
+import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type ChatTurn, type ChatStateIn } from '../services/ai'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
@@ -172,7 +172,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const openRequest = sent.props.find(r => r.status === 'requested')   // still changeable
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const [thinking, setThinking] = useState<Helper | null>(null)   // label under the typing dots
+  const [thinking, setThinking] = useState<Helper | 'chat' | null>(null)   // label under the typing dots
   const [listening, setListening] = useState(false)
   const [previous, setPrevious] = useState<Record<string, unknown> | undefined>()
   const rec = useRef<any>(null)
@@ -253,95 +253,141 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const searched = results.flatMap(r => [...(r.searched ?? []), ...r.missing.map(m => m.name)])
   const lastBot = msgs.reduce((n, x, i) => x.who === 'bot' ? i : n, -1)   // "Meant … instead?" only under the newest answer
 
+  // What the chat's AI may know: the last few lines, and a summary of this person's own shoots and what they have out.
+  const chatLines = () => msgs.flatMap(x => (x.who === 'me' || x.who === 'bot') && x.text ? [{ who: x.who, text: x.text.slice(0, 300) }] : []).slice(-8)
+  const chatState = (): ChatStateIn => {
+    const groups = returns ?? []
+    const paused = myStatus?.pausedUntil && myStatus.pausedUntil.slice(0, 10) > today ? myStatus.pausedUntil.slice(0, 10) : undefined
+    return {
+      shoots: [...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 8).map(x => ({ id: x.id, label: label(x), status: x.status === 'requested' ? 'requested' : x.checkin ? 'checked-in' : 'booked' })),
+      out: { props: groups.reduce((n, g) => n + g.props.filter(canReturnProps).length, 0), gear: groups.flatMap(g => g.gear.filter(canReturnGear).flatMap(b => b.lines.map(l => l.name))).slice(0, 8) },
+      ...(paused ? { paused } : {}), ...(myStatus?.strikes ? { strikes: myStatus.strikes } : {}),
+    }
+  }
+  // The newest "me" line takes the helper it ended up going to (the prop finder reads earlier prop messages).
+  const markMe = (m: Helper) => setMsgs(x => { const i = x.map(y => y.who).lastIndexOf('me'); return i < 0 ? x : x.map((y, k) => k === i && y.who === 'me' ? { ...y, mode: m } : y) })
+  const defaultChips = () => helpOnly ? (STAFF_STARTERS[role] ?? []) : demo ? STARTERS.props.slice(0, 3) : mixed().slice(0, 4)
+
   async function send(t = text, more = false, force?: Helper) {
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
-    // Which helper(s): a forced one ("Meant a time instead?"), the plan's current step, or read from the words.
-    // Props only: the words never reach the time finder (the server would refuse anyway).
-    if (demo && !helpOnly && !force && !more) {
-      const r = routeMessage(q, { last: 'props', shoots: [] })
-      if (!r.helpers.includes('props') && !r.helpers.includes('help')) {
-        setText(''); setMsgs(x => [...x, { who: 'me', text: q, mode: 'props' }, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return
-      }
-    }
-    // Done right here, no AI (owner, Nov 3: "flexible enough to understand nuance and guide people in the right direction").
+    setText(''); setChips([])
+    setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: force ?? (more ? 'props' : mode ?? 'help') }])
+    // The AI reads the message first (owner, Nov 3: "more conversational… open and accepting of anything"), and picks
+    // what to show. Plan steps, "More like these" and a forced helper go straight to their helper.
     if (!force && !more && !plan) {
-      const intent = detectIntent(q)
-      const say = (reply: string, extra: Msg[] = [], chips: string[] = []) => {
-        setText(''); setChips(chips)
-        setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: 'help' }, { who: 'bot', text: reply }, ...extra])
-      }
-      if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What do you need? A time to film, props, gear, or a question.`, [], helpOnly ? (STAFF_STARTERS[role] ?? []) : demo ? STARTERS.props.slice(0, 3) : mixed().slice(0, 4)); return }
-      if (intent === 'thanks') { say('Anytime. I\'m here if you need anything else.'); return }
-      if (!demo && !helpOnly && intent) {
-        const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
-        const named = sorted.find(x => x.id === findShoot(`${q} my shoot`, sorted.map(y => ({ id: y.id, date: y.date })))) ?? sorted[0]
-        const out = (returns ?? []).length > 0
-        if (intent === 'return') {
-          if (!out) { say('Nothing to bring back right now: everything on your name is already returned.'); return }
-          say('Let\'s do it. A few taps and one photo.', [{ who: 'return' }]); return
-        }
-        if (intent === 'report') {
-          if (!out) { say('I don\'t see any gear or props out on your name right now. If something in the house or the gear room is broken, tell the equipment team (Maanik) so it\'s fixed before the next shoot.'); return }
-          say('Thanks for flagging it. Pick the piece and say what happened; the team gets it right away.', [{ who: 'report', text: q }]); return
-        }
-        if (intent === 'pickup') { say('Here\'s where your props are.', [{ who: 'pickup' }]); return }
-        if (intent === 'take-gear') {
-          const live = sorted.filter(x => x.status === 'booked')
-          const now0 = live.find(x => gw(x).state === 'take'), soon = live.find(x => gw(x).state === 'reserve'), later = live.find(x => gw(x).state === 'early')
-          if (now0) { say(`Your shoot is on (${label(now0)}). Pick what you're taking, then tick every piece and take one photo.`, [{ who: 'actions', items: [{ label: 'Pick the gear', to: '/gear', shootId: now0.id }] }]); return }
-          if (soon) { say(`You can reserve gear now for ${label(soon)}. Or just take what's free on the day, from an hour before.`, [{ who: 'actions', items: [{ label: 'Reserve gear', to: '/gear', shootId: soon.id }] }]); return }
-          if (later) { say(`For ${label(later)}: you can reserve gear from ${stampLabel(gw(later).opens)}, or take what's free from an hour before your shoot. Nothing to do yet.`); return }
-          say('Gear goes with a shoot. Book a time first, then take what you need on the day.', [], ['Find me a time today', 'Earliest free slot']); return
-        }
-        if (intent === 'move' || intent === 'swap') {
-          if (!named) { say('You don\'t have any shoots coming up to change. Want to book one?', [], mixed().slice(0, 2)); return }
-          const free = named.status === 'requested' ? 'It\'s still a request, so you can move it freely.' : `Moving is free with ${s.noticeHours} hours' notice; closer than that, a swap with someone is the only way without a strike.`
-          say(intent === 'swap' ? `Your shoot: ${label(named)}. Open it and tap "Swap with someone" to ask another creator to trade.` : `Your shoot: ${label(named)}. ${free}`,
-            [{ who: 'actions', items: [{ label: intent === 'swap' ? 'Swap it' : 'Move it', to: `/schedule?shoot=${named.id}` }, ...(intent === 'move' ? [{ label: 'Shoot offsite instead', to: `/schedule?offsite=${named.date}` }] : [])] }]); return
-        }
-        if (intent === 'offsite') { say('Shooting somewhere else? Pick the day, the hours and the address. It still goes to the schedule team.', [{ who: 'actions', items: [{ label: 'Book an offsite shoot', to: `/schedule?offsite=${today}` }] }]); return }
-        if (intent === 'strikes') {
-          const paused = !!myStatus?.pausedUntil && myStatus.pausedUntil > today
-          say(paused ? `Prop requests are paused until ${myStatus!.pausedUntil}. You can still book filming time and take gear. Ask the schedule team if this looks wrong.`
-            : myStatus?.strikes ? `You have ${myStatus.strikes} strike${myStatus.strikes === 1 ? '' : 's'} in the last ${s.strikeDays} days. ${s.strikeCount} in that time pauses prop requests for ${s.pauseDays} days.`
-            : 'No strikes. You\'re all good.'); return
-        }
-        if (intent === 'requests') { say('Everything you asked for, by shoot, with where each one is.', [{ who: 'actions', items: [{ label: 'My requests', to: '/requests' }] }]); return }
-      }
+      setBusy(true); setThinking('chat')
+      const turn = await askChat({ message: q, history: chatLines(), state: chatState() }).then(r => r.data).catch(() => null)
+      setThinking(null); setBusy(false)
+      if (turn && !('fallback' in turn)) { await runTurn(turn, q); return }
+      // No AI right now (busy, budget, offline, test mode): the chat's own built-in answers.
+      if (localTurn(q)) return
     }
-    // Done right here, no AI: cancelling a shoot, and "is my shoot approved?" (owner, Nov 2: type it, it gets done).
-    if (!demo && !helpOnly && !force && !more && !plan) {
-      const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
-      const c = cancelIntent(q, sorted.map(x => ({ id: x.id, date: x.date })))
-      if (c) {
-        setText(''); setChips([])
-        setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: 'time' },
-          ...(sorted.length ? [{ who: 'bot' as const, text: c.shootId ? 'Cancel this one?' : 'Which shoot do you want to cancel?' }, { who: 'cancel' as const, shootId: c.shootId }]
-            : [{ who: 'bot' as const, text: 'You don\'t have any shoots coming up.' }])])
-        return
-      }
-      if (isStatusQuestion(q)) {
-        setText(''); setChips(mixed().slice(0, 3))
-        setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: 'time' },
-          ...(upcoming.length ? [{ who: 'bot' as const, text: 'Here are your shoots coming up.' }, { who: 'status' as const }]
-            : [{ who: 'bot' as const, text: 'Nothing booked yet. Tell me when you want to film.' }])])
-        return
-      }
+    await runHelpers(q, more, force)
+  }
+
+  // Do what the AI picked. Everything here is a card or a button; the person still taps to make anything happen.
+  async function runTurn(turn: ChatTurn, q: string) {
+    const chipsOr = (c: string[]) => setChips(turn.chips.length ? turn.chips : c)
+    const say = (txt: string, extra: Msg[] = []) => setMsgs(x => [...x, { who: 'bot', text: txt }, ...extra])
+    switch (turn.action) {
+      case 'times': if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time')
+      case 'props':
+        if (turn.shoot) choose(turn.shoot)
+        if (turn.reply) say(turn.reply)
+        return runHelpers(turn.query || q, false, 'props', turn.shoot)
+      case 'help':
+        markMe('help')
+        setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); chipsOr(defaultChips()); return
+      case 'plan': if (turn.reply) say(turn.reply); startPlan(); return
+      case 'reply': say(turn.reply); chipsOr(defaultChips()); return
+      default:
+        // Shoots, returns, reports, gear…: the app's own facts decide the card (and win over the AI's words when they disagree).
+        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot })) { say(turn.reply || 'Here\'s what I can do.'); chipsOr(defaultChips()) }
+        else if (turn.chips.length) setChips(turn.chips)
     }
-    const route: Route = helpOnly ? { helpers: ['help'] } : demo ? (routeMessage(q, { last: mode, shoots: [] }).helpers[0] === 'help' && !more ? { helpers: ['help'] } : { helpers: ['props'] }) : force ? { helpers: [force] } : more || plan?.step === 'props' ? { helpers: ['props'] }
+  }
+
+  // The built-in answers (no AI). With `ai`, the AI already chose the intent and wrote a friendlier line, used unless
+  // the facts say otherwise ("nothing to bring back", "no shoots", strike numbers). Returns false when it isn't one of these.
+  function localTurn(q: string, ai?: { intent: string; text: string; shootId?: string }): boolean {
+    // Props only: the words never reach the time finder (the server would refuse anyway).
+    if (demo && !helpOnly && !ai) {
+      const r = routeMessage(q, { last: 'props', shoots: [] })
+      if (!r.helpers.includes('props') && !r.helpers.includes('help')) { setMsgs(x => [...x, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return true }
+    }
+    if (plan) return false
+    const intent = ai?.intent ?? detectIntent(q)
+    const say = (reply: string, extra: Msg[] = [], chips: string[] = [], fact = false) => {
+      setChips(chips); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
+    }
+    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What do you need? A time to film, props, gear, or a question.`, [], defaultChips()); return true }
+    if (intent === 'thanks') { say('Anytime. I\'m here if you need anything else.'); return true }
+    if (demo || helpOnly) return false
+    const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
+    const pick = ai?.shootId ? sorted.find(x => x.id === ai.shootId) : undefined
+    if (intent) {
+      const named = pick ?? sorted.find(x => x.id === findShoot(`${q} my shoot`, sorted.map(y => ({ id: y.id, date: y.date })))) ?? sorted[0]
+      const out = (returns ?? []).length > 0
+      if (intent === 'return') {
+        if (!out) { say('Nothing to bring back right now: everything on your name is already returned.', [], [], true); return true }
+        say('Let\'s do it. A few taps and one photo.', [{ who: 'return' }]); return true
+      }
+      if (intent === 'report') {
+        if (!out) { say('I don\'t see any gear or props out on your name right now. If something in the house or the gear room is broken, tell the equipment team (Maanik) so it\'s fixed before the next shoot.', [], [], true); return true }
+        say('Thanks for flagging it. Pick the piece and say what happened; the team gets it right away.', [{ who: 'report', text: q }]); return true
+      }
+      if (intent === 'pickup') { say('Here\'s where your props are.', [{ who: 'pickup' }]); return true }
+      if (intent === 'take-gear') {
+        const live = sorted.filter(x => x.status === 'booked')
+        const now0 = live.find(x => gw(x).state === 'take'), soon = live.find(x => gw(x).state === 'reserve'), later = live.find(x => gw(x).state === 'early')
+        if (now0) { say(`Your shoot is on (${label(now0)}). Pick what you're taking, then tick every piece and take one photo.`, [{ who: 'actions', items: [{ label: 'Pick the gear', to: '/gear', shootId: now0.id }] }]); return true }
+        if (soon) { say(`You can reserve gear now for ${label(soon)}. Or just take what's free on the day, from an hour before.`, [{ who: 'actions', items: [{ label: 'Reserve gear', to: '/gear', shootId: soon.id }] }]); return true }
+        if (later) { say(`For ${label(later)}: you can reserve gear from ${stampLabel(gw(later).opens)}, or take what's free from an hour before your shoot. Nothing to do yet.`, [], [], true); return true }
+        say('Gear goes with a shoot. Book a time first, then take what you need on the day.', [], ['Find me a time today', 'Earliest free slot'], true); return true
+      }
+      if (intent === 'move' || intent === 'swap') {
+        if (!named) { say('You don\'t have any shoots coming up to change. Want to book one?', [], mixed().slice(0, 2), true); return true }
+        const free = named.status === 'requested' ? 'It\'s still a request, so you can move it freely.' : `Moving is free with ${s.noticeHours} hours' notice; closer than that, a swap with someone is the only way without a strike.`
+        say(intent === 'swap' ? `Your shoot: ${label(named)}. Open it and tap "Swap with someone" to ask another creator to trade.` : `Your shoot: ${label(named)}. ${free}`,
+          [{ who: 'actions', items: [{ label: intent === 'swap' ? 'Swap it' : 'Move it', to: `/schedule?shoot=${named.id}` }, ...(intent === 'move' ? [{ label: 'Shoot offsite instead', to: `/schedule?offsite=${named.date}` }] : [])] }]); return true
+      }
+      if (intent === 'offsite') { say('Shooting somewhere else? Pick the day, the hours and the address. It still goes to the schedule team.', [{ who: 'actions', items: [{ label: 'Book an offsite shoot', to: `/schedule?offsite=${today}` }] }]); return true }
+      if (intent === 'strikes') {
+        const paused = !!myStatus?.pausedUntil && myStatus.pausedUntil > today
+        say(paused ? `Prop requests are paused until ${myStatus!.pausedUntil}. You can still book filming time and take gear. Ask the schedule team if this looks wrong.`
+          : myStatus?.strikes ? `You have ${myStatus.strikes} strike${myStatus.strikes === 1 ? '' : 's'} in the last ${s.strikeDays} days. ${s.strikeCount} in that time pauses prop requests for ${s.pauseDays} days.`
+          : 'No strikes. You\'re all good.', [], [], true); return true
+      }
+      if (intent === 'requests') { say('Everything you asked for, by shoot, with where each one is.', [{ who: 'actions', items: [{ label: 'My requests', to: '/requests' }] }]); return true }
+    }
+    // Cancelling a shoot, and "is my shoot approved?" (owner, Nov 2: type it, it gets done).
+    const c = ai ? (ai.intent === 'cancel' ? { shootId: pick?.id } : null) : cancelIntent(q, sorted.map(x => ({ id: x.id, date: x.date })))
+    if (c) {
+      if (!sorted.length) { say('You don\'t have any shoots coming up.', [], [], true); return true }
+      say(c.shootId ? 'Cancel this one?' : 'Which shoot do you want to cancel?', [{ who: 'cancel', shootId: c.shootId }]); return true
+    }
+    if (ai ? ai.intent === 'status' : isStatusQuestion(q)) {
+      if (!upcoming.length) { say('Nothing booked yet. Tell me when you want to film.', [], mixed().slice(0, 3), true); return true }
+      say('Here are your shoots coming up.', [{ who: 'status' }], mixed().slice(0, 3)); return true
+    }
+    return false
+  }
+
+  // The prop finder, the time finder and the how-to guide (each its own server helper, same budget and safety box).
+  async function runHelpers(q: string, more: boolean, force?: Helper, shootId?: string) {
+    const route: Route = helpOnly ? { helpers: ['help'] } : demo ? (routeMessage(q, { last: mode, shoots: [] }).helpers[0] === 'help' && !more && force !== 'props' ? { helpers: ['help'] } : { helpers: ['props'] }) : force ? { helpers: [force], ...(shootId ? { shootId } : {}) } : more || plan?.step === 'props' ? { helpers: ['props'] }
       : plan?.step === 'time' ? { helpers: ['time'] }
       : routeMessage(q, { last: mode, shoots: upcoming.map(x => ({ id: x.id, date: x.date })) })
     const hs = route.helpers, both = hs.length > 1
     const target = demo ? undefined : route.shootId ?? shoot?.id
     const named = route.shootId && route.shootId !== shoot?.id ? upcoming.find(x => x.id === route.shootId) : undefined
     if (route.shootId) choose(route.shootId)
-    // Offer "Meant … instead?" only when the chat just picked a direction (not on every follow-up).
+    // Offer "Meant … instead?" only when the chat just picked a direction (not on every follow-up, nor after the AI chose).
     const offer = !demo && !both && !force && !plan && !more && mode !== hs[0]
-    setMode(hs[hs.length - 1])
-    setText(''); setChips([]); setBusy(true)
-    setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: hs[0] },
-      ...(named ? [{ who: 'bot' as const, text: `For your shoot (${label(named)}). I'll check what's free that day.` }] : [])])
+    setMode(hs[hs.length - 1]); markMe(hs[0])
+    setChips([]); setBusy(true)
+    if (named && !force) setMsgs(x => [...x, { who: 'bot' as const, text: `For your shoot (${label(named)}). I'll check what's free that day.` }])
     const next: string[][] = []
     for (const h of hs) {
       setThinking(h)
@@ -743,7 +789,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ) : null)}
         {busy && <div role="status" aria-label="Thinking" className="rise-in flex items-center gap-3">
           <p className="w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>
-          {thinking && <span className="text-pt-muted text-[13px]">{thinking === 'props' ? 'Looking through the props…' : thinking === 'help' ? 'Looking at how the app works…' : 'Checking the schedule…'}</span>}
+          {thinking && <span className="text-pt-muted text-[13px]">{thinking === 'chat' ? '' : thinking === 'props' ? 'Looking through the props…' : thinking === 'help' ? 'Looking at how the app works…' : 'Checking the schedule…'}</span>}
         </div>}
         {addedTo && <p className="text-pt-accent text-sm text-center">Added to {addedTo} ✓ <button onClick={() => go('/reserve')} className="tap underline">Review it</button></p>}
         <div ref={end} />

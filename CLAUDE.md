@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 540 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 606 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -1879,6 +1879,25 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Help: "When is gear due back?", "Something broke or is missing", "Do I need a guideline". Rules sheet rows. appGuide updated.
       Tests 596 (reports.test.ts, guideline.test.ts, chatIntents). Not built (owner): props 1-day notice (ask arts), support hours
       (announcement), Slack.
+    - AI CHAT BRAIN (owner, Nov 3: "use AI to make it more conversational… open and accepting of anything… lock it down so the
+      AI doesn't mess with the app or turn into a friend vs an interface for the app"; NOT deployed: backend (new callable
+      askchat in deploy/log lists, no rules change) + website, ask). EVERY chat message (not plan steps / "More like these" /
+      forced helpers) first goes to callable `askChat` (assistant.ts) → `functions/src/chatBrain.ts` (pure, tests/unit/
+      chatBrain.test.ts): the AI returns {action, reply ≤260, shoot, query, steps, screens, chips} with action from a CLOSED list
+      (reply/times/props/help/status/plan/cancel/move/swap/offsite/return/report/pickup/take_gear/strikes/requests; actionsFor:
+      Props-only = reply/props/help, non-booking staff = reply/help). LOCKS: no tools (the app turns the action into a card; every
+      change is still the person's tap + server checks); sees only the role's appGuide entries, live rules (`rulesText`, shared
+      with askApp) and the phone's summary of the caller's OWN shoots/what's out/strikes (cleanState; staff get none); words as
+      <creator_text> data, earlier replies <app_reply>; cleanTurn: unknown action → reply, shoot id must be theirs, screens in their
+      guide, safeText everything; prompt = "front desk, not a friend", never claims something is done, never invents times/props/
+      rules, off-topic → one polite line. App (`Assistant.tsx`): send → askChat → runTurn: times/props run the normal finders with
+      the AI's standalone `query` (AI line shown first); help = steps + Open buttons; other actions go through `localTurn` (the old
+      built-in answers) where FACTS WIN over the AI's words ("nothing to bring back", "no shoots", strike numbers). `{fallback:true}`
+      (test mode, AI refused/empty) or any error → localTurn + the old routing, so the chat never goes dead. Budget: helper 'chat',
+      its OWN daily count (perPersonDaily × CHAT_DAILY_TIMES 4 = 100/day) so chatting never uses up prop/time finds; BURST 6 → 10/min
+      (a turn can be 2 calls). ~0.1 ¢ per message (creator guide ≈ 3k tokens). Help Q "Is the chat a person?", appGuide home.
+      Tests 606. Checked in a browser on the emulator with faked AI answers (off-topic, times, help, return-with-nothing-out → fact
+      wins, cancel) and with the AI off (built-in answers).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

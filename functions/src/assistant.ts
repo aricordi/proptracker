@@ -14,6 +14,7 @@ import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, asData } from './gemini.js'
 import { loadSettings } from './reservations.js'
 import { guideFor, searchGuide, TABS, type GuideRole } from './appGuide.js'
+import { actionsFor, chatPrompt, cleanState, cleanHistory, cleanTurn } from './chatBrain.js'
 import { plainNeeds, rankedPicks, signalsFrom, goesWith, type Pick, type PropSignals } from './ideaHelpers.js'
 
 // What creators actually request, as totals (see ideaHelpers.ts). Read at most every 10 minutes per server copy.
@@ -43,7 +44,8 @@ const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(
 // full version"): once demoMonthlyCapUsd is spent, only the demo helper rests; everyone else keeps going.
 export const AI_DEFAULTS = { monthlyCapUsd: 50, perPersonDaily: 25, demoMonthlyCapUsd: 10, demoPerPersonDaily: 10 }
 const RESERVE_USD = 0.02   // set aside before each call; the real cost is settled after
-const BURST = 6            // uses per person per minute
+const BURST = 10           // uses per person per minute (a chat turn can use 2: the chat + the prop or time finder)
+export const CHAT_DAILY_TIMES = 4   // chat messages get their own daily allowance: perPersonDaily × this
 
 export async function aiSettings() {
   const d = (await db.doc('app_settings/ai').get()).data() ?? {}
@@ -56,7 +58,7 @@ export async function aiSettings() {
 
 // Count one AI use for this person; refuses when the month's budget or their daily limit is used up.
 // Returns settle(cost) to record what the call really cost.
-export async function reserveAi(email: string, helper: string, demo = false) {
+export async function reserveAi(email: string, helper: string, demo = false, chat = false) {
   const s = await aiSettings()
   const today = todayInStudio(), month = today.slice(0, 7)
   const monthRef = db.doc(`ai_usage/${month}`), personRef = db.doc(`ai_usage/${month}/people/${email}`)
@@ -69,8 +71,9 @@ export async function reserveAi(email: string, helper: string, demo = false) {
     if (demo && Number(m.get('demoSpentUsd') ?? 0) + RESERVE_USD > s.demoMonthlyCapUsd) {
       throw new HttpsError('resource-exhausted', 'The idea helper is resting until the 1st. Search and browse still work.', { problem: 'ai-budget' })
     }
-    const used = p.get('day') === today ? Number(p.get('count') ?? 0) : 0
-    const daily = demo ? Math.min(s.demoPerPersonDaily, s.perPersonDaily) : s.perPersonDaily
+    // Chat messages are counted separately (and more generously), so talking never uses up the prop and time finders.
+    const used = chat ? (p.get('chatDay') === today ? Number(p.get('chatCount') ?? 0) : 0) : p.get('day') === today ? Number(p.get('count') ?? 0) : 0
+    const daily = (demo ? Math.min(s.demoPerPersonDaily, s.perPersonDaily) : s.perPersonDaily) * (chat ? CHAT_DAILY_TIMES : 1)
     // No more than BURST uses a minute (stops scripts and runaway loops; people never hit it).
     const minuteAgo = Date.now() - 60_000
     const recent = ((p.get('recent') ?? []) as number[]).filter(t => t > minuteAgo)
@@ -80,7 +83,7 @@ export async function reserveAi(email: string, helper: string, demo = false) {
     }
     tx.set(monthRef, { month, spentUsd: FieldValue.increment(RESERVE_USD), calls: FieldValue.increment(1), by: { [helper]: FieldValue.increment(1) },
       ...(demo ? { demoSpentUsd: FieldValue.increment(RESERVE_USD) } : {}), updatedAt: new Date().toISOString() }, { merge: true })
-    tx.set(personRef, { email, day: today, count: used + 1, total: FieldValue.increment(1), recent: [...recent, Date.now()] }, { merge: true })
+    tx.set(personRef, { email, ...(chat ? { chatDay: today, chatCount: used + 1 } : { day: today, count: used + 1 }), total: FieldValue.increment(1), recent: [...recent, Date.now()] }, { merge: true })
   })
   return async (costUsd: number) => {
     const d = costUsd - RESERVE_USD
@@ -373,6 +376,11 @@ Not about filming times → {"offTopic":true}.`
   }
 })
 
+// The live rule numbers, in one sentence the AI can quote (the same for "how do I…" and the chat).
+function rulesText(b: Awaited<ReturnType<typeof loadSettings>>, sch: Awaited<ReturnType<typeof loadScheduleSettings>>) {
+  return `props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}; gear is grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo); closed days don't count; house slots are ${sch.slotMinutes / 60} h, ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
+}
+
 // ─── How do I…? (owner, Oct 28: "people will use the AI for everything… it should help them navigate the app") ───
 // Answers ONLY from the app guide (appGuide.ts), and only the part for the asker's role, with buttons to real screens.
 // The AI sees no data at all here: just the guide, the live rule numbers and the question.
@@ -397,7 +405,7 @@ export const askApp = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async r
   let cost = 0
   try {
     const [b, sch] = role === 'demo' ? [null, null] : await Promise.all([loadSettings(), loadScheduleSettings()])
-    const live = b && sch ? `LIVE RULES (use these numbers): props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}; gear is grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo); closed days don't count; house slots are ${sch.slotMinutes / 60} h, ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days.` : ''
+    const live = b && sch ? `LIVE RULES (use these numbers): ${rulesText(b, sch)}` : ''
     const r = await askJson(key, {
       system: `${APP_CONTEXT}
 TASK: explain how to do things in the app to this person, using ONLY the GUIDE below (it is everything they can use).
@@ -419,5 +427,37 @@ Return ONLY {"answer":"...","steps":["..."],"screens":["id"]}.`,
       steps: (Array.isArray(r!.data.steps) ? r!.data.steps : []).map((x: unknown) => safeText(x, 90)).filter(Boolean).slice(0, 5),
       links: linkOf((Array.isArray(r!.data.screens) ? r!.data.screens : []).map((x: unknown) => str(x, 40))),
     }
+  } finally { await settle(cost) }
+})
+
+// ─── The chat's brain (owner, Nov 3: conversational, open to anything, but boxed in) ───
+// Reads one message (plus the last few lines of the conversation) and returns a short reply + ONE action from a closed
+// list; see chatBrain.ts for every limit. The app does the action as a card/button the person taps. When the AI is off
+// (test mode, busy, budget, refused) it returns { fallback: true } and the app answers with its own built-in replies.
+export const askChat = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutSeconds: 60 }, async req => {
+  const caller = await requireRole(req, ['owner', 'admin', 'arts', 'equipment', 'creator'], { demoOk: true })
+  const role: GuideRole = caller.demo ? 'demo' : caller.role
+  const canBook = !caller.demo && (caller.role === 'creator' || caller.role === 'owner')
+  const message = str(req.data?.message, 500)
+  if (!message) throw new HttpsError('invalid-argument', 'Type a message first.')
+  const key = apiKey()
+  if (!key || isFakeMode(key)) return { fallback: true as const }
+  const settle = await reserveAi(caller.email, 'chat', !!caller.demo, true)
+  let cost = 0
+  try {
+    const state = cleanState(req.data?.state)
+    const history = cleanHistory(req.data?.history)
+    const entries = guideFor(role)
+    const [b, sch] = role === 'demo' ? [null, null] : await Promise.all([loadSettings(), loadScheduleSettings()])
+    const prompt = chatPrompt({
+      role, canBook, name: (caller.name || '').split(' ')[0], today: todayInStudio(), tabs: TABS[role],
+      rules: b && sch ? rulesText(b, sch) : '', guide: entries, state: canBook ? state : { shoots: [], out: { props: 0, gear: [] } }, history, message,
+    })
+    const r = await askJson(key, prompt, 700, 0.3).catch(e => { logger.warn('askChat failed', String(e)); return null })
+    if (r) cost = r.costUsd
+    const turn = r && !r.blocked ? cleanTurn(r.data, { allowed: actionsFor(role, canBook), shootIds: state.shoots.map(s => s.id), screenIds: entries.map(e => e.id) }) : null
+    if (!turn) return { fallback: true as const }
+    const links = turn.screens.map(id => entries.find(e => e.id === id)).filter(e => e?.path && !e.path.includes(':')).map(e => ({ path: e!.path!, label: e!.title }))
+    return { ...turn, links }
   } finally { await settle(cost) }
 })
