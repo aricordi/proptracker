@@ -30,7 +30,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
   const pages: Record<Who, React.ReactNode> = {
     equipment: <>
       <P n={1} t="Approve every booking"><p>Creators' bookings are <B>requests</B>. Open <B>Requests</B>: each card shows how much they film, strikes, and who's around. <B>Approve</B> or <B>Deny</B> with a reason. Waiting over 12 h → you get a reminder; still waiting at the start time → dropped.</p></P>
-      <P n={2} t={`${kyle} always wins`}><p>{kyle}'s bookings are approved at once. Need a slot someone else has? Tap <B>Give to {kyle}…</B> (or tap the name in a day): move them to another free time that day, or cancel them. They get a sorry note and their next request goes first. A red box lists Google Calendar events that landed on someone's slot.</p></P>
+      <P n={2} t="Priority bookings"><p>{kyle}'s bookings are approved at once. If {kyle} needs a slot someone else has, tap <B>Priority booking…</B> (or tap the name in a day): move them to another free time that day, or cancel their shoot. They get a neutral "schedule change" notice and their next request is first in line. A red box lists calendar events that landed on a booked slot.</p></P>
       <P n={3} t="Gear is grab-and-go"><p>Creators take gear on their shoot day: they tick every piece and take one photo. They can also reserve a kit from <B>{s.gearReserveHours} h</B> before their shoot. You see it all in the <B>Queue</B>: Today, Out (late in red), To check in.</p></P>
       <P n={4} t="Check it back in"><p>Back = a return photo from the creator. Open it in <B>To check in</B>, tick every piece, write a note if something's damaged, <B>Checked in</B>. Late = {GEAR_LATE_MINUTES} min after the end; the late fee is {LATE_FEE_PERCENT}% of the value (the app only records it).</p></P>
       <P n={5} t="On the day"><p>Creators check in with a set photo and say if the house was clean and the slot before finished on time. <B>Admin → Schedule team</B>: missed check-ins (They filmed / No-show) and reports (Dismiss / Strike).</p></P>
@@ -39,7 +39,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
     </>,
     admin: <>
       <P n={1} t="Your home is the scoreboard"><p><B>Dashboard</B>: who's filming more or less this month and who needs attention. <B>Analytics</B> goes deeper (tap any number or flag).</p></P>
-      <P n={2} t="Approve bookings too"><p>Like the equipment team, you can <B>Approve / Deny</B> requests on <B>Requests</B>, and <B>Give to {kyle}…</B> when {kyle} needs a slot.</p></P>
+      <P n={2} t="Approve bookings too"><p>Like the equipment team, you can <B>Approve / Deny</B> requests on <B>Requests</B>, and make a <B>Priority booking</B> when {kyle} needs a slot.</p></P>
       <P n={3} t="Act on flags"><p>Every no-show, late return or mess is a flag. Open it: see the evidence, then <B>Send a note</B>, <B>Excuse it</B>, <B>Give a strike</B> or <B>Mark as handled</B>. {s.strikeCount} strikes in {s.strikeDays} days pause props + gear for {s.pauseDays} days.</p></P>
       <P n={4} t="Creators' records"><p><B>Creators</B> → a person: their report card, strikes (Remove with a reason), <B>Pause bookings</B> or Lift.</p></P>
       <P n={5} t="Invite creators"><p><B>Invite creators</B>: they start on <B>Props only</B>; the owner switches them to the full app.</p></P>

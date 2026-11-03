@@ -77,7 +77,7 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
   const nextTo = neighboursOf(probe, shoots).map(x => ({ name: x.creatorName, usual: usualSet.has(x.creatorEmail) }))
 
   const flags: Facts['flags'] = []
-  if (status?.firstInLine && !r.move) flags.push({ tone: 'gold', text: `Goes first · lost a slot to ${status.firstInLine.forName.split(' ')[0]}` })
+  if (status?.firstInLine && !r.move) flags.push({ tone: 'gold', text: 'First in line · had a schedule change' })
   if (paused) flags.push({ tone: 'red', text: 'Paused' })
   if (status?.strikes) flags.push({ tone: 'red', text: `${status.strikes} strike${status.strikes === 1 ? '' : 's'}` })
   if (noShows) flags.push({ tone: 'red', text: `${noShows} no-show${noShows === 1 ? '' : 's'} (30 days)` })

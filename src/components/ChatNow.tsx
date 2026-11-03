@@ -106,13 +106,16 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
       )}
       {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => (
         <div key={`b${x.id}`} className={card}>
-          <p className="text-[15px]"><b>Sorry, {x.bumped!.forName.split(' ')[0]} needed your slot.</b> {x.status === 'cancelled'
-            ? <>{label(x)} had to be cancelled (no strike). Your next request goes first.</>
-            : <>You're now at <b>{label(x)}</b>. Your props and gear moved with you.</>}</p>
-          <div className="flex gap-2">
-            {x.status === 'cancelled' && <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={`${gold} flex-1`}>Find another time</button>}
-            <button onClick={() => dismiss(`b${x.id}${x.bumped!.at}`)} className={x.status === 'cancelled' ? grey : `${gold} flex-1`}>Got it</button>
-          </div>
+          <p className="text-[15px]"><b>Schedule change.</b> {x.status === 'cancelled'
+            ? <>{label(x)} is needed for a priority booking, so it was cancelled (no strike). Your next request is first in line.</>
+            : <>Your shoot moved to <b>{label(x)}</b> for a priority booking. Props and gear moved with it.</>}</p>
+          {x.status === 'cancelled' ? (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={gold}>Find another time</button>
+              <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); navigate(`/schedule?offsite=${x.date}`) }} className={grey}>Shoot offsite</button>
+              <button onClick={() => dismiss(`b${x.id}${x.bumped!.at}`)} className={`${grey} col-span-2`}>OK</button>
+            </div>
+          ) : <button onClick={() => dismiss(`b${x.id}${x.bumped!.at}`)} className={grey}>OK</button>}
         </div>
       ))}
       {ended.filter(x => !x.bumped && x.status !== 'booked' && x.status !== 'cancelled' && !seen.includes(x.id)).map(x => (

@@ -205,7 +205,7 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
       who = first; dot = !!e.email && flagged(e.email); title = e.name
       if (e.pending && e.move) { cls = 'bg-sky-400/[0.08] shadow-[inset_0_0_0_1px_rgba(124,196,250,0.6)] text-sky-200'; sub = 'wants to move here'; if (r) click = () => onReq(r) }
       else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'requested'; if (r) click = () => onReq(r) }
-      else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; sub = 'always wins'; click = () => onShoot(e.shootId) }
+      else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; sub = 'priority'; click = () => onShoot(e.shootId) }
       else { cls = 'bg-pt-surface text-pt-text'; sub = sh?.moveRequest ? 'moving…' : sh?.checkin ? 'checked in' : ''; click = () => onShoot(e.shootId) }
       if (sh?.moveRequest && !e.pending) cls += ' opacity-60'
     } else if (block) { cls = 'bg-[repeating-linear-gradient(135deg,#161618_0_7px,#1F1F22_7px_14px)] text-pt-muted'; who = block.note || BLOCK_TYPES[block.type]; sub = 'blocked'; title = who }
@@ -313,7 +313,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
         <div className="grid grid-cols-2 gap-2">
           <button disabled={busy} onClick={onApprove} className="min-h-[42px] rounded-xl bg-green-500/15 text-green-400 font-bold disabled:opacity-40">Approve <Kbd>A</Kbd></button>
           <button disabled={busy} onClick={() => setDenying(true)} className="min-h-[42px] rounded-xl bg-red-500/10 text-red-300 font-bold disabled:opacity-40">Deny <Kbd>D</Kbd></button>
-          {onGive && <button disabled={busy} onClick={onGive} className="col-span-2 min-h-[36px] rounded-xl bg-pt-raised text-pt-accent text-[13px] font-semibold">Give this time to {s.instantBookers[0]?.name.split(' ')[0]}…</button>}
+          {onGive && <button disabled={busy} onClick={onGive} className="col-span-2 min-h-[36px] rounded-xl bg-pt-raised text-pt-accent text-[13px] font-semibold">Priority booking…</button>}
         </div>
       ) : (
         <div className="space-y-2">

@@ -20,7 +20,7 @@ export interface ScheduleSettings {
   slotMinutes: number      // 120
   monthlySlots: number     // guaranteed Cliff 1 slots per creator per month
   priority: { email: string; name: string }[]   // priority group (Thursdays + Saturdays at Cliff 1)
-  instantBookers: { email: string; name: string }[]   // book WITHOUT approval (owner, Nov 2: Kyle / Stromedy always wins)
+  instantBookers: { email: string; name: string }[]   // book WITHOUT approval (owner, Nov 2: Kyle / Stromedy have priority)
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)

@@ -120,7 +120,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
           <div className="flex gap-2">
             <button disabled={busy} onClick={() => decide(true)} className="flex-1 min-h-[44px] rounded-xl bg-green-500/15 text-green-400 font-semibold disabled:opacity-40">Approve</button>
             <button disabled={busy} onClick={() => setDenying(true)} className="flex-1 min-h-[44px] rounded-xl bg-red-500/10 text-red-300 font-semibold disabled:opacity-40">Deny</button>
-            {onGive && s.instantBookers.length > 0 && <button disabled={busy} onClick={onGive} className="shrink-0 px-3 min-h-[44px] rounded-xl bg-pt-bg text-pt-accent text-[13px] font-semibold">Give to {s.instantBookers[0].name.split(' ')[0]}…</button>}
+            {onGive && s.instantBookers.length > 0 && <button disabled={busy} onClick={onGive} className="shrink-0 px-3 min-h-[44px] rounded-xl bg-pt-bg text-pt-accent text-[13px] font-semibold">Priority booking…</button>}
           </div>
         ) : (
           <div className="space-y-2">
@@ -151,7 +151,7 @@ function DaySheet({ date, day, s, email, now, reqs, onClose, onGive }: { date: s
   return (
     <BottomSheet open onClose={onClose} title={formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}>
       {reqs.length > 0 && <p className="text-amber-300 text-sm mb-2">{reqs.length} request{reqs.length === 1 ? '' : 's'} waiting this day (dashed).</p>}
-      <p className="text-pt-muted text-xs mb-2">Tap a name to give that slot to someone with priority (e.g. Kyle).</p>
+      <p className="text-pt-muted text-xs mb-2">Tap a name to make a priority booking for that slot.</p>
       <div className="grid grid-cols-[84px_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
         <span /><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff1.name}</span><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff2.name}</span>
         {s.slots.map(st => [

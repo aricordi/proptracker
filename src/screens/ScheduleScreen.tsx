@@ -99,10 +99,11 @@ export default function ScheduleScreen() {
   const [params, setParams] = useSearchParams()
   const [sent, setSent] = useState<string | null>(null)
   useEffect(() => {
-    const id = params.get('shoot'), book = params.get('book')
+    const id = params.get('shoot'), book = params.get('book'), offsite = params.get('offsite')
     if (params.get('sent')) { setSent(params.get('sent')); const n = new URLSearchParams(params); n.delete('sent'); setParams(n, { replace: true }); return }
     if (id) { if (!(sheet?.kind === 'shoot' && sheet.id === id)) setSheet({ kind: 'shoot', id }) }
     else if (book) { setSheet({ kind: 'find', fromToday: true }); setParams({}, { replace: true }) }
+    else if (offsite && /^\d{4}-\d{2}-\d{2}$/.test(offsite)) { setHouse('offsite'); setSheet({ kind: 'offsite', date: offsite }); setParams({}, { replace: true }) }
   }, [params])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const want = sheet?.kind === 'shoot' ? sheet.id : null, has = params.get('shoot')
@@ -1128,8 +1129,8 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
 
 // Someone invited you to film right after them: the slot is held for you for 20 minutes.
 
-// Top priority (Kyle, owner Nov 2: "can take any slot"): take a slot someone else has. They're cancelled with a sorry
-// note (no strike) and their next request goes first.
+// Priority booking (owner, Nov 2: Kyle can take any slot): take a slot someone else has. They get a neutral
+// "schedule change" notice (no strike) and their next request is first in line.
 function TakeSlot({ slot, onTaken }: { slot: TheirSlot; onTaken: (id: string) => void }) {
   const [sure, setSure] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -1142,10 +1143,10 @@ function TakeSlot({ slot, onTaken }: { slot: TheirSlot; onTaken: (id: string) =>
   }
   return (
     <div className="mt-4 space-y-2">
-      {sure && <p className="text-amber-300 text-sm">{first} loses this slot (no strike), gets a sorry notification, and their next request goes first.</p>}
+      {sure && <p className="text-amber-300 text-sm">{first} gets a schedule-change notice (no strike) and their next request is first in line.</p>}
       {err && <p className="text-red-300 text-sm">{err}</p>}
       <button disabled={busy} onClick={() => sure ? take() : setSure(true)} className="w-full rounded-xl py-3 font-bold bg-amber-400/15 text-amber-300 disabled:opacity-40">
-        {busy ? 'Taking it…' : sure ? `Yes, take it from ${first}` : 'Take this slot (you have priority)'}</button>
+        {busy ? 'Booking…' : sure ? 'Confirm priority booking' : 'Priority booking: take this slot'}</button>
     </div>
   )
 }

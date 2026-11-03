@@ -151,7 +151,7 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE && d.kind === 'monthly' ? 'monthly' : 'extra'
   if (kind === 'monthly' && await monthlyUsed(who.email, monthOf(spot.date)) >= s.monthlySlots) throw fail('no-monthly-left')
 
-  // Top priority (Kyle) taking a slot someone else has: the holder is bumped (cancelled, sorry note, their next request first).
+  // Top priority (Kyle) taking a slot someone else has: the holder is moved out (cancelled, neutral notice, their next request first in line).
   if (d.take === true && spot.place !== 'offsite') {
     if (!s.instantBookers.some(p => p.email === who.email) || who.email !== caller.email) throw new HttpsError('permission-denied', 'Only people with top priority can take a slot that is already booked.')
     const holder = ((await dayRefOf(spot.date).get()).data() as ScheduleDay | undefined)?.[spot.place]?.[slotKey(spot.start)]
@@ -767,10 +767,10 @@ export const answerInvite = onCall(CALLABLE, async req => {
   return { ok: true, shootId: outcome === 'accepted' ? shootRef.id : null }
 })
 
-// ─── Give it to Kyle (owner, Nov 2: "Kyle / Stromedy always wins") ──────────────────────────────────────────────
+// ─── Priority booking (owner, Nov 2: Kyle / Stromedy have priority) ──────────────────────────────────────────────
 // Someone with top priority needs a slot another creator holds. The schedule team (owner, equipment, admins) gives it:
 // the holder is MOVED to a free time that day (props and gear follow, same day) or, if no time works, their shoot is
-// CANCELLED. Either way they get a sorry notification, and after a cancel their NEXT request goes first
+// CANCELLED. Either way they get a neutral "schedule change" notice, and after a cancel their NEXT request goes first
 // (user_status.firstInLine). The slot goes to a new shoot for that person, or to their own event from Google Calendar
 // that clashed with it (clashShootId). A person on "Books without approval" can also take a slot themselves (bookShoot
 // with take: true); then the holder is cancelled the same way.
