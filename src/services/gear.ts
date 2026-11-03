@@ -32,6 +32,8 @@ export interface GearBundle {
   photos?: string[]
   pieces: BundlePiece[]
   archived?: boolean
+  housesOnly?: boolean      // offsite shoots can't take it (owner, Nov 3)
+  usualHouse?: '' | 'cliff1' | 'cliff2'   // shown first for shoots at that house
   missing?: { itemId: string; name: string; qty: number; at: string; bookingId: string }[]   // reported missing, until found
 }
 
@@ -78,13 +80,13 @@ export interface GearBooking {
   declineReason?: string
   pickup?: { at: string; by: string; missing: GearMissing[]; photos?: string[] }
   grab?: boolean   // taken on the day (grab-and-go)
-  return?: { at: string; by: string; photos: string[] }
+  return?: { at: string; by: string; photos: string[]; charging?: boolean; damage?: { itemId: string; name: string; note: string }[] }
   returnedAt?: string; returnedLate?: boolean
   // Late return fee (owner, Oct 27): value when booked, and the late record (how late, worth, who had it last).
   value?: number; valueMissing?: number
   late?: { minutes: number; dueAt: string; backAt: string; by: string; byName: string; value: number; valueMissing: number; feePercent: number }
   checkIn?: { at: string; by: string; missing: GearMissing[]; note?: string }
-  problems?: (GearMissing & { kind: 'missing_after' | 'missing_at_checkin'; at: string; reportedOn?: string })[]
+  problems?: (GearMissing & { kind: 'missing_after' | 'missing_at_checkin' | 'damaged_at_return'; at: string; reportedOn?: string; note?: string })[]
   alerts?: { kind: string; at: string; count: number }[]
   createdAt: string
   history: { at: string; by: string; action: string; note?: string }[]
@@ -120,7 +122,7 @@ export const createGearBooking = httpsCallable<{ title: string; notes?: string; 
 export const cancelGearBooking = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'cancelGearBooking')
 export const declineGearBooking = httpsCallable<{ id: string; reason: string }, { ok: boolean }>(functions, 'declineGearBooking')
 export const pickUpGear = httpsCallable<{ id: string; missing: string[]; signed: true }, { ok: boolean }>(functions, 'pickUpGear')
-export const returnGear = httpsCallable<{ id: string; photos: string[]; usedBy?: string[] }, { ok: boolean }>(functions, 'returnGear')
+export const returnGear = httpsCallable<{ id: string; photos: string[]; usedBy?: string[]; charging?: boolean; damage?: { itemId: string; name: string; note: string }[] }, { ok: boolean }>(functions, 'returnGear')
 export const checkInGear = httpsCallable<{ id: string; missing: string[]; note?: string }, { ok: boolean }>(functions, 'checkInGear')
 export const handOverGear = httpsCallable<{ id: string; toEmail: string; end: number; usedBy?: string[] }, { id: string }>(functions, 'handOverGear')
 export const takeGear = httpsCallable<{ scheduleShootId: string; title?: string; lines: { offerId: string; qty: number }[]; missing: string[]; photos: string[] }, { id: string }>(functions, 'takeGear')

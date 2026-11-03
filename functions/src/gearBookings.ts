@@ -117,8 +117,9 @@ export const takeGear = onCall(CALLABLE, async req => {
   const today = todayInStudio()
   if (holdWindow(today, GEAR_DAY_START, GEAR_DAY_START + GEAR_STEP, settings).closedDay) throw new HttpsError('failed-precondition', 'The gear room is closed today. Reserve gear the day before.', { problem: 'closed' })
   const start = Math.max(GEAR_DAY_START, Math.floor(minutesNow() / GEAR_STEP) * GEAR_STEP)
-  // The shoot's end that day (a slot that runs past midnight stops at midnight for gear).
-  const end = Math.min(GEAR_DAY_END, now.slice(0, 10) === shoot.date ? shoot.end : GEAR_DAY_END)
+  // Back by: the end of the shoot at the houses (it may go to someone else next), end of day for offsite (owner, Nov 3).
+  const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  const end = Math.min(GEAR_DAY_END, shoot.place === 'offsite' ? Math.max(sch.gearOffsiteBackBy, now.slice(0, 10) === shoot.date ? shoot.end : 0) : now.slice(0, 10) === shoot.date ? shoot.end : GEAR_DAY_END)
   if (end <= start) throw new HttpsError('failed-precondition', 'It\'s too late in the day to take gear out.', { problem: 'bad-hours' })
   const { id } = await holdGear(caller, { ...d, date: today, start, end, title: str(d.title, 120) || 'Shoot' }, { take: true })
   try { await doPickup(caller, id, missingKeysIn(d.missing), photos) }
@@ -143,6 +144,11 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
       const at = gearReserveOpensAt(from, hours)
       throw new HttpsError('failed-precondition', `You can reserve gear from ${hours} hours before your shoot (${at.slice(5, 10).replace('-', '/')} ${fmtTime(Number(at.slice(11, 13)) * 60 + Number(at.slice(14, 16)))}). Or just take what's free on the day.`, { problem: 'too-early' })
     }
+  }
+  // Offsite shoots bring reserved gear back by the end of the day (house shoots: when the shoot ends).
+  if (shoot && shoot.place === 'offsite' && booksLikeCreator(caller) && !opts.take && Number.isInteger(d.end)) {
+    const backBy = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data()).gearOffsiteBackBy
+    if (backBy > d.end) d = { ...d, end: Math.min(GEAR_DAY_END, backBy) }
   }
   const today = todayInStudio()
   const problem = opts.take ? null : checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, !booksLikeCreator(caller))
@@ -171,6 +177,8 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
     const out = lines.map((l, i) => {
       const o = offers[i]
       if (!o.exists || o.get('archived') === true) throw new HttpsError('failed-precondition', 'One of these is no longer offered. Remove it and try again.')
+      if (o.get('housesOnly') === true && shoot?.place === 'offsite' && booksLikeCreator(caller))
+        throw new HttpsError('failed-precondition', `"${o.get('name')}" stays at the houses for house shoots. Pick another kit for an offsite shoot.`, { problem: 'houses-only' })
       const kind = byCount(o.get('kind')) ? 'extra' : 'bundle'   // single items book like extras (by count)
       const pieces = (o.get('pieces') as { itemId: string; qty: number; name?: string }[] | undefined) ?? []
       const offered = kind === 'extra' ? (pieces[0]?.qty ?? 0) : 1
@@ -454,6 +462,11 @@ function whoUsed(b: FirebaseFirestore.DocumentData, usedIn: string[] | null) {
   const nameOf = (e: string) => e === b.creatorEmail ? String(b.creatorName ?? e) : crew.find(c => c.email === e)?.name ?? e
   return { usedBy, usedByNames: usedBy.map(nameOf), usedNote: crew.length ? `Used by ${usedBy.map(e => nameOf(e).split(' ')[0]).join(', ')}` : '' }
 }
+// Damage reported at a return: [{itemId?, name, note}] (≤20, short text).
+function damageIn(v: unknown) {
+  if (!Array.isArray(v)) return []
+  return v.slice(0, 20).map((x: any) => ({ itemId: typeof x?.itemId === 'string' ? x.itemId.slice(0, 60) : '', name: str(x?.name, 80) || 'A piece', note: str(x?.note, 200) }))
+}
 const emailsIn = (v: unknown) => Array.isArray(v) ? v.filter((e: unknown): e is string => typeof e === 'string').slice(0, 10) : null
 
 // Bringing it back: one photo of everything in the case with the batteries charging.
@@ -464,6 +477,9 @@ export const returnGear = onCall(CALLABLE, async req => {
   const photos = Array.isArray(req.data?.photos) ? req.data.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take the return photo first: everything in the case, batteries plugged in.')
   const usedIn = emailsIn(req.data?.usedBy)
+  // Owner, Nov 3: report anything broken at the return (piece + what's wrong), and confirm the charging case is plugged in.
+  const damage = damageIn(req.data?.damage)
+  const charging = req.data?.charging === true
   const ref = db.doc(`gear_bookings/${id}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
@@ -479,9 +495,10 @@ export const returnGear = onCall(CALLABLE, async req => {
     const late = lateRecord(b, at, lastHolder(b, caller))
     tx.update(ref, {
       status: 'returned', updatedAt: now, returnedAt: at, returnedLate: !!late, ...(late ? { late } : {}),
-      return: { at: now, by: caller.email, photos },
+      return: { at: now, by: caller.email, photos, charging, ...(damage.length ? { damage } : {}) },
       usedBy, usedByNames,
-      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote ? { note: [late ? `Returned late (${lateText(late.minutes)} after the end time)` : '', usedNote].filter(Boolean).join(' · ') } : {}) }),
+      ...(damage.length ? { problems: FieldValue.arrayUnion(...damage.map(x => ({ kind: 'damaged_at_return', name: x.name, note: x.note, itemId: x.itemId, at: now, reportedBy: caller.email, usedBy }))) } : {}),
+      history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote || damage.length ? { note: [late ? `Returned late (${lateText(late.minutes)} after the end time)` : '', usedNote, damage.length ? `Damage reported: ${damage.map(x => `${x.name}${x.note ? ` (${x.note})` : ''}`).join(', ')}` : ''].filter(Boolean).join(' · ') } : {}) }),
     })
   })
   return { ok: true }

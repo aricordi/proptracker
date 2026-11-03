@@ -11,6 +11,9 @@ import { useActiveShoot, useCutoffs, useGearWindow } from '../activeShoot'
 import { useReturnGroups, returnCount } from '../hooks/useReturnables'
 import ProofPhotos from './ProofPhotos'
 import UnsentBasket from './UnsentBasket'
+import ReturnFlow from './ReturnFlow'
+import { subscribeToReservations, confirmPickup, type Reservation } from '../services/reservations'
+import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
@@ -43,6 +46,9 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
   const invites = useMyInvites(email)
   const status = useMyStatus(email)
   const returns = useReturnGroups(email)
+  // Props packed and waiting for you: sign for them right here (owner, Nov 3: report missing props at pickup in the chat).
+  const [packed, setPacked] = useState<Reservation[]>([])
+  useEffect(() => subscribeToReservations({ email, all: false }, list => setPacked(list.filter(r => r.status === 'packed' && r.startDate <= addDays(todayInStudio(), 1)))), [email])
   const [params] = useSearchParams()
   const focus = params.get('shoot')
 
@@ -98,12 +104,8 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
           <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={gold}>Explain what happened</button>
         </div>
       ))}
-      {backCount > 0 && (
-        <div className={card}>
-          <p className="text-[15px]"><b>You have {backCount === 1 ? 'something' : `${backCount} things`} to bring back.</b> One photo for everything.</p>
-          <button onClick={() => navigate('/return')} className={gold}>Return everything</button>
-        </div>
-      )}
+      {(returns ?? []).length > 0 && <ReturnCard groups={returns!} count={backCount} label={label} />}
+      {packed.map(r => <PickupCard key={r.id} r={r} />)}
       {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => (
         <div key={`b${x.id}`} className={card}>
           <p className="text-[15px]"><b>Schedule change.</b> {x.status === 'cancelled'
@@ -216,6 +218,68 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
         onClick={() => run(() => checkInShoot({ id: shoot.id, photos, ...((over || clean === false) ? { report: { overMinutes: over || undefined, mess: clean === false, photos: messPhotos, ...(note.trim() ? { note: note.trim() } : {}) } } : {}) }))}>
         {busy ? 'Checking in…' : !photos.length ? 'Take the photo first' : !askedBefore ? 'Answer the questions above' : (over || clean === false) ? 'Check in and tell the team' : 'Check in'}
       </button>
+    </div>
+  )
+}
+
+// Bringing things back, right in the chat: one question at a time (ReturnFlow).
+function ReturnCard({ groups, count, label }: { groups: ReturnGroup[]; count: number; label: (x: Shoot) => string }) {
+  const [open, setOpen] = useState(false)
+  const [pick, setPick] = useState(0)
+  const [done, setDone] = useState(0)
+  const g = groups[Math.min(pick, groups.length - 1)]
+  if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">Returned ✓ The team will check it in. Thanks!</p></div>
+  return (
+    <div className={card}>
+      <p className="text-[15px]"><b>You have {count === 1 ? 'something' : `${count} things`} to bring back.</b> A few taps and one photo.</p>
+      {!open ? <button onClick={() => setOpen(true)} className={gold}>Return it now</button> : <>
+        {groups.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">{groups.map((x, i) => (
+            <button key={x.key} onClick={() => setPick(i)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-[13px] ${i === pick ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.shoot ? label(x.shoot) : formatDay(x.date)}</button>))}
+          </div>
+        )}
+        <ReturnFlow key={g.key} group={g} compact onDone={setDone} />
+      </>}
+    </div>
+  )
+}
+
+// Props are packed: pick them up and say if anything is missing (tap the props), no screen to find.
+function PickupCard({ r }: { r: Reservation }) {
+  const [missing, setMissing] = useState<Record<string, number> | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [done, setDone] = useState('')
+  async function sign(all: boolean) {
+    setBusy(true); setErr('')
+    try {
+      const list = Object.entries(missing ?? {}).map(([itemId, qty]) => ({ itemId, qty }))
+      await confirmPickup({ id: r.id, allReceived: all, ...(all ? {} : { missing: list }) })
+      setDone(all ? 'Picked up ✓ Enjoy the shoot.' : 'Picked up ✓ The props team knows what was missing.')
+    } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
+  }
+  if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">{done}</p></div>
+  return (
+    <div className={card}>
+      <p className="text-[15px]"><b>Your props for "{r.title}" are packed.</b> Picking them up? Check everything is there, then sign.</p>
+      {missing === null ? (
+        <div className="grid grid-cols-2 gap-2">
+          <button disabled={busy} onClick={() => sign(true)} className={gold}>Got everything</button>
+          <button disabled={busy} onClick={() => setMissing({})} className={grey}>Something's missing</button>
+        </div>
+      ) : <>
+        <p className="text-pt-muted text-[13px]">Tap what's missing.</p>
+        <div className="flex flex-wrap gap-2">{r.lines.map(l => {
+          const on = l.itemId in missing
+          return <button key={l.itemId} onClick={() => setMissing(m => { const n = { ...(m ?? {}) }; if (on) delete n[l.itemId]; else n[l.itemId] = l.qty; return n })}
+            className={`px-3 min-h-[40px] rounded-full text-[14px] ${on ? 'bg-amber-400 text-stone-900 font-semibold' : 'bg-pt-border'}`}>{l.itemName}{l.qty > 1 ? ` ×${l.qty}` : ''}</button>
+        })}</div>
+        <div className="grid grid-cols-2 gap-2">
+          <button disabled={busy || !Object.keys(missing).length} onClick={() => sign(false)} className={gold}>{busy ? 'Signing…' : 'Sign without them'}</button>
+          <button disabled={busy} onClick={() => setMissing(null)} className={grey}>Back</button>
+        </div>
+      </>}
+      {err && <p className="text-red-300 text-sm">{err}</p>}
     </div>
   )
 }

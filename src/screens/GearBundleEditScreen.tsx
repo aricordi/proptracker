@@ -24,6 +24,8 @@ export default function GearBundleEditScreen() {
   const [name, setName] = useState('')
   const [category, setCategory] = useState<GearCategory>('Camera')
   const [description, setDescription] = useState('')
+  const [housesOnly, setHousesOnly] = useState(false)
+  const [usualHouse, setUsualHouse] = useState<'' | 'cliff1' | 'cliff2'>('')
   const [photos, setPhotos] = useState<string[]>([])
   const [pick, setPick] = useState<Record<string, number>>({})
   const [q, setQ] = useState('')
@@ -38,7 +40,7 @@ export default function GearBundleEditScreen() {
     if (isNew || loaded || !bundles) return
     const b = bundles.find(x => x.id === id)
     if (!b) return
-    setName(b.name); setKind(b.kind ?? 'bundle'); setCategory(b.category); setDescription(b.description ?? ''); setPhotos(b.photos ?? [])
+    setName(b.name); setKind(b.kind ?? 'bundle'); setCategory(b.category); setDescription(b.description ?? ''); setHousesOnly(!!b.housesOnly); setUsualHouse(b.usualHouse ?? ''); setPhotos(b.photos ?? [])
     setPick(Object.fromEntries(b.pieces.map(p => [p.itemId, p.qty])))
     setLoaded(true)
   }, [bundles, id, isNew, loaded])
@@ -61,7 +63,7 @@ export default function GearBundleEditScreen() {
   async function save() {
     setBusy(true); setError(null)
     try {
-      await saveGearBundle({ id: isNew ? undefined : id, kind, name, category, description, photos, pieces })
+      await saveGearBundle({ id: isNew ? undefined : id, kind, name, category, description, photos, pieces, housesOnly, usualHouse })
       navigate('/gear/bundles', { replace: true })
     } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
@@ -106,6 +108,16 @@ export default function GearBundleEditScreen() {
             </select></label>
           <label className="block space-y-1"><span className={label}>Description for creators</span>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional: what it's good for" className={input} /></label>
+          {!isExtra && <>
+            <button type="button" role="switch" aria-checked={housesOnly} onClick={() => setHousesOnly(v => !v)} className="w-full flex items-center gap-3 text-left">
+              <span className="flex-1"><span className={label}>Houses only</span><span className="block text-pt-muted text-xs">On: offsite shoots can't take this kit (keep the top cameras close). Off: anyone can.</span></span>
+              <span className={`w-12 h-7 rounded-full p-0.5 transition-colors ${housesOnly ? 'bg-pt-accent' : 'bg-pt-border'}`}><span className={`block w-6 h-6 rounded-full bg-white transition-transform ${housesOnly ? 'translate-x-5' : ''}`} /></span>
+            </button>
+            <label className="block space-y-1"><span className={label}>Usual kit for</span>
+              <select value={usualHouse} onChange={e => setUsualHouse(e.target.value as '' | 'cliff1' | 'cliff2')} className={input}>
+                <option value="">No house</option><option value="cliff1">Cliff 1 shoots</option><option value="cliff2">Cliff 2 shoots</option>
+              </select><span className="block text-pt-muted text-xs">Shown first to creators filming at that house. A suggestion, not a rule.</span></label>
+          </>}
           <ProofPhotos cameraOnly={false} folder="gear/bundles" urls={photos} onChange={setPhotos} onUploading={setUploading} label={isExtra ? 'Photo' : 'Photo of the case'} hint="Creators see this" max={4} />
         </div>
 

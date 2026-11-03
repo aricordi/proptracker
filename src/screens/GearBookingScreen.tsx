@@ -188,6 +188,8 @@ export default function GearBookingScreen() {
               <p className="text-pt-muted text-sm">Due back {b.closedDay ? `${formatDay(b.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(b.end)}`} (late from {fmtTime(stampMin(gearDueBy(b.to)))}).</p>
             </div>
             {mine && <ReturnTogether kind="gear" id={b.id} />}
+            {mine && <button onClick={() => navigate(`/return?ref=gear:${b.id}`)} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Return it</button>}
+            {!mine && <>
             <ol className="bg-pt-surface rounded-2xl px-4 py-3 space-y-1 text-[15px] text-pt-text list-decimal list-inside">
               <li>Put every piece back in its case.</li>
               <li>Plug the batteries into the chargers on the shelf.</li>
@@ -197,6 +199,7 @@ export default function GearBookingScreen() {
             <UsedByPicker b={b} off={notUsing} onChange={setNotUsing} />
             <button disabled={!photos.length || uploading || busy || usedByOf(b, notUsing)?.length === 0} onClick={() => run(() => returnGear({ id: b.id, photos, usedBy: usedByOf(b, notUsing) }))}
               className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Sending…' : 'Send return'}</button>
+            </>}
             <button onClick={() => setHanding(true)} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-text font-semibold shadow-hairline">Someone else needs it now? Hand it over</button>
             <HandOverSheet b={b} open={handing} onClose={() => setHanding(false)} />
           </section>
@@ -226,11 +229,12 @@ export default function GearBookingScreen() {
           </div>
         ) : null}
 
-        {(b.pickup?.missing?.length || b.problems?.length || b.checkIn?.missing?.length) ? (
+        {(b.pickup?.missing?.length || b.problems?.length || b.checkIn?.missing?.length || b.return?.charging === false) ? (
           <div className="bg-amber-500/10 rounded-2xl px-4 py-3 space-y-1 text-[15px]">
             <p className="text-amber-200 font-medium">Problems</p>
             {b.pickup?.missing?.map((m, i) => <p key={`p${i}`} className="text-pt-text">{m.qty}× {m.name} missing at pickup</p>)}
-            {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.qty}× {m.name} {m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}</p>)}
+            {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.kind === 'damaged_at_return' ? `${m.name}: damage reported at the return${m.note ? ` ("${m.note}")` : ''}` : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}</p>)}
+            {b.return && b.return.charging === false && <p className="text-pt-text">Charging case not confirmed at the return</p>}
           </div>
         ) : null}
 

@@ -144,6 +144,7 @@ export default function ReservationDetailScreen() {
           <Section title={`Returned ${formatDay(res.returnInfo.at.slice(0, 10))} at ${time(res.returnInfo.at)}`}>
             <PhotoStrip urls={res.returnInfo.photos} title={res.returnInfo.byStaff ? 'Return photos (taken by arts dept)' : 'How the creator left it'} />
             {res.returnInfo.note && <p className="text-pt-text text-sm mt-2"><IconText name="note">{res.returnInfo.note}</IconText></p>}
+            {res.returnInfo.damaged?.length ? <p className="text-amber-200 text-sm mt-2">Damage reported: {res.returnInfo.damaged.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}</p> : null}
           </Section>
         )}
         {s === 'return_pending' && mine && <Banner tone="teal" title="Thanks! Being checked in">The arts department will check everything and let you know.</Banner>}
@@ -434,6 +435,7 @@ function ContentsList({ res }: { res: Reservation }) {
 function PickupSignOff({ res }: { res: Reservation }) {
   const [mode, setMode] = useState<'ask' | 'issue'>('ask')
   const [issue, setIssue] = useState('')
+  const [miss, setMiss] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const going = res.lines.filter(l => l.pick?.state === 'picked')
@@ -441,7 +443,7 @@ function PickupSignOff({ res }: { res: Reservation }) {
 
   async function sign(allReceived: boolean) {
     setBusy(true); setError(null)
-    try { await confirmPickup({ id: res.id, allReceived, ...(allReceived ? {} : { issue: issue.trim() }) }) }
+    try { await confirmPickup({ id: res.id, allReceived, ...(allReceived ? {} : { issue: issue.trim(), missing: going.filter(l => miss.has(l.itemId)).map(l => ({ itemId: l.itemId, qty: l.qty })) }) }) }
     catch (err) { setError(errText(err)) }
     finally { setBusy(false) }
   }
@@ -464,12 +466,16 @@ function PickupSignOff({ res }: { res: Reservation }) {
         </div>
       ) : (
         <div className="space-y-2">
-          <textarea value={issue} onChange={e => setIssue(e.target.value)} rows={3} maxLength={1000} autoFocus
-            placeholder="What's missing or wrong? e.g. Only 3 chairs in the bin"
+          <p className="text-pt-text text-sm">Tap what's missing:</p>
+          <div className="flex flex-wrap gap-2">{going.map(l => (
+            <button key={l.itemId} onClick={() => setMiss(m => { const n = new Set(m); if (n.has(l.itemId)) n.delete(l.itemId); else n.add(l.itemId); return n })}
+              className={`px-3 min-h-[40px] rounded-full text-[14px] ${miss.has(l.itemId) ? 'bg-amber-400 text-stone-900 font-semibold' : 'bg-pt-bg text-pt-text'}`}>{l.itemName}</button>))}</div>
+          <textarea value={issue} onChange={e => setIssue(e.target.value)} rows={2} maxLength={1000}
+            placeholder="Anything else wrong? (optional) e.g. Only 3 chairs in the bin"
             className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-sm text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent resize-none" />
           <div className="flex gap-2">
             <button onClick={() => setMode('ask')} className="flex-1 py-3 rounded-xl shadow-hairline text-pt-muted text-sm">Back</button>
-            <button onClick={() => sign(false)} disabled={busy || !issue.trim()} className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-300 text-sm font-semibold disabled:opacity-40">
+            <button onClick={() => sign(false)} disabled={busy || (!issue.trim() && !miss.size)} className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-300 text-sm font-semibold disabled:opacity-40">
               Collect & report it
             </button>
           </div>
@@ -483,6 +489,8 @@ function PickupSignOff({ res }: { res: Reservation }) {
 
 function ReturnForm({ res }: { res: Reservation }) {
   const [open, setOpen] = useState(false)
+  const navigate = useNavigate()
+  const me = useSession().profile.email
   const [photos, setPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)
   const [note, setNote] = useState('')
@@ -496,8 +504,9 @@ function ReturnForm({ res }: { res: Reservation }) {
     finally { setBusy(false) }
   }
 
+  // Creators return through the step-by-step flow (anything damaged? one photo); staff returning for them keep this form.
   if (!open) return (
-    <button onClick={() => setOpen(true)} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">
+    <button onClick={() => res.creatorEmail === me ? navigate(`/return?ref=props:${res.id}`) : setOpen(true)} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">
       Return these props
     </button>
   )

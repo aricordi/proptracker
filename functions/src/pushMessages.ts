@@ -57,8 +57,12 @@ export function reservationChange(id: string, b: Doc, a: Doc): Push[] {
   switch (a.status) {
     case 'packed': return [{ to: [a.creatorEmail], url, tag, title: 'Your props are ready 📦', body: `"${a.title}" is packed. Pick it up for your ${dayLabel(a.startDate)} shoot.` }]
     case 'declined': return [{ to: [a.creatorEmail], url, tag, title: 'Props request declined', body: a.statusReason ? `"${a.title}": ${a.statusReason}` : `"${a.title}" was declined.` }]
+    case 'collected': return a.pickup && !a.pickup.allReceived ? [{ to: ['arts-team'], url, tag, title: 'Pickup issue', body: `${a.creatorName} · "${a.title}": ${String(a.pickup.issue ?? 'something is missing').slice(0, 160)}` }] : []
     case 'cancelled': return lastBy(a) !== a.creatorEmail ? [{ to: [a.creatorEmail], url, tag, title: 'Props request cancelled', body: `"${a.title}" was cancelled by the team.` }] : []
-    case 'return_pending': return [{ to: ['arts-team'], url, tag, title: 'Props returned', body: `${a.creatorName}'s "${a.title}" is back. Check it in.` }]
+    case 'return_pending': {
+      const dmg = ((a.returnInfo?.damaged ?? []) as { name: string; note?: string }[])
+      return [{ to: ['arts-team'], url, tag, title: dmg.length ? 'Props returned · damage reported' : 'Props returned', body: `${a.creatorName}'s "${a.title}" is back.${dmg.length ? ` Damaged: ${dmg.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}.` : ''} Check it in.` }]
+    }
     default: return []
   }
 }
@@ -101,7 +105,8 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
       // Shared gear: tell the others who was marked as using it, so nobody's put on (or left off) without knowing.
       const by = lastBy(a) ?? '', others = all.length > 1 ? all.filter(e => e !== by) : []
       const used = ((a.usedByNames ?? []) as string[]).map(n => n.split(' ')[0]).join(', ')
-      return [{ to: ['gear-team'], url, tag, title: 'Gear returned', body: `${a.creatorName}'s "${a.title}" is back. Check it in.` },
+      const dmg = ((a.return?.damage ?? []) as { name: string; note?: string }[])
+      return [{ to: ['gear-team'], url, tag, title: dmg.length ? 'Gear returned · damage reported' : 'Gear returned', body: `${a.creatorName}'s "${a.title}" is back.${dmg.length ? ` Damaged: ${dmg.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}.` : ''}${a.return?.charging === false ? ' Charging case not confirmed.' : ''} Check it in.` },
         ...(others.length ? [{ to: others, url, tag, title: 'Shared gear returned', body: `"${a.title}" is back. Marked as used by: ${used || 'nobody'}. Not right? Tell the equipment team.` }] : [])]
     }
     default: return []

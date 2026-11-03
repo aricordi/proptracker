@@ -137,6 +137,11 @@ export default function ScheduleSettingsScreen() {
             <span className="text-pt-muted text-sm">hours before a shoot creators can reserve gear</span>
           </div>
           <p className="text-pt-muted text-xs">Before that it's first come, first served: on the shoot day (from an hour before) they take what's free, tick every piece and take one photo.</p>
+          <label className="flex items-center gap-3 text-sm"><span className="flex-1 text-pt-text">Offsite shoots bring gear back by</span>
+            <select value={s.gearOffsiteBackBy} onChange={e => set({ gearOffsiteBackBy: Number(e.target.value) })} className="bg-pt-bg text-pt-text rounded-xl px-3 min-h-[44px]">
+              {[1080, 1140, 1200, 1260, 1320, 1380, 1440].map(m => <option key={m} value={m}>{m === 1440 ? 'End of day (midnight)' : fmtTime(m)}</option>)}
+            </select></label>
+          <p className="text-pt-muted text-xs">House shoots bring it back when the shoot ends (it may go to the next person). Late = 30 minutes after either.</p>
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">

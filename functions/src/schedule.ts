@@ -35,6 +35,7 @@ export interface ScheduleSettings {
   strikeDays: number       // …within this many days…
   pauseDays: number        // …pause prop bookings for this many days
   gearReserveHours: number // creators can reserve gear this many hours before their shoot (grab-and-go, Nov 2)
+  gearOffsiteBackBy: number // OFFSITE shoots bring gear back by this time that day (minutes; 1440 = end of day). House shoots: end of the shoot (owner, Nov 3)
 }
 
 // Owner decisions, Oct 16: 9 slots from 7–9 AM to 11 PM–1 AM, 4 monthly Cliff 1 slots,
@@ -61,6 +62,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   strikeDays: 30,
   pauseDays: 14,
   gearReserveHours: 24,
+  gearOffsiteBackBy: 1440,
 }
 export const MONTHLY_HOUSE: House = 'cliff1'
 export const PRIORITY_HOUSE: House = 'cliff1'
@@ -106,6 +108,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
       : [],
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     gearReserveHours: int(x.gearReserveHours, 1, 336, D.gearReserveHours),
+    gearOffsiteBackBy: Number.isInteger(x.gearOffsiteBackBy) && x.gearOffsiteBackBy >= 600 && x.gearOffsiteBackBy <= 1440 && x.gearOffsiteBackBy % 30 === 0 ? x.gearOffsiteBackBy : D.gearOffsiteBackBy,
     explainHours: int(x.explainHours, 0, 168, D.explainHours),
     strikeCount: int(x.strikeCount, 1, 20, D.strikeCount),
     strikeDays: int(x.strikeDays, 1, 365, D.strikeDays),

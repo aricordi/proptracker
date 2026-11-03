@@ -38,8 +38,8 @@ export interface Reservation {
   packNote?: string
   packedAt?: string
   packedBy?: string
-  pickup?: { at: string; by: string; allReceived: boolean; issue?: string }
-  returnInfo?: { at: string; by: string; photos: string[]; note?: string; byStaff?: boolean }
+  pickup?: { at: string; by: string; allReceived: boolean; issue?: string; missing?: { itemId: string; qty: number; name: string }[] }
+  returnInfo?: { at: string; by: string; photos: string[]; note?: string; byStaff?: boolean; damaged?: { itemId: string; note: string; name: string }[] }
   checkInPhotos?: string[]
   checkedInAt?: string
   checkedInBy?: string
@@ -118,8 +118,8 @@ type Ok = { ok: boolean }
 export const setLinePick    = httpsCallable<{ id: string; itemId: string; state: 'picked' | 'todo' | 'unavailable'; reason?: string }, Ok>(functions, 'setLinePick')
 export const setBuildState  = httpsCallable<{ id: string; buildId: string; state: 'todo' | 'done' | 'unavailable'; reason?: string }, Ok>(functions, 'setBuildState')
 export const markPacked     = httpsCallable<{ id: string; photos: string[]; note?: string }, Ok>(functions, 'markPacked')
-export const confirmPickup  = httpsCallable<{ id: string; allReceived: boolean; issue?: string }, Ok>(functions, 'confirmPickup')
-export const startReturn    = httpsCallable<{ id: string; photos: string[]; note?: string }, Ok>(functions, 'startReturn')
+export const confirmPickup  = httpsCallable<{ id: string; allReceived: boolean; issue?: string; missing?: { itemId: string; qty: number }[] }, Ok>(functions, 'confirmPickup')
+export const startReturn    = httpsCallable<{ id: string; photos: string[]; note?: string; damaged?: { itemId: string; note: string }[] }, Ok>(functions, 'startReturn')
 export const checkIn        = httpsCallable<{
   id: string
   lines: { itemId: string; result: 'ok' | 'damaged' | 'missing'; missingQty?: number; note?: string }[]

@@ -41,7 +41,8 @@ export default function GearShopScreen() {
     [o.name, o.category, o.description ?? '', ...o.pieces.map(p => p.name ?? '')].join(' ').toLowerCase().includes(wd))
   const all = (offers ?? []).filter(o => !o.archived)
   const live = all.filter(matches)
-  const bundles = live.filter(o => (o.kind ?? 'bundle') === 'bundle')
+  // The usual kit for the shoot's house first (owner, Nov 3: a suggestion, not a rule).
+  const bundles = live.filter(o => (o.kind ?? 'bundle') === 'bundle').sort((a, b) => Number(!!shoot && b.usualHouse === shoot.place) - Number(!!shoot && a.usualHouse === shoot.place))
   const extras = live.filter(o => byCount(o.kind))
   const cats = useMemo(() => [...new Set(all.map(b => b.category))].sort(), [all.map(o => o.category).join()])   // eslint-disable-line react-hooks/exhaustive-deps
   const note = useAddingNote('gear')
@@ -110,9 +111,10 @@ export default function GearShopScreen() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {bundles.map(b => {
-                const ok = !problem && free(b) > 0, inCart = !!cart.lines[b.id]
+                const homeOnly = creator && !!b.housesOnly && shoot?.place === 'offsite'
+                const ok = !problem && !homeOnly && free(b) > 0, inCart = !!cart.lines[b.id]
                 // Same badge colours as props: green = free/available, red = taken, amber = something missing.
-                const badge = showFree && !problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
+                const badge = homeOnly ? { label: 'Houses only', style: 'bg-black/70 text-white' } : showFree && !problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
                   : b.missing?.length ? { label: 'Piece missing', style: 'bg-amber-500/90 text-stone-900' } : { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
                 const canAdd = creator && !!shoot && ok && !note.late
                 const askShoot = creator && !shoot && canBook && !b.archived
@@ -127,6 +129,7 @@ export default function GearShopScreen() {
                       </div>
                       <div className="px-3 pt-2 pb-3">
                         <p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{b.name}</p>
+                        {shoot && b.usualHouse === shoot.place && <p className="text-pt-accent text-xs font-semibold mt-0.5">Usual for {shoot.place === 'cliff1' ? 'Cliff 1' : 'Cliff 2'}</p>}
                         <p className="text-pt-muted text-xs truncate mt-0.5">{b.category}{showFree && ok && !problem ? (takeWin ? ' · free now' : ` · free ${fmtHours(w.start, w.end)}`) : ''}</p>
                         {b.missing?.length ? <p className="text-amber-200 text-xs mt-0.5">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
                       </div>

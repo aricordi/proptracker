@@ -533,20 +533,26 @@ async function setOut(tx: Transaction, reservationId: string, itemIds: string[],
 export const confirmPickup = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const allReceived = req.data?.allReceived === true
-  const issue = text(req.data?.issue, 1000)
-  if (!allReceived && !issue) throw new HttpsError('invalid-argument', 'Say what is missing or wrong.')
+  // Owner, Nov 3: report missing props at pickup by tapping them (missing: [{itemId, qty}]), with or without words.
+  const missingIn: { itemId: string; qty: number }[] = Array.isArray(req.data?.missing) ? req.data.missing.slice(0, 50)
+    .map((m: any) => ({ itemId: String(m?.itemId ?? '').slice(0, 60), qty: Math.max(1, Math.min(99, Number(m?.qty) || 1)) })).filter((m: { itemId: string }) => m.itemId) : []
+  let issue = text(req.data?.issue, 1000)
+  if (!allReceived && !issue && !missingIn.length) throw new HttpsError('invalid-argument', 'Say what is missing or wrong.')
 
   await db.runTransaction(async tx => {
     const r = await loadForUpdate(tx, req.data?.id)
     // The point is the creator's own confirmation, so only they can sign.
     if (r.res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Only the person who booked can confirm pickup.')
     requireStatus(r.res, ['packed'])
+    const lineName = (id: string) => String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === id)?.itemName ?? 'a prop')
+    const missing = missingIn.filter(m => (r.res.itemIds ?? []).includes(m.itemId)).map(m => ({ ...m, name: lineName(m.itemId) }))
+    if (missing.length) issue = [`Missing: ${missing.map(m => `${m.qty > 1 ? `${m.qty}× ` : ''}${m.name}`).join(', ')}`, issue].filter(Boolean).join(' · ')
     const markOut = await setOut(tx, r.id, r.res.itemIds ?? [], true)
     const now = new Date().toISOString()
     markOut()
     tx.update(r.ref, {
       status: 'collected',
-      pickup: { at: now, by: caller.email, allReceived, ...(issue ? { issue } : {}) },
+      pickup: { at: now, by: caller.email, allReceived: allReceived && !missing.length, ...(issue ? { issue } : {}), ...(missing.length ? { missing } : {}) },
       updatedAt: now,
       history: historyWith(r.res, { status: 'collected', at: now, by: caller.email, ...(issue ? { reason: `Reported at pickup: ${issue}` } : {}) }),
     })
@@ -561,6 +567,9 @@ export const startReturn = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   const photos = cleanPhotos(req.data?.photos, { min: 1, max: 20 })
   const note = text(req.data?.note, 1000)
+  // Owner, Nov 3: report damage at the return by tapping the prop + what's wrong (damaged: [{itemId, note}]).
+  const damagedIn: { itemId: string; note: string }[] = Array.isArray(req.data?.damaged) ? req.data.damaged.slice(0, 50)
+    .map((m: any) => ({ itemId: String(m?.itemId ?? '').slice(0, 60), note: text(m?.note, 200) })).filter((m: { itemId: string }) => m.itemId) : []
 
   await db.runTransaction(async tx => {
     const r = await loadForUpdate(tx, req.data?.id)
@@ -571,7 +580,8 @@ export const startReturn = onCall(CALLABLE, async req => {
     markBack()
     tx.update(r.ref, {
       status: 'return_pending',
-      returnInfo: { at: now, by: caller.email, photos, ...(note ? { note } : {}), byStaff: r.res.creatorEmail !== caller.email },
+      returnInfo: { at: now, by: caller.email, photos, ...(note ? { note } : {}), byStaff: r.res.creatorEmail !== caller.email,
+        ...(damagedIn.length ? { damaged: damagedIn.filter(d => (r.res.itemIds ?? []).includes(d.itemId)).map(d => ({ ...d, name: String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === d.itemId)?.itemName ?? 'a prop') })) } : {}) },
       updatedAt: now,
       history: historyWith(r.res, { status: 'return_pending', at: now, by: caller.email }),
     })

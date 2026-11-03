@@ -122,6 +122,8 @@ export const saveGearBundle = onCall(CALLABLE, async req => {
     writeItemOffers(tx, touched, new Map(items.docs.map(i => [i.id, i.data()])), after, offerMap(bundles), itemHolds, caller.email)
     tx.set(ref, {
       name, kind, category: category(d.category), description: str(d.description, 500), photos: photosOf(d.photos),
+      // Owner, Nov 3 (from Maanik): the top cameras stay close for house shoots (on/off per kit), and a kit can be the usual one for a house.
+      housesOnly: d.housesOnly === true, usualHouse: d.usualHouse === 'cliff1' || d.usualHouse === 'cliff2' ? d.usualHouse : '',
       // Each piece carries its name and value so creators can see what's in the case and what it's worth.
       pieces: pieces.map(p => { const it = items.docs.find(i => i.id === p.itemId); return { ...p, name: String(it?.get('name') ?? ''), value: valueOf(it?.get('value')) } }),
       archived: false, updatedAt: now, updatedBy: caller.email,
