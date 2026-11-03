@@ -15,10 +15,11 @@ import {
   useScheduleSettings, useScheduleDays, useShootsSince, useAllStatuses, decideBooking, fmtSlot, slotState,
   BLOCK_TYPES, type House, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus,
 } from '../services/schedule'
-import { waitingRequests, factsFor, reqKey, placeName, ago, partnerLine, REASONS, type Req } from '../desk/requestFacts'
+import { waitingRequests, sortReqs, factsFor, reqKey, placeName, ago, partnerLine, REASONS, type Req } from '../desk/requestFacts'
 import { collabPairs } from '../lib/collabs'
 import { useDesk } from '../desk/desk'
 import DeskApprovals from '../desk/DeskApprovals'
+import { GiveSlotSheet, ClashList, useCalendarClashes, type GiveTarget } from '../components/GiveSlotSheet'
 
 
 export default function ApprovalsScreen() {
@@ -33,11 +34,13 @@ export default function ApprovalsScreen() {
   const [month, setMonth] = useState(today.slice(0, 7))
   const [dayOpen, setDayOpen] = useState<string | null>(null)
 
-  const reqs: Req[] = useMemo(() => waitingRequests(shoots ?? [], now).sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start),
-    [shoots, now.slice(0, 15)])   // eslint-disable-line react-hooks/exhaustive-deps
+  const reqs: Req[] = useMemo(() => sortReqs(waitingRequests(shoots ?? [], now), statuses),
+    [shoots, statuses, now.slice(0, 15)])   // eslint-disable-line react-hooks/exhaustive-deps
+  const clashes = useCalendarClashes(days, s)
+  const [give, setGive] = useState<GiveTarget | null>(null)
   const pairs = useMemo(() => collabPairs(shoots ?? []), [shoots])
   const desk = useDesk()
-  if (desk.on) return <DeskApprovals reqs={reqs} shoots={shoots} days={days} statuses={statuses} pairs={pairs} />
+  if (desk.on) return <DeskApprovals reqs={reqs} shoots={shoots} days={days} statuses={statuses} pairs={pairs} clashes={clashes} />
 
   return (
     <div className="min-h-full bg-pt-bg pb-12">
@@ -46,6 +49,7 @@ export default function ApprovalsScreen() {
         <p className="text-pt-muted text-sm">{reqs.length === 0 ? 'Nothing waiting. New requests show up here.' : `${reqs.length} waiting for a yes or no, soonest first.`}</p>
       </div>
       <div className="px-4 space-y-6">
+        <ClashList items={clashes} s={s} onGive={setGive} />
         <section className="bg-pt-surface shadow-hairline rounded-2xl p-3">
           <div className="flex items-center justify-between mb-2">
             <button aria-label="Previous month" disabled={month <= today.slice(0, 7)} onClick={() => setMonth(monthAdd(month, -1))} className="w-10 h-10 rounded-full bg-pt-bg text-pt-accent text-xl disabled:opacity-30">‹</button>
@@ -57,10 +61,13 @@ export default function ApprovalsScreen() {
 
         <section className="space-y-3">
           {reqs.map(r => <RequestCard key={reqKey(r)} r={r} s={s} days={days} shoots={shoots ?? []} pairs={pairs} status={statuses[r.shoot.creatorEmail]} today={today} now={now}
-            onDay={() => { setMonth(r.date.slice(0, 7)); setDayOpen(r.date) }} onPerson={() => navigate(`/people/${encodeURIComponent(r.shoot.creatorEmail)}`)} />)}
+            onDay={() => { setMonth(r.date.slice(0, 7)); setDayOpen(r.date) }} onPerson={() => navigate(`/people/${encodeURIComponent(r.shoot.creatorEmail)}`)}
+            onGive={r.place !== 'offsite' && !r.move ? () => setGive({ date: r.date, house: r.place as House, start: r.start, holder: { name: r.shoot.creatorName, email: r.shoot.creatorEmail } }) : undefined} />)}
         </section>
       </div>
-      {dayOpen && <DaySheet date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)} />}
+      {dayOpen && <DaySheet date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)}
+        onGive={(h, st, e) => { setDayOpen(null); setGive({ date: dayOpen, house: h, start: st, holder: { name: e.name, email: e.email ?? '' } }) }} />}
+      {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
     </div>
   )
 }
@@ -68,9 +75,9 @@ export default function ApprovalsScreen() {
 export const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300', amber: 'bg-amber-400/15 text-amber-300', green: 'bg-green-400/10 text-green-300',
   gold: 'bg-pt-accent/15 text-pt-accent', muted: 'bg-pt-bg text-pt-muted' }
 
-function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onPerson }: {
+function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onPerson, onGive }: {
   r: Req; s: ScheduleSettings; days: Record<string, ScheduleDay> | null; shoots: Shoot[]; pairs: ReturnType<typeof collabPairs>; status?: UserStatus; today: string; now: string
-  onDay: () => void; onPerson: () => void
+  onDay: () => void; onPerson: () => void; onGive?: () => void
 }) {
   const sh = r.shoot, email = sh.creatorEmail
   const [denying, setDenying] = useState(false)
@@ -113,6 +120,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
           <div className="flex gap-2">
             <button disabled={busy} onClick={() => decide(true)} className="flex-1 min-h-[44px] rounded-xl bg-green-500/15 text-green-400 font-semibold disabled:opacity-40">Approve</button>
             <button disabled={busy} onClick={() => setDenying(true)} className="flex-1 min-h-[44px] rounded-xl bg-red-500/10 text-red-300 font-semibold disabled:opacity-40">Deny</button>
+            {onGive && s.instantBookers.length > 0 && <button disabled={busy} onClick={onGive} className="shrink-0 px-3 min-h-[44px] rounded-xl bg-pt-bg text-pt-accent text-[13px] font-semibold">Give to {s.instantBookers[0].name.split(' ')[0]}…</button>}
           </div>
         ) : (
           <div className="space-y-2">
@@ -130,10 +138,11 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
 }
 
 // One day, both houses side by side: who has each time, requests dashed. Offsite shoots and blocks underneath.
-function DaySheet({ date, day, s, email, now, reqs, onClose }: { date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void }) {
+function DaySheet({ date, day, s, email, now, reqs, onClose, onGive }: { date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
+  onGive: (h: House, start: number, e: { name: string; email?: string }) => void }) {
   const cell = (h: House, st: number) => {
     const x = slotState(day, date, h, st, s, email, now, true)
-    if (x.t === 'booked') return <span className={`block truncate rounded-lg px-2 py-1 text-[13px] ${x.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{x.entry.name}</span>
+    if (x.t === 'booked') return <button onClick={() => onGive(h, st, x.entry)} title="Give this slot to someone with priority" className={`block w-full text-left truncate rounded-lg px-2 py-1 text-[13px] ${x.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{x.entry.name}</button>
     if (x.t === 'block') return <span className="block truncate text-pt-muted text-[13px] px-2">{x.block.note || BLOCK_TYPES[x.block.type]}</span>
     if (x.t === 'held') return <span className="block truncate text-amber-300 text-[13px] px-2">Held · {x.entry.name}</span>
     if (x.t === 'past') return <span className="block text-pt-muted text-[13px] px-2">—</span>
@@ -142,6 +151,7 @@ function DaySheet({ date, day, s, email, now, reqs, onClose }: { date: string; d
   return (
     <BottomSheet open onClose={onClose} title={formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}>
       {reqs.length > 0 && <p className="text-amber-300 text-sm mb-2">{reqs.length} request{reqs.length === 1 ? '' : 's'} waiting this day (dashed).</p>}
+      <p className="text-pt-muted text-xs mb-2">Tap a name to give that slot to someone with priority (e.g. Kyle).</p>
       <div className="grid grid-cols-[84px_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
         <span /><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff1.name}</span><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff2.name}</span>
         {s.slots.map(st => [

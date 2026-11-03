@@ -1,4 +1,5 @@
 import { Icon } from '../components/Icon'
+import { friendlyError } from '../lib/errors'
 import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
 import { SwapAsk, InviteAsk } from '../components/ScheduleAsks'
 import { useEffect, useMemo, useState } from 'react'
@@ -312,6 +313,9 @@ export default function ScheduleScreen() {
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
           {(mine ?? []).some(x => x.place !== 'offsite' && x.from > now) && (
             <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
+          )}
+          {s.instantBookers.some(p => p.email === profile.email) && !s.instantBookers.some(p => p.email === sheet.slot.email) && (
+            <TakeSlot slot={sheet.slot} onTaken={id => setSheet({ kind: 'shoot', id })} />
           )}
         </BottomSheet>
       )}
@@ -1123,3 +1127,25 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
 }
 
 // Someone invited you to film right after them: the slot is held for you for 20 minutes.
+
+// Top priority (Kyle, owner Nov 2: "can take any slot"): take a slot someone else has. They're cancelled with a sorry
+// note (no strike) and their next request goes first.
+function TakeSlot({ slot, onTaken }: { slot: TheirSlot; onTaken: (id: string) => void }) {
+  const [sure, setSure] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const first = slot.name.split(' ')[0]
+  async function take() {
+    setBusy(true); setErr('')
+    try { const r = await bookShoot({ place: slot.house, date: slot.date, start: slot.start, take: true }); onTaken(r.data.id) }
+    catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
+  }
+  return (
+    <div className="mt-4 space-y-2">
+      {sure && <p className="text-amber-300 text-sm">{first} loses this slot (no strike), gets a sorry notification, and their next request goes first.</p>}
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+      <button disabled={busy} onClick={() => sure ? take() : setSure(true)} className="w-full rounded-xl py-3 font-bold bg-amber-400/15 text-amber-300 disabled:opacity-40">
+        {busy ? 'Taking it…' : sure ? `Yes, take it from ${first}` : 'Take this slot (you have priority)'}</button>
+    </div>
+  )
+}

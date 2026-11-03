@@ -488,8 +488,8 @@ async function applyImports(list: any[], by: string) {
         if (r.clashWith.length) {
           clash = r.clashWith
           if (clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
-            await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/schedule',
-              body: `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}. Sort it out with them.` }).catch(() => 0)
+            await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
+              body: `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}. Open Requests to give the slot to ${u.name || it.email} or sort it out.` }).catch(() => 0)
           }
         }
         saved = { shootId: r.id, email: String(it.email).toLowerCase(), house: place, clashWith: clash }

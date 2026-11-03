@@ -49,7 +49,7 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
   const [ended, setEnded] = useState<Shoot[]>([])
   const [seen, setSeen] = useState<string[]>(readSeen)
   useEffect(() => onSnapshot(query(collection(db, 'shoots'), where('creatorEmail', '==', email), where('date', '>=', addDays(today, -3))),
-    snap => setEnded(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot)).filter(x => (x.status === 'denied' || x.status === 'expired')
+    snap => setEnded(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot)).filter(x => (x.status === 'denied' || x.status === 'expired' || !!x.bumped)
       && (x.updatedAt ?? '') >= new Date(Date.now() - 4 * 86400000).toISOString())), () => setEnded([])), [email, today])
   const dismiss = (id: string) => { const n = [...seen, id].slice(-50); setSeen(n); try { localStorage.setItem(SEEN_KEY, JSON.stringify(n)) } catch { /* private mode */ } }
 
@@ -96,7 +96,18 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
           <button onClick={() => navigate('/return')} className={gold}>Return everything</button>
         </div>
       )}
-      {ended.filter(x => !seen.includes(x.id)).map(x => (
+      {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => (
+        <div key={`b${x.id}`} className={card}>
+          <p className="text-[15px]"><b>Sorry, {x.bumped!.forName.split(' ')[0]} needed your slot.</b> {x.status === 'cancelled'
+            ? <>{label(x)} had to be cancelled (no strike). Your next request goes first.</>
+            : <>You're now at <b>{label(x)}</b>. Your props and gear moved with you.</>}</p>
+          <div className="flex gap-2">
+            {x.status === 'cancelled' && <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={`${gold} flex-1`}>Find another time</button>}
+            <button onClick={() => dismiss(`b${x.id}${x.bumped!.at}`)} className={x.status === 'cancelled' ? grey : `${gold} flex-1`}>Got it</button>
+          </div>
+        </div>
+      ))}
+      {ended.filter(x => !x.bumped && x.status !== 'booked' && x.status !== 'cancelled' && !seen.includes(x.id)).map(x => (
         <div key={x.id} className={card}>
           <p className="text-[15px]"><b>{x.status === 'denied' ? 'Not approved' : 'Nobody approved it in time'}:</b> {label(x)}.{x.deniedReason ? ` "${x.deniedReason}"` : ''}</p>
           <div className="flex gap-2">

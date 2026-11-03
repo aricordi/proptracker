@@ -132,6 +132,12 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'move-approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move approved ✓', body: `Your shoot is now ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'move-denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move not approved', body: `You keep ${placeName(a, s)} · ${when(a)}. ${h.note ?? ''}`.trim() }]
   if (h.action === 'expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Request ran out', body: `Nobody approved ${placeName(a, s)} · ${when(a)} in time. Request another time?` }]
+  // Bumped for someone with top priority (Kyle): a sorry, and what happens now.
+  if (h.action === 'bumped') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Sorry, your slot was needed',
+    body: a.status === 'cancelled'
+      ? `${placeName(a, s)} · ${when(a)} had to go to ${a.bumped?.forName ?? 'someone with priority'}. Your next request goes first: tap to pick another time.`
+      : `${a.bumped?.forName ?? 'Someone with priority'} needed your slot, so you're now at ${placeName(a, s)} · ${when(a)}. Props and gear moved with you.` }]
+  if (h.action === 'given') return []
   if (!h.by || h.by === a.creatorEmail) return []
   if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
   const url = `/?shoot=${id}`, tag = `shoot-${id}`

@@ -17,6 +17,11 @@ export function waitingRequests(shoots: Shoot[], now: string): Req[] {
     return []
   })
 }
+/** Soonest first, but people who lost a slot to someone with priority go first (their next request). */
+export function sortReqs(reqs: Req[], statuses: Record<string, UserStatus>) {
+  const first = (r: Req) => statuses[r.shoot.creatorEmail]?.firstInLine && !r.move ? 0 : 1
+  return [...reqs].sort((a, b) => first(a) - first(b) || a.date.localeCompare(b.date) || a.start - b.start)
+}
 export const reqKey = (r: Req) => `${r.shoot.id}${r.move ? '-m' : ''}`
 export const placeName = (p: Place, where: string, s: ScheduleSettings) => p === 'offsite' ? (where || 'Offsite') : s.houses[p].name
 export const ago = (iso: string) => {
@@ -72,6 +77,7 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
   const nextTo = neighboursOf(probe, shoots).map(x => ({ name: x.creatorName, usual: usualSet.has(x.creatorEmail) }))
 
   const flags: Facts['flags'] = []
+  if (status?.firstInLine && !r.move) flags.push({ tone: 'gold', text: `Goes first · lost a slot to ${status.firstInLine.forName.split(' ')[0]}` })
   if (paused) flags.push({ tone: 'red', text: 'Paused' })
   if (status?.strikes) flags.push({ tone: 'red', text: `${status.strikes} strike${status.strikes === 1 ? '' : 's'}` })
   if (noShows) flags.push({ tone: 'red', text: `${noShows} no-show${noShows === 1 ? '' : 's'} (30 days)` })

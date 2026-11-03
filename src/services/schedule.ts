@@ -29,6 +29,9 @@ export interface Shoot {
   explanation?: { at: string; text: string }
   outcome?: 'filmed' | 'noshow'
   noShow?: 'late-cancel' | 'missed'
+  // Given to someone with top priority (Kyle): moved (movedFrom) or cancelled.
+  bumped?: { for: string; forName: string; by: string; at: string; movedFrom?: { place: House; start: number } }
+  clash?: boolean; clashWith?: string[]
 }
 
 // A shoot that's on the schedule: approved, or a request waiting for the equipment team (owner, Nov 2).
@@ -71,7 +74,7 @@ export function useShoot(id: string | null): Shoot | null | undefined {
   return s
 }
 
-export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string }, { id: string; kind: ShootKind; status: 'booked' | 'requested' }>(functions, 'bookShoot')
+export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')
@@ -149,6 +152,8 @@ export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boole
 export const checkInShoot = httpsCallable<{ id: string; photos: string[]; report?: { overMinutes?: number; mess?: boolean; photos?: string[]; note?: string } }, { ok: boolean; reported: string | null }>(functions, 'checkInShoot')
 export const wrapShoot = httpsCallable<{ id: string; title: string }, { ok: boolean }>(functions, 'wrapShoot')
 export const explainMissedCheckIn = httpsCallable<{ id: string; text: string }, { ok: boolean }>(functions, 'explainMissedCheckIn')
+export const giveSlot = httpsCallable<{ date: string; house: House; start: number; toEmail?: string; clashShootId?: string; moveTo?: { house: House; start: number } | null; note?: string },
+  { ok: boolean; holderName: string; moved: boolean; toName: string }>(functions, 'giveSlot')
 export const decideBooking = httpsCallable<{ id: string; approve: boolean; reason?: string }, { ok: boolean }>(functions, 'decideBooking')
 export const decideShoot = httpsCallable<{ id: string; outcome: 'filmed' | 'noshow' }, { ok: boolean }>(functions, 'decideShoot')
 export const reviewReport = httpsCallable<{ id: string; uphold: boolean }, { ok: boolean }>(functions, 'reviewReport')
@@ -158,7 +163,7 @@ export const giveStrike = httpsCallable<{ email: string; about: string; note: st
 export const removeStrike = httpsCallable<{ id: string; note: string }, { ok: boolean; strikes: number; lifted: boolean }>(functions, 'removeStrike')
 export const pauseCreator = httpsCallable<{ email: string; days: number; note: string }, { ok: boolean; pausedUntil: string }>(functions, 'pauseCreator')
 
-export interface UserStatus { email: string; name?: string; strikes?: number; pausedUntil?: string | null; manualPause?: boolean; pauseNote?: string }
+export interface UserStatus { email: string; name?: string; firstInLine?: { at: string; date: string; forName: string }; strikes?: number; pausedUntil?: string | null; manualPause?: boolean; pauseNote?: string }
 export interface ScheduleReport { id: string; onShootId: string; onEmail: string; onName: string; byEmail: string; byName: string; date: string; place: Place; overMinutes: number; mess: boolean; note?: string; photos: string[]; status: string; createdAt: string }
 
 // Your strikes / pause, live.

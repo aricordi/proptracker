@@ -19,14 +19,16 @@ import {
 import { factsFor, reqKey, placeName, ago, hoursWaiting, REASONS, type Req } from './requestFacts'
 import type { Pair } from '../lib/collabs'
 import { useKeys } from './desk'
+import { GiveSlotSheet, ClashList, type GiveTarget } from '../components/GiveSlotSheet'
 
 const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300', amber: 'bg-amber-400/15 text-amber-200', green: 'bg-green-400/10 text-green-300',
   gold: 'bg-pt-accent/15 text-pt-accent', muted: 'bg-pt-raised text-pt-muted' }
 const mondayOf = (d: string) => addDays(d, -((weekday(d) + 6) % 7))
 
-export default function DeskApprovals({ reqs, shoots, days, statuses, pairs }: {
-  reqs: Req[]; shoots: Shoot[] | null; days: Record<string, ScheduleDay> | null; statuses: Record<string, UserStatus>; pairs: Pair[]
+export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, clashes = [] }: {
+  reqs: Req[]; shoots: Shoot[] | null; days: Record<string, ScheduleDay> | null; statuses: Record<string, UserStatus>; pairs: Pair[]; clashes?: GiveTarget[]
 }) {
+  const [give, setGive] = useState<GiveTarget | null>(null)
   const navigate = useNavigate()
   const { profile } = useSession()
   const s = useScheduleSettings()
@@ -36,7 +38,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs }: {
   const [view, setView] = useState<'week' | 'month'>('week')
   const [week, setWeek] = useState(mondayOf(today))
   const [month, setMonth] = useState(today.slice(0, 7))
-  const queue = useMemo(() => [...reqs].sort((a, b) => a.since.localeCompare(b.since)), [reqs])
+  const queue = useMemo(() => { const first = (r: Req) => statuses[r.shoot.creatorEmail]?.firstInLine && !r.move ? 0 : 1; return [...reqs].sort((a, b) => first(a) - first(b) || a.since.localeCompare(b.since)) }, [reqs, statuses])
   const [sel, setSel] = useState<string | null>(null)
   const cur = queue.find(r => reqKey(r) === sel) ?? queue[0] ?? null
   const [ticked, setTicked] = useState<Set<string>>(new Set())
@@ -148,6 +150,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs }: {
             ? <button disabled={busy} onClick={approveTicked} className="ml-auto px-3 py-1.5 rounded-lg bg-green-500/15 text-green-400 text-[13px] font-semibold disabled:opacity-40">Approve {ticked.size} ticked</button>
             : <span className="ml-auto text-pt-muted text-xs">Oldest first</span>}
         </div>
+        {clashes.length > 0 && <div className="px-3 pt-3 max-h-[220px] overflow-y-auto"><ClashList items={clashes} s={s} onGive={setGive} /></div>}
         <div className="max-h-[260px] overflow-y-auto border-b border-white/[0.06]">
           {queue.length === 0 && <p className="text-pt-muted text-sm px-4 py-6 text-center">All caught up. New requests show up here and on the board.</p>}
           {queue.map(r => {
@@ -170,9 +173,11 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs }: {
         {cur ? <Inspector key={reqKey(cur)} r={cur} shoots={all} status={statuses[cur.shoot.creatorEmail]} days={days} pairs={pairs} today={today} now={now}
           busy={busy} denying={denying} reason={reason} setReason={setReason} setDenying={setDenying}
           onApprove={() => decide(cur, true)} onDeny={() => decide(cur, false, reason.trim())}
-          onRecord={() => navigate(`/people/${encodeURIComponent(cur.shoot.creatorEmail)}`)} />
+          onRecord={() => navigate(`/people/${encodeURIComponent(cur.shoot.creatorEmail)}`)}
+          onGive={cur.place !== 'offsite' && !cur.move && s.instantBookers.length ? () => setGive({ date: cur.date, house: cur.place as House, start: cur.start, holder: { name: cur.shoot.creatorName, email: cur.shoot.creatorEmail } }) : undefined} />
           : <div className="flex-1" />}
       </aside>
+      {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
       {toast && <div role="status" className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-50 px-4 py-2.5 rounded-xl shadow-float text-[14px] font-semibold ${toast.ok ? 'bg-pt-raised text-pt-text' : 'bg-red-500/90 text-white'}`}>{toast.text}</div>}
     </div>
   )
@@ -256,10 +261,10 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
 }
 const Key = ({ c, children }: { c: string; children: React.ReactNode }) => <span className="flex items-center gap-1.5"><i className={`w-3 h-3 rounded-[3px] ${c}`} />{children}</span>
 
-function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, reason, setReason, setDenying, onApprove, onDeny, onRecord }: {
+function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, reason, setReason, setDenying, onApprove, onDeny, onRecord, onGive }: {
   r: Req; shoots: Shoot[]; status?: UserStatus; days: Record<string, ScheduleDay> | null; pairs: Pair[]; today: string; now: string
   busy: boolean; denying: boolean; reason: string; setReason: (v: string) => void; setDenying: (v: boolean) => void
-  onApprove: () => void; onDeny: () => void; onRecord: () => void
+  onApprove: () => void; onDeny: () => void; onRecord: () => void; onGive?: () => void
 }) {
   const s = useScheduleSettings()
   const profiles = useProfiles()
@@ -308,6 +313,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
         <div className="grid grid-cols-2 gap-2">
           <button disabled={busy} onClick={onApprove} className="min-h-[42px] rounded-xl bg-green-500/15 text-green-400 font-bold disabled:opacity-40">Approve <Kbd>A</Kbd></button>
           <button disabled={busy} onClick={() => setDenying(true)} className="min-h-[42px] rounded-xl bg-red-500/10 text-red-300 font-bold disabled:opacity-40">Deny <Kbd>D</Kbd></button>
+          {onGive && <button disabled={busy} onClick={onGive} className="col-span-2 min-h-[36px] rounded-xl bg-pt-raised text-pt-accent text-[13px] font-semibold">Give this time to {s.instantBookers[0]?.name.split(' ')[0]}…</button>}
         </div>
       ) : (
         <div className="space-y-2">
