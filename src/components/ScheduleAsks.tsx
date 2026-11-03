@@ -15,7 +15,7 @@ export function SwapAsk({ r, incoming = false }: { r: SwapRequest; incoming?: bo
     try { await answerSwap({ id: r.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
-    <div className="rounded-2xl p-4 border border-pt-accent/50 bg-pt-accent/10 space-y-2">
+    <div className="rise-in rounded-[20px] p-4 bg-pt-surface space-y-3">
       <div className="flex items-center gap-3">
         <Avatar email={incoming ? r.fromEmail : r.toEmail} name={incoming ? r.fromName : r.toName} />
         <p className="text-pt-text text-sm flex-1 min-w-0">
@@ -42,7 +42,7 @@ export function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string }) {
     try { await answerInvite({ id: inv.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
-    <div className="rounded-2xl p-4 border border-amber-400/40 bg-amber-400/10 space-y-2">
+    <div className="rise-in rounded-[20px] p-4 bg-pt-surface space-y-3">
       <p className="text-pt-text text-[15px]"><b>{inv.fromName}</b> invited you to film right after them: <b>{formatDay(inv.date)} · {s.houses[inv.place].name} · {fmtSlot(inv.start, inv.end - inv.start)}</b>.</p>
       <p className="text-amber-200 text-sm">Held for you until {until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` (${formatDay(inv.until.slice(0, 10))})` : ''}.</p>
       {err && <p className="text-red-300 text-sm">{err}</p>}

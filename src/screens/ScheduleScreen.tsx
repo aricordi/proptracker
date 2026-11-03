@@ -1106,7 +1106,7 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
       {mine && !shoot.checkin && win === 'open' && (
         <div className="bg-pt-bg rounded-xl p-3 space-y-3">
           <p className="text-pt-text font-semibold">You're up: check in</p>
-          <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the set" hint="Opens your camera" max={3} />
+          <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the set" max={3} />
           {prevOther && (
             <div className="space-y-2">
               <p className="text-pt-muted text-sm">The slot before you: <b className="text-pt-text">{prevOther.name}</b>. Anything wrong? The team reviews every report.</p>

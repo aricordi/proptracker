@@ -25,13 +25,13 @@ import {
   checkinWindow, isMissed, explainUntil, slotKey, fmtSlot, houseFreeFrom, type Shoot,
 } from '../services/schedule'
 
-const card = 'rise-in rounded-[20px] bg-pt-surface shadow-hairline p-4 space-y-3'
+const card = 'rise-in rounded-[20px] bg-pt-surface p-4 space-y-3'
 const gold = 'w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40'
 const grey = 'rounded-xl px-4 min-h-[44px] font-semibold bg-pt-border text-pt-text disabled:opacity-40'
 const SEEN_KEY = 'pc.chatSeenEnded'
 const readSeen = (): string[] => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') } catch { return [] } }
 
-export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => void; onProps: (shootId: string) => void }) {
+export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (text: string) => void; onProps: (shootId: string) => void; chatting?: boolean }) {
   const navigate = useNavigate()
   const { profile } = useSession()
   const email = profile.email
@@ -79,13 +79,13 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
 
   return (
     <div className="space-y-3">
-      {intro && <ChatIntro onAsk={onAsk} onDone={closeIntro} />}
+      {intro && !chatting && <ChatIntro onDone={closeIntro} />}
       {s.appOnlyFrom && today < addDays(s.appOnlyFrom, 14) && (
-        <div className="rise-in rounded-[20px] p-4 bg-sky-400/10 shadow-[inset_0_0_0_0.5px_rgba(125,211,252,0.45)] text-[15px]">
+        <div className="rise-in rounded-2xl px-4 py-3 bg-sky-400/10 text-[14px] text-sky-100">
           <b>{today < s.appOnlyFrom ? `From ${formatDay(s.appOnlyFrom, { weekday: 'long', month: 'long', day: 'numeric' })}` : 'From now on'}, bookings and requests only count when they're made in the app.</b> Just type them here.
         </div>
       )}
-      {paused && <div className="rise-in rounded-[20px] p-4 bg-red-400/10 shadow-[inset_0_0_0_0.5px_rgba(248,113,113,0.5)] text-[15px]">
+      {paused && <div className="rise-in rounded-2xl px-4 py-3 bg-red-400/10 text-[14px] text-red-100">
         <b>Props are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
@@ -129,28 +129,40 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
         </div>
       ))}
       <UnsentBasket />
-      {next.map(x => {
-        const c = cutoffs(x), waiting = x.status === 'requested'
-        const propsOpen = today <= c.props
-        return (
-          <div key={x.id} className={`${card} ${focus === x.id ? 'shadow-[inset_0_0_0_1.5px_rgba(201,169,97,0.8)]' : ''}`}>
-            <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className="w-full text-left flex items-start gap-3">
-              <span className="flex-1 min-w-0">
-                <span className="block text-xs font-semibold text-pt-accent">{whenLabel(x.date, today)}</span>
-                <b className="block text-[16px] leading-snug">{label(x)}</b>
-              </span>
-              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${waiting ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>
-                {waiting ? 'Waiting for OK' : x.wrap ? 'Filmed ✓' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
-            </button>
-            {waiting && <p className="text-pt-muted text-[13px]">Held for you while the schedule team looks at it. You'll get a notification.</p>}
-            {x.place !== 'offsite' && (() => { const e = houseFreeFrom(soonDays?.[x.date], x.place, x.start, s); return e ? <p className="text-sky-300 text-[13px]">The house is free from {fmtTime(e.at)} ({e.what.toLowerCase()} until then), if you want to start early.</p> : null })()}
-            <div className="flex gap-2">
-              {propsOpen && !x.checkin && <button onClick={() => onProps(x.id)} className="flex-1 rounded-xl min-h-[44px] text-[14px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Props for it · by {c.props === today ? 'today' : formatDay(c.props)}</button>}
-              <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={grey}>Open</button>
-            </div>
+      {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
+      {next.length > 0 && (
+        <section className="rise-in">
+          <p className="text-pt-muted text-[13px] font-semibold px-1 mb-2">Coming up</p>
+          <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
+            {next.map(x => {
+              const c = cutoffs(x), waiting = x.status === 'requested'
+              const propsOpen = today <= c.props && !x.checkin
+              const early = x.place !== 'offsite' ? houseFreeFrom(soonDays?.[x.date], x.place, x.start, s) : null
+              const state = waiting ? 'Waiting for OK' : x.wrap ? 'Filmed' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved'
+              return (
+                <div key={x.id} className={`flex items-center gap-3 pl-4 pr-3 py-3 ${focus === x.id ? 'bg-pt-accent/10' : ''}`}>
+                  <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className="flex-1 min-w-0 flex items-center gap-3 text-left">
+                    <span className="w-11 shrink-0 text-center">
+                      <span className="block text-[11px] font-semibold text-pt-muted">{formatDay(x.date, { weekday: 'short' })}</span>
+                      <span className="block font-display text-[22px] leading-none font-extrabold">{Number(x.date.slice(8))}</span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-semibold truncate">{place(x)} · {fmtSlot(x.start, x.end - x.start)}</span>
+                      <span className="flex items-center gap-1.5 text-[13px] text-pt-muted">
+                        <span className={`w-1.5 h-1.5 rounded-full ${waiting || x.moveRequest ? 'bg-amber-400' : 'bg-green-400'}`} aria-hidden />
+                        {state} · {whenLabel(x.date, today)}
+                      </span>
+                      {early && <span className="block text-[12px] text-sky-300">House free from {fmtTime(early.at)}</span>}
+                    </span>
+                  </button>
+                  {propsOpen && <button onClick={() => onProps(x.id)} aria-label={`Props for this shoot, by ${formatDay(c.props)}`}
+                    className="shrink-0 rounded-full h-9 px-3 text-[13px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Props</button>}
+                </div>
+              )
+            })}
           </div>
-        )
-      })}
+        </section>
+      )}
     </div>
   )
 }
@@ -189,9 +201,9 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
   )
 
   return (
-    <div className="rise-in rounded-[20px] p-4 space-y-3 bg-pt-accent/[0.12] shadow-[inset_0_0_0_1px_rgba(201,169,97,0.55)]">
+    <div className="rise-in rounded-[20px] p-4 space-y-3 bg-pt-accent/[0.10]">
       <p className="text-[16px]"><b>You're up: {label}.</b> Check in with a photo of the set.</p>
-      <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the set" hint="Opens your camera" max={3} />
+      <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the set" max={3} />
       {before && photos.length > 0 && (
         <div className="space-y-3">
           <div className="space-y-2">
@@ -333,25 +345,20 @@ export function PickupList() {
   )
 }
 
-// 60 seconds, hands-on (owner, Nov 3: creators get a short interactive intro instead of a tour). Step 1 really sends a
-// message (a time search: nothing is booked until they tap Request).
-function ChatIntro({ onAsk, onDone }: { onAsk: (t: string) => void; onDone: () => void }) {
+// A few quick tips, one line each (owner, Nov 3: creators get a short intro, not a tour; the screen must stay clean).
+function ChatIntro({ onDone }: { onAsk?: (t: string) => void; onDone: () => void }) {
   const [n, setN] = useState(0)
-  const steps = [
-    { t: 'Type what you need, like a text', b: 'Try it: tap the button and see what I answer. Nothing is booked until you tap Request.', go: 'Try "Thursday at Cliff 1 at 5pm"' },
-    { t: 'You can say anything', b: '"Props for a séance video", "cancel my next shoot", "returning the camera", "the tripod is broken", "how do I…?". I\'ll take you to the right place.', go: 'Next' },
-    { t: 'Your to-dos show up here', b: 'Check in on shoot day, gear to take, things to bring back, invites. Notifications bring you straight here.', go: 'Next' },
-    { t: 'The other tabs', b: 'Calendar: the free spots. Props: the whole closet. More: your requests, shoots and help.', go: 'Got it' },
+  const tips = [
+    'Type it like a text. Nothing is booked until you tap Request.',
+    'Ask for anything: props for a video, cancel a shoot, returning gear, something broke.',
+    'Your to-dos (check-in, gear, returns, invites) show up right here.',
   ]
-  const st = steps[n]
+  const last = n === tips.length - 1
   return (
-    <div className="rise-in rounded-[20px] p-4 space-y-2 bg-[#BF9DFF]/10 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.4)]">
-      <div className="flex items-center gap-2"><span className="text-xs text-[#CDB8FF] font-semibold">Quick intro · {n + 1} of {steps.length}</span>
-        <button onClick={onDone} className="ml-auto text-pt-muted text-xs tap">Skip</button></div>
-      <b className="block text-[16px]">{st.t}</b>
-      <p className="text-[15px]">{st.b}</p>
-      <button onClick={() => { if (n === 0) onAsk('Thursday at Cliff 1 at 5pm'); if (n === steps.length - 1) onDone(); else setN(n + 1) }}
-        className="w-full rounded-xl py-3 font-bold text-[#140f22] bg-[#BF9DFF]">{st.go}</button>
+    <div className="rise-in flex items-center gap-3 rounded-2xl bg-white/[0.04] pl-4 pr-2 py-2.5">
+      <span className="text-[#BF9DFF] shrink-0" aria-hidden>✦</span>
+      <p className="flex-1 min-w-0 text-[14px] leading-snug"><span className="text-pt-muted">Tip {n + 1} of {tips.length}. </span>{tips[n]}</p>
+      <button onClick={() => last ? onDone() : setN(n + 1)} className="shrink-0 rounded-full px-3 h-9 text-[13px] font-semibold text-[#CDB8FF]">{last ? 'Got it' : 'Next'}</button>
     </div>
   )
 }

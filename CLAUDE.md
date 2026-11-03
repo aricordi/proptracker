@@ -1901,6 +1901,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Nov 3 (owner "ok push live"): backend run 56 + website run 56 = CHAT FIRST + GIVE IT TO KYLE / priority booking + gear
       grab-and-go + team guide + ROUND 3 (incl. guidelines/ storage rule) + AI CHAT BRAIN. Owner next: tick Kyle in Books without
       approval, switch launch creators to Full app, optionally set App-only from; try the chat on a phone (real AI untested before this).
+    - CHAT DESIGN PASS (owner, Nov 3, screenshot: "too busy… clean like the best apps"; app only, preview only, live needs OK):
+      empty chat = big "Hi <name>." + "What are we making today?" → to-dos → "Coming up" (ONE grouped list, a row per shoot: date block,
+      house · time, status dot + Approved/Waiting for OK · when, "House free from" line, small "✦ Props" pill) → "Try asking" (grouped
+      rows: Book a time / Props for a video idea / Plan my whole shoot / Is my shoot approved? or How does this work?). ChatIntro = one-line
+      tips (3, Next/Got it), hidden once chatting. Greeting bubble + 'choose' card not shown on the page; chips hidden on the empty chat.
+      Bubbles: bot white/7% no border, mine plain gold (no glow). Composer = one rounded pill (input + mic; mic turns into the gold send
+      button when there's text), no top border. All to-do cards one style (surface, no coloured outlines; "You're up" faint gold tint);
+      banners = slim tinted lines; ScheduleAsks + UnsentBasket match. Empty chat no longer scrolls to the bottom. Duplicate "Opens your
+      camera" hint removed (ProofPhotos already says it). appGuide home entry updated.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

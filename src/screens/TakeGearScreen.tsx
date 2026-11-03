@@ -78,7 +78,7 @@ export default function TakeGearScreen() {
           </section>
           <section className="space-y-2">
             <h2 className="text-pt-text text-lg font-semibold">2. One photo of what you're taking</h2>
-            <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the gear" hint="Opens your camera" max={3} />
+            <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of the gear" max={3} />
           </section>
           <LateFeeNote value={value.value} missing={value.missing} />
         </>}

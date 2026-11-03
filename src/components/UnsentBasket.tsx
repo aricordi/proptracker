@@ -19,7 +19,7 @@ export default function UnsentBasket({ shootId }: { shootId?: string }) {
   const by = c ? (cart.count && gear.count ? (c.props < c.gear ? c.props : c.gear) : cart.count ? c.props : c.gear) : null
   const late = !!by && todayInStudio() > by
   return (
-    <div className="rounded-2xl p-4 bg-amber-400/10 shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.5)] space-y-3">
+    <div className="rise-in rounded-[20px] p-4 bg-pt-surface space-y-3">
       <div>
         <p className="text-amber-200 font-semibold">Not sent yet</p>
         <p className="text-pt-text/90 text-sm mt-0.5">

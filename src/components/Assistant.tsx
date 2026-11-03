@@ -43,7 +43,7 @@ import {
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
 import { fmtTime, fmtHours } from '../../functions/src/gearBooking'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 import { friendlyError } from '../lib/errors'
 
 type Msg =
@@ -85,8 +85,6 @@ const OPENERS: Record<Helper, string> = {
 }
 // No "props or time" switch (owner, Oct 20): src/lib/aiRoute.ts reads each message and runs one helper or both.
 const GREETING = 'Tell me your video idea, or when you want to film, or both. I\'ll find the props we have and the times that are free. Stuck somewhere? Ask me how anything in the app works.'
-// The chat tab (owner, Nov 2): say it like you'd say it on Slack.
-const CHAT_GREETING = 'Just tell me what you need, like you\'d text it: "Thursday Cliff 1 at 5pm", "props for a séance video", "cancel my next shoot". Tap an example below to start.'
 const DEMO_OPENER = 'Tell me your video idea and I\'ll find props from our closet that fit, scene by scene. Then keep going: "make it spookier", "something for the ending"… Tap any prop to see it. You can also ask me how the app works.'
 const DEMO_NO_TIME = 'Booking isn\'t open for you yet, so I can\'t look at times. Tell me about the video and I\'ll find props for it.'
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -145,7 +143,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const hello = `Hi${first ? ` ${first}` : ''}!`
   const helper = ask.mode === 'plan' ? undefined : ask.mode
   const fresh = (m?: Helper): Msg[] => helpOnly ? [{ who: 'bot', text: `${hello} Ask me how to do anything in the app, and I'll show you where.` }] : demo ? [{ who: 'bot', text: `${hello} ${DEMO_OPENER}` }]
-    : m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : [{ who: 'bot', text: `${hello} ${page ? CHAT_GREETING : GREETING}` }, { who: 'choose' }]
+    : m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : page ? [{ who: 'bot', text: `${hello} What do you need?` }] : [{ who: 'bot', text: `${hello} ${GREETING}` }, { who: 'choose' }]
   // Examples of both kinds, plus your next booked shoot when you have one.
   // Chat first (owner, Nov 2: "clickable pre-populated prompts"): the things people actually say, booking first.
   const mixed = () => [
@@ -179,7 +177,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const [heard, setHeard] = useState(''), [micErr, setMicErr] = useState('')
   const stopped = useRef(false), quiet = useRef<ReturnType<typeof setTimeout>>()
   const end = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (shown) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown])
+  // Follow the conversation; an empty chat stays at the top (the hello and the to-dos).
+  useEffect(() => { if (shown && msgs.some(m => m.who === 'me')) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown])
 
   // Point the chat at one helper (a screen that opened it for times, a chip, a button).
   function switchTo(m: Helper, say = true) {
@@ -603,6 +602,17 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     </button>
   )
 
+  // The empty chat (owner, Nov 3: "too busy… clean like the best apps"): a hello, then a short list of things to try.
+  const welcome = page && !msgs.some(m => m.who === 'me') && !plan
+  const nextShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))[0]
+  const suggestions: { icon: IconName; title: string; sub: string; ai?: boolean; go: () => void }[] = helpOnly || demo ? [] : [
+    { icon: 'calendar', title: 'Book a time', sub: `"${mixed()[0].replace(/^Book /, '')}"`, go: () => send(mixed()[0]) },
+    { icon: 'sparkle', ai: true, title: 'Props for a video idea', sub: `"${STARTERS.props[1]}"`, go: () => send(STARTERS.props[1]) },
+    { icon: 'list', ai: true, title: 'Plan my whole shoot', sub: 'Time, props and gear, step by step', go: () => startPlan() },
+    nextShoot ? { icon: 'check', title: 'Is my shoot approved?', sub: 'See where your shoots are at', go: () => send('Is my shoot approved?') }
+      : { icon: 'help', title: 'How does this work?', sub: 'Booking, props, gear, returns', go: () => send('How does booking work?') },
+  ]
+
   return (
     <div className={page ? 'h-full bg-pt-bg flex flex-col' : `fixed inset-0 z-50 bg-pt-bg flex flex-col ${shown ? '' : 'hidden'}`} role={page ? 'main' : 'dialog'} aria-label={page ? 'Chat' : 'AI helper'}>
       <div className="pt-safe px-5 shrink-0">
@@ -630,12 +640,32 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-        {page && canBook && !demo && <ChatNow onAsk={q => send(q, false, 'time')} onProps={id => propsFor(id)} />}
-        {msgs.map((m, i) => m.who === 'me' ? (
-          <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{m.text}</p>
+        {welcome && (
+          <div className="rise-in pt-1 pb-1">
+            <h2 className="font-display text-[30px] leading-tight font-extrabold tracking-tight">{first ? `Hi ${first}.` : 'Hi.'}</h2>
+            <p className="text-pt-muted text-[17px]">What are we making today?</p>
+          </div>
+        )}
+        {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time')} onProps={id => propsFor(id)} />}
+        {welcome && (
+          <section className="rise-in">
+            <p className="text-pt-muted text-[13px] font-semibold px-1 mb-2">Try asking</p>
+            <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
+              {suggestions.map(x => (
+                <button key={x.title} onClick={x.go} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                  <span className={`w-9 h-9 rounded-full grid place-items-center shrink-0 ${x.ai ? 'bg-[#BF9DFF]/15 text-[#BF9DFF]' : 'bg-pt-accent/15 text-pt-accent'}`}><Icon name={x.icon} className="w-[18px] h-[18px]" /></span>
+                  <span className="flex-1 min-w-0"><span className="block text-[15px] font-semibold">{x.title}</span><span className="block text-[13px] text-pt-muted truncate">{x.sub}</span></span>
+                  <span className="text-pt-muted" aria-hidden>›</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+        {msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
+          <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
-            <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-[#BF9DFF]/10 border border-[#BF9DFF]/25">{m.text}</p>
+            <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[15px] bg-white/[0.07]">{m.text}</p>
             {m.result?.fallback && <p className="text-pt-muted text-xs">Quick match: the AI was busy, so these are the closest props by name and tags.</p>}
             {m.guide && (m.guide.steps.length > 0 || m.guide.links.length > 0) && (
               <div className="rise-in space-y-2">
@@ -795,7 +825,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         <div ref={end} />
       </div>
 
-      <div className="shrink-0 border-t border-pt-border px-5 pt-3 pb-safe bg-pt-bg">
+      <div className="shrink-0 px-4 pt-2 pb-safe bg-pt-bg">
         {sel.length > 0 && plan?.step === 'props' ? (
           <button onClick={planGear} className="w-full mb-3 rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Add {sel.length} &amp; go to gear ›</button>
         ) : plan && plan.step !== 'time' && plan.step !== 'review' && sel.length === 0 ? null : sel.length > 0 ? (
@@ -803,11 +833,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ) : (cart.count + gearCart.count) > 0 && results.length > 0 ? (
           <button onClick={() => go('/reserve')} className="w-full mb-3 rounded-2xl py-3 font-semibold text-pt-accent bg-pt-accent/10">Review your shoot · {cart.count + gearCart.count}</button>
         ) : null}
-        {chips.length > 0 && !busy && (
+        {chips.length > 0 && !busy && !welcome && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
             {chips.map(c => {
               const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW
-              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3 py-2 text-[13px] ${special ? 'bg-[#BF9DFF]/20 text-[#CDB8FF] font-semibold' : 'bg-pt-border'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
+              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3.5 h-9 text-[13px] ${special ? 'bg-[#BF9DFF]/15 text-[#CDB8FF] font-semibold' : 'bg-white/[0.06] text-pt-text'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
             })}
           </div>
         )}
@@ -819,20 +849,24 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         )}
         {micErr && <p className="mb-2 text-amber-300 text-xs">{micErr}</p>}
-        <div className="flex items-center gap-2 pb-2">
-          <label htmlFor="aiAsk" className="sr-only">Message</label>
-          <input id="aiAsk" value={text} onChange={e => setText(e.target.value.slice(0, 600))} onKeyDown={e => { if (e.key === 'Enter') send() }}
-            placeholder={listening ? 'Listening…' : helpOnly ? 'How do I…?' : demo ? 'Describe your video idea…' : plan?.step === 'time' ? 'When do you want to film?' : plan?.step === 'props' ? 'What\'s your video about?' : 'Your video idea, or when to film…'}
-            className="flex-1 min-w-0 bg-pt-surface border border-pt-border rounded-2xl px-4 py-3 text-base focus:outline-none focus:border-[#BF9DFF]" />
-          {Speech && (
-            <button onClick={talk} aria-label={listening ? 'Stop listening' : 'Talk'}
-              className={`w-12 h-12 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white' : 'bg-[#BF9DFF]/20 text-[#BF9DFF]'}`}>
-              {listening
-                ? <span className="w-4 h-4 rounded-[3px] bg-white" aria-hidden />
-                : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>}
-            </button>
-          )}
-          <button onClick={() => send()} disabled={!text.trim() || busy} aria-label="Send" className="w-12 h-12 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-xl font-bold disabled:opacity-40">↑</button>
+        <div className="pb-2">
+          <div className="flex items-center gap-1 rounded-full bg-pt-surface pl-4 pr-1.5 focus-within:shadow-[inset_0_0_0_1px_rgba(191,157,255,0.55)]">
+            <label htmlFor="aiAsk" className="sr-only">Message</label>
+            <input id="aiAsk" value={text} onChange={e => setText(e.target.value.slice(0, 600))} onKeyDown={e => { if (e.key === 'Enter') send() }}
+              placeholder={listening ? 'Listening…' : helpOnly ? 'How do I…?' : demo ? 'Describe your video idea…' : plan?.step === 'time' ? 'When do you want to film?' : plan?.step === 'props' ? 'What\'s your video about?' : 'Message'}
+              className="flex-1 min-w-0 bg-transparent py-3 text-base focus:outline-none focus:shadow-none" />
+            {Speech && (listening || !text.trim()) && (
+              <button onClick={talk} aria-label={listening ? 'Stop listening' : 'Talk'}
+                className={`w-10 h-10 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white' : 'text-[#BF9DFF]'}`}>
+                {listening
+                  ? <span className="w-3.5 h-3.5 rounded-[3px] bg-white" aria-hidden />
+                  : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>}
+              </button>
+            )}
+            {(text.trim() || !Speech) && (
+              <button onClick={() => send()} disabled={!text.trim() || busy} aria-label="Send" className="w-10 h-10 rounded-full grid place-items-center shrink-0 bg-pt-accent text-stone-900 text-lg font-bold disabled:opacity-40">↑</button>
+            )}
+          </div>
         </div>
       </div>
 

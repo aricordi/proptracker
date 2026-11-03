@@ -133,7 +133,7 @@ export default function ReturnFlow({ group, compact = false, onDone }: { group: 
             <UsedByPicker key={p.key} b={p.booking!} off={notUsing[p.id] ?? new Set()} onChange={s => setNotUsing({ ...notUsing, [p.id]: s })} />
           ))}
           <p className={q}>One photo of everything, where you left it</p>
-          <ProofPhotos folder={folder} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of everything" hint="Opens your camera" max={6} />
+          <ProofPhotos folder={folder} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Photo of everything" max={6} />
           {ticked.some(p => p.kind === 'props') && (
             <input value={note} onChange={e => setNote(e.target.value.slice(0, 1000))} placeholder="Where did you leave the props? (optional)"
               className="w-full bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
