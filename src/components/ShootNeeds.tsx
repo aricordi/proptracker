@@ -116,14 +116,13 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
       {mine && open && ai.available && today <= cut.props && (
         <button onClick={() => ai.open('plan', shoot.id)} className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
           <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
-          <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-muted text-xs">{gearOn ? "Props for your idea and the gear that's free, then you check it" : 'Props and costumes for your idea, then you check it'}</span></span>
+          <span className="flex-1 min-w-0"><b className="block text-sm text-pt-text">Plan it with AI</b><span className="text-pt-text/70 text-xs">{gearOn ? "Props for your idea and the gear that's free, then you check it" : 'Props and costumes for your idea, then you check it'}</span></span>
           <span className="text-pt-muted">›</span>
         </button>
       )}
       {mine && section('props', 'Props & costumes', cut.props, linked.props, '/browse', `new props by ${formatDay(cut.builds)}`)}
       {gearOn ? section('gear', 'Gear', cut.gear, linked.gear, '/gear')
         : linked.gear.length > 0 && <div className="bg-pt-bg rounded-xl p-3 space-y-2"><p className="text-pt-text font-semibold">Gear</p>{linked.gear.map(l => <RequestRow key={l.id} l={l} />)}</div>}
-      <p className="text-pt-muted text-xs px-1">Casting, locations and makeup come later.</p>
     </div>
   )
 }

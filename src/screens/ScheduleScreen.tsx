@@ -136,7 +136,7 @@ export default function ScheduleScreen() {
     <div className="min-h-full bg-pt-bg pb-8">
       <div className={`sticky top-0 bg-pt-bg pt-safe z-10 pb-2 ${desk ? "px-8" : "px-4"}`}>
         <div className="flex items-end justify-between py-2 gap-2">
-          <h1 className="font-display text-[34px] text-pt-text">Schedule</h1>
+          <h1 className="font-display text-[30px] text-pt-text min-w-0 truncate">{canBook ? 'Calendar' : 'Schedule'}</h1>
           <div className="flex gap-2 pb-0.5">
             <AiButton mode="time" />
             <MyRequestsButton />

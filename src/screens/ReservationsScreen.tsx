@@ -11,6 +11,18 @@ import { Pill } from '../components/GearUi'
 
 interface Tab { key: string; label: string; statuses: ReservationStatus[]; newestFirst?: boolean; byEnd?: boolean; today?: boolean }
 
+// What each empty tab says (owner, Nov 3: guide people instead of "Nothing here").
+const EMPTY: Record<string, [string, string]> = {
+  today: ['Nothing due today', 'Pickups and returns due today show up here.'],
+  prepare: ['Nothing to prepare', 'New prop requests land here to pick and pack.'],
+  ready: ['Nothing waiting for pickup', 'Packed requests wait here until the creator signs for them.'],
+  out: ['Nothing out', 'Props creators have picked up show here until they come back.'],
+  returns: ['Nothing to check in', 'Returned props wait here for you to check each one.'],
+  done: ['No history yet', 'Finished, declined and cancelled requests land here.'],
+  current: ['No prop requests', 'Ask for props from your shoot, or in the chat.'],
+  past: ['Nothing yet', 'Requests you finished show up here.'],
+}
+
 // The arts department works the queue left to right. Same look as the gear queue (owner, Oct 20), starting on Today.
 const STAFF_TABS: Tab[] = [
   { key: 'today',   label: 'Today',      statuses: ['requested', 'preparing', 'packed', 'collected'], today: true },
@@ -85,7 +97,8 @@ export default function ReservationsScreen() {
         {list === null && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
         {list !== null && shown.length === 0 && (
           <div className="text-center mt-12">
-            <p className="text-pt-muted text-sm mb-3">Nothing here.</p>
+            <p className="text-pt-text font-semibold">{(EMPTY[tabKey] ?? ['All clear'])[0]}</p>
+            <p className="text-pt-muted text-sm mt-1 mb-3 px-6">{(EMPTY[tabKey] ?? ['', ''])[1]}</p>
             {!isStaff && tabKey === 'current' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium tap">Find props to reserve</button>}
           </div>
         )}

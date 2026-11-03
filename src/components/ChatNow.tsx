@@ -16,7 +16,7 @@ import { subscribeToReservations, confirmPickup, type Reservation } from '../ser
 import { reportProblem } from '../services/problems'
 import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
-import { HeroCard, AlertCard, ReadyCard, NoticeRow, CountdownRing, LiveDot, primaryBtn, secondaryBtn, alertBtn, noticeLink } from './ChatCard'
+import { ChatCard, HeroCard, AlertCard, ReadyCard, NoticeRow, CountdownRing, LiveDot, primaryBtn, secondaryBtn, alertBtn, noticeLink } from './ChatCard'
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { todayInStudio, addDays } from '../../functions/src/booking'
@@ -121,6 +121,12 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
           action={<button onClick={() => { dismiss(x.id); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.start)}`) }} className={noticeLink}>Find a new time</button>} />
       ))}
       <UnsentBasket />
+      {/* Nothing booked yet (first day): turn the empty space into the next step (mobile-app-ui-design: empty states guide). */}
+      {!chatting && upcoming.length === 0 && onNow.length === 0 && (
+        <ChatCard tone="plain" icon="calendar" label="Your first shoot" title="Nothing booked yet"
+          sub="Pick a free 2-hour slot at Cliff 1 or Cliff 2, or just type when you want to film."
+          actions={<button onClick={() => navigate('/schedule')} className={primaryBtn}>See free times</button>} />
+      )}
       {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
       {next.length > 0 && (
         <section className="rise-in">

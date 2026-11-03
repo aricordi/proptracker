@@ -115,7 +115,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
     <div className="h-full flex bg-[#0B0B0C]">
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="flex items-center gap-3 px-6 pt-5 pb-3 flex-wrap">
-          <h1 className="text-pt-text text-[22px] font-bold tracking-tight mr-2">Requests &amp; schedule</h1>
+          <h1 className="text-pt-text text-[22px] font-bold tracking-tight mr-2">Requests</h1>
           <div className="flex bg-pt-surface rounded-[10px] p-0.5">
             {(['week', 'month'] as const).map(v => <button key={v} onClick={() => setView(v)} title={v === 'week' ? 'W' : 'M'}
               className={`px-3.5 py-1.5 rounded-lg text-[13px] ${view === v ? 'bg-pt-raised text-pt-text font-semibold' : 'text-pt-muted'}`}>{v === 'week' ? 'Week' : 'Month'}</button>)}

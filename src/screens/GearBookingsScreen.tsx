@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Icon } from '../components/Icon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToGearBookings, fmtHours, fmtTime, nowStamp, isGearLate, type GearBooking } from '../services/gear'
@@ -29,6 +30,13 @@ export default function GearBookingsScreen() {
     upcoming: all.filter(b => b.status === 'held' || (!isGearStaff && b.status === 'out')).sort(byTime),
     past: all.filter(b => ['checked_in', 'cancelled', 'declined'].includes(b.status) || (!isGearStaff && b.status === 'returned')),
   }
+  const EMPTY: Partial<Record<Tab, [string, string]>> = isGearStaff ? {
+    today: ['Nothing today', 'Gear creators take on a shoot day shows up here.'],
+    out: ['Nothing out', 'When a creator takes gear, it shows here until it comes back.'],
+    checkin: ['Nothing to check in', 'Returned gear waits here for you to tick every piece.'],
+    upcoming: ['Nothing coming up', 'Gear held for a shoot ahead shows up here.'],
+    past: ['No history yet', 'Checked-in and cancelled gear lands here.'],
+  } : { upcoming: ['No gear yet', 'Take gear on the day of your shoot from the chat.'], past: ['Nothing yet', 'Gear you returned shows up here.'] }
   const tabs: [Tab, string][] = isGearStaff
     ? [['today', `Today (${groups.today.length})`], ['out', `Out (${groups.out.length})`], ['checkin', `To check in (${groups.checkin.length})`], ['upcoming', 'Upcoming'], ['past', 'Past']]
     : [['upcoming', `Upcoming (${groups.upcoming.length})`], ['past', 'Past & cancelled']]
@@ -50,7 +58,13 @@ export default function GearBookingsScreen() {
       </div>
       <div className="p-4 space-y-2">
         {list === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {list && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-10">Nothing here.</p>}
+        {list && shown.length === 0 && (
+          <div className="text-center py-12 px-6">
+            <span className="mx-auto mb-3 w-12 h-12 rounded-2xl bg-pt-surface grid place-items-center text-pt-muted"><Icon name="check" className="w-6 h-6" /></span>
+            <p className="text-pt-text font-semibold">{EMPTY[tab]?.[0] ?? 'All clear'}</p>
+            <p className="text-pt-muted text-sm mt-1">{EMPTY[tab]?.[1] ?? ''}</p>
+          </div>
+        )}
         {shown.map(b => {
           const late = isGearLate(b, now)
           const pickupToday = b.status === 'held' && b.pickupDay === today

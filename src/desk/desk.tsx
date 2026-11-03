@@ -66,7 +66,7 @@ const NAV: Record<string, (Item | '-')[]> = {
   equipment: [
     { to: '/approvals', label: 'Requests', icon: 'calendar', badge: true },
     { to: '/gear/bookings', label: 'Gear log', icon: 'list' },
-    { to: '/schedule/team', label: 'Check-ins & reports', icon: 'clock' },
+    { to: '/schedule/team', label: 'Check-ins', icon: 'clock' },
     { to: '/schedule', label: 'Schedule', icon: 'calendar' },
     '-',
     { to: '/gear/items', label: 'All gear', icon: 'camera' },

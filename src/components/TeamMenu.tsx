@@ -142,7 +142,7 @@ export function DailyTiles({ items, onOpen, rowProps }: { items: MenuItem[]; onO
     <div className="grid grid-cols-2 gap-2">
       {items.map(t => (
         <button key={t.id} onClick={() => onOpen(t.to)} {...rowProps?.(t)}
-          className="text-left bg-pt-surface shadow-hairline rounded-2xl p-3.5 min-h-[96px] flex flex-col justify-between active:opacity-80">
+          className="text-left bg-pt-surface shadow-hairline rounded-2xl p-3.5 min-h-[112px] flex flex-col justify-start gap-2.5 active:opacity-80">
           <span className="w-9 h-9 rounded-full bg-pt-accent/15 grid place-items-center text-pt-accent"><Icon name={t.icon} /></span>
           <span>
             <span className="block text-pt-text font-semibold leading-tight">{t.title}</span>

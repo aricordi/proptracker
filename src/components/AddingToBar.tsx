@@ -93,9 +93,9 @@ export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot'
       <button onClick={() => setOpen(true)} className={`w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm ${shoot ? 'bg-pt-accent/10 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.45)]' : 'bg-pt-surface shadow-hairline'}`}>
         <span className="flex-1 min-w-0">
           {shoot ? <>
-            <span className="block text-pt-muted text-xs">Adding to</span>
+            <span className="block text-pt-text/70 text-xs">Adding to</span>
             <span className="block text-pt-text truncate">{label(shoot)}</span>
-            <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-muted'}`}>
+            <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-text/70'}`}>
               {kind === 'shoot' ? [['Props', c!.props], ['new props', c!.builds]]
                   .map(([what, d]) => today > d ? `${what === 'Props' ? 'Too late' : 'too late'} for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`).join(' · ')
                 : late ? `Too late to add ${kind} (cutoff was ${formatDay(by!)})` : `Add ${kind} by ${formatDay(by!)}`}

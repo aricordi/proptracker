@@ -103,7 +103,7 @@ const gearIcon = (
 // Nov 2: Requests first (every creator booking waits for the equipment team); Bundles moved into the Admin menu.
 const equipmentNav = [
   { to: '/approvals',     label: 'Requests', icon: requestsIcon },
-  { to: '/gear/bookings', label: 'Queue', icon: queueIcon },
+  { to: '/gear/bookings', label: 'Gear log', icon: queueIcon },
   { to: '/schedule',      label: 'Schedule', icon: scheduleIcon },
   { to: '/gear/items',   label: 'All gear', icon: cameraIcon },
   { to: '/admin',        label: 'Admin',    icon: adminIcon, also: ['/account', '/help', '/tour'] },
