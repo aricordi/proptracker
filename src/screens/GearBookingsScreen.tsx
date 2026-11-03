@@ -39,7 +39,7 @@ export default function GearBookingsScreen() {
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-end justify-between py-2">
           {role !== 'equipment' && <button onClick={() => navigate('/gear')} className="text-pt-accent text-[17px] pb-1 mr-2">‹</button>}
-          <h1 className="font-display text-[34px] text-pt-text flex-1">{isGearStaff ? 'Gear queue' : 'My gear bookings'}</h1>
+          <h1 className="font-display text-[34px] text-pt-text flex-1">{isGearStaff ? 'Gear log' : 'My gear'}</h1>
         </div>
         <div className="flex gap-2 overflow-x-auto no-scrollbar">
           {tabs.map(([v, l]) => (

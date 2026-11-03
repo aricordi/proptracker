@@ -82,6 +82,14 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
   if (status?.strikes) flags.push({ tone: 'red', text: `${status.strikes} strike${status.strikes === 1 ? '' : 's'}` })
   if (noShows) flags.push({ tone: 'red', text: `${noShows} no-show${noShows === 1 ? '' : 's'} (30 days)` })
   if (sameWeek >= 2) flags.push({ tone: 'amber', text: `${sameWeek} already that week` })
+  // Maanik's rules of thumb (Nov 2 meeting): about 10 a month, no more than 2 days in a row. Shown, not enforced.
+  const nth = thisMonth + 1
+  if (nth >= 10) flags.push({ tone: 'amber', text: `${nth}th this month` })
+  const filmDays = new Set(theirs.filter(x => (x.status === "booked" || x.status === "requested") && x.id !== sh.id).map(x => x.date))
+  let run = 1
+  for (let d = addDays(r.date, -1); filmDays.has(d); d = addDays(d, -1)) run++
+  for (let d = addDays(r.date, 1); filmDays.has(d); d = addDays(d, 1)) run++
+  if (run >= 3) flags.push({ tone: 'amber', text: `${run} days in a row` })
   if (otherReqs) flags.push({ tone: 'amber', text: `${otherReqs} other request${otherReqs === 1 ? '' : 's'} waiting` })
   for (const n of nextTo) flags.push({ tone: n.usual ? 'gold' : 'muted', text: `Back to back with ${n.name.split(' ')[0]}${n.usual ? ' · usual partner' : ''}` })
   if (!noShows && past30s.length >= 2 && filmed === past30s.length) flags.push({ tone: 'green', text: 'Shows up every time' })

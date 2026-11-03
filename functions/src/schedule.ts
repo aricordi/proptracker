@@ -163,6 +163,19 @@ export function priorityLocked(date: string, house: Place, s: ScheduleSettings, 
   return isPriorityDay(date, house, s) && !inPriorityGroup(email, s) && now < releaseStamp(date, s)
 }
 
+// A block that ends part-way through the slot before (cleaners 1–2 PM inside the 1–3 PM slot) means the house is free
+// early for the next slot (owner, Nov 3: "people know they might have an extra hour before"). Returns when, and why.
+export function houseFreeFrom(day: ScheduleDay | undefined, house: House, start: number, s: ScheduleSettings): { at: number; what: string } | null {
+  const prev = start - s.slotMinutes
+  if (day?.[house]?.[slotKey(prev)]?.shootId) return null
+  const over = (day?.blocks ?? []).filter(b => b.house === house && b.start < start && b.end > prev)
+  if (!over.length) return null
+  const end = Math.max(...over.map(b => b.end))
+  if (end >= start || end <= prev) return null
+  const b = over.find(x => x.end === end)!
+  return { at: end, what: b.note || BLOCK_TYPES[b.type] }
+}
+
 // A filming guideline (PDF) is needed to book a priority day at the priority house when you're not in the priority group
 // (owner, Nov 3: Cliff 1 Thursdays + Saturdays). People who book without approval (Kyle) don't need one.
 export function needsGuideline(date: string, house: Place, email: string, s: ScheduleSettings) {

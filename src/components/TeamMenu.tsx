@@ -15,7 +15,7 @@ const I = (id: string, to: string, title: string, detail: string, icon: IconName
 export const OWNER_DAILY: MenuItem[] = [
   I('approvals', '/approvals', 'Requests', 'Approve or deny bookings', 'calendar'),
   I('propsqueue', '/reservations', 'Props queue', 'Pick, pack, check in', 'box'),
-  I('gearqueue', '/gear/bookings', 'Gear queue', 'Pickups and returns', 'camera'),
+  I('gearqueue', '/gear/bookings', 'Gear log', 'Who has what, returns to check', 'camera'),
   I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins and reports', 'clock'),
 ]
 
@@ -87,7 +87,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
   ]
   if (who === 'equipment') return [
     { key: 'gear', title: 'Gear', icon: 'camera', items: [
-      I('gearqueue', '/gear/bookings', 'Gear queue', 'Pickups, returns, what’s out', 'camera'),
+      I('gearqueue', '/gear/bookings', 'Gear log', 'Who has what, returns to check, what’s late', 'camera'),
       I('bundles', '/gear/bundles', 'Bundles & single items', 'What creators can book; build a kit', 'box'),
       I('allgear', '/gear/items', 'All gear', 'Every piece you own', 'tools'),
     ] },

@@ -111,7 +111,7 @@ const equipmentNav = [
 
 // For the practice tours' pretend tab bars.
 export const TAB_ICONS: Record<string, JSX.Element> = { Chat: chatIcon, Calendar: requestsIcon, More: accountIcon, Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
-  Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon, Gear: gearIcon, Props: searchIcon, Dashboard: adminIcon, Requests: requestsIcon }
+  Schedule: scheduleIcon, Queue: queueIcon, 'Gear log': queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon, Gear: gearIcon, Props: searchIcon, Dashboard: adminIcon, Requests: requestsIcon }
 
 // Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
 // Owner (Oct 20): the Dashboard is the admin's home; Props = the closet (it used to open the props queue a second time).

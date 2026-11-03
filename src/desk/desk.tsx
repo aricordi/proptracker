@@ -62,7 +62,7 @@ type Item = { to: string; label: string; icon: IconName; badge?: boolean; also?:
 const NAV: Record<string, (Item | '-')[]> = {
   equipment: [
     { to: '/approvals', label: 'Requests & schedule', icon: 'calendar', badge: true },
-    { to: '/gear/bookings', label: 'Gear queue', icon: 'list' },
+    { to: '/gear/bookings', label: 'Gear log', icon: 'list' },
     { to: '/schedule/team', label: 'Check-ins & reports', icon: 'clock' },
     { to: '/schedule', label: 'Day view', icon: 'pin' },
     '-',
@@ -77,7 +77,7 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/creators', label: 'Creators', icon: 'people', also: ['/people'] },
     '-',
     { to: '/reservations', label: 'Props queue', icon: 'list' },
-    { to: '/gear/bookings', label: 'Gear queue', icon: 'box' },
+    { to: '/gear/bookings', label: 'Gear log', icon: 'box' },
     { to: '/schedule', label: 'Day view', icon: 'pin' },
     { to: '/admin', label: 'More', icon: 'grid', also: ['/account', '/help', '/users'] },
   ],
@@ -86,7 +86,7 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/analytics', label: 'Analytics', icon: 'chart', also: ['/rules-sheet'] },
     { to: '/creators', label: 'Creators', icon: 'people', also: ['/people'] },
     { to: '/reservations', label: 'Props queue', icon: 'list' },
-    { to: '/gear/bookings', label: 'Gear queue', icon: 'box' },
+    { to: '/gear/bookings', label: 'Gear log', icon: 'box' },
     '-',
     { to: '/', label: 'Chat', icon: 'chat' },
     { to: '/schedule', label: 'Book a shoot', icon: 'pin', also: ['/shoots'] },

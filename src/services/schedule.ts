@@ -134,7 +134,7 @@ export interface TimeAskResult {
 }
 export const askForTime = httpsCallable<{ text: string; previous?: Record<string, unknown> }, TimeAskResult>(functions, 'askForTime')
 
-export const addScheduleBlock = httpsCallable<{ date: string; house: House; start?: number; end?: number; allDay?: boolean; type: BlockType; note?: string }, { id: string }>(functions, 'addScheduleBlock')
+export const addScheduleBlock = httpsCallable<{ date: string; house: House; start?: number; end?: number; allDay?: boolean; type: BlockType; note?: string; repeatWeeks?: number }, { id: string; placed?: string[]; skipped?: { date: string; names: string[] }[] }>(functions, 'addScheduleBlock')
 export const removeScheduleBlock = httpsCallable<{ date: string; id: string }, { ok: boolean }>(functions, 'removeScheduleBlock')
 export const saveScheduleSettings = httpsCallable<Partial<ScheduleSettings>, ScheduleSettings>(functions, 'saveScheduleSettings')
 export const listFilmingFriends = httpsCallable<Record<string, never>, { people: { email: string; name: string }[] }>(functions, 'listFilmingFriends')

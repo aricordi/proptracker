@@ -5,7 +5,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, type Caller } from './auth.js'
-import { todayInStudio, isDay } from './booking.js'
+import { todayInStudio, isDay, addDays } from './booking.js'
 import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
@@ -491,18 +491,29 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
   if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > 1440 + 6 * 60 || end <= start || start % 30 || end % 30) {
     throw new HttpsError('invalid-argument', 'Pick a start and end time.')
   }
-  const block = { id: randomUUID().slice(0, 8), house: d.house as House, start, end, type, note: str(d.note, 200), by: caller.email }
-  const dayRef = dayRefOf(d.date)
-  await db.runTransaction(async tx => {
-    const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
-    // Never silently wipe out a booking: the team cancels or moves it first (no strike), then blocks.
-    const clash = Object.entries(day[block.house] ?? {}).filter(([k]) => Number(k) < end && start < Number(k) + s.slotMinutes).map(([, e]) => e.name)
-    if (clash.length) {
-      throw new HttpsError('failed-precondition', `Already booked then: ${clash.join(', ')}. Move or cancel their shoot first (no strike), then block the time.`, { problem: 'booked', names: clash })
-    }
-    tx.set(dayRef, { date: d.date, blocks: [...(day.blocks ?? []), block] }, { merge: true })
-  })
-  return { id: block.id }
+  // Repeat weekly (owner, Nov 3: e.g. the trainer every Thursday at 2): the same block on the next N weeks too. A week where
+  // someone already has that time is skipped (never wipes a booking) and listed in the answer.
+  const weeks = Number.isInteger(d.repeatWeeks) ? Math.max(1, Math.min(26, d.repeatWeeks)) : 1
+  const series = weeks > 1 ? randomUUID().slice(0, 8) : undefined
+  const placed: string[] = [], skipped: { date: string; names: string[] }[] = []
+  let firstId = ''
+  for (let w = 0; w < weeks; w++) {
+    const date = addDays(d.date, 7 * w)
+    const block = { id: randomUUID().slice(0, 8), house: d.house as House, start, end, type, note: str(d.note, 200), by: caller.email, ...(series ? { series } : {}) }
+    const dayRef = dayRefOf(date)
+    await db.runTransaction(async tx => {
+      const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
+      // Never silently wipe out a booking: the team cancels or moves it first (no strike), then blocks.
+      const clash = Object.entries(day[block.house] ?? {}).filter(([k]) => Number(k) < end && start < Number(k) + s.slotMinutes).map(([, e]) => e.name)
+      if (clash.length) {
+        if (w === 0) throw new HttpsError('failed-precondition', `Already booked then: ${clash.join(', ')}. Move or cancel their shoot first (no strike), then block the time.`, { problem: 'booked', names: clash })
+        skipped.push({ date, names: clash }); return
+      }
+      tx.set(dayRef, { date, blocks: [...(day.blocks ?? []), block] }, { merge: true })
+      placed.push(date); if (!firstId) firstId = block.id
+    })
+  }
+  return { id: firstId, placed, skipped }
 })
 
 export const removeScheduleBlock = onCall(CALLABLE, async req => {

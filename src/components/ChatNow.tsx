@@ -22,7 +22,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, useMyShoots, useMySwaps, useMyInvites, useMyStatus, checkInShoot, wrapShoot,
-  checkinWindow, isMissed, explainUntil, slotKey, fmtSlot, type Shoot,
+  checkinWindow, isMissed, explainUntil, slotKey, fmtSlot, houseFreeFrom, type Shoot,
 } from '../services/schedule'
 
 const card = 'rise-in rounded-[20px] bg-pt-surface shadow-hairline p-4 space-y-3'
@@ -40,6 +40,7 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 30_000); return () => clearInterval(t) }, [])
   const today = todayInStudio()
   const { upcoming, choose } = useActiveShoot()
+  const soonDays = useScheduleDays(todayInStudio(), addDays(todayInStudio(), 30))
   const gw = useGearWindow()
   const cutoffs = useCutoffs()
   const recent = useMyShoots(email, addDays(today, -2))
@@ -145,6 +146,7 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
                 {waiting ? 'Waiting for OK' : x.wrap ? 'Filmed ✓' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
             </button>
             {waiting && <p className="text-pt-muted text-[13px]">Held for you while the schedule team looks at it. You'll get a notification.</p>}
+            {x.place !== 'offsite' && (() => { const e = houseFreeFrom(soonDays?.[x.date], x.place, x.start, s); return e ? <p className="text-sky-300 text-[13px]">The house is free from {fmtTime(e.at)} ({e.what.toLowerCase()} until then), if you want to start early.</p> : null })()}
             <div className="flex gap-2">
               {propsOpen && !x.checkin && <button onClick={() => onProps(x.id)} className="flex-1 rounded-xl min-h-[44px] text-[14px] font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Props for it · by {c.props === today ? 'today' : formatDay(c.props)}</button>}
               <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={grey}>Open</button>

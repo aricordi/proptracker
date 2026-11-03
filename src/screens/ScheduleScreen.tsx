@@ -24,7 +24,7 @@ import { useProfiles } from '../services/profiles'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, useScheduleDays, needsGuideline, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
+  useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
@@ -349,14 +349,15 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
   const cell = (h: House, start: number) => {
     const st = slotState(day, date, h, start, s, email, now, team)
     let label: React.ReactNode, cls = 'bg-pt-surface text-pt-muted'
-    if (st.t === 'free') { label = 'Free'; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
+    const early = houseFreeFrom(day, h, start, s)
+    if (st.t === 'free') { label = <>Free{early && <span className="block text-[11px] font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
     else if (st.t === 'booked') {
       const me = st.entry.email === email
       label = me ? 'You' : st.entry.name
       cls = st.entry.pending ? 'bg-amber-400/[0.07] text-amber-200 border border-dashed border-amber-400/50' : me ? 'bg-pt-accent/10 text-pt-text font-semibold' : 'bg-pt-surface text-pt-text'
       if (st.entry.pending) label = <>{label}<span className="block text-[11px] text-amber-300/80">{st.entry.move ? 'move asked' : 'asked'}</span></>
     }
-    else if (st.t === 'block') { label = 'Blocked'; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted' }
+    else if (st.t === 'block') { label = <>{st.block.note || 'Blocked'}{st.block.end % 120 !== 0 || st.block.end - st.block.start < s.slotMinutes ? <span className="block text-[11px]">until {fmtTime(st.block.end)}</span> : null}</>; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted' }
     else if (st.t === 'held') { label = `Held · ${st.entry.name}`; cls = 'bg-amber-400/[0.06] text-amber-300 border border-dashed border-amber-400/50' }
     else if (st.t === 'locked') { label = <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority</span> }
     else label = '—'
@@ -436,6 +437,9 @@ function SlotRow({ day, date, house, start, team, email, now, onTap }: {
   }
   else if (st.t === 'locked') { title = <span className="text-pt-muted">Priority only</span>; sub = `Opens ${stampLabel(st.opens)}`; pill = <Pill tone="muted"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" /></Pill> }
   else { title = <span className="text-pt-accent">{team ? 'Free · book or block' : 'Free'}</span>; sub = isNoCrewDay(date) ? 'No crew' : null; cls = 'bg-pt-surface border-pt-accent/35' }
+  // A short block in the slot before: this slot can start early (owner, Nov 3).
+  const early = (st.t === 'free' || st.t === 'booked') ? houseFreeFrom(day, house, start, s) : null
+  if (early) sub = <>{sub}{sub ? ' · ' : ''}<span className="text-sky-300">House free from {fmtTime(early.at)} ({early.what.toLowerCase()} until {fmtTime(early.at)})</span></>
   const tappable = st.t === 'free' || st.t === 'booked' || (st.t === 'block' && team)
   return (
     <button disabled={!tappable} onClick={() => onTap(st)}
@@ -774,9 +778,19 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // Owner, Nov 3: blocks can be shorter than a slot (cleaners 1–2 PM), and can repeat weekly (the trainer every Thursday).
+  const [from, setFrom] = useState(start)
+  const [until, setUntil] = useState(start + s.slotMinutes)
+  const [weeks, setWeeks] = useState(1)
+  const [msg, setMsg] = useState('')
+  const halfHours = Array.from({ length: 48 }, (_, i) => i * 30)
   async function block() {
     setBusy(true); setErr('')
-    try { await addScheduleBlock({ date, house, type, note, ...(allDay ? { allDay: true } : { start, end: start + s.slotMinutes }) }); onClose() }
+    try {
+      const r = await addScheduleBlock({ date, house, type, note, repeatWeeks: weeks, ...(allDay ? { allDay: true } : { start: from, end: until }) })
+      if (r.data.skipped?.length) setMsg(`Blocked ${r.data.placed?.length ?? 1} weeks. Skipped (already booked): ${r.data.skipped.map(x => `${formatDay(x.date, { month: 'short', day: 'numeric' })} (${x.names.join(', ')})`).join('; ')}.`)
+      else onClose()
+    }
     catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
@@ -791,8 +805,20 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
         </select>
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional), e.g. Deep clean" className={field} />
         <label className="flex items-center gap-2 text-pt-text text-sm"><input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} /> Block the whole day at {s.houses[house].name}</label>
+        {!allDay && (
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-pt-muted text-xs">From<select value={from} onChange={e => { const v = Number(e.target.value); setFrom(v); if (until <= v) setUntil(v + 30) }} className={field}>{halfHours.map(m => <option key={m} value={m}>{fmtTime(m)}</option>)}</select></label>
+            <label className="text-pt-muted text-xs">Until<select value={until} onChange={e => setUntil(Number(e.target.value))} className={field}>{[...halfHours, 1440].filter(m => m > from).map(m => <option key={m} value={m}>{fmtTime(m)}</option>)}</select></label>
+          </div>
+        )}
+        <label className="block text-pt-muted text-xs">Repeat
+          <select value={weeks} onChange={e => setWeeks(Number(e.target.value))} className={field}>
+            <option value={1}>Just this once</option>
+            {[2, 4, 8, 12, 26].map(n => <option key={n} value={n}>Every {formatDay(date, { weekday: 'long' })} for {n} weeks</option>)}
+          </select></label>
         {err && <p className="text-red-300 text-sm">{err}</p>}
-        <button disabled={busy} onClick={block} className="w-full bg-pt-border text-pt-text font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Blocking…' : allDay ? 'Block the whole day' : 'Block this slot'}</button>
+        {msg ? <><p className="text-amber-200 text-sm">{msg}</p><button onClick={onClose} className="w-full bg-pt-border rounded-xl py-3">Done</button></> :
+        <button disabled={busy} onClick={block} className="w-full bg-pt-border text-pt-text font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Blocking…' : allDay ? 'Block the whole day' : weeks > 1 ? `Block ${fmtTime(from)}–${fmtTime(until)} for ${weeks} weeks` : `Block ${fmtTime(from)}–${fmtTime(until)}`}</button>}
       </div>
     </BottomSheet>
   )
