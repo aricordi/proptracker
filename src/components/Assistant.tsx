@@ -18,7 +18,9 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, cancelIntent, isStatusQuestion, type Helper, type Route } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, type Helper, type Route } from '../lib/aiRoute'
+import { ReturnCard, ReportCard, PickupList } from './ChatNow'
+import { useReturnGroups, returnCount } from '../hooks/useReturnables'
 import ChatNow from './ChatNow'
 import BrandMark from './BrandMark'
 type Step = 'time' | 'props' | 'gear' | 'review'
@@ -29,13 +31,13 @@ import { useBookings, useBookingSettings } from '../hooks/useBookings'
 import { useTurnaround } from '../hooks/useTurnaround'
 import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
-import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds } from '../activeShoot'
+import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, useGearWindow, stampLabel } from '../activeShoot'
 import { formatDay } from '../lib/dates'
 import { ideaToProps, askApp, type IdeaResult, type AppAnswer } from '../services/ai'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useScheduleSettings, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
+  askForTime, bookWithFriends, useMyInvites, useMyStatus, useScheduleSettings, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
   type TimeAskResult,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
@@ -55,6 +57,8 @@ type Msg =
   | { who: 'already' }  // plan: what this shoot already has (sent requests), live
   | { who: 'cancel'; shootId?: string }   // chat: "cancel my thursday shoot" → confirm (or pick which)
   | { who: 'status' }   // chat: "is my shoot approved?" → your shoots with their status
+  | { who: 'actions'; items: { label: string; to?: string; shootId?: string; ask?: string }[] }   // buttons that open the right screen
+  | { who: 'return' } | { who: 'report'; text: string } | { who: 'pickup' }   // done right in the chat (Nov 3)
 
 const STAFF_STARTERS: Record<string, string[]> = {
   arts: ['How do I pack a request?', 'How do I check props back in?', 'How do I do a bin check?'],
@@ -125,6 +129,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const label = useShootLabel(), cutoffs = useCutoffs()
   const addToShoot = useAddToShoot()
   const invites = useMyInvites(profile.email)
+  const returns = useReturnGroups(profile.email)
+  const myStatus = useMyStatus(profile.email)
+  const gw = useGearWindow()
   const [bundles, setBundles] = useState<GearBundle[]>([])
   useEffect(() => subscribeToGearBundles(setBundles), [])
   const itemById = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
@@ -254,6 +261,52 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const r = routeMessage(q, { last: 'props', shoots: [] })
       if (!r.helpers.includes('props') && !r.helpers.includes('help')) {
         setText(''); setMsgs(x => [...x, { who: 'me', text: q, mode: 'props' }, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return
+      }
+    }
+    // Done right here, no AI (owner, Nov 3: "flexible enough to understand nuance and guide people in the right direction").
+    if (!force && !more && !plan) {
+      const intent = detectIntent(q)
+      const say = (reply: string, extra: Msg[] = [], chips: string[] = []) => {
+        setText(''); setChips(chips)
+        setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: 'help' }, { who: 'bot', text: reply }, ...extra])
+      }
+      if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What do you need? A time to film, props, gear, or a question.`, [], helpOnly ? (STAFF_STARTERS[role] ?? []) : demo ? STARTERS.props.slice(0, 3) : mixed().slice(0, 4)); return }
+      if (intent === 'thanks') { say('Anytime. I\'m here if you need anything else.'); return }
+      if (!demo && !helpOnly && intent) {
+        const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
+        const named = sorted.find(x => x.id === findShoot(`${q} my shoot`, sorted.map(y => ({ id: y.id, date: y.date })))) ?? sorted[0]
+        const out = (returns ?? []).length > 0
+        if (intent === 'return') {
+          if (!out) { say('Nothing to bring back right now: everything on your name is already returned.'); return }
+          say('Let\'s do it. A few taps and one photo.', [{ who: 'return' }]); return
+        }
+        if (intent === 'report') {
+          if (!out) { say('I don\'t see any gear or props out on your name right now. If something in the house or the gear room is broken, tell the equipment team (Maanik) so it\'s fixed before the next shoot.'); return }
+          say('Thanks for flagging it. Pick the piece and say what happened; the team gets it right away.', [{ who: 'report', text: q }]); return
+        }
+        if (intent === 'pickup') { say('Here\'s where your props are.', [{ who: 'pickup' }]); return }
+        if (intent === 'take-gear') {
+          const live = sorted.filter(x => x.status === 'booked')
+          const now0 = live.find(x => gw(x).state === 'take'), soon = live.find(x => gw(x).state === 'reserve'), later = live.find(x => gw(x).state === 'early')
+          if (now0) { say(`Your shoot is on (${label(now0)}). Pick what you're taking, then tick every piece and take one photo.`, [{ who: 'actions', items: [{ label: 'Pick the gear', to: '/gear', shootId: now0.id }] }]); return }
+          if (soon) { say(`You can reserve gear now for ${label(soon)}. Or just take what's free on the day, from an hour before.`, [{ who: 'actions', items: [{ label: 'Reserve gear', to: '/gear', shootId: soon.id }] }]); return }
+          if (later) { say(`For ${label(later)}: you can reserve gear from ${stampLabel(gw(later).opens)}, or take what's free from an hour before your shoot. Nothing to do yet.`); return }
+          say('Gear goes with a shoot. Book a time first, then take what you need on the day.', [], ['Find me a time today', 'Earliest free slot']); return
+        }
+        if (intent === 'move' || intent === 'swap') {
+          if (!named) { say('You don\'t have any shoots coming up to change. Want to book one?', [], mixed().slice(0, 2)); return }
+          const free = named.status === 'requested' ? 'It\'s still a request, so you can move it freely.' : `Moving is free with ${s.noticeHours} hours' notice; closer than that, a swap with someone is the only way without a strike.`
+          say(intent === 'swap' ? `Your shoot: ${label(named)}. Open it and tap "Swap with someone" to ask another creator to trade.` : `Your shoot: ${label(named)}. ${free}`,
+            [{ who: 'actions', items: [{ label: intent === 'swap' ? 'Swap it' : 'Move it', to: `/schedule?shoot=${named.id}` }, ...(intent === 'move' ? [{ label: 'Shoot offsite instead', to: `/schedule?offsite=${named.date}` }] : [])] }]); return
+        }
+        if (intent === 'offsite') { say('Shooting somewhere else? Pick the day, the hours and the address. It still goes to the schedule team.', [{ who: 'actions', items: [{ label: 'Book an offsite shoot', to: `/schedule?offsite=${today}` }] }]); return }
+        if (intent === 'strikes') {
+          const paused = !!myStatus?.pausedUntil && myStatus.pausedUntil > today
+          say(paused ? `Prop requests are paused until ${myStatus!.pausedUntil}. You can still book filming time and take gear. Ask the schedule team if this looks wrong.`
+            : myStatus?.strikes ? `You have ${myStatus.strikes} strike${myStatus.strikes === 1 ? '' : 's'} in the last ${s.strikeDays} days. ${s.strikeCount} in that time pauses prop requests for ${s.pauseDays} days.`
+            : 'No strikes. You\'re all good.'); return
+        }
+        if (intent === 'requests') { say('Everything you asked for, by shoot, with where each one is.', [{ who: 'actions', items: [{ label: 'My requests', to: '/requests' }] }]); return }
       }
     }
     // Done right here, no AI: cancelling a shoot, and "is my shoot approved?" (owner, Nov 2: type it, it gets done).
@@ -637,6 +690,17 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               <button onClick={() => go('/browse')} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Browse all</button>
             </div>
           </div>
+        ) : m.who === 'actions' ? (
+          <div key={i} className="rise-in flex flex-wrap gap-2">{m.items.map((a, k) => (
+            <button key={a.label} onClick={() => { if (a.shootId) choose(a.shootId); if (a.ask) send(a.ask); else if (a.to) go(a.to) }}
+              className={`rounded-xl px-4 min-h-[44px] font-semibold ${k === 0 ? 'bg-pt-accent text-stone-900' : 'bg-pt-border text-pt-text'}`}>{a.label}</button>))}
+          </div>
+        ) : m.who === 'return' ? (
+          returns && returns.length ? <ReturnCard key={i} groups={returns} count={returns.reduce((n, g) => n + returnCount(g), 0)} label={label} /> : null
+        ) : m.who === 'report' ? (
+          returns && returns.length ? <ReportCard key={i} groups={returns} first={m.text} /> : null
+        ) : m.who === 'pickup' ? (
+          <PickupList key={i} />
         ) : m.who === 'cancel' ? (
           <CancelCard key={i} shootId={m.shootId} shoots={[...upcoming].sort((a, b) => a.from.localeCompare(b.from))} label={label} />
         ) : m.who === 'status' ? (

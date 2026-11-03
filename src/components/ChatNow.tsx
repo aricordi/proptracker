@@ -13,6 +13,7 @@ import ProofPhotos from './ProofPhotos'
 import UnsentBasket from './UnsentBasket'
 import ReturnFlow from './ReturnFlow'
 import { subscribeToReservations, confirmPickup, type Reservation } from '../services/reservations'
+import { reportProblem } from '../services/problems'
 import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
 import { formatDay, whenLabel } from '../lib/dates'
@@ -223,7 +224,7 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
 }
 
 // Bringing things back, right in the chat: one question at a time (ReturnFlow).
-function ReturnCard({ groups, count, label }: { groups: ReturnGroup[]; count: number; label: (x: Shoot) => string }) {
+export function ReturnCard({ groups, count, label }: { groups: ReturnGroup[]; count: number; label: (x: Shoot) => string }) {
   const [open, setOpen] = useState(false)
   const [pick, setPick] = useState(0)
   const [done, setDone] = useState(0)
@@ -245,7 +246,7 @@ function ReturnCard({ groups, count, label }: { groups: ReturnGroup[]; count: nu
 }
 
 // Props are packed: pick them up and say if anything is missing (tap the props), no screen to find.
-function PickupCard({ r }: { r: Reservation }) {
+export function PickupCard({ r }: { r: Reservation }) {
   const [missing, setMissing] = useState<Record<string, number> | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -280,6 +281,55 @@ function PickupCard({ r }: { r: Reservation }) {
         </div>
       </>}
       {err && <p className="text-red-300 text-sm">{err}</p>}
+    </div>
+  )
+}
+
+// "The tripod is broken": report a problem on gear or props you have out right now (owner, Nov 3).
+export function ReportCard({ groups, first }: { groups: ReturnGroup[]; first: string }) {
+  const things = groups.flatMap(g => [
+    ...g.gear.filter(b => b.status === 'out').flatMap(b => b.lines.flatMap(l => (l.pieces?.length ? l.pieces : [{ itemId: l.offerId, name: l.name }]).map(p => ({ key: `g|${b.id}|${p.itemId}`, kind: 'gear' as const, id: b.id, name: p.name || l.name })))),
+    ...g.props.filter(r => r.status === 'collected').flatMap(r => r.lines.map(l => ({ key: `p|${r.id}|${l.itemId}`, kind: 'props' as const, id: r.id, name: l.itemName }))),
+  ])
+  const [pick, setPick] = useState<string | null>(things.length === 1 ? things[0].key : null)
+  const [note, setNote] = useState(first)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [done, setDone] = useState(false)
+  const t = things.find(x => x.key === pick)
+  async function send() {
+    if (!t) return
+    setBusy(true); setErr('')
+    try { await reportProblem({ kind: t.kind, id: t.id, name: t.name, note: note.trim() }); setDone(true) }
+    catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
+  }
+  if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">Reported ✓ The team knows. Keep it safe and bring it back as usual.</p></div>
+  return (
+    <div className={card}>
+      <p className="text-[15px] font-semibold">Which piece?</p>
+      <div className="flex flex-wrap gap-2">{things.map(x => (
+        <button key={x.key} onClick={() => setPick(x.key)} className={`px-3 min-h-[40px] rounded-full text-[14px] ${pick === x.key ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.name}</button>))}</div>
+      <input value={note} onChange={e => setNote(e.target.value.slice(0, 300))} placeholder="What happened?" className="w-full bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+      <button disabled={busy || !t || note.trim().length < 3} onClick={send} className={gold}>{busy ? 'Sending…' : !t ? 'Pick the piece first' : 'Tell the team'}</button>
+    </div>
+  )
+}
+
+// Packed props waiting for you, or where your props requests are.
+export function PickupList() {
+  const { profile } = useSession()
+  const navigate = useNavigate()
+  const [list, setList] = useState<Reservation[] | null>(null)
+  useEffect(() => subscribeToReservations({ email: profile.email, all: false }, setList), [profile.email])
+  if (!list) return null
+  const packed = list.filter(r => r.status === 'packed')
+  const going = list.filter(r => ['requested', 'preparing'].includes(r.status))
+  if (packed.length) return <div className="space-y-3">{packed.map(r => <PickupCard key={r.id} r={r} />)}</div>
+  return (
+    <div className={card}>
+      <p className="text-[15px]">{going.length ? `Nothing packed yet. ${going.length === 1 ? `"${going[0].title}" is` : `${going.length} requests are`} still with the props team.` : 'No props waiting for you right now.'}</p>
+      <button onClick={() => navigate('/requests')} className={grey}>My requests</button>
     </div>
   )
 }

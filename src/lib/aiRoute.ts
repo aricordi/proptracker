@@ -99,3 +99,39 @@ export function cancelIntent(text: string, shoots: RouteShoot[]): { shootId?: st
 const STATUS = /\b(is (it|my \w+( shoot| booking)?) (approved|confirmed|booked)|approved yet|status|my (next )?(shoots?|bookings?)|what('?s| is) (my next|coming up|booked)|when('?s| is) my (next )?shoot|did (it|my \w+) get approved)\b/i
 /** "is my shoot approved?", "what's my next shoot?" → answered from your own shoots. */
 export const isStatusQuestion = (text: string) => STATUS.test(text) && !CANCEL.test(text) && !/\b(book|find|props?)\b/i.test(text)
+
+// ── More things the chat does by itself (owner, Nov 3: "the chat is so important… cover so many edge cases… flexible
+// enough to understand nuance and guide people in the right direction"). Plain word rules, no AI, unit-tested.
+// Order matters: the first match wins. Anything that isn't one of these goes to the AI helpers (props / time / help).
+export type Intent = 'greeting' | 'thanks' | 'return' | 'take-gear' | 'report' | 'pickup' | 'move' | 'swap' | 'offsite' | 'strikes' | 'requests'
+const GEAR_WORD = /\b(gear|camera|cam|fx3|fx ?30|a7s?|sony|kit|case|lens|lights?|mic|microphone|tripod|drone|batter(y|ies)|charger|stand|gimbal|rig)\b/i
+const PROP_WORD = /\b(props?|costumes?|wardrobe|bin|stuff|things|everything|it all)\b/i
+const RETURN = /\b(return(ing|ed)?|bring(ing)? (it |them |everything |the \w+ )?back|drop(ping)? (it |them |the \w+ )?off|done with (the |my )?(gear|camera|props|kit|case|stuff|everything)|giving (it |them )?back|put (it |them )?back)\b/i
+const TAKE = /\b(tak(e|ing)|grab(bing)?|check(ing)? ?out|pick(ing)? up|need|borrow(ing)?|get(ting)?)\b/i
+const REPORT = /\b(broke|broken|cracked|damaged?|doesn'?t work|not working|won'?t (turn on|charge|work)|dead|missing|lost|can'?t find|scratched|smashed|stolen|ripped|torn|stained|leaking|faulty)\b/i
+const PICKUP = /\b(are my props ready|props (ready|packed)|pick(ing)? up (my |the )?props|collect(ing)? (my |the )?props|where (are|is) my props)\b/i
+const MOVE = /\b(move|reschedule|change (the )?(time|day|date)|push (it|my shoot|back)|switch (the )?(time|day)|different (time|day))\b/i
+const SWAP = /\bswap|trade (slots?|shoots?|with)\b/i
+const OFFSITE = /\b(offsite|off-site|off site|on location|outside the house|somewhere else|at (the |a )?(park|beach|mall|school|studio|downtown|office|restaurant|street|gym)|not at (the )?(house|cliff))\b/i
+const STRIKES = /\b(strikes?|am i paused|paused\??$|penalt(y|ies)|blocked from|why can'?t i (book|request) props)\b/i
+const REQUESTS = /\b(my requests?|what did i (ask|request)|where('?s| is| are) my (gear|request)|status of my (props|gear|request))\b/i
+const GREETING = /^\s*(hi|hey|hello|yo|sup|hiya|good (morning|afternoon|evening))\b[\s!.]*$/i
+const THANKS = /^\s*(thanks?|thank you|thx|ty|cheers|perfect|great|awesome|cool|ok(ay)?|got it|nice)\b[\s!.]*$/i
+
+export function detectIntent(text: string): Intent | null {
+  const t = text.trim()
+  if (!t) return null
+  if (GREETING.test(t)) return 'greeting'
+  if (THANKS.test(t)) return 'thanks'
+  if (/^\s*how\b/i.test(t)) return null   // "how do I return gear?" = a help question
+  if (PICKUP.test(t)) return 'pickup'
+  if (REPORT.test(t) && (GEAR_WORD.test(t) || PROP_WORD.test(t) || /\b(it|piece|thing)\b/i.test(t)) && !/\b(something for|props for|idea)\b/i.test(t)) return 'report'
+  if (RETURN.test(t) && !/\bprops? for\b/i.test(t)) return 'return'
+  if (STRIKES.test(t)) return 'strikes'
+  if (REQUESTS.test(t)) return 'requests'
+  if (SWAP.test(t)) return 'swap'
+  if (MOVE.test(t) && /\b(shoot|booking|slot|it)\b/i.test(t) && !/\bprops?\b/i.test(t)) return 'move'
+  if (GEAR_WORD.test(t) && TAKE.test(t) && !/\b(book|slot|props? for|idea|video|skit|prank)\b/i.test(t) && words(t) <= 12) return 'take-gear'
+  if (OFFSITE.test(t) && !/\bprops? for\b/i.test(t)) return 'offsite'
+  return null
+}
