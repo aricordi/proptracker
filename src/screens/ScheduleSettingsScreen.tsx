@@ -129,6 +129,12 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <h2 className="text-pt-text font-semibold">App-only from</h2>
+          <input type="date" value={s.appOnlyFrom} onChange={e => set({ appOnlyFrom: e.target.value })} className="w-full bg-pt-bg text-pt-text rounded-xl px-3 min-h-[44px]" />
+          <p className="text-pt-muted text-xs">Creators see a banner in the chat: from this day, bookings and requests only count when they're made in the app. Leave empty for no banner. It disappears two weeks after the date.</p>
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Gear (grab-and-go)</h2>
           <div className="flex items-center gap-3">
             <button onClick={() => set({ gearReserveHours: Math.max(1, s.gearReserveHours - 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>

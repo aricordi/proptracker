@@ -80,6 +80,11 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
   return (
     <div className="space-y-3">
       {intro && <ChatIntro onAsk={onAsk} onDone={closeIntro} />}
+      {s.appOnlyFrom && today < addDays(s.appOnlyFrom, 14) && (
+        <div className="rise-in rounded-[20px] p-4 bg-sky-400/10 shadow-[inset_0_0_0_0.5px_rgba(125,211,252,0.45)] text-[15px]">
+          <b>{today < s.appOnlyFrom ? `From ${formatDay(s.appOnlyFrom, { weekday: 'long', month: 'long', day: 'numeric' })}` : 'From now on'}, bookings and requests only count when they're made in the app.</b> Just type them here.
+        </div>
+      )}
       {paused && <div className="rise-in rounded-[20px] p-4 bg-red-400/10 shadow-[inset_0_0_0_0.5px_rgba(248,113,113,0.5)] text-[15px]">
         <b>Props are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
