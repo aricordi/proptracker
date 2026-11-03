@@ -1845,6 +1845,40 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       so people who did a tour don't see it); tours stay replayable; Team guide in every team menu. appGuide: approvals, gear,
       takegear, teamguide, schedulesettings. Checked on the emulator: take gear end to end, give a request's slot to Kyle (moved),
       team guide first open.
+    - ROUND 3 BEFORE LAUNCH (owner, Nov 3, after the meeting with Maanik; NOT deployed: backend (new callables giveslot, takegear,
+      reportproblem in deploy/log lists) + STORAGE RULES (guidelines/) + website, ask; deploy together with CHAT FIRST + GIVE IT TO
+      KYLE). Owner answers: no apologetic tone; "priority" wording, never "always wins"; Kyle = the Stromedy feed (already read);
+      half blocks → "next slot starts early"; guideline Cliff 1 Thu/Sat only; gear late 30 min after due; staff tour + creator intro.
+      TONE: bump push/card = "Schedule change" (neutral, suggests offsite); GiveSlotSheet "Priority booking" / "Book it for";
+      ClashList "Calendar events on a booked slot"; desk flag "First in line · had a schedule change".
+      STRIKES PAUSE PROPS ONLY (owner decision 3): assertNotPaused removed from gear (create/edit/hand-over); texts say "prop requests".
+      GEAR: due back = END OF THE SHOOT at the houses; OFFSITE = `gearOffsiteBackBy` (schedule setting, default 1440 = midnight,
+      10 AM–midnight in 30 min, Schedule settings) for takeGear + reservations. Kits: `housesOnly` (refused for offsite shoots,
+      badge) + `usualHouse` (sorted first, "Usual for Cliff 1") on the bundle edit screen. RETURNS (`src/components/ReturnFlow.tsx`,
+      chat + /return): tick what's back → "Anything broken, damaged or missing?" (tap pieces + a few words) → "Is the charging case
+      plugged in?" → who used it → one photo → send. returnGear {damage[], charging} → problems 'damaged_at_return' + return.charging;
+      startReturn {damaged[]}; confirmPickup {missing[]} → pickup.missing + issue (props tap-missing chips at pickup). Creators'
+      "Return it" buttons open /return?ref=. REPORT ANY TIME: callable `reportProblem({kind gear|props, id, name?, note})`
+      (functions/src/problemReports.ts) → gear problem 'reported' / reservation issue + history + push to that team.
+      CHAT INTENTS (`detectIntent` in src/lib/aiRoute.ts, no AI, tests/unit/chatIntents.test.ts 39 phrasings): greeting, thanks,
+      return, take-gear, report, pickup, move, swap, offsite, strikes, requests → Assistant answers with cards/buttons (ReturnCard,
+      ReportCard, PickupList, action buttons) and confirms "Returned ✓" / "Reported ✓"; "how…" stays a help question.
+      ChatIntro = 4 tappable steps (first sends "Thursday at Cliff 1 at 5pm").
+      GUIDELINE PDF: `needsGuideline(date, house, email, s)` (schedule.ts) = Cliff 1 on a priority weekday for someone NOT in the
+      priority group (and not an instant booker / team). bookShoot / moveShoot / bookWithFriends refuse without `guideline`
+      {url in guidelines/, name} (problem 'guideline'); stored on shoot.guideline; shown on approvals (phone + desk).
+      `src/components/GuidelinePicker.tsx` uploads to Storage `guidelines/<email>/` (rules: own create, PDF < 20 MB, add-only;
+      read own + gear staff). Chat + Book/Group/Move sheets ask for it.
+      SCHEDULE: blocks can REPEAT (addScheduleBlock repeatWeeks 1–26, series id, clashing weeks skipped and reported; TeamSlotSheet
+      From/Until half hours + Repeat). PARTIAL BLOCKS: `houseFreeFrom(day, house, start, s)` → "House free from 4 PM" on the slot
+      before (schedule rows, day sheet, chat next-shoot card). `appOnlyFrom` (setting, date): chat banner "From <date> all bookings go
+      through the app". REQUEST FLAGS: "Nth this month" (≥10), "N days in a row" (≥3).
+      NAMING: equipment tab + screen = "Gear log". TOURS: `src/tour/TeamTour.tsx` (equipment: approve requests incl. priority booking /
+      gear log / block time / notifications; admin: scoreboard / approve / act on a flag / notifications; 4 chapters, ~5 min, quiz,
+      cheat sheet) REPLACES GearTour + AdminTour (deleted); required once for equipment + admin; arts get the Team guide page.
+      Help: "When is gear due back?", "Something broke or is missing", "Do I need a guideline". Rules sheet rows. appGuide updated.
+      Tests 596 (reports.test.ts, guideline.test.ts, chatIntents). Not built (owner): props 1-day notice (ask arts), support hours
+      (announcement), Slack.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
