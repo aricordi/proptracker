@@ -605,13 +605,23 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // The empty chat (owner, Nov 3: "too busy… clean like the best apps"): a hello, then a short list of things to try.
   const welcome = page && !msgs.some(m => m.who === 'me') && !plan
   const nextShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))[0]
-  const suggestions: { icon: IconName; title: string; sub: string; ai?: boolean; go: () => void }[] = helpOnly || demo ? [] : [
-    { icon: 'calendar', title: 'Book a time', sub: `"${mixed()[0].replace(/^Book /, '')}"`, go: () => send(mixed()[0]) },
-    { icon: 'sparkle', ai: true, title: 'Props for a video idea', sub: `"${STARTERS.props[1]}"`, go: () => send(STARTERS.props[1]) },
-    { icon: 'list', ai: true, title: 'Plan my whole shoot', sub: 'Time, props and gear, step by step', go: () => startPlan() },
-    nextShoot ? { icon: 'check', title: 'Is my shoot approved?', sub: 'See where your shoots are at', go: () => send('Is my shoot approved?') }
-      : { icon: 'help', title: 'How does this work?', sub: 'Booking, props, gear, returns', go: () => send('How does booking work?') },
+  // Starter cards (owner, Nov 3: "like the top apps"): concrete, about YOUR week, right above the typing box.
+  const wd = (d: string) => WEEKDAY[new Date(d + 'T12:00:00').getDay()]
+  const hasOut = (returns ?? []).length > 0
+  const propsShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from)).find(x => today <= cutoffs(x).props && !x.checkin)
+  type Sugg = { icon: IconName; title: string; sub: string; ai?: boolean; go: () => void }
+  const sugg: (Sugg | false)[] = helpOnly || demo ? [] : [
+    hasOut && { icon: 'box', title: 'Bring gear back', sub: 'A few taps, one photo', go: () => { send('I\'m returning everything') } },
+    !!propsShoot && { icon: 'sparkle', ai: true, title: `Props for ${formatDay(propsShoot.date, { weekday: 'short' })}`, sub: `Ideas for that shoot · by ${formatDay(cutoffs(propsShoot).props)}`, go: () => { send(`Props for my ${wd(propsShoot.date)} shoot`) } },
+    { icon: 'calendar', title: 'Book a time', sub: mixed()[0].replace(/^Book /, ''), go: () => { send(mixed()[0]) } },
+    { icon: 'people', title: 'With a friend', sub: 'Back-to-back slots this week', go: () => { send('Find me 2 hours this week with a friend') } },
+    { icon: 'sparkle', ai: true, title: 'Props for an idea', sub: STARTERS.props[1], go: () => { send(STARTERS.props[1]) } },
+    { icon: 'list', ai: true, title: 'Plan my whole shoot', sub: 'Time, props and gear', go: () => startPlan() },
+    nextShoot ? { icon: 'check', title: 'Is it approved?', sub: 'Where your shoots are at', go: () => { send('Is my shoot approved?') } }
+      : { icon: 'help', title: 'How does it work?', sub: 'Booking, props, gear', go: () => { send('How does booking work?') } },
   ]
+  const suggestions = sugg.filter((x): x is Sugg => !!x).slice(0, 6)
+
 
   return (
     <div className={page ? 'h-full bg-pt-bg flex flex-col' : `fixed inset-0 z-50 bg-pt-bg flex flex-col ${shown ? '' : 'hidden'}`} role={page ? 'main' : 'dialog'} aria-label={page ? 'Chat' : 'AI helper'}>
@@ -639,7 +649,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ) : page ? null : <p className="text-pt-muted text-[13px]">{helpOnly ? 'Ask how anything in the app works.' : demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
         {welcome && (
           <div className="rise-in pt-1 pb-1">
             <h2 className="font-display text-[30px] leading-tight font-extrabold tracking-tight">{first ? `Hi ${first}.` : 'Hi.'}</h2>
@@ -647,20 +657,6 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         )}
         {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time')} onProps={id => propsFor(id)} />}
-        {welcome && (
-          <section className="rise-in">
-            <p className="text-pt-muted text-[13px] font-semibold px-1 mb-2">Try asking</p>
-            <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
-              {suggestions.map(x => (
-                <button key={x.title} onClick={x.go} className="w-full flex items-center gap-3 px-4 py-3 text-left">
-                  <span className={`w-9 h-9 rounded-full grid place-items-center shrink-0 ${x.ai ? 'bg-[#BF9DFF]/15 text-[#BF9DFF]' : 'bg-pt-accent/15 text-pt-accent'}`}><Icon name={x.icon} className="w-[18px] h-[18px]" /></span>
-                  <span className="flex-1 min-w-0"><span className="block text-[15px] font-semibold">{x.title}</span><span className="block text-[13px] text-pt-muted truncate">{x.sub}</span></span>
-                  <span className="text-pt-muted" aria-hidden>›</span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
         {msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
           <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
@@ -833,6 +829,17 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ) : (cart.count + gearCart.count) > 0 && results.length > 0 ? (
           <button onClick={() => go('/reserve')} className="w-full mb-3 rounded-2xl py-3 font-semibold text-pt-accent bg-pt-accent/10">Review your shoot · {cart.count + gearCart.count}</button>
         ) : null}
+        {welcome && suggestions.length > 0 && (
+          <div className="-mx-4 px-4 scroll-px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory" aria-label="Suggestions">
+            {suggestions.map(x => (
+              <button key={x.title} onClick={x.go} className="snap-start shrink-0 w-[172px] rounded-2xl bg-pt-surface px-3.5 py-3 text-left">
+                <span className={`flex items-center gap-1.5 text-[14px] font-semibold ${x.ai ? 'text-[#CDB8FF]' : 'text-pt-text'}`}>
+                  <Icon name={x.icon} className={`w-4 h-4 shrink-0 ${x.ai ? 'text-[#BF9DFF]' : 'text-pt-accent'}`} /><span className="truncate">{x.title}</span></span>
+                <span className="block mt-0.5 text-[13px] leading-snug text-pt-muted line-clamp-2">{x.sub}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {chips.length > 0 && !busy && !welcome && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
             {chips.map(c => {

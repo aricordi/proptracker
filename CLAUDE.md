@@ -1910,6 +1910,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       button when there's text), no top border. All to-do cards one style (surface, no coloured outlines; "You're up" faint gold tint);
       banners = slim tinted lines; ScheduleAsks + UnsentBasket match. Empty chat no longer scrolls to the bottom. Duplicate "Opens your
       camera" hint removed (ProofPhotos already says it). appGuide home entry updated.
+      → SUGGESTIONS REDESIGN (owner, Nov 3: "redesign based on research of the top apps"; research: 2–6 CONCRETE starters, in the thumb
+      zone above the composer, personalised, follow-up chips after replies). "Try asking" list REMOVED; the empty chat now shows a
+      swipeable row of 2-line cards (172 px, icon + title + muted line, snap, scroll-px-4) right above the typing pill: Bring gear back
+      (when something is out) / Props for <Thu> (soonest shoot still open for props) / Book a time / With a friend / Props for an idea /
+      Plan my whole shoot / Is it approved? (or How does it work?), max 6. After replies the small chips use the same spot. Soft fade at
+      the bottom of the message area.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
