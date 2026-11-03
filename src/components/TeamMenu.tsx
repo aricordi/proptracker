@@ -57,6 +57,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'more', title: 'Help & records', icon: 'help', items: [
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
       help,
+      I('teamguide', '/team-guide', 'Team guide', 'One page per team: what they do each day', 'help'),
       I('geartour', '/tour/gear', 'Gear team tour', 'The equipment team’s practice tour', 'flask'),
       I('admintour', '/tour/admin', 'Admin tour', 'The admins’ practice tour', 'flask'),
       account,
@@ -79,6 +80,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'more', title: 'Help & records', icon: 'help', items: [
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
+      I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
       I('admintour', '/tour/admin', 'Admin tour', 'Practise all of this again', 'flask'),
       help, account,
     ] },
@@ -93,6 +95,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins, reports, creators, pauses', 'clock'),
     ] },
     { key: 'more', title: 'Help & account', icon: 'help', items: [
+      I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
       I('geartour', '/tour/gear', 'Gear team tour', 'Practise the gear room again', 'flask'),
       help, account,
     ] },
@@ -109,6 +112,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'more', title: 'Records & account', icon: 'note', items: [
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
+      I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
       help, account,
     ] },
   ]

@@ -18,6 +18,7 @@ const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
 const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
+const TeamGuideScreen = lazy(() => import('./screens/TeamGuideScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
 const GearTour = lazy(() => import('./tour/GearTour'))
 const AdminTour = lazy(() => import('./tour/AdminTour'))
@@ -110,7 +111,8 @@ function TourGate({ children }: { children: ReactNode }) {
   const { demo } = useSession()
   // Demo mode (Props only) has no tour: there's nothing to practise yet. They get it once switched to Full app.
   // Chat first (owner, Nov 2: "drop the long tours; the chat explains itself"): creators no longer get the practice tour.
-  const required = (realRole === 'equipment' || realRole === 'admin') && !viewingAs && !demo
+  // Then (Nov 2): the team gets a ONE-PAGE guide instead of a practice tour (the tours stay in the menu to replay).
+  const required = (realRole === 'equipment' || realRole === 'admin' || realRole === 'arts') && !viewingAs && !demo
   const [done, setDone] = useTourDone(profile.email, required)
   const navigate = useNavigate()
   if (!required || done || tourSkipped(profile.email)) return <>{children}</>
@@ -118,7 +120,8 @@ function TourGate({ children }: { children: ReactNode }) {
   // Finished (or paused with Not now): land on Home (owner, Oct 20).
   const finished = () => { setDone(); navigate('/', { replace: true }) }
   const skipped = () => { skipTour(profile.email); finished() }
-  return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' ? <GearTour required onFinish={finished} onSkip={skipped} /> : realRole === 'admin' ? <AdminTour required onFinish={finished} onSkip={skipped} /> : <Tour required onFinish={finished} onSkip={skipped} />}</Suspense>
+  void skipped
+  return <Suspense fallback={<ScreenFallback />}><TeamGuideScreen onDone={finished} /></Suspense>
 }
 // Replaying the tour (Me → App tour, Help). Ends on Home, like the first time.
 function TourReplay() {
@@ -335,6 +338,7 @@ export default function App() {
         <Route path="/reserve" element={<NotArts><ReserveScreen /></NotArts>} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/tour" element={<TourReplay />} />
+        <Route path="/team-guide" element={<TeamGuideScreen />} />
         <Route path="/tour/gear" element={<GearTourReplay />} />
         <Route path="/tour/admin" element={<AdminTourReplay />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />

@@ -1813,6 +1813,38 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Creator tour DROPPED (TourGate only equipment + admin; /tour still opens); More lists My shoots + My requests. Help, appGuide
       (home = Chat, TABS), owner guide "Creators use a chat". Tests 545 + unit. Checked on the emulator: request from chat,
       status, cancel, help answer, check-in with mess report + wrap.
+    - GIVE IT TO KYLE + GEAR GRAB-AND-GO + TEAM GUIDE (owner, Nov 3: "build everything before live"; NOT deployed: backend
+      (new callables giveslot + takegear in deploy/log lists, no rules change) + website, ask; deploy together with CHAT FIRST).
+      GIVE IT TO KYLE: scheduling.ts `giveSlotTo(caller, {date, house, start, toEmail | clashShootId, moveTo|null})` + callable
+      `giveSlot` (APPROVERS owner/equipment/admin): one transaction: holder MOVED to a free grid slot that day (moveTo; props/gear
+      follow, same day) or CANCELLED (no strike; releaseLinks; user_status.firstInLine {at,date,forName}); the slot goes to a new
+      booked shoot for toEmail, or to the clashing imported event (clashShootId: its day.clashes entries become slot entries; clash
+      flag cleared when none left). Holder shoot gets `bumped` {for, forName, by, at, movedFrom?} + history 'bumped'. bookShoot
+      `take: true` = an instantBooker taking a slot someone else has (holder cancelled the same way; not another instantBooker's).
+      decideBooking clears firstInLine. Push 'bumped' → sorry note. App: `src/components/GiveSlotSheet.tsx` (who: instantBookers
+      chips + search; what happens: closest free times that day "Move them to…" or "Cancel their shoot"), `useCalendarClashes` +
+      `ClashList` (red box: Google Calendar events on someone's slot → "Give it to X"), on ApprovalsScreen (also "Give to Kyle…"
+      on request cards, tap a name in the day grid) and DeskApprovals (clash list above the queue, inspector button); sortReqs /
+      desk queue put firstInLine first + flag "Goes first · lost a slot to Kyle". ChatNow sorry card (moved: Got it; cancelled:
+      Find another time). ScheduleScreen taken-slot sheet: `TakeSlot` for instant bookers ("Take this slot (you have priority)").
+      Calendar clash push → /approvals. Seed: Kyle in instantBookers. Tests tests/functions/giveSlot.test.ts.
+      GEAR GRAB-AND-GO: GEAR_LEAD_TIME_DAYS = 0; schedule setting `gearReserveHours` (default 24, 1–336; Schedule settings →
+      "Gear (grab-and-go)"); creators can createGearBooking ONLY with a schedule shoot and from gearReserveHours before it
+      ('too-early'); new callable `takeGear` (shoot owner, from GEAR_TAKE_BEFORE_MINUTES 60 before the shoot until it ends, not on a
+      closed day): holdGear (now → shoot end, ≤ midnight, booking.grab = true) + doPickup (missing keys + photos → pickup.photos)
+      in one go; a failed pickup releases the hold. Push: "Gear taken" to the gear team (no "New gear hold" for grabs). App:
+      activeShoot `useGearWindow` (early/reserve/take/over) + `stampLabel`; useAddingNote('gear') early = blocks + with
+      "Reserve from Thu 1 PM, or take what's free on the day"; GearShopScreen early/take cards, availability from NOW in take mode,
+      "Taking N now · Take it" bar → `/gear/take` (`src/screens/TakeGearScreen.tsx`: tick every piece, one photo in
+      shoot-photos/<shootId>, late fee note, Take it → gear booking page with the photo); GearOfferScreen "Take this one";
+      ReserveScreen refuses gear too early / on the day (says why); ChatNow "Need gear? Take gear" card; ShootNeeds/MyRequests/AI
+      texts "gear on the day". Help Q "How do I get gear?", How it works, Rules sheet row, assistant live rules. Old gear tests use
+      `bookGear` (tests/functions/helpers.ts: opens the window to 336 h + adds a shoot). Tests 552.
+      TEAM GUIDE: `/team-guide` (`src/screens/TeamGuideScreen.tsx`): one page per team (equipment, admins, arts; owner switches),
+      live numbers. TourGate now shows it ONCE (with "Got it") to equipment, admins AND arts instead of the tours (same tourDoneAt,
+      so people who did a tour don't see it); tours stay replayable; Team guide in every team menu. appGuide: approvals, gear,
+      takegear, teamguide, schedulesettings. Checked on the emulator: take gear end to end, give a request's slot to Kyle (moved),
+      team guide first open.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

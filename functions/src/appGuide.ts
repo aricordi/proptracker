@@ -90,6 +90,8 @@ export const GUIDE: GuideEntry[] = [
     about: 'Company rule: gear brought back late (from 30 minutes after the booked end) carries a fee of 10% of its value, on the last person who had it. The app logs it; admins can excuse exceptions. Props late from 10 AM the next open day are logged, no fee.' },
   { id: 'calendarfeed', title: 'Shoots in your phone\'s calendar', who: [...FILMERS, 'equipment', 'admin'], words: 'add to my calendar ical subscribe phone calendar',
     about: 'Book → the calendar card at the bottom → "Add to my phone\'s calendar": iPhone button, or Copy link for Google Calendar. It updates by itself.' },
+  { id: 'teamguide', path: '/team-guide', title: 'Team guide', who: ['owner', 'equipment', 'admin', 'arts'], words: 'guide training how to my job one page new staff onboarding',
+    about: 'One short page per team (equipment, admins, arts department) with what to do each day and the live numbers. New team members see it once when they first open the app (it replaced the long practice tours, which can still be replayed). Open it again from the team menu → Team guide; the owner can switch between the three teams\' pages.' },
   { id: 'tour', path: '/tour', title: 'Practice tour', who: ['creator', 'owner'], words: 'tutorial practice learn walkthrough',
     about: 'Creators no longer need a tour: the Chat explains itself (a short "How this works" card the first time) and you just type what you need. The old practice tour still opens at /tour for anyone curious. Gear team: Account → Gear team tour. Admins: Admin → Admin tour.' },
 
