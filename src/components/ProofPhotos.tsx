@@ -18,10 +18,11 @@ interface Props {
   cameraOnly?: boolean   // proof photos: the camera opens directly, no gallery (owner decision Oct 14)
   selfie?: boolean       // front camera (owner, Nov 3: check in with a selfie with your camera)
   compact?: string       // one small button with this label instead of the photo grid (one photo)
+  hero?: boolean         // with compact: a big round dark camera button (for the gold do-it-now card)
 }
 
 // Take or pick photos as proof; each uploads straight away. Opens the camera on phones.
-export default function ProofPhotos({ folder, urls, onChange, onUploading, label, hint, max = 10, cameraOnly = true, selfie = false, compact }: Props) {
+export default function ProofPhotos({ folder, urls, onChange, onUploading, label, hint, max = 10, cameraOnly = true, selfie = false, compact, hero = false }: Props) {
   const input = useRef<HTMLInputElement>(null)
   const [slots, setSlots] = useState<Slot[]>([])
   const latest = useRef(urls)
@@ -70,6 +71,22 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
 
   const picker = <input ref={input} type="file" accept="image/*" {...(cameraOnly ? { capture: selfie ? 'user' as const : 'environment' as const } : { multiple: true })} className="hidden"
     onChange={e => { add(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+  if (compact && hero) {
+    const s = slots[slots.length - 1]
+    return (
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        {s && !s.failed ? <span className="relative w-[68px] h-[68px] rounded-full overflow-hidden bg-stone-900 ring-4 ring-stone-900/20">
+          <img src={s.preview} alt="" className="w-full h-full object-cover" />
+          {!s.url && <span className="absolute inset-0 bg-black/50" aria-label="Uploading" />}
+        </span> : <button onClick={() => { if (s) setSlots([]); input.current?.click() }} aria-label={label}
+          className="w-[68px] h-[68px] rounded-full bg-stone-900 text-pt-accent grid place-items-center ring-4 ring-stone-900/15 active:scale-95 transition-transform">
+          <Icon name="camera" className="w-7 h-7" />
+        </button>}
+        <span className="text-[13px] font-bold text-stone-900">{s?.failed ? (s.why ?? 'Try again') : compact}</span>
+        {picker}
+      </div>
+    )
+  }
   if (compact) {
     const s = slots[slots.length - 1]
     return (

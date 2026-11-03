@@ -16,7 +16,7 @@ import { subscribeToReservations, confirmPickup, type Reservation } from '../ser
 import { reportProblem } from '../services/problems'
 import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
-import { ChatCard, primaryBtn, secondaryBtn } from './ChatCard'
+import { HeroCard, AlertCard, ReadyCard, NoticeRow, CountdownRing, LiveDot, primaryBtn, secondaryBtn, alertBtn, noticeLink } from './ChatCard'
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { todayInStudio, addDays } from '../../functions/src/booking'
@@ -30,6 +30,8 @@ const card = 'rise-in rounded-[20px] bg-pt-surface p-4 space-y-3'
 const gold = 'w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40'
 const grey = 'rounded-xl px-4 min-h-[44px] font-semibold bg-pt-border text-pt-text disabled:opacity-40'
 const SEEN_KEY = 'pc.chatSeenEnded'
+// Minutes from one studio stamp ('YYYY-MM-DDTHH:MM') to another (both in the same time zone, so plain maths works).
+const minutesBetween = (a: string, b: string) => Math.round((Date.parse(b + ':00Z') - Date.parse(a + ':00Z')) / 60000)
 const readSeen = (): string[] => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) ?? '[]') } catch { return [] } }
 
 export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (text: string) => void; onProps: (shootId: string) => void; chatting?: boolean }) {
@@ -85,37 +87,38 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
           <b>{today < s.appOnlyFrom ? `From ${formatDay(s.appOnlyFrom, { weekday: 'long', month: 'long', day: 'numeric' })}` : 'From now on'}, bookings and requests only count when they're made in the app.</b> Just type them here.
         </div>
       )}
-      {paused && <ChatCard tone="bad" icon="pause" label="Props paused" title={`Until ${formatDay(status!.pausedUntil!)}`} sub="You can still book filming time." />}
+      {paused && <NoticeRow tone="bad" icon="pause" title={`Prop requests paused until ${formatDay(status!.pausedUntil!)}`} sub="You can still book filming time." />}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} urgent />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}
-      {missed.map(x => (
-        <ChatCard key={x.id} tone="warn" icon="clock" label="Missed check-in" title={`Did you film ${formatDay(x.date, { weekday: 'short' })} ${fmtTime(x.start)}?`}
-          sub={`Tell the team by ${fmtTime(Number(explainUntil(x, s).slice(11, 13)) * 60 + Number(explainUntil(x, s).slice(14, 16)))}`}
-          actions={<button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={primaryBtn}>Explain</button>} />
-      ))}
+      {missed.map(x => {
+        const until = explainUntil(x, s), left = minutesBetween(now, until), total = s.explainHours * 60
+        return (
+          <AlertCard key={x.id} label="Missed check-in" title={`Did you film ${formatDay(x.date, { weekday: 'short' })} ${fmtTime(x.start)}?`}
+            sub={`Tell the team by ${fmtTime(Number(until.slice(11, 13)) * 60 + Number(until.slice(14, 16)))}, or it may count as a no-show.`}
+            side={<CountdownRing left={left} total={total} label={left >= 60 ? `${Math.floor(left / 60)}h` : `${Math.max(0, left)}m`} />}
+            actions={<button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={alertBtn}>Explain what happened</button>} />
+        )
+      })}
       {(returns ?? []).length > 0 && <ReturnCard groups={returns!} count={backCount} label={label} />}
       {packed.map(r => <PickupCard key={r.id} r={r} />)}
       {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => {
         const k = `b${x.id}${x.bumped!.at}`, gone = x.status === 'cancelled'
         return (
-          <ChatCard key={k} tone="warn" icon="calendar" label="Schedule change" title={gone ? 'Your shoot was cancelled' : `Moved to ${formatDay(x.date, { weekday: 'short' })} ${fmtTime(x.start)}`}
-            sub={gone ? 'A priority booking needed the slot. No strike, and you\'re first in line.' : 'For a priority booking. Your props moved with it.'}
-            actions={gone ? <>
-              <button onClick={() => { dismiss(k); navigate(`/schedule?offsite=${x.date}`) }} className={secondaryBtn}>Offsite</button>
-              <button onClick={() => { dismiss(k); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={primaryBtn}>Find a new time</button>
-            </> : <button onClick={() => dismiss(k)} className={primaryBtn}>Got it</button>}>
-            {gone && <button onClick={() => dismiss(k)} className="text-pt-muted text-[14px] tap">Dismiss</button>}
-          </ChatCard>
+          <NoticeRow key={k} tone="info" icon="calendar" onClose={() => dismiss(k)}
+            title={gone ? 'Schedule change: your shoot was cancelled' : `Schedule change: moved to ${formatDay(x.date, { weekday: 'short' })} ${fmtTime(x.start)}`}
+            sub={gone ? 'A priority booking needed the slot. No strike, and you go first next time.' : 'For a priority booking. Your props moved with it.'}
+            action={gone ? <>
+              <button onClick={() => { dismiss(k); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={noticeLink}>Find a new time</button>
+              <button onClick={() => { dismiss(k); navigate(`/schedule?offsite=${x.date}`) }} className="text-[14px] font-semibold text-pt-muted tap">Film offsite</button>
+            </> : undefined} />
         )
       })}
       {ended.filter(x => !x.bumped && x.status !== 'booked' && x.status !== 'cancelled' && !seen.includes(x.id)).map(x => (
-        <ChatCard key={x.id} tone="bad" icon="x" label={x.status === 'denied' ? 'Not approved' : 'Request ran out'} title={label(x)}
+        <NoticeRow key={x.id} tone="bad" icon="x" onClose={() => dismiss(x.id)}
+          title={`${x.status === 'denied' ? 'Not approved' : 'Request ran out'}: ${label(x)}`}
           sub={x.deniedReason ? `"${x.deniedReason}"` : x.status === 'denied' ? undefined : 'Nobody approved it in time.'}
-          actions={<>
-            <button onClick={() => dismiss(x.id)} className={secondaryBtn}>Got it</button>
-            <button onClick={() => { dismiss(x.id); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.start)}`) }} className={primaryBtn}>Find a new time</button>
-          </>} />
+          action={<button onClick={() => { dismiss(x.id); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.start)}`) }} className={noticeLink}>Find a new time</button>} />
       ))}
       <UnsentBasket />
       {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
@@ -185,29 +188,31 @@ function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
   }, [before, photos.length, uploading, shoot.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (shoot.checkin) return (
-    <ChatCard tone="good" icon="clapper" label="Filming now" title={`${shootPlace} · ${fmtTime(shoot.start)}`}>
-      <div className="flex items-center gap-2">
+    <div className="rise-in rounded-[22px] p-4 bg-pt-surface ring-1 ring-red-400/30">
+      <p className="flex items-center gap-2 text-[13px] font-extrabold text-red-300"><LiveDot className="bg-red-400" />Filming now · {shootPlace} · {fmtTime(shoot.start)}</p>
+      <div className="flex items-center gap-2 mt-3">
         <input value={title} onChange={e => setTitle(e.target.value.slice(0, 100))} placeholder="Done? What did you film?" aria-label="What did you film?"
           className="flex-1 min-w-0 bg-black/30 rounded-2xl px-4 min-h-[48px] text-base placeholder:text-pt-muted" />
         <button disabled={busy || title.trim().length < 2} onClick={() => run(() => wrapShoot({ id: shoot.id, title: title.trim() }))}
           className="shrink-0 rounded-2xl h-12 px-5 font-bold text-stone-900 bg-pt-accent disabled:opacity-40">Wrap</button>
       </div>
       {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
-    </ChatCard>
+    </div>
   )
 
   const shot = photos.length > 0 && !uploading
   return (
-    <ChatCard tone="act" icon="camera" label={shot ? (busy ? 'Checking in…' : 'Got it ✓') : "You're up"} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
-      side={!shot || photos.length === 0 ? <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" max={1} /> : undefined}>
+    <HeroCard eyebrow={<><LiveDot />{shot ? (busy ? 'Checking in…' : 'Got it ✓') : "You're up · check in"}</>} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
+      sub={shot ? undefined : 'One selfie with your camera and you\'re checked in.'}
+      action={!shot ? <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" hero max={1} /> : undefined}>
       {before && shot && !report ? (
         <div className="flex items-center gap-2">
-          <p className="flex-1 min-w-0 text-[15px]">All good with {before.name.split(' ')[0]}'s slot?</p>
-          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-10 px-3 text-[14px] bg-white/[0.08]">Report it</button>
-          <button disabled={busy} onClick={() => checkIn(false)} className="shrink-0 rounded-full h-10 px-4 text-[14px] font-bold text-stone-900 bg-pt-accent">All good</button>
+          <p className="flex-1 min-w-0 text-[16px] font-semibold">All good with {before.name.split(' ')[0]}'s slot?</p>
+          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-11 px-4 text-[15px] font-semibold bg-stone-900/10">Report it</button>
+          <button disabled={busy} onClick={() => checkIn(false)} className="shrink-0 rounded-full h-11 px-5 text-[15px] font-bold text-pt-accent bg-stone-900">All good</button>
         </div>
       ) : before && shot && report ? (
-        <div className="space-y-2">
+        <div className="space-y-2 rounded-2xl bg-pt-bg p-3 text-pt-text">
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setMess(!mess)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${mess ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-white/[0.08]'}`}>House was a mess</button>
             {[15, 30, 60].map(m => <button key={m} onClick={() => setOver(over === m ? 0 : m)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${over === m ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-white/[0.08]'}`}>Ran over {m} min</button>)}
@@ -218,8 +223,8 @@ function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
             {busy ? 'Checking in…' : mess && !messPhotos.length ? 'Add a photo of the mess' : !mess && !over ? 'Tap what happened' : 'Check in and tell the team'}</button>
         </div>
       ) : null}
-      {err && <p className="text-red-300 text-sm">{err}</p>}
-    </ChatCard>
+      {err && <p className="text-red-900 text-sm font-semibold">{err}</p>}
+    </HeroCard>
   )
 }
 
@@ -229,9 +234,10 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
   const [pick, setPick] = useState(0)
   const [done, setDone] = useState(0)
   const g = groups[Math.min(pick, groups.length - 1)]
-  if (done) return <ChatCard tone="good" icon="check" label="Returned" title="Thanks! The team will check it in." />
+  if (done) return <NoticeRow tone="info" icon="check" title="Returned ✓ Thanks! The team will check it in." />
+  const photos = groups.flatMap(x => [...x.props.filter(r => r.status === 'collected').flatMap(r => r.lines.map(l => l.photo)), ...x.gear.filter(b => b.status === 'out').flatMap(b => b.lines.map(l => l.photo))])
   return (
-    <ChatCard tone="act" icon="box" label="To bring back" title={count === 1 ? '1 thing' : `${count} things`} sub={open ? undefined : 'A few taps and one photo.'}
+    <ReadyCard back icon="box" photos={photos} label="To bring back" title={count === 1 ? '1 thing is still with you' : `${count} things are still with you`} sub={open ? undefined : 'A few taps and one photo.'}
       actions={open ? undefined : <button onClick={() => setOpen(true)} className={primaryBtn}>Return it now</button>}>
       {open && <>
         {groups.length > 1 && (
@@ -241,7 +247,7 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
         )}
         <ReturnFlow key={g.key} group={g} compact onDone={n => { setDone(n); onReturned?.() }} />
       </>}
-    </ChatCard>
+    </ReadyCard>
   )
 }
 
@@ -259,9 +265,9 @@ export function PickupCard({ r }: { r: Reservation }) {
       setDone(all ? 'Picked up ✓ Enjoy the shoot.' : 'Picked up ✓ The props team knows what was missing.')
     } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
   }
-  if (done) return <ChatCard tone="good" icon="check" label="Picked up" title={done.replace(/^Picked up ✓ /, '')} />
+  if (done) return <NoticeRow tone="info" icon="check" title={done} />
   return (
-    <ChatCard tone="good" icon="basket" label="Props ready" title={`"${r.title}" is packed`} sub={missing === null ? `${r.lines.length} ${r.lines.length === 1 ? 'prop' : 'props'} · check them, then sign` : undefined}
+    <ReadyCard photos={r.lines.map(l => l.photo)} label="Props ready to pick up" title={`"${r.title}" is packed`} sub={missing === null ? `${r.lines.length} ${r.lines.length === 1 ? 'prop' : 'props'} · check them, then sign` : undefined}
       actions={missing === null ? <>
         <button disabled={busy} onClick={() => setMissing({})} className={secondaryBtn}>Missing one</button>
         <button disabled={busy} onClick={() => sign(true)} className={primaryBtn}>Got everything</button>
@@ -279,7 +285,7 @@ export function PickupCard({ r }: { r: Reservation }) {
         </div>
       </>}
       {err && <p className="text-red-300 text-sm">{err}</p>}
-    </ChatCard>
+    </ReadyCard>
   )
 }
 

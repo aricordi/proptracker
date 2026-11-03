@@ -1991,6 +1991,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (amber) / bad (red) / good (green). Used by SwapAsk (You get → You give tiles + "See who else films that day"), InviteAsk
       (avatar, hold-until pill, tile), check-in (camera tile + Selfie), Filming now (wrap input), Missed check-in, To bring back,
       Props ready, Schedule change, Not approved / ran out, Props paused, Not sent yet. New cards: use ChatCard, don't hand-roll.
+    → CARD FORMS (owner, Nov 3: "missed check-in and not-sent props look the same… understand without reading"): colour alone
+      isn't enough, so each JOB has its own SHAPE (ChatCard.tsx): HeroCard = do it now (the only SOLID GOLD block, live dot, big
+      round dark camera button: check-in; ProofPhotos `hero`); AlertCard = deadline/problem (dark, thick red left edge,
+      CountdownRing that empties, red button: missed check-in); DraftCard = unfinished (DASHED outline + the real prop photos
+      fanned + count badge: Not sent yet); ReadyCard = ready / bring back (PhotoStack of the request's photos with a green check
+      or gold return badge: props ready, to bring back); NoticeRow = just so you know (slim row, small icon, ✕, text link:
+      schedule change, not approved / ran out, props paused, done confirmations); ChatCard ask (sky + avatar) = someone waits for
+      your answer. Filming now = red live dot + wrap input. New chat cards: pick the FORM by the job, never just a colour.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

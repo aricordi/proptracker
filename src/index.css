@@ -159,3 +159,8 @@
 
 /* iPhone zooms the page when you tap a text box whose text is under 16px (owner, Oct 19): keep them at 16px on phones */
 @media (pointer: coarse) { input, textarea, select { font-size: 16px !important; } }
+
+/* Chat cards: the "live" dot on the do-it-now card (a soft ping, stops under reduced motion). */
+@keyframes live-ping { 0% { transform: scale(1); opacity: .6; } 80%, 100% { transform: scale(2.4); opacity: 0; } }
+.live-ping { animation: live-ping 1.6s cubic-bezier(0,0,.2,1) infinite; }
+@media (prefers-reduced-motion: reduce) { .live-ping { animation: none; opacity: 0; } }
