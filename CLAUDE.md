@@ -1937,6 +1937,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "Practice site · You're X (role)" + Switch sheet → signInWithCustomToken → '/'), Login badge "PRACTICE SITE"; signInDomain uses
       the practice <PID>.web.app as authDomain (needs https://<PID>.web.app/__/auth/handler on the practice OAuth web client).
       No email (no SMTP secret), no Google Calendar there; pushes only reach phones signed in on practice. Tests 610.
+      SET UP Nov 3 (run 2 green; run 1 needed cloudbilling API, now enabled by the workflow): https://prime-capitol-practice.web.app,
+      1,164 props, 5 kits, 9 practice people. REAL AI (owner: 'as smart as live'): the owner pastes the live Gemini key as a new
+      version of GEMINI_API_KEY in the practice project's Secret Manager (copying it automatically was refused as a secret-store
+      write), then 'Update the practice app'. Practice AI budget = app_settings/ai $10/month (written by practice_fill.py).
+      changeuseremail wasn't found on practice (owner-only tool, not needed there).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

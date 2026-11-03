@@ -78,6 +78,11 @@ for c in ['categories', 'locations', 'bins', 'tags', 'gear_items', 'gear_bundles
 put_all('items', items)
 rules = call(f'{base(LIVE)}/app_settings/booking', live_token)
 if rules.get('fields'): put_all('app_settings', [rules])
+# The practice site has its OWN AI budget (separate from the live one), kept small so practising can't run up a bill.
+ai = {'name': f'projects/{PRACTICE}/databases/(default)/documents/app_settings/ai',
+      'fields': {'monthlyCapUsd': {'integerValue': '10'}, 'perPersonDaily': {'integerValue': '25'},
+                 'demoMonthlyCapUsd': {'integerValue': '3'}, 'demoPerPersonDaily': {'integerValue': '10'}}}
+put_all('app_settings', [ai])
 
 # 3. Props that only exist in the practice copy (added while practising) are removed, so a refill is a clean start.
 extra = [d for d in list_docs(PRACTICE, practice_token, 'items') if doc_id(d) not in ids]

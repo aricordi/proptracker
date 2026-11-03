@@ -159,7 +159,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
     <li><b>What's in it:</b> a copy of every Prime Capitol prop (not your personal ones), the gear kits, categories, bins and booking rules, plus pretend people (Riley, Kyle, Jana, Sam the admin, the arts and equipment test people…) with shoots and requests already in progress.</li>
     <li><b>Be anyone:</b> sign in with your own Google account, then tap <b>Switch</b> in the orange strip at the top and pick a person. You really become them: every screen, button and rule is the one they'd get. Switch back to "You (owner)" any time.</li>
     <li><b>Notifications</b> only go to phones signed in on the practice site. <b>No emails</b> are sent and <b>Google Calendar</b> isn't connected there.</li>
-    <li><b>The AI</b> gives simple test answers (free). To try the real AI there, put the real AI key in the practice project's Secret Manager as <span class="path">GEMINI_API_KEY</span>.</li>
+    <li><b>The AI</b> is the real one once you add the key (Google Cloud → practice project → Secret Manager → GEMINI_API_KEY → New version), then run the button with <b>Update the practice app</b>. It has its own budget of <span class="num">$10 a month</span>, separate from the live app.</li>
     <li><b>Start over:</b> GitHub → Actions → <b>Practice site</b> → Run workflow → <b>Refill the practice data</b> (fresh copy of the props, fresh pretend people and shoots). After new app changes, run it with <b>Update the practice app</b>.</li>
     <li><b>Cost:</b> cents to a few dollars a month (it has its own small server and 3 timed jobs).</li>
   </ul>
