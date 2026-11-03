@@ -1984,6 +1984,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       chips 0-2 specific to the person. ideaToProps reply + askApp answer in the same PA voice. App: when the AI already replied
       for a message, the time/props helpers don't add their own canned summary (aiSpoke ref; empty bubbles hidden); no default
       menu chips after AI replies (only the AI's own); warmer built-in greeting/thanks.
+      → CARD DESIGN (owner, Nov 3: "text too small… doesn't guide the eye… use the visual design, not words"): ONE anatomy for every
+      chat card, `src/components/ChatCard.tsx` (ChatCard: coloured icon tile or avatar · small coloured label · big 18px title with
+      the key fact · ≤1 muted line · visual content · ONE big primary button (primaryBtn 52px) + quiet secondaryBtn; SlotTile =
+      boarding-pass style day/time/place). Colour = meaning everywhere: ask (sky, needs your answer) / act (gold, your move) / warn
+      (amber) / bad (red) / good (green). Used by SwapAsk (You get → You give tiles + "See who else films that day"), InviteAsk
+      (avatar, hold-until pill, tile), check-in (camera tile + Selfie), Filming now (wrap input), Missed check-in, To bring back,
+      Props ready, Schedule change, Not approved / ran out, Props paused, Not sent yet. New cards: use ChatCard, don't hand-roll.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

@@ -16,6 +16,7 @@ import { subscribeToReservations, confirmPickup, type Reservation } from '../ser
 import { reportProblem } from '../services/problems'
 import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
+import { ChatCard, primaryBtn, secondaryBtn } from './ChatCard'
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { todayInStudio, addDays } from '../../functions/src/booking'
@@ -84,41 +85,37 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
           <b>{today < s.appOnlyFrom ? `From ${formatDay(s.appOnlyFrom, { weekday: 'long', month: 'long', day: 'numeric' })}` : 'From now on'}, bookings and requests only count when they're made in the app.</b> Just type them here.
         </div>
       )}
-      {paused && <div className="rise-in rounded-2xl px-4 py-3 bg-red-400/10 text-[14px] text-red-100">
-        <b>Props are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
+      {paused && <ChatCard tone="bad" icon="pause" label="Props paused" title={`Until ${formatDay(status!.pausedUntil!)}`} sub="You can still book filming time." />}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} urgent />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}
       {missed.map(x => (
-        <div key={x.id} className={card}>
-          <p className="text-[15px]"><b>No check-in for {label(x)}.</b> Did you film? Tell the team before {fmtTime(Number(explainUntil(x, s).slice(11, 13)) * 60 + Number(explainUntil(x, s).slice(14, 16)))} or it may count as a no-show.</p>
-          <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={gold}>Explain what happened</button>
-        </div>
+        <ChatCard key={x.id} tone="warn" icon="clock" label="Missed check-in" title={`Did you film ${formatDay(x.date, { weekday: 'short' })} ${fmtTime(x.start)}?`}
+          sub={`Tell the team by ${fmtTime(Number(explainUntil(x, s).slice(11, 13)) * 60 + Number(explainUntil(x, s).slice(14, 16)))}`}
+          actions={<button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={primaryBtn}>Explain</button>} />
       ))}
       {(returns ?? []).length > 0 && <ReturnCard groups={returns!} count={backCount} label={label} />}
       {packed.map(r => <PickupCard key={r.id} r={r} />)}
-      {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => (
-        <div key={`b${x.id}`} className={card}>
-          <p className="text-[15px]"><b>Schedule change.</b> {x.status === 'cancelled'
-            ? <>{label(x)} is needed for a priority booking, so it was cancelled (no strike). Your next request is first in line.</>
-            : <>Your shoot moved to <b>{label(x)}</b> for a priority booking. Props moved with it.</>}</p>
-          {x.status === 'cancelled' ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={gold}>Find another time</button>
-              <button onClick={() => { dismiss(`b${x.id}${x.bumped!.at}`); navigate(`/schedule?offsite=${x.date}`) }} className={grey}>Shoot offsite</button>
-              <button onClick={() => dismiss(`b${x.id}${x.bumped!.at}`)} className={`${grey} col-span-2`}>OK</button>
-            </div>
-          ) : <button onClick={() => dismiss(`b${x.id}${x.bumped!.at}`)} className={grey}>OK</button>}
-        </div>
-      ))}
+      {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => {
+        const k = `b${x.id}${x.bumped!.at}`, gone = x.status === 'cancelled'
+        return (
+          <ChatCard key={k} tone="warn" icon="calendar" label="Schedule change" title={gone ? 'Your shoot was cancelled' : `Moved to ${formatDay(x.date, { weekday: 'short' })} ${fmtTime(x.start)}`}
+            sub={gone ? 'A priority booking needed the slot. No strike, and you\'re first in line.' : 'For a priority booking. Your props moved with it.'}
+            actions={gone ? <>
+              <button onClick={() => { dismiss(k); navigate(`/schedule?offsite=${x.date}`) }} className={secondaryBtn}>Offsite</button>
+              <button onClick={() => { dismiss(k); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.bumped!.movedFrom?.start ?? x.start)}`) }} className={primaryBtn}>Find a new time</button>
+            </> : <button onClick={() => dismiss(k)} className={primaryBtn}>Got it</button>}>
+            {gone && <button onClick={() => dismiss(k)} className="text-pt-muted text-[14px] tap">Dismiss</button>}
+          </ChatCard>
+        )
+      })}
       {ended.filter(x => !x.bumped && x.status !== 'booked' && x.status !== 'cancelled' && !seen.includes(x.id)).map(x => (
-        <div key={x.id} className={card}>
-          <p className="text-[15px]"><b>{x.status === 'denied' ? 'Not approved' : 'Nobody approved it in time'}:</b> {label(x)}.{x.deniedReason ? ` "${x.deniedReason}"` : ''}</p>
-          <div className="flex gap-2">
-            <button onClick={() => { dismiss(x.id); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.start)}`) }} className={`${gold} flex-1`}>Find another time</button>
-            <button onClick={() => dismiss(x.id)} className={grey}>Got it</button>
-          </div>
-        </div>
+        <ChatCard key={x.id} tone="bad" icon="x" label={x.status === 'denied' ? 'Not approved' : 'Request ran out'} title={label(x)}
+          sub={x.deniedReason ? `"${x.deniedReason}"` : x.status === 'denied' ? undefined : 'Nobody approved it in time.'}
+          actions={<>
+            <button onClick={() => dismiss(x.id)} className={secondaryBtn}>Got it</button>
+            <button onClick={() => { dismiss(x.id); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.start)}`) }} className={primaryBtn}>Find a new time</button>
+          </>} />
       ))}
       <UnsentBasket />
       {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
@@ -162,8 +159,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
 // Check in and wrap, right here (owner, Nov 3: "smaller, just a selfie of them with their camera, nothing crazy").
 // One line + a selfie button. The photo is the check-in. Only when someone filmed right before you: one optional
 // "All good / Report it" question (mess and/or ran over). Later, one line: what did you film?
-function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
+function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
   const s = useScheduleSettings()
+  const shootPlace = shoot.place === 'offsite' ? (shoot.where || 'Offsite') : s.houses[shoot.place].name
   const days = useScheduleDays(shoot.date, shoot.date)
   const prev = shoot.place !== 'offsite' ? days?.[shoot.date]?.[shoot.place]?.[slotKey(shoot.start - s.slotMinutes)] : undefined
   const before = prev && prev.shootId && prev.shootId !== shoot.id ? prev : undefined
@@ -187,43 +185,41 @@ function ShootNow({ shoot, label }: { shoot: Shoot; label: string }) {
   }, [before, photos.length, uploading, shoot.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (shoot.checkin) return (
-    <div className="rise-in rounded-[20px] bg-pt-surface p-3 pl-4 flex items-center gap-2">
-      <input value={title} onChange={e => setTitle(e.target.value.slice(0, 100))} placeholder="Done? What did you film?" aria-label="What did you film?"
-        className="flex-1 min-w-0 bg-transparent min-h-[44px] text-base placeholder:text-pt-muted" />
-      <button disabled={busy || title.trim().length < 2} onClick={() => run(() => wrapShoot({ id: shoot.id, title: title.trim() }))}
-        className="shrink-0 rounded-full h-11 px-4 font-bold text-stone-900 bg-pt-accent disabled:opacity-40">Wrap</button>
-      {err && <p className="text-red-300 text-sm">{err}</p>}
-    </div>
+    <ChatCard tone="good" icon="clapper" label="Filming now" title={`${shootPlace} · ${fmtTime(shoot.start)}`}>
+      <div className="flex items-center gap-2">
+        <input value={title} onChange={e => setTitle(e.target.value.slice(0, 100))} placeholder="Done? What did you film?" aria-label="What did you film?"
+          className="flex-1 min-w-0 bg-black/30 rounded-2xl px-4 min-h-[48px] text-base placeholder:text-pt-muted" />
+        <button disabled={busy || title.trim().length < 2} onClick={() => run(() => wrapShoot({ id: shoot.id, title: title.trim() }))}
+          className="shrink-0 rounded-2xl h-12 px-5 font-bold text-stone-900 bg-pt-accent disabled:opacity-40">Wrap</button>
+      </div>
+      {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
+    </ChatCard>
   )
 
   const shot = photos.length > 0 && !uploading
   return (
-    <div className="rise-in rounded-2xl py-2.5 pl-4 pr-2.5 bg-pt-accent/[0.10] space-y-2.5">
-      <div className="flex items-center gap-3">
-        <p className="flex-1 min-w-0 text-[14px] leading-snug truncate"><b>{shot ? (busy ? 'Checking in…' : 'Got it ✓') : "You're up"}</b> <span className="text-pt-muted">· {label}</span></p>
-        <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" max={1} />
-      </div>
-      {before && shot && !report && (
+    <ChatCard tone="act" icon="camera" label={shot ? (busy ? 'Checking in…' : 'Got it ✓') : "You're up"} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
+      side={!shot || photos.length === 0 ? <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" max={1} /> : undefined}>
+      {before && shot && !report ? (
         <div className="flex items-center gap-2">
-          <p className="flex-1 min-w-0 text-[14px]">All good with {before.name}'s slot before you?</p>
-          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-10 px-3 text-[14px] bg-pt-border">Report it</button>
+          <p className="flex-1 min-w-0 text-[15px]">All good with {before.name.split(' ')[0]}'s slot?</p>
+          <button disabled={busy} onClick={() => setReport(true)} className="shrink-0 rounded-full h-10 px-3 text-[14px] bg-white/[0.08]">Report it</button>
           <button disabled={busy} onClick={() => checkIn(false)} className="shrink-0 rounded-full h-10 px-4 text-[14px] font-bold text-stone-900 bg-pt-accent">All good</button>
         </div>
-      )}
-      {before && shot && report && (
+      ) : before && shot && report ? (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setMess(!mess)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${mess ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-pt-border'}`}>House was a mess</button>
-            {[15, 30, 60].map(m => <button key={m} onClick={() => setOver(over === m ? 0 : m)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${over === m ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-pt-border'}`}>Ran over {m} min</button>)}
+            <button onClick={() => setMess(!mess)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${mess ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-white/[0.08]'}`}>House was a mess</button>
+            {[15, 30, 60].map(m => <button key={m} onClick={() => setOver(over === m ? 0 : m)} className={`rounded-full px-3 min-h-[40px] text-[14px] ${over === m ? 'bg-amber-400 text-stone-900 font-bold' : 'bg-white/[0.08]'}`}>Ran over {m} min</button>)}
           </div>
           {mess && <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={messPhotos} onChange={setMessPhotos} onUploading={setUploading} label="Photo of the mess" compact="Photo of the mess" max={3} />}
           <input value={note} onChange={e => setNote(e.target.value.slice(0, 300))} placeholder="Anything to add? (optional)" className="w-full bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
-          <button disabled={busy || uploading || (!mess && !over) || (mess && !messPhotos.length)} onClick={() => checkIn(true)} className={gold}>
+          <button disabled={busy || uploading || (!mess && !over) || (mess && !messPhotos.length)} onClick={() => checkIn(true)} className={`w-full ${primaryBtn}`}>
             {busy ? 'Checking in…' : mess && !messPhotos.length ? 'Add a photo of the mess' : !mess && !over ? 'Tap what happened' : 'Check in and tell the team'}</button>
         </div>
-      )}
+      ) : null}
       {err && <p className="text-red-300 text-sm">{err}</p>}
-    </div>
+    </ChatCard>
   )
 }
 
@@ -233,11 +229,11 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
   const [pick, setPick] = useState(0)
   const [done, setDone] = useState(0)
   const g = groups[Math.min(pick, groups.length - 1)]
-  if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">Returned ✓ The team will check it in. Thanks!</p></div>
+  if (done) return <ChatCard tone="good" icon="check" label="Returned" title="Thanks! The team will check it in." />
   return (
-    <div className={card}>
-      <p className="text-[15px]"><b>You have {count === 1 ? 'something' : `${count} things`} to bring back.</b> A few taps and one photo.</p>
-      {!open ? <button onClick={() => setOpen(true)} className={gold}>Return it now</button> : <>
+    <ChatCard tone="act" icon="box" label="To bring back" title={count === 1 ? '1 thing' : `${count} things`} sub={open ? undefined : 'A few taps and one photo.'}
+      actions={open ? undefined : <button onClick={() => setOpen(true)} className={primaryBtn}>Return it now</button>}>
+      {open && <>
         {groups.length > 1 && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar">{groups.map((x, i) => (
             <button key={x.key} onClick={() => setPick(i)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-[13px] ${i === pick ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.shoot ? label(x.shoot) : formatDay(x.date)}</button>))}
@@ -245,7 +241,7 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
         )}
         <ReturnFlow key={g.key} group={g} compact onDone={n => { setDone(n); onReturned?.() }} />
       </>}
-    </div>
+    </ChatCard>
   )
 }
 
@@ -263,16 +259,14 @@ export function PickupCard({ r }: { r: Reservation }) {
       setDone(all ? 'Picked up ✓ Enjoy the shoot.' : 'Picked up ✓ The props team knows what was missing.')
     } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
   }
-  if (done) return <div className={card}><p className="text-[15px] text-green-400 font-semibold">{done}</p></div>
+  if (done) return <ChatCard tone="good" icon="check" label="Picked up" title={done.replace(/^Picked up ✓ /, '')} />
   return (
-    <div className={card}>
-      <p className="text-[15px]"><b>Your props for "{r.title}" are packed.</b> Picking them up? Check everything is there, then sign.</p>
-      {missing === null ? (
-        <div className="grid grid-cols-2 gap-2">
-          <button disabled={busy} onClick={() => sign(true)} className={gold}>Got everything</button>
-          <button disabled={busy} onClick={() => setMissing({})} className={grey}>Something's missing</button>
-        </div>
-      ) : <>
+    <ChatCard tone="good" icon="basket" label="Props ready" title={`"${r.title}" is packed`} sub={missing === null ? `${r.lines.length} ${r.lines.length === 1 ? 'prop' : 'props'} · check them, then sign` : undefined}
+      actions={missing === null ? <>
+        <button disabled={busy} onClick={() => setMissing({})} className={secondaryBtn}>Missing one</button>
+        <button disabled={busy} onClick={() => sign(true)} className={primaryBtn}>Got everything</button>
+      </> : undefined}>
+      {missing !== null && <>
         <p className="text-pt-muted text-[13px]">Tap what's missing.</p>
         <div className="flex flex-wrap gap-2">{r.lines.map(l => {
           const on = l.itemId in missing
@@ -285,7 +279,7 @@ export function PickupCard({ r }: { r: Reservation }) {
         </div>
       </>}
       {err && <p className="text-red-300 text-sm">{err}</p>}
-    </div>
+    </ChatCard>
   )
 }
 

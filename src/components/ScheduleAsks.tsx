@@ -1,46 +1,57 @@
 // Invite and swap cards, shared by the Book screen and the chat (Nov 2).
 import { useState } from 'react'
 import Avatar from './Avatar'
+import { Icon } from './Icon'
+import { ChatCard, SlotTile, primaryBtn, secondaryBtn } from './ChatCard'
 import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { useScheduleSettings, useScheduleDays, answerSwap, answerInvite, fmtSlot, errorText, slotKey, HOUSES, type SwapRequest, type ScheduleInvite } from '../services/schedule'
 
-// Something only you can answer: sky blue so it stands out from the rest of the chat (owner, Nov 3).
-const URGENT = 'bg-sky-400/[0.14] ring-1 ring-sky-300/40'
-const URGENT_TAG = 'text-[12px] font-bold text-sky-200'
+// Same card anatomy as the rest of the chat (ChatCard): icon/avatar, coloured label, the key fact big, time tiles
+// instead of sentences, one big button (owner, Nov 3: guide the eye with the design, not with paragraphs).
+const day = (d: string) => formatDay(d, { weekday: 'short', month: 'short', day: 'numeric' })
+const place = (x: { place: string }, s: ReturnType<typeof useScheduleSettings>) => x.place === 'offsite' ? 'Offsite' : s.houses[x.place as 'cliff1' | 'cliff2'].name
 
-export function SwapAsk({ r, incoming = false, urgent = false }: { r: SwapRequest; incoming?: boolean; urgent?: boolean }) {
+export function SwapAsk({ r, incoming = false }: { r: SwapRequest; incoming?: boolean; urgent?: boolean }) {
   const s = useScheduleSettings()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [peek, setPeek] = useState(false)
-  const label = (x: SwapRequest['from']) => `${formatDay(x.date)} · ${x.place === 'offsite' ? 'Offsite' : s.houses[x.place].name} · ${fmtSlot(x.start, x.end - x.start)}`
   async function answer(accept: boolean) {
     setBusy(true); setErr('')
     try { await answerSwap({ id: r.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
+  const first = (n: string) => n.split(' ')[0]
+  if (!incoming) return (
+    <ChatCard tone="plain" lead={<Avatar email={r.toEmail} name={r.toName} size={48} />} label="Swap sent" title={`Waiting for ${first(r.toName)}`}
+      actions={<button disabled={busy} onClick={() => answer(false)} className={secondaryBtn}>Withdraw</button>}>
+      <div className="flex items-center gap-2">
+        <SlotTile tag="You give" day={day(r.from.date)} time={fmtSlot(r.from.start, r.from.end - r.from.start)} place={place(r.from, s)} />
+        <Icon name="swap" className="w-5 h-5 text-pt-muted shrink-0" />
+        <SlotTile tag="You get" hot day={day(r.to.date)} time={fmtSlot(r.to.start, r.to.end - r.to.start)} place={place(r.to, s)} />
+      </div>
+    </ChatCard>
+  )
   return (
-    <div className={`rise-in rounded-[20px] p-4 space-y-3 ${urgent ? URGENT : 'bg-pt-surface'}`}>
-      {urgent && <p className={URGENT_TAG}>Needs your answer</p>}
-      <div className="flex items-center gap-3">
-        <Avatar email={incoming ? r.fromEmail : r.toEmail} name={incoming ? r.fromName : r.toName} />
-        <p className="text-pt-text text-sm flex-1 min-w-0">
-          {incoming ? <><b>{r.fromName}</b> asks to swap: you'd get <b>{label(r.from)}</b>, they'd get your <b>{label(r.to)}</b>.</>
-            : <>Waiting for <b>{r.toName}</b> to answer your swap: your {label(r.from)} for their {label(r.to)}.</>}
-        </p>
+    <ChatCard tone="ask" lead={<Avatar email={r.fromEmail} name={r.fromName} size={48} />} label="Needs your answer" title={`${first(r.fromName)} wants to swap`}
+      actions={<>
+        <button disabled={busy} onClick={() => answer(false)} className={secondaryBtn}>Decline</button>
+        <button disabled={busy} onClick={() => answer(true)} className={primaryBtn}>Accept swap</button>
+      </>}>
+      <div className="flex items-center gap-2">
+        <SlotTile tag="You get" hot day={day(r.from.date)} time={fmtSlot(r.from.start, r.from.end - r.from.start)} place={place(r.from, s)} />
+        <Icon name="swap" className="w-5 h-5 text-sky-200 shrink-0" />
+        <SlotTile tag="You give" day={day(r.to.date)} time={fmtSlot(r.to.start, r.to.end - r.to.start)} place={place(r.to, s)} />
       </div>
-      {incoming && <button onClick={() => setPeek(!peek)} className="text-[14px] font-semibold text-sky-200 tap">{peek ? 'Hide the preview' : 'Preview that day if you accept ›'}</button>}
-      {incoming && peek && <SwapPreview r={r} />}
-      {err && <p className="text-red-300 text-sm">{err}</p>}
-      <div className="flex gap-2">
-        {incoming && <button disabled={busy} onClick={() => answer(true)} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-2 disabled:opacity-40">Accept</button>}
-        <button disabled={busy} onClick={() => answer(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 disabled:opacity-40">{incoming ? 'Decline' : 'Withdraw'}</button>
-      </div>
-    </div>
+      <button onClick={() => setPeek(!peek)} className="mt-3 flex items-center gap-2 text-[15px] font-semibold text-sky-200 tap">
+        <Icon name="eye" className="w-4 h-4" />{peek ? 'Hide the day' : 'See who else films that day'}</button>
+      {peek && <div className="mt-2"><SwapPreview r={r} /></div>}
+      {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
+    </ChatCard>
   )
 }
 
-export function InviteAsk({ inv, now, urgent = false }: { inv: ScheduleInvite; now: string; urgent?: boolean }) {
+export function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string; urgent?: boolean }) {
   const s = useScheduleSettings()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -50,16 +61,16 @@ export function InviteAsk({ inv, now, urgent = false }: { inv: ScheduleInvite; n
     try { await answerInvite({ id: inv.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
-    <div className={`rise-in rounded-[20px] p-4 space-y-3 ${urgent ? URGENT : 'bg-pt-surface'}`}>
-      {urgent && <p className={URGENT_TAG}>Needs your answer</p>}
-      <p className="text-pt-text text-[15px]"><b>{inv.fromName}</b> invited you to film right after them: <b>{formatDay(inv.date)} · {s.houses[inv.place].name} · {fmtSlot(inv.start, inv.end - inv.start)}</b>.</p>
-      <p className="text-amber-200 text-sm">Held for you until {until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` (${formatDay(inv.until.slice(0, 10))})` : ''}.</p>
-      {err && <p className="text-red-300 text-sm">{err}</p>}
-      <div className="flex gap-2">
-        <button disabled={busy} onClick={() => answer(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3 disabled:opacity-40">Can't make it</button>
-        <button disabled={busy} onClick={() => answer(true)} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40 shadow-gold">Confirm my slot</button>
-      </div>
-    </div>
+    <ChatCard tone="ask" lead={<Avatar email={inv.fromEmail} name={inv.fromName} size={48} />} label="Needs your answer"
+      title={`${inv.fromName.split(' ')[0]} invited you to film`}
+      side={<span className="shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 bg-amber-400/15 text-amber-200 text-[13px] font-bold"><Icon name="clock" className="w-3.5 h-3.5" />{until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` ${formatDay(inv.until.slice(0, 10), { weekday: 'short' })}` : ''}</span>}
+      actions={<>
+        <button disabled={busy} onClick={() => answer(false)} className={secondaryBtn}>Can't</button>
+        <button disabled={busy} onClick={() => answer(true)} className={primaryBtn}>Confirm my slot</button>
+      </>}>
+      <SlotTile tag="Right after them · held for you" hot day={day(inv.date)} time={fmtSlot(inv.start, inv.end - inv.start)} place={s.houses[inv.place].name} />
+      {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
+    </ChatCard>
   )
 }
 
