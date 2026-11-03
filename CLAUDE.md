@@ -2026,6 +2026,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       pill + tips Next 44px, Coming-up rows 60px; touch screens: text inputs/selects min 44px (index.css); Avatar colours darker
       (white initials ≥ 4.5:1); Damaged badge bg-red-600; SlotTile place text-pt-text/75. Result: 0 low-contrast texts and 0 text
       under 12px on all audited screens. New pills: use the 40px pill classes above.
+    - FINAL BEAUTIFYING PASS (owner, Nov 3: "one final pass… then push live"): crawl of 64 routes x 7 roles = no errors; laptop views
+      checked. Fixed: Calendar tab's page titled "Calendar" for creators/owner (30px, no crowding), equipment tab "Queue" → "Gear log",
+      laptop sidebar "Check-ins", desk page title "Requests", Team tiles top-aligned, "Casting, locations and makeup come later" removed
+      from the shoot sheet, faint labels lifted (Plan it with AI line, Adding to / cutoff), helpful EMPTY STATES on the props queue and
+      gear log tabs (title + what lands there), chat "Your first shoot · Nothing booked yet · See free times" card when nothing is booked.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
