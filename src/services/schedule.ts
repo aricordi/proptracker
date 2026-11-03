@@ -32,6 +32,7 @@ export interface Shoot {
   // Given to someone with top priority (Kyle): moved (movedFrom) or cancelled.
   bumped?: { for: string; forName: string; by: string; at: string; movedFrom?: { place: House; start: number } }
   clash?: boolean; clashWith?: string[]
+  guideline?: { url: string; name: string }   // filming guideline PDF (Cliff 1 Thu/Sat, owner Nov 3)
 }
 
 // A shoot that's on the schedule: approved, or a request waiting for the equipment team (owner, Nov 2).
@@ -74,9 +75,10 @@ export function useShoot(id: string | null): Shoot | null | undefined {
   return s
 }
 
-export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
+export type Guideline = { url: string; name: string }
+export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
-export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
+export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')
 export const answerSwap = httpsCallable<{ id: string; accept: boolean }, { ok: boolean }>(functions, 'answerSwap')
 
@@ -122,7 +124,7 @@ export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgo
   }, [email])
   return { incoming, outgoing }
 }
-export const bookWithFriends = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
+export const bookWithFriends = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
 export const answerInvite = httpsCallable<{ id: string; accept: boolean }, { ok: boolean; shootId: string | null }>(functions, 'answerInvite')
 export interface TimeAskResult {
   reply: string

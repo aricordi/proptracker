@@ -163,6 +163,12 @@ export function priorityLocked(date: string, house: Place, s: ScheduleSettings, 
   return isPriorityDay(date, house, s) && !inPriorityGroup(email, s) && now < releaseStamp(date, s)
 }
 
+// A filming guideline (PDF) is needed to book a priority day at the priority house when you're not in the priority group
+// (owner, Nov 3: Cliff 1 Thursdays + Saturdays). People who book without approval (Kyle) don't need one.
+export function needsGuideline(date: string, house: Place, email: string, s: ScheduleSettings) {
+  return isPriorityDay(date, house, s) && !inPriorityGroup(email, s) && !s.instantBookers.some(p => p.email === email.toLowerCase())
+}
+
 // House slots someone has on a day (both houses, plus slots held for them by a friend's invite).
 // Offsite shoots don't count (owner, Oct 18). `except` leaves out a shoot that is being moved or swapped.
 export function houseSlotsOn(day: ScheduleDay | undefined, email: string, now: string, except: string[] = []) {

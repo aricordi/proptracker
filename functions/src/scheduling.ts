@@ -11,7 +11,7 @@ import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
-import { houseSlotsOn,
+import { houseSlotsOn, needsGuideline,
   cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
@@ -28,6 +28,16 @@ const isTeam = (c: Caller) => TEAM.includes(c.role)
 const skipsLock = (c: Caller, forEmail: string) => isTeam(c) && !(c.role === 'owner' && forEmail === c.email)
 const fail = (problem: ScheduleProblem, message = SCHEDULE_MESSAGES[problem]) =>
   new HttpsError('failed-precondition', message, { problem })
+// Cliff 1 Thursdays + Saturdays need a filming guideline (PDF) from creators outside the priority group (owner, Nov 3).
+// The schedule team booking for someone doesn't need one. Returns what to store on the shoot.
+function guidelineFor(caller: Caller, email: string, spot: { place: Place; date: string }, s: ScheduleSettings, raw: unknown) {
+  const g = raw && typeof raw === 'object' ? raw as { url?: unknown; name?: unknown } : null
+  const url = typeof g?.url === 'string' && /^https?:\/\/[^\s]+$/.test(g.url) && /guidelines(%2F|\/)/.test(g.url) ? g.url.slice(0, 1000) : ''
+  if (url) return { url, name: str(g?.name, 120) || 'Guideline.pdf' }
+  if (spot.place !== 'offsite' && !isTeam(caller) && needsGuideline(spot.date, spot.place, email, s))
+    throw new HttpsError('failed-precondition', 'Thursdays and Saturdays at Cliff 1 need your filming guideline. Attach the PDF and ask again.', { problem: 'guideline' })
+  return null
+}
 const shortNoticeFail = (s: ScheduleSettings) =>
   fail('short-notice', `Less than ${s.noticeHours} hours to go. Swap with someone instead, or cancel (it counts as a no-show).`)
 
@@ -161,6 +171,7 @@ export const bookShoot = onCall(CALLABLE, async req => {
       return { id: r.shootId, kind: 'extra', status: 'booked', bumped: r.holderName }
     }
   }
+  const guideline = guidelineFor(caller, who.email, spot, s, d.guideline)
   const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
@@ -174,7 +185,7 @@ export const bookShoot = onCall(CALLABLE, async req => {
     tx.set(ref, {
       creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date),
       from: win.from, to: win.to, kind, status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
-      ...(pending ? { requestedAt: at } : {}),
+      ...(pending ? { requestedAt: at } : {}), ...(guideline ? { guideline } : {}),
       history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(spot, s)}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
     })
   })
@@ -256,6 +267,8 @@ export const moveShoot = onCall(CALLABLE, async req => {
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
   await assertNoLinksForDayChange(id, pre.date, spot.date)
   if (spot.place !== 'offsite' && !skipsLock(caller, pre.creatorEmail) && priorityLocked(spot.date, spot.place, s, pre.creatorEmail, now)) throw fail('locked')
+  // Moving onto a Cliff 1 Thursday/Saturday needs a guideline too (unless the shoot already has one).
+  const guideline = pre.guideline && !d.guideline ? null : guidelineFor(caller, pre.creatorEmail, spot, s, d.guideline)
   // A monthly slot stays monthly at Cliff 1 (checked against the new month); anywhere else it becomes an extra slot.
   let kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE ? pre.kind : 'extra'
   if (kind === 'monthly' && monthOf(spot.date) !== pre.month && await monthlyUsed(pre.creatorEmail, monthOf(spot.date), id) >= s.monthlySlots) kind = 'extra'
@@ -285,13 +298,13 @@ export const moveShoot = onCall(CALLABLE, async req => {
     if (asRequest) {
       result = 'requested'
       tx.update(ref, {
-        moveRequest: { ...spot, from: win.from, to: win.to, kind, at }, updatedAt: at,
+        moveRequest: { ...spot, from: win.from, to: win.to, kind, at }, updatedAt: at, ...(guideline ? { guideline } : {}),
         history: FieldValue.arrayUnion({ at, by: caller.email, action: 'move-requested', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}` }),
       })
       return
     }
     tx.update(ref, {
-      ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, updatedAt: at, ...(old ? { moveRequest: FieldValue.delete() } : {}),
+      ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, updatedAt: at, ...(old ? { moveRequest: FieldValue.delete() } : {}), ...(guideline ? { guideline } : {}),
       history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${team && b.creatorEmail !== caller.email ? ' · by the schedule team' : ''}` }),
     })
   })
@@ -674,6 +687,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   }
   const now = nowStamp()
   if (!skipsLock(caller, caller.email) && priorityLocked(spot.date, house, s, caller.email, now)) throw fail('locked')
+  const guideline = guidelineFor(caller, caller.email, spot, s, d.guideline)
   const total = mySlots + friends.length
   const starts = Array.from({ length: total }, (_, j) => spot.start + j * s.slotMinutes)
   if (starts.some(st => !s.slots.includes(st))) throw new HttpsError('failed-precondition', 'There aren\'t enough back-to-back slots left that day. Start earlier.')
@@ -700,7 +714,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
       const sp = { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }
       const win = slotWindow(sp.date, sp.start, s.slotMinutes)
       tx.set(ref, {
-        creatorEmail: caller.email, creatorName: caller.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind,
+        creatorEmail: caller.email, creatorName: caller.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind, ...(guideline ? { guideline } : {}),
         status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, ...(pending ? { requestedAt: at } : {}),
         history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)}${withNames ? ` · with ${withNames}` : ''}` }],
       })

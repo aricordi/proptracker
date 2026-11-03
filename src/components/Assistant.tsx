@@ -20,6 +20,7 @@ import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
 import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, type Helper, type Route } from '../lib/aiRoute'
 import { ReturnCard, ReportCard, PickupList } from './ChatNow'
+import GuidelinePicker from './GuidelinePicker'
 import { useReturnGroups, returnCount } from '../hooks/useReturnables'
 import ChatNow from './ChatNow'
 import BrandMark from './BrandMark'
@@ -37,7 +38,7 @@ import { ideaToProps, askApp, type IdeaResult, type AppAnswer } from '../service
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useMyStatus, useScheduleSettings, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
+  askForTime, bookWithFriends, useMyInvites, useMyStatus, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
   type TimeAskResult,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
@@ -399,11 +400,16 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]); return [] }
   }
 
+  // Cliff 1 Thursdays/Saturdays need the filming guideline (owner, Nov 3): the option asks for the PDF first.
+  const [guideFor, setGuideFor] = useState<string | null>(null)
+  const [guide, setGuide] = useState<Guideline | null>(null)
+  const optKey = (o: TimeAskResult['options'][number]) => `${o.date}-${o.place}-${o.start}`
   async function book(o: TimeAskResult['options'][number]) {
+    if (needsGuideline(o.date, o.place, profile.email, s) && !(guide && guideFor === optKey(o))) { setGuideFor(optKey(o)); return }
     setBusy(true)
     try {
       const friends = o.slots.filter(x => !x.me).map(x => x.email)
-      const r = (await bookWithFriends({ place: o.place, date: o.date, start: o.start, friends, mySlots: o.slots.filter(x => x.me).length })).data
+      const r = (await bookWithFriends({ place: o.place, date: o.date, start: o.start, friends, mySlots: o.slots.filter(x => x.me).length, ...(guide && guideFor === optKey(o) ? { guideline: guide } : {}) })).data
       const where = `${formatDay(o.date)} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`
       // Every creator booking is a request the schedule team approves (owner, Nov 2); the slot is held meanwhile.
       const asked = r.status === 'requested'
@@ -620,6 +626,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
                 <button disabled={busy} onClick={() => book(o)} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'}</button>
               </div>
             ))}
+            {guideFor && m.options.some(o => optKey(o) === guideFor) && (() => { const o = m.options.find(x => optKey(x) === guideFor)!; return (
+              <div className="space-y-2"><GuidelinePicker value={guide} onChange={setGuide} />
+                {guide && <button disabled={busy} onClick={() => book(o)} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'} {formatDay(o.date, { weekday: 'short' })} · {fmtSlot(o.start, o.slots.length * s.slotMinutes)}</button>}
+              </div>) })()}
           </div>
         ) : m.who === 'shoots' ? (
           <div key={i} className="rise-in space-y-2">

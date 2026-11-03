@@ -285,6 +285,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
         <p className="text-pt-text text-[15px] font-bold">{r.move ? 'to ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</p>
         <p className="text-pt-muted text-xs">Asked {ago(r.since)}{r.place === 'cliff1' && s.priorityWeekdays.includes(weekday(r.date)) ? ' · priority day' : ''}{weekday(r.date) === 0 ? ' · Sunday, no crew' : ''}</p>
       </div>
+      {sh.guideline && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block bg-pt-surface rounded-xl px-3 py-2 text-[13px] text-pt-accent font-semibold hover:underline">Filming guideline: {sh.guideline.name} ›</a>}
       {f.flags.length > 0 && <div className="flex flex-wrap gap-1.5">{f.flags.map(x => <span key={x.text} className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TONE[x.tone]}`}>{x.text}</span>)}</div>}
       <div className="grid grid-cols-3 gap-1.5">
         <Stat n={`${f.filmed} of ${f.past30}`} l="filmed · 30 days" />

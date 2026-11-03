@@ -1,5 +1,6 @@
 import { Icon } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
+import GuidelinePicker from '../components/GuidelinePicker'
 import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
 import { SwapAsk, InviteAsk } from '../components/ScheduleAsks'
 import { useEffect, useMemo, useState } from 'react'
@@ -23,7 +24,7 @@ import { useProfiles } from '../services/profiles'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, useScheduleDays, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
+  useScheduleSettings, useScheduleDays, needsGuideline, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay, isPriorityDay,
   inPriorityGroup, priorityLocked, releaseStamp, monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
@@ -514,12 +515,14 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
   const { profile } = useSession()
-  const asks = !team && !s.instantBookers.some(p => p.email === profile.email)   // creators' bookings are requests (owner, Nov 2)
+  const asks = !team && !s.instantBookers.some(p => p.email === profile.email)
+  const [guide, setGuide] = useState<Guideline | null>(null)
+  const needG = !team && house !== 'offsite' && needsGuideline(date, house, profile.email, s)
   useEffect(() => { if (team) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team])
   async function book() {
     setBusy(true); setErr('')
     try {
-      const r = await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}) })
+      const r = await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
       setDone(true); setTimeout(() => onBooked(r.data.id), 650)
     }
@@ -547,10 +550,11 @@ function BookSheet({ house, date, start, team, mine, dayFull, onClose, onBooked 
         </div>
       )}
       {isNoCrewDay(date) && <p className="mt-3 rounded-xl px-3 py-3 text-sm border border-sky-400/40 bg-sky-400/10 text-pt-text">Sunday: no crew. You run the shoot yourself.</p>}
+      {needG && <div className="mt-3"><GuidelinePicker value={guide} onChange={setGuide} /></div>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       {dayFull && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
         You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
-      <button disabled={busy || done || dayFull} onClick={book} className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : asks ? 'Request this time' : 'Book it'}</button>
+      <button disabled={busy || done || dayFull || (needG && !guide)} onClick={book} className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : asks ? 'Request this time' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">{asks ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
     </BottomSheet>
   )
@@ -662,11 +666,15 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const asks = !team && !instant && shoot.status === 'booked'
   // Moving the owner's own shoot follows the priority lock; the team moving someone else's doesn't.
   const results = findFree(days, today, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), 10)
+  // Moving onto a Cliff 1 Thursday/Saturday needs a guideline (owner, Nov 3), unless the shoot already has one.
+  const [guide, setGuide] = useState<Guideline | null>(null)
+  const [needFor, setNeedFor] = useState<{ date: string; house: House; start: number } | null>(null)
   async function go(date: string, house: House, start: number) {
+    if (!team && !shoot.guideline && !guide && needsGuideline(date, house, shoot.creatorEmail, s)) { setNeedFor({ date, house, start }); return }
     const key = `${date}${house}${start}`
     setBusy(key); setErr('')
     try {
-      const r = await moveShoot({ id: shoot.id, place: house, date, start })
+      const r = await moveShoot({ id: shoot.id, place: house, date, start, ...(guide ? { guideline: guide } : {}) })
       // An approved shoot moved by a creator is a REQUEST: it stays where it is until the team approves the new time.
       if (r.data.status === 'requested' && shoot.status === 'booked') { onMoved(shoot); return }
       const win = slotWindow(date, start, s.slotMinutes)
@@ -682,6 +690,8 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
         ))}
       </div>
       {MONTHLY_SLOTS_ON && shoot.kind === 'monthly' && <p className="text-pt-muted text-xs mt-2">Stays a monthly slot at {s.houses.cliff1.name}; at {s.houses.cliff2.name} it becomes an extra slot.</p>}
+      {needFor && <div className="space-y-2"><GuidelinePicker value={guide} onChange={g => setGuide(g)} />
+        {guide && <button onClick={() => { const t = needFor; setNeedFor(null); void go(t.date, t.house, t.start) }} className={btnGold}>Continue: move to {s.houses[needFor.house].name} · {fmtSlot(needFor.start, s.slotMinutes)}</button>}</div>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       <div className="mt-3 space-y-2">
         {results.length === 0 && <p className="text-pt-muted text-sm">No free slots in the next 60 days.</p>}
@@ -967,12 +977,14 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
   async function book() {
     setBusy(true); setErr('')
     try {
-      const r = await bookWithFriends({ place: house, date, start, friends: friends.map(f => f.email), mySlots: 1, kind })
+      const r = await bookWithFriends({ place: house, date, start, friends: friends.map(f => f.email), mySlots: 1, kind, ...(guide ? { guideline: guide } : {}) })
       setDone(true); setTimeout(() => onBooked(r.data.shootIds[0]), 650)
     } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   const { profile } = useSession()
   const asks = !team && !s.instantBookers.some(p => p.email === profile.email)
+  const [guide, setGuide] = useState<Guideline | null>(null)
+  const needG = !team && needsGuideline(date, house, profile.email, s)
   const rows = [{ email: profile.email, name: 'You', note: asks ? 'Requested' : 'Booked' }, ...friends.map(f => ({ email: f.email, name: f.name, note: `Held ${INVITE_HOLD_MINUTES} min` }))]
   return (
     <BottomSheet open onClose={onClose} title="Book back to back">
@@ -997,7 +1009,8 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
       )}
       <p className="text-pt-muted text-xs mt-4">{friends.map(f => f.name.split(' ')[0]).join(' and ')} {friends.length > 1 ? 'get' : 'gets'} a notification to confirm. If they don't within {INVITE_HOLD_MINUTES} minutes, the slot opens to everyone.</p>
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
-      <button disabled={busy || done} onClick={book} className={`mt-5 ${btnGold} ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : `${asks ? 'Request' : 'Book'} + invite ${friends.length > 1 ? 'them' : friends[0].name.split(' ')[0]}`}</button>
+      {needG && <div className="mt-3"><GuidelinePicker value={guide} onChange={setGuide} /></div>}
+      <button disabled={busy || done || (needG && !guide)} onClick={book} className={`mt-5 ${btnGold} ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : `${asks ? 'Request' : 'Book'} + invite ${friends.length > 1 ? 'them' : friends[0].name.split(' ')[0]}`}</button>
       {asks && <p className="text-pt-muted text-xs text-center mt-2">The equipment team approves each slot. They're held for you meanwhile.</p>}
     </BottomSheet>
   )

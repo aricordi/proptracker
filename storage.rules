@@ -77,6 +77,15 @@ service firebase.storage {
     }
 
     // Reference photos creators attach to build-to-order requests.
+    // Filming guidelines (PDF) for Cliff 1 Thursday/Saturday bookings (owner, Nov 3): the creator uploads their own;
+    // they, the schedule team and admins can read them. Add-only.
+    match /guidelines/{email}/{file} {
+      allow read: if canSeeGear() || (isMember() && myEmail() == email);
+      allow create: if resource == null && hasRole(['owner', 'creator']) && myEmail() == email
+        && request.resource.size < 20 * 1024 * 1024 && request.resource.contentType == 'application/pdf';
+      allow update, delete: if false;
+    }
+
     match /request-photos/{email}/{file} {
       allow read: if isMember();
       allow create: if resource == null && isImage() && isMember() && myEmail() == email;
