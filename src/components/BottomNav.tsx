@@ -77,11 +77,15 @@ const requestsIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" /></svg>
 )
 
+// Chat first (owner, Nov 2, mockup v2): Chat / Calendar / Props / More.
+const chatIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><path d="M4.5 5.5h15A1.5 1.5 0 0 1 21 7v9a1.5 1.5 0 0 1-1.5 1.5H10L5.5 21v-3.5h-1A1.5 1.5 0 0 1 3 16V7a1.5 1.5 0 0 1 1.5-1.5z" /><path d="M8 10.5h8M8 13.5h5" /></svg>
+)
 const creatorNav = [
-  { to: '/',         label: 'Home',   icon: homeIcon },
-  { to: '/schedule', label: 'Book',   icon: scheduleIcon, also: ['/shoots'] },
-  { to: '/browse',   label: 'Browse', icon: searchIcon, also: ['/gear', '/item'] },
-  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/reservations', '/gear/bookings', '/requests'] },
+  { to: '/',         label: 'Chat',     icon: chatIcon },
+  { to: '/schedule', label: 'Calendar', icon: requestsIcon, also: ['/shoots'] },
+  { to: '/browse',   label: 'Props',    icon: searchIcon, also: ['/gear', '/item'] },
+  { to: '/account',  label: 'More',     icon: accountIcon, also: ['/reservations', '/gear/bookings', '/requests', '/help', '/return'] },
 ]
 
 // The app tour draws the same tab bar.
@@ -106,7 +110,7 @@ const equipmentNav = [
 ]
 
 // For the practice tours' pretend tab bars.
-export const TAB_ICONS: Record<string, JSX.Element> = { Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
+export const TAB_ICONS: Record<string, JSX.Element> = { Chat: chatIcon, Calendar: requestsIcon, More: accountIcon, Home: homeIcon, Book: scheduleIcon, Browse: searchIcon, Me: accountIcon,
   Schedule: scheduleIcon, Queue: queueIcon, Bundles: gearIcon, 'All gear': cameraIcon, Admin: adminIcon, Gear: gearIcon, Props: searchIcon, Dashboard: adminIcon, Requests: requestsIcon }
 
 // Admin (owner, Oct 19): staff layout, queues first; props, gear and the schedule (they can book their own shoots too).
@@ -123,7 +127,7 @@ const adminNav = [
 // The owner films too: the creator tabs, plus "Team" for everything only the owner and staff can do.
 const ownerNav = [
   ...creatorNav.slice(0, 3),
-  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests'] },
+  { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests', '/return'] },
   { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
     '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
     '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet', '/approvals', '/personal'] },

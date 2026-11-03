@@ -27,7 +27,7 @@ const when = (x: { date?: string; start?: number } | Record<string, any>) => `${
 export function inviteChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Push[] {
   if (!a) return []
   if (!b && a.status === 'pending') return [{
-    to: [a.toEmail], tag: `invite-${id}`, url: '/schedule',
+    to: [a.toEmail], tag: `invite-${id}`, url: '/',
     title: `${first(a.fromName)} invited you to film 🎬`,
     body: `${placeName(a, s)} · ${when(a)}, right after them. Confirm by ${stampTime(a.until)} or the slot opens to everyone.`,
   }]
@@ -39,7 +39,7 @@ export function inviteChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): P
 export function swapChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Push[] {
   if (!a) return []
   if (!b && a.status === 'pending') return [{
-    to: [a.toEmail], tag: `swap-${id}`, url: '/schedule',
+    to: [a.toEmail], tag: `swap-${id}`, url: '/',
     title: `${first(a.fromName)} wants to swap slots`,
     body: `You'd get ${placeName(a.from, s)} · ${when(a.from)}; they'd get your ${placeName(a.to, s)} · ${when(a.to)}.`,
   }]
@@ -122,7 +122,8 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   const hist = (a.history ?? []) as { by?: string; action?: string; note?: string }[]
   if (hist.length <= ((b?.history ?? []) as unknown[]).length) return []
   const h = hist.at(-1)!
-  const url0 = `/schedule?shoot=${id}`, tag0 = `shoot-${id}`
+  // Creators' shoot news opens the chat on that shoot (chat first, Nov 2): status, check-in and wrap are right there.
+  const url0 = `/?shoot=${id}`, tag0 = `shoot-${id}`
   // Requests (owner, Nov 2): the creator asks, the equipment team decides.
   if (h.action === 'requested') return [{ to: ['gear-team'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}: ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'move-requested') return [{ to: ['gear-team'], url: '/approvals', tag: `req-${id}`, title: 'Move request', body: `${a.creatorName} wants to move to ${placeName(a.moveRequest ?? a, s)} · ${when(a.moveRequest ?? a)}.` }]
@@ -133,7 +134,7 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Request ran out', body: `Nobody approved ${placeName(a, s)} · ${when(a)} in time. Request another time?` }]
   if (!h.by || h.by === a.creatorEmail) return []
   if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
-  const url = `/schedule?shoot=${id}`, tag = `shoot-${id}`
+  const url = `/?shoot=${id}`, tag = `shoot-${id}`
   if (h.action === 'booked' && !b) return [{ to: [a.creatorEmail], url, tag, title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'moved') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot moved', body: `Now ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'cancelled') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was cancelled by the schedule team.` }]
@@ -147,13 +148,16 @@ export interface Reminder { key: string; push: Push }
 export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSettings, hasNeeds: boolean, closed: ClosedDays, propsLead: number): Reminder[] {
   if (!sh || sh.status !== 'booked' || !sh.creatorEmail) return []
   const out: Reminder[] = []
-  const url = `/schedule?shoot=${id}`, to = [sh.creatorEmail], where = placeName(sh, s)
+  const url = `/?shoot=${id}`, to = [sh.creatorEmail], where = placeName(sh, s)
   const house = sh.place !== 'offsite'
   const win = checkinWindow(sh as { from: string; to: string }, now, s)
   // Check-in time (houses only): one ping when it opens.
-  if (house && win === 'open' && !sh.checkin) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Open your shoot and take a set photo.` } })
+  if (house && win === 'open' && !sh.checkin) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Tap to check in with a photo of the set.` } })
   // An hour before (when check-in isn't open yet).
   else if (win === 'early' && now >= addMinutes(sh.from, -60)) out.push({ key: `hour_${id}`, push: { to, url, tag: `shoot-${id}`, title: `Your shoot starts at ${fmtTime(sh.start)}`, body: `${where}.${house ? ` Check-in opens ${s.checkinBefore} min before.` : ''}` } })
+  // Checked in and the slot is over: one nudge to wrap ("what did you film?"), within 3 hours.
+  if (sh.checkin && !sh.wrap && now >= (sh.to as string) && now < addMinutes(sh.to as string, 180))
+    out.push({ key: `wrap_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'That\'s a wrap? 🎬', body: 'Tell us what you filmed. One line is enough.' } })
   // Missed check-in: a chance to explain.
   if (house && isMissed(sh as any, now) && now < explainUntil(sh as { to: string }, s)) out.push({ key: `missed_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Missed your check-in?', body: `Tell the schedule team what happened by ${stampTime(explainUntil(sh as { to: string }, s))}.` } })
   // Last day to add props + gear (from 9 AM), only if nothing is added yet.

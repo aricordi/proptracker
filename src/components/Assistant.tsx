@@ -18,7 +18,9 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, type Helper, type Route } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, type Helper, type Route } from '../lib/aiRoute'
+import ChatNow from './ChatNow'
+import BrandMark from './BrandMark'
 type Step = 'time' | 'props' | 'gear' | 'review'
 import BottomSheet from './BottomSheet'
 import { GearArt, useGearWhen } from './GearUi'
@@ -33,7 +35,7 @@ import { ideaToProps, askApp, type IdeaResult, type AppAnswer } from '../service
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useScheduleSettings, fmtSlot, errorText, INVITE_HOLD_MINUTES,
+  askForTime, bookWithFriends, useMyInvites, useScheduleSettings, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
   type TimeAskResult,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
@@ -51,6 +53,8 @@ type Msg =
   | { who: 'gear' }     // plan: live list of gear free for the shoot
   | { who: 'review' }   // plan: what's in the shoot so far + Review & send
   | { who: 'already' }  // plan: what this shoot already has (sent requests), live
+  | { who: 'cancel'; shootId?: string }   // chat: "cancel my thursday shoot" → confirm (or pick which)
+  | { who: 'status' }   // chat: "is my shoot approved?" → your shoots with their status
 
 const STAFF_STARTERS: Record<string, string[]> = {
   arts: ['How do I pack a request?', 'How do I check props back in?', 'How do I do a bin check?'],
@@ -66,7 +70,7 @@ const NEXT_REVIEW = 'Next: review ›'
 const STEPS: [Step, string][] = [['time', 'Time'], ['props', 'Props'], ['gear', 'Gear'], ['review', 'Review']]
 const STARTERS: Record<Helper, string[]> = {
   props: ['Prank: I dress up as a cop and pull my friend over at a diner', 'A séance that goes wrong', '90s sitcom kitchen', 'Royal wedding parody'],
-  time: ["I'm filming with a friend this week", '4 hours next week, evenings', 'Earliest free slot at Cliff 2'],
+  time: ['Thursday at Cliff 1 at 5pm', "I'm filming with a friend this week", 'Earliest free slot at Cliff 2'],
   help: ['How do I return my gear?', 'Where do I see my requests?', 'How do I change a request?'],
 }
 const OPENERS: Record<Helper, string> = {
@@ -76,6 +80,8 @@ const OPENERS: Record<Helper, string> = {
 }
 // No "props or time" switch (owner, Oct 20): src/lib/aiRoute.ts reads each message and runs one helper or both.
 const GREETING = 'Tell me your video idea, or when you want to film, or both. I\'ll find the props we have and the times that are free. Stuck somewhere? Ask me how anything in the app works.'
+// The chat tab (owner, Nov 2): say it like you'd say it on Slack.
+const CHAT_GREETING = 'Just tell me what you need, like you\'d text it: "Thursday Cliff 1 at 5pm", "props for a séance video", "cancel my next shoot". Tap an example below to start.'
 const DEMO_OPENER = 'Tell me your video idea and I\'ll find props from our closet that fit, scene by scene. Then keep going: "make it spookier", "something for the ending"… Tap any prop to see it. You can also ask me how the app works.'
 const DEMO_NO_TIME = 'Booking isn\'t open for you yet, so I can\'t look at times. Tell me about the video and I\'ll find props for it.'
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -104,7 +110,7 @@ function useShootRequests(shootId: string | undefined, email: string) {
   return { props, gear }
 }
 
-export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask: { mode?: AssistantMode; shootId?: string; n: number }; onClose: () => void }) {
+export default function Assistant({ shown, ask, onClose, page = false }: { shown: boolean; ask: { mode?: AssistantMode; shootId?: string; text?: string; n: number }; onClose: () => void; page?: boolean }) {
   const navigate = useNavigate()
   const { profile, user, demo, canBook, role } = useSession()
   // Staff who don't book (arts, equipment, admins): the chat only explains how the app works.
@@ -125,15 +131,22 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   const today = todayInStudio()
   const first = (profile.name || user.displayName || '').split(' ')[0]
   const house = (p: string) => p === 'cliff2' ? s.houses.cliff2.name : s.houses.cliff1.name
+  // Creators ask for times (the schedule team approves); the owner and people on "Books without approval" book straight away.
+  const asks = role !== 'owner' && !s.instantBookers.some(p => p.email === profile.email)
 
   const hello = `Hi${first ? ` ${first}` : ''}!`
   const helper = ask.mode === 'plan' ? undefined : ask.mode
   const fresh = (m?: Helper): Msg[] => helpOnly ? [{ who: 'bot', text: `${hello} Ask me how to do anything in the app, and I'll show you where.` }] : demo ? [{ who: 'bot', text: `${hello} ${DEMO_OPENER}` }]
-    : m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : [{ who: 'bot', text: `${hello} ${GREETING}` }, { who: 'choose' }]
+    : m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : [{ who: 'bot', text: `${hello} ${page ? CHAT_GREETING : GREETING}` }, { who: 'choose' }]
   // Examples of both kinds, plus your next booked shoot when you have one.
+  // Chat first (owner, Nov 2: "clickable pre-populated prompts"): the things people actually say, booking first.
   const mixed = () => [
-    ...(upcoming[0] ? [`Props for my ${WEEKDAY[new Date(upcoming[0].date + 'T12:00:00').getDay()]} shoot`] : []),
-    STARTERS.props[1], 'Find me 2 hours this week', STARTERS.props[0], STARTERS.time[0], STARTERS.help[0],
+    `Book ${WEEKDAY[(new Date(today + 'T12:00:00').getDay() + 2) % 7]} at ${s.houses.cliff1.name} at 5pm`,
+    'Find me 2 hours this week with a friend',
+    ...(upcoming[0] ? [`Props for my ${WEEKDAY[new Date(upcoming[0].date + 'T12:00:00').getDay()]} shoot`] : [STARTERS.props[1]]),
+    'Is my shoot approved?',
+    ...(upcoming[0] ? ['Cancel my next shoot'] : []),
+    STARTERS.help[0],
   ]
   // `mode` = what the chat was last doing, so short follow-ups ("anything earlier?") keep going.
   const [mode, setMode] = useState<Helper | null>(helpOnly ? 'help' : demo ? 'props' : helper ?? null)
@@ -171,6 +184,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
     if (ask.n === lastAsk.current) return
     lastAsk.current = ask.n
     if (ask.mode === 'plan') { if (ask.shootId) planProps(ask.shootId); else if (!plan) startPlan() }
+    else if (ask.text) { setPlan(null); send(ask.text, false, ask.mode) }
     else if (ask.mode && ask.mode !== mode) { setPlan(null); switchTo(ask.mode) }
   }, [ask.n])
   const started = useRef(false)
@@ -240,6 +254,25 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       const r = routeMessage(q, { last: 'props', shoots: [] })
       if (!r.helpers.includes('props') && !r.helpers.includes('help')) {
         setText(''); setMsgs(x => [...x, { who: 'me', text: q, mode: 'props' }, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return
+      }
+    }
+    // Done right here, no AI: cancelling a shoot, and "is my shoot approved?" (owner, Nov 2: type it, it gets done).
+    if (!demo && !helpOnly && !force && !more && !plan) {
+      const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
+      const c = cancelIntent(q, sorted.map(x => ({ id: x.id, date: x.date })))
+      if (c) {
+        setText(''); setChips([])
+        setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: 'time' },
+          ...(sorted.length ? [{ who: 'bot' as const, text: c.shootId ? 'Cancel this one?' : 'Which shoot do you want to cancel?' }, { who: 'cancel' as const, shootId: c.shootId }]
+            : [{ who: 'bot' as const, text: 'You don\'t have any shoots coming up.' }])])
+        return
+      }
+      if (isStatusQuestion(q)) {
+        setText(''); setChips(mixed().slice(0, 3))
+        setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: 'time' },
+          ...(upcoming.length ? [{ who: 'bot' as const, text: 'Here are your shoots coming up.' }, { who: 'status' as const }]
+            : [{ who: 'bot' as const, text: 'Nothing booked yet. Tell me when you want to film.' }])])
+        return
       }
     }
     const route: Route = helpOnly ? { helpers: ['help'] } : demo ? (routeMessage(q, { last: mode, shoots: [] }).helpers[0] === 'help' && !more ? { helpers: ['help'] } : { helpers: ['props'] }) : force ? { helpers: [force] } : more || plan?.step === 'props' ? { helpers: ['props'] }
@@ -319,8 +352,11 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       const friends = o.slots.filter(x => !x.me).map(x => x.email)
       const r = (await bookWithFriends({ place: o.place, date: o.date, start: o.start, friends, mySlots: o.slots.filter(x => x.me).length })).data
       const where = `${formatDay(o.date)} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`
+      // Every creator booking is a request the schedule team approves (owner, Nov 2); the slot is held meanwhile.
+      const asked = r.status === 'requested'
+      const mine = asked ? 'Requested ✓ It\'s held for you while the schedule team looks at it; you\'ll get a notification when it\'s approved.' : 'Booked ✓'
       setMsgs(x => [...x,
-        { who: 'bot', text: friends.length ? `Booked your slot. I've invited ${o.slots.filter(y => !y.me).map(y => y.name.split(' ')[0]).join(' and ')}: ${friends.length > 1 ? 'their slots are' : 'their slot is'} held for ${INVITE_HOLD_MINUTES} minutes for them to confirm.` : 'Booked. 🎬' },
+        { who: 'bot', text: friends.length ? `${mine} I've invited ${o.slots.filter(y => !y.me).map(y => y.name.split(' ')[0]).join(' and ')}: ${friends.length > 1 ? 'their slots are' : 'their slot is'} held for ${INVITE_HOLD_MINUTES} minutes for them to confirm.` : mine },
         { who: 'booked', inviteIds: r.inviteIds, shootId: r.shootIds[0], label: where }])
       if (plan) planProps(r.shootIds[0], where)
       else setChips([PROPS_CHIP])
@@ -382,7 +418,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   const [addedTo, setAddedTo] = useState('')
   const toggle = (k: string) => { setAddedTo(''); setSel(x => x.includes(k) ? x.filter(y => y !== k) : [...x, k]) }
   const picks = () => ({ props: sel.filter(k => k.startsWith('p:')).map(k => k.slice(2)), gear: sel.filter(k => k.startsWith('g:')).map(k => k.slice(2)), builds: sel.filter(k => k.startsWith('b:')).map(k => k.slice(2)) })
-  const go = (to: string, state?: unknown) => { onClose(); navigate(to, state ? { state } : undefined) }
+  const go = (to: string, state?: unknown) => { if (!page) onClose(); navigate(to, state ? { state } : undefined) }
   const addTo = (id: string, name?: string) => {
     const sh = upcoming.find(x => x.id === id)
     addToShoot(id, picks()); setSel([]); setPicking(false); setAddedTo(sh ? label(sh) : name || 'your shoot')
@@ -463,13 +499,21 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
   )
 
   return (
-    <div className={`fixed inset-0 z-50 bg-pt-bg flex flex-col ${shown ? '' : 'hidden'}`} role="dialog" aria-label="AI helper">
+    <div className={page ? 'h-full bg-pt-bg flex flex-col' : `fixed inset-0 z-50 bg-pt-bg flex flex-col ${shown ? '' : 'hidden'}`} role={page ? 'main' : 'dialog'} aria-label={page ? 'Chat' : 'AI helper'}>
       <div className="pt-safe px-5 shrink-0">
+        {page ? (
+          <div className="flex items-center gap-2 py-2">
+            <BrandMark className="w-7 h-7 text-white" title="" />
+            <h1 className="font-display text-[28px] font-extrabold tracking-tight flex-1">Chat</h1>
+            {msgs.length > 2 && <button onClick={restart} className="tap text-pt-muted text-sm">New chat</button>}
+          </div>
+        ) : <>
         <div className="flex items-center justify-between py-3">
           <button onClick={onClose} className="text-pt-accent text-[17px]">‹ Back</button>
           {msgs.length > 2 && <button onClick={restart} className="tap text-pt-muted text-sm">New chat</button>}
         </div>
         <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
+        </>}
         {plan ? (
           <div className="flex gap-1.5 mt-1" aria-label="Plan my shoot steps">
             {STEPS.map(([k, t], n) => {
@@ -477,10 +521,11 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
               return <span key={k} className="flex-1"><span className={`block h-1 rounded-full ${done || now ? 'bg-[#BF9DFF]' : 'bg-pt-border'}`} /><span className={`block text-xs mt-1 ${now ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>{done ? '✓ ' : ''}{t}</span></span>
             })}
           </div>
-        ) : <p className="text-pt-muted text-[13px]">{helpOnly ? 'Ask how anything in the app works.' : demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
+        ) : page ? null : <p className="text-pt-muted text-[13px]">{helpOnly ? 'Ask how anything in the app works.' : demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        {page && canBook && !demo && <ChatNow onAsk={q => send(q, false, 'time')} onProps={id => propsFor(id)} />}
         {msgs.map((m, i) => m.who === 'me' ? (
           <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[15px] text-stone-900 bg-pt-accent shadow-gold">{m.text}</p>
         ) : m.who === 'bot' ? (
@@ -519,7 +564,7 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
                   <b className="block">{house(o.place)} · {fmtSlot(o.start, o.slots.length * s.slotMinutes)}</b>
                   <span className="block text-pt-muted text-[13px]">{o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ')}</span>
                 </span>
-                <button disabled={busy} onClick={() => book(o)} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">Book</button>
+                <button disabled={busy} onClick={() => book(o)} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'}</button>
               </div>
             ))}
           </div>
@@ -592,10 +637,21 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
               <button onClick={() => go('/browse')} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Browse all</button>
             </div>
           </div>
+        ) : m.who === 'cancel' ? (
+          <CancelCard key={i} shootId={m.shootId} shoots={[...upcoming].sort((a, b) => a.from.localeCompare(b.from))} label={label} />
+        ) : m.who === 'status' ? (
+          <div key={i} className="rise-in space-y-2">
+            {[...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 5).map(sh => (
+              <button key={sh.id} onClick={() => go(`/schedule?shoot=${sh.id}`)} className="w-full flex items-center gap-3 text-left rounded-[18px] bg-pt-surface px-4 py-3">
+                <b className="flex-1 min-w-0 text-[15px]">{label(sh)}</b>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${sh.status === 'requested' ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{sh.status === 'requested' ? 'Waiting for OK' : sh.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
+              </button>
+            ))}
+          </div>
         ) : m.who === 'booked' ? (
           <div key={i} className="rise-in rounded-[18px] bg-pt-surface border border-pt-accent/40 p-4 space-y-2">
             <b className="block">{m.label}</b>
-            <div className="flex items-center justify-between text-sm"><span>You</span><span className="rounded-full px-3 py-1 text-xs font-semibold bg-green-500/15 text-green-400">Booked ✓</span></div>
+            <BookedYou shootId={m.shootId} />
             {m.inviteIds.map(id => {
               const inv = invites.outgoing.find(x => x.id === id)
               if (!inv) return null
@@ -681,4 +737,50 @@ export default function Assistant({ shown, ask, onClose }: { shown: boolean; ask
       </BottomSheet>
     </div>
   )
+}
+
+// "Cancel my Thursday shoot" in the chat: confirm (or pick which), with the same rules as the shoot page:
+// withdrawing a request is free, cancelling inside the notice period counts as a no-show (after the undo minutes).
+function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: import('../services/schedule').Shoot[]; label: (x: import('../services/schedule').Shoot) => string }) {
+  const s = useScheduleSettings()
+  const [pick, setPick] = useState<string | undefined>(shootId)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState('')
+  const [err, setErr] = useState('')
+  const sh = shoots.find(x => x.id === pick)
+  if (done) return <p className="rise-in text-green-400 text-[15px] font-semibold">{done}</p>
+  if (!sh) return (
+    <div className="rise-in space-y-2">
+      {shoots.slice(0, 5).map(x => <button key={x.id} onClick={() => setPick(x.id)} className="w-full text-left rounded-[18px] bg-pt-surface px-4 py-3 text-[15px] font-semibold">{label(x)}</button>)}
+    </div>
+  )
+  const nowS = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).slice(0, 16).replace(' ', 'T')
+  const strike = sh.status === 'booked' && isShortNotice(sh.from, nowS, s) && !withinUndo(sh.createdAt)
+  async function go() {
+    setBusy(true); setErr('')
+    try {
+      await cancelShoot({ id: sh!.id, ...(strike ? { confirmNoShow: true } : {}) })
+      setDone(sh!.status === 'requested' ? 'Request withdrawn ✓ The time is free again.' : 'Cancelled ✓ Props and gear on it were cancelled too.')
+    } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
+  }
+  return (
+    <div className="rise-in rounded-[18px] bg-pt-surface p-4 space-y-3">
+      <b className="block text-[15px]">{label(sh)}</b>
+      <p className={`text-[13px] ${strike ? 'text-red-300' : 'text-pt-muted'}`}>{sh.status === 'requested' ? 'It\'s still a request, so withdrawing it is free.'
+        : strike ? `It's less than ${s.noticeHours} hours away, so cancelling now counts as a no-show (a strike). A swap with someone avoids that.` : 'Cancelling now is free. Props and gear on this shoot are cancelled too.'}</p>
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+      <div className="flex gap-2">
+        <button disabled={busy} onClick={go} className={`flex-1 rounded-xl py-3 font-bold disabled:opacity-40 ${strike ? 'bg-red-500/20 text-red-200' : 'bg-pt-accent text-stone-900'}`}>{busy ? 'Cancelling…' : sh.status === 'requested' ? 'Withdraw it' : strike ? 'Cancel anyway' : 'Yes, cancel it'}</button>
+        <button disabled={busy} onClick={() => setDone('Kept ✓')} className="rounded-xl px-4 font-semibold bg-pt-border">Keep it</button>
+      </div>
+    </div>
+  )
+}
+
+// Your own slot after booking in the chat: live, so it changes from "Waiting for OK" to "Approved ✓".
+function BookedYou({ shootId }: { shootId: string }) {
+  const { upcoming } = useActiveShoot()
+  const sh = upcoming.find(x => x.id === shootId)
+  const waiting = !sh || sh.status === 'requested'
+  return <div className="flex items-center justify-between text-sm"><span>You</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${waiting ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{waiting ? 'Waiting for OK' : 'Approved ✓'}</span></div>
 }

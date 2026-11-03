@@ -10,7 +10,7 @@ const invite = { fromEmail: 'alex@x.com', fromName: 'Alex R', toEmail: 'ariel@x.
 describe('instant notifications', () => {
   it('invites: the friend is asked; the inviter hears back', () => {
     const [p] = inviteChange('i1', null, invite, s)
-    expect(p).toMatchObject({ to: ['ariel@x.com'], title: 'Alex invited you to film 🎬', url: '/schedule' })
+    expect(p).toMatchObject({ to: ['ariel@x.com'], title: 'Alex invited you to film 🎬', url: '/' })
     expect(p.body).toMatch(/Cliff 2 · Fri Oct 23 · 3 PM.*Confirm by 1:20 PM/)
     expect(inviteChange('i1', invite, { ...invite, status: 'accepted' }, s)[0]).toMatchObject({ to: ['alex@x.com'], title: 'Ariel confirmed ✓' })
     expect(inviteChange('i1', invite, { ...invite, status: 'declined' }, s)[0].title).toBe("Ariel can't make it")

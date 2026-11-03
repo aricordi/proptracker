@@ -22,7 +22,7 @@ export interface Shoot {
   requestedAt?: string; approvedBy?: string; approvedAt?: string; deniedReason?: string; deniedBy?: string
   moveRequest?: { place: Place; date: string; start: number; end: number; where: string; from: string; to: string; at: string }
   bookedBy: string; lateCancel?: boolean
-  createdAt: string
+  createdAt: string; updatedAt?: string
   history: { at: string; by: string; action: string; note?: string }[]
   checkin?: { at: string; photos: string[] }
   wrap?: { at: string; title: string }
@@ -146,7 +146,7 @@ export async function listSchedulePeople(_: Record<string, never>) {
 export const myCalendarLink = httpsCallable<{ reset?: boolean }, { url: string; webcal: string }>(functions, 'myCalendarLink')
 export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boolean; account: string }>(functions, 'testCalendarLink')
 
-export const checkInShoot = httpsCallable<{ id: string; photos: string[]; report?: { overMinutes?: number; mess?: boolean; photos?: string[] } }, { ok: boolean; reported: string | null }>(functions, 'checkInShoot')
+export const checkInShoot = httpsCallable<{ id: string; photos: string[]; report?: { overMinutes?: number; mess?: boolean; photos?: string[]; note?: string } }, { ok: boolean; reported: string | null }>(functions, 'checkInShoot')
 export const wrapShoot = httpsCallable<{ id: string; title: string }, { ok: boolean }>(functions, 'wrapShoot')
 export const explainMissedCheckIn = httpsCallable<{ id: string; text: string }, { ok: boolean }>(functions, 'explainMissedCheckIn')
 export const decideBooking = httpsCallable<{ id: string; approve: boolean; reason?: string }, { ok: boolean }>(functions, 'decideBooking')

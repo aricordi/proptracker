@@ -14,6 +14,7 @@ export interface TimeAsk {
   myHours?: number                   // only when they said their OWN length ("I need 4 hours, Kyle 2")
   houses: House[]
   timeOfDay: TimeOfDay
+  at?: number                        // a start time they asked for ("at 5pm" = 1020); closest free times first (chat, Nov 2)
 }
 export interface Person { email: string; name: string }
 export interface TimeOption {
@@ -54,6 +55,27 @@ export function slotsFor(ask: Pick<TimeAsk, 'hours' | 'myHours' | 'mySlots'>, fr
   return friendCount ? 1 : clamp(ask.mySlots || 1)
 }
 
+// "at 5pm", "5 pm", "5:30pm", "17:00", "noon", "5am" → minutes after midnight (null if no time was said).
+// A bare number with no am/pm counts as afternoon/evening for 1–6 ("at 5" = 5 PM), morning for 7–11.
+export function parseAt(text: string): number | null {
+  const t = text.toLowerCase()
+  if (/\bnoon\b|\bmidday\b/.test(t)) return 720
+  if (/\bmidnight\b/.test(t)) return 0
+  let m = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/)
+  if (m) {
+    let h = Number(m[1]) % 12; const min = Number(m[2] ?? 0)
+    if (m[3].startsWith('p')) h += 12
+    return h < 24 && min < 60 ? h * 60 + min : null
+  }
+  m = t.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/)
+  if (m) return Number(m[1]) * 60 + Number(m[2])
+  m = t.match(/\bat\s+(\d{1,2})\b(?!\s*(h\b|hrs?\b|hours?|min))/)
+  if (m) { const h = Number(m[1]); if (h >= 1 && h <= 12) return (h <= 6 || h === 12 ? (h === 12 ? 12 : h + 12) : h) * 60 }
+  return null
+}
+const hhmm = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
+export { hhmm as atLabel }
+
 // A simple reading of the request without AI (test mode, or if the AI doesn't answer).
 export function roughParse(text: string, today: string, people: Person[]): TimeAsk {
   const t = ` ${text.toLowerCase()} `
@@ -78,7 +100,8 @@ export function roughParse(text: string, today: string, people: Person[]): TimeA
   const timeOfDay: TimeOfDay = /morning/.test(t) ? 'morning' : /afternoon/.test(t) ? 'afternoon' : /evening/.test(t) ? 'evening' : /late|night/.test(t) ? 'late' : 'any'
   const base = { ...(said && !own ? { hours: said } : {}), ...(own ? { myHours: said } : {}) }
   const mySlots = slotsFor({ ...base, mySlots: Math.round(hours / 2) }, names.length, 120)
-  return { from, to, people: names, mySlots, houses, timeOfDay, ...base }
+  const at = parseAt(text)
+  return { from, to, people: names, mySlots, houses, timeOfDay: at === null ? timeOfDay : 'any', ...base, ...(at === null ? {} : { at }) }
 }
 
 // A follow-up without AI ("only Cliff 2", "anything on the weekend?", "just me"): change only what was mentioned.
@@ -87,7 +110,8 @@ export function roughAdjust(prev: TimeAsk, text: string, today: string, people: 
   const next = { ...prev }
   if (/today|tomorrow|week|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday/.test(t)) { next.from = r.from; next.to = r.to }
   if (/cliff|2371|2375/.test(t)) next.houses = r.houses
-  if (/morning|afternoon|evening|night|late/.test(t)) next.timeOfDay = r.timeOfDay
+  if (/morning|afternoon|evening|night|late/.test(t)) { next.timeOfDay = r.timeOfDay; delete next.at }
+  if (r.at !== undefined) { next.at = r.at; next.timeOfDay = 'any' }
   if (/just me|only me|alone|solo/.test(t)) next.people = []
   else if (r.people.length) next.people = r.people
   if (r.hours || r.myHours) { delete next.hours; delete next.myHours; Object.assign(next, r.hours ? { hours: r.hours } : { myHours: r.myHours }) }
@@ -109,8 +133,12 @@ export function cleanAsk(v: Record<string, unknown>, today: string, fallback: Ti
   const hours = said ? num(v.totalHours ?? v.hours) : fallback.hours
   const myHours = said ? num(v.myHours) : fallback.myHours
   const mySlots = slotsFor({ hours, myHours, mySlots: fallback.mySlots }, people.length, 120)
-  return { from, to, people, mySlots, houses: houses.length ? [...new Set(houses)] : fallback.houses, timeOfDay: tod,
-    ...(hours ? { hours } : {}), ...(myHours ? { myHours } : {}) }
+  // A start time: "HH:MM" from the AI, a number from the phone's previous search, else what the simple reading heard.
+  const atRaw = v.at
+  const at = typeof atRaw === 'string' && /^\d{1,2}:\d{2}$/.test(atRaw) ? Number(atRaw.split(':')[0]) * 60 + Number(atRaw.split(':')[1])
+    : typeof atRaw === 'number' && atRaw >= 0 && atRaw < 1440 ? atRaw : 'at' in v ? undefined : fallback.at
+  return { from, to, people, mySlots, houses: houses.length ? [...new Set(houses)] : fallback.houses, timeOfDay: at !== undefined && at < 1440 ? 'any' : tod,
+    ...(hours ? { hours } : {}), ...(myHours ? { myHours } : {}), ...(at !== undefined && at >= 0 && at < 1440 ? { at } : {}) }
 }
 
 // Real open slots: you first (mySlots in a row), then each friend's slot right after, same house.
@@ -128,8 +156,17 @@ export function findOptions(
     if (!isTeam && (houseSlotsOn(days[date], me.email, now) + ask.mySlots > s.slotsPerDay
       || friends.some(f => houseSlotsOn(days[date], f.email, now) >= s.slotsPerDay))) continue
     let perDay = 0
-    for (const house of ask.houses) {
-      for (let i = 0; i + k <= s.slots.length && out.length < max && perDay < 2; i++) {
+    // Asked for a time ("at 5pm"): try the grid slots closest to it first (both houses), so the exact time leads.
+    const order = s.slots.map((_, i) => i)
+    if (ask.at !== undefined) order.sort((a, b) => Math.abs(s.slots[a] - ask.at!) - Math.abs(s.slots[b] - ask.at!) || a - b)
+    const tries = ask.at !== undefined
+      ? order.flatMap(i => ask.houses.map(house => ({ house, i })))
+      : ask.houses.flatMap(house => order.map(i => ({ house, i })))
+    const used = new Set<string>()
+    for (const { house, i } of tries) {
+      {
+        if (out.length >= max || perDay >= 2 || i + k > s.slots.length) continue
+        if ([...Array(k).keys()].some(j => used.has(`${house}${i + j}`))) continue
         const starts = s.slots.slice(i, i + k)
         if (!inTime(starts[0], ask.timeOfDay)) continue
         if (starts.some((st, j) => j > 0 && st !== starts[j - 1] + s.slotMinutes)) continue
@@ -143,7 +180,7 @@ export function findOptions(
           ? { email: me.email, name: me.name, start: st, me: true }
           : { email: friends[j - ask.mySlots].email, name: friends[j - ask.mySlots].name, start: st, me: false }) })
         perDay++
-        i += k - 1
+        for (let j = 0; j < k; j++) used.add(`${house}${i + j}`)
       }
     }
   }

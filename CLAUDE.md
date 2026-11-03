@@ -1795,6 +1795,24 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       no equipment yet" are out of date). Creators stay on Props only until the owner switches each to Full app (People).
     - LIVE Nov 3 (owner "go live with everything"): backend run 55 + website run 55 = booking requests + approvals, month view,
       laptop view, who films with whom, hardening. Owner next: tick Kyle in Schedule settings → Books without approval.
+    - CHAT FIRST BUILT (owner, Nov 3: "go straight to the chat, i need all of this done before we launch"; NOT deployed: backend
+      (timeFinder, assistant, pushMessages) + website, ask). Creators on Full app + owner: HOME TAB = CHAT. `src/assistant.tsx`
+      isChatFirst (canBook && !demo): one Assistant `page` portaled into a stable host div that `ChatHome` (App Home) moves in, so
+      the conversation survives tab switches; open(mode, shootId, text) navigates to '/' (text auto-sends). Creator tabs Chat '/' /
+      Calendar '/schedule' / Props '/browse' / More '/account' (owner keeps Home→Chat, Book, Browse, Me, Team; desk "Chat").
+      `src/components/ChatNow.tsx` (top of the chat): 15-s intro (pc.chatIntro), pause banner, InviteAsk/SwapAsk (moved to
+      `src/components/ScheduleAsks.tsx`), SHOOT NOW = conversational check-in (set photo → "Was the house clean?" (+ mess photos)
+      → "Did they finish on time?" On time/15/30/45/60 → note → checkInShoot with report) then Wrap input; missed check-in explain
+      link; Return everything; denied/expired cards (Find another time / Got it, pc.chatSeenEnded); UnsentBasket; next 3 shoots
+      (Waiting for OK / Approved ✓ / Checked in / Filmed ✓ / Move asked, "✦ Props for it · by …", ?shoot= highlight).
+      Assistant: CHAT_GREETING + example chips, local CANCEL (`cancelIntent` in aiRoute: day/date names the shoot, "next" = first,
+      else asks; CancelCard free / withdraw / strike warning → confirmNoShow) and STATUS (`isStatusQuestion`) handled with no AI;
+      booking copy "Requested ✓" + live BookedYou card. EXACT TIMES (server): timeFinder `parseAt` ("at 5" → 17:00, am/pm, noon),
+      TimeAsk.at, findOptions tries slots closest to `at` first; reply "5 PM is free" / "5 PM isn't free; closest times". Pushes:
+      creator shoot links → '/?shoot=<id>', invites/swaps → '/', new `wrap_<id>` reminder (checked in, slot over, no wrap, ≤3 h).
+      Creator tour DROPPED (TourGate only equipment + admin; /tour still opens); More lists My shoots + My requests. Help, appGuide
+      (home = Chat, TABS), owner guide "Creators use a chat". Tests 545 + unit. Checked on the emulator: request from chat,
+      status, cancel, help answer, check-in with mess report + wrap.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

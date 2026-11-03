@@ -88,7 +88,7 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/reservations', label: 'Props queue', icon: 'list' },
     { to: '/gear/bookings', label: 'Gear queue', icon: 'box' },
     '-',
-    { to: '/', label: 'My home', icon: 'home' },
+    { to: '/', label: 'Chat', icon: 'chat' },
     { to: '/schedule', label: 'Book a shoot', icon: 'pin', also: ['/shoots'] },
     { to: '/browse', label: 'Props', icon: 'search', also: ['/item'] },
     { to: '/admin', label: 'Team', icon: 'grid', also: ['/users', '/health', '/bins', '/categories', '/connections', '/ai', '/costs'] },

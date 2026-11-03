@@ -54,3 +54,22 @@ describe('how-do-I questions go to the app guide', () => {
     expect(routeMessage('what props for a seance video', ctx).helpers).toEqual(['props'])
   })
 })
+
+describe('chat actions without the AI (Nov 2)', async () => {
+  const { cancelIntent, isStatusQuestion } = await import('../../src/lib/aiRoute')
+  const shoots = [{ id: 'thu', date: '2026-11-05' }, { id: 'sat', date: '2026-11-07' }]
+  it('cancelling: which shoot, or ask', () => {
+    expect(cancelIntent('cancel my thursday shoot', shoots)).toEqual({ shootId: 'thu' })
+    expect(cancelIntent('cancel saturday', shoots)).toEqual({ shootId: 'sat' })
+    expect(cancelIntent('cancel my next shoot', shoots)).toEqual({ shootId: 'thu' })
+    expect(cancelIntent('I need to cancel', shoots)).toEqual({})
+    expect(cancelIntent('cancel', [shoots[0]])).toEqual({ shootId: 'thu' })
+    expect(cancelIntent('props for a séance', shoots)).toBeNull()
+    expect(cancelIntent('how do I cancel a shoot?', shoots)).toBeNull()
+  })
+  it('status questions', () => {
+    expect(isStatusQuestion('is my shoot approved?')).toBe(true)
+    expect(isStatusQuestion("what's my next shoot")).toBe(true)
+    expect(isStatusQuestion('book thursday at 5pm')).toBe(false)
+  })
+})

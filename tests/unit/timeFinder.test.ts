@@ -89,3 +89,33 @@ describe('finding real open slots', () => {
     expect(findOptions(two, me, friends, mine, {}, s, '2026-10-21T09:00', true).some(o => o.date === '2026-10-22')).toBe(true)
   })
 })
+
+// Chat (owner, Nov 2: "yo, booking Thursday Cliff 1 at 5pm"): a time they ask for comes first, then the closest.
+describe('asking for a specific start time', () => {
+  it('reads the time', async () => {
+    const { parseAt } = await import('../../functions/src/timeFinder')
+    expect(parseAt('thursday cliff 1 at 5pm')).toBe(1020)
+    expect(parseAt('5:30 PM')).toBe(1050)
+    expect(parseAt('at 9am')).toBe(540)
+    expect(parseAt('17:00')).toBe(1020)
+    expect(parseAt('at 5')).toBe(1020)
+    expect(parseAt('noon')).toBe(720)
+    expect(parseAt('4 hours with kyle')).toBeNull()
+    const a = roughParse('booking Thursday Cliff 1 at 5pm', TODAY, people)
+    expect(a).toMatchObject({ from: '2026-10-22', to: '2026-10-22', houses: ['cliff1'], at: 1020, timeOfDay: 'any' })
+  })
+  it('the asked time leads; when it is taken the closest ones come first', () => {
+    const ask = roughParse('Thursday Cliff 1 at 5pm', TODAY, people)
+    const free = findOptions(ask, me, [], {}, {}, s, '2026-10-21T08:00', false)
+    expect(free[0]).toMatchObject({ date: '2026-10-22', place: 'cliff1', start: 1020 })
+    const taken = { '2026-10-22': { date: '2026-10-22', cliff1: { '1020': { shootId: 'x', name: 'Jana', email: 'jana@x.com', kind: 'extra' } } } } as any
+    const near = findOptions(ask, me, [], taken, {}, s, '2026-10-21T08:00', false)
+    expect(near.map(o => o.start).sort((x, y) => x - y)).toEqual([900, 1140])
+  })
+  it('a follow-up time replaces the old one; cleanAsk keeps HH:MM from the AI', () => {
+    const a = roughParse('Thursday at 5pm', TODAY, people)
+    expect(roughAdjust(a, 'at 9am instead', TODAY, people).at).toBe(540)
+    expect(cleanAsk({ from: '2026-10-22', to: '2026-10-22', at: '19:00' }, TODAY, a).at).toBe(1140)
+    expect(cleanAsk({ from: '2026-10-22', to: '2026-10-22', at: null }, TODAY, a).at).toBeUndefined()
+  })
+})

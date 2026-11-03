@@ -83,3 +83,19 @@ export function routeMessage(text: string, ctx: { last: Helper | null; shoots: R
   // Short follow-up with no clue ("anything else?", "more"): keep doing what we were doing.
   return { helpers: [ctx.last ?? 'props'] }
 }
+
+// ── Things the chat does by itself, without the AI (owner, Nov 2: "type what you want, it gets done") ──
+const CANCEL = /\b(cancel|withdraw|call off|can'?t make (it|my)|cant make (it|my)|not filming|delete my (shoot|booking))\b/i
+/** "cancel my thursday shoot" → which shoot (undefined = ask which). Null = not a cancel. */
+export function cancelIntent(text: string, shoots: RouteShoot[]): { shootId?: string } | null {
+  const t = text.trim()
+  if (!CANCEL.test(t) || isHelpQuestion(t) && /^\s*how\b/i.test(t)) return null
+  // A day or date names the shoot; "my next shoot" / "my shoot" (only one) = the soonest; otherwise ask which.
+  const named = DAY_RE.test(t) || /\bthe \d{1,2}(st|nd|rd|th)\b/i.test(t) || new RegExp(String.raw`\b(${MONTHS.join('|')})[a-z]*\.? \d{1,2}`, 'i').test(t)
+  if (named) { const id = findShoot(`${t} my shoot`.replace(/\bmy shoot\b(?=.*\bmy shoot\b)/i, ''), shoots.filter(Boolean)); if (id && !/\bnext shoot\b/i.test(t)) return { shootId: id } }
+  if (/\bnext (shoot|booking)\b/i.test(t) && shoots.length) return { shootId: shoots[0].id }
+  return shoots.length === 1 && !DAY_RE.test(t) ? { shootId: shoots[0].id } : {}
+}
+const STATUS = /\b(is (it|my \w+( shoot| booking)?) (approved|confirmed|booked)|approved yet|status|my (next )?(shoots?|bookings?)|what('?s| is) (my next|coming up|booked)|when('?s| is) my (next )?shoot|did (it|my \w+) get approved)\b/i
+/** "is my shoot approved?", "what's my next shoot?" → answered from your own shoots. */
+export const isStatusQuestion = (text: string) => STATUS.test(text) && !CANCEL.test(text) && !/\b(book|find|props?)\b/i.test(text)

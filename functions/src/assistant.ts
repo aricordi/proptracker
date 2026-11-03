@@ -6,7 +6,7 @@ import { logger } from 'firebase-functions/v2'
 import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from './booking.js'
-import { nowStamp, GEAR_LEAD_TIME_DAYS } from './gearBooking.js'
+import { nowStamp, GEAR_LEAD_TIME_DAYS, fmtTime } from './gearBooking.js'
 import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
 import { INVITE_HOLD_MINUTES, type ScheduleDay } from './schedule.js'
@@ -308,7 +308,7 @@ Some days are priority days for a group of creators until the Sunday before; the
 People in the app: ${people.map(p => p.name).join(', ') || '(none)'}.
 ${previous ? `Their previous search (they may be adjusting it): ${JSON.stringify(previous)}\n` : ''}Return ONLY JSON:
 {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","people":["exact names from the list"],"totalHours":null,"myHours":null,
- "houses":["cliff1","cliff2"],"timeOfDay":"any|morning|afternoon|evening|late"}
+ "houses":["cliff1","cliff2"],"timeOfDay":"any|morning|afternoon|evening|late","at":null}
 Rules: from >= today; at most 21 days between from and to; "this week" = today to Sunday; "next week" = next Monday to Sunday;
 "soonest", "asap", "earliest", "first available" or no dates = from today, to 14 days later; houses = both unless they name one;
 keep what they didn't change. You do NOT count slots: the app does that from the hours.
@@ -321,6 +321,8 @@ Examples:
 - "I need 4 hours myself then Kyle after" → people ["Kyle"], totalHours null, myHours 4
 - "4 hours next week evenings" → people [], totalHours 4, myHours null, timeOfDay "evening"
 - "with Jana on saturday" → people ["Jana"], totalHours null, myHours null
+- "booking thursday cliff 1 at 5pm" → from/to = next Thursday, houses ["cliff1"], at "17:00", timeOfDay "any"
+at = the START time they asked for as "HH:MM" (24-hour), else null. "at 5" with no am/pm = 17:00.
 Not about filming times → {"offTopic":true}.`
     const prompt = { system, user: `<creator_text>${asData(text, 400)}</creator_text>` }
     try {
@@ -357,7 +359,10 @@ Not about filming times → {"offTopic":true}.`
   const who = friends.length
     ? `you ${h(ask.mySlots)}, then ${friends.map(f => `${f.name.split(' ')[0]} ${h(1)}`).join(', then ')}, back to back`
     : `${h(ask.mySlots)} for you`
-  if (!reply) reply = `Looking at ${where}: ${who}. Soonest first.`
+  const atText = ask.at !== undefined ? fmtTime(ask.at) : ''
+  if (!reply) reply = ask.at !== undefined
+    ? `Looking at ${where} around ${atText}: ${who}. ${options[0] && options[0].start === ask.at ? `${atText} is free.` : options.length ? `${atText} isn't free; here are the closest times.` : ''}`.trim()
+    : `Looking at ${where}: ${who}. Soonest first.`
   const note = (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
     + (capped ? ` You can book one ${s.slotMinutes / 60}-hour house slot a day; ask the schedule team if you need more.` : '')
   return {

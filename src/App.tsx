@@ -64,7 +64,7 @@ const ApprovalsScreen = lazy(() => import('./screens/ApprovalsScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import { warmItems } from './hooks/useItems'
-import { AssistantProvider } from './assistant'
+import { AssistantProvider, ChatHome, isChatFirst } from './assistant'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
 import { useTourDone, skipTour, tourSkipped } from './tour/tourState'
@@ -108,7 +108,8 @@ function TourGate({ children }: { children: ReactNode }) {
   // Creators do the creator tour; the equipment team does the gear team tour; admins the admin tour (owner, Oct 20).
   const { demo } = useSession()
   // Demo mode (Props only) has no tour: there's nothing to practise yet. They get it once switched to Full app.
-  const required = (realRole === 'creator' || realRole === 'equipment' || realRole === 'admin') && !viewingAs && !demo
+  // Chat first (owner, Nov 2: "drop the long tours; the chat explains itself"): creators no longer get the practice tour.
+  const required = (realRole === 'equipment' || realRole === 'admin') && !viewingAs && !demo
   const [done, setDone] = useTourDone(profile.email, required)
   const navigate = useNavigate()
   if (!required || done || tourSkipped(profile.email)) return <>{children}</>
@@ -187,7 +188,10 @@ function PeopleOnly({ children }: { children: ReactNode }) {
 // The equipment team works only with gear: their home is the gear queue.
 // Creators' (and the owner's, who films too) home is their shoots; the arts department lands on prop search.
 function Home() {
-  const { role, shootFlow } = useSession()
+  const session = useSession()
+  const { role, shootFlow } = session
+  // Chat first (owner, Nov 2): people who film open on the chat.
+  if (isChatFirst(session)) return <ChatHome />
   // Arts + admins open on the props queue, the equipment team on the gear queue (owner, Oct 20).
   return role === 'equipment' ? <Navigate to="/gear/bookings" replace /> : role === 'admin' ? <AdminScreen /> : role === 'arts' ? <Navigate to="/reservations" replace /> : shootFlow ? <CreatorHomeScreen /> : <HomeScreen />
 }
