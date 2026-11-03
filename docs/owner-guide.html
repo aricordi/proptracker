@@ -390,7 +390,9 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
     <tr><td>Reminders</td><td class="num">Every 10 min</td><td>Sends the phone reminders listed above, each only once.</td></tr>
     <tr><td>Photo clean-up</td><td class="num">Sundays 4 AM</td><td>Deletes proof photos older than 6 months, and photos nothing uses (after 14 days). Deleted files can be recovered for 7 days.</td></tr>
     <tr><td>Database backups</td><td class="num">Daily + weekly</td><td>Daily backups kept 14 days, weekly kept 14 weeks, plus a 7-day undo.</td></tr>
+    <tr><td>Bill limit (Nov 3)</td><td class="num">A few times a day</td><td>Google Cloud sends this month's spend. Emails at 50%, 90% and 100% of $60. If the bill reaches $60, it sends you a phone notification and <b>turns billing off</b>: the whole app goes offline so the bill can't keep climbing (protection against a flood of fake traffic or a runaway function). Your data stays. To bring the app back: Google Cloud → Billing → link the billing account again.</td></tr>
   </table></div>
+  <p><b>Safety check (Nov 3, from the "$100K mistakes" reel):</b> the database is locked (a stranger trying to read people, bookings or photos gets "Missing or insufficient permissions"), every server function checks who's calling, no automatic job can run in a loop, the AI has a hard $50/month stop, the app sends no text messages, and pop-ups close with the Escape key for keyboard users.</p>
 </section>
 
 <section id="settings">
@@ -424,6 +426,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 <section id="todo">
   <h2>Your to-do list</h2>
   <ul class="todo">
+    <li><b>Bill limit ($60):</b> create the budget once in Google Cloud (steps in the chat) and give the app permission to switch billing off.</li>
     <li>Tick <b>Kyle</b> in <span class="path">Schedule settings → Books without approval</span> so his bookings are approved at once.</li>
     <li><b>Test launch:</b> when the app is ready for phase 2, switch your first 3–5 creators to <b>Full app</b> on People &amp; access.</li>
     <li>Ask IT for the company account (e.g. bookings@primecapitol.ca) and to share the shooting calendar with it. Then do the three steps on <span class="path">Team → Calendar &amp; email</span> and run the first import.</li>

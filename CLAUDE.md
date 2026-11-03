@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 615 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 617 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2007,7 +2007,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       maxInstances 20 global; AI hard cap $50/month in code. (3) TEXTS: app sends none (push = opt-in). (4) ACCESSIBILITY:
       BottomSheet = role dialog + Escape closes; QR image alt; clickable creator rows / Remove strike reachable by keyboard;
       gold :focus-visible ring already everywhere. (5) HOSTING FLOOD: Firebase has NO hard bandwidth cap; only a Google Cloud
-      budget + automatic billing kill switch stops a runaway bill → OWNER DECISION pending (asked Nov 3).
+      budget + automatic billing kill switch stops a runaway bill. OWNER PICKED (Nov 3): alerts + kill switch at $60.
+      BUILT (needs a BACKEND deploy, ask): `functions/src/killSwitch.ts` `billLimit` = onMessagePublished topic 'bill-limit'
+      (Firebase creates the topic on deploy; no invoker list) ← the owner's Google Cloud BUDGET ($60/month, emails 50/90/100 %,
+      "Connect a Pub/Sub topic" = projects/proptracker-9732e/topics/bill-limit). Each post saved in app_settings/billLimit;
+      `shouldCut` (cost ≥ budget, unit-tested) → push "Bill limit reached" to the owner, then PUT cloudbilling
+      projects/<id>/billingInfo {billingAccountName: ''} (billing OFF → app offline; data kept unless left off for long; owner
+      re-links in Billing). Skipped on practice. NEEDS (owner, console): the budget above + role "Project Billing Manager"
+      (roles/billing.projectManager) on proptracker-9732e for 727332101415-compute@developer.gserviceaccount.com. Tests 617.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
