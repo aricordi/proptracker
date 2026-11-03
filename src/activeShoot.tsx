@@ -7,7 +7,7 @@ import { useCart } from './cart'
 import { useGearCart } from './gearCart'
 import { useBookingSettings } from './hooks/useBookings'
 import { todayInStudio, lastDayToBook, pickupDay, addDays } from '../functions/src/booking'
-import { nowStamp, GEAR_DAY_START, GEAR_DAY_END, GEAR_LEAD_TIME_DAYS } from '../functions/src/gearBooking'
+import { nowStamp, GEAR_DAY_START, GEAR_DAY_END, GEAR_LEAD_TIME_DAYS, gearReserveOpensAt, canTakeGear, fmtTime } from '../functions/src/gearBooking'
 import { useMyShoots, useScheduleSettings, fmtSlot, isLive, type Shoot } from './services/schedule'
 import { formatDay } from './lib/dates'
 
@@ -92,6 +92,20 @@ export function useCutoffs() {
     gear: lastDayToBook(pickupDay(sh.date, settings), GEAR_LEAD_TIME_DAYS, settings),
   })
 }
+
+// Gear is grab-and-go (owner, Nov 2): a creator can RESERVE from `gearReserveHours` before the shoot, and TAKE what's free
+// from an hour before it until it ends. 'early' = too soon to do either (first come, first served on the day).
+export type GearWindow = { state: 'early' | 'reserve' | 'take' | 'over'; opens: string }
+export function useGearWindow() {
+  const s = useScheduleSettings()
+  return (sh: Shoot, now = nowStamp()): GearWindow => {
+    const opens = gearReserveOpensAt(sh.from, s.gearReserveHours)
+    const state = now >= sh.to ? 'over' : canTakeGear(sh.from, sh.to, now) ? 'take' : now >= opens ? 'reserve' : 'early'
+    return { state, opens }
+  }
+}
+/** "Thu 1 PM" from a 'YYYY-MM-DDTHH:MM' stamp. */
+export const stampLabel = (st: string) => `${formatDay(st.slice(0, 10), { weekday: 'short' })} ${fmtTime(Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16)))}`
 
 // Things picked (e.g. from ✦ Prop ideas) to add to a shoot. When the creator books a NEW shoot for them, they wait
 // on the phone until the booking is done, then go into that shoot's baskets (owner, Oct 19).

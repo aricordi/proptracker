@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
-import { useActiveShoot, useCutoffs } from '../activeShoot'
+import { useActiveShoot, useCutoffs, useGearWindow, stampLabel } from '../activeShoot'
 import { useAssistant } from '../assistant'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
@@ -84,6 +84,9 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
   const linked = useLinked(shoot, mine, mine || team)
   const open = isLive(shoot)
   function add(to: string) { choose(shoot.id); navigate(to) }
+  // Grab-and-go gear (Nov 2): reserve from 24 h before, take it on the day.
+  const g = useGearWindow()(shoot)
+  const gearLine = g.state === 'early' ? `Reserve from ${stampLabel(g.opens)}, or take it on the day` : g.state === 'take' ? 'Your shoot is on: take what you need' : g.state === 'reserve' ? 'You can reserve it now' : 'Shoot over'
 
   const section = (_kind: 'props' | 'gear', title: string, by: string, list: Linked[], to: string, extra?: string) => (
     <div className="bg-pt-bg rounded-xl p-3 space-y-2">
@@ -91,7 +94,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
         <div className="min-w-0">
           <p className="text-pt-text font-semibold">{title}</p>
           <p className="text-pt-muted text-xs">
-            {today > by ? `Cutoff passed (${formatDay(by)})` : `Add by ${formatDay(by)}`}{extra ? ` · ${extra}` : ''}
+            {_kind === 'gear' ? gearLine : today > by ? `Cutoff passed (${formatDay(by)})` : `Add by ${formatDay(by)}`}{extra ? ` · ${extra}` : ''}
           </p>
         </div>
         {mine && open && today <= by && (

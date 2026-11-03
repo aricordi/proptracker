@@ -17,6 +17,7 @@ const HomeScreen = lazy(() => import('./screens/HomeScreen'))
 const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
 const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
+const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
 const GearTour = lazy(() => import('./tour/GearTour'))
 const AdminTour = lazy(() => import('./tour/AdminTour'))
@@ -338,6 +339,7 @@ export default function App() {
         <Route path="/tour/admin" element={<AdminTourReplay />} />
         <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
         <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
+        <Route path="/gear/take" element={<GearBookers><TakeGearScreen /></GearBookers>} />
         <Route path="/gear/review" element={<Navigate to="/reserve" replace />} />
         <Route path="/gear/bookings/:id" element={<GearBookingScreen />} />
 

@@ -7,7 +7,7 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { useCategories } from '../hooks/useCategories'
 import { useScheduleSettings, INVITE_HOLD_MINUTES, UNDO_MINUTES } from '../services/schedule'
 import { RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
-import { GEAR_LEAD_TIME_DAYS, GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
+import { GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
 import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
 import { LATE_START_MIN, KIND, THEMES } from '../lib/analytics'
@@ -36,7 +36,7 @@ export default function RulesSheetScreen() {
       ['Props are late', `${RETURN_DEADLINE_HOUR} AM, next open day`, 'After this, the creator is flagged "late props" and can\'t book more props until they\'re back.', owner],
     ] },
     { title: 'Gear', rows: [
-      ['Gear: notice', `${GEAR_LEAD_TIME_DAYS} open days`, 'How far before the shoot a creator must book gear.', owner],
+      ['Gear: reserve from', `${s.gearReserveHours} hours before the shoot`, 'Gear is grab-and-go: creators can reserve a kit from this many hours before their shoot, or take what\'s free on the day (from an hour before). Schedule settings.', owner],
       ['Pickup opens', `${PICKUP_OPENS_MINUTES} min before`, 'When the creator can do the pickup check (tick every piece).', owner],
       ['Gear is late', `${GEAR_LATE_MINUTES} min after the booked end`, 'After this the creator is flagged "late gear" and can\'t book more gear until it\'s back.', owner],
       ['Late return fee', `${LATE_FEE_PERCENT}% of the gear's value`, 'Company rule (Oct 27). Goes on whoever had the gear last. The app keeps the record (Analytics → Late returns: how late, the value, who); nobody is charged automatically, and admins can excuse one as an exception. Props late are logged with no fee for now.', owner],

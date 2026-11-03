@@ -70,7 +70,7 @@ export default function MyRequestsScreen() {
         )}
         {canAdd && (
           <button onClick={() => { choose(sh!.id); navigate('/browse') }} className="w-full rounded-lg py-3 text-sm font-semibold text-pt-accent bg-pt-accent/10">
-            + Add props or gear <span className="font-normal text-pt-muted">· {cut!.props === cut!.gear ? `by ${formatDay(cut!.gear)}` : `${today <= cut!.props ? `props by ${formatDay(cut!.props)}, ` : ''}gear by ${formatDay(cut!.gear)}`}</span>
+            + Add props or gear <span className="font-normal text-pt-muted">· {today <= cut!.props ? `props by ${formatDay(cut!.props)}, gear on the day` : 'gear on the day'}</span>
           </button>
         )}
       </div>

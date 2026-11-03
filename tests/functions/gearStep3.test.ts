@@ -1,6 +1,6 @@
 // Gear step 3: pickup check (in the window), return photo, team check-in, late.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
@@ -82,11 +82,11 @@ describe('return and check-in', () => {
   it('late: returned after the due time is marked late, and late creators cannot book more gear', async () => {
     await booking('late1', ANA, -300, 120, 'out')   // ended 3 hours ago
     let day = addDays(todayInStudio(), 4); if (weekday(day) === 0) day = addDays(day, 1)
-    const r = await call('createGearBooking', { title: 'Next', date: day, start: 600, end: 660, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
+    const r = await bookGear({ title: 'Next', date: day, start: 600, end: 660, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
     expect(r.error).toBe('FAILED_PRECONDITION')
     expect(r.message).toMatch(/late coming back/)
     expect((await call('returnGear', { id: 'late1', photos: [PHOTO] }, ANA)).ok).toBe(true)
     expect((await getDoc('gear_bookings/late1'))!.returnedLate).toBe(true)
-    expect((await call('createGearBooking', { title: 'Next', date: day, start: 600, end: 660, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)).ok).toBe(true)
+    expect((await bookGear({ title: 'Next', date: day, start: 600, end: 660, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)).ok).toBe(true)
   })
 })

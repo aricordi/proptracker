@@ -76,7 +76,8 @@ export interface GearBooking {
   handedFrom?: { bookingId: string; email: string; name: string }              // this booking started as a hand-over   // ticked at the return: who actually used shared gear
   status: 'held' | 'out' | 'returned' | 'checked_in' | 'cancelled' | 'declined'
   declineReason?: string
-  pickup?: { at: string; by: string; missing: GearMissing[] }
+  pickup?: { at: string; by: string; missing: GearMissing[]; photos?: string[] }
+  grab?: boolean   // taken on the day (grab-and-go)
   return?: { at: string; by: string; photos: string[] }
   returnedAt?: string; returnedLate?: boolean
   // Late return fee (owner, Oct 27): value when booked, and the late record (how late, worth, who had it last).
@@ -122,4 +123,5 @@ export const pickUpGear = httpsCallable<{ id: string; missing: string[]; signed:
 export const returnGear = httpsCallable<{ id: string; photos: string[]; usedBy?: string[] }, { ok: boolean }>(functions, 'returnGear')
 export const checkInGear = httpsCallable<{ id: string; missing: string[]; note?: string }, { ok: boolean }>(functions, 'checkInGear')
 export const handOverGear = httpsCallable<{ id: string; toEmail: string; end: number; usedBy?: string[] }, { id: string }>(functions, 'handOverGear')
+export const takeGear = httpsCallable<{ scheduleShootId: string; title?: string; lines: { offerId: string; qty: number }[]; missing: string[]; photos: string[] }, { id: string }>(functions, 'takeGear')
 export const markGearFound = httpsCallable<{ offerId: string; index: number }, { ok: boolean }>(functions, 'markGearFound')

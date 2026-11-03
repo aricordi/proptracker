@@ -1,6 +1,7 @@
 // Gear bookings: instant holds by the hour, no double-booking, cancel/decline.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
+import { nowStamp } from '../../functions/src/gearBooking'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const OWNER = 'alexisricordi@gmail.com', GEAR = 'gb-team@example.com', ANA = 'ana@example.com', BEN = 'ben@example.com'
@@ -19,7 +20,7 @@ beforeEach(async () => {
 })
 
 const book = (who: string, start: number, end: number, lines: unknown, date = DAY) =>
-  call('createGearBooking', { title: 'Shoot', date, start, end, lines }, who)
+  bookGear({ title: 'Shoot', date, start, end, lines }, who)
 
 describe('holding gear', () => {
   it('a creator holds a bundle and extras; the booking keeps what was in the case', async () => {
@@ -58,9 +59,14 @@ describe('holding gear', () => {
     expect((await book(ANA, 600, 900, [{ offerId: 'fx3', qty: 2 }])).error).toBe('INVALID_ARGUMENT')
   })
 
-  it('creators need 1 open day of notice; the owner does not', async () => {
+  it('grab-and-go: creators reserve gear only for a shoot, from 24 hours before it; the owner can book any time', async () => {
     const today = todayInStudio()
-    expect((await book(ANA, 1380, 1410, [{ offerId: 'fx3', qty: 1 }], today)).error).toBe('FAILED_PRECONDITION')
+    expect((await call('createGearBooking', { title: 'x', date: DAY, start: 600, end: 900, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)).message).toMatch(/shoot on the schedule/)
+    const far = addDays(today, 5)
+    await put('shoots/far', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: far, start: 780, end: 900, from: `${far}T13:00`, to: `${far}T15:00`, kind: 'extra', history: [] })
+    const early = await call('createGearBooking', { title: 'x', date: far, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'far' }, ANA)
+    expect(early.error).toBe('FAILED_PRECONDITION')
+    expect(early.message).toMatch(/24 hours before your shoot/)
     // Owner can book later today (the last half hour of the day is always in the future unless it's 11:30 PM+).
     const r = await book(OWNER, 1410, 1440, [{ offerId: 'fx3', qty: 1 }], today)
     expect(r.ok || r.message?.includes('already passed')).toBe(true)
@@ -121,5 +127,32 @@ describe('one shoot: props + gear linked', () => {
     expect((await getDoc(`reservations/${r.result.id}`))!.shootId).toBe('sabc123xyz')
     const bad = await call('createGearBooking', { title: 'X', date: DAY, start: 960, end: 1020, lines: [{ offerId: 'fx3', qty: 1 }], shootId: 'no spaces/allowed' }, OWNER)
     expect((await getDoc(`gear_bookings/${bad.result.id}`))!.shootId).toBeUndefined()
+  })
+})
+
+describe('taking gear on the day (grab-and-go)', () => {
+  it('a creator on their shoot takes a free kit with a photo: it is out at once, until the shoot ends', async () => {
+    const now = nowStamp(), today = now.slice(0, 10), min = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+    const start = Math.floor(min / 60) * 60, end = Math.min(1440, start + 120)
+    await put('shoots/now', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: today, start, end,
+      from: `${today}T${String(Math.floor(start / 60)).padStart(2, '0')}:00`, to: end === 1440 ? `${today}T23:59` : `${today}T${String(Math.floor(end / 60)).padStart(2, '0')}:00`, kind: 'extra', history: [] })
+    const noPhoto = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
+    expect(noPhoto.message).toMatch(/photo/)
+    const r = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'], missing: ['fx3|bat|1'] }, ANA)
+    if (weekday(today) === 0) { expect(r.message).toMatch(/closed today/); return }
+    if (min < 360 || min >= 1410) return   // outside gear hours (6 AM to midnight): nothing to check
+    expect(r.ok).toBe(true)
+    const b = (await getDoc(`gear_bookings/${r.result.id}`))!
+    expect(b).toMatchObject({ status: 'out', grab: true, creatorEmail: ANA, scheduleShootId: 'now', pickup: { by: ANA, photos: ['https://example.com/p.jpg'] } })
+    expect(b.pickup.missing).toHaveLength(1)
+    // Someone else can't take the same kit now.
+    expect((await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)).ok).toBe(false)
+  })
+
+  it('not on another person\'s shoot, and not days before', async () => {
+    const d = addDays(todayInStudio(), 3)
+    await put('shoots/later', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: d, start: 780, end: 900, from: `${d}T13:00`, to: `${d}T15:00`, kind: 'extra', history: [] })
+    expect((await call('takeGear', { scheduleShootId: 'later', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, BEN)).error).toBe('PERMISSION_DENIED')
+    expect((await call('takeGear', { scheduleShootId: 'later', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)).message).toMatch(/minutes before your shoot/)
   })
 })

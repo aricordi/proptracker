@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { holdWindow, overlaps, freeQty, nextFreeStart, checkGearTimes, fmtTime, fmtHours, pruneHolds, stamp } from '../../functions/src/gearBooking'
+import { holdWindow, overlaps, freeQty, nextFreeStart, checkGearTimes, fmtTime, fmtHours, pruneHolds, stamp, canReserveGear, canTakeGear } from '../../functions/src/gearBooking'
 
 const closed = { closedWeekdays: [0], closedDates: ['2026-12-25'] }   // Sundays + Christmas
 // 2026-10-16 is a Friday, 10-18 a Sunday, 10-19 a Monday.
@@ -45,10 +45,14 @@ describe('what is free', () => {
 
 describe('checking the day and hours', () => {
   const today = '2026-10-15' // Thursday
-  it('creators book at least 2 open days ahead; staff can book today', () => {
-    expect(checkGearTimes('2026-10-16', 900, 960, today, 600, closed, false)).toBe('too-soon')
-    expect(checkGearTimes('2026-10-17', 600, 660, today, 600, closed, false)).toBeNull()
-    expect(checkGearTimes('2026-10-15', 900, 960, today, 600, closed, true)).toBeNull()
+  it('grab-and-go: no notice in days any more (the 24-hour reserve window is checked with the shoot)', () => {
+    expect(checkGearTimes('2026-10-16', 900, 960, today, 600, closed, false)).toBeNull()
+    expect(checkGearTimes('2026-10-15', 900, 960, today, 600, closed, false)).toBeNull()
+    expect(canReserveGear('2026-10-17T13:00', '2026-10-16T12:59')).toBe(false)
+    expect(canReserveGear('2026-10-17T13:00', '2026-10-16T13:00')).toBe(true)
+    expect(canTakeGear('2026-10-17T13:00', '2026-10-17T15:00', '2026-10-17T11:59')).toBe(false)
+    expect(canTakeGear('2026-10-17T13:00', '2026-10-17T15:00', '2026-10-17T12:00')).toBe(true)
+    expect(canTakeGear('2026-10-17T13:00', '2026-10-17T15:00', '2026-10-17T15:00')).toBe(false)
   })
   it('refuses past times, bad hours and junk', () => {
     expect(checkGearTimes('2026-10-15', 540, 600, today, 600, closed, true)).toBe('in-past')
@@ -57,10 +61,8 @@ describe('checking the day and hours', () => {
     expect(checkGearTimes('2026-10-16', 300, 640, today, 0, closed, true)).toBe('bad-hours')
     expect(checkGearTimes('nope', 600, 660, today, 0, closed, true)).toBe('bad-format')
   })
-  it('a Sunday shoot counts its Saturday pickup for notice', () => {
-    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-17', 0, closed, false)).toBe('too-soon')
-    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-16', 0, closed, false)).toBe('too-soon')
-    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-15', 0, closed, false)).toBeNull()
+  it('a Sunday shoot is picked up on the Saturday', () => {
+    expect(checkGearTimes('2026-10-18', 600, 720, '2026-10-17', 0, closed, false)).toBeNull()
   })
 })
 

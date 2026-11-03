@@ -6,6 +6,7 @@ import { GearWhenPicker, GearShootHours, GearArt, Pill, DayTimeline, useGearWhen
 import { offerValue } from '../../functions/src/gearStock'
 import { useSession } from '../auth'
 import { useActiveShoot } from '../activeShoot'
+import { useAddingNote } from '../components/AddingToBar'
 import AddingToBar from '../components/AddingToBar'
 import ImageLightbox from '../components/ImageLightbox'
 import { formatDay } from '../lib/dates'
@@ -21,6 +22,7 @@ export default function GearOfferScreen() {
   const { role, shootFlow: creator, isStaff } = useSession()   // creator layout: creators + the owner
   const { shoot } = useActiveShoot()
   const showFree = role !== 'creator' || !!shoot
+  const note = useAddingNote('gear')
   const [offers, setOffers] = useState<GearBundle[] | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
   const [zoom, setZoom] = useState<string | null>(null)
@@ -113,14 +115,17 @@ export default function GearOfferScreen() {
 
         {!showFree ? null : inCart ? (
           <div className="space-y-2">
-            <button onClick={() => navigate('/reserve')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">In your shoot ✓ · Review</button>
+            <button onClick={() => navigate(creator && note.take ? '/gear/take' : '/reserve')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">{creator && note.take ? 'Picked ✓ · Take it' : 'In your shoot ✓ · Review'}</button>
             <button onClick={() => cart.setQty(b.id, 0)} className="w-full py-2 text-pt-muted text-sm">Remove from my shoot</button>
           </div>
         ) : (
-          <button onClick={() => { cart.setQty(b.id, 1); navigate(-1) }} disabled={!free}
+          <>
+          {creator && shoot && note.early && <p className="text-pt-muted text-[13px] text-center">Gear is grab-and-go: {note.text.toLowerCase()}.</p>}
+          <button onClick={() => { cart.setQty(b.id, 1); navigate(-1) }} disabled={!free || (creator && note.late)}
             className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
-            Add to my shoot · {fmtHours(w.start, w.end)}
+            {creator && note.take ? 'Take this one' : `Add to my shoot · ${fmtHours(w.start, w.end)}`}
           </button>
+          </>
         )}
       </div>
       {zoom && <ImageLightbox src={zoom} alt={b.name} onClose={() => setZoom(null)} />}

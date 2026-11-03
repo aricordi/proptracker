@@ -1,7 +1,7 @@
 // Shared gear for friends filming back to back (owner, Oct 20: "one booking for the group but everyone
 // needs to be responsible"): one gear booking covers the block; any of them picks it up / returns it.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 
@@ -28,7 +28,7 @@ beforeEach(async () => {
 
 describe('booking shared gear', () => {
   it('one booking for the whole block; the friend can read it and it shows on their shoot', async () => {
-    const r = await call('createGearBooking', gear({ crewShootIds: ['k'] }), ANA)
+    const r = await bookGear(gear({ crewShootIds: ['k'] }), ANA)
     expect(r.ok).toBe(true)
     const b = await getDoc(`gear_bookings/${r.result.id}`)
     expect(b).toMatchObject({ creatorEmail: ANA, crewEmails: [KYLE], crewShootIds: ['k'], start: 780, end: 1020 })
@@ -37,13 +37,13 @@ describe('booking shared gear', () => {
   })
 
   it('the hours must be the whole block', async () => {
-    const r = await call('createGearBooking', gear({ end: 900, crewShootIds: ['k'] }), ANA)
+    const r = await bookGear(gear({ end: 900, crewShootIds: ['k'] }), ANA)
     expect(r.message).toMatch(/whole block \(1 PM–5 PM\)|whole block/)
   })
 
   it('only friends filming back to back, same day and same house', async () => {
-    expect((await call('createGearBooking', gear({ start: 780, end: 1260, crewShootIds: ['j'] }), ANA)).message).toMatch(/back to back/)
-    expect((await call('createGearBooking', gear({ crewShootIds: ['b'] }), ANA)).message).toMatch(/back to back/)
+    expect((await bookGear(gear({ start: 780, end: 1260, crewShootIds: ['j'] }), ANA)).message).toMatch(/back to back/)
+    expect((await bookGear(gear({ crewShootIds: ['b'] }), ANA)).message).toMatch(/back to back/)
   })
 })
 
@@ -67,9 +67,9 @@ describe('everyone is responsible', () => {
 
   it('late shared gear blocks only whoever signed for it at pickup', async () => {
     await out('late', 'out', -400, { pickup: { at: 'x', by: KYLE, missing: [] } })
-    const k = await call('createGearBooking', { title: 'x', date: DAY, start: 900, end: 1020, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'k' }, KYLE)
+    const k = await bookGear({ title: 'x', date: DAY, start: 900, end: 1020, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'k' }, KYLE)
     expect(k.message).toMatch(/late/)
-    expect((await call('createGearBooking', gear(), ANA)).ok).toBe(true)
+    expect((await bookGear(gear(), ANA)).ok).toBe(true)
   })
 
   it('missing at check-in goes on the people who used it', async () => {
@@ -89,13 +89,13 @@ describe('everyone is responsible', () => {
   })
 
   it('the booker can add a friend later; hours grow to the block', async () => {
-    const r = await call('createGearBooking', gear({ end: 900 }), ANA)
+    const r = await bookGear(gear({ end: 900 }), ANA)
     expect((await call('editGearBooking', { id: r.result.id, lines: [{ offerId: 'fx3', qty: 1 }], crewShootIds: ['k'] }, ANA)).ok).toBe(true)
     expect(await getDoc(`gear_bookings/${r.result.id}`)).toMatchObject({ crewEmails: [KYLE], start: 780, end: 1020 })
   })
 
   it('cancelling the friend\'s shoot takes them off; moving it to another day is refused while on the gear', async () => {
-    const r = await call('createGearBooking', gear({ crewShootIds: ['k'] }), ANA)
+    const r = await bookGear(gear({ crewShootIds: ['k'] }), ANA)
     expect((await call('moveShoot', { id: 'k', place: 'cliff1', date: addDays(DAY, 1), start: 900 }, KYLE)).message).toMatch(/shared gear/)
     expect((await call('cancelShoot', { id: 'k' }, KYLE)).ok).toBe(true)
     const b = await getDoc(`gear_bookings/${r.result.id}`)
@@ -103,7 +103,7 @@ describe('everyone is responsible', () => {
   })
 
   it('the last friend leaving shrinks the gear hours, so their slot frees up', async () => {
-    const r = await call('createGearBooking', gear({ crewShootIds: ['k'] }), ANA)
+    const r = await bookGear(gear({ crewShootIds: ['k'] }), ANA)
     expect((await call('editGearBooking', { id: r.result.id, leave: true }, KYLE)).ok).toBe(true)
     expect(await getDoc(`gear_bookings/${r.result.id}`)).toMatchObject({ start: 780, end: 900, crewEmails: [] })
     expect((await getDoc('gear_holds/fx3'))!.entries[0]).toMatchObject({ from: `${DAY}T13:00`, to: `${DAY}T15:00` })

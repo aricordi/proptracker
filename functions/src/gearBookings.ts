@@ -3,16 +3,18 @@
 // what makes double-booking impossible (same idea as item_bookings for props).
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator, isDemoCreator } from './auth.js'
+import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator, isDemoCreator, type Caller } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { todayInStudio } from './booking.js'
+import { cleanScheduleSettings } from './schedule.js'
 import { crewProblem, crewHours, isResponsible, type CrewShoot, type CrewMember } from './gearCrew.js'
 import { byCount, linesValue, LATE_FEE_PERCENT } from './gearStock.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
-  isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, type GearHold,
+  isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, GEAR_DAY_START, addMinutes,
+  canReserveGear, canTakeGear, gearReserveOpensAt, GEAR_TAKE_BEFORE_MINUTES, type GearHold,
 } from './gearBooking.js'
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -97,16 +99,54 @@ function tidyLines(v: unknown): LineIn[] {
 
 export const createGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'creator'])   // not arts (owner, Oct 19: arts handle requests, they don't book)
-  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
+  return holdGear(caller, req.data ?? {})
+})
+
+// GRAB-AND-GO (owner, Nov 2): on the shoot day a creator just takes what's free: pick, tick every piece, one photo, done.
+// It's a booking from now until the shoot ends that is picked up in the same step, so the queue, late returns, the
+// return photo and the check-in all work as before.
+export const takeGear = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'creator'])
   const d = req.data ?? {}
+  const photos = Array.isArray(d.photos) ? d.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
+  if (!photos.length) throw new HttpsError('invalid-argument', 'Take a photo of what you\'re taking first.')
+  const shoot = await shootToAddTo(caller, d.scheduleShootId)
+  if (!shoot) throw new HttpsError('invalid-argument', 'Gear goes with a shoot on the schedule.', { problem: 'no-shoot' })
+  const now = nowStamp(), from = stamp(shoot.date, shoot.start), to = addMinutes(from, shoot.end - shoot.start)
+  if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot. Until then you can reserve it.` : 'This shoot is over.', { problem: 'take-window' })
+  const settings = await loadSettings()
+  const today = todayInStudio()
+  if (holdWindow(today, GEAR_DAY_START, GEAR_DAY_START + GEAR_STEP, settings).closedDay) throw new HttpsError('failed-precondition', 'The gear room is closed today. Reserve gear the day before.', { problem: 'closed' })
+  const start = Math.max(GEAR_DAY_START, Math.floor(minutesNow() / GEAR_STEP) * GEAR_STEP)
+  // The shoot's end that day (a slot that runs past midnight stops at midnight for gear).
+  const end = Math.min(GEAR_DAY_END, now.slice(0, 10) === shoot.date ? shoot.end : GEAR_DAY_END)
+  if (end <= start) throw new HttpsError('failed-precondition', 'It\'s too late in the day to take gear out.', { problem: 'bad-hours' })
+  const { id } = await holdGear(caller, { ...d, date: today, start, end, title: str(d.title, 120) || 'Shoot' }, { take: true })
+  try { await doPickup(caller, id, missingKeysIn(d.missing), photos) }
+  catch (e) { await release(id, caller.email, 'cancelled', () => true, 'taking it failed').catch(() => {}); throw e }
+  return { id }
+})
+
+async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: boolean } = {}) {
+  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const lines = tidyLines(d.lines)
   if (!lines.length) throw new HttpsError('invalid-argument', 'Add at least one bundle or extra.')
   const settings = await loadSettings()
   // Added to a shoot on the schedule: the gear is for that shoot's day.
   const shoot = await shootToAddTo(caller, d.scheduleShootId)
-  if (shoot && d.date !== shoot.date) throw new HttpsError('invalid-argument', `Gear for this shoot is for its day (${shoot.date}).`, { problem: 'shoot-day' })
+  if (shoot && d.date !== shoot.date && !opts.take) throw new HttpsError('invalid-argument', `Gear for this shoot is for its day (${shoot.date}).`, { problem: 'shoot-day' })
+  // Creators: gear only goes with a shoot, and can be reserved from 24 hours before it (grab-and-go, Nov 2).
+  if (booksLikeCreator(caller) && !opts.take) {
+    if (!shoot) throw new HttpsError('invalid-argument', 'Gear goes with a shoot on the schedule.', { problem: 'no-shoot' })
+    const from = stamp(shoot.date, shoot.start)
+    const hours = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data()).gearReserveHours
+    if (!canReserveGear(from, nowStamp(), hours)) {
+      const at = gearReserveOpensAt(from, hours)
+      throw new HttpsError('failed-precondition', `You can reserve gear from ${hours} hours before your shoot (${at.slice(5, 10).replace('-', '/')} ${fmtTime(Number(at.slice(11, 13)) * 60 + Number(at.slice(14, 16)))}). Or just take what's free on the day.`, { problem: 'too-early' })
+    }
+  }
   const today = todayInStudio()
-  const problem = checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, !booksLikeCreator(caller))
+  const problem = opts.take ? null : checkGearTimes(d.date, d.start, d.end, today, minutesNow(), settings, !booksLikeCreator(caller))
   if (problem) throw new HttpsError('failed-precondition', GEAR_TIME_MESSAGES[problem], { problem })
   // Creators with gear that's late coming back can't book more until it's returned.
   if (booksLikeCreator(caller) && await hasLateGear(caller.email)) {
@@ -114,7 +154,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
   }
   const crew = await crewFor(shoot, d.crewShootIds, caller)
   const date = d.date as string, start = d.start as number, end = d.end as number
-  if (crew.length && shoot) {
+  if (crew.length && shoot && !opts.take) {
     const h = crewHours([shoot, ...(await Promise.all(crew.map(c => db.doc(`shoots/${c.shootId}`).get()))).map(x => ({ start: x.get('start'), end: x.get('end') }))])
     if (h.start !== start || h.end !== end) throw new HttpsError('invalid-argument', `Shared gear covers the whole block (${fmtHours(h.start, h.end)}).`, { problem: 'crew-hours' })
   }
@@ -161,13 +201,14 @@ export const createGearBooking = onCall(CALLABLE, async req => {
       date, start, end, from: win.from, to: win.to, pickupDay: win.pickup, closedDay: win.closedDay,
       lines: out.map(({ entries: _e, ...l }) => l), offerIds: out.map(l => l.offerId), ...valueFields(out),
       status: 'held', createdAt: now, updatedAt: now,
-      history: [{ at: now, by: caller.email, action: 'held', note: `${date} ${fmtHours(start, end)}${crew.length ? ` · shared with ${names(crew)}` : ''}` }],
+      ...(opts.take ? { grab: true } : {}),
+      history: [{ at: now, by: caller.email, action: 'held', note: `${opts.take ? 'Taken on the day · ' : ''}${date} ${fmtHours(start, end)}${crew.length ? ` · shared with ${names(crew)}` : ''}` }],
     })
   })
   if (shoot) await noteOnShoot(shoot.id, caller.email, 'gear-added', `${lines.length} gear item${lines.length === 1 ? '' : 's'} · ${fmtHours(start, end)}${crew.length ? ` · shared with ${names(crew)}` : ''}`)
   for (const c of crew) await noteOnShoot(c.shootId, caller.email, 'gear-added', `${caller.name.split(' ')[0]}'s gear, shared with you · ${fmtHours(start, end)}`).catch(() => {})
   return { id: ref.id }
-})
+}
 
 // Release a booking's holds (cancel / decline). Bookings that are already finished stay as they are.
 async function release(id: string, by: string, status: 'cancelled' | 'declined', allowed: (b: FirebaseFirestore.DocumentData) => boolean, note?: string) {
@@ -350,9 +391,12 @@ function noteMissingOnBundles(tx: FirebaseFirestore.Transaction, bundles: Map<st
 // missing, and signs. Missing pieces go on the record of whoever had it last.
 export const pickUpGear = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
-  const id = str(req.data?.id, 100)
-  const missingKeys = missingKeysIn(req.data?.missing)
   if (req.data?.signed !== true) throw new HttpsError('invalid-argument', 'Sign to confirm you have the gear.')
+  await doPickup(caller, str(req.data?.id, 100), missingKeysIn(req.data?.missing))
+  return { ok: true }
+})
+
+async function doPickup(caller: Caller, id: string, missingKeys: string[], photos: string[] = []) {
   const ref = db.doc(`gear_bookings/${id}`)
   const now = new Date().toISOString(), stampNowText = nowStamp()
 
@@ -392,14 +436,13 @@ export const pickUpGear = onCall(CALLABLE, async req => {
     }
     tx.update(ref, {
       status: 'out', updatedAt: now,
-      pickup: { at: now, by: caller.email, missing },
+      pickup: { at: now, by: caller.email, missing, ...(photos.length ? { photos } : {}) },
       ...(missing.length ? { alerts: FieldValue.arrayUnion({ kind: 'missing_at_pickup', at: now, count: missing.reduce((n, m) => n + m.qty, 0) }) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'picked_up',
         ...(missing.length ? { note: `Missing at pickup: ${missing.map(m => `${m.qty}× ${m.name}`).join(', ')}` } : {}) }),
     })
   })
-  return { ok: true }
-})
+}
 
 // Shared gear: the person returning (or handing over) ticks who used it. Only they carry it on their record.
 function whoUsed(b: FirebaseFirestore.DocumentData, usedIn: string[] | null) {

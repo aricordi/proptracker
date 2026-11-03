@@ -152,6 +152,12 @@ export default function GearBookingScreen() {
           <p className="text-amber-100 text-sm bg-amber-500/10 rounded-2xl px-4 py-3">Came back <b>{lateFor(b.late.minutes)} late</b> (due {stampLabel(b.late.dueAt)}, back {stampLabel(b.late.backAt)}), last with {b.late.byName}. The late return fee applies: {b.late.feePercent}% of the gear's value{b.late.value ? ` (worth ${fmtMoney(b.late.value)})` : ''}. The team decides on any exception.</p>
         ) : (b.status === 'held' || b.status === 'out') && <LateFeeNote value={b.value ?? 0} missing={b.valueMissing ?? 0} />}
 
+        {b.pickup?.photos?.length ? (
+          <div className="bg-pt-surface rounded-2xl px-4 py-3 space-y-2">
+            <p className="text-pt-text text-sm font-semibold">{b.grab ? 'Taken on the day' : 'Picked up'} · photo when it went out</p>
+            <div className="flex gap-2">{b.pickup.photos.map(u => <img key={u} src={u} alt="Gear when it went out" loading="lazy" decoding="async" className="w-20 h-20 rounded-xl object-cover" />)}</div>
+          </div>
+        ) : null}
         {/* ── Pickup check (creator, in the pickup window) ── */}
         {b.status === 'held' && (mine || isGearStaff) && (win === 'early' ? (
           <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-4 py-3">

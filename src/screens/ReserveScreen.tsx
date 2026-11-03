@@ -22,7 +22,7 @@ import {
 import { GearArt, GearWhenPicker, GearShootHours, Pill, nowMinutes, LateFeeNote } from '../components/GearUi'
 import { offerValue } from '../../functions/src/gearStock'
 import { thumbOf } from '../services/itemShape'
-import { useActiveShoot } from '../activeShoot'
+import { useActiveShoot, useGearWindow, stampLabel } from '../activeShoot'
 import { useBackToBack } from '../hooks/useGearCrew'
 import { crewHours } from '../../functions/src/gearCrew'
 import AddingToBar from '../components/AddingToBar'
@@ -100,7 +100,10 @@ export default function ReserveScreen() {
   const win = day ? holdWindow(day, gh.start, gh.end, settings) : null
   const gearUnavailable = gearLines.filter(l => !l.offer || l.offer.archived || !win
     || freeQty(byCount(l.offer.kind) ? (l.offer.pieces[0]?.qty ?? 0) : 1, holds[l.id] ?? [], win.from, win.to) < l.qty)
-  const gearOk = !hasGear || (!gearProblem && gearUnavailable.length === 0)
+  // Grab-and-go (Nov 2): creators reserve gear from 24 h before the shoot; on the shoot day they take it instead.
+  const gw = useGearWindow()
+  const gearState = hasGear && shoot && !isStaff ? gw(shoot).state : null
+  const gearOk = !hasGear || (!gearProblem && gearUnavailable.length === 0 && gearState !== 'early' && gearState !== 'take')
   // With props, the props notice applies to the day; gear alone only needs the gear notice.
   const pickerMin = hasProps || !hasGear ? minStart : (isStaff ? today : earliestGearDay(today, settings))
 
@@ -127,6 +130,8 @@ export default function ReserveScreen() {
     if (needShoot) return 'Pick your shoot above'
     if (!day) return 'Pick the shoot day above'
     if (!title.trim()) return 'Type a video name to send'
+    if (gearState === 'early') return `Gear opens ${stampLabel(gw(shoot!).opens)}: remove it for now`
+    if (gearState === 'take') return 'Your shoot is on: take the gear from the Gear tab'
     return null
   }
   const canSubmit = !needShoot && !!day && title.trim() && (hasProps || hasGear) && propsOk && gearOk && !busy && !buildUploading

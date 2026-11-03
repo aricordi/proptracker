@@ -129,6 +129,17 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <h2 className="text-pt-text font-semibold">Gear (grab-and-go)</h2>
+          <div className="flex items-center gap-3">
+            <button onClick={() => set({ gearReserveHours: Math.max(1, s.gearReserveHours - 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+            <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.gearReserveHours}</span>
+            <button onClick={() => set({ gearReserveHours: Math.min(336, s.gearReserveHours + 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+            <span className="text-pt-muted text-sm">hours before a shoot creators can reserve gear</span>
+          </div>
+          <p className="text-pt-muted text-xs">Before that it's first come, first served: on the shoot day (from an hour before) they take what's free, tick every piece and take one photo.</p>
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Books without approval ({s.instantBookers.length})</h2>
           <p className="text-pt-muted text-xs">Every creator's booking waits for the equipment team, an admin or you to approve it. People ticked here (e.g. Kyle / Stromedy) get theirs at once.</p>
           <div className="max-h-60 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">

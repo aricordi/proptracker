@@ -5,7 +5,12 @@
 // A hold is stored as two text stamps 'YYYY-MM-DDTHH:MM', which sort in time order.
 import { addOpenDays, isOpen, pickupDay, returnDueDay, isDay, type ClosedDays } from './booking.js'
 
-export const GEAR_LEAD_TIME_DAYS = 2      // creators book at least 2 open days ahead (owner, Oct 16; was 1)
+// GRAB-AND-GO (owner, Nov 2: "no gear booking: booking a shoot implies gear"): creators don't book gear days ahead any more.
+// They can RESERVE a kit from GEAR_RESERVE_HOURS before their shoot starts, or just TAKE what's free on the day
+// (first come, first served). So there is no notice in open days (was 2).
+export const GEAR_LEAD_TIME_DAYS = 0
+export const GEAR_RESERVE_HOURS = 24
+export const GEAR_TAKE_BEFORE_MINUTES = 60   // "take it now" opens an hour before the shoot
 export const GEAR_LATE_MINUTES = 30       // gear is late 30 min after the booked end (step 3)
 export const GEAR_DAY_START = 6 * 60      // earliest start: 6 AM
 export const GEAR_DAY_END = 24 * 60       // latest end: midnight
@@ -136,3 +141,9 @@ export function countMissing(lines: CheckLine[], missingKeys: string[]) {
   }
   return [...m.values()]
 }
+
+// When a creator can reserve gear for a shoot that starts at `shootFrom` ('YYYY-MM-DDTHH:MM').
+export const gearReserveOpensAt = (shootFrom: string, hours = GEAR_RESERVE_HOURS) => addMinutes(shootFrom, -hours * 60)
+export const canReserveGear = (shootFrom: string, now: string, hours = GEAR_RESERVE_HOURS) => now >= gearReserveOpensAt(shootFrom, hours)
+// "Take it now": from an hour before the shoot until it ends.
+export const canTakeGear = (shootFrom: string, shootTo: string, now: string) => now >= addMinutes(shootFrom, -GEAR_TAKE_BEFORE_MINUTES) && now < shootTo

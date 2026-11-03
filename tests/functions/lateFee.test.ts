@@ -1,6 +1,6 @@
 // Late return fee (owner, Oct 27): gear keeps its value, and a late return records how late, the value and who had it last.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
@@ -29,7 +29,7 @@ describe('gear values', () => {
     expect(b.pieces.map((p: { value: number | null }) => p.value)).toEqual([4500, 80])
 
     let day = addDays(todayInStudio(), 5); if (weekday(day) === 0) day = addDays(day, 1)
-    const r = await call('createGearBooking', { title: 'Shoot', date: day, start: 600, end: 720, lines: [{ offerId: kit.result.id, qty: 1 }] }, ANA)
+    const r = await bookGear({ title: 'Shoot', date: day, start: 600, end: 720, lines: [{ offerId: kit.result.id, qty: 1 }] }, ANA)
     const g = (await getDoc(`gear_bookings/${r.result.id}`))!
     expect(g).toMatchObject({ value: 4660, valueMissing: 0 })
     expect(g.lines[0].pieces.map((p: { value: number }) => p.value)).toEqual([4500, 80])

@@ -45,7 +45,10 @@ export default function GearShopScreen() {
   const extras = live.filter(o => byCount(o.kind))
   const cats = useMemo(() => [...new Set(all.map(b => b.category))].sort(), [all.map(o => o.category).join()])   // eslint-disable-line react-hooks/exhaustive-deps
   const note = useAddingNote('gear')
-  const free = (o: GearBundle) => freeQty(byCount(o.kind) ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], w.win.from, w.win.to)
+  // Taking it now (shoot day): free from now until the shoot ends, whatever the booked start was.
+  const takeWin = creator && shoot && note.take ? { from: nowStamp(), to: shoot.to < `${shoot.date}T23:59` ? shoot.to : `${shoot.date}T23:59` } : null
+  const problem = takeWin ? null : w.problem
+  const free = (o: GearBundle) => freeQty(byCount(o.kind) ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], takeWin?.from ?? w.win.from, takeWin?.to ?? w.win.to)
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
@@ -78,6 +81,18 @@ export default function GearShopScreen() {
       <div className="px-4 pb-4 pt-1 space-y-6">
         <p className="text-xs flex gap-2 -mb-3"><span className="text-pt-muted shrink-0">{bundles.length} kit{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} single item${extras.length === 1 ? '' : 's'}` : ''}</span>
           {creator && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {shoot ? `Gear for your shoot's hours · ${note.text}` : note.text}</span>}</p>
+        {creator && shoot && note.early && (
+          <div className="rounded-2xl bg-pt-surface shadow-hairline p-4 space-y-1">
+            <b className="block text-[15px] text-pt-text">Gear is grab-and-go</b>
+            <p className="text-pt-muted text-[14px]">For this shoot you can reserve gear from <b className="text-pt-text">{note.text.replace(/^Reserve from (.*?), or.*$/, '$1')}</b>. Or just come by on the day: take what's free from an hour before your shoot (tick every piece, one photo).</p>
+          </div>
+        )}
+        {creator && shoot && note.take && (
+          <div className="rounded-2xl bg-pt-accent/[0.12] shadow-[inset_0_0_0_1px_rgba(201,169,97,0.55)] p-4">
+            <b className="block text-[15px] text-pt-text">Your shoot is on</b>
+            <p className="text-pt-muted text-[14px]">Tap + on what you're taking, then "Take it": tick every piece and take one photo.</p>
+          </div>
+        )}
         {lateOnes.length > 0 && (
           <button onClick={() => navigate(`/gear/bookings/${lateOnes[0].id}`)} className="w-full text-left bg-red-500/10 rounded-2xl px-4 py-3 text-red-200 text-[15px]">
             You have gear that's late coming back ({lateOnes.map(b => b.title).join(', ')}). Return it before booking more. <span className="text-pt-accent font-medium">Open ›</span>
@@ -95,9 +110,9 @@ export default function GearShopScreen() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               {bundles.map(b => {
-                const ok = !w.problem && free(b) > 0, inCart = !!cart.lines[b.id]
+                const ok = !problem && free(b) > 0, inCart = !!cart.lines[b.id]
                 // Same badge colours as props: green = free/available, red = taken, amber = something missing.
-                const badge = showFree && !w.problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
+                const badge = showFree && !problem ? (ok ? { label: 'Free', style: 'bg-green-500/90 text-stone-900' } : { label: 'Taken', style: 'bg-red-500/90 text-white' })
                   : b.missing?.length ? { label: 'Piece missing', style: 'bg-amber-500/90 text-stone-900' } : { label: 'Available', style: 'bg-green-500/90 text-stone-900' }
                 const canAdd = creator && !!shoot && ok && !note.late
                 const askShoot = creator && !shoot && canBook && !b.archived
@@ -112,7 +127,7 @@ export default function GearShopScreen() {
                       </div>
                       <div className="px-3 pt-2 pb-3">
                         <p className="text-pt-text text-[15px] font-semibold tracking-heading leading-snug line-clamp-2">{b.name}</p>
-                        <p className="text-pt-muted text-xs truncate mt-0.5">{b.category}{showFree && ok && !w.problem ? ` · free ${fmtHours(w.start, w.end)}` : ''}</p>
+                        <p className="text-pt-muted text-xs truncate mt-0.5">{b.category}{showFree && ok && !problem ? (takeWin ? ' · free now' : ` · free ${fmtHours(w.start, w.end)}`) : ''}</p>
                         {b.missing?.length ? <p className="text-amber-200 text-xs mt-0.5">⚠ Missing: {b.missing.map(m => `${m.qty}× ${m.name}`).join(', ')}</p> : null}
                       </div>
                     </button>
@@ -140,7 +155,7 @@ export default function GearShopScreen() {
             </div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {extras.map(x => {
-                const n = cart.lines[x.id] ?? 0, f = w.problem || !showFree ? 0 : free(x)
+                const n = cart.lines[x.id] ?? 0, f = problem || !showFree ? 0 : free(x)
                 return (
                   <div key={x.id} className="flex items-center gap-3 px-3 py-3">
                     <GearArt photo={x.photos?.[0]} category={x.category} className="w-11 h-11 rounded-xl shrink-0" />
@@ -167,7 +182,14 @@ export default function GearShopScreen() {
       </div>
 
       {/* The shoot being put together (props + gear): the same bar as on Props. */}
-      {cart.count + propsCart.count > 0 && (
+      {creator && note.take && cart.count > 0 ? (
+        <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
+          <button onClick={() => navigate('/gear/take')}
+            className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
+            <span>Taking {cart.count} now</span><span>Take it</span>
+          </button>
+        </div>
+      ) : cart.count + propsCart.count > 0 && (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
           <button onClick={() => navigate('/reserve')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">

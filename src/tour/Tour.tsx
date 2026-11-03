@@ -1428,7 +1428,7 @@ export default function Tour({ onFinish, onSkip, required = false }: { onFinish:
         <h1 className="font-display text-[34px] text-pt-text pt-2">Your cheat sheet</h1>
         <div className="flex items-center gap-3"><Cap size={36} /><p className="text-[15px] text-pt-text/85">The few rules worth remembering. It's all in Me → Help too.</p></div>
         {[
-          ['calendar', `Props from the closet: book ${settings.leadTimeDays} open days ahead. To make or find: ${settings.buildLeadDays}. Gear: ${GEAR_LEAD_TIME_DAYS}.`],
+          ['calendar', `Props from the closet: book ${settings.leadTimeDays} open days ahead. To make or find: ${settings.buildLeadDays}. Gear: grab-and-go, reserve from 24 h before or take it on the day.`],
           ['people', `A friend's invite holds the slot for you for ${HOLD} minutes. Confirm it, or it opens to everyone.`],
           ['swap', `Moving or cancelling is free with ${s.noticeHours} hours' notice. Closer than that, swap with someone instead.`],
           ['camera', `Check in at the house: it opens ${s.checkinBefore} minutes before your time.`],

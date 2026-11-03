@@ -75,6 +75,12 @@ export function gearChange(id: string, b: Doc, a: Doc): Push[] {
     { to: [a.creatorEmail], url, tag, title: 'Gear handed to you 🎥', body: `${String(a.handedFrom.name ?? '').split(' ')[0] || 'Someone'} handed you "${a.title}" until ${fmtTime(a.end)}. Open it, tick every piece, then sign.` },
     { to: ['gear-team'], url, tag, title: 'Gear handed over', body: `${a.handedFrom.name} → ${a.creatorName} · "${a.title}" until ${fmtTime(a.end)}` },
   ]
+  // Grab-and-go (Nov 2): taken on the day = one ping when it's actually out (with what's missing), none for the brief hold.
+  if (!b && a.grab) return []
+  if (b?.status === 'held' && a.status === 'out' && a.grab) {
+    const miss = ((a.pickup?.missing ?? []) as { qty: number; name: string }[])
+    return [{ to: ['gear-team'], url, tag, title: 'Gear taken', body: `${a.creatorName} took ${((a.lines ?? []) as { name: string }[]).map(l => l.name).join(', ')} until ${fmtTime(a.end)}${miss.length ? ` · missing: ${miss.map(m => `${m.qty}× ${m.name}`).join(', ')}` : ''}` }]
+  }
   if (!b) return [{ to: ['gear-team'], url, tag, title: 'New gear hold', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.date)} ${fmtTime(a.start)}` }, ...shared]
   if (b.status === a.status) return shared
   const all = responsible(a)

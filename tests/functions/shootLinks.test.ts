@@ -1,6 +1,6 @@
 // Props and gear added to a shoot on the schedule; cutoffs; cancelling or moving the shoot.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { todayInStudio, addDays, addOpenDays, DEFAULT_BOOKING_SETTINGS } from '../../functions/src/booking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com'
@@ -30,7 +30,7 @@ describe('adding props and gear to a shoot', () => {
     const p = await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 2 }], scheduleShootId: 'shoot1' }, ANA)
     expect(p.ok).toBe(true)
     expect(await getDoc(`reservations/${p.result.id}`)).toMatchObject({ shootId: 'shoot1', scheduleShootId: 'shoot1' })
-    const g = await call('createGearBooking', { title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
+    const g = await bookGear({ title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
     expect(g.ok).toBe(true)
     expect((await getDoc(`gear_bookings/${g.result.id}`))!.shootId).toBe('shoot1')
     expect((await getDoc('shoots/shoot1'))!.history.map((h: any) => h.action)).toEqual(['props-added', 'gear-added'])
@@ -53,7 +53,7 @@ describe('cutoffs (open days before the shoot)', () => {
     const build = await call('createReservation', { title: 'x', startDate: three, endDate: three, lines: [], builds: [{ description: 'Giant donut', qty: 1 }] }, ANA)
     expect(build.message).toMatch(/New props .* 4 open days/)
     const one = addOpenDays(today, 1, DEFAULT_BOOKING_SETTINGS)
-    expect((await call('createGearBooking', { title: 'x', date: one, start: 600, end: 720, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)).message).toMatch(/2 open days/)
+    expect((await bookGear({ title: 'x', date: one, start: 600, end: 720, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)).ok).toBe(true)   // gear has no notice in days any more (grab-and-go, Nov 2)
   })
 })
 
@@ -61,7 +61,7 @@ describe('cancelling or moving the shoot', () => {
   it('cancelling the shoot cancels its props and gear', async () => {
     await shoot('shoot1', ANA, 'Ana')
     const p = await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 2 }], scheduleShootId: 'shoot1' }, ANA)
-    const g = await call('createGearBooking', { title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
+    const g = await bookGear({ title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
     const c = await call('cancelShoot', { id: 'shoot1' }, ANA)
     expect(c.result).toMatchObject({ cancelledProps: 1, cancelledGear: 1, stillOut: 0 })
     expect((await getDoc(`reservations/${p.result.id}`))!.status).toBe('cancelled')

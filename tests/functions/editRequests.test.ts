@@ -1,6 +1,6 @@
 // Changing a props request or held gear before the team starts on it.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com'
@@ -45,14 +45,14 @@ describe('change a props request', () => {
 
 describe('change held gear', () => {
   it('add an extra, change hours, remove a bundle; refuses what is taken', async () => {
-    const g = await call('createGearBooking', { title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
+    const g = await bookGear({ title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
     const id = g.result.id
     expect((await call('editGearBooking', { id, lines: [{ offerId: 'fx3', qty: 1 }, { offerId: 'cst', qty: 2 }], start: 720, end: 900 }, ANA)).ok).toBe(true)
     const b = (await getDoc(`gear_bookings/${id}`))!
     expect(b.offerIds).toEqual(['fx3', 'cst'])
     expect(b.start).toBe(720); expect(b.from.endsWith("T12:00")).toBe(true)   // pickup at the new start (a closed day's shoot: the open day before)
     expect((await getDoc('gear_holds/cst'))!.entries[0].qty).toBe(2)
-    await call('createGearBooking', { title: 'Ben', date: DAY, start: 780, end: 840, lines: [{ offerId: 'cst', qty: 1 }] }, BEN)   // overlaps Ana's hours, whatever the weekday
+    await bookGear({ title: 'Ben', date: DAY, start: 780, end: 840, lines: [{ offerId: 'cst', qty: 1 }] }, BEN)   // overlaps Ana's hours, whatever the weekday
     expect((await call('editGearBooking', { id, lines: [{ offerId: 'cst', qty: 3 }] }, ANA)).message).toMatch(/Only 2 "C-stand"/)
     expect((await call('editGearBooking', { id, lines: [{ offerId: 'cst', qty: 1 }] }, ANA)).ok).toBe(true)
     expect((await getDoc('gear_holds/fx3'))!.entries).toEqual([])

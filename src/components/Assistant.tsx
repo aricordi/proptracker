@@ -573,7 +573,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             {[...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 5).map(sh => (
               <button key={sh.id} disabled={plan?.step !== 'time'} onClick={() => planProps(sh.id)} className="w-full text-left rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3 disabled:opacity-50">
                 <b className="block text-[15px]">{label(sh)}</b>
-                <span className="block text-xs text-pt-muted">Props by {formatDay(cutoffs(sh).props)} · Gear by {formatDay(cutoffs(sh).gear)}</span>
+                <span className="block text-xs text-pt-muted">Props by {formatDay(cutoffs(sh).props)} · Gear on the day</span>
               </button>
             ))}
             <button disabled={plan?.step !== 'time'} onClick={planTime} className="w-full rounded-[18px] py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-50">Book a new time</button>
@@ -726,7 +726,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             return (
               <button key={sh.id} onClick={() => addTo(sh.id)} className={`w-full text-left rounded-2xl px-4 py-3 ${shoot?.id === sh.id ? 'bg-pt-accent/15 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.5)]' : 'bg-pt-bg'}`}>
                 <span className="block text-pt-text text-[15px] font-semibold">{label(sh)}</span>
-                <span className={`block text-xs ${warn.length ? 'text-red-300' : 'text-pt-muted'}`}>{warn.length ? `Too late for ${warn.join(' and ')}` : `Props by ${formatDay(c.props)} · Gear by ${formatDay(c.gear)}`}</span>
+                <span className={`block text-xs ${warn.length ? 'text-red-300' : 'text-pt-muted'}`}>{warn.length ? `Too late for ${warn.join(' and ')}` : `Props by ${formatDay(c.props)} · Gear on the day`}</span>
               </button>
             )
           })}

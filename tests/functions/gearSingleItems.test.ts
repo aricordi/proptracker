@@ -1,12 +1,12 @@
 // Owner (Oct 21): any piece can be "Creators can book" (single item) or "Internal only". Bundles stay the grab-and-go kits.
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const GEAR = 'gs-team@example.com', ANA = 'ana@example.com'
 let DAY = addDays(todayInStudio(), 4)
 if (weekday(DAY) === 0) DAY = addDays(DAY, 1)
-const book = (lines: unknown) => call('createGearBooking', { title: 'Shoot', date: DAY, start: 600, end: 900, lines }, ANA)
+const book = (lines: unknown) => bookGear({ title: 'Shoot', date: DAY, start: 600, end: 900, lines }, ANA)
 const saveMic = (extra: Record<string, unknown> = {}) => call('saveGearItem', { id: 'mic', name: 'Rode shotgun mic', category: 'Audio', have: 3, ...extra }, GEAR)
 
 beforeEach(async () => {

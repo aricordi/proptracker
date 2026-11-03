@@ -101,7 +101,7 @@ await put('gear_bundles/x-cst', { name: 'C-stand', category: 'Grip', description
 
 // House schedule: Jana is in the priority group; a few shoots over the next days.
 const dayOf = n => { const d = new Date(Date.now() + n * 86400000); return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(d) }
-await put('app_settings/schedule', { priority: [{ email: 'jana@example.com', name: 'Jana' }] })
+await put('app_settings/schedule', { priority: [{ email: 'jana@example.com', name: 'Jana' }], instantBookers: [{ email: 'kyle@example.com', name: 'Kyle' }] })
 const shoots = [
   { id: 'sh1', d: 1, place: 'cliff1', start: 660, email: 'jana@example.com', name: 'Jana', kind: 'monthly' },
   { id: 'sh2', d: 1, place: 'cliff1', start: 780, email: 'creator@example.com', name: 'Riley (Creator)', kind: 'monthly' },

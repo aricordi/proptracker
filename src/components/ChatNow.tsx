@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useSession } from '../auth'
-import { useActiveShoot, useCutoffs } from '../activeShoot'
+import { useActiveShoot, useCutoffs, useGearWindow } from '../activeShoot'
 import { useReturnGroups, returnCount } from '../hooks/useReturnables'
 import ProofPhotos from './ProofPhotos'
 import UnsentBasket from './UnsentBasket'
@@ -35,7 +35,8 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 30_000); return () => clearInterval(t) }, [])
   const today = todayInStudio()
-  const { upcoming } = useActiveShoot()
+  const { upcoming, choose } = useActiveShoot()
+  const gw = useGearWindow()
   const cutoffs = useCutoffs()
   const recent = useMyShoots(email, addDays(today, -2))
   const swaps = useMySwaps(email)
@@ -84,6 +85,13 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}
+      {/* Grab-and-go gear (Nov 2): from an hour before the shoot, take what's free. */}
+      {[...upcoming, ...live].filter((x, i, all) => all.findIndex(y => y.id === x.id) === i && x.status === 'booked' && gw(x, now).state === 'take').slice(0, 1).map(x => (
+        <div key={`g${x.id}`} className={card}>
+          <p className="text-[15px]"><b>Need gear for {label(x)}?</b> Take what's free now: pick it, tick every piece, one photo.</p>
+          <button onClick={() => { choose(x.id); navigate('/gear') }} className={gold}>Take gear</button>
+        </div>
+      ))}
       {missed.map(x => (
         <div key={x.id} className={card}>
           <p className="text-[15px]"><b>No check-in for {label(x)}.</b> Did you film? Tell the team before {fmtTime(Number(explainUntil(x, s).slice(11, 13)) * 60 + Number(explainUntil(x, s).slice(14, 16)))} or it may count as a no-show.</p>

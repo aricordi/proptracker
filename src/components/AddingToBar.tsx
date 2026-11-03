@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import BottomSheet from './BottomSheet'
-import { useActiveShoot, useShootLabel, useCutoffs } from '../activeShoot'
+import { useActiveShoot, useShootLabel, useCutoffs, useGearWindow, stampLabel } from '../activeShoot'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import { fmtSlot } from '../services/schedule'
@@ -39,10 +39,19 @@ export function AddingToChip({ kind }: { kind: 'props' | 'gear' }) {
 }
 
 // One line under the filters: how many, and the cutoff for the shoot you're adding to.
-export function useAddingNote(kind: 'props' | 'gear') {
+export function useAddingNote(kind: 'props' | 'gear'): { text: string; late: boolean; early?: boolean; take?: boolean; opens?: string } {
   const { shoot } = useActiveShoot()
   const cutoffs = useCutoffs()
+  const gw = useGearWindow()
   if (!shoot) return { text: `Just browsing. Pick a shoot to see what's free and add ${kind}.`, late: false }
+  // Gear is grab-and-go (Nov 2): reserve from 24 h before, take it on the day.
+  if (kind === 'gear') {
+    const g = gw(shoot)
+    if (g.state === 'early') return { text: `Reserve from ${stampLabel(g.opens)}, or take what's free on the day`, late: true, early: true, opens: g.opens }
+    if (g.state === 'take') return { text: 'Your shoot is on: take what you need now', late: false, take: true }
+    if (g.state === 'over') return { text: 'This shoot is over', late: true }
+    return { text: 'Reserve gear for your shoot', late: false }
+  }
   const by = cutoffs(shoot)[kind], late = todayInStudio() > by
   return { text: late ? `Too late to add ${kind} to this shoot (cutoff was ${formatDay(by)})` : `Add ${kind} by ${formatDay(by)}`, late }
 }
@@ -59,7 +68,7 @@ function ShootPicker({ open, onClose }: { open: boolean; onClose: () => void }) 
             <button key={sh.id} onClick={() => { choose(sh.id); onClose() }}
               className={`w-full text-left rounded-xl px-3 py-3 ${shoot?.id === sh.id ? 'bg-pt-accent/15 border border-pt-accent/50' : 'bg-pt-bg'}`}>
               <span className="block text-pt-text text-[15px]">{label(sh)}</span>
-              <span className="block text-pt-muted text-xs">Props by {formatDay(cutoffs(sh).props)} · Gear by {formatDay(cutoffs(sh).gear)}</span>
+              <span className="block text-pt-muted text-xs">Props by {formatDay(cutoffs(sh).props)} · Gear: reserve 24 h before or take it on the day</span>
             </button>
           ))}
           <button onClick={() => { choose(''); onClose() }} className={`w-full text-left rounded-xl px-3 py-3 ${!shoot ? 'bg-pt-accent/15 border border-pt-accent/50' : 'bg-pt-bg'}`}>

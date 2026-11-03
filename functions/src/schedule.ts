@@ -34,6 +34,7 @@ export interface ScheduleSettings {
   strikeCount: number      // this many strikes…
   strikeDays: number       // …within this many days…
   pauseDays: number        // …pause prop + gear booking for this many days
+  gearReserveHours: number // creators can reserve gear this many hours before their shoot (grab-and-go, Nov 2)
 }
 
 // Owner decisions, Oct 16: 9 slots from 7–9 AM to 11 PM–1 AM, 4 monthly Cliff 1 slots,
@@ -59,6 +60,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   strikeCount: 2,
   strikeDays: 30,
   pauseDays: 14,
+  gearReserveHours: 24,
 }
 export const MONTHLY_HOUSE: House = 'cliff1'
 export const PRIORITY_HOUSE: House = 'cliff1'
@@ -103,6 +105,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
         .filter((f: CalendarFeed, i: number, all: CalendarFeed[]) => f.id && all.findIndex(o => o.id === f.id) === i).slice(0, 6)
       : [],
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
+    gearReserveHours: int(x.gearReserveHours, 1, 336, D.gearReserveHours),
     explainHours: int(x.explainHours, 0, 168, D.explainHours),
     strikeCount: int(x.strikeCount, 1, 20, D.strikeCount),
     strikeDays: int(x.strikeDays, 1, 365, D.strikeDays),
