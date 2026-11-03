@@ -1,6 +1,6 @@
 // Strikes and pauses. A strike is added for a no-show (missed check-in the team confirms, or a
 // cancel inside the notice period) or an upheld report (ran over / left a mess). Enough strikes
-// within the window (2 in 30 days) pause that person's prop + gear bookings (14 days). The team can
+// within the window (2 in 30 days) pause that person's prop bookings (14 days; gear is never paused since Nov 3). The team can
 // lift a pause; strikes from before a lift no longer count toward the next one.
 import { HttpsError } from 'firebase-functions/v2/https'
 import { db } from './auth.js'
@@ -49,11 +49,11 @@ export async function removeStrikeById(id: string, by: string, note: string) {
   return { strikes: recent, lifted: lift }
 }
 
-// Creators whose bookings are paused can't book props or gear until the pause ends (or is lifted).
+// Creators whose bookings are paused can't book props until the pause ends (or is lifted).
 export async function assertNotPaused(email: string) {
   const st = (await db.doc(`user_status/${email}`).get()).data()
   if (st?.pausedUntil && st.pausedUntil > todayInStudio()) {
-    throw new HttpsError('failed-precondition', `Your prop and gear bookings are paused until ${st.pausedUntil} (strikes, or a pause from the team). Ask the schedule team if you think this is wrong.`, { problem: 'paused' })
+    throw new HttpsError('failed-precondition', `Your prop bookings are paused until ${st.pausedUntil} (strikes, or a pause from the team). Ask the schedule team if you think this is wrong.`, { problem: 'paused' })
   }
 }
 

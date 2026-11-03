@@ -154,7 +154,7 @@ export const removeStrike = onCall(CALLABLE, async req => {
   return { ok: true, ...r }
 })
 
-// Pause someone's prop + gear bookings straight away for N days (1–90), with a reason.
+// Pause someone's prop bookings straight away for N days (1–90), with a reason.
 export const pauseCreator = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, MANAGERS as any)
   const email = str(req.data?.email, 200).toLowerCase(), note = str(req.data?.note, 300)

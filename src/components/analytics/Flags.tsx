@@ -114,7 +114,7 @@ export function FlagSheet({ flag, ctx, onClose, excused }: { flag: Incident | nu
         case 'noshow': { await decideShoot({ id: i.src.id, outcome: 'noshow' }); return `Marked as a no-show. ${first} got a strike.` }
         case 'uphold': { await reviewReport({ id: report!.id, uphold: true }); return `Report upheld. ${first} got a strike.` }
         case 'remove-strike': { const r = await removeStrike({ id: i.strikeId!, note }); return `Strike removed.${r.data.lifted ? ` ${first}'s pause is lifted too.` : ''}` }
-        case 'strike': { const r = await flagCall('strike', note); return r.data.strike?.paused ? `Strike given. ${first} now has ${r.data.strike.strikes}, so their prop and gear bookings are paused.` : `Strike given. ${first} has ${r.data.strike?.strikes ?? 1} right now.` }
+        case 'strike': { const r = await flagCall('strike', note); return r.data.strike?.paused ? `Strike given. ${first} now has ${r.data.strike.strikes}, so their prop bookings are paused.` : `Strike given. ${first} has ${r.data.strike?.strikes ?? 1} right now.` }
         case 'warn': { await flagCall('warn', note); return `Note sent to ${first}'s phone.` }
         case 'excuse': { await flagCall('excuse', note); return "Excused. It won't count any more." }
         case 'handled': { await flagCall('handled', note); return 'Marked as handled.' }

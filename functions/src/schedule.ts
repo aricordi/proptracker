@@ -33,7 +33,7 @@ export interface ScheduleSettings {
   explainHours: number     // a missed check-in can be explained for this many hours after the end
   strikeCount: number      // this many strikes…
   strikeDays: number       // …within this many days…
-  pauseDays: number        // …pause prop + gear booking for this many days
+  pauseDays: number        // …pause prop bookings for this many days
   gearReserveHours: number // creators can reserve gear this many hours before their shoot (grab-and-go, Nov 2)
 }
 

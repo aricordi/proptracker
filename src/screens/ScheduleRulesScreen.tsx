@@ -80,7 +80,7 @@ export default function ScheduleRulesScreen() {
         <H>Strikes</H>
         <ul className="list-disc pl-5 space-y-2">
           <Li>A strike is added for a <b>no-show</b>, a <b>cancel inside {s.noticeHours} hours</b>, or a <b>report the team upholds</b>.</Li>
-          <Li><b>{s.strikeCount} strikes within {s.strikeDays} days</b> pause your prop and gear bookings for <b>{s.pauseDays} days</b>. You can still book house slots. The team can lift a pause.</Li>
+          <Li><b>{s.strikeCount} strikes within {s.strikeDays} days</b> pause your prop bookings for <b>{s.pauseDays} days</b>. You can still book house slots. The team can lift a pause.</Li>
         </ul>
 
         <H>Moving, swapping and cancelling</H>

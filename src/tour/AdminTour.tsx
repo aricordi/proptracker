@@ -141,13 +141,13 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
       body: <>Pick <b>Gear</b>, then write it plainly, e.g. <b>"Brought the A7S kit back a day late"</b>. Devon sees your words.</> },
     { id: 'strikesave', scene: 'strikesheet', part: 5, target: 'strikesave', title: <>Tap <b>Give the strike</b></> },
     { id: 'strikedone', scene: 'strikesheet', part: 5, target: 'strikedone', look: true, next: C, title: 'That was strike number two',
-      body: `${s.strikeCount} strikes in ${s.strikeDays} days pauses prop and gear bookings for ${s.pauseDays} days, automatically. Devon gets a ping either way.` },
+      body: `${s.strikeCount} strikes in ${s.strikeDays} days pauses prop bookings for ${s.pauseDays} days, automatically. Devon gets a ping either way.` },
     { id: 'closestrike', scene: 'strikesheet', part: 5, target: 'closesheet', title: <>Tap <b>Done</b></> },
     { id: 'pausedlook', scene: 'person', part: 5, target: 'pausebanner', look: true, next: C, title: 'Paused',
       body: "Devon can still book house time, just not props or gear, until the date shown." },
     { id: 'quiz5', scene: 'person', part: 5, title: '', quiz: {
-      q: `Devon gets ${s.strikeCount} strikes in ${s.strikeDays} days. What happens?`, options: ['Nothing until the owner checks', `Props and gear booking pause for ${s.pauseDays} days`, 'Their account is turned off'], correct: 1,
-      explain: 'The pause is automatic. They can still book house time, and you can lift it early if it was a mistake.' } },
+      q: `Devon gets ${s.strikeCount} strikes in ${s.strikeDays} days. What happens?`, options: ['Nothing until the owner checks', `Prop booking pauses for ${s.pauseDays} days`, 'Their account is turned off'], correct: 1,
+      explain: 'The pause is automatic. They can still book house time and take gear, and you can lift it early if it was a mistake.' } },
     // 6 · Second chances
     intro(6, 'person', "Turns out Devon's late return was a mix-up: the team was closed when they came by. Strikes should be fair, so you can take one back."),
     { id: 'removeone', scene: 'person', part: 6, target: 'removelink', title: <>Tap <b>Remove</b> next to the strike</> },
@@ -565,7 +565,7 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
       <>
         {scenes.person()}
         <BottomSheet open locked onClose={() => {}} title="Strike for Devon">
-          {past('strikesave') ? sheetDone(<span {...T('strikedone')}>Strike given. That's 2, so Devon's prop and gear bookings are now paused.</span>) : (
+          {past('strikesave') ? sheetDone(<span {...T('strikedone')}>Strike given. That's 2, so Devon's prop bookings are now paused.</span>) : (
             <div className="space-y-4">
               <div {...T('strikeform')} className="space-y-4">
                 <p className="text-pt-muted text-sm">It goes on Devon's record, with your reason, and counts toward the automatic pause.</p>
@@ -602,7 +602,7 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
           {past('pausesave') ? sheetDone(<>Paused until {formatDay(addDays(today, days))}.</>) : (
             <div className="space-y-4">
               <div {...T('pauseform')} className="space-y-4">
-                <p className="text-pt-muted text-sm">Devon can still book house time, but not props or gear, until the pause ends.</p>
+                <p className="text-pt-muted text-sm">Devon can still book house time and take gear, but not props, until the pause ends.</p>
                 {chips([3, 7, 14, 30].map(d => [String(d), `${d} days`]), String(days), v => { if (step.id === 'pauseform') setDays(Number(v)) })}
                 {reason(pauseWhy, v => { if (step.id === 'pauseform') setPauseWhy(v) }, 'Why?')}
               </div>
@@ -758,7 +758,7 @@ export default function AdminTour({ onFinish, onSkip, required = false }: { onFi
         {([
           ['eye', 'Queues and the schedule are for looking. The arts department and the equipment team do the changing.'],
           ['people', 'Your Dashboard ranks every creator by shoots filmed against the typical creator (posting more, typical, posting less), with behaviour problems flagged separately. Tap anyone for their report card; Back zooms out; the table icon breaks it all down.'],
-          ['stop', `A strike needs a reason the creator can read. ${s.strikeCount} strikes in ${s.strikeDays} days pause props and gear for ${s.pauseDays} days.`],
+          ['stop', `A strike needs a reason the creator can read. ${s.strikeCount} strikes in ${s.strikeDays} days pause props for ${s.pauseDays} days.`],
           ['restore', 'Removing a strike keeps it on the record as removed. It lifts an automatic pause, never one you started.'],
           ['clock', `Missed check-in: wait for their explanation (${s.explainHours} hours), then They filmed or No-show. Reports: Dismiss or Strike.`],
           ['lock', "You invite creators only. Booking rules change for everyone at once. Settings and anything technical: ask the owner."],

@@ -61,14 +61,14 @@ describe('missed check-ins, strikes and pauses', () => {
     expect((await call('decideShoot', { id: 'missed1', outcome: 'noshow' }, MAANIK)).message).toMatch(/already decided/)
   })
 
-  it('2 strikes in 30 days pause prop + gear bookings; the team can lift it', async () => {
+  it('2 strikes in 30 days pause prop bookings (not gear); the team can lift it', async () => {
     await shootAt('m1', ANA, 'Ana', -300)
     await shootAt('m2', ANA, 'Ana', -150)
     await call('decideShoot', { id: 'm1', outcome: 'noshow' }, MAANIK)
     const second = await call('decideShoot', { id: 'm2', outcome: 'noshow' }, MAANIK)
     expect(second.result.strike).toMatchObject({ strikes: 2, paused: true })
     expect((await call('createReservation', {}, ANA)).message).toMatch(/paused until/)
-    expect((await call('createGearBooking', {}, ANA)).message).toMatch(/paused until/)
+    expect((await call('createGearBooking', {}, ANA)).message ?? '').not.toMatch(/paused/)   // gear is never paused (owner, Nov 3)
     expect((await call('liftPause', { email: ANA }, MAANIK)).ok).toBe(true)
     expect((await call('createReservation', {}, ANA)).message).not.toMatch(/paused/)
   })

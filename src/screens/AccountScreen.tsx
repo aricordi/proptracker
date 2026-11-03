@@ -171,7 +171,7 @@ function CreatorLinks({ email }: { email: string }) {
   return (
     <>
       <div className={`rounded-2xl p-4 text-sm ${paused ? 'bg-red-500/10 border border-red-500/40' : 'bg-pt-surface shadow-hairline'}`}>
-        <p className="text-pt-text font-semibold">{paused ? `Props and gear paused until ${formatDay(st!.pausedUntil!)}` : st?.strikes ? `${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : 'No strikes'}</p>
+        <p className="text-pt-text font-semibold">{paused ? `Props paused until ${formatDay(st!.pausedUntil!)}` : st?.strikes ? `${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : 'No strikes'}</p>
         <p className="text-pt-muted">{paused ? 'You can still book house time.' : 'Strikes come from no-shows, late cancels and upheld reports.'}</p>
       </div>
       <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">

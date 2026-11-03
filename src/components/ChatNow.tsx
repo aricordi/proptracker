@@ -81,7 +81,7 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
         </div>
       )}
       {paused && <div className="rise-in rounded-[20px] p-4 bg-red-400/10 shadow-[inset_0_0_0_0.5px_rgba(248,113,113,0.5)] text-[15px]">
-        <b>Props and gear are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
+        <b>Props are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}

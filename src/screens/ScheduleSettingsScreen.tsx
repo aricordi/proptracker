@@ -106,7 +106,7 @@ export default function ScheduleSettingsScreen() {
             ['explainHours', 'hours to explain a missed check-in', 0, 168, 1],
             ['strikeCount', 'strikes…', 1, 20, 1],
             ['strikeDays', '…within this many days…', 1, 365, 1],
-            ['pauseDays', '…pause prop + gear bookings for this many days', 0, 365, 1],
+            ['pauseDays', '…pause prop bookings for this many days', 0, 365, 1],
           ] as const).map(([k, label, min, max, stepBy]) => (
             <div key={k} className="flex items-center gap-3">
               <button onClick={() => set({ [k]: Math.max(min, s[k] - stepBy) } as Partial<ScheduleSettings>)} className="w-9 h-9 rounded-xl bg-pt-bg text-pt-text text-lg">−</button>

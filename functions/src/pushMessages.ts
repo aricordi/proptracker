@@ -119,7 +119,7 @@ const STRIKE_WHY: Record<string, string> = { 'late-cancel': 'a late cancel', 'no
 export function strikeCreated(id: string, st: Doc, s: ScheduleSettings): Push[] {
   if (!st?.email) return []
   return [{ to: [st.email], url: '/account', tag: `strike-${id}`, title: 'You got a strike',
-    body: `For ${STRIKE_WHY[st.reason] ?? 'a schedule problem'}. ${s.strikeCount} strikes in ${s.strikeDays} days pause props and gear for ${s.pauseDays} days.` }]
+    body: `For ${STRIKE_WHY[st.reason] ?? 'a schedule problem'}. ${s.strikeCount} strikes in ${s.strikeDays} days pause props for ${s.pauseDays} days.` }]
 }
 
 // The schedule team booked, moved or cancelled someone's shoot: tell that creator.

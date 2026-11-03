@@ -40,7 +40,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
     admin: <>
       <P n={1} t="Your home is the scoreboard"><p><B>Dashboard</B>: who's filming more or less this month and who needs attention. <B>Analytics</B> goes deeper (tap any number or flag).</p></P>
       <P n={2} t="Approve bookings too"><p>Like the equipment team, you can <B>Approve / Deny</B> requests on <B>Requests</B>, and make a <B>Priority booking</B> when {kyle} needs a slot.</p></P>
-      <P n={3} t="Act on flags"><p>Every no-show, late return or mess is a flag. Open it: see the evidence, then <B>Send a note</B>, <B>Excuse it</B>, <B>Give a strike</B> or <B>Mark as handled</B>. {s.strikeCount} strikes in {s.strikeDays} days pause props + gear for {s.pauseDays} days.</p></P>
+      <P n={3} t="Act on flags"><p>Every no-show, late return or mess is a flag. Open it: see the evidence, then <B>Send a note</B>, <B>Excuse it</B>, <B>Give a strike</B> or <B>Mark as handled</B>. {s.strikeCount} strikes in {s.strikeDays} days pause props for {s.pauseDays} days.</p></P>
       <P n={4} t="Creators' records"><p><B>Creators</B> → a person: their report card, strikes (Remove with a reason), <B>Pause bookings</B> or Lift.</p></P>
       <P n={5} t="Invite creators"><p><B>Invite creators</B>: they start on <B>Props only</B>; the owner switches them to the full app.</p></P>
       <P n={6} t="Booking rules"><p>Props notice: {b.leadTimeDays} open days (new props to make or find: {b.buildLeadDays}). Change it in <B>Booking rules</B>. Every rule is on the <B>Settings sheet</B>.</p></P>

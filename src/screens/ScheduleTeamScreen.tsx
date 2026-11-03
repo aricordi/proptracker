@@ -114,7 +114,7 @@ export default function ScheduleTeamScreen() {
         </>}
 
         {tab === 'creators' && <>
-          <p className="text-pt-muted text-sm">Last {s.strikeDays} days. {s.strikeCount} strikes pause prop and gear bookings for {s.pauseDays} days.</p>
+          <p className="text-pt-muted text-sm">Last {s.strikeDays} days. {s.strikeCount} strikes pause prop bookings for {s.pauseDays} days.</p>
           {people.map(p => {
             const st = statuses[p.email]
             const paused = !!st?.pausedUntil && st.pausedUntil > today

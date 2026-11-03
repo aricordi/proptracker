@@ -134,7 +134,7 @@ export default function CreatorHomeScreen() {
       <div className="px-5 mt-4 space-y-4">
         {paused && (
           <div className="bg-red-500/10 border border-red-500/40 rounded-2xl p-4 text-sm text-pt-text">
-            <p className="text-red-300 font-semibold mb-1">Props and gear are paused until {formatDay(status!.pausedUntil!)}</p>
+            <p className="text-red-300 font-semibold mb-1">Props are paused until {formatDay(status!.pausedUntil!)}</p>
             Because of {status!.strikes} strikes (no-shows or reports). You can still book house time. Ask the schedule team if you think this is wrong.
           </div>
         )}

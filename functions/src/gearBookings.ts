@@ -5,7 +5,6 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator, isDemoCreator, type Caller } from './auth.js'
 import { loadSettings, shootIdOf } from './reservations.js'
-import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { todayInStudio } from './booking.js'
 import { cleanScheduleSettings } from './schedule.js'
@@ -128,7 +127,7 @@ export const takeGear = onCall(CALLABLE, async req => {
 })
 
 async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: boolean } = {}) {
-  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
+  // Strikes pause PROPS only (owner, Nov 3: restricting gear only stops filming); late gear still has to come back first.
   const lines = tidyLines(d.lines)
   if (!lines.length) throw new HttpsError('invalid-argument', 'Add at least one bundle or extra.')
   const settings = await loadSettings()
@@ -247,7 +246,6 @@ export const cancelGearBooking = onCall(CALLABLE, async req => {
 // Anything added (or new hours) follows the usual notice and availability rules; removing is always fine.
 export const editGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
-  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const d = req.data ?? {}
   const id = str(d.id, 100)
   const ref = db.doc(`gear_bookings/${id}`)
@@ -510,7 +508,6 @@ export const handOverGear = onCall(CALLABLE, async req => {
   if (!toOk) throw new HttpsError('failed-precondition', "That person can't book gear.")
   const toName = String(u?.name || (toEmail === OWNER_EMAIL ? 'Alex' : toEmail))
   if (toEmail !== OWNER_EMAIL && u?.role === 'creator') {
-    await assertNotPaused(toEmail).catch(() => { throw new HttpsError('failed-precondition', `${toName.split(' ')[0]}'s gear bookings are paused, so they can't take it.`, { problem: 'paused' }) })
     if (await hasLateGear(toEmail)) throw new HttpsError('failed-precondition', `${toName.split(' ')[0]} has gear that's late coming back, so they can't take more.`, { problem: 'late' })
   }
   const ref = db.doc(`gear_bookings/${id}`), next = db.collection('gear_bookings').doc()

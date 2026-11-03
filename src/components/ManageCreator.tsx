@@ -54,12 +54,12 @@ export function useManageCreator(email: string, name: string, status: UserStatus
           {err && <p className="text-red-300 text-sm">{err}</p>}
           <button disabled={busy || note.trim().length < 3} onClick={() => run(async () => {
             const r = await giveStrike({ email, about, note: note.trim() })
-            return r.data.paused ? `Strike given. That's ${r.data.strikes}, so ${first}'s prop and gear bookings are now paused.` : `Strike given. ${first} has ${r.data.strikes} right now.`
+            return r.data.paused ? `Strike given. That's ${r.data.strikes}, so ${first}'s prop bookings are now paused.` : `Strike given. ${first} has ${r.data.strikes} right now.`
           })} className="w-full py-4 rounded-2xl bg-red-500/80 text-white font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Give the strike'}</button>
         </div>
       ) : sheet?.kind === 'pause' ? (
         <div className="space-y-4">
-          <p className="text-pt-muted text-sm">{first} can still book house time, but not props or gear, until the pause ends.</p>
+          <p className="text-pt-muted text-sm">{first} can still book house time and take gear, but not props, until the pause ends.</p>
           <div className="flex flex-wrap gap-2">
             {[3, 7, 14, 30].map(d => <button key={d} onClick={() => setDays(d)} className={`px-3 py-2 rounded-full text-sm ${days === d ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-bg text-pt-muted shadow-hairline'}`}>{d} days</button>)}
           </div>

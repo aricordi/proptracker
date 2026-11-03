@@ -85,7 +85,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'moving', title: 'Moving, swapping, cancelling', who: FILMERS, words: 'reschedule move cancel swap late cancel strike',
     about: 'Shoot page → More. Moving or cancelling is free with enough notice; closer than that only a swap with another creator avoids counting as a no-show. Cancelling within a few minutes of booking is always free.' },
   { id: 'strikes', title: 'Strikes and pauses', who: [...FILMERS, 'admin', 'equipment'], words: 'strike pause penalty no show blocked',
-    about: 'No-shows, late cancels and upheld reports give a strike. Too many in the window pauses props and gear booking for a while (house booking still works). The team can lift a pause.' },
+    about: 'No-shows, late cancels and upheld reports give a strike. Too many in the window pauses prop requests for a while (house booking and taking gear still work). The team can lift a pause.' },
   { id: 'latefee', title: 'Late return fee', who: [...FILMERS, 'admin', 'equipment'], words: 'late fee penalty 10 percent value late gear',
     about: 'Company rule: gear brought back late (from 30 minutes after the booked end) carries a fee of 10% of its value, on the last person who had it. The app logs it; admins can excuse exceptions. Props late from 10 AM the next open day are logged, no fee.' },
   { id: 'calendarfeed', title: 'Shoots in your phone\'s calendar', who: [...FILMERS, 'equipment', 'admin'], words: 'add to my calendar ical subscribe phone calendar',

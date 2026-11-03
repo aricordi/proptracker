@@ -74,7 +74,7 @@ export default function PersonHistoryScreen() {
             <div className="flex gap-2 overflow-x-auto no-scrollbar">
               {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 px-3 py-1 rounded-full text-sm ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
             </div>
-            {paused && <div className="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 text-sm text-pt-text"><b className="text-red-300">Props and gear paused until {formatDay(status!.pausedUntil!)}</b> · {status!.strikes ?? 0} strike{status!.strikes === 1 ? '' : 's'}{status!.pauseNote ? ` · "${status!.pauseNote}"` : ''}</div>}
+            {paused && <div className="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 text-sm text-pt-text"><b className="text-red-300">Props paused until {formatDay(status!.pausedUntil!)}</b> · {status!.strikes ?? 0} strike{status!.strikes === 1 ? '' : 's'}{status!.pauseNote ? ` · "${status!.pauseNote}"` : ''}</div>}
             {canManagePeople && manage.buttons}
             {manage.err && <p className="text-red-300 text-sm">{manage.err}</p>}
             <div className="grid grid-cols-3 gap-2">

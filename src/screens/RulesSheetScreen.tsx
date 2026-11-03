@@ -67,7 +67,7 @@ export default function RulesSheetScreen() {
       ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a set photo (camera only) from this time until the slot ends.', owner],
       ['Started late', `more than ${LATE_START_MIN} min`, 'Checking in this long after the slot began shows a "Started late" flag in Analytics.', owner],
       ['Time to explain a missed check-in', `${s.explainHours} h`, 'After that, the team decides: they filmed, or a no-show (strike).', owner],
-      ['Automatic pause', `${s.strikeCount} strikes in ${s.strikeDays} days`, `Pauses prop and gear bookings for ${s.pauseDays} days (house time still OK). Admins can give, remove and lift.`, owner],
+      ['Automatic pause', `${s.strikeCount} strikes in ${s.strikeDays} days`, `Pauses prop bookings for ${s.pauseDays} days (house time still OK). Admins can give, remove and lift.`, owner],
       ['Old photos', `taken more than ${OLD_PHOTO_MINUTES} min before upload`, 'Proof photos show a red warning, so people can\'t reuse old pictures.', owner],
     ] },
   ]

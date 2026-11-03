@@ -214,7 +214,7 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
       body: 'Ran over, left a mess. Read it, look at the photos, then Dismiss, or uphold it to give a strike.' },
     { id: 'tocreators', scene: 'team', part: 8, target: 'tab-creators', title: <>Tap <b>Creators</b></> },
     { id: 'creators', scene: 'team', part: 8, target: 'teamlist', look: true, next: C, title: 'Who shows up',
-      body: `Filmed vs booked over ${s.strikeDays} days. ${s.strikeCount} strikes pause props and gear for ${s.pauseDays} days. Tap Paused · Lift if it was a mistake.` },
+      body: `Filmed vs booked over ${s.strikeDays} days. ${s.strikeCount} strikes pause props for ${s.pauseDays} days. Tap Paused · Lift if it was a mistake.` },
     { id: 'quiz8', scene: 'team', part: 8, title: '', quiz: {
       q: "The house floods and you cancel Riley's shoot. Does Riley get a strike?", options: ['Yes', 'No, team cancels never count', 'Only if it was a Thursday'], correct: 1,
       explain: 'Strikes are only for no-shows, late cancels by the creator, and reports you uphold.' } },
@@ -721,7 +721,7 @@ export default function GearTour({ onFinish, onSkip, required = false }: { onFin
               </div>
             </>}
             {tab === 'creators' && <>
-              <p className="text-pt-muted text-sm">Last {s.strikeDays} days. {s.strikeCount} strikes pause prop and gear bookings for {s.pauseDays} days.</p>
+              <p className="text-pt-muted text-sm">Last {s.strikeDays} days. {s.strikeCount} strikes pause prop bookings for {s.pauseDays} days.</p>
               {[['Sam', '3 of 5 filmed · 2 missed · 2 strikes', <span key="p" className="shrink-0 bg-red-500/15 text-red-300 rounded-lg px-3 py-2 text-xs">Paused · Lift</span>],
                 ['Riley', '6 of 6 filmed', <Pill key="r" tone="free">Reliable</Pill>], ['Jordan', '4 of 4 filmed', <Pill key="j" tone="free">Reliable</Pill>]].map(([n, d, p]) => (
                 <div key={n as string} className="bg-pt-surface rounded-2xl p-3 flex items-center gap-3"><Avatar name={n as string} /><div className="flex-1 min-w-0"><p className="text-pt-text font-semibold truncate">{n}</p><p className="text-pt-muted text-xs">{d}</p></div>{p}</div>
