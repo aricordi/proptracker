@@ -20,8 +20,7 @@ const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
 const TeamGuideScreen = lazy(() => import('./screens/TeamGuideScreen'))
 const Tour = lazy(() => import('./tour/Tour'))
-const GearTour = lazy(() => import('./tour/GearTour'))
-const AdminTour = lazy(() => import('./tour/AdminTour'))
+const TeamTour = lazy(() => import('./tour/TeamTour'))
 const AnalyticsScreen = lazy(() => import('./screens/AnalyticsScreen'))
 const RulesSheetScreen = lazy(() => import('./screens/RulesSheetScreen'))
 const AddItemScreen = lazy(() => import('./screens/AddItemScreen'))
@@ -120,8 +119,9 @@ function TourGate({ children }: { children: ReactNode }) {
   // Finished (or paused with Not now): land on Home (owner, Oct 20).
   const finished = () => { setDone(); navigate('/', { replace: true }) }
   const skipped = () => { skipTour(profile.email); finished() }
-  void skipped
-  return <Suspense fallback={<ScreenFallback />}><TeamGuideScreen onDone={finished} /></Suspense>
+  // Owner, Nov 3: the team gets a SHORT hands-on tour (equipment, admins); the arts department gets the one-page guide.
+  return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' || realRole === 'admin'
+    ? <TeamTour role={realRole} required onFinish={finished} onSkip={skipped} /> : <TeamGuideScreen onDone={finished} />}</Suspense>
 }
 // Replaying the tour (Me → App tour, Help). Ends on Home, like the first time.
 function TourReplay() {
@@ -130,11 +130,11 @@ function TourReplay() {
 }
 function AdminTourReplay() {
   const navigate = useNavigate()
-  return <AdminTour onFinish={() => navigate('/', { replace: true })} />
+  return <TeamTour role="admin" onFinish={() => navigate('/', { replace: true })} />
 }
 function GearTourReplay() {
   const navigate = useNavigate()
-  return <GearTour onFinish={() => navigate('/', { replace: true })} />
+  return <TeamTour role="equipment" onFinish={() => navigate('/', { replace: true })} />
 }
 
 function Loading() {

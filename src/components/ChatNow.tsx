@@ -79,15 +79,7 @@ export default function ChatNow({ onAsk, onProps }: { onAsk: (text: string) => v
 
   return (
     <div className="space-y-3">
-      {intro && (
-        <div className="rise-in rounded-[20px] p-4 space-y-2 bg-[#BF9DFF]/10 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.4)]">
-          <b className="block text-[16px]">How this works</b>
-          <p className="text-[15px]"><b>1.</b> Type what you need below, like a text: a time to film, props, a question.</p>
-          <p className="text-[15px]"><b>2.</b> Your shoots and anything to do show up right here.</p>
-          <p className="text-[15px]"><b>3.</b> <b>Calendar</b> shows free spots. <b>Props</b> is the whole closet.</p>
-          <button onClick={closeIntro} className="w-full rounded-xl py-3 font-bold text-[#140f22] bg-[#BF9DFF]">Got it</button>
-        </div>
-      )}
+      {intro && <ChatIntro onAsk={onAsk} onDone={closeIntro} />}
       {paused && <div className="rise-in rounded-[20px] p-4 bg-red-400/10 shadow-[inset_0_0_0_0.5px_rgba(248,113,113,0.5)] text-[15px]">
         <b>Props are paused until {formatDay(status!.pausedUntil!)}.</b> You can still book filming time. Ask the schedule team if this looks wrong.</div>}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} />)}
@@ -332,6 +324,29 @@ export function PickupList() {
     <div className={card}>
       <p className="text-[15px]">{going.length ? `Nothing packed yet. ${going.length === 1 ? `"${going[0].title}" is` : `${going.length} requests are`} still with the props team.` : 'No props waiting for you right now.'}</p>
       <button onClick={() => navigate('/requests')} className={grey}>My requests</button>
+    </div>
+  )
+}
+
+// 60 seconds, hands-on (owner, Nov 3: creators get a short interactive intro instead of a tour). Step 1 really sends a
+// message (a time search: nothing is booked until they tap Request).
+function ChatIntro({ onAsk, onDone }: { onAsk: (t: string) => void; onDone: () => void }) {
+  const [n, setN] = useState(0)
+  const steps = [
+    { t: 'Type what you need, like a text', b: 'Try it: tap the button and see what I answer. Nothing is booked until you tap Request.', go: 'Try "Thursday at Cliff 1 at 5pm"' },
+    { t: 'You can say anything', b: '"Props for a séance video", "cancel my next shoot", "returning the camera", "the tripod is broken", "how do I…?". I\'ll take you to the right place.', go: 'Next' },
+    { t: 'Your to-dos show up here', b: 'Check in on shoot day, gear to take, things to bring back, invites. Notifications bring you straight here.', go: 'Next' },
+    { t: 'The other tabs', b: 'Calendar: the free spots. Props: the whole closet. More: your requests, shoots and help.', go: 'Got it' },
+  ]
+  const st = steps[n]
+  return (
+    <div className="rise-in rounded-[20px] p-4 space-y-2 bg-[#BF9DFF]/10 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.4)]">
+      <div className="flex items-center gap-2"><span className="text-xs text-[#CDB8FF] font-semibold">Quick intro · {n + 1} of {steps.length}</span>
+        <button onClick={onDone} className="ml-auto text-pt-muted text-xs tap">Skip</button></div>
+      <b className="block text-[16px]">{st.t}</b>
+      <p className="text-[15px]">{st.b}</p>
+      <button onClick={() => { if (n === 0) onAsk('Thursday at Cliff 1 at 5pm'); if (n === steps.length - 1) onDone(); else setN(n + 1) }}
+        className="w-full rounded-xl py-3 font-bold text-[#140f22] bg-[#BF9DFF]">{st.go}</button>
     </div>
   )
 }
