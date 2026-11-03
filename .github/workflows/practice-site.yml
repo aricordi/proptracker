@@ -79,7 +79,8 @@ jobs:
           gcloud services enable firestore.googleapis.com cloudfunctions.googleapis.com run.googleapis.com cloudbuild.googleapis.com \
             artifactregistry.googleapis.com eventarc.googleapis.com pubsub.googleapis.com secretmanager.googleapis.com \
             iamcredentials.googleapis.com iam.googleapis.com cloudscheduler.googleapis.com firebasestorage.googleapis.com \
-            fcm.googleapis.com identitytoolkit.googleapis.com firebasehosting.googleapis.com --project "$PID"
+            fcm.googleapis.com identitytoolkit.googleapis.com firebasehosting.googleapis.com cloudbilling.googleapis.com \
+            firebaseextensions.googleapis.com --project "$PID"
 
       - name: Database and AI key (created only if missing)
         if: env.UPDATE == 'true'
