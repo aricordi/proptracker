@@ -1793,6 +1793,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       toward one slot a day).
     - LIVE PEOPLE (owner, Nov 2): ALL creators are invited and Maanik is on the equipment role (older notes saying "Ariel only /
       no equipment yet" are out of date). Creators stay on Props only until the owner switches each to Full app (People).
+    - LIVE Nov 3 (owner "go live with everything"): backend run 55 + website run 55 = booking requests + approvals, month view,
+      laptop view, who films with whom, hardening. Owner next: tick Kyle in Schedule settings → Books without approval.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
