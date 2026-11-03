@@ -1916,6 +1916,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (when something is out) / Props for <Thu> (soonest shoot still open for props) / Book a time / With a friend / Props for an idea /
       Plan my whole shoot / Is it approved? (or How does it work?), max 6. After replies the small chips use the same spot. Soft fade at
       the bottom of the message area.
+      LIVE Nov 3 (website run 57, owner "push live"): chat design pass + suggestion cards.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
