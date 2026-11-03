@@ -8,3 +8,4 @@ dist
 # Firebase emulator logs
 *-debug.log
 firebase-export-*
+__pycache__/
