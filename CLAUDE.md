@@ -2031,6 +2031,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       laptop sidebar "Check-ins", desk page title "Requests", Team tiles top-aligned, "Casting, locations and makeup come later" removed
       from the shoot sheet, faint labels lifted (Plan it with AI line, Adding to / cutoff), helpful EMPTY STATES on the props queue and
       gear log tabs (title + what lands there), chat "Your first shoot · Nothing booked yet · See free times" card when nothing is booked.
+    - LIVE Nov 3 (owner "final pass then push live"): backend run 57 + website run 58 = calmer chat, card forms, month-only calendar +
+      group booking, no gear booking, notifications, PA AI voice, design-skills pass, final polish, bill-limit function. Owner next:
+      create the $60 Google Cloud budget (topic bill-limit) + give the compute account "Project Billing Manager".
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
