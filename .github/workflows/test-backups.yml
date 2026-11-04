@@ -22,7 +22,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: google-github-actions/auth@v2
         with:
@@ -44,6 +44,12 @@ jobs:
           [ "$pitr" = "POINT_IN_TIME_RECOVERY_ENABLED" ] && echo "✔ 7-day undo window on" || { echo "::error::The 7-day undo window is off. Run 'Set up backups'."; exit 1; }
           echo "NEWEST=$newest" >> "$GITHUB_ENV"; echo "SNAP=$at" >> "$GITHUB_ENV"
 
+      - name: Clean up practice copies left by earlier runs
+        run: |
+          for d in $(gcloud firestore databases list --project "$PROJECT" --format='value(name)' | sed 's#.*/##' | grep '^restore-test-' || true); do
+            gcloud firestore databases delete --database="$d" --project "$PROJECT" --quiet >/dev/null 2>&1 && echo "✔ Removed old practice copy $d" || echo "  $d is still busy; the next run removes it"
+          done
+
       - name: 2. Practice restore into a temporary database
         run: |
           TEST="restore-test-${GITHUB_RUN_ID: -8}"
@@ -51,12 +57,20 @@ jobs:
           gcloud firestore databases restore --source-backup="$NEWEST" --destination-database="$TEST" --project "$PROJECT" \
             || { echo "::error::Google refused the practice restore (see the message above). If it says permission: IAM → github-deploy → role 'Cloud Datastore Owner'."; exit 1; }
           echo "Restoring the backup from $SNAP into $TEST …"
-          for i in $(seq 1 90); do
+          TOKEN=$(gcloud auth print-access-token)
+          # The restore is a long job on Google's side: wait until Google says the job itself is DONE (the copy
+          # appears straight away but fills up over several minutes).
+          op=""
+          for i in $(seq 1 120); do
             sleep 20
-            busy=$(gcloud firestore operations list --database="$TEST" --project "$PROJECT" --format=json 2>/dev/null | jq '[.[] | select(.done != true)] | length' 2>/dev/null || echo 1)
-            ready=$(gcloud firestore databases describe --database="$TEST" --project "$PROJECT" --format='value(name)' 2>/dev/null || true)
-            [ -n "$ready" ] && [ "$busy" = "0" ] && { echo "✔ Restored after $((i * 20)) s"; break; }
-            [ "$i" = 90 ] && { echo "::error::The restore didn't finish in 30 minutes."; exit 1; }
+            [ -n "$op" ] || op=$(gcloud firestore databases describe --database="$TEST" --project "$PROJECT" --format='value(sourceInfo.operation)' 2>/dev/null || true)
+            [ -z "$op" ] && continue
+            [ $((i % 30)) = 0 ] && TOKEN=$(gcloud auth print-access-token)
+            done=$(curl -s -H "Authorization: Bearer $TOKEN" "https://firestore.googleapis.com/v1/$op" | jq -r '.done // false')
+            err=$(curl -s -H "Authorization: Bearer $TOKEN" "https://firestore.googleapis.com/v1/$op" | jq -r '.error.message // empty')
+            [ -n "$err" ] && { echo "::error::The restore failed on Google's side: $err"; exit 1; }
+            [ "$done" = "true" ] && { echo "✔ Restore finished after $((i * 20)) s"; break; }
+            [ "$i" = 120 ] && { echo "::error::The restore didn't finish in 40 minutes."; exit 1; }
           done
 
       - name: Compare the restored copy with the live app
