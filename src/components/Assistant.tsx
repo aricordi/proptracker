@@ -210,6 +210,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   }, [])
   const restart = () => { setMode(helpOnly ? 'help' : demo ? 'props' : null); setPlan(null); setMsgs(fresh()); setChips(demo || helpOnly ? demoChips : mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
 
+  // "New chat" in the middle of a plan: explain what goes, then they choose (Start over / Keep going).
+  function askRestart() {
+    if (!plan || (!sel.length && !cart.count && !planShoot)) return restart()
+    bot(withNote('Start a new chat?')); setChips([START_OVER, KEEP_GOING])
+  }
+
   // ── Plan my shoot ──
   const bot = (text: string, ...extra: Msg[]) => setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'bot', text }, ...extra])
   const planShoot = upcoming.find(x => x.id === plan?.shootId)
@@ -280,6 +286,16 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const defaultChips = () => helpOnly ? (STAFF_STARTERS[role] ?? []) : demo ? STARTERS.props.slice(0, 3) : mixed().slice(0, 4)
 
   const pendingSwitch = useRef('')
+  // What leaving the plan would drop, and whether they can come back (owner, Nov 4: "explain what they would abandon…
+  // if it's even possible to go back or if they'll have to start over… communicate that and give the option").
+  function leavingNote(): string {
+    if (!plan) return ''
+    const lost = sel.length ? `the ${sel.length} pick${sel.length === 1 ? '' : 's'} you ticked but haven't added yet will be cleared` : ''
+    const kept = [planShoot ? `your shoot (${planLabel}) stays booked` : '', cart.count ? `the ${cart.count} prop${cart.count === 1 ? '' : 's'} already in your basket stay there` : ''].filter(Boolean)
+    const back = planShoot ? 'You can pick up where you left off any time: open the shoot and tap **Plan it with AI**.' : 'Nothing is booked yet, so next time the plan starts from the beginning.'
+    return [lost ? `Heads-up: ${lost}.` : '', kept.length ? `${kept.join(', and ').replace(/^./, c => c.toUpperCase())}.` : '', back].filter(Boolean).join(' ')
+  }
+  const withNote = (t: string) => { const n = leavingNote(); return n ? `${t}\n\n${n}` : t }
   // Plan my shoot without the AI (busy / test mode): a message that isn't for this step gets a question, not a refusal.
   function askWhatTheyWant(q: string): boolean {
     if (!plan || (plan.step !== 'props' && plan.step !== 'time')) return false
@@ -291,9 +307,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const greet = intent === 'greeting'
     const wantsTime = r.helpers.includes('time') && plan.step === 'props', wantsProps = r.helpers.includes('props') && plan.step === 'time'
     bot(greet ? `Hey${first ? ` ${first}` : ''}! We were ${plan.step === 'props' ? `picking props for ${planLabel}` : 'finding you a time'}. Want to keep going, or do something else?`
-      : wantsTime ? 'Sounds like you want to book a time. Want to do that now, or keep going with props first?'
+      : withNote(wantsTime ? 'Sounds like you want to book a time. Want to do that now, or keep going with props first?'
       : wantsProps ? 'Sounds like you\'re thinking props. Find those now, or finish picking the time first?'
-      : `Got it. We were ${plan.step === 'props' ? 'on props' : 'finding a time'}. Keep going, or start something else?`)
+      : `Got it. We were ${plan.step === 'props' ? 'on props' : 'finding a time'}. Keep going, or start something else?`))
     setChips(wantsTime ? [SWITCH_TIME, KEEP_GOING, START_OVER] : wantsProps ? [SWITCH_PROPS, KEEP_GOING, START_OVER] : [KEEP_GOING, SWITCH_TIME, START_OVER])
     return true
   }
@@ -318,13 +334,23 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     await runHelpers(q, more, force)
   }
 
+  // The AI read a change of direction in the middle of the plan: say what leaving means, then let them choose.
+  function confirmLeave(reply: string, query: string, to: 'time' | 'props') {
+    pendingSwitch.current = query
+    bot(withNote(`${reply ? `${reply} ` : ''}${to === 'time' ? 'Want to switch to booking a time now, or finish the props first?' : 'Want to look at props now, or finish picking the time first?'}`))
+    setChips(to === 'time' ? [SWITCH_TIME, KEEP_GOING, START_OVER] : [SWITCH_PROPS, KEEP_GOING, START_OVER])
+  }
+
   // Do what the AI picked. Everything here is a card or a button; the person still taps to make anything happen.
   async function runTurn(turn: ChatTurn, q: string) {
     aiSpoke.current = !!turn.reply
     const say = (txt: string, extra: Msg[] = []) => setMsgs(x => [...x, { who: 'bot', text: txt }, ...extra])
     switch (turn.action) {
-      case 'times': if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time')
+      case 'times':
+        if (plan && plan.step === 'props') return confirmLeave(turn.reply, turn.query || q, 'time')
+        if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time')
       case 'props':
+        if (plan && plan.step === 'time') return confirmLeave(turn.reply, turn.query || q, 'props')
         if (turn.shoot) choose(turn.shoot)
         if (turn.reply) say(turn.reply)
         return runHelpers(turn.query || q, false, 'props', turn.shoot)
@@ -451,7 +477,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // "Not a video idea" (owner, Nov 4: "it blocked me"): ask what they want instead of refusing.
       if (r.note && !found && !demo) {
         pendingSwitch.current = q
-        setMsgs(x => [...x, { who: 'bot', text: plan ? 'Hmm, I didn\'t catch a video idea there. Want to keep going with props, book a time instead, or start over?' : 'I didn\'t catch a video idea there. Want props for a video, or to book a time?' }])
+        setMsgs(x => [...x, { who: 'bot', text: plan ? withNote('Hmm, I didn\'t catch a video idea there. Want to keep going with props, book a time instead, or start over?') : 'I didn\'t catch a video idea there. Want props for a video, or to book a time?' }])
         return plan ? [KEEP_GOING, SWITCH_TIME, START_OVER] : [SWITCH_TIME, 'Props for a video idea']
       }
       setMsgs(x => [...x, { who: 'bot', text: quiet ? '' : r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
@@ -525,7 +551,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (c === SWITCH_TIME || c === SWITCH_PROPS) {
       // Leave the plan and do what they asked, with the words they already typed.
       const last = pendingSwitch.current; pendingSwitch.current = ''
-      setPlan(null)
+      setPlan(null); setSel([])
       if (last) return send(last, false, c === SWITCH_TIME ? 'time' : 'props')
       return c === SWITCH_TIME ? askTime() : (setMode('props'), bot('What\'s the video about?'))
     }
@@ -687,12 +713,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div className="flex items-center gap-2 py-2">
             <BrandMark className="w-7 h-7 text-white" title="" />
             <h1 className="font-display text-[28px] font-extrabold tracking-tight flex-1">Chat</h1>
-            {msgs.length > 2 && <button onClick={restart} className="tap text-pt-muted text-sm">New chat</button>}
+            {msgs.length > 2 && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
           </div>
         ) : <>
         <div className="flex items-center justify-between py-3">
           <button onClick={onClose} className="text-pt-accent text-[16px]">‹ Back</button>
-          {msgs.length > 2 && <button onClick={restart} className="tap text-pt-muted text-sm">New chat</button>}
+          {msgs.length > 2 && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
         </div>
         <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
         </>}

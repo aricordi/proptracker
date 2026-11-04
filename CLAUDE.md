@@ -2108,6 +2108,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       time instead / Find props instead / Keep going / Start over (askWhatTheyWant in Assistant.tsx; switching leaves the plan and
       re-sends their words to the right helper); the prop finder's "not a video idea" asks the same instead of refusing. Casual
       greetings ("yo what's up", "hey how are you") are greetings (GREETING in aiRoute.ts). LIVE Nov 4 (owner "yes").
+      (13) Leaving a half-done plan says what happens (owner, Nov 4): leavingNote() = ticked-but-not-added picks are cleared,
+      the booked shoot stays booked, basket props stay, "pick up where you left off: open the shoot → Plan it with AI" (or "starts
+      from the beginning" when nothing is booked yet); shown on every switch question, on the AI's change of direction during the
+      plan (confirmLeave: asks before switching), and on New chat mid-plan (askRestart: Start over / Keep going).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
