@@ -62,10 +62,12 @@ jobs:
       - name: Compare the restored copy with the live app
         run: |
           TOKEN=$(gcloud auth print-access-token)
-          count() {  # $1 database, $2 collection
+          count() {  # $1 database, $2 collection, $3 optional: only docs whose createdAt is at/before this time
+            where=""
+            [ -n "$3" ] && where=",\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"createdAt\"},\"op\":\"LESS_THAN_OR_EQUAL\",\"value\":{\"stringValue\":\"$3\"}}}"
             curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
               "https://firestore.googleapis.com/v1/projects/$PROJECT/databases/$1/documents:runAggregationQuery" \
-              -d "{\"structuredAggregationQuery\":{\"structuredQuery\":{\"from\":[{\"collectionId\":\"$2\"}]},\"aggregations\":[{\"alias\":\"n\",\"count\":{}}]}}" \
+              -d "{\"structuredAggregationQuery\":{\"structuredQuery\":{\"from\":[{\"collectionId\":\"$2\"}]$where},\"aggregations\":[{\"alias\":\"n\",\"count\":{}}]}}" \
               | jq -r '.[0].result.aggregateFields.n.integerValue // "0"'
           }
           ok=1
@@ -73,8 +75,15 @@ jobs:
           for c in items users shoots reservations gear_bookings gear_items gear_bundles bins schedule_days profiles; do
             live=$(count '(default)' "$c"); back=$(count "$TESTDB" "$c")
             printf "%-16s %8s %8s\n" "$c" "$live" "$back"
-            # The backup is up to a day old: small differences are new things since then. A big drop means trouble.
-            [ "$live" -gt 20 ] && [ "$back" -lt $(( live * 9 / 10 )) ] && ok=0
+            case "$c" in
+              # Busy collections: compare only what existed when the backup was taken (newer ones can't be in it).
+              shoots|reservations|gear_bookings)
+                then=$(count '(default)' "$c" "$SNAP")
+                printf "%-16s %8s %8s   (made before the backup: live %s)\n" "" "" "" "$then"
+                [ "$back" -lt $(( then * 95 / 100 )) ] && ok=0 ;;
+              # The backup is up to a day old: small differences are things added since. A big drop means trouble.
+              *) [ "$live" -gt 20 ] && [ "$back" -lt $(( live * 9 / 10 )) ] && ok=0 ;;
+            esac
           done
           [ "$ok" = 1 ] && echo "✔ The backup holds everything (differences = things added since the backup)" \
             || { echo "::error::The restored copy is missing a lot compared with the live app."; exit 1; }
