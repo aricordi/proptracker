@@ -22,7 +22,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     steps:
       - uses: google-github-actions/auth@v2
         with:
@@ -57,20 +57,21 @@ jobs:
           gcloud firestore databases restore --source-backup="$NEWEST" --destination-database="$TEST" --project "$PROJECT" \
             || { echo "::error::Google refused the practice restore (see the message above). If it says permission: IAM → github-deploy → role 'Cloud Datastore Owner'."; exit 1; }
           echo "Restoring the backup from $SNAP into $TEST …"
-          TOKEN=$(gcloud auth print-access-token)
-          # The restore is a long job on Google's side: wait until Google says the job itself is DONE (the copy
-          # appears straight away but fills up over several minutes).
-          op=""
-          for i in $(seq 1 120); do
+          # A restore is a long job on Google's side: the copy appears at once but can't be read ("in the middle of restore")
+          # and then fills up. Wait until it answers AND the number of props in it stays the same for two checks in a row.
+          last=-1; same=0
+          for i in $(seq 1 180); do
             sleep 20
-            [ -n "$op" ] || op=$(gcloud firestore databases describe --database="$TEST" --project "$PROJECT" --format='value(sourceInfo.operation)' 2>/dev/null || true)
-            [ -z "$op" ] && continue
-            [ $((i % 30)) = 0 ] && TOKEN=$(gcloud auth print-access-token)
-            done=$(curl -s -H "Authorization: Bearer $TOKEN" "https://firestore.googleapis.com/v1/$op" | jq -r '.done // false')
-            err=$(curl -s -H "Authorization: Bearer $TOKEN" "https://firestore.googleapis.com/v1/$op" | jq -r '.error.message // empty')
-            [ -n "$err" ] && { echo "::error::The restore failed on Google's side: $err"; exit 1; }
-            [ "$done" = "true" ] && { echo "✔ Restore finished after $((i * 20)) s"; break; }
-            [ "$i" = 120 ] && { echo "::error::The restore didn't finish in 40 minutes."; exit 1; }
+            TOKEN=$(gcloud auth print-access-token)
+            r=$(curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+              "https://firestore.googleapis.com/v1/projects/$PROJECT/databases/$TEST/documents:runAggregationQuery" \
+              -d '{"structuredAggregationQuery":{"structuredQuery":{"from":[{"collectionId":"items"}]},"aggregations":[{"alias":"n","count":{}}]}}')
+            n=$(echo "$r" | jq -r 'if type=="array" then (.[0].result.aggregateFields.n.integerValue // "0") else "busy" end' 2>/dev/null || echo busy)
+            if [ "$n" = "busy" ] || [ "$n" = "0" ]; then [ $((i % 9)) = 0 ] && echo "  … still restoring ($((i / 3)) min)"; same=0; last=-1; continue; fi
+            if [ "$n" = "$last" ]; then same=$((same + 1)); else same=0; fi
+            last=$n
+            [ "$same" -ge 2 ] && { echo "✔ Restored and readable after about $((i / 3)) min ($n props)"; break; }
+            [ "$i" = 180 ] && { echo "::error::The restore didn't finish in 60 minutes."; exit 1; }
           done
 
       - name: Compare the restored copy with the live app
