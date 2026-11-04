@@ -2033,7 +2033,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       gear log tabs (title + what lands there), chat "Your first shoot · Nothing booked yet · See free times" card when nothing is booked.
     - LIVE Nov 3 (owner "final pass then push live"): backend run 57 + website run 58 = calmer chat, card forms, month-only calendar +
       group booking, no gear booking, notifications, PA AI voice, design-skills pass, final polish, bill-limit function. Owner next:
-      create the $60 Google Cloud budget (topic bill-limit) + give the compute account "Project Billing Manager".
+      create the Google Cloud budget + give the compute account "Project Billing Manager". DONE Nov 4 by the owner: budget
+      $30/month (owner lowered it from $60), alerts 50/90/100 %, topic bill-limit; role granted. The switch reads the budget amount
+      from each post, so no code change.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
