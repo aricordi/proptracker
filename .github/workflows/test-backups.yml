@@ -48,8 +48,8 @@ jobs:
         run: |
           TEST="restore-test-${GITHUB_RUN_ID: -8}"
           echo "TESTDB=$TEST" >> "$GITHUB_ENV"
-          gcloud firestore databases restore --source-backup="$NEWEST" --destination-database="$TEST" --project "$PROJECT" --async \
-            || { echo "::error::Google refused the practice restore. Fix (once): IAM → github-deploy → role 'Cloud Datastore Owner'."; exit 1; }
+          gcloud firestore databases restore --source-backup="$NEWEST" --destination-database="$TEST" --project "$PROJECT" \
+            || { echo "::error::Google refused the practice restore (see the message above). If it says permission: IAM → github-deploy → role 'Cloud Datastore Owner'."; exit 1; }
           echo "Restoring the backup from $SNAP into $TEST …"
           for i in $(seq 1 90); do
             sleep 20
