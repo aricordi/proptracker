@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 620 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 622 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2071,6 +2071,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       clash); `headsUps(day)` shown at the top of the day sheet (amber "Heads-up · Cliff 2: … You can still film"), amber dot on the
       month day + legend, request "Heads-up that day". Team adds them from Book or block → "Heads-up only"; import block rows choose
       "Blocks filming | Heads-up only" (guess `looksLikeHeadsUp`: install, delivery, contractor, charger…). Tests 620.
+    - GROUP IMPORT FIX (owner, Nov 4: "it booked the first 2 slots for Bryan", Wed Nov 4 Cliff 2): "Bryan, Eddy, Roland & Brad |
+      Filming" 12–7 PM was split evenly (12–2, 2–4…) across the 2-h grid → every turn overlapped the next, Eduard hidden as a clash.
+      FIX: `splitOnGrid` (calendarText.ts, pure, tested): at a house, turns follow the grid slots the event covers, one slot each
+      clipped to the real hours (12–1, 1–3, 3–5, 5–7); more slots than people → shared out evenly; more people than slots →
+      equal split; offsite keeps splitHours. Nicknames (`nicknamesOf`: Eddy/Eddie → Eduard/Edward, Mike → Michael…; everyday words
+      like will/rich/ed left out). Automatic 15-min check only brings in one-person, one-slot shoots (group/long events wait).
+      `redoCalendarImport` (owner + equipment; in deploy/log lists): cancels every shoot made from that Google event + its block,
+      deletes calendar_imports/<id> → the event shows as new again; shoot sheet "Redo this import" (team, imported shoots).
+      "Read server logs" has an optional `day` input → `.github/scripts/day_dump.py` (read only: that day's slots, blocks,
+      clashes, calendar imports). Tests 622.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

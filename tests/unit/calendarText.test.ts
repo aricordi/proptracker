@@ -44,3 +44,21 @@ describe('shared bookings', () => {
     expect(splitHours(780, 810, 3)).toEqual([{ start: 780, end: 810 }])
   })
 })
+
+describe('nicknames', () => {
+  it('Eddy in the calendar finds Eduard in the app', async () => {
+    const { namedPeople } = await import('../../functions/src/calendarText')
+    const people = [{ email: 'b', name: 'Bryan' }, { email: 'e', name: 'Eduard Petrov' }]
+    expect(namedPeople('Bryan + Eddy - Cliff 1', people).map(p => p.email)).toEqual(['b', 'e'])
+  })
+})
+
+describe('shared booking on the slot grid', () => {
+  it('one slot each, clipped to the real hours', async () => {
+    const { splitOnGrid } = await import('../../functions/src/calendarText')
+    const slots = [420, 540, 660, 780, 900, 1020, 1140, 1260, 1380]
+    expect(splitOnGrid(720, 1140, 4, slots, 120)).toEqual([{ start: 720, end: 780 }, { start: 780, end: 900 }, { start: 900, end: 1020 }, { start: 1020, end: 1140 }])
+    expect(splitOnGrid(780, 1140, 2, slots, 120)).toEqual([{ start: 780, end: 1020 }, { start: 1020, end: 1140 }])
+    expect(splitOnGrid(780, 900, 3, slots, 120)).toEqual([{ start: 780, end: 810 }, { start: 810, end: 840 }, { start: 840, end: 900 }])
+  })
+})

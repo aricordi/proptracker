@@ -50,7 +50,9 @@ export function namedPeople<P extends { email: string; name: string }>(text: str
   for (const p of people) {
     const first = (p.name.split(/\s+/)[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
     if (first.length < 2) continue
-    const m = new RegExp(`\\b${first}\\b`).exec(t)
+    // The name itself, or a common nickname of it (owner, Nov 4: "Eddy" in the calendar is Eduard in the app).
+    const words = [first, ...nicknamesOf(first)]
+    const m = new RegExp(`\\b(${words.join('|')})\\b`).exec(t)
     if (m && !hits.some(h => h.p.email === p.email)) hits.push({ p, at: m.index })
   }
   return hits.sort((a, b) => a.at - b.at).map(h => h.p).slice(0, 4)
@@ -68,4 +70,40 @@ export function splitHours(start: number, end: number, n: number): { start: numb
 // technically film around it"). Only a first guess: the team picks "Heads-up" or "Blocks filming" on the import screen.
 export function looksLikeHeadsUp(text: string): boolean {
   return /install|delivery|deliver|inspection|inspector|contractor|landscap|lawn|garden|yard|charger|tesla|roof|gutter|window clean|pest|snow|outside|exterior|driveway|meter|internet|wifi|technician/i.test(text)
+}
+
+// Common short names. Both ways round, so "Eddy" finds Eduard/Edward and "Mike" finds Michael.
+const NICKS: string[][] = [
+  ['eduard', 'edward', 'eduardo', 'edwin', 'eddy', 'eddie'], ['michael', 'mike', 'mikey'], ['alexander', 'alexandra', 'alexis', 'alex'],
+  ['christopher', 'chris'], ['christian', 'chris'], ['daniel', 'dan', 'danny'], ['matthew', 'matt'], ['nicholas', 'nick'],
+  ['jonathan', 'jon', 'jonny'], ['joseph', 'joe', 'joey'], ['anthony', 'tony'], ['benjamin', 'ben', 'benny'], ['samuel', 'sam', 'sammy'],
+  ['samantha', 'sam'], ['william', 'billy'], ['robert', 'rob', 'bob', 'bobby'], ['richard', 'rick'],
+  ['jennifer', 'jen', 'jenny'], ['elizabeth', 'liz', 'lizzie', 'beth'], ['katherine', 'katie', 'kate', 'kat'], ['kathryn', 'katie', 'kate'],
+  ['jessica', 'jess'], ['rebecca', 'becca', 'becky'], ['victoria', 'vicky', 'tori'], ['valentyna', 'valentina', 'val'],
+  ['dominic', 'dom'], ['zachary', 'zach', 'zack'], ['andrew', 'andy', 'drew'], ['jacob', 'jake'], ['joshua', 'josh'], ['timothy', 'tim'],
+  ['gabriel', 'gabe'], ['abigail', 'abby'], ['madison', 'maddie'], ['nathaniel', 'nathan', 'nate'], ['stephanie', 'steph'],
+]
+export function nicknamesOf(first: string): string[] {
+  const out = new Set<string>()
+  for (const g of NICKS) if (g.includes(first)) for (const n of g) if (n !== first && n.length >= 2) out.add(n)
+  return [...out]
+}
+
+// Shared booking at a HOUSE (owner, Nov 4: "Bryan, Eddy, Roland & Brad" 12–7 PM came out as Bryan on two slots and Eduard hidden
+// as a clash). Turns follow the 2-hour grid the event covers: one slot each (12–1, 1–3, 3–5, 5–7), clipped to the event's real
+// hours. More slots than people: the slots are shared out evenly, earlier people first. More people than slots: equal split.
+export function splitOnGrid(start: number, end: number, n: number, slots: number[], slotMinutes: number): { start: number; end: number }[] {
+  if (n <= 1) return [{ start, end }]
+  const touched = slots.filter(k => k < end && k + slotMinutes > start).sort((a, b) => a - b)
+  if (touched.length < n) return splitHours(start, end, n)
+  const base = Math.floor(touched.length / n), extra = touched.length % n
+  const out: { start: number; end: number }[] = []
+  let i = 0
+  for (let p = 0; p < n; p++) {
+    const take = base + (p < extra ? 1 : 0)
+    const first = touched[i], last = touched[i + take - 1]
+    out.push({ start: Math.max(start, first), end: Math.min(end, last + slotMinutes) })
+    i += take
+  }
+  return out
 }

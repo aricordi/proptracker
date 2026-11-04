@@ -18,7 +18,7 @@ import { importShootAsTeam, removeImportedShoot, filmingPeople } from './schedul
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
-import { houseFromText, ignoreReason, blockTypeOf, isClearEvent, namedPeople, splitHours, looksLikeHeadsUp } from './calendarText.js'
+import { houseFromText, ignoreReason, blockTypeOf, isClearEvent, namedPeople, splitHours, splitOnGrid, looksLikeHeadsUp } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
@@ -396,7 +396,10 @@ async function scanCalendar(cals: Source[]) {
     const g0 = guessFor0(it, cal)
     const known = !!houseFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
     const soft = g0.action === 'block' && looksLikeHeadsUp(`${it.title} ${it.location}`)
-    return { ...g0, type: blockTypeOf(`${it.title} ${it.location}`), soft, sure: !soft && isClearEvent(it, g0, known) }
+    // Owner, Nov 4: a group booking came in by itself as one person. Only a plain one-person, one-slot shoot (or a clear block)
+    // is brought in automatically; longer shoots or several names wait for a person on the import screen.
+    const simpleShoot = g0.action !== 'shoot' || ((g0.emails?.length ?? 0) <= 1 && it.endMin - it.startMin <= s.slotMinutes)
+    return { ...g0, type: blockTypeOf(`${it.title} ${it.location}`), soft, sure: !soft && simpleShoot && isClearEvent(it, g0, known) }
   }
   const guessFor0 = (it: ScanItem, cal: Source) => {
     const g = guessImport(it, people, s.slots)
@@ -496,7 +499,7 @@ async function applyImports(list: any[], by: string) {
         const place = (['cliff1', 'cliff2', 'offsite'].includes(it.house) ? it.house : 'cliff1') as Place
         // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
-        const parts = splitHours(start, end, users.length)
+        const parts = place === 'offsite' ? splitHours(start, end, users.length) : splitOnGrid(start, end, users.length, s.slots, s.slotMinutes)
         const ids: string[] = []
         for (let i = 0; i < users.length; i++) {
           const part = parts[i] ?? parts[parts.length - 1]
@@ -580,6 +583,22 @@ export const calendarCheck = onSchedule({ schedule: 'every 15 minutes', timeZone
 })
 
 // "Check now" on the import screen (same as the 15-minute check).
+// Redo one import (owner, Nov 4: a group event came in as one person). Takes every shoot the app made from that Google
+// event off the schedule and forgets the event, so the import screen shows it again as new. Google Calendar is untouched.
+export const redoCalendarImport = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'equipment'])
+  const shootId = String(req.data?.shootId ?? '').slice(0, 100)
+  const sh = shootId ? (await db.doc(`shoots/${shootId}`).get()).data() : undefined
+  const eventId = String(sh?.calendarEventId ?? req.data?.eventId ?? '').slice(0, 200)
+  if (!eventId) throw new HttpsError('failed-precondition', 'This shoot did not come from Google Calendar.')
+  const imp = (await db.doc(`calendar_imports/${eventId}`).get()).data()
+  const ids = new Set<string>([...(Array.isArray(imp?.shootIds) ? imp!.shootIds.map(String) : []), ...(imp?.shootId ? [String(imp.shootId)] : []), ...(shootId ? [shootId] : [])])
+  for (const id of ids) await removeImportedShoot(id, caller.email)
+  if (imp?.blockId && imp.date) await removeImportedBlock(String(imp.date), String(imp.blockId))
+  await db.doc(`calendar_imports/${eventId}`).delete()
+  return { removed: ids.size, eventId }
+})
+
 export const checkCalendarNow = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
   await requireRole(req, ['owner', 'equipment'])
   return (await runCalendarCheck()) ?? { error: 'Paste a Google Calendar ID in Calendar & email first.' }

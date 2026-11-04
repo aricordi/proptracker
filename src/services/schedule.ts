@@ -77,6 +77,7 @@ export function useShoot(id: string | null): Shoot | null | undefined {
 
 export type Guideline = { url: string; name: string }
 export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
+export const redoCalendarImport = httpsCallable<{ shootId: string }, { removed: number; eventId: string }>(functions, 'redoCalendarImport')
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')

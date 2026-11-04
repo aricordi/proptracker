@@ -26,7 +26,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
-  addScheduleBlock, removeScheduleBlock, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
+  addScheduleBlock, removeScheduleBlock, redoCalendarImport, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
   monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
@@ -527,9 +527,34 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   )
 }
 
+// Redo a calendar import (owner, Nov 4: a group booking came in as one person). Takes every shoot made from that Google
+// event off the schedule and shows the event on the import screen again; Google Calendar itself is untouched.
+function RedoImport({ shootId, onDone }: { shootId: string; onDone: () => void }) {
+  const navigate = useNavigate()
+  const [ask, setAsk] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  async function go() {
+    setBusy(true); setErr('')
+    try { await redoCalendarImport({ shootId }); onDone(); navigate('/schedule/import') } catch (e) { setErr(errorText(e)); setBusy(false) }
+  }
+  return (
+    <div className="rounded-xl bg-sky-400/[0.08] p-3 space-y-2">
+      <p className="text-pt-text text-sm"><b>From Google Calendar.</b> Wrong person, house or time?</p>
+      {!ask ? <button onClick={() => setAsk(true)} className="w-full min-h-[44px] rounded-xl bg-pt-bg text-sky-200 text-sm font-semibold">Redo this import</button> : <>
+        <p className="text-pt-muted text-xs">Takes this shoot (and any others made from the same calendar event) off the schedule and shows the event on the import screen again, so you can pick the right people. Google Calendar isn't changed.</p>
+        <div className="flex gap-2">
+          <button onClick={() => setAsk(false)} className="flex-1 min-h-[44px] rounded-xl bg-pt-border text-pt-text text-sm">Keep it</button>
+          <button disabled={busy} onClick={go} className="flex-1 min-h-[44px] rounded-xl bg-sky-400 text-stone-900 text-sm font-semibold disabled:opacity-40">{busy ? 'Working…' : 'Redo it'}</button>
+        </div></>}
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+    </div>
+  )
+}
+
 function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; team: boolean; sent?: string | null; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void }) {
   const s = useScheduleSettings()
-  const { profile } = useSession()
+  const { profile, role } = useSession()
   const profiles = useProfiles()
   const shoot = useShoot(id)
   const [confirm, setConfirm] = useState(false)
@@ -603,6 +628,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
           </ol>
         </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
+        {(role === 'owner' || role === 'equipment') && (shoot as Shoot & { calendarEventId?: string }).calendarEventId && <RedoImport shootId={id} onDone={onClose} />}
         {canCancel && !confirm && (
           <button onClick={() => setConfirm(true)} className="w-full bg-red-500/15 text-red-300 font-semibold rounded-xl py-3">
             {team && !mine ? 'Cancel their shoot (no strike)' : noShow ? 'Cancel (counts as a no-show)' : 'Cancel this shoot'}</button>
