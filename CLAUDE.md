@@ -2112,6 +2112,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the booked shoot stays booked, basket props stay, "pick up where you left off: open the shoot → Plan it with AI" (or "starts
       from the beginning" when nothing is booked yet); shown on every switch question, on the AI's change of direction during the
       plan (confirmLeave: asks before switching), and on New chat mid-plan (askRestart: Start over / Keep going).
+    - CLIFF 1 | CLIFF 2 | BOTH (owner, Nov 4, option B: "people prefer Cliff 1"; app only): MonthGrid has its own house switch
+      (`HouseSwitch` + `useMonthHouse`, localStorage 'pc.monthHouse', default cliff1) on every month calendar (creator Calendar,
+      ApprovalsScreen, DeskApprovals month). Free count + slot bar follow the house; your gold days + team request badges count
+      both houses. Single-house view: chosen house ≤1 free and the other has more → sky "C2: N" (lg adds "free"). Day tap still
+      shows both houses.
     - BACKUPS CHECKED + PHOTO BACKUP (owner, Nov 4: no off-site provider → "do the correct backups within what we already have, and
       make sure they're working"): (1) PHOTOS: private bucket gs://proptracker-9732e-photo-backup (Montréal, versioning, soft delete
       30 d), made by the button "Weekly photo backup" (`.github/workflows/photo-backup.yml`, gcloud storage rsync, never deletes; run 1
