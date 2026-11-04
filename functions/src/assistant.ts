@@ -459,7 +459,7 @@ export const askChat = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutS
       role, canBook, name: (caller.name || '').split(' ')[0], today: todayInStudio(), tabs: TABS[role],
       rules: b && sch ? rulesText(b, sch) : '', guide: entries, state: canBook ? state : { shoots: [], out: { props: 0, gear: [] } }, history, message,
     })
-    const r = await askJson(key, prompt, 700, 0.3).catch(e => { logger.warn('askChat failed', String(e)); return null })
+    const r = await askJson(key, prompt, 800, 0.6).catch(e => { logger.warn('askChat failed', String(e)); return null })
     if (r) cost = r.costUsd
     const turn = r && !r.blocked ? cleanTurn(r.data, { allowed: actionsFor(role, canBook), shootIds: state.shoots.map(s => s.id), screenIds: entries.map(e => e.id) }) : null
     if (!turn) return { fallback: true as const }

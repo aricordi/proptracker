@@ -34,7 +34,7 @@ describe('checking what the AI sends back', () => {
   it('texts are cleaned and short: no links, markup or code', () => {
     const t = cleanTurn({ action: 'reply', reply: 'Go to https://evil.com <b>now</b> `rm -rf` ' + 'x'.repeat(400), chips: ['a', 'visit www.x.io', 'b', 'c', 'd'] }, opts)!
     expect(t.reply).not.toMatch(/https?:|<b>|`/)
-    expect(t.reply.length).toBeLessThanOrEqual(320)
+    expect(t.reply.length).toBeLessThanOrEqual(420)
     expect(t.chips.length).toBeLessThanOrEqual(3)
     expect(t.chips.join(' ')).not.toMatch(/www\./)
   })

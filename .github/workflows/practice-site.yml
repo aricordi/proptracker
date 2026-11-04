@@ -129,6 +129,17 @@ jobs:
           gcloud iam service-accounts add-iam-policy-binding "$SA" --member="serviceAccount:$SA" \
             --role=roles/iam.serviceAccountTokenCreator --project "$PID" --quiet >/dev/null && echo "✔ $SA can sign practice sign-ins"
 
+      - name: Let photo uploads check people's roles
+        if: env.UPDATE == 'true'
+        run: |
+          # Same fix as the live project (Oct 14): Storage rules look roles up in Firestore, which needs this role on the
+          # Storage service agent; without it every upload by anyone but the owner says "Not allowed".
+          NUM=$(gcloud projects describe "$PID" --format='value(projectNumber)')
+          AGENT="service-$NUM@gcp-sa-firebasestorage.iam.gserviceaccount.com"
+          gcloud beta services identity create --service=firebasestorage.googleapis.com --project "$PID" >/dev/null 2>&1 || true
+          gcloud projects add-iam-policy-binding "$PID" --member="serviceAccount:$AGENT" \
+            --role=roles/firebaserules.firestoreServiceAgent --condition=None --quiet >/dev/null && echo "✔ photo uploads can check roles ($AGENT)"
+
       - name: Let the app reach every function
         if: env.UPDATE == 'true'
         run: |

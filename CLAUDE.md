@@ -2053,6 +2053,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       View-as strip, desk layout off, remembered per device in localStorage 'pc.creatorMode' (View as stays sessionStorage); the
       switch shows in More while on; View as card hidden in creator mode. Server unchanged (owner stays owner: own bookings approved
       at once, cutoffs skipped). appGuide 'account' + owner guide updated. Tests 617.
+    - PRACTICE UPLOADS + WARMER CHAT (owner, Nov 4: "can't upload an image as the arts guy, says not allowed"; "chat working but I
+      wish it was more conversational and personable"): practice-site.yml step "Let photo uploads check people's roles" gives
+      service-<num>@gcp-sa-firebasestorage roles/firebaserules.firestoreServiceAgent on the PRACTICE project (same fix as live
+      Oct 14). chatBrain voice: match their energy, react like a person, one line of small talk OK, use earlier context + first name,
+      celebrate wins, vary openers, light humour, 1-4 sentences ≤400 chars (cleanTurn cap 420); askChat temperature 0.3 → 0.6.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
