@@ -2121,7 +2121,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       checks schedules + newest READY backup < 48 h + PITR on, restores the newest backup into `restore-test-<run>` (async + poll),
       compares counts (items, users, shoots, reservations, gear_bookings, gear_items, gear_bundles, bins, schedule_days, profiles:
       fail if a collection > 20 drops below 90%), reads a sample prop, ALWAYS deletes the temp DB (name guard restore-test-*), then
-      photo soft delete + last-run.json < 8 days + 5 random backup photos md5 = live. RESTORE FOR REAL: gcloud firestore databases
+      photo soft delete + last-run.json < 8 days + 5 random backup photos md5 = live. FIRST FULL PASS Nov 4 (run 5, "ALL BACKUP
+      CHECKS PASSED"): backup of Nov 3 08:06 UTC restored in ~23 min, props 1245/1245, users 22/22, shoots made before the backup
+      12/12, requests 6/6, gear 12/12 + 5/5, bins 44/44, profiles 14/14; 5/5 photos identical. Runs 1–4 failed on the SCRIPT
+      (--async flag, counting newer shoots, counting before the restore finished); the wait is now "copy readable + props count
+      stable twice". Runs 3–4 may have left restore-test-* copies (still restoring then); the next run's clean-up step deletes them.
+      RESTORE FOR REAL: gcloud firestore databases
       restore (or PITR) into a NEW database, check with the owner, then copy back only what's needed; never overwrite live without OK.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
