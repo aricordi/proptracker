@@ -2,7 +2,7 @@
 // ONE grid for both sides: creators see how many 2-hour spots are free each day; the equipment team (mode 'team') sees how
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
-import { slotState, HOUSES, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { slotState, headsUps, HOUSES, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
 
 export const monthStart = (month: string) => `${month}-01`
 export const monthAdd = (month: string, n: number) => {
@@ -36,8 +36,8 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
   const lead = weekday(list[0])
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1 mb-1">{DOW.map(d => <span key={d} className="text-center text-pt-muted text-xs">{d}</span>)}</div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 lg:gap-2 mb-1">{DOW.map(d => <span key={d} className="text-center text-pt-muted text-xs">{d}</span>)}</div>
+      <div className="grid grid-cols-7 gap-1 lg:gap-2">
         {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} />)}
         {list.map(date => {
           const past = date < today
@@ -49,16 +49,17 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : c.mine && !team ? 'shadow-[inset_0_0_0_2px_#C9A961]' : ''
           return (
             <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}: ${team ? `${c.requested} requests, ` : ''}${c.free} free`}
-              className={`relative aspect-[0.82] rounded-xl bg-pt-surface flex flex-col items-center justify-between pt-1.5 pb-2 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
-              <span className={`text-[15px] font-semibold ${date === today ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
+              className={`relative aspect-[0.82] rounded-xl bg-pt-surface flex flex-col items-center justify-between pt-1.5 pb-2 lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
+              {!past && headsUps(days?.[date]).length > 0 && <i className="absolute top-1.5 right-1.5 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-amber-300" aria-label="Heads-up that day" />}
+              <span className={`text-[15px] lg:text-[17px] font-semibold ${date === today ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
               {!past && (
                 <span className="flex flex-col items-center leading-none gap-0.5">
                   {team && c.requested > 0 && <span className="min-w-5 h-5 px-1 mb-0.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
                   {c.free === 0
                     ? <span className="text-xs font-semibold text-pt-muted">Full</span>
                     : <>
-                        <span className={`text-[18px] font-bold ${tone}`}>{c.free}</span>
-                        <span className={`text-xs font-medium ${tone} opacity-80`}>free</span>
+                        <span className={`text-[18px] lg:text-[24px] font-bold ${tone}`}>{c.free}</span>
+                        <span className={`text-xs lg:text-[13px] font-medium ${tone} opacity-80`}>free</span>
                       </>}
                 </span>
               )}
@@ -73,6 +74,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>
         <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>
         <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>
+        <span><i className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team ? <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>
           : <span><i className="inline-block w-2.5 h-2.5 rounded-sm shadow-[inset_0_0_0_2px_#C9A961] mr-1 align-[-1px]" />Your shoot</span>}
       </div>

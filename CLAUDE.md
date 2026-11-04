@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 617 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 620 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2058,6 +2058,19 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       service-<num>@gcp-sa-firebasestorage roles/firebaserules.firestoreServiceAgent on the PRACTICE project (same fix as live
       Oct 14). chatBrain voice: match their energy, react like a person, one line of small talk OK, use earlier context + first name,
       celebrate wins, vary openers, light humour, 1-4 sentences ≤400 chars (cleanTurn cap 420); askChat temperature 0.3 → 0.6.
+    - SETTINGS HOURS + LAPTOP SPACING + IMPORT FIXES + HEADS-UPS (owner, Nov 4):
+      (1) Schedule settings "Moving and cancelling" + gear reserve hours = `HoursPicker` (−/+ 1 hour, typeable, quick picks 2–72 h,
+      "· 2 days"). (2) LAPTOP: calendar month wider (1fr | 400 px day panel, gap 40), bigger numbers on lg; bottom action bars
+      (`fixed left-0 right-0`) stay over the page, not the sidebar (index.css .desk-shell / .desk-narrow). (3) IMPORT people include
+      Props-only creators (`filmingPeople({ includeDemo: true })` in scanCalendar only; booking still refuses them). (4) ONE BOOKING,
+      SEVERAL CREATORS: import rows take `emails[]` (chips + "+ Add another creator", ≤4); guess = everyone named in the title
+      (`namedPeople`, calendarText.ts); apply splits the real hours into back-to-back turns in that order (`splitHours`, 30-min steps;
+      6 h for 3 = 2 h each), one shoot each with `sharedBooking {with, turn, of}`; calendar_imports keeps shootIds/emails; re-import
+      replaces all turns. (5) HEADS-UPS (owner: "Tesla chargers installation… you could still film around it"): blocks with
+      `soft: true` never block (hardBlocks/blockAt/houseFreeFrom skip them; addScheduleBlock + import allow them over bookings, no
+      clash); `headsUps(day)` shown at the top of the day sheet (amber "Heads-up · Cliff 2: … You can still film"), amber dot on the
+      month day + legend, request "Heads-up that day". Team adds them from Book or block → "Heads-up only"; import block rows choose
+      "Blocks filming | Heads-up only" (guess `looksLikeHeadsUp`: install, delivery, contractor, charger…). Tests 620.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

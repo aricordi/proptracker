@@ -86,7 +86,7 @@ function SwapPreview({ r }: { r: SwapRequest }) {
     const isNew = r.from.place === h && r.from.start === start
     const isOld = r.to.place === h && r.to.date === d && r.to.start === start
     const e = day?.[h]?.[slotKey(start)]
-    const block = (day?.blocks ?? []).find(b => b.house === h && b.start < start + s.slotMinutes && b.end > start)
+    const block = (day?.blocks ?? []).find(b => !b.soft && b.house === h && b.start < start + s.slotMinutes && b.end > start)
     const text = isNew ? 'You (after swap)' : isOld ? `${r.fromName.split(' ')[0]} (after swap)` : e?.shootId ? e.name : e?.hold ? `Held · ${e.name}` : block ? (block.note || 'Blocked') : ''
     const cls = isNew ? 'bg-pt-accent text-stone-900 font-bold' : isOld ? 'bg-sky-400/20 text-sky-100' : e?.shootId || e?.hold ? 'bg-pt-surface text-pt-text' : block ? 'bg-pt-surface text-pt-muted' : 'text-pt-muted/50'
     return <span key={h} className={`flex-1 min-w-0 truncate rounded-lg px-2 py-1.5 text-[14px] text-center ${cls}`}>{text || 'Free'}</span>

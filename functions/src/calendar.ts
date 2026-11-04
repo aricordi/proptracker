@@ -18,7 +18,7 @@ import { importShootAsTeam, removeImportedShoot, filmingPeople } from './schedul
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
-import { houseFromText, ignoreReason, blockTypeOf, isClearEvent } from './calendarText.js'
+import { houseFromText, ignoreReason, blockTypeOf, isClearEvent, namedPeople, splitHours, looksLikeHeadsUp } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
@@ -301,10 +301,11 @@ export function guessImport(e: { title: string; location: string; date: string; 
   const text = `${e.title} ${e.location}`.toLowerCase()
   const house = houseFromText(text) ?? 'offsite'
   const isBlock = /clean|maint|repair|plumb|event|party|airbnb|rental|guest|blocked|closed/.test(text)
-  const person = people.find(p => { const first = p.name.split(/\s+/)[0]?.toLowerCase(); return first && first.length > 1 && new RegExp(`\\b${first.replace(/[^a-z0-9]/g, '')}\\b`).test(text) })
+  const named = namedPeople(text, people)
+  const person = named[0]
   // The 2-hour slot the event starts in (or the closest one).
   const slot = slots.reduce((best, s) => Math.abs(s - e.startMin) < Math.abs(best - e.startMin) ? s : best, slots[0])
-  return { action: isBlock ? 'block' : person ? 'shoot' : 'skip', email: person?.email ?? '', house, start: house === 'offsite' ? e.startMin : slot }
+  return { action: isBlock ? 'block' : person ? 'shoot' : 'skip', email: person?.email ?? '', emails: named.map(p => p.email), house, start: house === 'offsite' ? e.startMin : slot }
 }
 
 export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
@@ -368,7 +369,7 @@ async function readCalendar(cal: Source): Promise<{ items: GEvent[]; title: stri
 // Read every calendar (never writes) and compare with what was imported before.
 async function scanCalendar(cals: Source[]) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-  const people = (await filmingPeople()).map(p => ({ email: p.email, name: p.name }))
+  const people = (await filmingPeople({ includeDemo: true })).map(p => ({ email: p.email, name: p.name }))
   // What was imported before, with a snapshot of the event then (owner, Oct 19: the team keeps adding events straight
   // in Google Calendar while testing, so the import is re-run: new events, changed ones and deleted ones show up).
   const imports = new Map((await db.collection('calendar_imports').get()).docs.map(d => [d.id, d.data()]))
@@ -394,7 +395,8 @@ async function scanCalendar(cals: Source[]) {
   const guessFor = (it: ScanItem, cal: Source) => {
     const g0 = guessFor0(it, cal)
     const known = !!houseFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
-    return { ...g0, type: blockTypeOf(`${it.title} ${it.location}`), sure: isClearEvent(it, g0, known) }
+    const soft = g0.action === 'block' && looksLikeHeadsUp(`${it.title} ${it.location}`)
+    return { ...g0, type: blockTypeOf(`${it.title} ${it.location}`), soft, sure: !soft && isClearEvent(it, g0, known) }
   }
   const guessFor0 = (it: ScanItem, cal: Source) => {
     const g = guessImport(it, people, s.slots)
@@ -418,7 +420,7 @@ async function scanCalendar(cals: Source[]) {
     if (was.action === 'skip' || (was.date && same(base, was))) continue
     const g = guessFor(base, cal)
     events.push({ ...base, ...tag, kind: 'changed', was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
-      guess: { ...g, action: was.action, email: was.email || g.email, house: was.house || g.house, type: was.type } })
+      guess: { ...g, action: was.action, email: was.email || g.email, emails: Array.isArray(was.emails) && was.emails.length ? was.emails : was.email ? [was.email] : g.emails, house: was.house || g.house, type: was.type, soft: was.soft === true } })
   }
   // Deleted (or moved out of view) in Google Calendar: still on the app's schedule. Only for calendars still read
   // (imports from before Oct 30 came from the app calendar); a calendar taken off the list never removes anything.
@@ -461,9 +463,15 @@ async function applyImports(list: any[], by: string) {
     let clash: string[] = []
     try {
       const was = (await db.doc(`calendar_imports/${id}`).get()).data()
+      // Several creators in one booking (owner, Nov 4) → one shoot each, back to back, in the order picked.
+      const who: string[] = [...new Set((Array.isArray(it.emails) && it.emails.length ? it.emails : [it.email])
+        .map((e: unknown) => String(e ?? '').toLowerCase()).filter(Boolean))].slice(0, 4) as string[]
+      const multi = who.length > 1
+      const oldShootIds: string[] = Array.isArray(was?.shootIds) && was.shootIds.length ? was.shootIds.map(String) : was?.shootId ? [String(was.shootId)] : []
       // Take the app's earlier copy off the schedule when the event became something else or was deleted.
       const dropOld = async () => {
-        if (was?.shootId && (it.action !== 'shoot')) await removeImportedShoot(was.shootId, caller.email)
+        if (it.action !== 'shoot' || multi || (Array.isArray(was?.shootIds) && was.shootIds.length > 1))
+          for (const sid of oldShootIds) await removeImportedShoot(sid, caller.email)
         if (was?.blockId && was.date) await removeImportedBlock(was.date, was.blockId)
       }
       const startMin = Number(it.start) || 0
@@ -478,21 +486,32 @@ async function applyImports(list: any[], by: string) {
       await dropOld()
       let saved: Record<string, unknown> = {}
       if (it.action === 'shoot') {
-        const u = (await db.doc(`users/${String(it.email).toLowerCase()}`).get()).data()
-        if (!u?.active) throw new Error('Pick who this shoot is for.')
+        if (!who.length) throw new Error('Pick who this shoot is for.')
+        const users: { email: string; name: string }[] = []
+        for (const e of who) {
+          const u = (await db.doc(`users/${e}`).get()).data()
+          if (!u?.active && e !== OWNER_EMAIL) throw new Error(`${e} has no active account.`)
+          users.push({ email: e, name: String(u?.name || (e === OWNER_EMAIL ? 'Alex' : e)) })
+        }
         const place = (['cliff1', 'cliff2', 'offsite'].includes(it.house) ? it.house : 'cliff1') as Place
         // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
-        const r = await importShootAsTeam({ place, date: String(it.date), start, end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
-          { email: String(it.email).toLowerCase(), name: u.name || it.email }, caller.email, { calendarEventId: id, importedFrom: 'google-calendar' }, was?.shootId)
-        if (r.clashWith.length) {
-          clash = r.clashWith
-          if (clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
-            await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
-              body: `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}. Open Requests to give the slot to ${u.name || it.email} or sort it out.` }).catch(() => 0)
-          }
+        const parts = splitHours(start, end, users.length)
+        const ids: string[] = []
+        for (let i = 0; i < users.length; i++) {
+          const part = parts[i] ?? parts[parts.length - 1]
+          const r = await importShootAsTeam({ place, date: String(it.date), start: part.start, end: part.end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
+            users[i], caller.email, { calendarEventId: id, importedFrom: 'google-calendar', ...(multi ? { sharedBooking: { with: users.filter((_, j) => j !== i).map(u => u.name), turn: i + 1, of: users.length } } : {}) },
+            !multi && oldShootIds.length === 1 ? oldShootIds[0] : undefined)
+          ids.push(r.id)
+          clash.push(...r.clashWith.filter(n => !users.some(u => u.name === n)))
         }
-        saved = { shootId: r.id, email: String(it.email).toLowerCase(), house: place, clashWith: clash }
+        clash = [...new Set(clash)]
+        if (clash.length && clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
+          await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
+            body: `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}. Open Requests to give the slot to ${users.map(u => u.name).join(' + ')} or sort it out.` }).catch(() => 0)
+        }
+        saved = { shootId: ids[0], shootIds: ids, email: users[0].email, emails: users.map(u => u.email), house: place, clashWith: clash }
       } else if (it.action === 'block') {
         const house = (it.house === 'cliff2' ? 'cliff2' : 'cliff1') as House
         const type = (Object.keys(BLOCK_TYPES).includes(it.type) ? it.type : 'other') as BlockType
@@ -500,16 +519,17 @@ async function applyImports(list: any[], by: string) {
         const ref = db.doc(`schedule_days/${it.date}`)
         const blockId = `g${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`
         const note = String(it.title ?? '').slice(0, 200)
+        const soft = it.soft === true   // heads-up only (owner, Nov 4): shows on the calendar, never blocks or clashes
         // Owner (Oct 30): an old-calendar block landing on a shoot already booked in the app = a CLASH. The shoot stays,
         // gets a red "Clash" tag, and the schedule team + the owner are told to sort it out with the creator.
         const hit: { name: string; email?: string }[] = []
         await db.runTransaction(async tx => {
           const day = ((await tx.get(ref)).data() ?? {}) as ScheduleDay
-          const under = Object.entries(day[house] ?? {}).filter(([k, e]) => e.shootId && !e.hold && Number(k) < end && start < Number(k) + s.slotMinutes)
+          const under = soft ? [] : Object.entries(day[house] ?? {}).filter(([k, e]) => e.shootId && !e.hold && Number(k) < end && start < Number(k) + s.slotMinutes)
           hit.splice(0, hit.length, ...under.map(([, e]) => ({ name: e.name, email: e.email })))
           const clashes = [...(day.clashes ?? []).filter(c => c.blockId !== blockId),
             ...under.map(([k, e]) => ({ house, slot: k, shootId: e.shootId, name: note || BLOCK_TYPES[type], email: e.email ?? '', start, end, blockId }))]
-          tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true }] }, { merge: true })
+          tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true, ...(soft ? { soft: true } : {}) }] }, { merge: true })
         })
         if (hit.length) {
           clash = hit.map(h => h.name)
@@ -519,7 +539,7 @@ async function applyImports(list: any[], by: string) {
               body: `"${note || BLOCK_TYPES[type]}" (${s.houses[house].name}, ${it.date}) is on top of ${clash.join(', ')}'s shoot. Sort it out with them.` }).catch(() => 0)
           }
         }
-        saved = { blockId, house, type, clashWith: clash }
+        saved = { blockId, house, type, soft, clashWith: clash }
       }
       // Remember the event as it is now, so the next import can tell if it changed in Google Calendar.
       await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', ...snapshot, ...saved, at: new Date().toISOString(), by: caller.email })
@@ -542,7 +562,7 @@ export async function runCalendarCheck() {
     // Changes and deletions of imported events, plus NEW events that are clear (owner, Nov 1); unclear ones wait.
     const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && e.guess.sure)).map(e => e.kind === 'removed'
       ? { id: e.id, action: 'remove', date: e.date }
-      : { id: e.id, action: e.guess.action, email: e.guess.email, house: e.guess.house, type: e.guess.type, date: e.date, start: e.startMin, end: e.endMin, title: e.title, location: e.location, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay })
+      : { id: e.id, action: e.guess.action, email: e.guess.email, emails: e.guess.emails, house: e.guess.house, type: e.guess.type, soft: e.guess.soft === true, date: e.date, start: e.startMin, end: e.endMin, title: e.title, location: e.location, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay })
     const results = auto.length ? await applyImports(auto, 'calendar check') : []
     const out = { at: new Date().toISOString(), newEvents: events.filter(e => e.kind === 'new' && !e.guess.sure).length,
       broughtIn: auto.filter((a, i) => events.find(e => e.id === a.id)?.kind === 'new' && results[i]?.ok).length,

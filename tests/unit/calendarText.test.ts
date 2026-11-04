@@ -32,3 +32,15 @@ describe('clear enough to bring in by itself', () => {
     expect(blockTypeOf('Airbnb guests')).toBe('rental')
   })
 })
+
+describe('shared bookings', () => {
+  it('finds everyone named, in order, and splits the hours', async () => {
+    const { namedPeople, splitHours } = await import('../../functions/src/calendarText')
+    const people = [{ email: 'a', name: 'Ana Lee' }, { email: 'k', name: 'Kyle' }, { email: 'j', name: 'Jana' }]
+    expect(namedPeople('Kyle + Ana shoot (Jana too)', people).map(p => p.email)).toEqual(['k', 'a', 'j'])
+    expect(namedPeople('Anabelle shoot', people)).toEqual([])
+    expect(splitHours(780, 1140, 3)).toEqual([{ start: 780, end: 900 }, { start: 900, end: 1020 }, { start: 1020, end: 1140 }])
+    expect(splitHours(780, 900, 1)).toEqual([{ start: 780, end: 900 }])
+    expect(splitHours(780, 810, 3)).toEqual([{ start: 780, end: 810 }])
+  })
+})

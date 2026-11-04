@@ -28,7 +28,7 @@ import {
   useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
-  monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE,
+  monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, MONTHLY_SLOTS_ON, isLive,
 } from '../services/schedule'
@@ -147,8 +147,8 @@ export default function ScheduleScreen() {
         </div>
       </div>
 
-      <div className={desk ? 'px-8 pt-2 grid grid-cols-[minmax(0,1fr)_480px] gap-8 items-start' : ''}>
-      <div className="px-4 pt-4 space-y-3">
+      <div className={desk ? 'px-8 pt-2 grid grid-cols-[minmax(0,1fr)_400px] gap-10 items-start' : ''}>
+      <div className={desk ? 'pt-4 space-y-4' : 'px-4 pt-4 space-y-3'}>
         {paused && <div className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop bookings paused until {formatDay(status!.pausedUntil!)}</b> because of {status!.strikes ?? 2} strikes (no-shows or reports). You can still book house slots. Ask the schedule team if this looks wrong.</div>}
         {!paused && (status?.strikes ?? 0) > 0 && <div className="rounded-xl px-3 py-2 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">{status!.strikes} strike{status!.strikes === 1 ? '' : 's'} in the last {s.strikeDays} days. {s.strikeCount} pause your prop bookings for {s.pauseDays} days.</div>}
         {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
@@ -306,7 +306,21 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
   }
   const offsite = (day?.offsite ?? []).slice().sort((a, b) => a.start - b.start)
   const title = `${formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}${isNoCrewDay(date) ? ' · no crew' : ''}`
+  // Heads-ups (owner, Nov 4): things happening at a house that don't stop filming (e.g. chargers being installed).
+  const notes = headsUps(day).slice().sort((a, b) => a.start - b.start)
   const body = (<>
+      {notes.length > 0 && (
+        <div className="mb-3 space-y-1.5">
+          {notes.map(b => (
+            <button key={b.id} disabled={!team} onClick={() => onTap({ t: 'block', block: b } as ReturnType<typeof slotState>, b.house, b.start)}
+              className="w-full flex items-start gap-2.5 p-3 rounded-xl bg-amber-400/[0.08] text-left">
+              <Icon name="alert" className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" />
+              <span className="min-w-0"><span className="block text-pt-text text-sm font-semibold">Heads-up · {s.houses[b.house].name}: {b.note || BLOCK_TYPES[b.type]}</span>
+                <span className="block text-pt-muted text-xs">{b.start <= s.slots[0] && b.end >= 1440 ? 'All day' : `${fmtTime(b.start)}–${fmtTime(b.end)}`} · You can still film; expect some noise or people around.</span></span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex gap-2 pl-[78px] mb-1 text-xs text-pt-muted">
         {HOUSES.map(h => <span key={h} className="flex-1 text-center">{s.houses[h].name}</span>)}
       </div>
@@ -732,11 +746,13 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
   const [until, setUntil] = useState(start + s.slotMinutes)
   const [weeks, setWeeks] = useState(1)
   const [msg, setMsg] = useState('')
+  // Heads-up only (owner, Nov 4): shows on the calendar, never stops anyone booking.
+  const [soft, setSoft] = useState(false)
   const halfHours = Array.from({ length: 48 }, (_, i) => i * 30)
   async function block() {
     setBusy(true); setErr('')
     try {
-      const r = await addScheduleBlock({ date, house, type, note, repeatWeeks: weeks, ...(allDay ? { allDay: true } : { start: from, end: until }) })
+      const r = await addScheduleBlock({ date, house, type, note, repeatWeeks: weeks, ...(soft ? { soft: true } : {}), ...(allDay ? { allDay: true } : { start: from, end: until }) })
       if (r.data.skipped?.length) setMsg(`Blocked ${r.data.placed?.length ?? 1} weeks. Skipped (already booked): ${r.data.skipped.map(x => `${formatDay(x.date, { month: 'short', day: 'numeric' })} (${x.names.join(', ')})`).join('; ')}.`)
       else onClose()
     }
@@ -747,13 +763,21 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
       <p className="text-pt-muted text-sm">{formatDay(date)} · {s.houses[house].name} · {fmtSlot(start, s.slotMinutes)}</p>
       <button onClick={onBook} className="mt-4 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Book this slot…</button>
       <div className="mt-5 border-t border-pt-border pt-4 space-y-3">
-        <p className="text-pt-text font-semibold">Or block it</p>
-        <p className="text-pt-muted text-sm">Cleaners, maintenance, events, external rentals: anything that affects filming. Nobody can book blocked time.</p>
+        <p className="text-pt-text font-semibold">Or put something on the calendar</p>
+        <div className="flex bg-pt-bg rounded-full p-1 gap-1" role="radiogroup" aria-label="Does it stop filming?">
+          {([[false, 'Blocks filming'], [true, 'Heads-up only']] as const).map(([v, l]) => (
+            <button key={l} role="radio" aria-checked={soft === v} onClick={() => setSoft(v)}
+              className={`flex-1 min-h-[40px] rounded-full text-sm font-semibold ${soft === v ? (v ? 'bg-amber-400 text-stone-900' : 'bg-pt-border text-pt-text') : 'text-pt-muted'}`}>{l}</button>
+          ))}
+        </div>
+        <p className="text-pt-muted text-sm">{soft
+          ? 'Something happening at the house that people can still film around (a delivery, chargers being installed, a contractor outside). It shows on the calendar; everyone can still book.'
+          : 'Cleaners, maintenance, events, external rentals: anything that stops filming. Nobody can book blocked time.'}</p>
         <select value={type} onChange={e => setType(e.target.value as BlockType)} className={field}>
           {(Object.keys(BLOCK_TYPES) as BlockType[]).map(t => <option key={t} value={t}>{BLOCK_TYPES[t]}</option>)}
         </select>
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional), e.g. Deep clean" className={field} />
-        <label className="flex items-center gap-2 text-pt-text text-sm"><input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} /> Block the whole day at {s.houses[house].name}</label>
+        <label className="flex items-center gap-2 text-pt-text text-sm"><input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} /> The whole day at {s.houses[house].name}</label>
         {!allDay && (
           <div className="grid grid-cols-2 gap-2">
             <label className="text-pt-muted text-xs">From<select value={from} onChange={e => { const v = Number(e.target.value); setFrom(v); if (until <= v) setUntil(v + 30) }} className={field}>{halfHours.map(m => <option key={m} value={m}>{fmtTime(m)}</option>)}</select></label>
@@ -767,7 +791,7 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
           </select></label>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {msg ? <><p className="text-amber-200 text-sm">{msg}</p><button onClick={onClose} className="w-full bg-pt-border rounded-xl py-3">Done</button></> :
-        <button disabled={busy} onClick={block} className="w-full bg-pt-border text-pt-text font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Blocking…' : allDay ? 'Block the whole day' : weeks > 1 ? `Block ${fmtTime(from)}–${fmtTime(until)} for ${weeks} weeks` : `Block ${fmtTime(from)}–${fmtTime(until)}`}</button>}
+        <button disabled={busy} onClick={block} className="w-full bg-pt-border text-pt-text font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Saving…' : soft ? (allDay ? 'Add a heads-up for the whole day' : `Add heads-up ${fmtTime(from)}–${fmtTime(until)}${weeks > 1 ? ` for ${weeks} weeks` : ''}`) : allDay ? 'Block the whole day' : weeks > 1 ? `Block ${fmtTime(from)}–${fmtTime(until)} for ${weeks} weeks` : `Block ${fmtTime(from)}–${fmtTime(until)}`}</button>}
       </div>
     </BottomSheet>
   )
@@ -785,7 +809,7 @@ function UnblockSheet({ date, block, onClose }: { date: string; block: Block; on
     <BottomSheet open onClose={onClose} title={block.note || BLOCK_TYPES[block.type]}>
       <p className="text-pt-muted text-sm">{formatDay(date)} · {s.houses[block.house].name} · {fmtTime(block.start)}–{fmtTime(block.end)} · {BLOCK_TYPES[block.type]}</p>
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
-      <button disabled={busy} onClick={remove} className="mt-5 w-full bg-red-500/15 text-red-300 font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Removing…' : 'Remove this block'}</button>
+      <button disabled={busy} onClick={remove} className="mt-5 w-full bg-red-500/15 text-red-300 font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Removing…' : block.soft ? 'Remove this heads-up' : 'Remove this block'}</button>
     </BottomSheet>
   )
 }

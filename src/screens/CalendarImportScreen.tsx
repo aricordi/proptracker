@@ -5,12 +5,13 @@ import { functions, db } from '../firebase'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
+import { splitHours } from '../../functions/src/calendarText'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 
 // kind: new = not seen before; changed = moved/renamed in Google Calendar since the last import; removed = deleted there.
 interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed' | 'ignored'; why?: string; calendar?: string; feedId?: string; allDay?: boolean
-  was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; house: string; start: number } }
-interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; email: string; house: string; start: number; type: BlockType }
+  was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; emails?: string[]; house: string; start: number; soft?: boolean } }
+interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; emails: string[]; house: string; start: number; type: BlockType; soft: boolean }
 const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[] }>(functions, 'previewCalendarImport')
 const apply = httpsCallable<{ items: unknown[] }, { results: { id: string; ok: boolean; message?: string }[] }>(functions, 'applyCalendarImport')
 const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow')
@@ -38,7 +39,7 @@ export default function CalendarImportScreen() {
     setEvents(null)
     preview({}).then(r => {
       setEvents(r.data.events); setPeople(r.data.people)
-      setRows(Object.fromEntries(r.data.events.map(e => [e.id, { action: e.guess.action as Row['action'], email: e.guess.email, house: e.guess.house, start: e.guess.start, type: /clean/i.test(e.title) ? 'cleaners' : /airbnb|rental|guest/i.test(e.title) ? 'rental' : /event|party/i.test(e.title) ? 'event' : /maint|repair|plumb/i.test(e.title) ? 'maintenance' : 'other' }])))
+      setRows(Object.fromEntries(r.data.events.map(e => [e.id, { action: e.guess.action as Row['action'], soft: e.guess.soft === true, emails: e.guess.emails?.length ? e.guess.emails : e.guess.email ? [e.guess.email] : [], house: e.guess.house, start: e.guess.start, type: /clean/i.test(e.title) ? 'cleaners' : /airbnb|rental|guest/i.test(e.title) ? 'rental' : /event|party/i.test(e.title) ? 'event' : /maint|repair|plumb/i.test(e.title) ? 'maintenance' : 'other' }])))
     }).catch(e => setErr(errorText(e)))
   }, [reload])
   const set = (id: string, p: Partial<Row>) => setRows(r => ({ ...r, [id]: { ...r[id], ...p } }))
@@ -53,7 +54,7 @@ export default function CalendarImportScreen() {
   async function run() {
     setBusy(true); setErr('')
     try {
-      const items = todo.map(e => { const r = rows[e.id]; return { id: e.id, title: e.title, location: e.location, date: e.date, action: r.action, email: r.email, house: r.house, type: r.type,
+      const items = todo.map(e => { const r = rows[e.id]; return { id: e.id, title: e.title, location: e.location, date: e.date, action: r.action, email: r.emails[0] ?? '', emails: r.emails, house: r.house, type: r.type, soft: r.soft,
         start: e.startMin, end: e.endMin, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay } })   // always the real hours (owner, Oct 19)
       const res = await apply({ items })
       const next = { ...done }
@@ -66,7 +67,7 @@ export default function CalendarImportScreen() {
     const r = rows[e.id]
     if (r?.action !== 'shoot' || r.house === 'offsite') return []
     return (events ?? []).filter(o => o.id !== e.id && rows[o.id]?.action === 'shoot' && rows[o.id].house === r.house && o.date === e.date
-      && o.startMin < e.endMin && e.startMin < o.endMin).map(o => people.find(p => p.email === rows[o.id].email)?.name || o.title)
+      && o.startMin < e.endMin && e.startMin < o.endMin).map(o => rows[o.id].emails.map(m => people.find(p => p.email === m)?.name).filter(Boolean).join(' + ') || o.title)
   }
   const counts = todo.reduce((c, e) => ({ ...c, [rows[e.id]?.action ?? 'skip']: (c[rows[e.id]?.action ?? 'skip'] ?? 0) + 1 }), {} as Record<string, number>)
   return (
@@ -127,9 +128,37 @@ export default function CalendarImportScreen() {
                   ))}
                 </div>
                 {r.action === 'shoot' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <select value={r.email} onChange={x => set(e.id, { email: x.target.value })} className={field}><option value="">Who?</option>{people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}</select>
-                    <select value={r.house} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option></select>
+                  <div className="space-y-2">
+                    {/* Owner, Nov 4: one booking can be several creators filming together. Each gets their own turn, back to back. */}
+                    {r.emails.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {r.emails.map((m, i) => (
+                          <span key={m} className="inline-flex items-center gap-1 min-h-[36px] pl-3 pr-1 rounded-full bg-pt-bg text-pt-text text-sm">
+                            {r.emails.length > 1 && <span className="text-pt-muted text-xs">{i + 1}.</span>}{people.find(p => p.email === m)?.name ?? m}
+                            <button onClick={() => set(e.id, { emails: r.emails.filter(x => x !== m) })} aria-label={`Take ${people.find(p => p.email === m)?.name ?? m} off`} className="w-8 h-8 rounded-full text-pt-muted">✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value="" onChange={x => x.target.value && set(e.id, { emails: [...r.emails, x.target.value].slice(0, 4) })} className={field} disabled={r.emails.length >= 4}>
+                        <option value="">{r.emails.length ? '+ Add another creator' : 'Who?'}</option>
+                        {people.filter(p => !r.emails.includes(p.email)).map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
+                      </select>
+                      <select value={r.house} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option></select>
+                    </div>
+                    {r.emails.length > 1 && (
+                      <p className="text-pt-muted text-xs">One booking, {r.emails.length} creators: each gets their own turn, back to back:{' '}
+                        <span className="text-pt-text">{splitHours(e.startMin, e.endMin, r.emails.length).map((h, i) => `${people.find(p => p.email === r.emails[i])?.name.split(' ')[0] ?? '?'} ${fmtTime(h.start)}–${fmtTime(h.end)}`).join(' · ')}</span></p>
+                    )}
+                  </div>
+                )}
+                {r.action === 'block' && (
+                  // Owner, Nov 4: some events just HAPPEN at a house (chargers installed) and people can still film around them.
+                  <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
+                    {([[false, 'Blocks filming'], [true, 'Heads-up only (can still book)']] as const).map(([v, l]) => (
+                      <button key={l} onClick={() => set(e.id, { soft: v })} className={`flex-1 py-1.5 rounded-md text-xs ${r.soft === v ? (v ? 'bg-amber-400 text-stone-900 font-semibold' : 'bg-pt-border text-pt-text font-semibold') : 'text-pt-muted'}`}>{l}</button>
+                    ))}
                   </div>
                 )}
                 {r.action === 'block' && (

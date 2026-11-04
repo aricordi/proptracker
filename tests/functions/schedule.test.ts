@@ -116,6 +116,15 @@ describe('schedule team', () => {
     expect((await book(ANA, { start: 900, forEmail: BEN })).error).toBe('PERMISSION_DENIED')
   })
 
+  it('a heads-up (owner, Nov 4) can sit on top of bookings and never stops anyone booking', async () => {
+    await book(ANA, {})
+    const h = await call('addScheduleBlock', { date: FRI, house: 'cliff1', allDay: true, type: 'maintenance', note: 'Tesla chargers installed', soft: true }, MAANIK)
+    expect(h.ok, h.message).toBe(true)
+    expect((await getDoc(`schedule_days/${FRI}`))!.blocks[0]).toMatchObject({ soft: true, note: 'Tesla chargers installed' })
+    const r = await book(BEN, { start: 900 })
+    expect(r.ok, r.message).toBe(true)
+  })
+
   it('blocks time, but never over a booking; blocks can be removed', async () => {
     await book(ANA, {})
     const clash = await call('addScheduleBlock', { date: FRI, house: 'cliff1', allDay: true, type: 'maintenance' }, MAANIK)

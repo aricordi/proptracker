@@ -254,3 +254,26 @@ describe('old calendars (read only)', () => {
     expect(p2.some((e: any) => e.id === 'st1')).toBe(false)
   })
 })
+
+describe('one booking, several creators (owner, Nov 4)', () => {
+  it('guesses everyone named, lists Props-only creators, and splits the hours into back-to-back turns', async () => {
+    const DEE = 'dee@example.com'
+    await put(`users/${DEE}`, { email: DEE, role: 'creator', active: true, name: 'Dee', access: 'props' })
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('test_calendar/events', { items: [{ id: 'grp1', summary: 'Ben / Ana / Dee - Cliff 1', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T19:00:00${TZ}` } }] })
+    const pv = (await call('previewCalendarImport', {}, OWNER)).result
+    expect(pv.people.map((p: any) => p.email)).toContain(DEE)
+    expect(pv.events[0].guess.emails).toEqual([BEN, ANA, DEE])
+    const r = await call('applyCalendarImport', { items: [{ id: 'grp1', action: 'shoot', email: BEN, emails: [BEN, ANA, DEE], house: 'cliff1', date: FRI, start: 780, end: 1140, title: 'Ben / Ana / Dee - Cliff 1' }] }, OWNER)
+    expect(r.result.results[0]).toMatchObject({ ok: true })
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect([d.cliff1['780'].email, d.cliff1['900'].email, d.cliff1['1020'].email]).toEqual([BEN, ANA, DEE])
+    const imp = (await getDoc('calendar_imports/grp1'))!
+    expect(imp.shootIds).toHaveLength(3)
+    // Taken back to one person later: the extra turns come off.
+    await call('applyCalendarImport', { items: [{ id: 'grp1', action: 'shoot', email: BEN, house: 'cliff1', date: FRI, start: 780, end: 1140 }] }, OWNER)
+    const d2 = (await getDoc(`schedule_days/${FRI}`))!
+    expect([d2.cliff1['780'].email, d2.cliff1['900'].email, d2.cliff1['1020'].email]).toEqual([BEN, BEN, BEN])
+    expect((await getDoc(`shoots/${imp.shootIds[1]}`))!.status).toBe('cancelled')
+  })
+})

@@ -18,7 +18,7 @@ export default function ShellLayout() {
   if (desk.on) {
     const full = FULL_WIDTH.some(p => path === p || path.startsWith(p + '/')) || FULL_EXACT.includes(path) || (path === '/' && role === 'admin')
     return (
-      <div className="flex h-full bg-pt-bg">
+      <div className={`flex h-full bg-pt-bg desk-shell ${full ? '' : 'desk-narrow'}`}>
         <DeskSidebar />
         <main className="flex-1 min-w-0 overflow-y-auto">
           {full ? page : <div className="max-w-[760px] mx-auto min-h-full">{page}</div>}

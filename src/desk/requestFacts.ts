@@ -67,8 +67,10 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
     around.push({ label: 'Before (same house)', value: who(h, r.start - s.slotMinutes) || 'Free' })
     around.push({ label: 'After (same house)', value: who(h, r.start + s.slotMinutes) || 'Free' })
     around.push({ label: `${s.houses[other].name}, same time`, value: who(other, r.start) || 'Free' })
-    const blocks = (day?.blocks ?? []).filter(b => b.house === h)
+    const blocks = (day?.blocks ?? []).filter(b => b.house === h && !b.soft)
     if (blocks.length) around.push({ label: 'Blocked that day', value: blocks.map(b => `${b.note || BLOCK_TYPES[b.type]} ${fmtSlot(b.start, b.end - b.start)}`).join(', ') })
+    const notes = (day?.blocks ?? []).filter(b => b.house === h && b.soft)
+    if (notes.length) around.push({ label: 'Heads-up that day', value: notes.map(b => `${b.note || BLOCK_TYPES[b.type]} ${fmtSlot(b.start, b.end - b.start)}`).join(', ') })
   }
 
   const partners = partnersOf(email, shoots, pairs)

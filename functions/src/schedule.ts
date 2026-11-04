@@ -139,7 +139,11 @@ export type BlockType = 'cleaners' | 'maintenance' | 'event' | 'rental' | 'other
 export const BLOCK_TYPES: Record<BlockType, string> = {
   cleaners: 'Cleaners', maintenance: 'Maintenance', event: 'Event', rental: 'External rental', other: 'Blocked',
 }
-export interface Block { id: string; house: House; start: number; end: number; type: BlockType; note?: string }
+// soft = a HEADS-UP (owner, Nov 4: "Tesla chargers being installed at Cliff 2… you could still technically film around it"):
+// shown on the calendar so people know, but it never stops anyone booking.
+export interface Block { id: string; house: House; start: number; end: number; type: BlockType; note?: string; soft?: boolean }
+export const hardBlocks = (day: ScheduleDay | undefined) => (day?.blocks ?? []).filter(b => !b.soft)
+export const headsUps = (day: ScheduleDay | undefined, house?: House) => (day?.blocks ?? []).filter(b => b.soft && (!house || b.house === house))
 export interface ScheduleDay {
   date: string
   cliff1?: Record<string, SlotEntry>   // key = slot start, e.g. '780'
@@ -174,7 +178,7 @@ export function priorityLocked(date: string, house: Place, s: ScheduleSettings, 
 export function houseFreeFrom(day: ScheduleDay | undefined, house: House, start: number, s: ScheduleSettings): { at: number; what: string } | null {
   const prev = start - s.slotMinutes
   if (day?.[house]?.[slotKey(prev)]?.shootId) return null
-  const over = (day?.blocks ?? []).filter(b => b.house === house && b.start < start && b.end > prev)
+  const over = hardBlocks(day).filter(b => b.house === house && b.start < start && b.end > prev)
   if (!over.length) return null
   const end = Math.max(...over.map(b => b.end))
   if (end >= start || end <= prev) return null
@@ -203,7 +207,7 @@ export function houseSlotsOn(day: ScheduleDay | undefined, email: string, now: s
 }
 
 export const blockAt = (day: ScheduleDay | undefined, house: House, start: number, minutes: number) =>
-  (day?.blocks ?? []).find(b => b.house === house && b.start < start + minutes && start < b.end)
+  hardBlocks(day).find(b => b.house === house && b.start < start + minutes && start < b.end)
 
 export type SlotState =
   | { t: 'free' }

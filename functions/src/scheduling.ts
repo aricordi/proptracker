@@ -499,12 +499,14 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
   let firstId = ''
   for (let w = 0; w < weeks; w++) {
     const date = addDays(d.date, 7 * w)
-    const block = { id: randomUUID().slice(0, 8), house: d.house as House, start, end, type, note: str(d.note, 200), by: caller.email, ...(series ? { series } : {}) }
+    const soft = d.soft === true
+    const block = { id: randomUUID().slice(0, 8), house: d.house as House, start, end, type, note: str(d.note, 200), by: caller.email, ...(series ? { series } : {}), ...(soft ? { soft: true } : {}) }
     const dayRef = dayRefOf(date)
     await db.runTransaction(async tx => {
       const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
       // Never silently wipe out a booking: the team cancels or moves it first (no strike), then blocks.
-      const clash = Object.entries(day[block.house] ?? {}).filter(([k]) => Number(k) < end && start < Number(k) + s.slotMinutes).map(([, e]) => e.name)
+      // A heads-up never blocks anyone, so it can go on top of bookings.
+      const clash = soft ? [] : Object.entries(day[block.house] ?? {}).filter(([k]) => Number(k) < end && start < Number(k) + s.slotMinutes).map(([, e]) => e.name)
       if (clash.length) {
         if (w === 0) throw new HttpsError('failed-precondition', `Already booked then: ${clash.join(', ')}. Move or cancel their shoot first (no strike), then block the time.`, { problem: 'booked', names: clash })
         skipped.push({ date, names: clash }); return
@@ -537,10 +539,12 @@ export const saveScheduleSettings = onCall(CALLABLE, async req => {
 })
 
 // People who film (owner, Oct 27): active creators + the owner (who isn't in users). Arts, equipment and admins never.
-export async function filmingPeople() {
+export async function filmingPeople(opts: { includeDemo?: boolean } = {}) {
   const snap = await db.collection('users').where('active', '==', true).get()
   // Demo-mode creators (Props only) can't book, so they're left out until the owner switches them to Full app.
-  const people = snap.docs.filter(u => (u.get('role') === 'creator' && !isDemoCreator('creator', u.get('access'))) || u.id === OWNER_EMAIL)
+  // includeDemo (owner, Nov 4: "fix the calendar before giving people access"): the calendar import may still put
+  // their existing shoots on the schedule, so they show up there.
+  const people = snap.docs.filter(u => (u.get('role') === 'creator' && (opts.includeDemo || !isDemoCreator('creator', u.get('access')))) || u.id === OWNER_EMAIL)
     .map(u => ({ email: u.id, name: String(u.get('name') || u.id), role: u.id === OWNER_EMAIL ? 'owner' : 'creator' }))
   if (!people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex', role: 'owner' })
   return people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))

@@ -119,12 +119,7 @@ export default function ScheduleSettingsScreen() {
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Moving and cancelling</h2>
-          <div className="flex items-center gap-3">
-            <button onClick={() => set({ noticeHours: Math.max(0, s.noticeHours - 12) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
-            <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.noticeHours}</span>
-            <button onClick={() => set({ noticeHours: Math.min(336, s.noticeHours + 12) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
-            <span className="text-pt-muted text-sm">hours' notice to move or cancel for free</span>
-          </div>
+          <HoursPicker value={s.noticeHours} min={0} max={336} onChange={v => set({ noticeHours: v })} label="hours' notice to move or cancel for free" />
           <p className="text-pt-muted text-xs">Closer than that, a creator can only swap with someone; cancelling counts as a no-show. Your own changes never count.</p>
         </section>
 
@@ -140,12 +135,7 @@ export default function ScheduleSettingsScreen() {
           <label className="flex items-center gap-3 text-sm"><span className="flex-1 text-pt-text">Creators can reserve gear ahead</span>
             <input type="checkbox" checked={s.gearReserve} onChange={e => set({ gearReserve: e.target.checked })} className="w-6 h-6 accent-[#C9A961]" /></label>
           {s.gearReserve ? (
-            <div className="flex items-center gap-3">
-              <button onClick={() => set({ gearReserveHours: Math.max(1, s.gearReserveHours - 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
-              <span className="text-pt-text text-lg font-semibold tabular-nums w-10 text-center">{s.gearReserveHours}</span>
-              <button onClick={() => set({ gearReserveHours: Math.min(336, s.gearReserveHours + 6) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
-              <span className="text-pt-muted text-sm">hours before a shoot creators can reserve gear</span>
-            </div>
+            <HoursPicker value={s.gearReserveHours} min={1} max={336} onChange={v => set({ gearReserveHours: v })} label="hours before a shoot creators can reserve gear" />
           ) : <p className="text-pt-muted text-xs">Off: gear isn't booked ahead. On the shoot day (from an hour before) creators take what's free, tick every piece and take one photo.</p>}
           <label className="flex items-center gap-3 text-sm"><span className="flex-1 text-pt-text">Offsite shoots bring gear back by</span>
             <select value={s.gearOffsiteBackBy} onChange={e => set({ gearOffsiteBackBy: Number(e.target.value) })} className="bg-pt-bg text-pt-text rounded-xl px-3 min-h-[44px]">
@@ -222,5 +212,32 @@ function CalendarSetup({ savedId, onImport, onApprove }: { savedId: string; onIm
         <button onClick={onImport} className="w-full bg-pt-bg rounded-xl py-3 text-pt-text text-sm font-medium">Import from the calendar (new + changed) ›</button>
       </>}
     </section>
+  )
+}
+
+// Hours, one at a time (owner, Nov 4: "more granular, not just 12-hour increments"): − / + move by 1 hour, the number can be
+// typed, and quick picks cover the usual choices. Shows days too ("48 h · 2 days").
+function HoursPicker({ value, min, max, onChange, label }: { value: number; min: number; max: number; onChange: (v: number) => void; label: string }) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => { setText(String(value)) }, [value])
+  const put = (v: number) => onChange(Math.min(max, Math.max(min, Math.round(v))))
+  const days = value >= 24 ? ` · ${value % 24 === 0 ? `${value / 24} day${value === 24 ? '' : 's'}` : `${Math.floor(value / 24)} d ${value % 24} h`}` : ''
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <button onClick={() => put(value - 1)} aria-label="One hour less" className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
+        <input inputMode="numeric" value={text} aria-label={label}
+          onChange={e => { const t = e.target.value.replace(/\D/g, '').slice(0, 3); setText(t); if (t !== '') put(Number(t)) }}
+          onBlur={() => setText(String(value))}
+          className="w-16 h-11 rounded-xl bg-pt-bg text-pt-text text-lg font-semibold tabular-nums text-center outline-none focus:shadow-[0_0_0_2px_#C9A961]" />
+        <button onClick={() => put(value + 1)} aria-label="One hour more" className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
+        <span className="text-pt-muted text-sm min-w-0 flex-1">{label}<span className="text-pt-text">{days}</span></span>
+      </div>
+      <div className="flex gap-1.5 flex-wrap">
+        {[2, 6, 12, 24, 36, 48, 72].filter(h => h >= min && h <= max).map(h => (
+          <button key={h} onClick={() => put(h)} className={`px-3.5 min-h-[40px] inline-flex items-center rounded-full text-sm ${value === h ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-bg text-pt-muted'}`}>{h} h</button>
+        ))}
+      </div>
+    </div>
   )
 }
