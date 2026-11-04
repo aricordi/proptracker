@@ -9,6 +9,9 @@ on:
       lines:
         description: How many log lines to show
         default: '100'
+      day:
+        description: Optional, a day to show in full (YYYY-MM-DD) - its schedule and calendar imports (read only)
+        default: ''
 
 jobs:
   logs:
@@ -190,3 +193,9 @@ jobs:
           echo "== Shoots booked from today on"; curl -sS -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" "$B:runAggregationQuery" \
             -d "{\"structuredAggregationQuery\":{\"structuredQuery\":{\"from\":[{\"collectionId\":\"shoots\"}],\"where\":{\"fieldFilter\":{\"field\":{\"fieldPath\":\"date\"},\"op\":\"GREATER_THAN_OR_EQUAL\",\"value\":{\"stringValue\":\"$(TZ=America/Toronto date +%F)\"}}}},\"aggregations\":[{\"count\":{},\"alias\":\"n\"}]}}" \
             | python3 -c 'import json,sys; print("  ", json.load(sys.stdin)[0]["result"]["aggregateFields"]["n"]["integerValue"], "shoots (any status)")'
+
+      - name: One day in full (read only)
+        if: inputs.day != ''
+        env:
+          DAY: ${{ inputs.day }}
+        run: T=$(gcloud auth print-access-token) python3 .github/scripts/day_dump.py
