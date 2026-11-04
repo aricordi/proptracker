@@ -2,7 +2,7 @@
 // strip, a WEEK BOARD of both houses (every day × every slot: approved, requested, moving, Kyle, blocked) or the month, and on the
 // right the waiting requests (oldest first, tick several → approve all) with everything needed to decide one. Keyboard:
 // A approve, D deny, J/K next/previous, W/M week/month, ←/→ change week, T this week, Esc back.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { useProfiles } from '../services/profiles'
@@ -25,8 +25,8 @@ const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300', amber:
   gold: 'bg-pt-accent/15 text-pt-accent', muted: 'bg-pt-raised text-pt-muted' }
 const mondayOf = (d: string) => addDays(d, -((weekday(d) + 6) % 7))
 
-export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, clashes = [] }: {
-  reqs: Req[]; shoots: Shoot[] | null; days: Record<string, ScheduleDay> | null; statuses: Record<string, UserStatus>; pairs: Pair[]; clashes?: GiveTarget[]
+export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, clashes = [], tabs }: {
+  reqs: Req[]; shoots: Shoot[] | null; days: Record<string, ScheduleDay> | null; statuses: Record<string, UserStatus>; pairs: Pair[]; clashes?: GiveTarget[]; tabs?: ReactNode
 }) {
   const [give, setGive] = useState<GiveTarget | null>(null)
   const navigate = useNavigate()
@@ -116,6 +116,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="flex items-center gap-3 px-6 pt-5 pb-3 flex-wrap">
           <h1 className="text-pt-text text-[22px] font-bold tracking-tight mr-2">Requests</h1>
+          {tabs}
           <div className="flex bg-pt-surface rounded-[10px] p-0.5">
             {(['week', 'month'] as const).map(v => <button key={v} onClick={() => setView(v)} title={v === 'week' ? 'W' : 'M'}
               className={`px-3.5 py-1.5 rounded-lg text-[13px] ${view === v ? 'bg-pt-raised text-pt-text font-semibold' : 'text-pt-muted'}`}>{v === 'week' ? 'Week' : 'Month'}</button>)}

@@ -46,3 +46,18 @@ describe('filming gear is never a "make or find" (owner, Nov 3)', () => {
     for (const p of ['Police badge', 'Crystal ball', 'Top hat', 'Fake blood', 'Candles', 'Spirit board']) expect(isFilmGear(p)).toBe(false)
   })
 })
+
+import { aiSkips } from '../../functions/src/filmGear'
+describe('aiSkips (owner, Nov 4: no batteries or cables)', () => {
+  it('skips tech props, supplies, batteries and cables', () => {
+    expect(aiSkips({ categoryId: 'gear', name: 'Old radio' })).toBe(true)
+    expect(aiSkips({ name: 'AA batteries' })).toBe(true)
+    expect(aiSkips({ name: 'HDMI cable' })).toBe(true)
+    expect(aiSkips({ name: 'Painter tape', tags: [] })).toBe(true)
+    expect(aiSkips({ name: 'Glue sticks', tags: ['supplies'] })).toBe(true)
+  })
+  it('keeps real props', () => {
+    expect(aiSkips({ categoryId: 'costumes', name: 'Police hat' })).toBe(false)
+    expect(aiSkips({ name: 'Vintage telephone' })).toBe(false)
+  })
+})

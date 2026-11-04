@@ -2,7 +2,7 @@
 // what's needed to decide ("succinct, but powerful"): the month at a glance, then each request with who's asking (their
 // last 30 days, what's coming up, strikes), what's around that time at the house, and Approve / Deny.
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { friendlyError } from '../lib/errors'
 import { formatDay } from '../lib/dates'
@@ -20,12 +20,32 @@ import { collabPairs } from '../lib/collabs'
 import { useDesk } from '../desk/desk'
 import DeskApprovals from '../desk/DeskApprovals'
 import { GiveSlotSheet, ClashList, useCalendarClashes, type GiveTarget } from '../components/GiveSlotSheet'
+import CalendarQueue from '../components/CalendarQueue'
+import { useCalendarQueue } from '../services/schedule'
+
+/** Bookings | Calendar (owner, Nov 4): Google Calendar imports wait in their own tab for the equipment team. */
+export function RequestTabs({ tab, setTab, bookings, calendar, desk }: { tab: string; setTab: (t: 'bookings' | 'calendar') => void; bookings: number; calendar: number; desk?: boolean }) {
+  return (
+    <div className={`flex bg-pt-surface rounded-xl p-1 gap-1 ${desk ? '' : 'w-full'}`} role="tablist">
+      {([['bookings', 'Bookings', bookings], ['calendar', 'Google Calendar', calendar]] as const).map(([k, l, n]) => (
+        <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
+          className={`flex-1 min-h-[40px] px-4 rounded-lg text-sm whitespace-nowrap inline-flex items-center justify-center gap-1.5 ${tab === k ? 'bg-pt-raised text-pt-text font-semibold' : 'text-pt-muted'}`}>
+          {l}{n > 0 && <span className={`min-w-[22px] h-[22px] px-1.5 rounded-full text-xs font-bold inline-flex items-center justify-center ${k === 'calendar' ? 'bg-sky-400 text-stone-900' : 'bg-amber-400 text-stone-900'}`}>{n}</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 
 export default function ApprovalsScreen() {
   const navigate = useNavigate()
-  const { profile } = useSession()
+  const { profile, isGearStaff } = useSession()
   const s = useScheduleSettings()
+  const [params, setParams] = useSearchParams()
+  const tab = isGearStaff && params.get('tab') === 'calendar' ? 'calendar' : 'bookings'
+  const setTab = (t: 'bookings' | 'calendar') => setParams(t === 'calendar' ? { tab: 'calendar' } : {}, { replace: true })
+  const queue = useCalendarQueue(isGearStaff)
   const today = todayInStudio(), now = nowStamp()
   const days = useScheduleDays(addDays(today, -1), addDays(today, 120))
   // 90 days back: the last month's numbers + who usually films with whom.
@@ -40,15 +60,25 @@ export default function ApprovalsScreen() {
   const [give, setGive] = useState<GiveTarget | null>(null)
   const pairs = useMemo(() => collabPairs(shoots ?? []), [shoots])
   const desk = useDesk()
-  if (desk.on) return <DeskApprovals reqs={reqs} shoots={shoots} days={days} statuses={statuses} pairs={pairs} clashes={clashes} />
+  const tabs = isGearStaff ? <RequestTabs tab={tab} setTab={setTab} bookings={reqs.length} calendar={queue?.length ?? 0} desk={desk.on} /> : null
+  if (desk.on && tab === 'calendar') return (
+    <div className="h-full overflow-auto bg-[#0B0B0C]">
+      <div className="max-w-[820px] mx-auto px-6 pt-5 pb-12 space-y-4">
+        <div className="flex items-center gap-4 flex-wrap"><h1 className="text-pt-text text-[22px] font-bold tracking-tight">Requests</h1>{tabs}</div>
+        <CalendarQueue items={queue} />
+      </div>
+    </div>
+  )
+  if (desk.on) return <DeskApprovals reqs={reqs} shoots={shoots} days={days} statuses={statuses} pairs={pairs} clashes={clashes} tabs={tabs} />
 
   return (
     <div className="min-h-full bg-pt-bg pb-12">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
         <h1 className="font-display text-[34px] text-pt-text">Requests</h1>
-        <p className="text-pt-muted text-sm">{reqs.length === 0 ? 'Nothing waiting. New requests show up here.' : `${reqs.length} waiting for a yes or no, soonest first.`}</p>
+        {tabs && <div className="mt-2">{tabs}</div>}
+        {tab === 'bookings' && <p className="text-pt-muted text-sm mt-2">{reqs.length === 0 ? 'Nothing waiting. New requests show up here.' : `${reqs.length} waiting for a yes or no, soonest first.`}</p>}
       </div>
-      <div className="px-4 space-y-6">
+      {tab === 'calendar' ? <div className="px-4 pt-2"><CalendarQueue items={queue} /></div> : <div className="px-4 space-y-6">
         <ClashList items={clashes} s={s} onGive={setGive} />
         <section className="bg-pt-surface shadow-hairline rounded-2xl p-3">
           <div className="flex items-center justify-between mb-2">
@@ -64,7 +94,7 @@ export default function ApprovalsScreen() {
             onDay={() => { setMonth(r.date.slice(0, 7)); setDayOpen(r.date) }} onPerson={() => navigate(`/people/${encodeURIComponent(r.shoot.creatorEmail)}`)}
             onGive={r.place !== 'offsite' && !r.move ? () => setGive({ date: r.date, house: r.place as House, start: r.start, holder: { name: r.shoot.creatorName, email: r.shoot.creatorEmail } }) : undefined} />)}
         </section>
-      </div>
+      </div>}
       {dayOpen && <DaySheet date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)}
         onGive={(h, st, e) => { setDayOpen(null); setGive({ date: dayOpen, house: h, start: st, holder: { name: e.name, email: e.email ?? '' } }) }} />}
       {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}

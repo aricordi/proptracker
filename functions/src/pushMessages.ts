@@ -158,6 +158,15 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
       ? `${placeName(a, s)} · ${when(a)} is needed for a priority booking, so it was cancelled (no strike). Your next request is first in line. Tap to pick another time or move it offsite.`
       : `Your shoot moved to ${placeName(a, s)} · ${when(a)} for a priority booking. Props and gear moved with it.` }]
   if (h.action === 'given') return []
+  // Calendar imports (owner, Nov 4): held back while "to check"; the creator hears once the equipment team confirms.
+  if (h.action === 'import-confirmed') {
+    if (a.status === 'booked') return [{ to: [a.creatorEmail], url: url0, tag: tag0, ...(b?.told === false || h.note === 'new'
+      ? { title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }
+      : { title: 'Your shoot changed', body: `Now ${placeName(a, s)} · ${when(a)}.` }) }]
+    if (a.status === 'cancelled' && b?.told !== false) return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the schedule.` }]
+    return []
+  }
+  if (a.toCheck) return []
   // A creator cancelled an APPROVED shoot (Nov 3): the schedule team knows the slot is free again.
   if (h.action === 'cancelled' && h.by === a.creatorEmail && b?.status === 'booked')
     return [{ to: ['gear-team'], url: '/approvals', tag: `shoot-${id}`, title: 'Shoot cancelled', body: `${a.creatorName} cancelled ${placeName(a, s)} · ${when(a)}. The slot is free again.` }]

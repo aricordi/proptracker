@@ -649,7 +649,7 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
     })
     else tx.set(ref, {
       creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked',
-      bookedBy: by, createdAt: at, updatedAt: at, ...extra, ...(clashWith.length ? { clash: true, clashWith } : {}),
+      bookedBy: by, createdAt: at, updatedAt: at, ...extra, ...(extra.toCheck ? { told: false } : {}), ...(clashWith.length ? { clash: true, clashWith } : {}),
       history: [{ at, by, action: 'booked', note: `${note} · imported from Google Calendar` }],
     })
   })
@@ -657,7 +657,7 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
 }
 
 // The event was deleted in Google Calendar: take the app's copy off the schedule (the calendar itself is untouched).
-export async function removeImportedShoot(shootId: string, by: string) {
+export async function removeImportedShoot(shootId: string, by: string, toCheck = false) {
   const ref = db.doc(`shoots/${shootId}`)
   await db.runTransaction(async tx => {
     const sh = (await tx.get(ref)).data()
@@ -665,7 +665,8 @@ export async function removeImportedShoot(shootId: string, by: string) {
     const write = await editDays(tx, [sh.date], days => takeOut(days[sh.date], sh as Spot, shootId))
     write()
     const at = new Date().toISOString()
-    tx.update(ref, { status: 'cancelled', updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: 'removed from Google Calendar' }) })
+    // toCheck: the automatic check did it; the creator is told once the equipment team confirms it (Calendar tab).
+    tx.update(ref, { status: 'cancelled', updatedAt: at, ...(toCheck ? { toCheck: true } : {}), history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: 'removed from Google Calendar' }) })
   })
 }
 

@@ -206,6 +206,40 @@ describe('automatic calendar check', () => {
 })
 
 
+describe('Requests → Google Calendar tab (owner, Nov 4: every import waits for the equipment team)', () => {
+  it('puts what it can read on the schedule "to check", holds the creator\'s notice until confirmed; fix and skip work', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
+    const at = (id: string, summary: string, s: string, e: string) => ({ id, summary, location: summary === 'Meeting' ? '' : '2375 Cliff Road', start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put('test_calendar/events', { items: [at('q1', 'Ana filming', '13:00', '15:00'), at('q2', 'Ana and Ben filming', '15:00', '19:00'), at('q3', 'Meeting', '19:00', '21:00')] })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    const q = await docs('calendar_queue')
+    expect(q.length).toBe(3)
+    expect(q.filter(x => x.placed).length).toBe(2)            // q3 names nobody: waits unplaced
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.cliff1['780'].email).toBe(ANA)                    // already holding the time
+    const sid = d.cliff1['780'].shootId
+    expect((await getDoc(`shoots/${sid}`))!.toCheck).toBe(true)
+    // Confirm → no longer to check, the creator is told.
+    expect((await call('reviewCalendarImport', { id: 'q1', action: 'confirm' }, MAANIK)).ok).toBe(true)
+    await waitFor(async () => (await getDoc(`shoots/${sid}`))!.toCheck === undefined)
+    expect((await getDoc(`shoots/${sid}`))!.told).toBe(true)
+    expect((await getDoc('calendar_queue/q1'))!.status).toBe('confirmed')
+    // Fix the unreadable one: Ben's shoot.
+    expect((await call('reviewCalendarImport', { id: 'q3', action: 'fix', fix: { action: 'shoot', emails: [BEN], house: 'cliff1', type: 'other', soft: false } }, MAANIK)).ok).toBe(true)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['1140'].email).toBe(BEN)
+    // Skip the group one: taken off the schedule again.
+    expect((await call('reviewCalendarImport', { id: 'q2', action: 'skip' }, MAANIK)).ok).toBe(true)
+    const after = (await getDoc(`schedule_days/${FRI}`))!
+    expect(after.cliff1['900']).toBeUndefined()
+    expect(after.cliff1['1020']).toBeUndefined()
+    expect((await docs('calendar_queue')).filter(x => x.status === 'waiting').length).toBe(0)
+    // Already handled; creators can't touch it.
+    expect((await call('reviewCalendarImport', { id: 'q1', action: 'confirm' }, MAANIK)).message).toMatch(/already handled/)
+    expect((await call('reviewCalendarImport', { id: 'q1', action: 'confirm' }, ANA)).error).toBe('PERMISSION_DENIED')
+  })
+})
+
 describe('old calendars (read only)', () => {
   it('reads each old calendar: its house, all-day events, a clash on a booked shoot alerts the team; a calendar taken off the list removes nothing', async () => {
     const C2 = 'cliff2cal@group.calendar.google.com', STR = 'stromedy@group.calendar.google.com'

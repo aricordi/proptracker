@@ -38,6 +38,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const navigate = useNavigate()
   const { profile } = useSession()
   const email = profile.email
+  // Coming up folds away (owner, Nov 4), remembered on this phone.
+  const [listOpen, setListOpen] = useState(() => { try { return localStorage.getItem('pc.comingUpOpen') !== '0' } catch { return true } })
+  const toggleList = () => setListOpen(v => { try { localStorage.setItem('pc.comingUpOpen', v ? '0' : '1') } catch { /* private mode */ } return !v })
   const s = useScheduleSettings()
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 30_000); return () => clearInterval(t) }, [])
@@ -130,8 +133,12 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
       {next.length > 0 && (
         <section className="rise-in">
-          <p className="text-pt-muted text-[14px] font-semibold px-1 mb-2">Coming up</p>
-          <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
+          <button onClick={toggleList} aria-expanded={listOpen} className="w-full min-h-[40px] flex items-center gap-2 px-1 mb-1 text-left">
+            <span className="text-pt-muted text-[14px] font-semibold">Coming up</span>
+            <span className="text-pt-muted/70 text-[14px]">· {next.length}{!listOpen ? ` · next ${formatDay(next[0].date, { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
+            <span className={`ml-auto text-pt-muted text-[16px] transition-transform ${listOpen ? 'rotate-90' : ''}`} aria-hidden>›</span>
+          </button>
+          {listOpen && <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
             {next.map(x => {
               const c = cutoffs(x), waiting = x.status === 'requested'
               const propsOpen = today <= c.props && !x.checkin
@@ -158,7 +165,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
                 </div>
               )
             })}
-          </div>
+          </div>}
         </section>
       )}
     </div>

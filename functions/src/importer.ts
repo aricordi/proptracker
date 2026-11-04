@@ -13,7 +13,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { getStorage } from 'firebase-admin/storage'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { logger } from 'firebase-functions'
 import { isRateLimit } from './limits.js'
@@ -82,6 +82,7 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
     const snaps = await db.getAll(...chunk.map(c => db.doc(`import_items/${c.id}`)))
     chunk.forEach((c, j) => { if (!snaps[j].exists) fresh.push(c) })
   }
+  await backfillHashes().catch(e => logger.warn('Photo hash backfill failed', String(e)))
   const queued = dryRun ? fresh.slice(0, DRY_RUN_SIZE) : fresh
   if (!queued.length) {
     return { jobId: null, queued: 0, alreadyImported: candidates.length, found: candidates.length }
@@ -105,6 +106,41 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
   }
   return { jobId: jobRef.id, queued: queued.length, alreadyImported: candidates.length - fresh.length, found: candidates.length }
 })
+
+// ─── Exact copies ────────────────────────────────────────────────────────────
+// import_hashes/{md5 of the shrunk JPEG} → the first Drive photo with exactly those pixels. The shrink is the same every time,
+// so the same photo (copied, re-uploaded, renamed, in another folder) always gives the same JPEG. Photos imported before this
+// existed are added once from Storage (their saved JPEG is that same shrink).
+const HASHES = 'import_hashes'
+async function backfillHashes() {
+  const flag = db.doc('app_settings/import')
+  if ((await flag.get()).get('hashesAt')) return
+  const [files] = await getStorage().bucket().getFiles({ prefix: 'items/imported/' })
+  for (let i = 0; i < files.length; i += 400) {
+    const batch = db.batch()
+    for (const f of files.slice(i, i + 400)) {
+      const md5 = f.metadata.md5Hash ? Buffer.from(String(f.metadata.md5Hash), 'base64').toString('hex') : ''
+      const fileId = f.name.slice('items/imported/'.length).replace(/\.jpg$/, '')
+      if (md5 && fileId) batch.set(db.doc(`${HASHES}/${md5}`), { fileId, at: new Date().toISOString() }, { merge: true })
+    }
+    await batch.commit()
+  }
+  await flag.set({ hashesAt: new Date().toISOString() }, { merge: true })
+}
+/** null = first time these exact pixels are seen (now claimed); else the photo it's a copy of. */
+async function claimPhotoHash(jpeg: Buffer, fileId: string): Promise<{ fileId: string; fileName: string } | null> {
+  const ref = db.doc(`${HASHES}/${createHash('md5').update(jpeg).digest('hex')}`)
+  return db.runTransaction(async tx => {
+    const h = (await tx.get(ref)).data()
+    if (h?.fileId && h.fileId !== fileId) {
+      // Still a real import? (an undone import, a skipped or failed photo doesn't count)
+      const other = (await tx.get(db.doc(`import_items/${h.fileId}`))).data()
+      if (other && ['analyzed', 'approved', 'working', 'pending'].includes(String(other.status))) return { fileId: String(h.fileId), fileName: String(other.fileName ?? '') }
+    }
+    tx.set(ref, { fileId, at: new Date().toISOString() })
+    return null
+  })
+}
 
 // ─── 2. Analyze a few photos (the Import screen calls this repeatedly) ────────
 
@@ -189,6 +225,14 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
     let reserved = RESERVE_USD
     try {
       const jpeg = await fetchPhoto({ id: item.fileId, name: item.fileName, folder: item.folder, mimeType: item.mimeType, thumbnailLink: item.thumbnailLink, resourceKey: item.resourceKey })
+      // Owner, Nov 4: an EXACT copy of a photo already imported is skipped by itself (before the AI, so it costs nothing).
+      const copyOf = await claimPhotoHash(jpeg, item.fileId)
+      if (copyOf) {
+        await BUDGET().set({ spentUsd: FieldValue.increment(-reserved) }, { merge: true })
+        reserved = 0
+        await finish('skipped', { duplicateOf: copyOf.fileId, duplicateName: copyOf.fileName, skippedBy: 'exact copy', skippedAt: new Date().toISOString() })
+        return
+      }
       const path = `items/imported/${item.fileId}.jpg`
       const token = randomUUID()
       await bucket.file(path).save(jpeg, { contentType: 'image/jpeg', metadata: { metadata: { firebaseStorageDownloadTokens: token } } })

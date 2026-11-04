@@ -86,5 +86,5 @@ export const askApp = httpsCallable<{ question: string; history?: string[] }, Ap
 // card or button. It can't do anything itself. { fallback: true } = no AI right now; the chat answers on its own.
 export type ChatAction = 'reply' | 'times' | 'props' | 'help' | 'status' | 'plan' | 'cancel' | 'move' | 'swap' | 'offsite' | 'return' | 'report' | 'pickup' | 'take_gear' | 'strikes' | 'requests'
 export interface ChatTurn { action: ChatAction; reply: string; shoot?: string; query?: string; steps: string[]; screens: string[]; chips: string[]; links: { path: string; label: string }[] }
-export interface ChatStateIn { shoots: { id: string; label: string; status: string }[]; out: { props: number; gear: string[] }; paused?: string; strikes?: number }
+export interface ChatStateIn { shoots: { id: string; label: string; status: string }[]; out: { props: number; gear: string[] }; paused?: string; strikes?: number; plan?: { step: string; shoot?: string } }
 export const askChat = httpsCallable<{ message: string; history: { who: 'me' | 'bot'; text: string }[]; state: ChatStateIn }, ChatTurn | { fallback: true }>(functions, 'askChat', { timeout: 60_000 })

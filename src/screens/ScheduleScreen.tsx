@@ -1,8 +1,9 @@
+import { secondaryBtn } from '../components/ChatCard'
 import { Icon } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
 import GuidelinePicker from '../components/GuidelinePicker'
 import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
-import { SwapAsk, InviteAsk } from '../components/ScheduleAsks'
+import { SwapAsk, InviteAsk, DayLineup } from '../components/ScheduleAsks'
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
 import MyRequestsButton from '../components/MyRequestsButton'
@@ -560,6 +561,8 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [lineup, setLineup] = useState(false)
+  const [showHist, setShowHist] = useState(false)
   const now = nowStamp()
   if (shoot === undefined) return <BottomSheet open onClose={onClose}><p className="text-pt-muted text-sm">Loading…</p></BottomSheet>
   if (shoot === null) return <BottomSheet open onClose={onClose}><p className="text-pt-muted text-sm">This shoot can't be opened.</p></BottomSheet>
@@ -592,9 +595,11 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
               {shoot.status === 'requested' ? <Pill tone="warn">Waiting for approval</Pill> : shoot.status === 'booked' ? <Pill tone="free">Approved</Pill>
                 : <Pill tone="taken">{shoot.status === 'denied' ? 'Not approved' : shoot.status === 'expired' ? 'Ran out' : 'Cancelled'}</Pill>}
               {(MONTHLY_SLOTS_ON || shoot.kind === 'offsite') && <Pill tone="muted">{shoot.kind === 'monthly' ? 'Monthly slot' : shoot.kind === 'offsite' ? 'Offsite' : 'Extra slot'}</Pill>}
+              {isLive(shoot) && <button onClick={() => setLineup(v => !v)} aria-expanded={lineup} className="tap inline-flex items-center gap-1 text-pt-accent text-sm">{lineup ? 'Hide calendar' : 'See in calendar'} ›</button>}
             </div>
           </div>
         </div>
+        {lineup && <DayLineup date={shoot.date} shootId={id} />}
         {sent && mine && (
           <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text">
             <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : 'The arts team has your props request. Add gear below if you need it.'}
@@ -614,23 +619,27 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         )}
         {(canMove || canSwap) && (
           <div className="flex gap-2">
-            {canMove && <button onClick={() => onMove(shoot)} className="flex-1 bg-pt-border text-pt-text font-semibold rounded-xl py-3">Move</button>}
-            {canSwap && <button onClick={() => onSwap(shoot)} className="flex-1 bg-pt-border text-pt-text font-semibold rounded-xl py-3">Swap with someone</button>}
+            {canMove && <button onClick={() => onMove(shoot)} className={`flex-1 ${secondaryBtn}`}>Move</button>}
+            {canSwap && <button onClick={() => onSwap(shoot)} className={`flex-1 ${secondaryBtn}`}>Swap</button>}
           </div>
         )}
         <div>
-          <p className="text-pt-muted text-xs mb-1">History</p>
-          <ol className="bg-pt-bg rounded-xl divide-y divide-white/[0.06]">
+          {/* Folded away (owner, Nov 4: the shoot page should match the rest; history is rarely needed). */}
+          <button onClick={() => setShowHist(v => !v)} aria-expanded={showHist} className="w-full min-h-[44px] flex items-center gap-2 px-1 text-left">
+            <span className="text-pt-muted text-[14px] font-semibold">History</span><span className="text-pt-muted/70 text-[14px]">· {shoot.history.length}</span>
+            <span className={`ml-auto text-pt-muted transition-transform ${showHist ? 'rotate-90' : ''}`} aria-hidden>›</span>
+          </button>
+          {showHist && <ol className="bg-white/[0.05] rounded-[20px] divide-y divide-white/[0.06]">
             {shoot.history.map((h, i) => (
               <li key={i} className="px-3 py-2 text-sm"><span className="text-pt-muted text-xs block">{new Date(h.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
                 <span className="text-pt-text">{actionLabel[h.action] ?? h.action}{h.note ? ` · ${h.note}` : ''}</span></li>
             ))}
-          </ol>
+          </ol>}
         </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {(role === 'owner' || role === 'equipment') && (shoot as Shoot & { calendarEventId?: string }).calendarEventId && <RedoImport shootId={id} onDone={onClose} />}
         {canCancel && !confirm && (
-          <button onClick={() => setConfirm(true)} className="w-full bg-red-500/15 text-red-300 font-semibold rounded-xl py-3">
+          <button onClick={() => setConfirm(true)} className="w-full min-h-[52px] rounded-2xl bg-red-500/15 text-red-300 font-semibold text-[16px]">
             {team && !mine ? 'Cancel their shoot (no strike)' : noShow ? 'Cancel (counts as a no-show)' : 'Cancel this shoot'}</button>
         )}
         {canCancel && confirm && (

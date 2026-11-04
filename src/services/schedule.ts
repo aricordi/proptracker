@@ -78,6 +78,26 @@ export function useShoot(id: string | null): Shoot | null | undefined {
 export type Guideline = { url: string; name: string }
 export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
 export const redoCalendarImport = httpsCallable<{ shootId: string }, { removed: number; eventId: string }>(functions, 'redoCalendarImport')
+// Requests → Calendar (owner, Nov 4): Google Calendar imports waiting for the equipment team to check.
+export interface QueueItem {
+  id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean; calendar: string
+  kind: 'new' | 'changed' | 'removed'; placed: boolean; message?: string; problem?: string; at: string
+  was?: { date: string; startMin: number; endMin: number; title: string }
+  guess: { action?: string; email?: string; emails?: string[]; house?: string; type?: BlockType; soft?: boolean }
+  result: { action?: string; email?: string; emails?: string[]; house?: string; shootIds?: string[]; blockId?: string; type?: BlockType; soft?: boolean; clashWith?: string[] }
+}
+export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
+  const [list, setList] = useState<QueueItem[] | null>(null)
+  useEffect(() => {
+    if (!enabled) { setList([]); return }
+    return onSnapshot(query(collection(db, 'calendar_queue'), where('status', '==', 'waiting')),
+      snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() }) as QueueItem).sort((a, b) => a.date.localeCompare(b.date) || a.startMin - b.startMin)),
+      () => setList([]))
+  }, [enabled])
+  return list
+}
+export type QueueFix = { action: 'shoot' | 'block'; emails: string[]; house: string; type: BlockType; soft: boolean }
+export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport')
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')

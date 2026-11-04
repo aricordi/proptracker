@@ -35,3 +35,13 @@ describe('the previous search from the phone', () => {
     expect(Object.keys(a).sort()).toEqual(['from', 'houses', 'mySlots', 'people', 'timeOfDay', 'to'])
   })
 })
+
+import { safeRich } from '../../functions/src/gemini'
+describe('safeRich (chat formatting, Nov 4)', () => {
+  it('keeps bold, line breaks and short lists', () => {
+    expect(safeRich('Got you for **Thursday**.\n\n\n* 5 PM at Cliff 1\n2. 7 PM at Cliff 2', 400)).toBe('Got you for **Thursday**.\n\n- 5 PM at Cliff 1\n- 7 PM at Cliff 2')
+  })
+  it('still strips links, markup and unpaired stars', () => {
+    expect(safeRich('See **this https://evil.com <b>x</b>', 400)).toBe('See this bx/b')
+  })
+})

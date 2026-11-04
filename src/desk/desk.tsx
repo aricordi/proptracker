@@ -2,6 +2,7 @@
 // the admin analytics page as well"). On a laptop-size screen (≥ 1100 px wide) the owner, the equipment team and admins get a
 // sidebar instead of the phone tab bar, and the pages built for it (Requests & schedule, Analytics) use the full width.
 // Every other page stays phone-width in the middle. Phones and tablets are unchanged. "Use the phone layout" turns it off.
+import { useCalendarQueue } from '../services/schedule'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
@@ -99,8 +100,9 @@ const NAV: Record<string, (Item | '-')[]> = {
 }
 
 export function DeskSidebar() {
-  const { role, profile } = useSession()
-  const waiting = useWaitingCount(true)
+  const { role, profile, isGearStaff } = useSession()
+  // Booking requests + Google Calendar events to check (Requests → Google Calendar tab).
+  const waiting = useWaitingCount(true) + (useCalendarQueue(isGearStaff)?.length ?? 0)
   const path = useLocation().pathname
   const items = NAV[role] ?? []
   const on = (it: Item) => it.to === '/' ? path === '/' : path === it.to || path.startsWith(it.to + '/') || (it.also ?? []).some(a => path.startsWith(a))

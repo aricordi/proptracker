@@ -284,6 +284,24 @@ export function safeText(v: unknown, max: number): string {
     .slice(0, max)
 }
 
+// Like safeText, but keeps the little formatting the chat shows (owner, Nov 4: "formatting like Claude uses"): **bold**,
+// line breaks, and lines starting with "- " (a short list). Everything else is cleaned the same way. At most 8 lines.
+export function safeRich(v: unknown, max: number): string {
+  if (typeof v !== 'string') return ''
+  const BOLD = '\uE000'
+  const lines = v.replace(/\r/g, '').split('\n').map(l => {
+    const bullet = /^\s*([-•*]|\d+[.)])\s+/.test(l)
+    const body = l.replace(/^\s*([-•*]|\d+[.)])\s+/, '').replace(/\*\*/g, BOLD)
+    const clean = safeText(body, max).replace(new RegExp(BOLD, 'g'), '**')
+    // Unpaired ** would show as stars: drop them.
+    const even = (clean.match(/\*\*/g)?.length ?? 0) % 2 === 0 ? clean : clean.replace(/\*\*/g, '')
+    return even ? (bullet ? `- ${even}` : even) : ''
+  })
+  const out: string[] = []
+  for (const l of lines) if (l || (out.length && out[out.length - 1])) out.push(l)   // no double blank lines
+  return out.slice(0, 8).join('\n').trim().slice(0, max)
+}
+
 // What a person typed, made safe to put inside a prompt as data: no control characters,
 // no way to fake the end of the data block, limited length.
 export function asData(v: string, max: number) {

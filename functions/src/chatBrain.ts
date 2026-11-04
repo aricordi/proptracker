@@ -13,7 +13,7 @@
 //  - Role limits: Props-only creators get prop ideas + how-to only; staff who don't book get how-to only.
 //  - It's an interface, not a companion: warm and personable (a line of small talk is fine), always back on task; off-topic gets one friendly line back to the app.
 // Pure (no Firebase): used by askChat in assistant.ts and unit-tested in tests/unit/chatBrain.test.ts.
-import { safeText, asData } from './gemini.js'
+import { safeText, safeRich, asData } from './gemini.js'
 import type { GuideEntry, GuideRole } from './appGuide.js'
 
 export const CHAT_ACTIONS = {
@@ -48,6 +48,8 @@ export interface ChatState {
   out: { props: number; gear: string[] }
   paused?: string
   strikes?: number
+  // Owner, Nov 4: "keep the steps in the backend and let the creator just chat". Where they are in Plan my shoot.
+  plan?: { step: 'time' | 'props' | 'gear' | 'review'; shoot?: string }
 }
 const STATUSES = ['requested', 'booked', 'checked-in', 'filmed']
 /** The phone's summary of the person's own things, cleaned (it only ever shapes their own reply). */
@@ -65,6 +67,8 @@ export function cleanState(v: unknown): ChatState {
     out: { props: Math.max(0, Math.min(50, Math.round(Number(out.props) || 0))), gear: (Array.isArray(out.gear) ? out.gear : []).slice(0, 8).map(g => safeText(g, 50)).filter(Boolean) },
     ...(typeof o.paused === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.paused) ? { paused: o.paused } : {}),
     ...(Number.isFinite(Number(o.strikes)) && Number(o.strikes) > 0 ? { strikes: Math.min(20, Math.round(Number(o.strikes))) } : {}),
+    ...(o.plan && typeof o.plan === 'object' && ['time', 'props', 'gear', 'review'].includes(String((o.plan as Record<string, unknown>).step))
+      ? { plan: { step: String((o.plan as Record<string, unknown>).step) as 'time', ...(shoots.some(x => x.id === (o.plan as Record<string, unknown>).shoot) ? { shoot: String((o.plan as Record<string, unknown>).shoot) } : {}) } } : {}),
   }
 }
 
@@ -88,6 +92,10 @@ export function chatPrompt(p: {
     `Their shoots coming up: ${st.shoots.length ? st.shoots.map(s => `${s.id} = ${s.label} (${s.status === 'requested' ? 'waiting for approval' : s.status})`).join('; ') : 'none'}.`,
     `Out on their name: ${st.out.props ? `${st.out.props} props request(s)` : 'no props'}; ${st.out.gear.length ? `gear: ${st.out.gear.join(', ')}` : 'no gear'}.`,
     st.paused ? `Prop requests paused until ${st.paused}.` : st.strikes ? `${st.strikes} strike(s) recently.` : 'No strikes.',
+    ...(st.plan ? [`They are planning a shoot step by step (the app keeps track of the steps; the person just chats). Current step: ${
+      st.plan.step === 'time' ? 'finding a time to film' : st.plan.step === 'props' ? `finding props${st.plan.shoot ? ` for shoot ${st.plan.shoot}` : ''}` : st.plan.step === 'gear' ? 'gear' : 'reviewing what they picked'}.
+If their message gives what this step needs, in any words (a day or time → "times"; what the video is about, a vibe, a scene, an item → "props"${st.plan.shoot ? ' with that shoot' : ''}), pick that action.
+If they say something else (a question, a change of plan, small talk), answer it with the right action; never refuse or tell them to follow the steps, and gently bring them back to the step in your reply.`] : []),
   ].join('\n') : 'Not a booker: no shoots.'
   const system = `You are the chat inside "Prime Capitol", the studio app of a YouTube/comedy production company in Canada.
 Creators book 2-hour filming slots at two houses (Cliff 1 and Cliff 2) or film somewhere else; the schedule team approves bookings;
@@ -104,7 +112,10 @@ texting a creator you like working with: natural, upbeat, a little playful, spec
   ("First shoot of the month, let's go").
 - If one quick question would make your help better (which day, how many people, the vibe), ask it, like a PA would.
 - Vary how you start; never open two replies the same way. Contractions and plain words; no corporate filler ("I can help with
-  that", "Here's what I can do", "Certainly"), no menus or lists of options, no repeating what the screen already shows.
+  that", "Here's what I can do", "Certainly"), no menus of what you can do, no repeating what the screen already shows.
+- FORMAT so it's easy to read on a phone: put the key fact in **bold** (a day, a time, a house, a deadline). When you list
+  2-4 things (steps, options you found, what's still missing), put each on its own line starting with "- " after a short
+  first sentence. Otherwise plain sentences, no headings. Use line breaks (\n) between a sentence and a list.
 - 1-4 short sentences, max 400 characters. One emoji at most, only when it feels natural. Light humour is welcome; never at
   anyone's expense. No opinions about people, no prying personal questions, never "as an AI". Friendly colleague, not a
   therapist or a best friend: always circling back to the shoot.
@@ -152,7 +163,7 @@ export interface ChatTurn {
 export function cleanTurn(raw: Record<string, unknown>, o: { allowed: ChatAction[]; shootIds: string[]; screenIds: string[] }): ChatTurn | null {
   let action = (typeof raw.action === 'string' ? raw.action.trim().toLowerCase() : '') as ChatAction
   if (!o.allowed.includes(action)) action = 'reply'
-  const reply = safeText(raw.reply, 420)
+  const reply = safeRich(raw.reply, 420)
   const query = safeText(raw.query, 300)
   const shoot = typeof raw.shoot === 'string' && o.shootIds.includes(raw.shoot) ? raw.shoot : undefined
   const list = (v: unknown, n: number, max: number) => (Array.isArray(v) ? v : []).map(x => safeText(x, max)).filter(Boolean).slice(0, n)

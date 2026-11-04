@@ -74,6 +74,37 @@ export function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string; urge
   )
 }
 
+// "See in calendar" on Your shoot (owner, Nov 4): the whole day at both houses, your shoot in gold, so you can see who
+// films before and after you. Names only (the schedule is visible to every creator anyway).
+export function DayLineup({ date, shootId }: { date: string; shootId: string }) {
+  const s = useScheduleSettings()
+  const days = useScheduleDays(date, date)
+  const day = days?.[date]
+  if (days === null) return <p className="text-pt-muted text-sm">Loading the day…</p>
+  const cell = (h: 'cliff1' | 'cliff2', start: number) => {
+    const e = day?.[h]?.[slotKey(start)]
+    const you = !!e?.shootId && e.shootId === shootId
+    const block = (day?.blocks ?? []).find(b => !b.soft && b.house === h && b.start < start + s.slotMinutes && b.end > start)
+    const text = you ? 'You' : e?.shootId ? `${e.name}${e.pending ? ' (asked)' : ''}` : e?.hold ? `Held · ${e.name}` : block ? (block.note || 'Blocked') : ''
+    const cls = you ? 'bg-pt-accent text-stone-900 font-bold' : e?.shootId || e?.hold ? 'bg-pt-surface text-pt-text' : block ? 'bg-pt-surface text-pt-muted' : 'text-pt-muted/50'
+    return <span key={h} className={`flex-1 min-w-0 truncate rounded-lg px-2 py-1.5 text-[14px] text-center ${cls}`}>{text || 'Free'}</span>
+  }
+  const offsite = day?.offsite ?? []
+  return (
+    <div className="rounded-xl bg-pt-bg/60 p-2 space-y-1">
+      <p className="text-[14px] text-pt-muted px-1 pb-1">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} at the houses</p>
+      <div className="flex gap-1.5 pl-[62px] text-[12px] text-pt-muted">{HOUSES.map(h => <span key={h} className="flex-1 text-center">{s.houses[h].name}</span>)}</div>
+      {s.slots.map(start => (
+        <div key={start} className="flex items-center gap-1.5">
+          <span className="w-[56px] shrink-0 text-[12px] text-pt-muted tabular-nums">{fmtTime(start)}</span>
+          {HOUSES.map(h => cell(h, start))}
+        </div>
+      ))}
+      {offsite.length > 0 && <p className="text-[12px] text-pt-muted px-1 pt-1">Offsite that day: {offsite.map(o => o.shootId === shootId ? 'You' : o.name).join(', ')}</p>}
+    </div>
+  )
+}
+
 // What the day you'd get looks like after the swap (owner, Nov 3: "who else would be filming that day"): both houses,
 // every slot, your new slot in gold, the one you give away marked when it's the same day.
 function SwapPreview({ r }: { r: SwapRequest }) {

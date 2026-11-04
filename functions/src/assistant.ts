@@ -11,11 +11,12 @@ import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, 
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
 import { INVITE_HOLD_MINUTES, cleanScheduleSettings, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
-import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, asData } from './gemini.js'
+import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, safeRich, asData } from './gemini.js'
 import { loadSettings } from './reservations.js'
 import { guideFor, searchGuide, TABS, type GuideRole } from './appGuide.js'
 import { actionsFor, chatPrompt, cleanState, cleanHistory, cleanTurn } from './chatBrain.js'
 import { plainNeeds, rankedPicks, signalsFrom, goesWith, type Pick, type PropSignals, isFilmGear } from './ideaHelpers.js'
+import { aiSkips, NOT_A_PROP } from './filmGear.js'
 
 // What creators actually request, as totals (see ideaHelpers.ts). Read at most every 10 minutes per server copy.
 let signalCache: { at: number; s: PropSignals } | null = null
@@ -35,6 +36,7 @@ async function myRecentVideos(email: string): Promise<string[]> {
 }
 const usable = (x: FirebaseFirestore.DocumentSnapshot) => x.exists && x.get('archived') !== true && collectionOf(x.data()) === 'company'
   && x.get('condition') !== 'damaged' && x.get('status') !== 'damaged'   // (old records say damaged in `status`)
+  && !aiSkips(x.data())   // never batteries, cables, Tech props or supplies (owner, Nov 4)
   && Number(x.get('quantity') ?? 1) - Number(x.get('missingQty') ?? 0) > 0
 
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
@@ -139,6 +141,8 @@ This creator only has the props catalogue for now: suggest props, costumes and s
 never mention booking, schedules, dates or times.` : !gearOn ? `
 Suggest props, costumes and set dressing ONLY. Never suggest filming equipment (cameras, lenses, lights, microphones,
 sound, tripods, gimbals, drones, batteries): the equipment team handles that separately on the shoot day.` : ''}
+
+Never suggest batteries, cables, chargers, adapters, tape or other supplies: they aren't props for a video.
 Write "reply", "why" and "chips" in the language the creator writes in; keep item names in English (the catalogue is English).`
   let cost = 0, fallback = false
   const [signals, mine] = await Promise.all([propSignals().catch(() => signalsFrom([])), demo ? Promise.resolve([] as string[]) : myRecentVideos(caller.email)])
@@ -178,7 +182,7 @@ Not about props for a video at all (e.g. homework, a recipe, chat) → {"reply":
       }
       if (got.length) {
         needs = got
-        reply = safeText(r!.data.reply, 220)
+        reply = safeRich(r!.data.reply, 260)
         chips = (Array.isArray(r!.data.chips) ? r!.data.chips : []).map((x: unknown) => safeText(x, 40)).filter(Boolean).slice(0, 3)
       } else fallback = true   // AI busy, refused or empty: search the idea itself
     }
@@ -264,7 +268,7 @@ on the shortlist (0-4). Empty answer: {"groups":[],"missing":[]}.`,
     const known = new Set(searched.map(x => x.toLowerCase()))
     const missing = (Array.isArray(data.missing) ? data.missing : []).slice(0, 4)
       .map((m: any) => ({ name: safeText(m?.name, 60), why: safeText(m?.why, 90) }))
-      .filter((m: { name: string }) => m.name && !known.has(m.name.toLowerCase()) && !pickedNames.has(m.name.toLowerCase()) && (gearOn || !isFilmGear(m.name)))
+      .filter((m: { name: string }) => m.name && !known.has(m.name.toLowerCase()) && !pickedNames.has(m.name.toLowerCase()) && (gearOn || !isFilmGear(m.name)) && !NOT_A_PROP.test(m.name))
     if (fallback && !reply) reply = groups.length ? 'Here are the closest matches in the closet.' : ''
     return { groups, missing, searched: phrases, reply, chips, ...(fallback ? { fallback: true } : {}) }
   } finally { await settle(cost) }
@@ -426,7 +430,7 @@ Return ONLY {"answer":"...","steps":["..."],"screens":["id"]}.`,
       user: `${history.length ? `EARLIER QUESTIONS:\n${history.map(h => `<creator_text>${asData(h, 200)}</creator_text>`).join('\n')}\nQUESTION:\n` : ''}<creator_text>${asData(question, 300)}</creator_text>`,
     }, 600, 0.2).catch(e => { logger.warn('askApp failed', String(e)); return null })
     if (r) cost = r.costUsd
-    const answer = r && !r.blocked ? safeText(r.data.answer, 400) : ''
+    const answer = r && !r.blocked ? safeRich(r.data.answer, 400) : ''
     if (!answer) return plain()
     return {
       answer,

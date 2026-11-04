@@ -2081,6 +2081,28 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       deletes calendar_imports/<id> → the event shows as new again; shoot sheet "Redo this import" (team, imported shoots).
       "Read server logs" has an optional `day` input → `.github/scripts/day_dump.py` (read only: that day's slots, blocks,
       clashes, calendar imports). Tests 622.
+    - CALENDAR TAB + ROUND (owner, Nov 4; NOT deployed: backend (new callable reviewcalendarimport in deploy/log lists) + SECURITY
+      RULES (calendar_queue: isGearStaff read) + website, ask). (1) Requests has tabs Bookings | Google Calendar (owner + equipment;
+      ?tab=calendar; RequestTabs in ApprovalsScreen, desk too; sidebar badge adds the count). runCalendarCheck now applies EVERY new
+      event it can read (shoot with a person, or block) + changed + removed with applyImports(…, {toCheck: true}): shoots get
+      toCheck + told:false (pushes held: pushMessages `if (a.toCheck) return []`), blocks toCheck; one `calendar_queue/{eventId}`
+      card each {kind new|changed|removed, placed, result {action, shootIds, emails, house, blockId, soft, clashWith}, status
+      waiting|confirmed|skipped}; unreadable events wait unplaced; push 'Google Calendar: to check' to gear-team for new cards.
+      `reviewCalendarImport({id, action confirm|fix|skip, fix})` (owner+equipment) → settleQueue: clears toCheck, history
+      'import-confirmed' (note kind) → push "You have a new shoot" (told false) / "Your shoot changed" / "cancelled" (only if told).
+      The import screen also settles cards (a person chose). redo deletes the card. `src/components/CalendarQueue.tsx` (cards +
+      FixSheet; people from app_settings/calendarCheck.people). (2) AI never suggests Tech props (category 'gear'), supplies, batteries,
+      cables, chargers, adapters, tape (`aiSkips`/NOT_A_PROP in filmGear.ts, in assistant.ts usable + missing filter + prompt).
+      (3) Photo import skips EXACT copies: md5 of the shrunk JPEG in `import_hashes/{md5}` (claimPhotoHash, before the AI; refunds
+      the reservation; status skipped + duplicateOf/duplicateName); old imports backfilled once from Storage md5 (app_settings/import
+      .hashesAt). (4) Shoot page "See in calendar" (DayLineup in ScheduleAsks.tsx). (5) MonthGrid: bar = one segment per slot (lit =
+      free at either house), date bigger than "N free", own days gold tint, today white circle, legend. (6) Chat replies may use
+      **bold** + "- " lists (safeRich in gemini.ts, RichText.tsx renders with React elements only). (7) Plan my shoot messages go
+      through askChat too (ChatState.plan {step, shoot}); the AI picks the step's action from free words, never refuses.
+      (8) Chat "Coming up" folds (pc.comingUpOpen). (9) Shoot page polish: 20px cards, 18px titles, cutoffs on their own lines,
+      44px + Add pill, 52px Move/Swap/Cancel, History folded. (10) confirmPickup `forCreator` (staff marks picked up for the creator,
+      pickup.byStaff; StaffPickup button on packed requests) — likely cause of the owner's "stuck in limbo" requests.
+      (11) Creators list/analytics include Props-only creators (creatorPeople = every active creator + owner). Tests 628.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

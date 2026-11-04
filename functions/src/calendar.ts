@@ -10,6 +10,7 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
+import { FieldValue } from 'firebase-admin/firestore'
 import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
@@ -452,14 +453,20 @@ async function removeImportedBlock(date: string, blockId: string) {
 export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'])
   const list = Array.isArray(req.data?.items) ? req.data.items.slice(0, 500) : []
-  return { results: await applyImports(list, caller.email) }
+  // A person chose on the import screen = checked: anything waiting in the Calendar tab for these events is done.
+  const results = await applyImports(list, caller.email, { toCheck: true })
+  for (const r of results) if (r.ok) await settleQueue(r.id, caller.email, 'confirmed', r.saved).catch(e => logger.warn('settle', String(e)))
+  return { results: results.map(({ saved, ...r }) => r) }   // eslint-disable-line @typescript-eslint/no-unused-vars
 })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function applyImports(list: any[], by: string) {
+// opts.toCheck (the automatic check): everything it puts on the schedule is marked "to check" and waits in the equipment
+// team's Calendar tab; creators aren't told until it's confirmed there (owner, Nov 4).
+async function applyImports(list: any[], by: string, opts: { toCheck?: boolean } = {}) {
   const caller = { email: by }
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-  const results: { id: string; ok: boolean; message?: string }[] = []
+  const check = opts.toCheck ? { toCheck: true } : {}
+  const results: { id: string; ok: boolean; message?: string; saved?: Record<string, unknown> }[] = []
   for (const it of list) {
     const id = String(it?.id ?? '').slice(0, 200)
     if (!id) continue
@@ -474,7 +481,7 @@ async function applyImports(list: any[], by: string) {
       // Take the app's earlier copy off the schedule when the event became something else or was deleted.
       const dropOld = async () => {
         if (it.action !== 'shoot' || multi || (Array.isArray(was?.shootIds) && was.shootIds.length > 1))
-          for (const sid of oldShootIds) await removeImportedShoot(sid, caller.email)
+          for (const sid of oldShootIds) await removeImportedShoot(sid, caller.email, !!opts.toCheck)
         if (was?.blockId && was.date) await removeImportedBlock(was.date, was.blockId)
       }
       const startMin = Number(it.start) || 0
@@ -484,7 +491,7 @@ async function applyImports(list: any[], by: string) {
       if (it.action === 'remove' || it.action === 'keep') {
         if (it.action === 'remove') await dropOld()
         await db.doc(`calendar_imports/${id}`).set({ ...(was ?? {}), removed: it.action === 'remove', at: new Date().toISOString(), by: caller.email })
-        results.push({ id, ok: true }); continue
+        results.push({ id, ok: true, saved: { action: it.action, shootIds: oldShootIds, blockId: was?.blockId ?? '', house: was?.house ?? '', emails: was?.emails ?? (was?.email ? [was.email] : []) } }); continue
       }
       await dropOld()
       let saved: Record<string, unknown> = {}
@@ -504,7 +511,7 @@ async function applyImports(list: any[], by: string) {
         for (let i = 0; i < users.length; i++) {
           const part = parts[i] ?? parts[parts.length - 1]
           const r = await importShootAsTeam({ place, date: String(it.date), start: part.start, end: part.end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
-            users[i], caller.email, { calendarEventId: id, importedFrom: 'google-calendar', ...(multi ? { sharedBooking: { with: users.filter((_, j) => j !== i).map(u => u.name), turn: i + 1, of: users.length } } : {}) },
+            users[i], caller.email, { calendarEventId: id, importedFrom: 'google-calendar', ...check, ...(multi ? { sharedBooking: { with: users.filter((_, j) => j !== i).map(u => u.name), turn: i + 1, of: users.length } } : {}) },
             !multi && oldShootIds.length === 1 ? oldShootIds[0] : undefined)
           ids.push(r.id)
           clash.push(...r.clashWith.filter(n => !users.some(u => u.name === n)))
@@ -532,7 +539,7 @@ async function applyImports(list: any[], by: string) {
           hit.splice(0, hit.length, ...under.map(([, e]) => ({ name: e.name, email: e.email })))
           const clashes = [...(day.clashes ?? []).filter(c => c.blockId !== blockId),
             ...under.map(([k, e]) => ({ house, slot: k, shootId: e.shootId, name: note || BLOCK_TYPES[type], email: e.email ?? '', start, end, blockId }))]
-          tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true, ...(soft ? { soft: true } : {}) }] }, { merge: true })
+          tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true, ...(soft ? { soft: true } : {}), ...check }] }, { merge: true })
         })
         if (hit.length) {
           clash = hit.map(h => h.name)
@@ -546,31 +553,63 @@ async function applyImports(list: any[], by: string) {
       }
       // Remember the event as it is now, so the next import can tell if it changed in Google Calendar.
       await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', ...snapshot, ...saved, at: new Date().toISOString(), by: caller.email })
-      results.push({ id, ok: true, ...(clash.length ? { message: `Imported · CLASH with ${clash.join(', ')}` } : {}) })
+      results.push({ id, ok: true, saved: { action: it.action, ...saved }, ...(clash.length ? { message: `Imported · CLASH with ${clash.join(', ')}` } : {}) })
     } catch (e) { results.push({ id, ok: false, message: (e as Error).message }) }
   }
   return results
 }
 
-// Every 15 minutes (owner, Oct 19; Cloud Scheduler, 3rd job, within the free 3): read the shared calendar. Events that
-// were imported and then CHANGED or DELETED in Google Calendar (by a person) are mirrored in the app straight away.
-// NEW events need a person to say who/which house, so they only wait on the import screen (counted for the banner).
-// Never writes anything to Google Calendar.
+// Every 15 minutes (owner, Oct 19; Cloud Scheduler): read every calendar (never writes to Google).
+// Owner, Nov 4: EVERY import waits in the equipment team's Calendar tab (Requests), like booking requests:
+// - events the app can read (a shoot for someone it recognises, or a block / heads-up) go on the schedule straight away,
+//   so nobody books over them, marked "to check"; creators are only told once the team confirms them;
+// - events changed or deleted in Google are followed the same way (to check);
+// - events it can't read (nobody named, no house) wait there unplaced for the team to say what they are.
+const placeable = (g: { action?: string; email?: string; emails?: string[] }) => g.action === 'block' || (g.action === 'shoot' && !!(g.emails?.length || g.email))
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const asItem = (e: any, g: any = e.guess) => e.kind === 'removed'
+  ? { id: e.id, action: 'remove', date: e.date }
+  : { id: e.id, action: g.action, email: g.email ?? g.emails?.[0] ?? '', emails: g.emails ?? (g.email ? [g.email] : []), house: g.house, type: g.type, soft: g.soft === true,
+      date: e.date, start: e.startMin, end: e.endMin, title: e.title, location: e.location, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay }
+
 export async function runCalendarCheck() {
   const cals = await sources()
   if (!cals.length) return null
   const status = db.doc('app_settings/calendarCheck')
   try {
-    const { events } = await scanCalendar(cals) as { events: any[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
-    // Changes and deletions of imported events, plus NEW events that are clear (owner, Nov 1); unclear ones wait.
-    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && e.guess.sure)).map(e => e.kind === 'removed'
-      ? { id: e.id, action: 'remove', date: e.date }
-      : { id: e.id, action: e.guess.action, email: e.guess.email, emails: e.guess.emails, house: e.guess.house, type: e.guess.type, soft: e.guess.soft === true, date: e.date, start: e.startMin, end: e.endMin, title: e.title, location: e.location, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay })
-    const results = auto.length ? await applyImports(auto, 'calendar check') : []
-    const out = { at: new Date().toISOString(), newEvents: events.filter(e => e.kind === 'new' && !e.guess.sure).length,
-      broughtIn: auto.filter((a, i) => events.find(e => e.id === a.id)?.kind === 'new' && results[i]?.ok).length,
-      changed: auto.filter(a => events.find(e => e.id === a.id)?.kind === 'changed').length, removed: auto.filter(a => a.action === 'remove').length,
-      failed: results.filter(r => !r.ok).map(r => `${r.id}: ${r.message ?? ''}`).slice(0, 10), error: '' }
+    const { events, people } = await scanCalendar(cals) as { events: any[]; people: { email: string; name: string }[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
+    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && placeable(e.guess)))
+    const unclear = events.filter(e => e.kind === 'new' && !placeable(e.guess))
+    const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true }) : []
+    // The queue (calendar_queue/{eventId}): one card per event, until the team confirms, fixes or skips it.
+    const waiting = new Map((await db.collection('calendar_queue').where('status', '==', 'waiting').get()).docs.map(d => [d.id, d.data()]))
+    const at = new Date().toISOString()
+    const fresh: string[] = []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const put = async (e: any, extra: Record<string, unknown>) => {
+      const prev = waiting.get(e.id)
+      if (!prev) fresh.push(e.id)
+      // (JSON round trip: Firestore refuses undefined values, e.g. a changed event's old type.)
+      await db.doc(`calendar_queue/${e.id}`).set(JSON.parse(JSON.stringify({
+        title: e.title ?? '', location: e.location ?? '', date: e.date, startMin: e.startMin ?? 0, endMin: e.endMin ?? 0, allDay: !!e.allDay,
+        calendar: e.calendar ?? '', feedId: e.feedId ?? '', kind: prev?.kind === 'new' ? 'new' : e.kind, guess: e.guess ?? {}, ...(e.was ? { was: e.was } : {}),
+        ...(e.wasAction ? { wasAction: e.wasAction } : {}), status: 'waiting', at: prev?.at ?? at, updatedAt: at, ...extra,
+      })))
+    }
+    for (let i = 0; i < auto.length; i++) {
+      const r = results[i]
+      await put(auto[i], { placed: !!r?.ok, result: r?.saved ?? {}, message: r?.message ?? (r?.ok ? '' : 'Could not place it'), ...(r?.ok ? {} : { problem: r?.message ?? '' }) })
+    }
+    for (const e of unclear) await put(e, { placed: false, result: {}, message: '' })
+    // Unplaced cards whose event is gone from Google (or was handled on the import screen) leave the queue.
+    const stillNew = new Set(unclear.map(e => e.id))
+    for (const [id, q] of waiting) if (!q.placed && !stillNew.has(id) && !auto.some(e => e.id === id)) await db.doc(`calendar_queue/${id}`).delete()
+    if (fresh.length) await sendPush({ to: ['gear-team'], title: 'Google Calendar: to check', url: '/approvals?tab=calendar', tag: 'calendar-queue',
+      body: `${fresh.length} event${fresh.length === 1 ? '' : 's'} from Google Calendar to check. Open Requests → Calendar.` }).catch(() => 0)
+    const out = { at, newEvents: unclear.length, waiting: waiting.size + fresh.length,
+      broughtIn: auto.filter((e, i) => e.kind === 'new' && results[i]?.ok).length,
+      changed: auto.filter(e => e.kind === 'changed').length, removed: auto.filter(e => e.kind === 'removed').length,
+      failed: results.filter(r => !r.ok).map(r => `${r.id}: ${r.message ?? ''}`).slice(0, 10), error: '', people }
     await status.set(out)
     return out
   } catch (e) {
@@ -578,6 +617,69 @@ export async function runCalendarCheck() {
     throw e
   }
 }
+
+// Finish a card in the Calendar tab: the shoots and block it made stop being "to check", and the creators are told
+// (pushMessages: 'import-confirmed'). Also used when a person imports on the import screen.
+async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>) {
+  const qref = db.doc(`calendar_queue/${id}`)
+  const q = (await qref.get()).data()
+  const imp = (await db.doc(`calendar_imports/${id}`).get()).data()
+  const list = (x: unknown) => Array.isArray(x) ? x.map(String) : []
+  const ids = new Set([...list(saved?.shootIds), ...list(imp?.shootIds), ...(imp?.shootId ? [String(imp.shootId)] : []), ...list(q?.result?.shootIds)])
+  const at = new Date().toISOString()
+  const kind = String(q?.kind ?? 'new')
+  for (const sid of ids) {
+    const ref = db.doc(`shoots/${sid}`)
+    await db.runTransaction(async tx => {
+      const sh = (await tx.get(ref)).data()
+      if (!sh?.toCheck) return
+      tx.update(ref, { toCheck: FieldValue.delete(), told: true, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'import-confirmed', note: kind }) })
+    })
+  }
+  const date = String(imp?.date ?? q?.date ?? ''), blockId = String(saved?.blockId ?? imp?.blockId ?? q?.result?.blockId ?? '')
+  if (date && blockId) {
+    const ref = db.doc(`schedule_days/${date}`)
+    await db.runTransaction(async tx => {
+      const day = (await tx.get(ref)).data() as ScheduleDay | undefined
+      if (day?.blocks?.some(b => b.id === blockId && (b as { toCheck?: boolean }).toCheck))
+        tx.update(ref, { blocks: day.blocks.map(b => b.id === blockId ? (({ toCheck, ...rest }) => rest)(b as Block & { toCheck?: boolean }) : b) })   // eslint-disable-line @typescript-eslint/no-unused-vars
+    })
+  }
+  if (q) await qref.update({ status, doneBy: by, doneAt: at })
+}
+
+// The equipment team's answer to one card: confirm (looks right), fix (what it really is), or skip (not for the app).
+export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+  const caller = await requireRole(req, ['owner', 'equipment'])
+  const id = String(req.data?.id ?? '').slice(0, 200)
+  const action = String(req.data?.action ?? '')
+  const q = id ? (await db.doc(`calendar_queue/${id}`).get()).data() : undefined
+  if (!q || q.status !== 'waiting') throw new HttpsError('failed-precondition', 'Someone already handled this one.')
+  if (action === 'confirm') {
+    if (!q.placed) throw new HttpsError('failed-precondition', 'The app could not tell what this is. Tap Fix and choose.')
+    await settleQueue(id, caller.email, 'confirmed')
+    return { ok: true }
+  }
+  const base = { id, title: q.title, location: q.location, date: q.date, start: q.startMin, end: q.endMin, where: q.location || q.title, feedId: q.feedId, allDay: q.allDay }
+  if (action === 'skip') {
+    if (q.kind === 'removed') throw new HttpsError('failed-precondition', 'It was deleted in Google Calendar. Confirm, or add it back in Google Calendar.')
+    const [r] = await applyImports([{ ...base, action: 'skip' }], caller.email, { toCheck: true })
+    if (!r?.ok) throw new HttpsError('failed-precondition', r?.message ?? 'Could not skip it.')
+    await settleQueue(id, caller.email, 'skipped')
+    return { ok: true }
+  }
+  if (action === 'fix') {
+    const f = req.data?.fix ?? {}
+    if (!['shoot', 'block'].includes(f.action)) throw new HttpsError('invalid-argument', 'Choose a shoot, blocked time or a heads-up.')
+    const emails = (Array.isArray(f.emails) ? f.emails : []).map((e: unknown) => String(e).toLowerCase()).slice(0, 4)
+    const [r] = await applyImports([{ ...base, action: f.action, emails, email: emails[0] ?? '', house: f.house, type: f.type, soft: f.soft === true }], caller.email, { toCheck: true })
+    if (!r?.ok) throw new HttpsError('failed-precondition', r?.message ?? 'Could not import it.')
+    await settleQueue(id, caller.email, 'confirmed', r.saved)
+    return { ok: true, message: r.message ?? '' }
+  }
+  throw new HttpsError('invalid-argument', 'Unknown action.')
+})
+
 export const calendarCheck = onSchedule({ schedule: 'every 15 minutes', timeZone: 'America/Toronto', timeoutSeconds: 300 }, async () => {
   try { await runCalendarCheck() } catch (e) { logger.warn('Calendar check failed', String(e)) }
 })
@@ -596,6 +698,7 @@ export const redoCalendarImport = onCall(CALLABLE, async req => {
   for (const id of ids) await removeImportedShoot(id, caller.email)
   if (imp?.blockId && imp.date) await removeImportedBlock(String(imp.date), String(imp.blockId))
   await db.doc(`calendar_imports/${eventId}`).delete()
+  await db.doc(`calendar_queue/${eventId}`).delete()
   return { removed: ids.size, eventId }
 })
 

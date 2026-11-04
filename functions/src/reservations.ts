@@ -541,8 +541,10 @@ export const confirmPickup = onCall(CALLABLE, async req => {
 
   await db.runTransaction(async tx => {
     const r = await loadForUpdate(tx, req.data?.id)
-    // The point is the creator's own confirmation, so only they can sign.
-    if (r.res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Only the person who booked can confirm pickup.')
+    // The point is the creator's own confirmation, so normally only they sign. Owner, Nov 4: requests got stuck when the
+    // creator never signed, so the arts team can mark it collected FOR them (forCreator), recorded as signed by staff.
+    const forCreator = req.data?.forCreator === true && caller.isStaff && r.res.creatorEmail !== caller.email
+    if (r.res.creatorEmail !== caller.email && !forCreator) throw new HttpsError('permission-denied', 'Only the person who booked can confirm pickup.')
     requireStatus(r.res, ['packed'])
     const lineName = (id: string) => String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === id)?.itemName ?? 'a prop')
     const missing = missingIn.filter(m => (r.res.itemIds ?? []).includes(m.itemId)).map(m => ({ ...m, name: lineName(m.itemId) }))
@@ -552,9 +554,9 @@ export const confirmPickup = onCall(CALLABLE, async req => {
     markOut()
     tx.update(r.ref, {
       status: 'collected',
-      pickup: { at: now, by: caller.email, allReceived: allReceived && !missing.length, ...(issue ? { issue } : {}), ...(missing.length ? { missing } : {}) },
+      pickup: { at: now, by: caller.email, allReceived: allReceived && !missing.length, ...(forCreator ? { byStaff: true } : {}), ...(issue ? { issue } : {}), ...(missing.length ? { missing } : {}) },
       updatedAt: now,
-      history: historyWith(r.res, { status: 'collected', at: now, by: caller.email, ...(issue ? { reason: `Reported at pickup: ${issue}` } : {}) }),
+      history: historyWith(r.res, { status: 'collected', at: now, by: caller.email, ...(issue ? { reason: `Reported at pickup: ${issue}` } : forCreator ? { reason: 'Marked as picked up by the arts team' } : {}) }),
     })
     if (issue) queueEmail(tx, 'arts-team', `Pickup issue: "${r.res.title}"`, `${caller.name} reported at pickup: ${issue}`, r.id)
   })

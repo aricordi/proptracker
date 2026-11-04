@@ -13,6 +13,7 @@
 // It stays in its box: each message goes to one of the two server helpers (ideaToProps / askForTime), which check
 // the budget, treat the words as data only, and return fixed answers the server has checked. The AI can't book,
 // read or change anything itself; every Book / Add button here is a normal tap by the person.
+import RichText from './RichText'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -266,6 +267,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       shoots: [...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 8).map(x => ({ id: x.id, label: label(x), status: x.status === 'requested' ? 'requested' : x.checkin ? 'checked-in' : 'booked' })),
       out: { props: groups.reduce((n, g) => n + g.props.filter(canReturnProps).length, 0), gear: groups.flatMap(g => g.gear.filter(canReturnGear).flatMap(b => b.lines.map(l => l.name))).slice(0, 8) },
       ...(paused ? { paused } : {}), ...(myStatus?.strikes ? { strikes: myStatus.strikes } : {}),
+      ...(plan ? { plan: { step: plan.step, ...(shoot?.id ? { shoot: shoot.id } : {}) } } : {}),
     }
   }
   // The newest "me" line takes the helper it ended up going to (the prop finder reads earlier prop messages).
@@ -278,8 +280,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     setText(''); setChips([])
     setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: force ?? (more ? 'props' : mode ?? 'help') }])
     // The AI reads the message first (owner, Nov 3: "more conversational… open and accepting of anything"), and picks
-    // what to show. Plan steps, "More like these" and a forced helper go straight to their helper.
-    if (!force && !more && !plan) {
+    // what to show. "More like these" and a forced helper go straight to their helper. Plan my shoot too goes through the AI
+    // (owner, Nov 4: "keep the steps in the backend and let the creator just chat"): it knows the step and picks from the words.
+    if (!force && !more) {
       setBusy(true); setThinking('chat')
       const turn = await askChat({ message: q, history: chatLines(), state: chatState() }).then(r => r.data).catch(() => null)
       setThinking(null); setBusy(false)
@@ -303,7 +306,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       case 'help':
         markMe('help')
         setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); setChips(turn.chips); return
-      case 'plan': if (turn.reply) say(turn.reply); startPlan(); return
+      case 'plan': if (turn.reply) say(turn.reply); if (!plan) startPlan(); return
       case 'reply': say(turn.reply); setChips(turn.chips); return
       default:
         // Shoots, returns, reports, gear…: the app's own facts decide the card (and win over the AI's words when they disagree).
@@ -675,7 +678,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
-            {m.text && <p className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[16px] bg-white/[0.07]">{m.text}</p>}
+            {m.text && <div className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[16px] leading-snug bg-white/[0.07]"><RichText text={m.text} /></div>}
             {m.result?.fallback && <p className="text-pt-muted text-xs">Quick match: the AI was busy, so these are the closest props by name and tags.</p>}
             {m.guide && (m.guide.steps.length > 0 || m.guide.links.length > 0) && (
               <div className="rise-in space-y-2">

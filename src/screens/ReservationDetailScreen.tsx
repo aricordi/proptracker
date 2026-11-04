@@ -119,9 +119,10 @@ export default function ReservationDetailScreen() {
         )}
         {s === 'packed' && mine && <PickupSignOff res={res} />}
         {s === 'packed' && !mine && <Banner tone="amber" title="Waiting for pickup">The creator signs off on their phone when they collect.</Banner>}
+        {s === 'packed' && !mine && isStaff && <StaffPickup res={res} />}
 
         {res.pickup && (
-          <Banner tone={res.pickup.allReceived ? 'green' : 'red'} title={res.pickup.allReceived ? 'Collected: creator confirmed everything ✓' : 'Collected, with an issue'}>
+          <Banner tone={res.pickup.allReceived ? 'green' : 'red'} title={res.pickup.byStaff ? 'Collected: marked by the arts team' : res.pickup.allReceived ? 'Collected: creator confirmed everything ✓' : 'Collected, with an issue'}>
             Signed by {res.pickup.by} on {formatDay(res.pickup.at.slice(0, 10))} at {time(res.pickup.at)}
             {res.pickup.issue && <><br /><strong>Reported:</strong> {res.pickup.issue}</>}
           </Banner>
@@ -481,6 +482,31 @@ function PickupSignOff({ res }: { res: Reservation }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// The creator took it without signing (owner, Nov 4: requests stuck "in limbo"): the arts team marks it collected for them.
+function StaffPickup({ res }: { res: Reservation }) {
+  const [sure, setSure] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function mark() {
+    setBusy(true); setError(null)
+    try { await confirmPickup({ id: res.id, allReceived: true, forCreator: true }) } catch (err) { setError(errText(err)) } finally { setBusy(false) }
+  }
+  return (
+    <div className="space-y-2">
+      {!sure ? <button onClick={() => setSure(true)} className="w-full min-h-[48px] rounded-xl bg-pt-raised text-pt-text font-semibold">They picked it up: mark it for them</button> : (
+        <div className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <p className="text-pt-text text-sm">Only if {res.creatorName.split(' ')[0]} already has the props. It's saved as signed by you, not by them.</p>
+          <div className="flex gap-2">
+            <button onClick={() => setSure(false)} className="flex-1 min-h-[48px] rounded-xl text-pt-muted">Back</button>
+            <button onClick={mark} disabled={busy} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'Mark as picked up'}</button>
+          </div>
+        </div>
+      )}
+      {error && <p className="text-red-300 text-sm">{error}</p>}
     </div>
   )
 }

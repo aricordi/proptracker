@@ -320,6 +320,11 @@ service cloud.firestore {
       allow read: if isOwner();
     }
 
+    // Google Calendar imports waiting for the equipment team to check (Requests → Calendar). Server writes only.
+    match /calendar_queue/{id} {
+      allow read: if isGearStaff();
+    }
+
     match /app_settings/{id} {
       allow read: if isMember() || (id in ['schedule', 'calendarCheck'] && canSeeGear());
       // Booking rules: the owner and admins only (owner, Oct 20). Every other setting: the owner.

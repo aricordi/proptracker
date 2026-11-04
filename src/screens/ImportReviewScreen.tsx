@@ -219,6 +219,7 @@ export default function ImportReviewScreen() {
                     <>
                       <p className="text-pt-text text-sm font-medium">{it.suggestion?.name ?? it.fileName}</p>
                       {it.error && <p className="text-red-300 text-xs">{it.error}</p>}
+                      {(it as { duplicateOf?: string }).duplicateOf && <p className="text-pt-muted text-xs">Exact copy of {(it as { duplicateName?: string }).duplicateName || 'a photo already imported'} · skipped automatically</p>}
                       {it.itemId && <button onClick={() => navigate(`/item/${it.itemId}`)} className="text-pt-accent text-sm tap">Open prop ›</button>}
                     </>
                   )}
