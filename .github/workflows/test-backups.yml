@@ -1,0 +1,113 @@
+# "Test the backups" (owner, Nov 4: "make sure they're working"). Proves we can get everything back:
+#  1. the daily/weekly database backups exist and the newest is under 2 days old; the 7-day undo window is on;
+#  2. PRACTICE RESTORE: the newest database backup is restored into a separate, temporary database
+#     ("restore-test-…"), the number of props, people, shoots, requests and gear is compared with the live app,
+#     then the temporary database is deleted. The live database is only read;
+#  3. photos: the live soft delete is on, the weekly photo backup ran in the last 8 days, and 5 random photos in the
+#     backup are byte-for-byte the same as the live ones.
+# Takes 5–20 minutes. Costs a few cents (the temporary copy exists for minutes). Run it once a month or after big changes
+# (GitHub's own timers only run from the main branch, so it's run by hand).
+name: Test the backups
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: proptracker-9732e
+  BACKUP: proptracker-9732e-photo-backup
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: 1. Database backups are being made
+        run: |
+          gcloud firestore backups schedules list --database='(default)' --project "$PROJECT"
+          gcloud firestore backups list --project "$PROJECT" --format=json > backups.json
+          newest=$(jq -r '[.[] | select(.state=="READY")] | sort_by(.snapshotTime) | last | .name // empty' backups.json)
+          at=$(jq -r '[.[] | select(.state=="READY")] | sort_by(.snapshotTime) | last | .snapshotTime // empty' backups.json)
+          count=$(jq '[.[] | select(.state=="READY")] | length' backups.json)
+          [ -n "$newest" ] || { echo "::error::No database backup found. Run 'Set up backups'."; exit 1; }
+          age=$(( ( $(date +%s) - $(date -d "$at" +%s) ) / 3600 ))
+          echo "✔ $count backups ready · newest $at ($age hours ago)"
+          [ "$age" -le 48 ] || { echo "::error::The newest backup is $age hours old (should be under 48). Backups may have stopped."; exit 1; }
+          pitr=$(gcloud firestore databases describe --database='(default)' --project "$PROJECT" --format='value(pointInTimeRecoveryEnablement)')
+          [ "$pitr" = "POINT_IN_TIME_RECOVERY_ENABLED" ] && echo "✔ 7-day undo window on" || { echo "::error::The 7-day undo window is off. Run 'Set up backups'."; exit 1; }
+          echo "NEWEST=$newest" >> "$GITHUB_ENV"; echo "SNAP=$at" >> "$GITHUB_ENV"
+
+      - name: 2. Practice restore into a temporary database
+        run: |
+          TEST="restore-test-${GITHUB_RUN_ID: -8}"
+          echo "TESTDB=$TEST" >> "$GITHUB_ENV"
+          gcloud firestore databases restore --source-backup="$NEWEST" --destination-database="$TEST" --project "$PROJECT" --async \
+            || { echo "::error::Google refused the practice restore. Fix (once): IAM → github-deploy → role 'Cloud Datastore Owner'."; exit 1; }
+          echo "Restoring the backup from $SNAP into $TEST …"
+          for i in $(seq 1 90); do
+            sleep 20
+            busy=$(gcloud firestore operations list --database="$TEST" --project "$PROJECT" --format=json 2>/dev/null | jq '[.[] | select(.done != true)] | length' 2>/dev/null || echo 1)
+            ready=$(gcloud firestore databases describe --database="$TEST" --project "$PROJECT" --format='value(name)' 2>/dev/null || true)
+            [ -n "$ready" ] && [ "$busy" = "0" ] && { echo "✔ Restored after $((i * 20)) s"; break; }
+            [ "$i" = 90 ] && { echo "::error::The restore didn't finish in 30 minutes."; exit 1; }
+          done
+
+      - name: Compare the restored copy with the live app
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          count() {  # $1 database, $2 collection
+            curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+              "https://firestore.googleapis.com/v1/projects/$PROJECT/databases/$1/documents:runAggregationQuery" \
+              -d "{\"structuredAggregationQuery\":{\"structuredQuery\":{\"from\":[{\"collectionId\":\"$2\"}]},\"aggregations\":[{\"alias\":\"n\",\"count\":{}}]}}" \
+              | jq -r '.[0].result.aggregateFields.n.integerValue // "0"'
+          }
+          ok=1
+          printf "%-16s %8s %8s\n" "What" "Live" "Backup"
+          for c in items users shoots reservations gear_bookings gear_items gear_bundles bins schedule_days profiles; do
+            live=$(count '(default)' "$c"); back=$(count "$TESTDB" "$c")
+            printf "%-16s %8s %8s\n" "$c" "$live" "$back"
+            # The backup is up to a day old: small differences are new things since then. A big drop means trouble.
+            [ "$live" -gt 20 ] && [ "$back" -lt $(( live * 9 / 10 )) ] && ok=0
+          done
+          [ "$ok" = 1 ] && echo "✔ The backup holds everything (differences = things added since the backup)" \
+            || { echo "::error::The restored copy is missing a lot compared with the live app."; exit 1; }
+          # One real prop, read back from the restored copy.
+          curl -s -H "Authorization: Bearer $TOKEN" "https://firestore.googleapis.com/v1/projects/$PROJECT/databases/$TESTDB/documents/items?pageSize=1" \
+            | jq -r '"✔ Sample prop from the backup: " + (.documents[0].fields.name.stringValue // "?")'
+
+      - name: Delete the temporary database
+        if: always()
+        run: |
+          [ -n "$TESTDB" ] || exit 0
+          case "$TESTDB" in restore-test-*) ;; *) echo "Refusing to delete $TESTDB"; exit 1;; esac
+          gcloud firestore databases delete --database="$TESTDB" --project "$PROJECT" --quiet && echo "✔ Temporary copy deleted" || true
+
+      - name: 3. Photos
+        env:
+          BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+        run: |
+          secs=$(gcloud storage buckets describe "gs://$BUCKET" --format='value(soft_delete_policy.retentionDurationSeconds)' || echo 0)
+          echo "✔ Deleted photos kept $(( secs / 86400 )) days in the app's storage"
+          if ! gcloud storage cat "gs://$BACKUP/last-run.json" > last.json 2>/dev/null; then
+            echo "::error::No photo backup yet. Run 'Weekly photo backup' once."; exit 1
+          fi
+          at=$(jq -r .at last.json); age=$(( ( $(date +%s) - $(date -d "$at" +%s) ) / 86400 ))
+          echo "✔ Weekly photo backup last ran $at ($age days ago): $(jq -r .kept last.json) photos kept"
+          [ "$age" -le 8 ] || { echo "::error::The photo backup hasn't run in $age days."; exit 1; }
+          bad=0
+          for f in $(gcloud storage ls --recursive "gs://$BACKUP/photos/items/**" 2>/dev/null | shuf -n 5); do
+            rel=${f#gs://$BACKUP/photos/}
+            a=$(gcloud storage objects describe "$f" --format='value(md5_hash)')
+            b=$(gcloud storage objects describe "gs://$BUCKET/$rel" --format='value(md5_hash)' 2>/dev/null || echo "deleted-in-app")
+            [ "$b" = "deleted-in-app" ] && { echo "  $rel: only in the backup (deleted from the app; the backup kept it)"; continue; }
+            [ "$a" = "$b" ] && echo "  ✔ $rel identical" || { echo "  ✘ $rel differs"; bad=1; }
+          done
+          [ "$bad" = 0 ] || { echo "::error::Some photo copies don't match."; exit 1; }
+          echo "✔ ALL BACKUP CHECKS PASSED"

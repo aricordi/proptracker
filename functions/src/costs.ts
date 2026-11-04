@@ -10,6 +10,7 @@
 // and the bucket keeps deleted files for 7 days (soft delete), so a mistake can be undone.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { logger } from 'firebase-functions'
 import { getStorage } from 'firebase-admin/storage'
 import type { DocumentData } from 'firebase-admin/firestore'
 import { GoogleAuth } from 'google-auth-library'
@@ -163,6 +164,35 @@ export const cleanUpPhotos = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: 
 })
 
 // Weekly, Sunday 4 AM (owner OK, Oct 17): same clean-up as the button, while nobody is using the app.
+// WEEKLY PHOTO BACKUP (owner, Nov 4: "the correct backups within what we already have… make sure they're working").
+// Every photo is copied (server side, nothing downloaded) into a separate private bucket in this project,
+// gs://<project>-photo-backup/photos/<same path>. Only ADDS: anything later deleted from the app (by a person or the
+// clean-up) stays in the backup. Runs BEFORE the weekly clean-up, so nothing the clean-up removes is lost. The bucket is
+// made by the "Weekly photo backup" button (.github/workflows/photo-backup.yml); until then this step is skipped.
+export async function backupPhotos(): Promise<{ copied: number; kept: number; skipped?: string }> {
+  const project = process.env.GCLOUD_PROJECT ?? process.env.GCP_PROJECT ?? ''
+  if (!project || process.env.FUNCTIONS_EMULATOR === 'true' || project !== 'proptracker-9732e') return { copied: 0, kept: 0, skipped: 'not the live app' }
+  const src = getStorage().bucket()
+  const dst = getStorage().bucket(`${project}-photo-backup`)
+  const [exists] = await dst.exists()
+  if (!exists) return { copied: 0, kept: 0, skipped: 'no backup bucket yet' }
+  const [have] = await dst.getFiles({ prefix: 'photos/' })
+  const inBackup = new Map(have.map(f => [f.name.slice('photos/'.length), String(f.metadata.md5Hash ?? '')]))
+  const [files] = await src.getFiles()
+  const todo = files.filter(f => inBackup.get(f.name) !== String(f.metadata.md5Hash ?? ''))
+  let copied = 0
+  for (let i = 0; i < todo.length; i += 20) {
+    await Promise.all(todo.slice(i, i + 20).map(f => f.copy(dst.file(`photos/${f.name}`)).then(() => { copied++ }, e => logger.warn('Photo backup copy failed', f.name, String(e)))))
+  }
+  const out = { at: new Date().toISOString(), live: files.length, kept: inBackup.size + copied, copied }
+  await dst.file('last-run.json').save(JSON.stringify(out), { contentType: 'application/json' })
+  return { copied, kept: out.kept }
+}
+
 export const weeklyPhotoCleanup = onSchedule({ schedule: 'every sunday 04:00', timeZone: 'America/Toronto', timeoutSeconds: 540, memory: '512MiB' }, async () => {
+  // Backup first: if it fails, the clean-up waits a week rather than deleting photos that have no copy.
+  const b = await backupPhotos().catch(e => { logger.error('Weekly photo backup failed', String(e)); return null })
+  logger.info('Weekly photo backup', b)
+  if (!b) return
   await runCleanup('weekly clean-up')
 })

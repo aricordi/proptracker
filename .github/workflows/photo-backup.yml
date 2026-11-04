@@ -1,0 +1,53 @@
+# Weekly PHOTO BACKUP (owner, Nov 4: "do the correct backups within what we already have and make sure they're working").
+# Copies every photo from the app's storage into a separate backup bucket in the same Google project,
+# gs://proptracker-9732e-photo-backup. It only ADDS: a photo deleted from the app stays in the backup, so a mistake noticed
+# months later can still be fixed. The live photos are only read, never changed. Run this button ONCE (makes the bucket +
+# the first full copy); after that the app's own Sunday job (weeklyPhotoCleanup in functions/src/costs.ts) copies new photos
+# every week, before the clean-up. (GitHub's own timers only run from the main branch, so they aren't used.) Cost: storage of one extra copy (~$0.02 per GB per month, about $1/month today).
+name: Weekly photo backup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: proptracker-9732e
+  BACKUP: proptracker-9732e-photo-backup
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Make the backup bucket (first time only)
+        run: |
+          if gcloud storage buckets describe "gs://$BACKUP" --project "$PROJECT" >/dev/null 2>&1; then
+            echo "✔ Backup bucket exists"
+          else
+            gcloud storage buckets create "gs://$BACKUP" --project "$PROJECT" --location=northamerica-northeast1 \
+              --uniform-bucket-level-access --public-access-prevention --soft-delete-duration=30d \
+              || { echo "::error::Google refused to create the backup bucket. Fix (once): IAM → github-deploy → add role 'Storage Admin', then run again."; exit 1; }
+            echo "✔ Backup bucket made (private, deleted files kept 30 days)"
+          fi
+          # A photo replaced in the backup keeps its older version too.
+          gcloud storage buckets update "gs://$BACKUP" --versioning >/dev/null && echo "✔ Old versions kept"
+
+      - name: Copy new and changed photos (never deletes)
+        env:
+          BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+        run: |
+          start=$(date +%s)
+          # rsync without --delete-unmatched-destination-objects: nothing is ever removed from the backup.
+          gcloud storage rsync --recursive "gs://$BUCKET" "gs://$BACKUP/photos" 2>&1 | tail -5
+          live=$(gcloud storage ls --recursive "gs://$BUCKET/**" 2>/dev/null | wc -l)
+          kept=$(gcloud storage ls --recursive "gs://$BACKUP/photos/**" 2>/dev/null | wc -l)
+          echo "✔ Done in $(( $(date +%s) - start )) s. Photos in the app: $live · in the backup: $kept (the backup also keeps deleted ones)"
+          [ "$kept" -ge "$live" ] || { echo "::error::The backup has fewer files than the app. Something went wrong; run it again or ask Claude."; exit 1; }
+          echo "{\"at\":\"$(date -u +%FT%TZ)\",\"live\":$live,\"kept\":$kept}" > last.json
+          gcloud storage cp last.json "gs://$BACKUP/last-run.json" >/dev/null
