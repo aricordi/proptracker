@@ -115,7 +115,8 @@ const SWAP = /\bswap|trade (slots?|shoots?|with)\b/i
 const OFFSITE = /\b(offsite|off-site|off site|on location|outside the house|somewhere else|at (the |a )?(park|beach|mall|school|studio|downtown|office|restaurant|street|gym)|not at (the )?(house|cliff))\b/i
 const STRIKES = /\b(strikes?|am i paused|paused\??$|penalt(y|ies)|blocked from|why can'?t i (book|request) props)\b/i
 const REQUESTS = /\b(my requests?|what did i (ask|request)|where('?s| is| are) my (gear|request)|status of my (props|gear|request))\b/i
-const GREETING = /^\s*(hi|hey|hello|yo|sup|hiya|good (morning|afternoon|evening))\b[\s!.]*$/i
+// "yo what's up", "hey how's it going" (owner, Nov 4) count too.
+const GREETING = /^\s*((hi|hey|hello|yo|sup|hiya|wassup|whats? ?up|what's up|howdy|good (morning|afternoon|evening))\b[\s,!.]*)+((what'?s ?up|wassup|how'?s it going|how are (you|u)|how r u|how you doing|man|bro|dude|guys|there)\b[\s,!.?]*)*$/i
 const THANKS = /^\s*(thanks?|thank you|thx|ty|cheers|perfect|great|awesome|cool|ok(ay)?|got it|nice)\b[\s!.]*$/i
 
 export function detectIntent(text: string): Intent | null {

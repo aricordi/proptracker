@@ -75,6 +75,11 @@ const PROPS_CHIP = 'Props for this shoot'
 const NEXT_GEAR = 'Next: gear ›'
 const SKIP_PROPS = 'Skip props ›'
 const NEXT_REVIEW = 'Next: review ›'
+// Owner, Nov 4: never block someone in a step. When a message doesn't fit, ASK what they want instead.
+const SWITCH_TIME = 'Book a time instead'
+const SWITCH_PROPS = 'Find props instead'
+const KEEP_GOING = 'Keep going'
+const START_OVER = 'Start over'
 const STEPS: [Step, string][] = [['time', 'Time'], ['props', 'Props'], ['gear', 'Gear'], ['review', 'Review']]
 const STARTERS: Record<Helper, string[]> = {
   props: ['Prank: I dress up as a cop and pull my friend over at a diner', 'A séance that goes wrong', '90s sitcom kitchen', 'Royal wedding parody'],
@@ -274,6 +279,25 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const markMe = (m: Helper) => setMsgs(x => { const i = x.map(y => y.who).lastIndexOf('me'); return i < 0 ? x : x.map((y, k) => k === i && y.who === 'me' ? { ...y, mode: m } : y) })
   const defaultChips = () => helpOnly ? (STAFF_STARTERS[role] ?? []) : demo ? STARTERS.props.slice(0, 3) : mixed().slice(0, 4)
 
+  const pendingSwitch = useRef('')
+  // Plan my shoot without the AI (busy / test mode): a message that isn't for this step gets a question, not a refusal.
+  function askWhatTheyWant(q: string): boolean {
+    if (!plan || (plan.step !== 'props' && plan.step !== 'time')) return false
+    const r = routeMessage(q, { last: plan.step === 'props' ? 'props' : 'time', shoots: upcoming.map(x => ({ id: x.id, date: x.date })) })
+    const fits = r.helpers.includes(plan.step === 'props' ? 'props' : 'time')
+    const intent = detectIntent(q)
+    if (fits && !intent) return false
+    pendingSwitch.current = r.helpers.includes('time') || r.helpers.includes('props') ? q : ''
+    const greet = intent === 'greeting'
+    const wantsTime = r.helpers.includes('time') && plan.step === 'props', wantsProps = r.helpers.includes('props') && plan.step === 'time'
+    bot(greet ? `Hey${first ? ` ${first}` : ''}! We were ${plan.step === 'props' ? `picking props for ${planLabel}` : 'finding you a time'}. Want to keep going, or do something else?`
+      : wantsTime ? 'Sounds like you want to book a time. Want to do that now, or keep going with props first?'
+      : wantsProps ? 'Sounds like you\'re thinking props. Find those now, or finish picking the time first?'
+      : `Got it. We were ${plan.step === 'props' ? 'on props' : 'finding a time'}. Keep going, or start something else?`)
+    setChips(wantsTime ? [SWITCH_TIME, KEEP_GOING, START_OVER] : wantsProps ? [SWITCH_PROPS, KEEP_GOING, START_OVER] : [KEEP_GOING, SWITCH_TIME, START_OVER])
+    return true
+  }
+
   async function send(t = text, more = false, force?: Helper) {
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
@@ -288,6 +312,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       setThinking(null); setBusy(false)
       if (turn && !('fallback' in turn)) { await runTurn(turn, q); return }
       // No AI right now (busy, budget, offline, test mode): the chat's own built-in answers.
+      if (askWhatTheyWant(q)) return
       if (localTurn(q)) return
     }
     await runHelpers(q, more, force)
@@ -423,6 +448,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const found = kept.groups.length + kept.missing.length > 0
       // Nothing (new) found: offer a plain search for the same words, so the chat is never a dead end.
       const quiet = aiSpoke.current && found; aiSpoke.current = false
+      // "Not a video idea" (owner, Nov 4: "it blocked me"): ask what they want instead of refusing.
+      if (r.note && !found && !demo) {
+        pendingSwitch.current = q
+        setMsgs(x => [...x, { who: 'bot', text: plan ? 'Hmm, I didn\'t catch a video idea there. Want to keep going with props, book a time instead, or start over?' : 'I didn\'t catch a video idea there. Want props for a video, or to book a time?' }])
+        return plan ? [KEEP_GOING, SWITCH_TIME, START_OVER] : [SWITCH_TIME, 'Props for a video idea']
+      }
       setMsgs(x => [...x, { who: 'bot', text: quiet ? '' : r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
         ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
       const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
@@ -489,6 +520,15 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   function askTime() { setMode('time'); setChips(STARTERS.time); bot(OPENERS.time) }
 
   function chip(c: string) {
+    if (c === START_OVER) return restart()
+    if (c === KEEP_GOING) { bot(plan?.step === 'time' ? 'Cool. When do you want to film, and for how long?' : 'Cool. What\'s the video about? A scene, a character or a vibe is enough.'); return }
+    if (c === SWITCH_TIME || c === SWITCH_PROPS) {
+      // Leave the plan and do what they asked, with the words they already typed.
+      const last = pendingSwitch.current; pendingSwitch.current = ''
+      setPlan(null)
+      if (last) return send(last, false, c === SWITCH_TIME ? 'time' : 'props')
+      return c === SWITCH_TIME ? askTime() : (setMode('props'), bot('What\'s the video about?'))
+    }
     if (c === NEXT_GEAR || c === SKIP_PROPS) return planGear()
     if (c === NEXT_REVIEW) return planReview()
     if (c === TIME_CHIP) return askTime()
@@ -860,7 +900,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         {chips.length > 0 && !busy && !welcome && (
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
             {chips.map(c => {
-              const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW
+              const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW || c === SWITCH_TIME || c === SWITCH_PROPS
               return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3.5 h-9 text-[14px] ${special ? 'bg-[#BF9DFF]/15 text-[#CDB8FF] font-semibold' : 'bg-white/[0.06] text-pt-text'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
             })}
           </div>

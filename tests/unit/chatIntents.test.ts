@@ -36,3 +36,11 @@ describe('the chat understands what people mean', () => {
     expect(isStatusQuestion('is my shoot approved?')).toBe(true)
   })
 })
+
+describe('greetings (owner, Nov 4)', () => {
+  it('reads casual hellos as a greeting, not a prop idea', async () => {
+    const { detectIntent } = await import('../../src/lib/aiRoute')
+    for (const t of ["yo what's up", 'hey how are you', 'sup bro', 'whats up', 'hello there']) expect(detectIntent(t), t).toBe('greeting')
+    expect(detectIntent('yo i want to book cliff 2 at 3')).not.toBe('greeting')
+  })
+})

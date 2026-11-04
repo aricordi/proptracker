@@ -2103,6 +2103,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       44px + Add pill, 52px Move/Swap/Cancel, History folded. (10) confirmPickup `forCreator` (staff marks picked up for the creator,
       pickup.byStaff; StaffPickup button on packed requests) — likely cause of the owner's "stuck in limbo" requests.
       (11) Creators list/analytics include Props-only creators (creatorPeople = every active creator + owner). Tests 628.
+      (12) Never blocked in a step (owner, Nov 4: "yo what's up" → "I can only help with props"; "book Cliff 2 at 3" → "couldn't
+      turn that into props"): with or without the AI, a message that doesn't fit the Plan step gets a QUESTION with chips Book a
+      time instead / Find props instead / Keep going / Start over (askWhatTheyWant in Assistant.tsx; switching leaves the plan and
+      re-sends their words to the right helper); the prop finder's "not a video idea" asks the same instead of refusing. Casual
+      greetings ("yo what's up", "hey how are you") are greetings (GREETING in aiRoute.ts). LIVE Nov 4 (owner "yes").
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
