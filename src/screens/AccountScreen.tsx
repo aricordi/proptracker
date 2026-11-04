@@ -23,7 +23,7 @@ export const ROLE_LABELS: Record<string, string> = {
 }
 
 export default function AccountScreen() {
-  const { user, profile, realRole, role, setViewAs, shootFlow, isGearStaff, demo, previewingDemo } = useSession()
+  const { user, profile, realRole, role, setViewAs, shootFlow, isGearStaff, demo, previewingDemo, creatorMode, setCreatorMode } = useSession()
   const navigate = useNavigate()
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -32,6 +32,26 @@ export default function AccountScreen() {
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
+        {realRole === 'owner' && (
+          // Owner, Nov 4: an everyday switch (not a preview). Creator mode = the whole app is the creator app until switched off here.
+          <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3" data-testid="app-mode">
+            <div>
+              <p className="text-pt-text font-medium">Use the app as</p>
+              <p className="text-pt-muted text-sm">{creatorMode
+                ? 'Creator mode is on: you get the same app as every creator. Switch back here any time.'
+                : 'Switch to the creator app for your own shoots. It stays that way on this device until you switch back here.'}</p>
+            </div>
+            <div className="flex bg-pt-bg rounded-full p-1 gap-1" role="radiogroup" aria-label="Use the app as">
+              {([['owner', 'Owner'], ['creator', 'Creator']] as const).map(([k, l]) => {
+                const on = (k === 'creator') === creatorMode
+                return (
+                  <button key={k} role="radio" aria-checked={on} onClick={() => { if (!on) { setCreatorMode(k === 'creator'); navigate('/') } }}
+                    className={`flex-1 min-h-[44px] rounded-full text-[15px] font-semibold ${on ? 'bg-pt-accent text-stone-900' : 'text-pt-muted'}`}>{l}</button>
+                )
+              })}
+            </div>
+          </div>
+        )}
         {demo && (
           // Test launch (owner, Oct 27): what this mode is, and that booking comes later.
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-1">
@@ -57,7 +77,7 @@ export default function AccountScreen() {
             ))}
           </div>
         )}
-        {realRole === 'owner' && (
+        {realRole === 'owner' && !creatorMode && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
             <p className="text-pt-text font-medium">View the app as…</p>
             <p className="text-pt-muted text-sm">

@@ -240,10 +240,17 @@ export default function App() {
     setViewAsState(r)
     try { r ? sessionStorage.setItem('proptracker.viewAs', r) : sessionStorage.removeItem('proptracker.viewAs') } catch { /* fine */ }
   }
+  // Owner's everyday creator mode (owner, Nov 4): remembered on this phone/computer until switched off in More.
+  const [creatorMode, setCreatorModeState] = useState(() => { try { return localStorage.getItem('pc.creatorMode') === '1' } catch { return false } })
+  const setCreatorMode = (on: boolean) => {
+    setCreatorModeState(on)
+    try { on ? localStorage.setItem('pc.creatorMode', '1') : localStorage.removeItem('pc.creatorMode') } catch { /* fine */ }
+    setViewAs(null)
+  }
   const session: Session | null = useMemo(
-    () => user && profile ? makeSession(user, profile, viewAs, setViewAs) : null,
+    () => user && profile ? makeSession(user, profile, viewAs, setViewAs, creatorMode, setCreatorMode) : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, profile, viewAs],
+    [user, profile, viewAs, creatorMode],
   )
   const [profileLoading, setProfileLoading] = useState(false)
 

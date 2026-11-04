@@ -20,6 +20,8 @@ export interface Session {
   viewingAs: Role | null                 // set while the owner previews another role
   previewingDemo: boolean                // the owner is previewing "Creator (props only)"
   setViewAs: (role: ViewAs | null) => void // owner only
+  creatorMode: boolean                   // the owner's everyday "Use the app as a creator" switch (remembered on this phone)
+  setCreatorMode: (on: boolean) => void  // owner only
 }
 // "View as" can also preview a creator in demo mode.
 export type ViewAs = Role | 'demo'
@@ -36,10 +38,14 @@ export function useSession(): Session {
 
 // "View as" lets the owner see exactly which screens and buttons each role gets.
 // It only changes what the app shows; the server still knows who you really are.
-export function makeSession(user: User, profile: AppUser, viewAs: ViewAs | null, setViewAs: (r: ViewAs | null) => void): Session {
+// CREATOR MODE (owner, Nov 4): unlike "View as" (a preview with a blue strip, gone when the app closes), creator mode is the owner's
+// everyday setting: the whole app becomes the creator app, with no strip, until they switch it off in More.
+export function makeSession(user: User, profile: AppUser, viewAs: ViewAs | null, setViewAs: (r: ViewAs | null) => void,
+  creatorModeOn = false, setCreatorMode: (on: boolean) => void = () => {}): Session {
   const realRole = profile.role
+  const creatorMode = realRole === 'owner' && creatorModeOn && !viewAs
   const previewingDemo = realRole === 'owner' && viewAs === 'demo'
-  const role: Role = realRole === 'owner' && viewAs ? (viewAs === 'demo' ? 'creator' : viewAs) : realRole
+  const role: Role = creatorMode ? 'creator' : realRole === 'owner' && viewAs ? (viewAs === 'demo' ? 'creator' : viewAs) : realRole
   const demo = previewingDemo || (realRole === 'creator' && isDemoAccess(realRole, profile.access))
   return {
     user,
@@ -57,7 +63,9 @@ export function makeSession(user: User, profile: AppUser, viewAs: ViewAs | null,
     canBook: !demo && (role === 'creator' || role === 'owner'),   // admins don't film (owner, Oct 27)
     demo,
     previewingDemo,
-    viewingAs: role !== realRole ? role : null,
+    viewingAs: role !== realRole && !creatorMode ? role : null,
     setViewAs,
+    creatorMode,
+    setCreatorMode,
   }
 }

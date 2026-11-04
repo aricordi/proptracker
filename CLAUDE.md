@@ -2048,6 +2048,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       when none. Laptop Requests board: no 11px text (all 12px), board label "waiting" (fits), selected queue row text readable.
       40px pills on the dashboard period choice, analytics date + filter chips; request day link has a bigger tap area. Audit (phone
       390 + laptop 1440, every role): 0 low-contrast texts, only avatar initials under 12px. Tests 617.
+    - OWNER CREATOR MODE (owner, Nov 4: "a toggle that fully changes it… for my own usability day to day as a creator", different from
+      View as): Me → "Use the app as: Owner | Creator" (owner only). Creator = makeSession role 'creator' (full app, not demo), no
+      View-as strip, desk layout off, remembered per device in localStorage 'pc.creatorMode' (View as stays sessionStorage); the
+      switch shows in More while on; View as card hidden in creator mode. Server unchanged (owner stays owner: own bookings approved
+      at once, cutoffs skipped). appGuide 'account' + owner guide updated. Tests 617.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
