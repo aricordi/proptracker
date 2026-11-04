@@ -99,7 +99,7 @@ export default function AnalyticsScreen() {
     <button onClick={() => navigate('/rules-sheet')} aria-label="Settings sheet" title="Settings sheet" className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="note" /></button>
   </>
   const rangeRow = <>
-    <button onClick={() => setPeriodOpen(true)} data-tour="period" className="flex items-center gap-2 pl-3 pr-2.5 py-2 rounded-full bg-pt-surface shadow-hairline text-pt-text text-[15px]">
+    <button onClick={() => setPeriodOpen(true)} data-tour="period" className="flex items-center gap-2 pl-3 pr-2.5 min-h-[40px] rounded-full bg-pt-surface shadow-hairline text-pt-text text-[15px]">
       <Icon name="calendar" className="w-4 h-4 text-pt-accent" />{range.label}<span className="text-pt-muted">▾</span>
     </button>
     {range.zoomed
@@ -118,10 +118,10 @@ export default function AnalyticsScreen() {
   )
   const scopeRow = (
     <div className="flex items-center gap-2 py-2 overflow-x-auto no-scrollbar" data-tour="scope">
-      <button onClick={() => setFilterOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</button>
+      <button onClick={() => setFilterOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 min-h-[40px] rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</button>
       {chips.length === 0 && <span className="text-pt-muted text-sm whitespace-nowrap">Everyone · every house</span>}
       {chips.map((c, i) => <span key={c.label} className="shrink-0 flex items-center gap-1">{i > 0 && <span className="text-pt-muted">›</span>}
-        <button onClick={c.clear} aria-label={`Remove ${c.label}`} className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-pt-accent/15 text-pt-accent text-sm whitespace-nowrap">{c.label}<span aria-hidden>×</span></button></span>)}
+        <button onClick={c.clear} aria-label={`Remove ${c.label}`} className="flex items-center gap-1 px-3 min-h-[40px] rounded-full bg-pt-accent/15 text-pt-accent text-sm whitespace-nowrap">{c.label}<span aria-hidden>×</span></button></span>)}
       {chips.length > 1 && <button onClick={() => set({ who: null, house: null, theme: null, kind: null })} className="shrink-0 text-pt-muted text-sm px-1">Clear all</button>}
     </div>
   )

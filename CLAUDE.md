@@ -2042,6 +2042,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       guard CalendarTeamOnly on /schedule/import + /schedule/calendar; Schedule banners for equipment too; equipment Team menu
       Schedule group: "Google Calendar imports" + "What the app put in Google Calendar"; appGuide CAL_TEAM. Owner will sort the
       current imports and send examples of the old calendars' title format so the import can read them exactly (to build).
+    - CALENDAR SQUARES + READABILITY PASS (owner, Nov 4: "liked the way the bar looked and how many free looked… friendly and readable
+      on desktop and mobile"): MonthGrid squares keep the original tall shape everywhere (laptop short cells removed); each day =
+      date, BIG free count (18px, green / amber when few) with a small "free" under it, thicker rounded bar in the same colour, "Full"
+      when none. Laptop Requests board: no 11px text (all 12px), board label "waiting" (fits), selected queue row text readable.
+      40px pills on the dashboard period choice, analytics date + filter chips; request day link has a bigger tap area. Audit (phone
+      390 + laptop 1440, every role): 0 low-contrast texts, only avatar initials under 12px. Tests 617.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

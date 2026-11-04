@@ -163,9 +163,9 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
                 <Avatar email={r.shoot.creatorEmail} name={r.shoot.creatorName} size={28} />
                 <span className="min-w-0">
                   <span className="block text-pt-text text-[13px] font-semibold truncate">{r.shoot.creatorName}{flagged(r.shoot.creatorEmail) && <span className="text-red-400"> ●</span>}</span>
-                  <span className="block text-pt-muted text-xs truncate">{r.move ? 'Move → ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</span>
+                  <span className={`block text-xs truncate ${on ? 'text-pt-text/75' : 'text-pt-muted'}`}>{r.move ? 'Move → ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</span>
                 </span>
-                <span className={`text-xs tabular-nums ${hoursWaiting(r.since) > 12 ? 'text-red-300' : 'text-pt-muted'}`}>{ago(r.since).replace(' ago', '')}</span>
+                <span className={`text-xs tabular-nums ${hoursWaiting(r.since) > 12 ? 'text-red-300' : on ? 'text-pt-text/75' : 'text-pt-muted'}`}>{ago(r.since).replace(' ago', '')}</span>
               </div>
             )
           })}
@@ -183,7 +183,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
   )
 }
 
-const Kbd = ({ children }: { children: React.ReactNode }) => <kbd className="mx-0.5 px-1.5 py-px rounded bg-pt-raised text-pt-text font-mono text-[11px]">{children}</kbd>
+const Kbd = ({ children }: { children: React.ReactNode }) => <kbd className="mx-0.5 px-1.5 py-px rounded bg-pt-raised text-pt-text font-mono text-xs">{children}</kbd>
 
 function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, reqs, onReq, onShoot }: {
   weekDays: string[]; days: Record<string, ScheduleDay>; today: string; now: string; sel: Req | null; byId: Map<string, Shoot>; instant: Set<string>
@@ -204,7 +204,7 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
       const sh = byId.get(e.shootId), first = e.name.split(' ')[0]
       who = first; dot = !!e.email && flagged(e.email); title = e.name
       if (e.pending && e.move) { cls = 'bg-sky-400/[0.08] shadow-[inset_0_0_0_1px_rgba(124,196,250,0.6)] text-sky-200'; sub = 'wants to move here'; if (r) click = () => onReq(r) }
-      else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'requested'; if (r) click = () => onReq(r) }
+      else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'waiting'; if (r) click = () => onReq(r) }
       else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; sub = 'priority'; click = () => onShoot(e.shootId) }
       else { cls = 'bg-pt-surface text-pt-text'; sub = sh?.moveRequest ? 'moving…' : sh?.checkin ? 'checked in' : ''; click = () => onShoot(e.shootId) }
       if (sh?.moveRequest && !e.pending) cls += ' opacity-60'
@@ -214,7 +214,7 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
       <button key={`${date}${h}${st}`} disabled={!click} onClick={click} title={`${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtSlot(st, s.slotMinutes)} · ${title}`}
         className={`relative h-[52px] rounded-[7px] px-1.5 py-1 text-left text-[12px] leading-tight overflow-hidden ${cls} ${past ? 'opacity-35' : ''} ${on ? '!shadow-[inset_0_0_0_2px_#F5F5F7]' : ''} ${click ? 'hover:brightness-125' : ''} ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`}>
         {who && <span className="block font-semibold truncate">{who}</span>}
-        {sub && <span className="block text-[11px] opacity-70 truncate">{sub}</span>}
+        {sub && <span className="block text-xs opacity-70 truncate">{sub}</span>}
         {dot && <i className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-400" aria-label="Has flags" />}
       </button>
     )
@@ -226,20 +226,20 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
         {weekDays.map(d => (
           <div key={d} className={`text-center pb-0.5 font-semibold text-[13px] ${d === today ? 'text-pt-accent' : 'text-pt-text'}`} style={{ gridColumn: `span ${HOUSES.length}` }}>
             {formatDay(d, { weekday: 'short' })} {Number(d.slice(8))}
-            <span className="block text-[11px] font-normal text-pt-muted">{d === today ? 'today' : weekday(d) === 0 ? 'no crew' : (s.priorityWeekdays.includes(weekday(d)) ? 'priority' : ' ')}</span>
+            <span className="block text-xs font-normal text-pt-muted">{d === today ? 'today' : weekday(d) === 0 ? 'no crew' : (s.priorityWeekdays.includes(weekday(d)) ? 'priority' : ' ')}</span>
           </div>
         ))}
         <span />
-        {weekDays.map(d => HOUSES.map(h => <div key={`${d}${h}`} className={`text-center text-[11px] text-pt-muted pb-1 border-b border-white/[0.06] ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`}>{s.houses[h].name}</div>))}
+        {weekDays.map(d => HOUSES.map(h => <div key={`${d}${h}`} className={`text-center text-xs text-pt-muted pb-1 border-b border-white/[0.06] ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`}>{s.houses[h].name}</div>))}
         {s.slots.map(st => [
-          <span key={`t${st}`} className="text-right pr-2 pt-1.5 text-pt-muted text-[11px] tabular-nums">{fmtTime(st)}</span>,
+          <span key={`t${st}`} className="text-right pr-2 pt-1.5 text-pt-muted text-xs tabular-nums">{fmtTime(st)}</span>,
           ...weekDays.flatMap(d => HOUSES.map(h => cell(d, h, st))),
         ])}
       </div>
       <div className="mt-3 grid gap-[3px]" style={{ gridTemplateColumns: cols }}>
-        <span className="text-right pr-2 text-pt-muted text-[11px]">Offsite</span>
+        <span className="text-right pr-2 text-pt-muted text-xs">Offsite</span>
         {weekDays.map(d => (
-          <div key={d} className="text-[11px] text-pt-muted space-y-0.5 pr-1" style={{ gridColumn: `span ${HOUSES.length}` }}>
+          <div key={d} className="text-xs text-pt-muted space-y-0.5 pr-1" style={{ gridColumn: `span ${HOUSES.length}` }}>
             {(days[d]?.offsite ?? []).map(o => {
               const r = reqs.find(x => x.shoot.id === o.shootId && !x.move)
               return <button key={o.shootId} onClick={() => r ? onReq(r) : onShoot(o.shootId)} className={`block w-full truncate text-left rounded px-1 ${o.pending ? 'text-amber-200 bg-amber-400/[0.08]' : 'hover:text-pt-text'}`}>
@@ -330,7 +330,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
     </div>
   </>
 }
-const Stat = ({ n, l }: { n: string; l: string }) => <div className="bg-pt-surface rounded-lg px-2.5 py-2"><b className="block text-pt-text text-[16px] tabular-nums">{n}</b><span className="text-pt-muted text-[11px] leading-tight block">{l}</span></div>
+const Stat = ({ n, l }: { n: string; l: string }) => <div className="bg-pt-surface rounded-lg px-2.5 py-2"><b className="block text-pt-text text-[16px] tabular-nums">{n}</b><span className="text-pt-muted text-xs leading-tight block">{l}</span></div>
 
 function Spark({ weeks }: { weeks: number[] }) {
   const w = 300, h = 44, max = Math.max(2, ...weeks), step = w / (weeks.length - 1)
@@ -338,7 +338,7 @@ function Spark({ weeks }: { weeks: number[] }) {
   const avg = weeks.reduce((a, b) => a + b, 0) / weeks.length
   return (
     <div className="bg-pt-surface rounded-xl px-3 py-2">
-      <p className="flex justify-between text-pt-muted text-[11px]"><span>Shoots per week · last 8 weeks</span><span className="tabular-nums">avg {Math.round(avg * 10) / 10}</span></p>
+      <p className="flex justify-between text-pt-muted text-xs"><span>Shoots per week · last 8 weeks</span><span className="tabular-nums">avg {Math.round(avg * 10) / 10}</span></p>
       <svg viewBox={`-4 -2 ${w + 8} ${h + 6}`} preserveAspectRatio="none" className="w-full h-[44px] mt-1" role="img" aria-label={`Shoots per week: ${weeks.join(', ')}`}>
         <line x1="0" x2={w} y1={h - 2} y2={h - 2} stroke="rgba(255,255,255,.08)" />
         <polyline points={`0,${h} ${pts} ${w},${h}`} fill="rgba(201,169,97,.15)" stroke="none" />

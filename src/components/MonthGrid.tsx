@@ -44,19 +44,26 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const c = countDay(days?.[date], date, houses, s, email, now, team)
           const n = Number(date.slice(8))
           const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= 3 ? 'few' : 'lots'
+          const tone = level === 'few' ? 'text-amber-300' : 'text-green-400'
+          const bar = level === 'few' ? 'bg-amber-300' : 'bg-green-400'
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : c.mine && !team ? 'shadow-[inset_0_0_0_2px_#C9A961]' : ''
           return (
             <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}: ${team ? `${c.requested} requests, ` : ''}${c.free} free`}
-              className={`relative aspect-[0.82] rounded-xl bg-pt-surface flex flex-col items-center justify-between py-1.5 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
+              className={`relative aspect-[0.82] rounded-xl bg-pt-surface flex flex-col items-center justify-between pt-1.5 pb-2 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               <span className={`text-[15px] font-semibold ${date === today ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
-              {!past && (team
-                ? <span className="flex flex-col items-center gap-0.5">
-                    {c.requested > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
-                    <span className={`text-xs font-bold leading-tight whitespace-nowrap ${level === "full" ? "text-pt-muted" : level === "few" ? "text-amber-300" : "text-green-400"}`}>{c.free === 0 ? "Full" : `${c.free} free`}</span>
-                  </span>
-                : <span className={`text-xs font-bold leading-tight whitespace-nowrap ${level === 'full' ? 'text-pt-muted' : level === 'few' ? 'text-amber-300' : 'text-green-400'}`}>{c.free === 0 ? 'Full' : `${c.free} free`}</span>)}
-              <span className="w-[70%] h-1 rounded bg-pt-border overflow-hidden">
-                {!past && <i className="block h-full bg-green-400" style={{ width: `${c.total ? Math.round(c.free / c.total * 100) : 0}%` }} />}
+              {!past && (
+                <span className="flex flex-col items-center leading-none gap-0.5">
+                  {team && c.requested > 0 && <span className="min-w-5 h-5 px-1 mb-0.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
+                  {c.free === 0
+                    ? <span className="text-xs font-semibold text-pt-muted">Full</span>
+                    : <>
+                        <span className={`text-[18px] font-bold ${tone}`}>{c.free}</span>
+                        <span className={`text-xs font-medium ${tone} opacity-80`}>free</span>
+                      </>}
+                </span>
+              )}
+              <span className="w-[70%] h-1.5 rounded-full bg-pt-border overflow-hidden">
+                {!past && <i className={`block h-full rounded-full ${bar}`} style={{ width: `${c.total ? Math.round(c.free / c.total * 100) : 0}%` }} />}
               </span>
             </button>
           )

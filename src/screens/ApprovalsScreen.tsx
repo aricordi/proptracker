@@ -102,7 +102,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
         <button onClick={onPerson} aria-label={`${sh.creatorName}'s record`}><Avatar email={email} name={sh.creatorName} size={40} /></button>
         <div className="min-w-0 flex-1">
           <p className="text-pt-text font-semibold">{sh.creatorName}{r.move && <span className="text-amber-300 font-normal"> · wants to move</span>}</p>
-          <button onClick={onDay} className="text-left text-pt-text text-[15px] underline decoration-pt-border underline-offset-4">
+          <button onClick={onDay} className="tap text-left text-pt-text text-[15px] underline decoration-pt-border underline-offset-4">
             {formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</button>
           {r.move && <p className="text-pt-muted text-xs">Now: {formatDay(sh.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(sh.place, sh.where ?? '', s)} · {fmtSlot(sh.start, sh.end - sh.start)}</p>}
           <p className="text-pt-muted text-xs">Asked {ago(r.since)}</p>

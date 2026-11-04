@@ -48,7 +48,7 @@ export default function CreatorDashboard() {
     <div className="space-y-4" data-tour="dashboard">
       <div className="flex items-center gap-4">
         <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit" role="tablist" aria-label="Date range">
-          {CHOICES.map(([p, l]) => <button key={p} role="tab" aria-selected={preset === p} onClick={() => setPreset(p)} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${preset === p ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
+          {CHOICES.map(([p, l]) => <button key={p} role="tab" aria-selected={preset === p} onClick={() => setPreset(p)} className={`px-3.5 min-h-[40px] inline-flex items-center rounded-full whitespace-nowrap ${preset === p ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
         </div>
         <p className="text-pt-muted text-sm">{range.dates} · the typical creator filmed {Math.round(typical * 10) / 10}</p>
       </div>
@@ -64,7 +64,7 @@ export default function CreatorDashboard() {
     <div className="space-y-4" data-tour="dashboard">
       <div className="space-y-1.5">
         <div className="flex bg-pt-surface rounded-full p-0.5 text-sm w-fit" role="tablist" aria-label="Date range">
-          {CHOICES.map(([p, l]) => <button key={p} role="tab" aria-selected={preset === p} onClick={() => setPreset(p)} className={`px-3.5 py-1.5 rounded-full whitespace-nowrap ${preset === p ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
+          {CHOICES.map(([p, l]) => <button key={p} role="tab" aria-selected={preset === p} onClick={() => setPreset(p)} className={`px-3.5 min-h-[40px] inline-flex items-center rounded-full whitespace-nowrap ${preset === p ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
         </div>
         <p className="text-pt-muted text-xs px-1">{range.dates} · the typical creator filmed {Math.round(typical * 10) / 10}</p>
       </div>
