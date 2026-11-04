@@ -82,7 +82,7 @@ export default function ScheduleScreen() {
   const [calWaiting, setCalWaiting] = useState(0)
   const [calNew, setCalNew] = useState(0)
   useEffect(() => {
-    if (!(role === 'owner' && s.googleCalendarId)) return
+    if (!((role === 'owner' || role === 'equipment') && s.googleCalendarId)) return
     calendarPending({}).then(r => setCalWaiting(r.data.pending.length)).catch(() => {})
     // The 15-minute calendar check counts new events added straight in Google Calendar, waiting to be sorted.
     return onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setCalNew(Number(d.get('newEvents') ?? 0)), () => {})

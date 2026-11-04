@@ -234,14 +234,14 @@ export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', as
 
 // What the app has put in the calendar, and any change Google refused (to retry).
 export const calendarPending = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner'])
+  await requireRole(req, ['owner', 'equipment'])
   const [p, sent] = await Promise.all([db.collection('calendar_outbox').orderBy('at').limit(300).get(), db.collection('calendar_sent').orderBy('at', 'desc').limit(300).get()])
   return { pending: p.docs.map(d => d.data()), sent: sent.docs.map(d => ({ eventId: d.id, label: d.get('label'), at: d.get('at') })) }
 })
 
 // A tap from the team: retry ('send') or drop ('discard') failed changes, or take app events back out ('remove').
 export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  const caller = await requireRole(req, ['owner'])
+  const caller = await requireRole(req, ['owner', 'equipment'])
   const action = req.data?.action
   const ids = (Array.isArray(req.data?.ids) ? req.data.ids : []).map((x: unknown) => String(x)).filter((x: string) => /^[sb][0-9a-f]+$/.test(x)).slice(0, 100) as string[]
   if (!['send', 'discard', 'remove'].includes(action) || !ids.length) throw new HttpsError('invalid-argument', 'Pick what to send.')
@@ -308,7 +308,7 @@ export function guessImport(e: { title: string; location: string; date: string; 
 }
 
 export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
-  await requireRole(req, ['owner'])
+  await requireRole(req, ['owner', 'equipment'])
   const cals = await sources()
   if (!cals.length) throw new HttpsError('failed-precondition', 'Paste a Google Calendar ID in Calendar & email first.')
   const { events, people, counts } = await scanCalendar(cals)
@@ -445,7 +445,7 @@ async function removeImportedBlock(date: string, blockId: string) {
 // Import the reviewed events. Each one is a shoot (for a person, at a house slot or offsite hours)
 // or blocked time; skipped ones are just remembered so they don't show up again.
 export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
-  const caller = await requireRole(req, ['owner'])
+  const caller = await requireRole(req, ['owner', 'equipment'])
   const list = Array.isArray(req.data?.items) ? req.data.items.slice(0, 500) : []
   return { results: await applyImports(list, caller.email) }
 })
@@ -561,6 +561,6 @@ export const calendarCheck = onSchedule({ schedule: 'every 15 minutes', timeZone
 
 // "Check now" on the import screen (same as the 15-minute check).
 export const checkCalendarNow = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
-  await requireRole(req, ['owner'])
+  await requireRole(req, ['owner', 'equipment'])
   return (await runCalendarCheck()) ?? { error: 'Paste a Google Calendar ID in Calendar & email first.' }
 })

@@ -2036,6 +2036,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       create the Google Cloud budget + give the compute account "Project Billing Manager". DONE Nov 4 by the owner: budget
       $30/month (owner lowered it from $60), alerts 50/90/100 %, topic bill-limit; role granted. The switch reads the budget amount
       from each post, so no code change.
+    - CALENDAR IMPORTS FOR THE EQUIPMENT TEAM (owner, Nov 4: "the equipment guy… equally as responsible for the calendar as me"; NOT
+      deployed: backend + website, ask): previewCalendarImport / applyCalendarImport / calendarPending / applyCalendarChanges /
+      checkCalendarNow = owner + equipment (testCalendarLink, Connections, Google account, calendar IDs stay owner-only). App route
+      guard CalendarTeamOnly on /schedule/import + /schedule/calendar; Schedule banners for equipment too; equipment Team menu
+      Schedule group: "Google Calendar imports" + "What the app put in Google Calendar"; appGuide CAL_TEAM. Owner will sort the
+      current imports and send examples of the old calendars' title format so the import can read them exactly (to build).
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:

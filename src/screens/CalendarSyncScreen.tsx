@@ -39,7 +39,7 @@ export default function CalendarSyncScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-32">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/schedule/settings')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">Google Calendar</h1>
       </div>
       <div className="px-4 space-y-6">

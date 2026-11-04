@@ -166,6 +166,12 @@ function OwnerOnly({ children }: { children: ReactNode }) {
 }
 
 // Schedule settings + the Google Calendar connection: the owner only (owner, Oct 20: maintenance).
+// Sorting Google Calendar imports + the app's calendar changes: the owner AND the equipment team (owner, Nov 4: "they are
+// equally as responsible for the calendar as me"). Linking the calendars / the Google account stays owner-only.
+function CalendarTeamOnly({ children }: { children: ReactNode }) {
+  const { role } = useSession()
+  return role === 'owner' || role === 'equipment' ? <>{children}</> : <Navigate to="/schedule" replace />
+}
 function ScheduleSettingsOnly({ children }: { children: ReactNode }) {
   const { role } = useSession()
   return role === 'owner' ? <>{children}</> : <Navigate to="/schedule" replace />
@@ -363,8 +369,8 @@ export default function App() {
           <Route path="/calendar" element={<SeeStaff><RequestsCalendarScreen /></SeeStaff>} />
           <Route path="/schedule/how" element={<ScheduleRulesScreen />} />
           <Route path="/schedule/settings" element={<ScheduleSettingsOnly><ScheduleSettingsScreen /></ScheduleSettingsOnly>} />
-          <Route path="/schedule/import" element={<ScheduleSettingsOnly><CalendarImportScreen /></ScheduleSettingsOnly>} />
-          <Route path="/schedule/calendar" element={<ScheduleSettingsOnly><CalendarSyncScreen /></ScheduleSettingsOnly>} />
+          <Route path="/schedule/import" element={<CalendarTeamOnly><CalendarImportScreen /></CalendarTeamOnly>} />
+          <Route path="/schedule/calendar" element={<CalendarTeamOnly><CalendarSyncScreen /></CalendarTeamOnly>} />
           <Route path="/schedule/team" element={<SeeGear><ScheduleTeamScreen /></SeeGear>} />
           <Route path="/approvals" element={<SeeGear><ApprovalsScreen /></SeeGear>} />
           <Route path="/reservations" element={<ReservationsScreen />} />

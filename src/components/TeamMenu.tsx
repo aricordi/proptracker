@@ -92,6 +92,8 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'schedule', title: 'Schedule', icon: 'calendar', items: [
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins, reports, creators, pauses', 'clock'),
+      I('calimport', '/schedule/import', 'Google Calendar imports', 'Sort events from the old calendars', 'calendar'),
+      I('calsync', '/schedule/calendar', 'What the app put in Google Calendar', 'Retry, remove or check what was sent', 'calendar'),
     ] },
     { key: 'more', title: 'Help & account', icon: 'help', items: [
       I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),

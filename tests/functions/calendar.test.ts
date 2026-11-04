@@ -78,6 +78,9 @@ describe('importing the existing calendar', () => {
     expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
     expect((await call('previewCalendarImport', {}, OWNER)).result.events).toHaveLength(0)
     expect((await call('previewCalendarImport', {}, ANA)).error).toBe('PERMISSION_DENIED')
+    // The equipment team sorts imports too (owner, Nov 4); the calendar connection stays the owner's.
+    expect((await call('previewCalendarImport', {}, MAANIK)).result.events).toHaveLength(0)
+    expect((await call('checkCalendarNow', {}, MAANIK)).error).toBeUndefined()
   })
 
   it('old events keep their real hours (fill every slot they touch) and overlapping ones are imported as a clash', async () => {
