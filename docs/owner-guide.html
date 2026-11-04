@@ -390,12 +390,20 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
   <p>The app never moves a booking on its own. These are the only automatic jobs:</p>
   <div class="tablewrap"><table>
     <tr><th>Job</th><th>When</th><th>What it does</th></tr>
-    <tr><td>Calendar check</td><td class="num">Every 15 min</td><td>Reads Google Calendar; follows changes and deletions of imported events; counts new ones to sort.</td></tr>
+    <tr><td>Calendar check</td><td class="num">Every 15 min</td><td>Reads Google Calendar; puts what it can read on the schedule and adds a card to Requests → Google Calendar for the equipment team to confirm, fix or skip.</td></tr>
     <tr><td>Reminders</td><td class="num">Every 10 min</td><td>Sends the phone reminders listed above, each only once.</td></tr>
-    <tr><td>Photo clean-up</td><td class="num">Sundays 4 AM</td><td>Deletes proof photos older than 6 months, and photos nothing uses (after 14 days). Deleted files can be recovered for 7 days.</td></tr>
+    <tr><td>Photo backup + clean-up</td><td class="num">Sundays 4 AM</td><td>FIRST copies every new photo into the private backup (nothing is ever removed from it), THEN deletes proof photos older than 6 months and photos nothing uses (after 14 days). If the backup fails, the clean-up waits a week.</td></tr>
     <tr><td>Database backups</td><td class="num">Daily + weekly</td><td>Daily backups kept 14 days, weekly kept 14 weeks, plus a 7-day undo.</td></tr>
     <tr><td>Bill limit (Nov 3)</td><td class="num">A few times a day</td><td>Google Cloud sends this month's spend. Emails at 50%, 90% and 100% of $30 ($15, $27, $30). If the bill reaches $30, it sends you a phone notification and <b>turns billing off</b>: the whole app goes offline so the bill can't keep climbing (protection against a flood of fake traffic or a runaway function). Your data stays. To bring the app back: Google Cloud → Billing → link the billing account again.</td></tr>
   </table></div>
+  <h3>Backups (Nov 4): how to get things back</h3>
+  <ul>
+    <li><b>Database</b> (props, bookings, shoots, people, settings): a backup every day (kept 14 days) and every Sunday (kept 14 weeks), plus an undo to any minute of the last 7 days.</li>
+    <li><b>Photos</b>: a private second copy of every photo (<i>proptracker-9732e-photo-backup</i>), topped up every Sunday. Photos deleted from the app stay in it. 2,613 photos on the first copy (Nov 4).</li>
+    <li><b>The app itself</b>: every version is on GitHub.</li>
+    <li><b>Check it works:</b> GitHub → Actions → <b>Test the backups</b> → Run workflow, about <b>once a month</b>. It restores the newest backup into a temporary copy, compares it with the live app, checks the photos, then deletes the copy. Green = you can get everything back. A few cents a run.</li>
+    <li><b>If something goes wrong:</b> tell Claude what's missing and roughly when it was last right. The backup is always restored into a separate copy first, checked with you, and only then copied back. Nothing live is overwritten without your OK.</li>
+  </ul>
   <p><b>Safety check (Nov 3, from the "$100K mistakes" reel):</b> the database is locked (a stranger trying to read people, bookings or photos gets "Missing or insufficient permissions"), every server function checks who's calling, no automatic job can run in a loop, the AI has a hard $50/month stop, the app sends no text messages, and pop-ups close with the Escape key for keyboard users.</p>
 </section>
 

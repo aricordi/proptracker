@@ -2112,6 +2112,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the booked shoot stays booked, basket props stay, "pick up where you left off: open the shoot → Plan it with AI" (or "starts
       from the beginning" when nothing is booked yet); shown on every switch question, on the AI's change of direction during the
       plan (confirmLeave: asks before switching), and on New chat mid-plan (askRestart: Start over / Keep going).
+    - BACKUPS CHECKED + PHOTO BACKUP (owner, Nov 4: no off-site provider → "do the correct backups within what we already have, and
+      make sure they're working"): (1) PHOTOS: private bucket gs://proptracker-9732e-photo-backup (Montréal, versioning, soft delete
+      30 d), made by the button "Weekly photo backup" (`.github/workflows/photo-backup.yml`, gcloud storage rsync, never deletes; run 1
+      Nov 4 = 2,613 photos); after that `backupPhotos()` in functions/src/costs.ts runs at the START of weeklyPhotoCleanup (Sundays 4 AM)
+      and copies new/changed files server side to photos/<path> + writes last-run.json; if it throws, the clean-up is skipped that week.
+      (2) `.github/workflows/test-backups.yml` "Test the backups" (manual, ~monthly; GitHub cron only fires from main so no schedule):
+      checks schedules + newest READY backup < 48 h + PITR on, restores the newest backup into `restore-test-<run>` (async + poll),
+      compares counts (items, users, shoots, reservations, gear_bookings, gear_items, gear_bundles, bins, schedule_days, profiles:
+      fail if a collection > 20 drops below 90%), reads a sample prop, ALWAYS deletes the temp DB (name guard restore-test-*), then
+      photo soft delete + last-run.json < 8 days + 5 random backup photos md5 = live. RESTORE FOR REAL: gcloud firestore databases
+      restore (or PITR) into a NEW database, check with the owner, then copy back only what's needed; never overwrite live without OK.
     - PRIME CAPITOL GOOGLE ACCOUNT (owner, Oct 27; NOT deployed: new functions → backend deploy needs owner OK, then website).
       IT refused sharing the company calendar with our robot address (that's "external sharing") and asked for OAuth with a
       dedicated Workspace account. App passwords were ruled out (whole-account access; Calendar doesn't take them). OWNER CHOSE:
