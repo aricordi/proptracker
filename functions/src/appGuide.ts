@@ -48,7 +48,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'notifications', title: 'Notifications', who: ALL, words: 'push ping alert not getting notifications iphone home screen',
     about: 'Me → Notifications → Turn on, then "Send me a test". On iPhone they only work once the app is added to the Home Screen (Share → Add to Home Screen) and opened from that icon. Nothing showing? Try "Test with the app closed", check Settings → Notifications → Prime Capitol, and turn Focus off.' },
   { id: 'signin', title: 'Signing in', who: ALL, words: 'login log in google blank popup invite',
-    about: 'Sign in with Google using the exact email you were invited with. If an Instagram/Messenger/Gmail link opened it, open the page in Safari or Chrome instead. Blank Google page: turn off content blockers / private browsing, or tap "Sign in another way".' },
+    about: 'Sign in with Google using the exact email you were invited with. If an Instagram/Messenger/Gmail link opened it, open the page in Safari or Chrome instead. Blank Google page: turn off content blockers / private browsing, or tap "Sign in another way". Google asks which account to use every time you sign in. Signed in with the wrong account ("You\'re not on the list yet")? Tap "Use a different Google account" and pick (or add) the one you were invited with.' },
   { id: 'demo', title: 'Props only (sneak peek)', who: ['demo'], words: 'cant book booking not open full app access',
     about: 'This account can search the props and ask the AI for prop ideas. Booking shoots and props opens when the owner switches you to the full app; nothing to do on your side.' },
   { id: 'ai', title: 'The ✦ AI helper', who: ALL, words: 'ai chat assistant ideas',

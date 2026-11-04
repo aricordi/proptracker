@@ -2117,6 +2117,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       ApprovalsScreen, DeskApprovals month). Free count + slot bar follow the house; your gold days + team request badges count
       both houses. Single-house view: chosen house ≤1 free and the other has more → sky "C2: N" (lg adds "free"). Day tap still
       shows both houses.
+    - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
+      sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
+      NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
+      + "Just sign out"; text says ask the owner or an admin (arts no longer invite). Help Q "I signed in with the wrong Google
+      account", appGuide login entry.
     - BACKUPS CHECKED + PHOTO BACKUP (owner, Nov 4: no off-site provider → "do the correct backups within what we already have, and
       make sure they're working"): (1) PHOTOS: private bucket gs://proptracker-9732e-photo-backup (Montréal, versioning, soft delete
       30 d), made by the button "Weekly photo backup" (`.github/workflows/photo-backup.yml`, gcloud storage rsync, never deletes; run 1

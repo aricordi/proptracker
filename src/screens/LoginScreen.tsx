@@ -4,6 +4,7 @@ import { auth, USING_EMULATORS } from '../firebase'
 import BrandMark from '../components/BrandMark'
 import { inAppBrowser } from '../lib/inAppBrowser'
 import { IS_PRACTICE } from '../components/PracticeBar'
+import { googleProvider } from '../lib/googleSignIn'
 
 // Emulator only: one-tap sign-in as a pretend Google account, so each role
 // can be tried without real accounts. Never shown on the live site.
@@ -53,13 +54,13 @@ export default function LoginScreen() {
   const handleSignIn = async () => {
     setProblem(null)
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider())
+      await signInWithPopup(auth, googleProvider())
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'unknown'
       console.error('Sign-in failed:', err)
       // The browser blocked the Google window: sign in on a full page instead.
       if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
-        try { await signInWithRedirect(auth, new GoogleAuthProvider()); return } catch { /* show the message below */ }
+        try { await signInWithRedirect(auth, googleProvider()); return } catch { /* show the message below */ }
       }
       setProblem(signInProblem(code))
     }
@@ -68,7 +69,7 @@ export default function LoginScreen() {
   // Full-page Google sign-in (no pop-up window); also works on phones that block pop-ups.
   const handleRedirect = async () => {
     setProblem(null)
-    try { await signInWithRedirect(auth, new GoogleAuthProvider()) }
+    try { await signInWithRedirect(auth, googleProvider()) }
     catch (err) { setProblem(signInProblem((err as { code?: string })?.code ?? 'unknown')) }
   }
 
