@@ -22,6 +22,7 @@ import { STATE_LABEL } from '../lib/flagState'
 import type { Incident } from '../lib/analytics'
 import { useManageCreator } from '../components/ManageCreator'
 import { useDesk } from '../desk/desk'
+import AskAnalytics from '../components/analytics/AskAnalytics'
 import { collabPairs, partnersOf, type CollabShoot } from '../lib/collabs'
 import { useAnalyticsData } from '../hooks/useAnalytics'
 import { formatDay } from '../lib/dates'
@@ -53,7 +54,7 @@ export default function AnalyticsScreen() {
   const preset = (PRESETS.some(p => p[0] === qs.get('period')) ? qs.get('period') : tab === 'trends' ? '12w' : 'tm') as Preset
   const zoomFrom = qs.get('from'), zoomTo = qs.get('to')
   const who = qs.get('who') || '', house = (qs.get('house') as House) || ''
-  const theme = qs.get('theme') || '', kind = (qs.get('kind') as Kind) || ''
+  const theme = THEMES.some(x => x.key === qs.get('theme')) ? qs.get('theme')! : '', kind = (qs.get('kind') && qs.get('kind')! in KIND ? qs.get('kind') as Kind : '') as Kind | ''
   const table = qs.get('view') === 'table'
 
   // Load two years back at most: the longest range (12 months) plus the 12 months it's compared with.
@@ -73,6 +74,10 @@ export default function AnalyticsScreen() {
 
   const [periodOpen, setPeriodOpen] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
+  // ✦ Ask AI (owner, Nov 5): also opens from the dashboard with ?ask=1.
+  const [askOpen, setAskOpen] = useState(qs.get('ask') === '1')
+  const askInput = useMemo(() => ({ facts: a.facts, incidents: a.incidents, jobs: a.jobs, backlog: a.backlog, upcoming: a.upcoming, requests: a.requests, people, today,
+    paused: pausedNow, strikes: Object.fromEntries(Object.entries(statuses).map(([e, st]) => [e, st.strikes ?? 0])), staffName }), [a, people, today, pausedNow, statuses, staffName])
 
   const chips: { label: string; clear: () => void }[] = [
     ...(who ? [{ label: nameOf(who), clear: () => set({ who: null }) }] : []),
@@ -94,6 +99,10 @@ export default function AnalyticsScreen() {
   if (loading) return <div className="min-h-full bg-pt-bg pt-safe px-4"><p className="text-pt-muted text-sm pt-10 text-center">Loading analytics…</p></div>
 
   const tools = <>
+    <button onClick={() => setAskOpen(true)} aria-label="Ask AI about the analytics" title="Ask AI"
+      className="shrink-0 h-11 rounded-full pl-3 pr-4 flex items-center gap-1.5 text-[14px] font-bold text-[#140f22] bg-[#BF9DFF] shadow-violet">
+      <span className="text-[16px] leading-none">✦</span>Ask
+    </button>
     <button onClick={() => table ? set({ view: null }) : drill({ view: 'table' })} aria-label={table ? 'Close the advanced view' : 'Advanced view'} title="Advanced view"
       className={`w-11 h-11 rounded-full grid place-items-center ${table ? 'bg-pt-accent text-stone-900' : 'bg-pt-surface text-pt-text'}`}><Icon name="table" /></button>
     <button onClick={() => navigate('/rules-sheet')} aria-label="Settings sheet" title="Settings sheet" className="w-11 h-11 rounded-full grid place-items-center bg-pt-surface text-pt-text"><Icon name="note" /></button>
@@ -156,6 +165,8 @@ export default function AnalyticsScreen() {
         </div>
       </BottomSheet>
 
+      <AskAnalytics open={askOpen} onClose={() => { setAskOpen(false); if (qs.get('ask')) set({ ask: null }) }} input={askInput}
+        onOpenPage={url => { setAskOpen(false); navigate(url) }} />
       <FilterSheet open={filterOpen} onClose={() => setFilterOpen(false)} {...{ people, who, house, theme, set }} />
   </>
 
@@ -383,6 +394,12 @@ function PersonView(c: Ctx & { m: Metric }) {
   const mg = useManageCreator(c.who, name, c.statuses[c.who] ?? null)
   const videos = c.cur.facts.filter(f => f.filmed && f.title).sort((x, y) => y.date.localeCompare(x.date))
   const shoots = [...c.cur.facts].sort((x, y) => y.date.localeCompare(x.date))
+  // Why a shoot wasn't filmed (audit, Nov 5): the flag on it.
+  const whyNot = new Map([...c.a.incidents, ...c.a.excused].filter(i => i.shootId && ['no-show', 'late-cancel', 'missed-checkin'].includes(i.kind))
+    .map(i => [i.shootId!, i.kind === 'missed-checkin' ? 'No check-in yet' : KIND[i.kind].label]))
+  const coming = c.a.upcoming.filter(u => u.email === c.who).sort((x, y) => x.date.localeCompare(y.date))
+  const reqs = c.a.requests.filter(r => r.email === c.who && r.date >= c.range.from && r.date <= c.range.to)
+  const reqCount = (s: string) => reqs.filter(r => r.status === s).length
   const [showAll, setShowAll] = useState({ videos: false, shoots: false })
   const more = (k: 'videos' | 'shoots', n: number) => !showAll[k] && n > CAP && <button onClick={() => setShowAll({ ...showAll, [k]: true })} className="w-full py-3 rounded-2xl bg-pt-surface text-pt-accent text-[15px]">Show all {n}</button>
   return <>
@@ -429,11 +446,34 @@ function PersonView(c: Ctx & { m: Metric }) {
       {cap(shoots, showAll.shoots).map(f => (
         <button key={f.id} onClick={() => c.navigate(f.to)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
           <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px]">{formatDay(f.date)} · {HOUSE_LABEL[f.house]}</span>{f.title && <span className="block text-pt-muted text-xs truncate">“{f.title}”</span>}</span>
-          <span className={`text-xs rounded-full px-2 py-1 ${f.filmed ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>{f.filmed ? 'Filmed' : 'Not filmed'}</span>
+          <span className={`text-xs rounded-full px-2 py-1 whitespace-nowrap ${f.filmed ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>{f.filmed ? 'Filmed' : whyNot.get(f.id) ?? 'Not filmed'}</span>
         </button>
       ))}
     </div>
     {more('shoots', shoots.length)}
+    <SectionHead title={`Coming up · ${coming.length}`} sub="Approved shoots still ahead (any date)" />
+    <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {coming.length === 0 && <p className="text-pt-muted text-sm px-3 py-4">Nothing booked ahead.</p>}
+      {coming.slice(0, 8).map(u => { const x = c.flagCtx.raw.shoots.get(u.id) as { place?: string; where?: string } | undefined; return (
+        <button key={u.id} onClick={() => c.navigate(`/schedule?shoot=${u.id}`)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+          <span className="flex-1 min-w-0 text-pt-text text-[15px] truncate">{formatDay(u.date)} · {x?.place === 'cliff1' || x?.place === 'cliff2' ? HOUSE_LABEL[x.place as House] : (x?.where || 'Offsite')}</span>
+          <span className="text-pt-muted">›</span>
+        </button>) })}
+    </div>
+    <SectionHead title={`Booking requests · ${reqs.length}`} sub={`Shoot days ${c.range.phrase.replace(/^in /, '')}: what they asked for and what happened`} />
+    <div className="grid grid-cols-4 gap-2">
+      {([['approved', 'Approved', 'text-green-300'], ['waiting', 'Waiting', 'text-amber-200'], ['denied', 'Not approved', 'text-red-300'], ['expired', 'Ran out', 'text-pt-muted']] as const).map(([k, l, tone]) => (
+        <div key={k} className="bg-pt-surface rounded-2xl p-3"><b className={`block text-[22px] leading-none tabular-nums ${reqCount(k) ? tone : 'text-pt-text'}`}>{reqCount(k)}</b><span className="block text-pt-muted text-xs mt-1">{l}</span></div>
+      ))}
+    </div>
+    {reqs.filter(r => r.status !== 'approved').length > 0 && <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
+      {reqs.filter(r => r.status !== 'approved').sort((x, y) => y.date.localeCompare(x.date)).slice(0, 8).map(r => (
+        <button key={r.id} onClick={() => c.navigate(`/schedule?shoot=${r.id}`)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+          <span className="flex-1 text-pt-text text-[15px]">{formatDay(r.date)}</span>
+          <span className="text-xs text-pt-muted">{r.status === 'waiting' ? 'Waiting for OK' : r.status === 'denied' ? 'Not approved' : r.status === 'expired' ? 'Ran out' : 'Withdrawn'}</span>
+          <span className="text-pt-muted">›</span>
+        </button>))}
+    </div>}
   </>
 }
 
@@ -608,6 +648,7 @@ function FlagsTab(c: Ctx & { m: Metric }) {
 
 // ── Teams: the arts department and the equipment team ──
 function TeamsTab(c: Ctx & { m: Metric }) {
+  const [staffOpen, setStaffOpen] = useState<Row | null>(null)
   const b = c.a.backlog
   const packed = value('packed', c.cur)!, gear = value('gearChecked', c.cur)!
   const staff = rowsBy('staff', c.cur, { grain: c.grain, staffName: c.staffName })
@@ -624,8 +665,6 @@ function TeamsTab(c: Ctx & { m: Metric }) {
   return <>
     <Top c={c} m={c.m} chart={false} metrics={['packed', 'packOnTime', 'packTime', 'propsCheckTime', 'gearChecked', 'gearCheckTime']}
       headline={<>The arts department packed {plural(packed, 'request')} and the equipment team checked in {plural(gear, 'return')} {c.range.phrase}</>} sub={vsLine(c, 'packed')} />
-    <Top c={c} m={c.m} chart={false} metrics={['packed', 'packOnTime', 'packTime', 'propsCheckTime', 'gearChecked', 'gearCheckTime']}
-      headline={<>The arts department packed {plural(packed, 'request')} and the equipment team checked in {plural(gear, 'return')} {c.range.phrase}</>} sub={vsLine(c, 'packed')} />
     <SectionHead title="Right now" sub="Live queues, whatever the date range" />
     <div className="grid grid-cols-3 gap-2">
       {tile(b.propsToPack, 'Props to pack', '/reservations')}
@@ -639,12 +678,36 @@ function TeamsTab(c: Ctx & { m: Metric }) {
     <SectionHead title="Arts department" sub="Packed + returns checked, per person" onMore={() => c.drill({ view: 'table', dim: 'staff', sort: 'packed' })} more="Table" />
     <RankList empty="Nothing done in this range yet." rows={arts.map(r => ({ key: r.key, label: r.label, value: String(value('packed', r.data)! + value('propsChecked', r.data)!),
       share: (value('packed', r.data)! + value('propsChecked', r.data)!) / aMax,
-      sub: `${value('packed', r.data)} packed (${fmt('packOnTime', value('packOnTime', r.data))} on time, typical ${fmt('packTime', value('packTime', r.data))}) · ${value('propsChecked', r.data)} checked in` }))} />
+      sub: `${value('packed', r.data)} packed (${fmt('packOnTime', value('packOnTime', r.data))} on time, typical ${fmt('packTime', value('packTime', r.data))}) · ${value('propsChecked', r.data)} checked in`, onClick: () => setStaffOpen(r) }))} />
     <SectionHead title="Equipment team" sub="Gear returns checked, per person" onMore={() => c.drill({ view: 'table', dim: 'staff', sort: 'gearChecked' })} more="Table" />
     <RankList empty="Nothing done in this range yet." rows={eq.map(r => ({ key: r.key, label: r.label, value: String(value('gearChecked', r.data)), share: value('gearChecked', r.data)! / eMax,
-      sub: `Typical check-in ${fmt('gearCheckTime', value('gearCheckTime', r.data))}` }))} />
-    <p className="text-pt-muted text-xs">Counted from each request's history: who packed it and when, who checked returns in. "On time" = packed by the pickup day.</p>
+      sub: `Typical check-in ${fmt('gearCheckTime', value('gearCheckTime', r.data))}`, onClick: () => setStaffOpen(r) }))} />
+    <p className="text-pt-muted text-xs">Counted from each request's history: who packed it and when, who checked returns in. "On time" = packed by the pickup day. Tap a person to see every job.</p>
+    <BottomSheet open={!!staffOpen} onClose={() => setStaffOpen(null)} title={staffOpen ? `${staffOpen.label} · ${c.range.label.toLowerCase()}` : ''}>
+      {staffOpen && <StaffJobs row={staffOpen} go={to => { setStaffOpen(null); c.navigate(to) }} />}
+    </BottomSheet>
   </>
+}
+
+// Every job one team member did in the range, slowest first, each opening its request (audit, Nov 5: drill to the records).
+function StaffJobs({ row, go }: { row: Row; go: (to: string) => void }) {
+  const jobs = [...row.data.jobs].sort((x, y) => y.hours - x.hours)
+  const hrs = (h: number) => h < 1 ? `${Math.round(h * 60)} min` : h < 48 ? `${Math.round(h * 10) / 10} h` : `${Math.round(h / 24)} days`
+  return (
+    <div className="pb-4 space-y-2">
+      <p className="text-pt-muted text-sm">{jobs.length} job{jobs.length === 1 ? '' : 's'}, slowest first. Time = from the request (or the return) to when they finished.</p>
+      <div className="bg-pt-raised rounded-2xl divide-y divide-white/[0.06]">
+        {jobs.map((j, i) => (
+          <button key={i} onClick={() => go(j.to)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
+            <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] truncate">{j.title || 'Request'}</span>
+              <span className="block text-pt-muted text-xs">{j.kind === 'packed' ? 'Packed' : 'Checked in'} · {j.team === 'props' ? 'props' : 'gear'} · {formatDay(j.date, { month: 'short', day: 'numeric' })}</span></span>
+            <span className={`shrink-0 text-sm tabular-nums ${j.onTime === false ? 'text-red-300' : 'text-pt-text'}`}>{hrs(j.hours)}{j.onTime === false ? ' · late' : ''}</span>
+            <span className="text-pt-muted">›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ── Advanced view: the Power BI part ──

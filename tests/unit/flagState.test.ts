@@ -13,7 +13,7 @@ describe('flags you can act on', () => {
     strikes: [{ id: 'k1', email: 'ana@x', reason: 'no-show', shootId: 's1', at: '2026-10-05T20:00:00.000Z' }] })
   const by = (id: string) => a.incidents.find(i => i.id === id)!
   it('every flag has a stable id and knows the strike that came with it', () => {
-    expect(a.incidents.map(i => i.id).sort()).toEqual(['missed-checkin:s2', 'no-show:s1', 'no-wrap:s3', 'late-start:s3', 'strike:k1'].sort())
+    expect(a.incidents.map(i => i.id).sort()).toEqual(['missed-checkin:s2', 'no-show:s1', 'no-wrap:s3', 'late-start:s3'].sort())   // the no-show's strike rides on that flag
     expect(by('no-show:s1')).toMatchObject({ strikeId: 'k1', shootId: 's1', src: { type: 'shoot', id: 's1' } })
   })
   it('says where each stands', () => {
@@ -29,5 +29,31 @@ describe('flags you can act on', () => {
     const b = analyze({ ...base, shoots: [shoot('s3', '2026-10-07', { checkin: { at: '2026-10-07T17:40:00.000Z' } })], strikes: [], excused: new Set(['late-start:s3']) })
     expect(b.incidents.map(i => i.id)).toEqual(['no-wrap:s3'])
     expect(b.excused.map(i => i.id)).toEqual(['late-start:s3'])
+  })
+})
+
+describe('which shoots count (audit, Nov 5)', () => {
+  const a = analyze({ ...base, strikes: [{ id: 'm1', email: 'ana@x', reason: 'manual', at: '2026-10-10T20:00:00.000Z', note: 'rude' }],
+    checksIn: e => e !== 'dee@x',
+    shoots: [
+      shoot('w', '2026-10-05', { status: 'requested' }), shoot('d', '2026-10-05', { status: 'denied' }), shoot('e', '2026-10-05', { status: 'expired' }),
+      shoot('t', '2026-10-06', { toCheck: true }), shoot('off', '2026-10-07', { place: 'offsite' }),
+      shoot('demo', '2026-10-08', { creatorEmail: 'dee@x', creatorName: 'Dee' }), shoot('demoNo', '2026-10-09', { creatorEmail: 'dee@x', creatorName: 'Dee', noShow: 'missed' }),
+      shoot('fut', '2026-10-30', { status: 'requested' }), shoot('fut2', '2026-10-30', { approvedAt: '2026-10-19T10:00:00.000Z' }),
+    ] })
+  it('only approved shoots are counted; requests are listed on their own', () => {
+    expect(a.facts.map(f => f.id).sort()).toEqual(['demo', 'demoNo', 'off'])
+    expect(a.upcoming.map(u => u.id)).toEqual(['fut2'])
+    expect(a.requests.map(r => `${r.id}:${r.status}`).sort()).toEqual(['d:denied', 'e:expired', 'fut2:approved', 'fut:waiting', 'w:waiting'])
+  })
+  it('offsite and people who cannot check in yet count as filmed unless the team says no-show', () => {
+    expect(a.facts.find(f => f.id === 'off')!.filmed).toBe(true)
+    expect(a.facts.find(f => f.id === 'demo')!.filmed).toBe(true)
+    expect(a.facts.find(f => f.id === 'demoNo')!.filmed).toBe(false)
+    expect(a.incidents.filter(i => i.kind === 'missed-checkin')).toHaveLength(0)
+    expect(a.incidents.map(i => i.id)).toContain('no-show:demoNo')
+  })
+  it('a stand-alone strike is still a flag', () => {
+    expect(a.incidents.map(i => i.id)).toContain('strike:m1')
   })
 })

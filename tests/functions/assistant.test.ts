@@ -121,3 +121,17 @@ describe('the chat\'s brain (askChat)', () => {
     expect((await call('askChat', { message: 'how do I block time?' }, 'gear@example.com')).ok).toBe(true)
   })
 })
+
+describe('ask AI about the analytics', () => {
+  const pack = { creators: [{ id: 'c1', name: 'Ana', paused: false, activeStrikes: 0, comingUp: 1 }], last30: { c1: { booked: 3, filmed: 3, flags: 0, byKind: {} } }, flags: [] }
+  it('is for the owner and admins only, and answers from the numbers', async () => {
+    await put('users/sam@example.com', { email: 'sam@example.com', role: 'admin', active: true, name: 'Sam' })
+    const no = await call('askAnalytics', { question: 'Who filmed the most?', pack }, ANA)
+    expect(no.ok).toBe(false)
+    const r = await call('askAnalytics', { question: 'Who filmed the most?', pack }, 'sam@example.com')
+    expect(r.ok).toBe(true)
+    expect(r.result.answer).toContain('Ana: 3 filmed')
+    const bad = await call('askAnalytics', { question: 'Who filmed the most?' }, 'sam@example.com')
+    expect(bad.ok).toBe(false)
+  })
+})

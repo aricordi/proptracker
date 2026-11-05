@@ -173,9 +173,9 @@ export function needsYouItems(a: { incidents: { kind: string; open?: boolean; to
   const open = (k: string[]) => new Set(a.incidents.filter(i => i.open && k.includes(i.kind)).map(i => i.to ?? Math.random())).size
   const b = a.backlog, decide = open(['missed-checkin']), reports = open(['ran-over', 'mess']), late = b.propsOutLate + b.gearOutLate
   return [
-    { n: decide, text: `Missed check-in${decide === 1 ? '' : 's'} to decide`, onClick: () => go('/analytics?tab=flags&kind=missed-checkin&period=12w'), serious: true },
+    { n: decide, text: `Missed check-in${decide === 1 ? '' : 's'} to decide`, onClick: () => go('/analytics?tab=flags&kind=missed-checkin&period=12m'), serious: true },
     { n: reports, text: `House report${reports === 1 ? '' : 's'} to review`, onClick: () => go('/schedule/team') },
-    { n: late, text: `Late return${late === 1 ? '' : 's'} still out`, onClick: () => go('/analytics?tab=flags&theme=returns'), serious: true },
+    { n: late, text: `Late return${late === 1 ? '' : 's'} still out`, onClick: () => go('/analytics?tab=flags&theme=returns&period=12m'), serious: true },
     { n: notLookedAt, text: `Flag${notLookedAt === 1 ? '' : 's'} nobody has looked at (last 28 days)`, onClick: () => go('/analytics?tab=flags&period=28d') },
     { n: b.propsPackLate, text: 'Props requests to pack today or overdue', onClick: () => go('/reservations') },
     { n: b.propsToCheckIn, text: `Props return${b.propsToCheckIn === 1 ? '' : 's'} to check in`, onClick: () => go('/reservations') },

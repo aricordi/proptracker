@@ -246,6 +246,7 @@ export interface Standing { email: string; name: string; rank: number; output: O
 const REASON: Partial<Record<Kind, [string, string]>> = { 'no-show': ['no-show', 'no-shows'], 'late-cancel': ['late cancel', 'late cancels'], strike: ['strike', 'strikes'],
   'props-damaged': ['prop damaged or missing', 'props damaged or missing'], 'gear-missing': ['gear piece missing', 'gear pieces missing'] }
 const reasonText = (k: Kind, n: number) => `${n} ${REASON[k]?.[n === 1 ? 0 : 1] ?? KIND[k].label.toLowerCase()}`
+export const typicalOf = (rows: Row[]) => median(rows.filter(r => value('booked', r.data)! > 0).map(r => value('filmed', r.data)!)) ?? 0
 export function outputOf(filmed: number, typical: number): Output {
   if (filmed === 0) return typical > 0 ? 'less' : 'typical'
   if (filmed >= typical * 1.25 && filmed - typical >= 1) return 'more'
@@ -254,7 +255,9 @@ export function outputOf(filmed: number, typical: number): Output {
 }
 export function standings(rows: Row[], o: { paused: string[]; coming?: Map<string, number>; typical?: number }): Standing[] {
   const filmedOf = (r: Row) => value('filmed', r.data)!
-  const typical = o.typical ?? median(rows.map(filmedOf)) ?? 0
+  // Typical = the median of creators who had at least one shoot in the range (audit, Nov 5: with every invited creator in the
+  // list, people who haven't started yet pulled the median to 0 and made 1 shoot look like "posting more").
+  const typical = o.typical ?? typicalOf(rows)
   const ranked = [...rows].sort((x, y) => filmedOf(y) - filmedOf(x))
   return rows.map(r => {
     const filmed = filmedOf(r), booked = value('booked', r.data)!, showRate = value('showRate', r.data)
@@ -284,7 +287,7 @@ export function sortStandings(xs: Standing[], by: StandSort = 'most') {
 export function typicalSeries(a: Source, r: Range, g: Grain, people: { email: string; name: string }[]) {
   return buckets(r.from, r.to, g).map(b => {
     const [f, t] = bucketSpan(b, g, r)
-    return median(rowsBy('creator', slice(a, f, t), { grain: g, people }).map(x => value('filmed', x.data)!)) ?? 0
+    return typicalOf(rowsBy('creator', slice(a, f, t), { grain: g, people }))
   })
 }
 // Shoots already booked for the rest of THIS month (only "This month" has a rest to come).

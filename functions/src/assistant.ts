@@ -17,6 +17,7 @@ import { guideFor, searchGuide, TABS, type GuideRole } from './appGuide.js'
 import { actionsFor, chatPrompt, cleanState, cleanHistory, cleanTurn } from './chatBrain.js'
 import { plainNeeds, rankedPicks, signalsFrom, goesWith, type Pick, type PropSignals, isFilmGear } from './ideaHelpers.js'
 import { aiSkips, NOT_A_PROP } from './filmGear.js'
+import { packText, analyticsPrompt, cleanAnswer, plainAnswer } from './analyticsAsk.js'
 
 // What creators actually request, as totals (see ideaHelpers.ts). Read at most every 10 minutes per server copy.
 let signalCache: { at: number; s: PropSignals } | null = null
@@ -469,5 +470,29 @@ export const askChat = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutS
     if (!turn) return { fallback: true as const }
     const links = turn.screens.map(id => entries.find(e => e.id === id)).filter(e => e?.path && !e.path.includes(':')).map(e => ({ path: e!.path!, label: e!.title }))
     return { ...turn, links }
+  } finally { await settle(cost) }
+})
+
+// ─── Ask AI about the analytics (owner + admins; owner, Nov 5) ────────────────
+// The app sends its own data pack (see analyticsAsk.ts); the AI only reads it and answers. Own budget helper 'analytics'.
+export const askAnalytics = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutSeconds: 90, memory: '512MiB' }, async req => {
+  const caller = await requireRole(req, ['owner', 'admin'])
+  const question = str(req.data?.question, 400)
+  if (question.length < 3) throw new HttpsError('invalid-argument', 'Ask a question about your creators or the teams.')
+  const packed = packText(req.data?.pack)
+  if (!packed) throw new HttpsError('invalid-argument', 'The analytics data was missing or too big. Reload Analytics and try again.')
+  const history = (Array.isArray(req.data?.history) ? req.data.history : []).slice(-3)
+    .map((h: unknown) => ({ q: str((h as { q?: unknown })?.q, 300), a: str((h as { a?: unknown })?.a, 500) })).filter((h: { q: string }) => h.q)
+  const key = apiKey()
+  if (!key || isFakeMode(key)) return plainAnswer(req.data?.pack)
+  // Budget or daily limit reached → the plain numbers instead of an error.
+  const settle = await reserveAi(caller.email, 'analytics').catch(() => null)
+  if (!settle) return plainAnswer(req.data?.pack)
+  let cost = 0
+  try {
+    const prompt = analyticsPrompt({ today: todayInStudio(), question, history, data: packed.text, role: caller.role === 'owner' ? 'owner' : 'admin' })
+    const r = await askJson(key, prompt, 900, 0.2).catch(e => { logger.warn('askAnalytics failed', String(e)); return null })
+    if (r) cost = r.costUsd
+    return (r && !r.blocked && cleanAnswer(r.data, packed.ids)) || plainAnswer(req.data?.pack)
   } finally { await settle(cost) }
 })

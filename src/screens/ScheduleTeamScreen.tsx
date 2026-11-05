@@ -31,7 +31,8 @@ export default function ScheduleTeamScreen() {
   const where = (x: Shoot) => x.place === 'offsite' ? x.where : s.houses[x.place].name
 
   const all = shoots ?? []
-  const missed = all.filter(x => isMissed(x, now)).sort((a, b) => a.from.localeCompare(b.from))
+  // Offsite shoots have no check-in, and calendar imports nobody confirmed yet aren't anyone's miss (audit, Nov 5).
+  const missed = all.filter(x => isMissed(x, now) && x.place !== 'offsite' && !(x as { toCheck?: boolean }).toCheck).sort((a, b) => a.from.localeCompare(b.from))
   const recent = all.filter(x => x.status === 'booked' && (x.date === today || x.date === addDays(today, -1)) && !isMissed(x, now)).sort((a, b) => a.from.localeCompare(b.from))
   const people = useMemo(() => {
     const m = new Map<string, { email: string; name: string; booked: number; filmed: number; missed: number }>()

@@ -33,8 +33,10 @@ export default function CreatorDashboard() {
   const needs = <NeedsYou items={needsYouItems(a, pausedNow, to => navigate(to), notLookedAt(a.incidents, reviews, shift(today, -27)))} />
   const buttons = (
     <div className="grid grid-cols-2 gap-2">
-      <button onClick={() => navigate(`/analytics?${q}`)} className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Open analytics</button>
+      <button onClick={() => navigate(`/analytics?${q}${filter ? `&level=${filter}` : ''}`)} className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Open analytics</button>
       <button onClick={() => navigate('/rules-sheet')} className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold">Settings sheet</button>
+    <button onClick={() => navigate(`/analytics?${q}&ask=1`)} className="col-span-2 min-h-[48px] rounded-full flex items-center justify-center gap-2 bg-[#BF9DFF]/15 text-[#D9C6FF] text-[15px] font-semibold">
+        <span>✦</span>Ask AI about your creators</button>
     </div>
   )
   const people_ = <>
@@ -78,8 +80,10 @@ export default function CreatorDashboard() {
       <TypicalKey typical={typical} />
 
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => navigate(`/analytics?${q}`)} className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Open analytics</button>
+        <button onClick={() => navigate(`/analytics?${q}${filter ? `&level=${filter}` : ''}`)} className="py-3 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Open analytics</button>
         <button onClick={() => navigate('/rules-sheet')} className="py-3 rounded-2xl bg-pt-surface shadow-hairline text-pt-text font-semibold">Settings sheet</button>
+      <button onClick={() => navigate(`/analytics?${q}&ask=1`)} className="col-span-2 min-h-[48px] rounded-full flex items-center justify-center gap-2 bg-[#BF9DFF]/15 text-[#D9C6FF] text-[15px] font-semibold">
+        <span>✦</span>Ask AI about your creators</button>
       </div>
 
       <SectionHead title="Needs you now" />

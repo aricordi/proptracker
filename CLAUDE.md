@@ -2117,6 +2117,24 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       ApprovalsScreen, DeskApprovals month). Free count + slot bar follow the house; your gold days + team request badges count
       both houses. Single-house view: chosen house ≤1 free and the other has more → sky "C2: N" (lg adds "free"). Day tap still
       shows both houses.
+    - CALENDAR ALL + ANALYTICS CHECK + ASK AI (owner, Nov 5, before launch; NOT deployed: backend (new callable askanalytics in
+      deploy/log lists, no rules change) + website, ask). (1) MonthGrid switch = Cliff 1 | Cliff 2 | ALL (no combined free count):
+      All = one dot per shoot that day (white Cliff 1, sky Cliff 2, violet offsite, hollow = waiting), number of shoots; 'both' gone.
+      (2) ANALYTICS AUDIT FIXES (analytics.ts + creatorStats.ts, same rules): only status 'booked' shoots count (requested/denied/
+      expired never become facts/upcoming/missed-checkin; `requests` list = approved/waiting/denied/expired/withdrawn), toCheck imports
+      skipped, offsite + people who can't check in (analyze `checksIn`: owner + Full app creators; Props-only = trusted) count as
+      filmed unless the team marks a no-show; strikes that came with a flag (no-show, late cancel, upheld report, flagId) aren't a
+      second 'strike' flag; gear 'damaged_at_return' problems → gear-missing kind ("Gear missing or damaged"); typical = median of
+      creators with ≥1 shoot in the range (`typicalOf`); bad ?kind/?theme ignored; Needs-you links use 12 months; Teams header no
+      longer doubled, staff rows open StaffJobs (every job, slowest first → request); report card: "Not filmed" says why, Coming
+      up list, Booking requests tiles + list; dashboard "Open analytics" keeps the tile filter; Schedule team Check-ins skip offsite
+      + toCheck. (3) ASK AI: `src/lib/analyticsPack.ts` (pure, tested) builds a data pack (people as c1…, no emails/notes/titles:
+      byMonth 6 months, last30/last90 with flags by kind, 12 weeks, houses, last-90-day flags ≤250, teams, requests90, backlog) +
+      drillUrl; `functions/src/analyticsAsk.ts` (pure, tested: packText ≤90k chars, analyticsPrompt, cleanAnswer checks the
+      pointer {tab, who, kind, period}, plainAnswer = numbers when no AI); callable `askAnalytics` (assistant.ts, owner+admin,
+      budget helper 'analytics', budget out → plain answer). App: `src/components/analytics/AskAnalytics.tsx` sheet (starters,
+      chat, "See the details ›", follow-up chips) from the violet "✦ Ask" on Analytics (also ?ask=1) and the dashboard's "Ask AI
+      about your creators". Help Q, appGuide analytics/book/approvals. Tests tests/unit/analyticsAsk.test.ts + flagState/insights.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

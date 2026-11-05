@@ -30,18 +30,18 @@ export function countDay(day: ScheduleDay | undefined, date: string, houses: Hou
 }
 
 // Which house the month shows (owner, Nov 4, option B: people prefer Cliff 1, so it opens on Cliff 1; remembered per phone).
-export type MonthHouse = House | 'both'
+export type MonthHouse = House | 'all'
 const HOUSE_KEY = 'pc.monthHouse'
 const HOUSE_NAME: Record<House, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2' }
 export function useMonthHouse(): [MonthHouse, (h: MonthHouse) => void] {
   const [h, setH] = useState<MonthHouse>(() => {
-    try { const v = localStorage.getItem(HOUSE_KEY); if (v === 'cliff1' || v === 'cliff2' || v === 'both') return v } catch { /* private mode */ }
+    try { const v = localStorage.getItem(HOUSE_KEY); if (v === 'cliff1' || v === 'cliff2' || v === 'all') return v } catch { /* private mode */ }
     return 'cliff1'
   })
   return [h, (v: MonthHouse) => { setH(v); try { localStorage.setItem(HOUSE_KEY, v) } catch { /* private mode */ } }]
 }
 export function HouseSwitch({ value, onChange }: { value: MonthHouse; onChange: (h: MonthHouse) => void }) {
-  const opts: [MonthHouse, string][] = [['cliff1', 'Cliff 1'], ['cliff2', 'Cliff 2'], ['both', 'Both']]
+  const opts: [MonthHouse, string][] = [['cliff1', 'Cliff 1'], ['cliff2', 'Cliff 2'], ['all', 'All']]
   return (
     <div role="radiogroup" aria-label="Which house" className="grid grid-cols-3 gap-1 p-1 rounded-full bg-pt-surface">
       {opts.map(([v, label]) => (
@@ -50,6 +50,22 @@ export function HouseSwitch({ value, onChange }: { value: MonthHouse; onChange: 
       ))}
     </div>
   )
+}
+
+// ALL view (owner, Nov 5: "no combined free count, that's silly; an All to see Cliff 1, Cliff 2 and offsite shoots"): who is
+// filming that day, one dot per shoot coloured by place. Held invites and blocks aren't shoots.
+export const PLACE_DOT: Record<House | 'offsite', string> = { cliff1: 'bg-white', cliff2: 'bg-sky-400', offsite: 'bg-violet-400' }
+export function shootsOn(day: ScheduleDay | undefined) {
+  const out: { place: House | 'offsite'; pending: boolean }[] = []
+  for (const h of HOUSES) {
+    const seen = new Set<string>()
+    for (const e of Object.values(day?.[h] ?? {})) {
+      if (!e.shootId || e.move || seen.has(e.shootId)) continue
+      seen.add(e.shootId); out.push({ place: h, pending: !!e.pending })
+    }
+  }
+  for (const o of day?.offsite ?? []) if (!o.move) out.push({ place: 'offsite', pending: !!o.pending })
+  return out
 }
 
 const fmtHour = (m: number) => { const h = Math.floor(m / 60) % 24; return `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}` }
@@ -62,7 +78,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
   const list = daysOfMonth(month)
   const lead = weekday(list[0])
   const [house, setHouse] = useMonthHouse()
-  const houses: House[] = house === 'both' ? HOUSES : [house]
+  const houses: House[] = house === 'all' ? HOUSES : [house]
   const other: House | null = house === 'cliff1' ? 'cliff2' : house === 'cliff2' ? 'cliff1' : null
   return (
     <div>
@@ -74,7 +90,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const past = date < today
           const c = countDay(days?.[date], date, houses, s, email, now, team)
           // Your shoots and waiting requests show whichever house is picked; only the free spots follow the switch.
-          const all = house === 'both' ? c : countDay(days?.[date], date, HOUSES, s, email, now, team)
+          const all = house === 'all' ? c : countDay(days?.[date], date, HOUSES, s, email, now, team)
           c.mine = all.mine; c.requested = all.requested
           // Full (or one left) here but the other house has room → a small hint so nobody gives up on the day.
           const alt = other && !past && c.free <= 1 ? countDay(days?.[date], date, [other], s, email, now, team).free : 0
@@ -87,10 +103,11 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const mine = c.mine && !team
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : ''
           return (
-            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}: ${team ? `${c.requested} requests, ` : ''}${c.free} free${house === 'both' ? '' : ` at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
+            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? `${shootsOn(days?.[date]).length} shoots` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
               className={`relative aspect-[0.82] rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between pt-1.5 pb-2 lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               {!past && headsUps(days?.[date]).length > 0 && <i className="absolute top-1.5 right-1.5 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-amber-300" aria-label="Heads-up that day" />}
               <span className={`text-[18px] lg:text-[22px] font-bold ${date === today ? 'w-8 h-8 lg:w-10 lg:h-10 -mt-0.5 rounded-full bg-white text-stone-900 grid place-items-center' : mine ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
+              {house === 'all' ? <AllCell list={shootsOn(days?.[date])} past={past} team={team} requested={c.requested} /> : <>
               {!past && (
                 <span className="flex flex-col items-center leading-none gap-0.5">
                   {team && c.requested > 0 && <span className="min-w-5 h-5 px-1 mb-0.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
@@ -104,15 +121,21 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
               <span className="w-[80%] flex gap-px h-1.5 lg:h-2" aria-hidden>
                 {c.freeAt.map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${!past && f ? bar : 'bg-pt-border'} ${f === null && !past ? 'opacity-40' : ''}`} />)}
               </span>
+              </>}
             </button>
           )
         })}
       </div>
       <div className="flex flex-wrap gap-3 mt-3 text-xs text-pt-muted">
-        <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(s.slots[0])} on the left to ${fmtHour(s.slots[s.slots.length - 1])} on the right` : 'morning to night'}: lit = free then{house === 'both' ? ' at either house' : ` at ${HOUSE_NAME[house]}`}</span>
-        <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>
-        <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>
-        <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>
+        {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">One dot per shoot:
+          <span><i className={`inline-block w-2 h-2 rounded-full mr-1 ${PLACE_DOT.cliff1}`} />Cliff 1</span>
+          <span><i className={`inline-block w-2 h-2 rounded-full mr-1 ${PLACE_DOT.cliff2}`} />Cliff 2</span>
+          <span><i className={`inline-block w-2 h-2 rounded-full mr-1 ${PLACE_DOT.offsite}`} />Offsite</span>
+          <span><i className="inline-block w-2 h-2 rounded-full mr-1 border border-white/70" />Waiting for OK</span></span>
+        : <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(s.slots[0])} on the left to ${fmtHour(s.slots[s.slots.length - 1])} on the right` : 'morning to night'}: lit = free then at {HOUSE_NAME[house as House]}</span>}
+        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>}
+        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>}
+        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>}
         {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3' : 'C1: 3'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free</span>}
         <span><i className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team ? <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>
@@ -121,4 +144,24 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
       </div>
     </div>
   )
+}
+
+// One day in the ALL view: how many shoots, then a dot per shoot (Cliff 1 white, Cliff 2 sky, offsite violet; hollow = waiting for OK).
+const RING: Record<House | 'offsite', string> = { cliff1: 'border-white', cliff2: 'border-sky-400', offsite: 'border-violet-400' }
+function AllCell({ list, past, team, requested }: { list: { place: House | 'offsite'; pending: boolean }[]; past: boolean; team: boolean; requested: number }) {
+  const order = { cliff1: 0, cliff2: 1, offsite: 2 }
+  const dots = list.slice().sort((a, b) => order[a.place] - order[b.place])
+  const shown = dots.slice(0, 8)
+  return <>
+    {!past && (
+      <span className="flex flex-col items-center leading-none gap-0.5">
+        {team && requested > 0 && <span className="min-w-5 h-5 px-1 mb-0.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{requested}</span>}
+        <span className={`text-xs lg:text-[13px] font-semibold ${list.length ? 'text-pt-text' : 'text-pt-muted'}`}>{list.length ? `${list.length}` : '–'}<span className="hidden lg:inline">{list.length === 1 ? ' shoot' : list.length ? ' shoots' : ''}</span></span>
+      </span>
+    )}
+    <span className="w-[86%] min-h-[6px] flex flex-wrap justify-center gap-[3px]" aria-hidden>
+      {shown.map((d, i) => <i key={i} className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${d.pending ? `border ${RING[d.place]}` : PLACE_DOT[d.place]}`} />)}
+      {dots.length > shown.length && <span className="text-xs leading-[6px] text-pt-muted">+</span>}
+    </span>
+  </>
 }

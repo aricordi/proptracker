@@ -88,3 +88,8 @@ export type ChatAction = 'reply' | 'times' | 'props' | 'help' | 'status' | 'plan
 export interface ChatTurn { action: ChatAction; reply: string; shoot?: string; query?: string; steps: string[]; screens: string[]; chips: string[]; links: { path: string; label: string }[] }
 export interface ChatStateIn { shoots: { id: string; label: string; status: string }[]; out: { props: number; gear: string[] }; paused?: string; strikes?: number; plan?: { step: string; shoot?: string } }
 export const askChat = httpsCallable<{ message: string; history: { who: 'me' | 'bot'; text: string }[]; state: ChatStateIn }, ChatTurn | { fallback: true }>(functions, 'askChat', { timeout: 60_000 })
+
+// Ask AI about the analytics (owner + admins, Nov 5): the app's own data pack + a question → an answer from those numbers,
+// optionally pointing at one Analytics page (see src/lib/analyticsPack.ts and functions/src/analyticsAsk.ts).
+export interface AnalyticsAnswer { answer: string; open: { tab?: string; who?: string; kind?: string; period?: string } | null; chips: string[] }
+export const askAnalytics = httpsCallable<{ question: string; pack: unknown; history?: { q: string; a: string }[] }, AnalyticsAnswer>(functions, 'askAnalytics', { timeout: 95_000 })

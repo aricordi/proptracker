@@ -164,7 +164,7 @@ export default function ScheduleScreen() {
               <h2 className="text-pt-text text-[20px] font-semibold">{monthTitle(month)}</h2>
               <button disabled={month >= addDays(today, 115).slice(0, 7)} onClick={() => setMonth(monthAdd(month, 1))} aria-label="Next month" className="w-11 h-11 grid place-items-center rounded-full bg-pt-surface text-pt-text text-xl disabled:opacity-30">›</button>
             </div>
-            <p className="text-pt-muted text-xs">{canBook ? 'Free 2-hour spots at the house you pick. Tap a day to see both houses, then a time to book it.' : 'Free 2-hour spots at the house you pick. Tap a day to see both houses.'}</p>
+            <p className="text-pt-muted text-xs">{canBook ? 'Cliff 1 or Cliff 2 = free 2-hour spots there. All = every shoot that day, offsite too. Tap a day, then a time to book it.' : 'Cliff 1 or Cliff 2 = free 2-hour spots there. All = every shoot that day, offsite too. Tap a day to see it.'}</p>
             {days === null ? <p className="text-pt-muted text-sm text-center py-6">Loading…</p>
               : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} selected={desk ? date : null}
                   onPick={d => { setDate(d); if (!desk) setSheet({ kind: 'day', date: d }) }} />}

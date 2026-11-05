@@ -25,7 +25,7 @@ export const KIND: Record<Kind, { label: string; means: string }> = {
   'late-props': { label: 'Late props', means: 'Props came back after the deadline, or are still out.' },
   'late-gear': { label: 'Late gear', means: 'Gear came back more than 30 minutes after its end time, or is still out. Late return fee: 10% of its value (on whoever had it last).' },
   'props-damaged': { label: 'Props damaged or missing', means: 'Checked in by the arts department as damaged or missing.' },
-  'gear-missing': { label: 'Gear pieces missing', means: 'A piece was missing at check-in or at the next pickup, on their watch.' },
+  'gear-missing': { label: 'Gear missing or damaged', means: 'A piece was missing at check-in or at the next pickup, or came back damaged, on their watch.' },
   'invite-lapsed': { label: "Didn't confirm", means: 'A friend held a slot for them and they let the hold run out.' },
   strike: { label: 'Strike', means: 'A strike on their record (automatic or given by an admin), not removed.' },
 }
@@ -42,7 +42,8 @@ export const SERIOUS_KINDS: Kind[] = ['no-show', 'late-cancel', 'strike', 'props
 
 // ── Inputs (only the fields used) ──
 export interface AShoot { id: string; creatorEmail: string; creatorName: string; date: string; from: string; to: string; place: string; where?: string
-  status: string; checkin?: { at: string } | null; wrap?: { at: string; title: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean }
+  status: string; checkin?: { at: string } | null; wrap?: { at: string; title: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
+  toCheck?: boolean; calendarEventId?: string; importedFrom?: string; approvedAt?: string; createdAt?: string }
 interface Hist { at: string; by?: string; status?: string; action?: string }
 export interface AProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; startDate: string; endDate: string
   history?: Hist[]; lines?: { itemName: string; checkIn?: { result: string } }[]; returnInfo?: { at: string } | null; scheduleShootId?: string }
@@ -74,7 +75,10 @@ const minutesLocal = (a: string, b: string) => (new Date(b + ':00').getTime() - 
 
 const slug = (e: string) => e.replace(/[^\w-]/g, '-')
 export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; props: AProps[]; gear: AGear[]; reports: AReport[]
-  strikes: AStrike[]; invites: AInvite[]; excused?: Set<string> }) {
+  strikes: AStrike[]; invites: AInvite[]; excused?: Set<string>
+  // Who can check in with the app (Full app creators + the owner). Others (Props only) can't, so for them a shoot from the
+  // calendar counts as filmed unless the team marks it a no-show (audit, Nov 5).
+  checksIn?: (email: string) => boolean }) {
   const { now, closed } = o
   const nowDate = new Date(now + ':00'), today = now.slice(0, 10)
   const facts: Fact[] = [], incidents: Incident[] = [], jobs: Job[] = [], upcoming: { email: string; date: string; id: string }[] = []
@@ -89,9 +93,14 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
   const sh = (kind: Kind, id: string) => ({ id: `${kind}:${id}`, src: { type: 'shoot' as const, id }, shootId: id })
   const houseOfShoot = new Map(o.shoots.map(x => [x.id, houseOf(x.place)]))
 
+  // Requests (owner, Nov 2: every creator booking is a request first): asked / approved / denied / ran out, by shoot day.
+  const requests: { email: string; date: string; status: 'waiting' | 'approved' | 'denied' | 'expired' | 'withdrawn'; id: string }[] = []
   for (const x of o.shoots) {
     const house = houseOf(x.place), to = `/schedule?shoot=${x.id}`
     name(x.creatorEmail, x.creatorName)
+    if (x.status === 'requested') requests.push({ email: x.creatorEmail, date: x.date, status: 'waiting', id: x.id })
+    else if (x.status === 'denied' || x.status === 'expired') requests.push({ email: x.creatorEmail, date: x.date, status: x.status, id: x.id })
+    else if (x.approvedAt) requests.push({ email: x.creatorEmail, date: x.date, status: x.status === 'cancelled' ? 'withdrawn' : 'approved', id: x.id })
     if (x.status === 'cancelled') {
       if (x.noShow === 'late-cancel' || x.lateCancel) {
         facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed: false, to })
@@ -99,17 +108,23 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
       }
       continue
     }
+    // Only APPROVED shoots count: waiting / denied / ran-out requests never happened (audit, Nov 5), and calendar imports
+    // nobody has confirmed yet (toCheck) may have the wrong person on them.
+    if (x.status !== 'booked' || x.toCheck) continue
     if (x.to > now) { upcoming.push({ email: x.creatorEmail, date: x.date, id: x.id }); continue }
-    const filmed = !!x.checkin || x.outcome === 'filmed'
+    const decidedNo = !!x.noShow || x.outcome === 'noshow'
+    // No check-in expected: offsite shoots (the app only checks in at the houses) and people who can't use check-in yet.
+    const trusted = house === 'offsite' || (o.checksIn ? !o.checksIn(x.creatorEmail) : false)
+    const filmed = !!x.checkin || x.outcome === 'filmed' || (trusted && !decidedNo)
     facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed, title: x.wrap?.title, to })
-    if (filmed) {
-      if (x.checkin) {
-        const late = minutesLocal(x.from, local(x.checkin.at))
-        if (late > LATE_START_MIN) add({ ...sh('late-start', x.id), kind: 'late-start', email: x.creatorEmail, date: x.date, house, text: `Checked in ${Math.round(late)} min late`, to })
-        if (!x.wrap && house !== 'offsite') add({ ...sh('no-wrap', x.id), kind: 'no-wrap', email: x.creatorEmail, date: x.date, house, text: "Checked in, never wrapped (didn't say what they filmed)", to })
-      }
-    } else if (x.noShow || x.outcome === 'noshow') add({ ...sh('no-show', x.id), strikeId: strikeFor('no-show', x.id), kind: 'no-show', email: x.creatorEmail, date: x.date, house, text: 'No-show', to })
-    else if (house !== 'offsite') add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true })
+    if (x.checkin) {
+      const late = minutesLocal(x.from, local(x.checkin.at))
+      if (late > LATE_START_MIN) add({ ...sh('late-start', x.id), kind: 'late-start', email: x.creatorEmail, date: x.date, house, text: `Checked in ${Math.round(late)} min late`, to })
+      if (!x.wrap && house !== 'offsite') add({ ...sh('no-wrap', x.id), kind: 'no-wrap', email: x.creatorEmail, date: x.date, house, text: "Checked in, never wrapped (didn't say what they filmed)", to })
+    }
+    if (filmed) continue
+    if (decidedNo) add({ ...sh('no-show', x.id), strikeId: strikeFor('no-show', x.id), kind: 'no-show', email: x.creatorEmail, date: x.date, house, text: 'No-show', to })
+    else add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true })
   }
 
   for (const r of o.reports) {
@@ -162,16 +177,20 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
       add({ id: `late-gear:${g.id}:${slug(who)}`, src: { type: 'gear', id: g.id }, kind: 'late-gear', email: who, name: who === g.late?.by ? g.late?.byName : undefined, date: g.date, text: lateNow ? `"${g.title}" gear still out, late` : `"${g.title}" gear came back late`, to, open: lateNow, late })
     }
     for (const [n, p] of (g.problems ?? []).entries()) {
-      if (p.kind !== 'missing_at_checkin' && p.kind !== 'missing_after') continue
-      for (const e of p.usedBy?.length ? p.usedBy : users) add({ id: `gear-missing:${g.id}:${n}:${slug(e)}`, src: { type: 'gear', id: g.id }, kind: 'gear-missing', email: e, date: g.date, text: `${p.name ?? 'A piece'} missing from "${g.title}"`, to })
+      if (p.kind !== 'missing_at_checkin' && p.kind !== 'missing_after' && p.kind !== 'damaged_at_return') continue
+      const what = p.kind === 'damaged_at_return' ? 'damaged (said at return)' : 'missing'
+      for (const e of p.usedBy?.length ? p.usedBy : users) add({ id: `gear-missing:${g.id}:${n}:${slug(e)}`, src: { type: 'gear', id: g.id }, kind: 'gear-missing', email: e, date: g.date, text: `${p.name ?? 'A piece'} ${what} from "${g.title}"`, to })
     }
     const returned = h.find(e => e.action === 'returned'), checked = h.find(e => e.action === 'checked_in')
     if (checked?.by && returned) jobs.push({ team: 'gear', kind: 'checked-in', by: checked.by, date: local(checked.at).slice(0, 10), hours: hoursBetween(returned.at, checked.at), to, title: g.title })
     if (g.status === 'returned') backlog.gearToCheckIn++
   }
 
+  // A strike that came WITH a flag (no-show, late cancel, upheld report, or given from a flag) is already counted on that
+  // flag (it shows "Strike given"), so only stand-alone strikes become their own flag (audit, Nov 5: no double counting).
+  const flagged = new Set(incidents.concat(excused).map(i => i.strikeId ?? byFlag.get(i.id)).filter(Boolean))
   for (const s of o.strikes) {
-    if (s.removedAt) continue
+    if (s.removedAt || flagged.has(s.id) || s.flagId) continue
     const why = s.reason === 'manual' ? `${s.about && s.about !== 'other' ? `${s.about}: ` : ''}${s.note ?? 'given by an admin'}` : s.reason === 'late-cancel' ? 'late cancel' : s.reason === 'report' ? 'upheld report' : 'no-show'
     add({ id: `strike:${s.id}`, src: { type: 'strike', id: s.id }, strikeId: s.id, shootId: s.shootId || undefined, kind: 'strike', email: s.email, date: local(s.at).slice(0, 10), house: s.shootId ? houseOfShoot.get(s.shootId) : undefined, text: `Strike: ${why}`, to: s.shootId ? `/schedule?shoot=${s.shootId}` : undefined })
   }
@@ -181,7 +200,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
   }
   for (const i of incidents) { i.name = name(i.email); i.strikeId ??= byFlag.get(i.id) }
   for (const i of excused) i.name = name(i.email)
-  return { facts, incidents, excused, jobs, backlog, names, upcoming }
+  return { facts, incidents, excused, jobs, backlog, names, upcoming, requests }
 }
 
 // ── Periods ──

@@ -8,7 +8,7 @@ export const LATE_START_MINUTES = 15   // checked in more than 15 min after the 
 
 export interface StatShoot {
   id: string; creatorEmail: string; creatorName: string; date: string; from: string; to: string; place: string; where?: string
-  status: string; checkin?: { at: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
+  status: string; checkin?: { at: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean; toCheck?: boolean
 }
 export interface StatProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; endDate: string; returnInfo?: { at: string } | null; checkedInAt?: string }
 export interface StatGear { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; to: string; date: string; returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null; late?: { by: string } | null }
@@ -40,6 +40,7 @@ export function creatorStats(opts: {
   from: string; now: string; closed: ClosedDays
   shoots: StatShoot[]; props: StatProps[]; gear: StatGear[]; reports: StatReport[]; strikes: StatStrike[]
   people?: { email: string; name: string }[]
+  checksIn?: (email: string) => boolean   // who can check in with the app (see analytics.ts)
 }): CreatorStats[] {
   const { from, now, closed } = opts
   const nowDate = new Date(now + ':00')
@@ -62,9 +63,13 @@ export function creatorStats(opts: {
       if (x.noShow === 'late-cancel' || x.lateCancel) { c.booked++; flag(c, { kind: 'late-cancel', date: x.date, text: `Cancelled ${place(x)} too close to the shoot`, to }) }
       continue
     }
+    // Only approved shoots count (same rules as Analytics, audit Nov 5): not requests, denied/ran-out ones or unconfirmed imports.
+    if (x.status !== 'booked' || x.toCheck) continue
     if (x.to > now) { c.upcoming++; continue }
     c.booked++
-    if (x.checkin || x.outcome === 'filmed') {
+    const decidedNo = !!x.noShow || x.outcome === 'noshow'
+    const trusted = x.place === 'offsite' || (opts.checksIn ? !opts.checksIn(x.creatorEmail) : false)
+    if (x.checkin || x.outcome === 'filmed' || (trusted && !decidedNo)) {
       c.filmed++
       // Check-ins are saved in UTC; shoot times are studio (Toronto) time.
       const late = x.checkin ? minutesBetween(x.from, nowStamp(new Date(x.checkin.at))) : 0

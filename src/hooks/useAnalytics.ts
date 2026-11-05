@@ -10,6 +10,7 @@ import { nowStamp } from '../../functions/src/gearBooking'
 import { analyze, type AShoot, type AProps, type AGear, type AReport, type AStrike, type AInvite } from '../lib/analytics'
 import type { AppUser } from '../types'
 import { creatorPeople, countedEmails } from '../lib/creatorPeople'
+import { OWNER_EMAIL } from '../config'
 
 export function useAnalyticsData(loadFrom: string) {
   const today = todayInStudio(), now = nowStamp()
@@ -31,13 +32,15 @@ export function useAnalyticsData(loadFrom: string) {
   const people = useMemo(() => creatorPeople(users), [users])
   const counted = useMemo(() => countedEmails(users), [users])
   const staffName = useMemo(() => { const m = new Map(users.map(u => [u.email, u.name || u.email.split('@')[0]])); return (e: string) => m.get(e) ?? e.split('@')[0] }, [users])
-  const raw0 = useMemo(() => analyze({ now, closed, shoots: (shoots ?? []) as unknown as AShoot[], props: props as unknown as AProps[], gear: gear as unknown as AGear[],
+  // Who can check in with the app: the owner and creators on the Full app (Props-only creators can't yet).
+  const fullApp = useMemo(() => new Set([OWNER_EMAIL, ...users.filter(u => u.role === 'creator' && u.access === 'full').map(u => u.email)]), [users])
+  const raw0 = useMemo(() => analyze({ now, closed, checksIn: e => fullApp.has(e), shoots: (shoots ?? []) as unknown as AShoot[], props: props as unknown as AProps[], gear: gear as unknown as AGear[],
     reports: reports as unknown as AReport[], strikes: strikes as unknown as AStrike[], invites: invites as unknown as AInvite[], excused }),
-  [now, closed, shoots, props, gear, reports, strikes, invites, excused])
+  [now, closed, shoots, props, gear, reports, strikes, invites, excused, fullApp])
   // Only creators and the owner are scored; team work (jobs, backlog) is kept as is.
   const a = useMemo(() => ({ ...raw0, facts: raw0.facts.filter(f => counted.has(f.email)),
     incidents: raw0.incidents.filter(i => counted.has(i.email)), excused: raw0.excused.filter(i => counted.has(i.email)),
-    upcoming: raw0.upcoming.filter(u => counted.has(u.email)) }), [raw0, counted])
+    upcoming: raw0.upcoming.filter(u => counted.has(u.email)), requests: raw0.requests.filter(r => counted.has(r.email)) }), [raw0, counted])
   // The raw records behind each flag (evidence on the flag sheet).
   const raw = useMemo(() => ({ shoots: new Map((shoots ?? []).map(x => [x.id, x])), reports: new Map(reports.map(x => [x.id, x])),
     props: new Map(props.map(x => [x.id, x])), gear: new Map(gear.map(x => [x.id, x])), strikes: new Map(strikes.map(x => [x.id, x])) }), [shoots, reports, props, gear, strikes])

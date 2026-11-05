@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import { useDesk } from '../desk/desk'
 import { subscribeToUsers } from '../services/users'
+import { OWNER_EMAIL } from '../config'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
 import { useShootsSince, useReportsSince, useStrikesSince, useAllStatuses } from '../services/schedule'
@@ -55,7 +56,8 @@ export default function CreatorsScreen() {
   const people = useMemo(() => creatorPeople(users), [users])
   const counted = useMemo(() => countedEmails(users), [users])
   const stats = useMemo(() => {
-    const list = creatorStats({ from, now, closed: settings, shoots: shoots ?? [], props, gear, reports, strikes, people }).filter(c => counted.has(c.email))
+    const list = creatorStats({ from, now, closed: settings, shoots: shoots ?? [], props, gear, reports, strikes, people,
+      checksIn: e => e === OWNER_EMAIL || users.some(u => u.email === e && u.role === 'creator' && u.access === 'full') }).filter(c => counted.has(c.email))
     return sort === 'flags' ? [...list].sort((a, b) => flagTotal(b, SERIOUS) - flagTotal(a, SERIOUS) || flagTotal(b) - flagTotal(a)) : list
   }, [from, now, settings, shoots, props, gear, reports, strikes, people, counted, sort])
   const sum = (f: (c: CreatorStats) => number) => stats.reduce((n, c) => n + f(c), 0)

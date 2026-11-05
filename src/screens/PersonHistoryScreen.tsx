@@ -11,6 +11,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToUser } from '../services/users'
+import { OWNER_EMAIL } from '../config'
 import { useItems } from '../hooks/useItems'
 import { useBookingSettings } from '../hooks/useBookings'
 import { summarizeCreator, money } from '../lib/history'
@@ -49,7 +50,8 @@ export default function PersonHistoryScreen() {
   const lateNowIds = new Set(summary.lateNow.map(r => r.id))
   const newestFirst = [...(list ?? [])].sort((a, b) => b.startDate.localeCompare(a.startDate))
   const stats = useMemo(() => canSeeGear
-    ? creatorStats({ from: periodStart(period, today), now, closed: settings, shoots: shoots ?? [], props: list ?? [], gear, reports, strikes, people: [{ email, name: user?.name || email }] })
+    ? creatorStats({ from: periodStart(period, today), now, closed: settings, shoots: shoots ?? [], props: list ?? [], gear, reports, strikes, people: [{ email, name: user?.name || email }],
+      checksIn: () => email === OWNER_EMAIL || (user?.role === 'creator' && user.access === 'full') })
       .find(c => c.email === email) ?? null
     : null, [canSeeGear, period, today, now, settings, shoots, list, gear, reports, strikes, email, user])
   const paused = !!status?.pausedUntil && status.pausedUntil > today

@@ -88,6 +88,10 @@ describe('insights: comparing creators', () => {
     expect(list.map(s => [s.name, s.rank, s.output])).toEqual([['riley', 1, 'more'], ['maya', 2, 'typical'], ['devon', 2, 'typical'], ['jana', 4, 'less'], ['Kim', 5, 'less']])
     expect(by('jana@x')).toMatchObject({ filmed: 1, coming: 1, vsTypical: -2, attention: false })
     expect(outputOf(0, 0)).toBe('typical')
+    // People with nothing booked yet (just invited) don't pull "typical" down to 0.
+    const many = [1, 2, 3, 4, 5, 6, 7, 8].map(i => ({ email: `new${i}@x`, name: `New ${i}` }))
+    const big = standings(rowsBy('creator', slice(a, r.from, r.to), { grain: 'day', people: many }), { paused: [] })
+    expect(big[0].typical).toBe(3)
   })
   it('flags behaviour separately from output', () => {
     expect(by('devon@x')).toMatchObject({ output: 'typical', attention: true, reasons: ['1 no-show'] })
