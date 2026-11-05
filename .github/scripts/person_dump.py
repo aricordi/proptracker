@@ -74,10 +74,20 @@ for q in sorted(listall('calendar_queue'), key=lambda q: q.get('date', '')):
         print(f"  {q.get('date')} {hm(q.get('startMin'))}-{hm(q.get('endMin'))} [{q.get('calendar')}] {q.get('title')!r} kind={q.get('kind')} status={q.get('status')}"
               f" placed={q.get('placed')} msg={q.get('message')!r} guess={q.get('guess')}")
 
-print(f'\n== Calendar imports remembered for {first!r} / {emails} (from {today} on)')
-for i in sorted(listall('calendar_imports'), key=lambda x: str((x.get('snapshot') or {}).get('date', x.get('date', '')))):
-    snap = i.get('snapshot') or {}
-    date = snap.get('date') or i.get('date') or ''
-    if date and date < today: continue
-    if first in str(snap.get('title', '')).lower() or i.get('email') in emails or any(e in (i.get('emails') or []) for e in emails):
-        print(f"  {date} {snap.get('title')!r} action={i.get('action')} skipped={i.get('skipped')} shoot={i.get('shootId')} shoots={i.get('shootIds')} email={i.get('email')} emails={i.get('emails')}")
+print(f'\n== Calendar imports remembered for {first!r} / {emails} (any action, from {today} on)')
+imports = listall('calendar_imports')
+def imp_line(i):
+    return (f"  {i.get('date')} {hm(i.get('startMin'))}-{hm(i.get('endMin'))} {i.get('title')!r} action={i.get('action')} removed={i.get('removed')}"
+            f" feed={i.get('feedId', '')[:12]} house={i.get('house')} shoot={i.get('shootId')} shoots={i.get('shootIds')} email={i.get('email')} emails={i.get('emails')} by={i.get('by')} at={i.get('at')} id={i['_id'][:30]}")
+for i in sorted(imports, key=lambda x: (str(x.get('date', '')), x.get('startMin', 0))):
+    if str(i.get('date', '')) < today: continue
+    if first in str(i.get('title', '')).lower() or i.get('email') in emails or any(e in (i.get('emails') or []) for e in emails):
+        print(imp_line(i))
+days = [d.strip() for d in os.environ.get('DAYS', '').split(',') if d.strip()]
+for d in days:
+    print(f'\n== Everything the calendar import remembers on {d}')
+    for i in sorted([x for x in imports if x.get('date') == d], key=lambda x: x.get('startMin', 0)): print(imp_line(i))
+    print(f'  -- calendar queue cards on {d}')
+    for q in listall('calendar_queue'):
+        if q.get('date') == d:
+            print(f"  {hm(q.get('startMin'))}-{hm(q.get('endMin'))} [{q.get('calendar')}] {q.get('title')!r} kind={q.get('kind')} status={q.get('status')} placed={q.get('placed')} msg={q.get('message')!r}")

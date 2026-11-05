@@ -15,6 +15,9 @@ on:
       person:
         description: Optional, an email or first name - their shoots, calendar events and the 15-minute calendar check (read only)
         default: ''
+      days:
+        description: Optional, with person - days to list every calendar import for (YYYY-MM-DD,YYYY-MM-DD)
+        default: ''
 
 jobs:
   logs:
@@ -207,4 +210,5 @@ jobs:
         if: inputs.person != ''
         env:
           PERSON: ${{ inputs.person }}
+          DAYS: ${{ inputs.days }}
         run: T=$(gcloud auth print-access-token) python3 .github/scripts/person_dump.py
