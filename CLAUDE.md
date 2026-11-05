@@ -2152,6 +2152,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       job rows "All in … · checked against …". Review: Size box, sky "On the list: …" / amber "Not clearly on the list", "This
       creates the spot …". Tests import.test.ts (+2). Checked on the emulator. Owner: share that folder with the import address
       (Viewer) if not already, then a dry run.
+    - "YOUR NEXT 3 SHOOTS" (owner, Nov 5: the chat home only lists the next 3, "put 'your next 3 shoots' so people know it's not all
+      of them"): ChatNow heading = "Your next N shoots" (+ "· of M booked" when there are more), last row "See all M shoots ›" → /shoots.
+      App only, preview until the website deploy.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

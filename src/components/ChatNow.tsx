@@ -71,7 +71,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const live = useMemo(() => (recent ?? []).filter(x => x.status === 'booked' && x.place !== 'offsite'), [recent])
   const onNow = live.filter(x => !x.wrap && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && x.date === today)))
   const missed = live.filter(x => isMissed(x, now) && !x.explanation && now < explainUntil(x, s))
-  const next = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from)).slice(0, 3)
+  const ahead = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from))
+  // Only the next 3 here (owner, Nov 5: say so, so nobody thinks it's everything they're booked for); the rest on My shoots.
+  const next = ahead.slice(0, 3)
   const backCount = (returns ?? []).reduce((n, g) => n + returnCount(g), 0)
   const paused = !!status?.pausedUntil && status.pausedUntil > today
 
@@ -134,8 +136,8 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       {next.length > 0 && (
         <section className="rise-in">
           <button onClick={toggleList} aria-expanded={listOpen} className="w-full min-h-[40px] flex items-center gap-2 px-1 mb-1 text-left">
-            <span className="text-pt-muted text-[14px] font-semibold">Coming up</span>
-            <span className="text-pt-muted/70 text-[14px]">· {next.length}{!listOpen ? ` · next ${formatDay(next[0].date, { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
+            <span className="text-pt-muted text-[14px] font-semibold">{next.length === 1 ? 'Your next shoot' : `Your next ${next.length} shoots`}</span>
+            <span className="text-pt-muted/70 text-[14px]">{ahead.length > next.length ? `· of ${ahead.length} booked` : ''}{!listOpen ? ` · ${formatDay(next[0].date, { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
             <span className={`ml-auto text-pt-muted text-[16px] transition-transform ${listOpen ? 'rotate-90' : ''}`} aria-hidden>›</span>
           </button>
           {listOpen && <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
@@ -165,6 +167,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
                 </div>
               )
             })}
+            <button onClick={() => navigate('/shoots')} className="w-full min-h-[48px] px-4 flex items-center justify-between text-left text-[14px] font-semibold text-pt-accent">
+              {ahead.length > next.length ? `See all ${ahead.length} shoots` : 'See all my shoots'}<span aria-hidden>›</span>
+            </button>
           </div>}
         </section>
       )}
