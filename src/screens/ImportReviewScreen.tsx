@@ -19,21 +19,21 @@ const TABS: { key: ImportStatus; label: string }[] = [
 ]
 
 // What's on screen for one photo; starts as the AI's suggestion.
-interface Draft { name: string; categoryId: string; tags: string; description: string; quantity: number; bin: string }  // bin: binId | 'new:Label' | 'none'
+interface Draft { name: string; categoryId: string; tags: string; description: string; quantity: number; bin: string; size: string }  // bin: binId | 'new:Label' | 'none'
 
 function draftFrom(it: ImportItem, bins: Bin[]): Draft {
   const s = it.suggestion
   const match = s?.binLabel ? bins.find(b => binKey(b.label) === binKey(s.binLabel!)) : undefined
   return {
     name: s?.name ?? '', categoryId: s?.categoryId ?? 'prop', tags: (s?.tags ?? []).join(', '), description: s?.description ?? '',
-    quantity: s?.quantity ?? 1, bin: match ? match.id : s?.binLabel ? `new:${s.binLabel}` : 'none',
+    quantity: s?.quantity ?? 1, bin: match ? match.id : s?.binLabel ? `new:${s.binLabel}` : 'none', size: s?.size ?? '',
   }
 }
 
 function approvalFrom(id: string, d: Draft): Approval {
   return {
     id, name: d.name.trim(), categoryId: d.categoryId, description: d.description.trim(), quantity: d.quantity,
-    tags: d.tags.split(',').map(t => t.trim()).filter(Boolean),
+    tags: d.tags.split(',').map(t => t.trim()).filter(Boolean), size: d.size.trim(),
     ...(d.bin === 'none' ? { binId: null } : d.bin.startsWith('new:') ? { newBinLabel: d.bin.slice(4) } : { binId: d.bin }),
   }
 }
@@ -156,7 +156,9 @@ export default function ImportReviewScreen() {
         {tab === 'analyzed' && shown.length > 1 && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
             <p className="text-pt-muted text-sm">Checked the {shown.length} below? Approve them all at once (with any edits you made).</p>
-            {newBinLabels.length > 0 && <p className="text-amber-300 text-xs">This creates new bins: {newBinLabels.map(b => b.slice(4)).join(', ')}.</p>}
+            {newBinLabels.length > 0 && <p className="text-amber-300 text-xs">{job?.place && newBinLabels.length === 1 && newBinLabels[0].slice(4) === job.place
+              ? `This creates the spot "${job.place}" (it works like a bin, with its own QR sticker).`
+              : `This creates new bins: ${newBinLabels.map(b => b.slice(4)).join(', ')}.`}</p>}
             <button onClick={() => act(shown.map(i => i.id), 'approve')} disabled={busy.size > 0}
               className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Approve all {shown.length}</button>
           </div>
@@ -234,6 +236,17 @@ export default function ImportReviewScreen() {
                 <div className="px-3 pb-3 space-y-2">
                   <input value={d.tags} onChange={e => edit(it, { tags: e.target.value })} aria-label="Tags" placeholder="tags, comma, separated" className={input} />
                   <input value={d.description} onChange={e => edit(it, { description: e.target.value })} aria-label="Description" placeholder="Description" className={input} />
+                  {(job?.place || job?.listNames?.length || it.suggestion?.size) && (
+                    <label className="flex items-center gap-2">
+                      <span className="text-pt-muted text-sm shrink-0 w-10">Size</span>
+                      <input value={d.size} onChange={e => edit(it, { size: e.target.value.slice(0, 12) })} placeholder="e.g. M, XL, 38R (added to the description)" className={input} />
+                    </label>
+                  )}
+                  {job?.listNames?.length ? (
+                    it.suggestion?.listMatch
+                      ? <p className="text-sky-200 text-xs bg-sky-500/10 rounded-lg px-2.5 py-1.5">On the list: “{it.suggestion.listMatch}”</p>
+                      : <p className="text-amber-200 text-xs bg-amber-500/10 rounded-lg px-2.5 py-1.5">Not clearly on the list. Worth a second look.</p>
+                  ) : null}
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button onClick={() => act([it.id], 'skip')} disabled={working} className="py-2 rounded-xl shadow-hairline text-pt-muted text-sm">Skip</button>
                     <button onClick={() => act([it.id], 'approve')} disabled={working || !d.name.trim()} className="py-2 rounded-xl bg-pt-accent text-stone-900 text-sm font-semibold disabled:opacity-40">Approve</button>

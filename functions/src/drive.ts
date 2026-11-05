@@ -3,6 +3,7 @@
 // account"); the owner shares the photo folders with that account's email.
 import { GoogleAuth } from 'google-auth-library'
 import sharp from 'sharp'
+import { LIST_TYPES, isListType, WORD_TYPES } from './importList.js'
 
 const DRIVE = 'https://www.googleapis.com/drive/v3'
 const FOLDER = 'application/vnd.google-apps.folder'
@@ -107,4 +108,50 @@ export async function fetchPhoto(img: DriveImage): Promise<Buffer> {
 
 function shrink(buf: Buffer): Promise<Buffer> {
   return sharp(buf).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer()
+}
+
+// ─── Inventory lists (owner, Nov 5: "WR List" next to the wardrobe photos) ────
+export interface DriveList { id: string; name: string; mimeType: string; resourceKey?: string }
+
+const TEST_LIST = `8 gas masks\n1 priest robe\n1 black peacoat (xl)\n3 white lab coat (OS)\n1 yellow raincoat (M)`
+
+/** Documents that look like inventory lists in the folder and its subfolders (Docs, Sheets, text). Word files are listed
+ *  separately so the screen can say "open it as a Google Doc first". */
+export async function listListFiles(folderId: string, resourceKey?: string): Promise<{ lists: DriveList[]; word: string[] }> {
+  if (folderId.startsWith('test:')) return { lists: [{ id: 'test-list', name: 'Test inventory list', mimeType: 'text/plain' }], word: [] }
+  const tok = await token()
+  const lists: DriveList[] = [], word: string[] = []
+  const queue: { id: string; key?: string }[] = [{ id: folderId, key: resourceKey }]
+  let folders = 0
+  while (queue.length && folders++ < 50) {
+    const { id, key } = queue.shift()!
+    const q = encodeURIComponent(`'${id}' in parents and trashed = false and not mimeType contains 'image/'`)
+    const url = `${DRIVE}/files?q=${q}&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,mimeType,resourceKey)`
+    const page = await (await driveGet(url, tok, { [id]: key })).json() as { files: DriveList[] }
+    for (const f of page.files) {
+      if (f.mimeType === FOLDER) queue.push({ id: f.id, key: f.resourceKey })
+      else if (isListType(f.mimeType)) lists.push(f)
+      else if (WORD_TYPES.includes(f.mimeType) || /\.docx?$/i.test(f.name)) word.push(f.name)
+    }
+  }
+  return { lists: lists.slice(0, 3), word }
+}
+
+/** One list file by id (from a pasted link). */
+export async function listFileById(id: string): Promise<DriveList> {
+  if (id === 'test-list') return { id, name: 'Test inventory list', mimeType: 'text/plain' }
+  const tok = await token()
+  const f = await (await driveGet(`${DRIVE}/files/${id}?fields=id,name,mimeType,resourceKey&supportsAllDrives=true`, tok)).json() as DriveList
+  if (WORD_TYPES.includes(f.mimeType)) throw new Error(`"${f.name}" is a Word file. Open it in Google Drive and choose File → Save as Google Docs, then paste that link.`)
+  if (!isListType(f.mimeType)) throw new Error(`"${f.name}" isn't a document the import can read. Use a Google Doc, a Google Sheet or a text file.`)
+  return f
+}
+
+/** The list's words: Google Docs as plain text, Sheets as CSV, text files as they are. */
+export async function readListText(f: DriveList): Promise<string> {
+  if (f.id === 'test-list') return TEST_LIST
+  const tok = await token()
+  const as = LIST_TYPES[f.mimeType]
+  const url = as ? `${DRIVE}/files/${f.id}/export?mimeType=${encodeURIComponent(as)}` : `${DRIVE}/files/${f.id}?alt=media&supportsAllDrives=true`
+  return (await driveGet(url, tok, { [f.id]: f.resourceKey })).text()
 }

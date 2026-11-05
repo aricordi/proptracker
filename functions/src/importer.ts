@@ -18,7 +18,8 @@ import { db, requireRole, CALLABLE } from './auth.js'
 import { logger } from 'firebase-functions'
 import { isRateLimit } from './limits.js'
 import { analyzeImportPhoto, GEMINI_API_KEY, type ImportAnalysis } from './gemini.js'
-import { folderIdFrom, resourceKeyFrom, listImages, fetchPhoto, serviceAccountEmail, type DriveImage } from './drive.js'
+import { folderIdFrom, resourceKeyFrom, listImages, fetchPhoto, serviceAccountEmail, listListFiles, listFileById, readListText, type DriveImage, type DriveList } from './drive.js'
+import { cleanPlace, fileIdFrom, joinLists, listEntries, withSize } from './importList.js'
 import { tagIdsFor } from './tags.js'
 
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
@@ -57,21 +58,43 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
   const caller = await requireRole(req, ['owner'])
   const links: string[] = Array.isArray(req.data?.links) ? req.data.links.filter((l: unknown) => typeof l === 'string' && l.trim()).slice(0, 200) : []
   const dryRun = req.data?.dryRun === true
+  // Owner, Nov 5: a closet or rack with no bin signs ("Wardrobe closet"), and an inventory list to check the AI against.
+  const place = cleanPlace(req.data?.place)
+  const listLink = typeof req.data?.listLink === 'string' ? req.data.listLink.trim() : ''
+  const useLists = req.data?.useLists !== false
   if (!links.length) throw new HttpsError('invalid-argument', 'Paste at least one Google Drive folder link.')
+  if (listLink && !fileIdFrom(listLink)) throw new HttpsError('invalid-argument', "That list link doesn't look like a Google Doc, Sheet or Drive file link.")
   const ids = links.map(l => ({ link: l, id: folderIdFrom(l), key: resourceKeyFrom(l) }))
   const bad = ids.filter(x => !x.id)
   if (bad.length) throw new HttpsError('invalid-argument', `That doesn't look like a Drive folder link: ${bad[0].link.slice(0, 80)}`)
 
   const all = new Map<string, DriveImage>()
   const folders: { id: string; name: string; count: number }[] = []
+  const listFiles: DriveList[] = []
+  const wordFiles: string[] = []
   for (const { id, key } of ids) {
     try {
       const { folderName, images } = await listImages(id!, 5000, key)
       folders.push({ id: id!, name: folderName, count: images.length })
       for (const img of images) all.set(img.id, img)
+      if (useLists && !listLink) {
+        const found = await listListFiles(id!, key)
+        listFiles.push(...found.lists); wordFiles.push(...found.word)
+      }
     } catch (err) {
       throw new HttpsError('failed-precondition', err instanceof Error ? err.message : String(err))
     }
+  }
+  // The inventory list(s): the pasted link wins, else documents found in the folders (≤3).
+  let listText = ''
+  let listNames: string[] = []
+  try {
+    const files = listLink ? [await listFileById(fileIdFrom(listLink))] : [...new Map(listFiles.map(f => [f.id, f])).values()].slice(0, 3)
+    const read = await Promise.all(files.map(async f => ({ name: f.name, text: await readListText(f) })))
+    listText = joinLists(read)
+    listNames = read.filter(r => r.text.trim()).map(r => r.name)
+  } catch (err) {
+    throw new HttpsError('failed-precondition', `Couldn't read the inventory list: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   // Skip photos queued by an earlier import (dry run or a stopped run).
@@ -84,14 +107,16 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
   }
   await backfillHashes().catch(e => logger.warn('Photo hash backfill failed', String(e)))
   const queued = dryRun ? fresh.slice(0, DRY_RUN_SIZE) : fresh
+  const listInfo = { listNames, listEntries: listText ? listEntries(listText) : 0, wordFiles: listText ? [] : wordFiles.slice(0, 5) }
   if (!queued.length) {
-    return { jobId: null, queued: 0, alreadyImported: candidates.length, found: candidates.length }
+    return { jobId: null, queued: 0, alreadyImported: candidates.length, found: candidates.length, place, ...listInfo }
   }
 
   const now = new Date().toISOString()
   const jobRef = db.collection('import_jobs').doc()
   await jobRef.set({
     createdBy: caller.email, createdAt: now, updatedAt: now, dryRun, links, folders,
+    ...(place ? { place } : {}), ...(listNames.length ? { listNames, listEntries: listInfo.listEntries } : {}),
     total: queued.length, counts: { pending: queued.length, analyzed: 0, failed: 0, approved: 0, skipped: 0 }, spentUsd: 0,
   })
   for (let i = 0; i < queued.length; i += 400) {
@@ -104,7 +129,9 @@ export const startImport = onCall({ ...CALLABLE, timeoutSeconds: 540, memory: '5
     }))
     await batch.commit()
   }
-  return { jobId: jobRef.id, queued: queued.length, alreadyImported: candidates.length - fresh.length, found: candidates.length }
+  // The list's words stay on the server (no rules = nobody reads it from the app); processImport hands them to the AI.
+  if (listText) await db.doc(`import_lists/${jobRef.id}`).set({ text: listText, names: listNames, at: now })
+  return { jobId: jobRef.id, queued: queued.length, alreadyImported: candidates.length - fresh.length, found: candidates.length, place, ...listInfo }
 })
 
 // ─── Exact copies ────────────────────────────────────────────────────────────
@@ -165,7 +192,11 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
   await requireRole(req, ['owner'])
   const jobId = typeof req.data?.jobId === 'string' ? req.data.jobId : ''
   const jobRef = db.doc(`import_jobs/${jobId}`)
-  if (!jobId || !(await jobRef.get()).exists) throw new HttpsError('not-found', 'Import not found')
+  const jobSnap = jobId ? await jobRef.get() : null
+  if (!jobSnap?.exists) throw new HttpsError('not-found', 'Import not found')
+  // A spot with no bin signs + the inventory list to check against (owner, Nov 5).
+  const place = cleanPlace(jobSnap.get('place'))
+  const listText = jobSnap.get('listNames') ? String((await db.doc(`import_lists/${jobId}`).get()).get('text') ?? '') : ''
 
   // "Try failed photos again": put them back in the queue.
   if (req.data?.retryFailed === true) {
@@ -236,7 +267,7 @@ export const processImport = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], ti
       const path = `items/imported/${item.fileId}.jpg`
       const token = randomUUID()
       await bucket.file(path).save(jpeg, { contentType: 'image/jpeg', metadata: { metadata: { firebaseStorageDownloadTokens: token } } })
-      const { analysis, costUsd } = await analyzeImportPhoto(apiKey(), { base64: jpeg.toString('base64'), mimeType: 'image/jpeg' }, categories, tagLabels, binLabels)
+      const { analysis, costUsd } = await analyzeImportPhoto(apiKey(), { base64: jpeg.toString('base64'), mimeType: 'image/jpeg' }, categories, tagLabels, binLabels, { place, listText })
       // Swap the reservation for the real cost.
       await BUDGET().set({ spentUsd: FieldValue.increment(costUsd - reserved) }, { merge: true })
       await jobRef.update({ spentUsd: FieldValue.increment(costUsd) })
@@ -278,6 +309,7 @@ interface Approval {
   quantity?: number
   binId?: string | null    // an existing bin
   newBinLabel?: string     // or a bin to create
+  size?: string            // costume size (added to the description), '' = none
 }
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -295,11 +327,19 @@ async function approvalContext() {
     if (!label) return null
     const known = binsByKey.get(binKey(label))
     if (known) return known
-    const area = db.doc(`locations/${IMPORTED_AREA}`)
-    if (!(await area.get()).exists) await area.set({ name: 'Imported – needs sorting', notes: 'Bins first seen on photo signs during the batch import.' })
+    // The import's own spot (e.g. "Wardrobe closet", no bins): one storage area + one "bin" of that name, so the
+    // closet has its own QR sticker and bin check like any shelf. Other new bins go to "Imported – needs sorting".
+    const isSpot = s.isPlace && s.binLabel && binKey(s.binLabel) === binKey(label)
+    const areaId = isSpot ? `spot-${binKey(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40) || 'closet'}` : IMPORTED_AREA
+    const area = db.doc(`locations/${areaId}`)
+    if (!(await area.get()).exists) {
+      await area.set(isSpot
+        ? { name: label, notes: 'A closet or rack with no bins, made by a photo import.' }
+        : { name: 'Imported – needs sorting', notes: 'Bins first seen on photo signs during the batch import.' })
+    }
     const ref = db.collection('bins').doc()
-    await ref.set({ label, locationId: IMPORTED_AREA, qrSlug: ref.id })
-    const bin = { id: ref.id, locationId: IMPORTED_AREA }
+    await ref.set({ label, locationId: areaId, qrSlug: ref.id })
+    const bin = { id: ref.id, locationId: areaId }
     binsByKey.set(binKey(label), bin); binById.set(ref.id, bin)
     return bin
   }
@@ -313,7 +353,7 @@ async function approvalContext() {
       categoryId: a.categoryId && categoryIds.has(a.categoryId) ? a.categoryId : s.categoryId && categoryIds.has(s.categoryId) ? s.categoryId : 'prop',
       quantity, condition: 'good', collection: 'company',   // Prime Capitol's
       tags: await tagIdsFor((Array.isArray(a.tags) ? a.tags : s.tags).filter((t): t is string => typeof t === 'string').slice(0, 15)),
-      description: str(a.description, 300) || s.description || '', notes: '',
+      description: withSize(str(a.description, 300) || s.description || '', a.size === undefined ? s.size : str(a.size, 12)), notes: '',
       ...(s.searchWords?.length ? { searchWords: s.searchWords } : {}),
       ...(bin ? { binId: bin.id, locationId: bin.locationId } : {}),
       status: 'available', archived: false,

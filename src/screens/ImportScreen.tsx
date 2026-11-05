@@ -19,6 +19,10 @@ export default function ImportScreen() {
   const [budget, setBudget] = useState<ImportBudget>({ capUsd: DEFAULT_CAP_USD, spentUsd: 0 })
   const [account, setAccount] = useState<string | null>(null)
   const [links, setLinks] = useState('')
+  // Owner, Nov 5: photos from a closet or rack with no bin signs, and an inventory list to check the AI against.
+  const [spot, setSpot] = useState<'bins' | 'place'>('bins')
+  const [place, setPlace] = useState('Wardrobe closet')
+  const [listLink, setListLink] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [running, setRunning] = useState<string | null>(null)   // job being processed on this screen
@@ -34,11 +38,15 @@ export default function ImportScreen() {
     setBusy(true); setMessage(null)
     try {
       const list = links.split(/\s+/).filter(Boolean)
-      const r = (await startImport({ links: list, dryRun })).data
+      const r = (await startImport({ links: list, dryRun, ...(spot === 'place' && place.trim() ? { place: place.trim() } : {}), ...(listLink.trim() ? { listLink: listLink.trim() } : {}) })).data
+      const listNote = r.listNames?.length
+        ? ` The AI checks itself against ${r.listNames.map(n => `"${n}"`).join(' and ')} (${r.listEntries} lines).`
+        : r.wordFiles?.length ? ` Found a Word file (${r.wordFiles[0]}) but the import can't read Word files: open it in Google Drive, File → Save as Google Docs, then try again.` : ''
+      const where = r.place ? ` Everything goes to "${r.place}".` : ''
       if (!r.jobId) {
         setMessage({ tone: 'ok', text: `Found ${r.found} photos; all of them were already imported. Nothing new to do.` })
       } else {
-        setMessage({ tone: 'ok', text: `Found ${r.found} photos. Queued ${r.queued}${r.alreadyImported ? ` (${r.alreadyImported} were already imported)` : ''}.` })
+        setMessage({ tone: 'ok', text: `Found ${r.found} photos. Queued ${r.queued}${r.alreadyImported ? ` (${r.alreadyImported} were already imported)` : ''}.${where}${listNote}` })
         setLinks('')
         run(r.jobId)
       }
@@ -135,6 +143,32 @@ export default function ImportScreen() {
             </ol>
             <textarea value={links} onChange={e => setLinks(e.target.value)} rows={4} placeholder="https://drive.google.com/drive/folders/…"
               className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
+
+            <div className="space-y-2">
+              <p className="text-pt-text text-sm font-medium">Where were the photos taken?</p>
+              <div className="flex gap-2">
+                {([['bins', 'Bins with signs'], ['place', 'A closet or rack, no bins']] as const).map(([k, label]) => (
+                  <button key={k} onClick={() => setSpot(k)} aria-pressed={spot === k}
+                    className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${spot === k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-bg shadow-hairline text-pt-muted'}`}>{label}</button>
+                ))}
+              </div>
+              {spot === 'bins'
+                ? <p className="text-pt-muted text-xs">The AI reads the bin sign in each photo.</p>
+                : <>
+                    <input value={place} onChange={e => setPlace(e.target.value)} maxLength={40} aria-label="Name of the closet or rack" placeholder="e.g. Wardrobe closet"
+                      className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
+                    <p className="text-pt-muted text-xs">Every prop from these photos goes to this spot. It works like a bin: it gets its own QR sticker and bin check.</p>
+                  </>}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-pt-text text-sm font-medium">Inventory list <span className="text-pt-muted font-normal">(optional)</span></p>
+              <input value={listLink} onChange={e => setListLink(e.target.value)} placeholder="Google Doc or Sheet link"
+                className="w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
+              <p className="text-pt-muted text-xs">A Google Doc or Sheet inside the photo folder is found and used by itself. The AI uses the list to check its guesses
+                (what it is, colour, size, how many). It names what it sees in its own words and never copies the list.</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => start(true)} disabled={busy || !!running || !links.trim()}
                 className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">Dry run (10)</button>
@@ -167,6 +201,9 @@ export default function ImportScreen() {
                   <div className="min-w-0">
                     <p className="text-pt-text text-sm font-medium truncate">{j.folders.map(f => f.name).join(', ')}</p>
                     <p className="text-pt-muted text-xs">{formatDay(j.createdAt.slice(0, 10))} · {j.total} {j.total === 1 ? 'photo' : 'photos'} · {usd(j.spentUsd)}{j.dryRun ? ' · dry run' : ''}</p>
+                    {(j.place || j.listNames?.length) && (
+                      <p className="text-pt-muted text-xs">{j.place ? `All in "${j.place}"` : ''}{j.place && j.listNames?.length ? ' · ' : ''}{j.listNames?.length ? `checked against ${j.listNames.join(', ')}` : ''}</p>
+                    )}
                   </div>
                   {running === j.id && <span className="text-sky-300 text-xs shrink-0">working…</span>}
                 </div>

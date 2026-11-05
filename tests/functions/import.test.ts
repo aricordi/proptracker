@@ -93,6 +93,44 @@ describe('batch import', () => {
     expect((await getDoc(`bins/${items[0]!.binId}`))!.label).toBe('Bin 5')
   })
 
+  it('a closet with no bins: every photo goes to that spot, checked against the inventory list in the folder', async () => {
+    const start = await call('startImport', { links: ['test:3'], dryRun: true, place: '  Wardrobe   closet ' }, OWNER)
+    expect(start.result).toMatchObject({ queued: 3, place: 'Wardrobe closet', listNames: ['Test inventory list'], listEntries: 5 })
+    const job = (await getDoc(`import_jobs/${start.result.jobId}`))!
+    expect(job).toMatchObject({ place: 'Wardrobe closet', listNames: ['Test inventory list'] })
+    await runToEnd(start.result.jobId)
+    const items = await Promise.all(['test0001x3', 'test0002x3', 'test0003x3'].map(id => getDoc(`import_items/${id}`)))
+    for (const it of items) expect(it!.suggestion).toMatchObject({ binLabel: 'Wardrobe closet', isPlace: true })
+    // The list entry shown to the reviewer is a real line of the list.
+    const matched = items.map(it => it!.suggestion.listMatch).filter(Boolean)
+    expect(matched.length).toBeGreaterThan(0)
+    for (const m of matched) expect(m).toBe('8 gas masks')
+
+    const r = await call('approveImports', { items: [
+      { id: 'test0001x3', name: 'Black Peacoat', size: 'XL', description: 'Wool coat' },
+      { id: 'test0002x3', name: 'Lab Coat' },
+    ] }, OWNER)
+    expect(r.result.results.every((x: { error?: string }) => !x.error)).toBe(true)
+    const coat = (await getDoc(`items/${r.result.results[0].itemId}`))!
+    const lab = (await getDoc(`items/${r.result.results[1].itemId}`))!
+    expect(coat.description).toBe('Wool coat. Size XL.')
+    expect(coat.binId).toBe(lab.binId)   // one spot, made once
+    const bin = (await getDoc(`bins/${coat.binId}`))!
+    expect(bin.label).toBe('Wardrobe closet')
+    expect(coat.locationId).toBe('spot-wardrobecloset')
+    expect((await getDoc('locations/spot-wardrobecloset'))!.name).toBe('Wardrobe closet')
+  })
+
+  it('a pasted list link wins; a link that is not a document is refused', async () => {
+    const bad = await call('startImport', { links: ['test:2'], dryRun: true, listLink: 'https://drive.google.com/drive/folders/1IUQ3pFf4HWkwFtAmxtaHaFj0RzAxCT2d' }, OWNER)
+    expect(bad.error).toBe('INVALID_ARGUMENT')
+    const ok = await call('startImport', { links: ['test:2'], dryRun: true, listLink: 'test-list' }, OWNER)
+    expect(ok.result).toMatchObject({ listNames: ['Test inventory list'] })
+    const none = await call('startImport', { links: ['test:4'], dryRun: true, useLists: false }, OWNER)
+    expect(none.result.listNames).toEqual([])
+    expect((await getDoc(`import_jobs/${none.result.jobId}`))!.listNames).toBeUndefined()
+  })
+
   it('several photos of the same prop become one prop (copies or extra angles)', async () => {
     const { result } = await call('startImport', { links: ['test:6'], dryRun: true }, OWNER)
     await runToEnd(result.jobId)

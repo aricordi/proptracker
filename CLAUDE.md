@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 622 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 646 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2136,6 +2136,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       chat, "See the details ›", follow-up chips) from the violet "✦ Ask" on Analytics (also ?ask=1) and the dashboard's "Ask AI
       about your creators". Help Q, appGuide analytics/book/approvals. Tests tests/unit/analyticsAsk.test.ts + flagState/insights.
       LIVE Nov 5 (owner "put everything live"): backend run 64 + website run 66 + practice run 19 (incl. the wrong-Google-account fix).
+    - WARDROBE IMPORT (owner, Nov 5: "they took pictures of the wardrobe closet, no bins… a word doc of the actual inventory so it can
+      cross reference, shouldn't use the names verbatim"; folder 1IUQ3pFf4HWkwFtAmxtaHaFj0RzAxCT2d owned by keith@primecapitol.ca =
+      ~100 HEIC photos + Google Doc "WR List" (~150 lines "1 black peacoat (xl)"); NOT deployed: functions (no rules change, no new
+      callable) + website, ask). `functions/src/importList.ts` (pure, tests/unit/importList.test.ts): cleanPlace, fileIdFrom, LIST_TYPES
+      (Docs → text/plain, Sheets → csv, text), tidyList/joinLists (≤30k chars), listEntries, withSize. drive.ts listListFiles (docs in
+      the folder tree, ≤3; Word files reported) / listFileById / readListText (emulator: 'test-list' + every test: folder has
+      "Test inventory list"). startImport {place, listLink, useLists (default true)}: job.place + job.listNames/listEntries; the list
+      text in `import_lists/{jobId}` (no rules = server only). processImport → analyzeImportPhoto(…, {place, listText}): place = no
+      bin signs, binLabel = place + isPlace, quantity = what's visible or the matching entry's count; list = <inventory_list> data,
+      "check yourself, name what you SEE, never copy wording, photo wins"; returns size (cleanSize) + listMatch (matchInList: only a
+      real line of the list). Approve: the spot = location `spot-<key>` named after it + one bin of that name (QR + bin check);
+      description gets "Size X." (withSize; Approval.size). App: Import screen "Where were the photos taken? Bins with signs | A
+      closet or rack, no bins" (+ name, default "Wardrobe closet") and "Inventory list (optional)" link; result says which list;
+      job rows "All in … · checked against …". Review: Size box, sky "On the list: …" / amber "Not clearly on the list", "This
+      creates the spot …". Tests import.test.ts (+2). Checked on the emulator. Owner: share that folder with the import address
+      (Viewer) if not already, then a dry run.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

@@ -15,6 +15,9 @@ export interface ImportJob {
   total: number
   counts: ImportCounts
   spentUsd: number
+  place?: string          // a closet or rack with no bin signs (owner, Nov 5)
+  listNames?: string[]    // inventory list(s) the AI checked itself against
+  listEntries?: number
 }
 
 export interface ImportSuggestion {
@@ -24,6 +27,9 @@ export interface ImportSuggestion {
   description: string
   binLabel: string | null
   quantity: number
+  isPlace?: boolean
+  size?: string | null
+  listMatch?: string | null
 }
 
 export interface ImportItem {
@@ -71,11 +77,13 @@ export { binKey } from '../../functions/src/binNames'
 
 export interface Approval {
   id: string; name?: string; categoryId?: string; tags?: string[]; description?: string; quantity?: number
-  binId?: string | null; newBinLabel?: string
+  binId?: string | null; newBinLabel?: string; size?: string
 }
 
 export const importInfo     = httpsCallable<void, { serviceAccount: string }>(functions, 'importInfo')
-export const startImport    = httpsCallable<{ links: string[]; dryRun: boolean }, { jobId: string | null; queued: number; alreadyImported: number; found: number }>(functions, 'startImport')
+export const startImport    = httpsCallable<
+  { links: string[]; dryRun: boolean; place?: string; listLink?: string; useLists?: boolean },
+  { jobId: string | null; queued: number; alreadyImported: number; found: number; place?: string; listNames?: string[]; listEntries?: number; wordFiles?: string[] }>(functions, 'startImport')
 export const processImport  = httpsCallable<{ jobId: string; retryFailed?: boolean }, { processed: number; capped: boolean; slowDown?: boolean; counts: ImportCounts; spentUsd: number; capUsd: number }>(functions, 'processImport')
 export const approveImports = httpsCallable<{ items: Approval[] }, { results: { id: string; itemId?: string; error?: string }[] }>(functions, 'approveImports')
 export const skipImports    = httpsCallable<{ ids: string[] }, { skipped: number }>(functions, 'skipImports')
