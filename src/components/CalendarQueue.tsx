@@ -9,9 +9,9 @@ import { db, functions } from '../firebase'
 import { formatDay } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { fmtTime } from '../../functions/src/gearBooking'
-import { splitHours, splitOnGrid } from '../../functions/src/calendarText'
+import { splitHours, splitOnGrid, queueReady } from '../../functions/src/calendarText'
 import BottomSheet from './BottomSheet'
-import { useScheduleSettings, reviewCalendarImport, BLOCK_TYPES, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
+import { useScheduleSettings, reviewCalendarImport, confirmAllCalendar, BLOCK_TYPES, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
 
 type Person = { email: string; name: string }
 const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow')
@@ -48,6 +48,17 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
   }
   async function runCheck() { setChecking(true); try { await checkNow({}) } catch { /* shown on the status line */ } finally { setChecking(false) } }
   const ready = (items ?? []).filter(q => q.placed && !q.problem)
+  // "Confirm all" (owner, Nov 5): everything the app placed cleanly; clashes and unread ones stay for a person.
+  const allOk = (items ?? []).filter(q => queueReady(q))
+  const [asking, setAsking] = useState(false)
+  const [allMsg, setAllMsg] = useState('')
+  async function confirmAll() {
+    setBusy('*'); setAllMsg('')
+    try {
+      const r = (await confirmAllCalendar({ action: 'confirmAll', ids: allOk.map(q => q.id) })).data
+      setAllMsg(`Confirmed ${r.confirmed} ✓${r.left ? ` · ${r.left} still need you` : ''}`)
+    } catch (e) { setAllMsg(friendlyError(e)) } finally { setBusy(''); setAsking(false) }
+  }
 
   return (
     <div className="space-y-3">
@@ -62,6 +73,25 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
           <p className="text-pt-muted text-sm mt-1">New, changed and deleted events from Google Calendar land here. Each one goes on the schedule right away and waits for you to say it looks right.</p>
         </div>
       )}
+      {allOk.length > 1 && (
+        <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-2">
+          {!asking ? (
+            <>
+              <button disabled={!!busy} onClick={() => setAsking(true)} className="w-full min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">Confirm all {allOk.length} that look right</button>
+              <p className="text-pt-muted text-sm">{(items?.length ?? 0) - allOk.length > 0 ? `${(items?.length ?? 0) - allOk.length} with a clash or that the app couldn't read stay below for you.` : 'Or check them one by one below.'}</p>
+            </>
+          ) : (
+            <>
+              <p className="text-pt-text text-[16px]">Confirm {allOk.length} events? Creators get told about their shoots.</p>
+              <div className="flex gap-2">
+                <button disabled={busy === '*'} onClick={confirmAll} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === '*' ? 'Confirming…' : `Yes, confirm ${allOk.length}`}</button>
+                <button disabled={busy === '*'} onClick={() => setAsking(false)} className="px-5 min-h-[48px] rounded-xl bg-pt-raised text-pt-text disabled:opacity-40">Cancel</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {allMsg && <p className="text-pt-text text-sm px-1">{allMsg}</p>}
       {ready.length > 1 && <p className="text-pt-muted text-sm px-1">{items!.length} to check, soonest first. What the app could read is already on the schedule, holding the time, until you fix or skip it.</p>}
       {(items ?? []).map(q => {
         const r = q.result ?? {}
@@ -88,9 +118,9 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
             </div>
             {err[q.id] && <p className="text-red-300 text-sm">{err[q.id]}</p>}
             <div className="flex gap-2 pt-1">
-              {q.placed && !q.problem && <button disabled={busy === q.id} onClick={() => act(q, 'confirm')} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === q.id ? 'Saving…' : 'Looks right ✓'}</button>}
-              {q.kind !== 'removed' && <button disabled={busy === q.id} onClick={() => setFixing(q)} className={`${q.placed && !q.problem ? 'px-5' : 'flex-1 bg-pt-accent text-stone-900 font-semibold'} min-h-[48px] rounded-xl ${q.placed && !q.problem ? 'bg-pt-raised text-pt-text' : ''} disabled:opacity-40`}>Fix</button>}
-              {q.kind !== 'removed' && <button disabled={busy === q.id} onClick={() => act(q, 'skip')} className="px-4 min-h-[48px] rounded-xl text-pt-muted disabled:opacity-40">Skip</button>}
+              {q.placed && !q.problem && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'confirm')} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === q.id ? 'Saving…' : 'Looks right ✓'}</button>}
+              {q.kind !== 'removed' && <button disabled={busy === q.id || busy === '*'} onClick={() => setFixing(q)} className={`${q.placed && !q.problem ? 'px-5' : 'flex-1 bg-pt-accent text-stone-900 font-semibold'} min-h-[48px] rounded-xl ${q.placed && !q.problem ? 'bg-pt-raised text-pt-text' : ''} disabled:opacity-40`}>Fix</button>}
+              {q.kind !== 'removed' && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'skip')} className="px-4 min-h-[48px] rounded-xl text-pt-muted disabled:opacity-40">Skip</button>}
             </div>
           </div>
         )

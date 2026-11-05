@@ -342,3 +342,45 @@ describe('blocks the automatic check made before a creator could be matched (own
     expect((await getDoc('calendar_imports/ana1'))!.shootId).toBe(imp.shootId)
   })
 })
+
+describe('"Offsite" in a one-house calendar (owner, Nov 5: Val / Sam / Preslea)', () => {
+  it('new events go offsite at their real hours, and one the check already put at the house moves offsite', async () => {
+    const T1 = 'c_talent2@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: T1, name: 'Stromedy Talent (Cliff 1)', house: 'cliff1' }] })
+    await put('test_calendar/events', { items: [] })
+    const ev = (id: string, summary: string, s: string, e: string) => ({ id, summary, start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put(`test_calendar/${T1.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [ev('off1', 'Ana - Offsite Filming', '10:00', '12:00'), ev('off2', 'Ben - Offsite Filming', '13:00', '15:00')] })
+    const pv = (await call('previewCalendarImport', {}, OWNER)).result.events
+    expect(pv.find((e: any) => e.id === 'off1').guess).toMatchObject({ action: 'shoot', house: 'offsite', start: 600 })
+    // What the check did before this fix: Ben's at Cliff 1.
+    const placed = await call('applyCalendarImport', { items: [{ id: 'off2', action: 'shoot', email: BEN, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ben - Offsite Filming', feedId: T1 }] }, OWNER)
+    expect(placed.ok, placed.message).toBe(true)
+    const { checkedBy, checkedAt, ...imp } = (await getDoc('calendar_imports/off2'))!   // eslint-disable-line @typescript-eslint/no-unused-vars
+    await put('calendar_imports/off2', { ...imp, by: 'calendar check' })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(Object.values(d.cliff1 ?? {}).some((x: any) => x.email === BEN)).toBe(false)
+    expect(d.offsite.map((o: any) => [o.email, o.start])).toEqual(expect.arrayContaining([[ANA, 600], [BEN, 780]]))
+    expect((await getDoc('calendar_imports/off2'))!.house).toBe('offsite')
+  })
+})
+
+describe('Confirm all in the Calendar tab (owner, Nov 5)', () => {
+  it('confirms every clean card it is given; clashes and unread ones stay waiting', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com' })
+    const card = (id: string, extra: Record<string, unknown>) => put(`calendar_queue/${id}`, { title: id, location: '', date: FRI, startMin: 600, endMin: 720, allDay: false,
+      calendar: 'App calendar', feedId: '', kind: 'new', guess: {}, status: 'waiting', at: '2026-11-05T10:00:00Z', ...extra })
+    await card('ok1', { placed: true, result: { action: 'block', house: 'cliff1' } })
+    await card('ok2', { placed: true, result: { action: 'block', house: 'cliff2' } })
+    await card('clash1', { placed: true, result: { action: 'shoot', clashWith: ['Ana'] } })
+    await card('unread1', { placed: false, result: {} })
+    expect((await call('reviewCalendarImport', { action: 'confirmAll', ids: ['ok1'] }, ANA)).error).toBe('PERMISSION_DENIED')
+    const r = await call('reviewCalendarImport', { action: 'confirmAll', ids: ['ok1', 'ok2', 'clash1', 'unread1', 'nope'] }, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result).toMatchObject({ confirmed: 2, left: 2 })
+    expect((await getDoc('calendar_queue/ok1'))!.status).toBe('confirmed')
+    expect((await getDoc('calendar_queue/clash1'))!.status).toBe('waiting')
+    expect((await getDoc('calendar_queue/unread1'))!.status).toBe('waiting')
+  })
+})

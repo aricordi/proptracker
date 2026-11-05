@@ -19,7 +19,7 @@ import { importShootAsTeam, removeImportedShoot, filmingPeople } from './schedul
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
-import { houseFromText, ignoreReason, blockTypeOf, isClearEvent, namedPeople, splitHours, splitOnGrid, looksLikeHeadsUp } from './calendarText.js'
+import { houseFromText, placeFromText, saysOffsite, ignoreReason, blockTypeOf, isClearEvent, namedPeople, splitHours, splitOnGrid, looksLikeHeadsUp, queueReady } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
@@ -371,6 +371,11 @@ async function readCalendar(cal: Source): Promise<{ items: GEvent[]; title: stri
 export const regradable = (was: Record<string, unknown> | undefined) =>
   !!was && was.action === 'block' && was.by === 'calendar check' && !was.checkedBy && !was.removed
 
+// A house shoot the automatic check placed by itself (nobody checked it) whose words now say offsite. Pure, tested.
+export const wrongPlace = (was: Record<string, unknown> | undefined, e: { title: string; location: string }) =>
+  !!was && was.action === 'shoot' && was.by === 'calendar check' && !was.checkedBy && !was.removed
+  && (was.house === 'cliff1' || was.house === 'cliff2') && saysOffsite(`${e.title} ${e.location}`) && !houseFromText(`${e.title} ${e.location}`)
+
 // Read every calendar (never writes) and compare with what was imported before.
 async function scanCalendar(cals: Source[]) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -399,7 +404,7 @@ async function scanCalendar(cals: Source[]) {
     && (!b.title || a.title === b.title) && (!b.location || a.location === b.location)
   const guessFor = (it: ScanItem, cal: Source) => {
     const g0 = guessFor0(it, cal)
-    const known = !!houseFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
+    const known = !!placeFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
     const soft = g0.action === 'block' && looksLikeHeadsUp(`${it.title} ${it.location}`)
     // Owner, Nov 4: a group booking came in by itself as one person. Only a plain one-person, one-slot shoot (or a clear block)
     // is brought in automatically; longer shoots or several names wait for a person on the import screen.
@@ -410,7 +415,8 @@ async function scanCalendar(cals: Source[]) {
     const g = guessImport(it, people, s.slots)
     // Mixed calendar: someone's name → their shoot; a house but nobody named (e.g. "Stromedy - Cliff 2") → blocked time.
     // The address/name in the event wins (owner, Oct 30: the calendars aren't tidy); else the calendar's usual house.
-    const said = houseFromText(`${it.title} ${it.location}`)
+    // "Offsite" in the words also wins over the calendar's usual house (owner, Nov 5).
+    const said = placeFromText(`${it.title} ${it.location}`)
     if (cal.house === 'any' || said) return (it.allDay && g.action === 'shoot') || (g.action === 'skip' && g.house !== 'offsite') ? { ...g, action: 'block' } : g
     // A calendar that's for one house and the event doesn't say otherwise: at that house; nobody named → blocked time to check.
     return { ...g, house: cal.house, start: s.slots.find(x => x >= it.startMin) ?? s.slots[0], action: g.action === 'skip' || it.allDay ? 'block' : g.action }
@@ -430,6 +436,16 @@ async function scanCalendar(cals: Source[]) {
     if (regradable(was) && !why) {
       const g = guessFor(base, cal)
       if (g.action === 'shoot' && (g.emails?.length || g.email)) { events.push({ ...base, ...tag, kind: 'new', regrade: true, guess: g }); continue }
+    }
+    // Owner, Nov 5: "Val / Sam / Preslea - Offsite Filming" (in the Cliff 1 calendar) was put AT Cliff 1 by the automatic
+    // check before "offsite" was read. A shoot the check placed at a house by itself (nobody checked it yet) whose words
+    // say offsite (and name no house) moves to offsite at its real hours.
+    if (wrongPlace(was, base) && !why) {
+      const g = guessFor(base, cal)
+      events.push({ ...base, ...tag, kind: 'changed', rehouse: true, was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
+        guess: { ...g, action: 'shoot', house: 'offsite', start: base.startMin, email: was.email || g.email,
+          emails: Array.isArray(was.emails) && was.emails.length ? was.emails : was.email ? [was.email] : g.emails } })
+      continue
     }
     // Already imported: only show it again if it was changed in Google Calendar since (skipped ones stay skipped).
     if (was.action === 'skip' || (was.date && same(base, was))) continue
@@ -662,10 +678,23 @@ async function settleQueue(id: string, by: string, status: 'confirmed' | 'skippe
 }
 
 // The equipment team's answer to one card: confirm (looks right), fix (what it really is), or skip (not for the app).
-export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
+export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'])
   const id = String(req.data?.id ?? '').slice(0, 200)
   const action = String(req.data?.action ?? '')
+  // "Confirm all" (owner, Nov 5: let Maanik confirm them all at once if he wants): every card on his screen the app placed
+  // without a problem or a clash. Clashes and ones the app couldn't read stay for him to look at.
+  if (action === 'confirmAll') {
+    const ids = (Array.isArray(req.data?.ids) ? req.data.ids : []).map((x: unknown) => String(x ?? '').slice(0, 200)).filter(Boolean).slice(0, 300) as string[]
+    let confirmed = 0, left = 0
+    for (const qid of [...new Set(ids)]) {
+      const c = (await db.doc(`calendar_queue/${qid}`).get()).data()
+      if (!c || c.status !== 'waiting') continue
+      if (!queueReady(c)) { left++; continue }
+      try { await settleQueue(qid, caller.email, 'confirmed'); confirmed++ } catch (e) { left++; logger.warn('confirm all', qid, String(e)) }
+    }
+    return { ok: true, confirmed, left }
+  }
   const q = id ? (await db.doc(`calendar_queue/${id}`).get()).data() : undefined
   if (!q || q.status !== 'waiting') throw new HttpsError('failed-precondition', 'Someone already handled this one.')
   if (action === 'confirm') {

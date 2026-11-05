@@ -98,6 +98,7 @@ export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
 }
 export type QueueFix = { action: 'shoot' | 'block'; emails: string[]; house: string; type: BlockType; soft: boolean }
 export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport')
+export const confirmAllCalendar = httpsCallable<{ action: 'confirmAll'; ids: string[] }, { ok: boolean; confirmed: number; left: number }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')

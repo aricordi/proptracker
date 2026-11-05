@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { houseFromText, ignoreReason } from '../../functions/src/calendarText'
+import { houseFromText, ignoreReason, placeFromText, saysOffsite } from '../../functions/src/calendarText'
 
 describe('old calendar events', () => {
   it('reads the house from the address or the name', () => {
@@ -60,5 +60,18 @@ describe('shared booking on the slot grid', () => {
     expect(splitOnGrid(720, 1140, 4, slots, 120)).toEqual([{ start: 720, end: 780 }, { start: 780, end: 900 }, { start: 900, end: 1020 }, { start: 1020, end: 1140 }])
     expect(splitOnGrid(780, 1140, 2, slots, 120)).toEqual([{ start: 780, end: 1020 }, { start: 1020, end: 1140 }])
     expect(splitOnGrid(780, 900, 3, slots, 120)).toEqual([{ start: 780, end: 810 }, { start: 810, end: 840 }, { start: 840, end: 900 }])
+  })
+})
+
+describe('offsite in the words (owner, Nov 5)', () => {
+  it('reads offsite, but an address or house name still wins', () => {
+    expect(placeFromText('Val / Sam / Preslea - Offsite Filming')).toBe('offsite')
+    expect(placeFromText('Kyle off-site shoot')).toBe('offsite')
+    expect(placeFromText('Kyle off site')).toBe('offsite')
+    expect(placeFromText('Ana on location downtown')).toBe('offsite')
+    expect(placeFromText('Offsite prep · 2375 Cliff Rd')).toBe('cliff1')
+    expect(placeFromText('Ana - Stromedy Talent Filming')).toBe(null)
+    expect(saysOffsite('Offsites planning')).toBe(false)
+    expect(saysOffsite('Kickoff site walk')).toBe(false)
   })
 })

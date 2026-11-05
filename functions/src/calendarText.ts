@@ -10,6 +10,15 @@ export function houseFromText(text: string): House | null {
   return null
 }
 
+// Says it's shot somewhere else (owner, Nov 5: "Val / Sam / Preslea - Offsite Filming" sat in the Cliff 1 calendar and was
+// put at Cliff 1). An address or house name in the event still wins.
+export const saysOffsite = (text: string) => /\boff[\s-]?site\b|\bon[\s-]location\b|\bon[\s-]?loc\b/i.test(text)
+
+// Where the event's own words put it: a house, 'offsite', or null when they don't say.
+export function placeFromText(text: string): House | 'offsite' | null {
+  return houseFromText(text) ?? (saysOffsite(text) ? 'offsite' : null)
+}
+
 // Events that aren't about filming (owner, Oct 30: "Valentyna away Nov 14 all day… useless"; birthdays are tracked in
 // the app, not on the schedule). Hidden from the import unless they name a house. Returns why, or ''.
 export function ignoreReason(e: { title: string; location: string; eventType?: string }) {
@@ -107,3 +116,8 @@ export function splitOnGrid(start: number, end: number, n: number, slots: number
   }
   return out
 }
+
+// A Calendar-tab card "Confirm all" may confirm (owner, Nov 5): placed, no problem, no clash. Clashes and events the app
+// couldn't read stay for a person.
+export const queueReady = (c: { placed?: boolean; problem?: string; result?: { clashWith?: unknown[] } }) =>
+  !!c.placed && !c.problem && !(Array.isArray(c.result?.clashWith) && c.result!.clashWith.length)
