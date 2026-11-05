@@ -66,10 +66,12 @@ import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import { warmItems } from './hooks/useItems'
 import { AssistantProvider, ChatHome, isChatFirst } from './assistant'
+import { BugReportProvider } from './components/BugReport'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
 import { useTourDone, skipTour, tourSkipped } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
+const BugsScreen = lazy(() => import('./screens/BugsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
 import BirthdayParty from './components/BirthdayParty'
@@ -328,6 +330,7 @@ export default function App() {
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
     <OfflineBanner />
+    <BugReportProvider>
     <AssistantProvider>
     <TourGate>
     <ViewAsFrame on={!!session.viewingAs || IS_PRACTICE}>
@@ -399,6 +402,7 @@ export default function App() {
           <Route path="/connections" element={<OwnerOnly><ConnectionsScreen /></OwnerOnly>} />
           <Route path="/google" element={<OwnerOnly><ConnectionsScreen /></OwnerOnly>} />
           <Route path="/ai" element={<OwnerOnly><AiSettingsScreen /></OwnerOnly>} />
+          <Route path="/bugs" element={<OwnerOnly><BugsScreen /></OwnerOnly>} />
           <Route path="/costs" element={<OwnerOnly><CostsScreen /></OwnerOnly>} />
           <Route path="/help" element={<HelpScreen />} />
           <Route path="/activity" element={<SeeStaff><ActivityScreen /></SeeStaff>} />
@@ -415,6 +419,7 @@ export default function App() {
     </ViewAsFrame>
     </TourGate>
     </AssistantProvider>
+    </BugReportProvider>
     </ActiveShootProvider>
     </GearCartProvider>
     </CartProvider>

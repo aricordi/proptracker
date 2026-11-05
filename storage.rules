@@ -86,6 +86,15 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // "Report a problem" screenshots (owner, Nov 5): anyone with an account adds to their own folder; the owner reads them
+    // all, the person only their own (the app needs that to get the link it sends).
+    match /bug-reports/{email}/{file} {
+      allow read: if isOwner() || (signedIn() && myEmail() == email);
+      allow create: if resource == null && isImage() && myEmail() == email
+        && (isOwner() || hasRole(['owner', 'arts', 'creator', 'equipment', 'admin']));
+      allow update, delete: if false;
+    }
+
     match /request-photos/{email}/{file} {
       allow read: if isMember();
       allow create: if resource == null && isImage() && isMember() && myEmail() == email;

@@ -23,6 +23,8 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
   const account = I('myaccount', '/account', who === 'owner' ? 'My account & View as' : 'My account',
     who === 'owner' ? 'Your profile, preview another role, sign out' : 'Your profile, notifications, sign out', 'people')
   const help = I('help', '/help', 'Help', 'How do I…?', 'help')
+  // '#report' isn't a page: AdminScreen starts "Report a problem" (owner, Nov 5).
+  const report = I('report', '#report', 'Report a problem', 'Something broke, looks wrong or is missing', 'alert')
   if (who === 'owner') return [
     { key: 'people', title: 'Creators & people', icon: 'people', items: [
       I('analytics', '/analytics', 'Analytics', 'Who films more or less, every flag, the teams', 'chart'),
@@ -54,8 +56,9 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('connections', '/connections', 'Calendar & email', 'One Google account for the shared calendar and emails', 'calendar'),
     ] },
     { key: 'more', title: 'Help & records', icon: 'help', items: [
+      I('bugs', '/bugs', 'Problem reports', 'What people reported, with screenshots', 'alert'),
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
-      help,
+      help, report,
       I('teamguide', '/team-guide', 'Team guide', 'One page per team: what they do each day', 'help'),
       I('geartour', '/tour/gear', 'Equipment team tour', 'Short hands-on tour (5 min)', 'flask'),
       I('admintour', '/tour/admin', 'Admin tour', 'Short hands-on tour (5 min)', 'flask'),
@@ -81,7 +84,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
       I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
       I('admintour', '/tour/admin', 'Admin tour', 'Short hands-on tour (5 min)', 'flask'),
-      help, account,
+      help, report, account,
     ] },
   ]
   if (who === 'equipment') return [
@@ -98,7 +101,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'more', title: 'Help & account', icon: 'help', items: [
       I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
       I('geartour', '/tour/gear', 'Equipment team tour', 'Short hands-on tour (5 min)', 'flask'),
-      help, account,
+      help, report, account,
     ] },
   ]
   return [   // arts department
@@ -114,7 +117,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     { key: 'more', title: 'Records & account', icon: 'note', items: [
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
       I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
-      help, account,
+      help, report, account,
     ] },
   ]
 }

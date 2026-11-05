@@ -1,5 +1,6 @@
 // Help for creators: short answers to "how do I…?", searchable. Numbers come from the live settings,
 // so the answers stay right when the team changes the rules.
+import { ReportProblemRow } from '../components/BugReport'
 import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -26,6 +27,7 @@ export default function HelpScreen() {
   const topics: Topic[] = [
     { title: 'Getting started', icon: 'hand', items: [
       { q: 'How do I put the app on my home screen?', words: 'install icon iphone android', a: <>On iPhone, open the app in <b>Safari</b>, tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>. On Android, open it in Chrome and tap <b>⋮ → Add to Home screen</b>. It then opens like a normal app.</> },
+      { q: 'Something broke, looks wrong, or is missing in the app', words: 'bug report problem error crash glitch broken wrong missing screenshot not working issue', a: <>Tap <b>Report a problem</b> (top of this page, in More / Me, in the team menus, or type "the app is broken" in the chat). Go to the screen where it happened and tap <b>Report this screen</b>: the app takes a screenshot, and you say what happened. It also sends the page, the last pages you opened, your phone and app version and recent errors, so you don't have to explain the technical side. Shortcut: hold <b>two fingers</b> on any screen for a moment. Broken gear or props go to the team instead: tell the chat "the tripod is broken".</> },
       { q: 'I signed in with the wrong Google account', words: 'wrong account email switch change google login other account', a: <>Google now asks <b>which account</b> to use every time you sign in. If you already got in with the wrong one and see "You're not on the list yet", tap <b>Use a different Google account</b> and pick (or add) the email you were invited with. From inside the app: More → <b>Sign out</b>, then sign in again and choose the right account.</> },
       { q: "I can't sign in / nothing happens when I tap Sign in with Google", words: 'login google blank error', a: <>Open the link in <b>Safari or Chrome</b>, not inside Instagram, Messenger or Gmail (Google blocks sign-in there). Turn off ad blockers or Private Browsing for this page. On the sign-in screen, "Trouble signing in? Sign in another way" also helps. Still stuck? Ask the team to check you've been invited with the right email.</> },
       { q: 'How do I use the app?', words: 'tour tutorial practice demo learn walkthrough start chat', go: ['/', 'Chat'], a: <>Open the <b>Chat</b> tab and type what you need, like a text: "Thursday Cliff 1 at 5pm", "props for a séance video", "cancel my next shoot", "how do I return my gear?". Your shoots and anything to do (check in, bring things back, invites) show at the top of the chat. Say it however you like; the chat works out what you mean and shows you the right button. Nothing happens until you tap it.</> },
@@ -99,6 +101,7 @@ export default function HelpScreen() {
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text text-base focus:outline-none focus:border-pt-accent" />
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
+        <ReportProblemRow />
         {shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing found. Try another word, or see "Still stuck?" below.</p>}
         {shown.map(t => (
           <section key={t.title} className="space-y-2">

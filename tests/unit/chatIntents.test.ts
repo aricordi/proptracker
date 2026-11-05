@@ -44,3 +44,13 @@ describe('greetings (owner, Nov 4)', () => {
     expect(detectIntent('yo i want to book cliff 2 at 3')).not.toBe('greeting')
   })
 })
+
+describe('app problems go to "Report a problem" (owner, Nov 5)', () => {
+  it('spots a problem with the app itself', async () => {
+    const { isAppBug } = await import('../../src/lib/aiRoute')
+    for (const t of ['the app is broken', 'found a bug', 'it keeps crashing', 'blank screen when I open my shoot', 'the send button is not working',
+      "something's wrong with the app", 'report a problem', 'it won\'t load', 'I can\'t see my shoots']) expect(isAppBug(t), t).toBe(true)
+    for (const t of ['the tripod is broken', 'a battery is missing', 'props for a séance video', 'how do I report a bug?', 'book thursday at 5', 'the camera is broken'])
+      expect(isAppBug(t), t).toBe(false)
+  })
+})

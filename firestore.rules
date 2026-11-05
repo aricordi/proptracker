@@ -121,6 +121,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // "Report a problem" (owner, Nov 5): written only by the server (reportBug / updateBugReport); the owner reads.
+    match /bug_reports/{id} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
+
     // Batch import (Phase 6): written only by the server, read by the arts department.
     // Imports are the owner's (owner, Oct 20).
     match /import_jobs/{id} {

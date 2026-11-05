@@ -1,3 +1,4 @@
+import { ReportProblemRow } from '../components/BugReport'
 import AiButton from '../components/AiButton'
 import { MONTHS, daysIn, isBirthday, makeBirthday } from '../lib/birthdays'
 import { useEffect, useRef, useState } from 'react'
@@ -62,6 +63,7 @@ export default function AccountScreen() {
         )}
         <NotificationsCard />
         <LaptopLayoutCard />
+        <ReportProblemRow />
         {shootFlow && <CreatorLinks email={profile.email} />}
         {demo && (
           <button onClick={() => navigate('/help')} className="w-full flex items-center gap-3 px-4 py-3 text-left bg-pt-surface shadow-hairline rounded-2xl">

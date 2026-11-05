@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 646 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 653 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2161,6 +2161,38 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the check runs (last 16:35 UTC, no error, 0 unclear events, 14 cards waiting for Maanik to confirm); Ariel has ONE future
       event in the 5 linked calendars ("Ariel Filming", Cliff 2, Nov 10 1–3 PM) and it IS on the schedule (toCheck, so no push yet).
       Two active creators are both named "Justin" (dirfigs@ + justinfigsshow@): a calendar title "Justin" can't tell them apart.
+    - ARIEL'S MISSING SHOOTS = OLD AUTO-BLOCKS (Nov 5; person lookup run 23 with `days`): on Nov 2 05:05 UTC the automatic check
+      (then: "clear" events brought in by themselves) imported every "<Name> - Stromedy Talent Filming" (Stromedy Talent = Cliff 1 feed)
+      as a BLOCK, because filmingPeople() didn't include Props-only creators yet (includeDemo came Nov 4) → no person matched → one-house
+      feed + nobody = block; same snapshot → never re-read. FIX (calendar.ts): `regradable(was)` = action block, by 'calendar check',
+      no checkedBy, not removed → scanCalendar emits it as kind 'new' (regrade) when guessFor now finds a person → runCalendarCheck
+      applies it (applyImports dropOld removes the block, makes the shoot, toCheck + queue card). settleQueue writes
+      calendar_imports.checkedBy (a person looked → never regraded). Test in calendar.test.ts. person_dump.py now reads the import
+      title/date at the TOP LEVEL (snapshot is spread, not nested) + optional `days` input lists every import on those days.
+      NOT deployed (backend, ask).
+    - OWNER'S OWN FLAGS (Nov 5, owner screenshot: "excusing stuff on my page says I'm not a creator"): attendance.ts creatorNamed()
+      returns 'Alex' for OWNER_EMAIL (giveStrike / pauseCreator / reviewFlag on the owner's record). Test in flagReviews.test.ts.
+    - REPORT A PROBLEM (owner, Nov 5: "a bug reporting feature that takes screenshots and data… when people encounter bugs, see something
+      unexpected, or miss something they should see"; NOT deployed: backend (new callables reportbug + updatebugreport in deploy/log
+      lists) + Firestore + STORAGE RULES + website, ask). `src/lib/bugLog.ts` (memory only: last 20 errors from window error /
+      unhandledrejection / console.error / every friendlyError() call, last 12 pages; installBugLog in main.tsx). `src/components/
+      BugReport.tsx`: BugReportProvider (in App around AssistantProvider; notes each page) → useBugReport().start() = "aiming" bar ("Go to
+      the screen with the problem, then tap Report this screen", data-bug-skip) / now() = screenshot (html-to-image 1.11.13 toJpeg of #root,
+      lazy-loaded, grey placeholder for cross-origin photos, 6 s timeout) → BugSheet: kind Something broke / looks wrong / is missing, What
+      happened (≥3), expected, the screenshot (✕ to drop) + ProofPhotos (gallery, ≤3) to Storage `bug-reports/<email>/`, "Also sent: …
+      Show", tip two fingers held 0.9 s = now(); Send uploads the shot (uploadString data_url) → callable reportBug. ReportProblemRow on
+      Me/More + top of Help; TeamMenu item 'report' (to '#report', AdminScreen open() → start()) in every role's menu; owner menu 'bugs'
+      → /bugs. Chat: `isAppBug` (aiRoute.ts, before askChat, no AI) → buttons Report a problem / It's this chat. Server
+      `functions/src/bugReports.ts`: cleanBugReport (pure, tested: own-folder screenshots only, caps), reportBug (every role incl. demo;
+      ≤20/day/person; bug_reports/{id} {kind, what, expected, screenshots, page, trail, errors, device, app {build (__APP_BUILD__ from
+      vite define: time + GITHUB_SHA), role, viewAs, desk, practice}, email, name, role, status open, at, day}; push to the owner →
+      /bugs?id=), updateBugReport (owner: open | fixed | wontfix + note; fixed → thank-you push). Rules: bug_reports owner read, no client
+      writes; storage bug-reports/{email}: create own (any role, image, add-only), read owner + own (getDownloadURL needs it). `/bugs`
+      BugsScreen (OwnerOnly): tabs Open / Fixed / Won't fix, card (kind pill, who, when, page, text, screenshots (zoom), phone label,
+      version, Details: pages, errors, agent), note + Fixed / Won't fix / Open again. "Read server logs" step "Problem reports people sent"
+      (`.github/scripts/bug_reports.py`, read only: open ones with text, page, phone, errors, screenshot links). Help Q, appGuide 'bugs' +
+      'report'. Tests 653 (tests/functions/bugReports.test.ts, rules, chatIntents). Checked on the emulator (chat → bar → Calendar →
+      screenshot → send → owner inbox with the screenshot; equipment menu row).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

@@ -4,6 +4,9 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
 import { registerSW } from 'virtual:pwa-register'
+import { installBugLog } from './lib/bugLog'
+
+installBugLog()   // remembers recent errors for "Report a problem" (memory only)
 
 // Get new versions quickly: check when the app comes back to the screen (iPhones usually wake the app instead of
 // restarting it, so it could keep an old version for days) and every 30 minutes. A new version reloads the app.

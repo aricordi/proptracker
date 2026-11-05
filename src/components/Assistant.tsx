@@ -20,7 +20,8 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, type Helper, type Route } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, isAppBug, type Helper, type Route } from '../lib/aiRoute'
+import { useBugReport } from './BugReport'
 import { ReturnCard, ReportCard, PickupList } from './ChatNow'
 import GuidelinePicker from './GuidelinePicker'
 import { useReturnGroups, returnCount, canReturnProps, canReturnGear } from '../hooks/useReturnables'
@@ -217,6 +218,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   }
 
   // ── Plan my shoot ──
+  const bugReport = useBugReport()
   const bot = (text: string, ...extra: Msg[]) => setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'bot', text }, ...extra])
   const planShoot = upcoming.find(x => x.id === plan?.shootId)
   const planLabel = planShoot ? label(planShoot) : plan?.label ?? 'your shoot'
@@ -319,6 +321,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const q = t.trim(); if (!q || busy) return
     setText(''); setChips([])
     setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: force ?? (more ? 'props' : mode ?? 'help') }])
+    // Something wrong with the app itself (owner, Nov 5): straight to "Report a problem", no AI needed.
+    if (!force && !more && isAppBug(q)) {
+      bot('Sorry about that! Send it to us with a screenshot: tap Report a problem, go to the screen where it happened, then tap Report this screen.')
+      setMsgs(x => [...x, { who: 'actions', items: [{ label: 'Report a problem', to: '#report' }, { label: "It's this chat", to: '#report-now' }] }])
+      return
+    }
     // The AI reads the message first (owner, Nov 3: "more conversational… open and accepting of anything"), and picks
     // what to show. "More like these" and a forced helper go straight to their helper. Plan my shoot too goes through the AI
     // (owner, Nov 4: "keep the steps in the backend and let the creator just chat"): it knows the step and picks from the words.
@@ -857,7 +865,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         ) : m.who === 'actions' ? (
           <div key={i} className="rise-in flex flex-wrap gap-2">{m.items.map((a, k) => (
-            <button key={a.label} onClick={() => { if (a.shootId) choose(a.shootId); if (a.ask) send(a.ask); else if (a.to) go(a.to) }}
+            <button key={a.label} onClick={() => { if (a.shootId) choose(a.shootId); if (a.ask) send(a.ask); else if (a.to === '#report') bugReport.start(); else if (a.to === '#report-now') void bugReport.now(); else if (a.to) go(a.to) }}
               className={`rounded-xl px-4 min-h-[44px] font-semibold ${k === 0 ? 'bg-pt-accent text-stone-900' : 'bg-pt-border text-pt-text'}`}>{a.label}</button>))}
           </div>
         ) : m.who === 'return' ? (

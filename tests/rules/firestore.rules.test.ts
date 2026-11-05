@@ -518,3 +518,12 @@ describe('Prime Capitol Google account secrets', () => {
     await assertFails(setDoc(doc(as(OWNER), 'private_google', 'client'), { clientId: 'x', clientSecret: 'y' }))
   })
 })
+
+describe('problem reports (owner, Nov 5)', () => {
+  it('only the owner reads them; nobody writes them from a phone', async () => {
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'bug_reports', 'b1'), { email: CREATOR, what: 'x', status: 'open' }) })
+    await assertSucceeds(getDoc(doc(as(OWNER), 'bug_reports', 'b1')))
+    for (const who of [CREATOR, ARTS, GEAR, ADMIN]) await assertFails(getDoc(doc(as(who), 'bug_reports', 'b1')))
+    await assertFails(setDoc(doc(as(CREATOR), 'bug_reports', 'b2'), { what: 'x' }))
+  })
+})

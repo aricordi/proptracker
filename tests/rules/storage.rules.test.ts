@@ -5,7 +5,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import { doc, setDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage'
+import { ref, uploadBytes, getBytes, getMetadata, deleteObject } from 'firebase/storage'
 
 const PROJECT_ID = 'demo-proptracker'
 let env: RulesTestEnvironment
@@ -125,5 +125,17 @@ describe('profile photos', () => {
     await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'avatars/arts@example.com/1.jpg'), png, img))
     await assertSucceeds(uploadBytes(ref(storageAs('gear@example.com'), 'avatars/gear@example.com/1.jpg'), png, img))
     await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'avatars/creator@example.com/2.txt'), png, { contentType: 'text/plain' }))
+  })
+})
+
+describe('problem report screenshots (owner, Nov 5)', () => {
+  const img = { contentType: 'image/jpeg' }
+  it('anyone with an account adds to their own folder; the owner reads all, the person only their own', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'bug-reports/creator@example.com/1_screen.jpg'), png, img))
+    await assertSucceeds(uploadBytes(ref(storageAs('gear@example.com'), 'bug-reports/gear@example.com/1_screen.jpg'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'bug-reports/other@example.com/1.jpg'), png, img))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'bug-reports/creator@example.com/1_screen.jpg'), png, img))   // add-only
+    await assertSucceeds(getMetadata(ref(storageAs('creator@example.com'), 'bug-reports/creator@example.com/1_screen.jpg')))
+    await assertFails(getMetadata(ref(storageAs('creator@example.com'), 'bug-reports/gear@example.com/1_screen.jpg')))
   })
 })

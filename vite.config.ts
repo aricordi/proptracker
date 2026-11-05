@@ -2,7 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Which version of the app a problem report came from (owner, Nov 5).
+const BUILD = `${new Date().toISOString().slice(0, 16)}${process.env.GITHUB_SHA ? ` ${process.env.GITHUB_SHA.slice(0, 7)}` : ''}`
+
 export default defineConfig({
+  define: { __APP_BUILD__: JSON.stringify(BUILD) },
   // Big libraries in their own files: they rarely change, so phones keep them cached across updates.
   build: {
     rollupOptions: {

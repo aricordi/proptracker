@@ -1,9 +1,11 @@
+import { noteError } from './bugLog'
 // One place that turns any error into words a person can act on (owner, Oct 27: "easy for anyone"). Our server
 // functions already write friendly messages; this keeps those, and replaces the technical ones (no signal, server
 // asleep, "internal", "Missing or insufficient permissions") with plain language.
 const NO_SIGNAL = "Couldn't reach Prime Capitol. Check your signal and try again."
 
 export function friendlyError(e: unknown, fallback = "That didn't work. Try again."): string {
+  noteError(e, 'shown')   // kept for "Report a problem"
   const err = e as { code?: string; message?: string } | null
   const code = String(err?.code ?? '').replace(/^(functions|firestore|storage|auth)\//, '')
   const raw = String(err?.message ?? (typeof e === 'string' ? e : ''))

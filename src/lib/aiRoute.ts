@@ -119,6 +119,17 @@ const REQUESTS = /\b(my requests?|what did i (ask|request)|where('?s| is| are) m
 const GREETING = /^\s*((hi|hey|hello|yo|sup|hiya|wassup|whats? ?up|what's up|howdy|good (morning|afternoon|evening))\b[\s,!.]*)+((what'?s ?up|wassup|how'?s it going|how are (you|u)|how r u|how you doing|man|bro|dude|guys|there)\b[\s,!.?]*)*$/i
 const THANKS = /^\s*(thanks?|thank you|thx|ty|cheers|perfect|great|awesome|cool|ok(ay)?|got it|nice)\b[\s!.]*$/i
 
+// Something wrong with the APP itself (owner, Nov 5: bug reports), not with gear or props: "the app is broken",
+// "found a bug", "it keeps crashing", "blank screen". Answered with the "Report a problem" button, no AI needed.
+const APP_BUG = /\b(bugs?|buggy|glitch(y|es|ing)?|crash(ed|es|ing)?|froze|frozen|freez(es|ing)|blank (screen|page)|white screen|black screen|error (message|pops?|keeps|says)|(app|page|screen|chat|button|it) (is |'s |keeps |won'?t |doesn'?t |isn'?t )?(broken|not working|not loading|stuck|load|loading|open|work|working|showing)|won'?t (load|open)|(something'?s?|something is) (wrong|off|weird) with (the |this )?app|report (a |an )?(bug|problem|issue)|logs? me out|can'?t see (my|the|any)\b)/i
+export function isAppBug(text: string): boolean {
+  const t = text.trim()
+  if (!t || /^\s*how\b/i.test(t)) return false
+  // Broken gear or props is the "report" intent (it goes to the team), not an app problem.
+  if (/\b(broke|broken|damaged|missing|lost)\b/i.test(t) && (GEAR_WORD.test(t) || PROP_WORD.test(t)) && !/\b(app|screen|page|button|chat)\b/i.test(t)) return false
+  return APP_BUG.test(t)
+}
+
 export function detectIntent(text: string): Intent | null {
   const t = text.trim()
   if (!t) return null
