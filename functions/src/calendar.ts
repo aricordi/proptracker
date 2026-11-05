@@ -367,6 +367,10 @@ async function readCalendar(cal: Source): Promise<{ items: GEvent[]; title: stri
   return { items, title }
 }
 
+// An imported block nobody ever chose or confirmed (made by the automatic check). Pure, tested.
+export const regradable = (was: Record<string, unknown> | undefined) =>
+  !!was && was.action === 'block' && was.by === 'calendar check' && !was.checkedBy && !was.removed
+
 // Read every calendar (never writes) and compare with what was imported before.
 async function scanCalendar(cals: Source[]) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -420,6 +424,13 @@ async function scanCalendar(cals: Source[]) {
     // Time off and birthdays: not shoots or blocks. Listed as 'ignored' (hidden on the screen unless asked for).
     if (!was && why) { events.push({ ...base, ...tag, kind: 'ignored', why, guess: { ...guessFor(base, cal), action: 'skip' } }); continue }
     if (!was) { events.push({ ...base, ...tag, kind: 'new', guess: guessFor(base, cal) }); continue }
+    // Owner, Nov 5 (Ariel's shoots missing): on Nov 2 the automatic check brought "<Name> - Stromedy Talent Filming" in as
+    // BLOCKED TIME because creators on Props only couldn't be matched yet. A block the check made by itself (no person ever
+    // chose or confirmed it) whose title now names someone is brought in again as that person's shoot (the block goes).
+    if (regradable(was) && !why) {
+      const g = guessFor(base, cal)
+      if (g.action === 'shoot' && (g.emails?.length || g.email)) { events.push({ ...base, ...tag, kind: 'new', regrade: true, guess: g }); continue }
+    }
     // Already imported: only show it again if it was changed in Google Calendar since (skipped ones stay skipped).
     if (was.action === 'skip' || (was.date && same(base, was))) continue
     const g = guessFor(base, cal)
@@ -624,6 +635,8 @@ async function settleQueue(id: string, by: string, status: 'confirmed' | 'skippe
   const qref = db.doc(`calendar_queue/${id}`)
   const q = (await qref.get()).data()
   const imp = (await db.doc(`calendar_imports/${id}`).get()).data()
+  // A person looked at it: the automatic check never re-reads it as something else (see regradable).
+  if (imp) await db.doc(`calendar_imports/${id}`).set({ checkedBy: by, checkedAt: new Date().toISOString() }, { merge: true })
   const list = (x: unknown) => Array.isArray(x) ? x.map(String) : []
   const ids = new Set([...list(saved?.shootIds), ...list(imp?.shootIds), ...(imp?.shootId ? [String(imp.shootId)] : []), ...list(q?.result?.shootIds)])
   const at = new Date().toISOString()

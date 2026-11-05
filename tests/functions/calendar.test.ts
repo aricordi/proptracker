@@ -311,3 +311,34 @@ describe('one booking, several creators (owner, Nov 4)', () => {
     expect((await getDoc(`shoots/${imp.shootIds[1]}`))!.status).toBe('cancelled')
   })
 })
+
+describe('blocks the automatic check made before a creator could be matched (owner, Nov 5: Ariel\'s shoots missing)', () => {
+  it('re-reads "<Name> - Stromedy Talent Filming" as that person\'s shoot; blocks a person chose stay blocks', async () => {
+    const T1 = 'c_talent@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: T1, name: 'Stromedy Talent (Cliff 1)', house: 'cliff1' }],
+      instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
+    await put('test_calendar/events', { items: [] })
+    const ev = (id: string, summary: string, s: string, e: string) => ({ id, summary, start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put(`test_calendar/${T1.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [ev('ana1', 'Ana - Stromedy Talent Filming', '13:00', '15:00'), ev('ben1', 'Ben - Stromedy Talent Filming', '15:00', '17:00')] })
+    // What Nov 2 left behind: both brought in as blocked time by the automatic check; Ben's was later checked by a person.
+    const old = (id: string, title: string, s: number, by: string, extra = {}) => put(`calendar_imports/${id}`, {
+      action: 'block', title, location: '', date: FRI, startMin: s, endMin: s + 120, feedId: T1, allDay: false, blockId: `g${id}`, house: 'cliff1', by, at: '2026-11-02T05:05:14Z', ...extra })
+    await old('ana1', 'Ana - Stromedy Talent Filming', 780, 'calendar check')
+    await old('ben1', 'Ben - Stromedy Talent Filming', 900, 'calendar check', { checkedBy: MAANIK })
+    await put(`schedule_days/${FRI}`, { date: FRI, blocks: [
+      { id: 'gana1', house: 'cliff1', start: 780, end: 900, type: 'other', note: 'Ana - Stromedy Talent Filming', by: 'calendar check', imported: true },
+      { id: 'gben1', house: 'cliff1', start: 900, end: 1020, type: 'other', note: 'Ben - Stromedy Talent Filming', by: 'calendar check', imported: true }] })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    const d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.cliff1?.['780']?.email).toBe(ANA)                         // Ana's shoot is back on the schedule
+    expect(d.blocks.map((b: { id: string }) => b.id)).toEqual(['gben1'])   // her block is gone; Ben's (checked) stays
+    const imp = (await getDoc('calendar_imports/ana1'))!
+    expect(imp.action).toBe('shoot')
+    expect((await getDoc(`shoots/${imp.shootId}`))!.toCheck).toBe(true)   // waits in the Calendar tab like any import
+    expect((await getDoc('calendar_queue/ana1'))!.placed).toBe(true)
+    // Once is enough: the next check changes nothing.
+    await call('checkCalendarNow', {}, MAANIK)
+    expect((await getDoc('calendar_imports/ana1'))!.shootId).toBe(imp.shootId)
+  })
+})
