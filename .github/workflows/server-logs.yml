@@ -12,6 +12,9 @@ on:
       day:
         description: Optional, a day to show in full (YYYY-MM-DD) - its schedule and calendar imports (read only)
         default: ''
+      person:
+        description: Optional, an email or first name - their shoots, calendar events and the 15-minute calendar check (read only)
+        default: ''
 
 jobs:
   logs:
@@ -199,3 +202,9 @@ jobs:
         env:
           DAY: ${{ inputs.day }}
         run: T=$(gcloud auth print-access-token) python3 .github/scripts/day_dump.py
+
+      - name: One person's shoots and calendar events (read only)
+        if: inputs.person != ''
+        env:
+          PERSON: ${{ inputs.person }}
+        run: T=$(gcloud auth print-access-token) python3 .github/scripts/person_dump.py
