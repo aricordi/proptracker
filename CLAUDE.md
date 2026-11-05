@@ -2135,6 +2135,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       budget helper 'analytics', budget out → plain answer). App: `src/components/analytics/AskAnalytics.tsx` sheet (starters,
       chat, "See the details ›", follow-up chips) from the violet "✦ Ask" on Analytics (also ?ask=1) and the dashboard's "Ask AI
       about your creators". Help Q, appGuide analytics/book/approvals. Tests tests/unit/analyticsAsk.test.ts + flagState/insights.
+      LIVE Nov 5 (owner "put everything live"): backend run 64 + website run 66 + practice run 19 (incl. the wrong-Google-account fix).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
