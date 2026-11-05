@@ -2193,6 +2193,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (`.github/scripts/bug_reports.py`, read only: open ones with text, page, phone, errors, screenshot links). Help Q, appGuide 'bugs' +
       'report'. Tests 653 (tests/functions/bugReports.test.ts, rules, chatIntents). Checked on the emulator (chat → bar → Calendar →
       screenshot → send → owner inbox with the screenshot; equipment menu row).
+    - LIVE Nov 5 (owner "deploy everything to make the fixes"): backend run 65 + website run 67 + practice run 20 = wardrobe import,
+      "Your next 3 shoots", old auto-blocks re-read as shoots, owner's own flags, Report a problem. CHECKED (server logs run 24, 21:12 UTC):
+      the 20:50 calendar check turned Ariel's Nov 6 / 11 / 20 / 24 Cliff 1 blocks into his shoots (+ Nov 10 Cliff 2), all "to check";
+      the Calendar tab now has 71 waiting cards (everyone's regraded events). Nov 6 17:45 shows "CLASH with Alex, Preslea": the event
+      "Val / Sam / Preslea - Offsite Filming" (10 AM–8 PM, in the Cliff 1 feed) was imported AT Cliff 1 because "Offsite" in a title
+      isn't read as offsite yet (possible fix: houseFromText 'offsite' → offsite). No bulk "confirm" in the Calendar tab yet.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
