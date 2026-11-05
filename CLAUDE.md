@@ -2155,6 +2155,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - "YOUR NEXT 3 SHOOTS" (owner, Nov 5: the chat home only lists the next 3, "put 'your next 3 shoots' so people know it's not all
       of them"): ChatNow heading = "Your next N shoots" (+ "· of M booked" when there are more), last row "See all M shoots ›" → /shoots.
       App only, preview until the website deploy.
+    - PERSON LOOKUP (Nov 5, owner: "Ariel can't see all his shoots… is it importing the Google Calendars constantly?"): "Read server
+      logs" has an optional `person` input (email or first name) → `.github/scripts/person_dump.py` (read only: their shoots from today,
+      the 15-minute calendar check status + who it can match, calendar queue cards and calendar imports naming them). Run 22 (Nov 5):
+      the check runs (last 16:35 UTC, no error, 0 unclear events, 14 cards waiting for Maanik to confirm); Ariel has ONE future
+      event in the 5 linked calendars ("Ariel Filming", Cliff 2, Nov 10 1–3 PM) and it IS on the schedule (toCheck, so no push yet).
+      Two active creators are both named "Justin" (dirfigs@ + justinfigsshow@): a calendar title "Justin" can't tell them apart.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
