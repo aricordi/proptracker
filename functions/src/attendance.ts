@@ -2,7 +2,7 @@
 // the schedule team decides missed check-ins and reports, and can lift pauses.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE } from './auth.js'
+import { OWNER_EMAIL, db, requireRole, CALLABLE } from './auth.js'
 import { nowStamp } from './gearBooking.js'
 import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, slotKey, type ScheduleDay, type House } from './schedule.js'
 import { addStrike, removeStrikeById } from './strikes.js'
@@ -130,6 +130,8 @@ export const liftPause = onCall(CALLABLE, async req => {
 // ─── Managing creators by hand (owner + admins, owner Oct 20) ────────────────
 const STRIKE_ABOUT = ['props', 'gear', 'schedule', 'behaviour', 'other']
 async function creatorNamed(email: string) {
+  // The owner films too and shows up in Analytics (owner, Nov 5: "excusing stuff on my page says I'm not a creator").
+  if (email === OWNER_EMAIL) return 'Alex'
   const u = (await db.doc(`users/${email}`).get()).data()
   if (!u || u.role !== 'creator') throw new HttpsError('not-found', "That person isn't a creator in the app.")
   return String(u.name || email)

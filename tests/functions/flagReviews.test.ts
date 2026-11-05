@@ -22,6 +22,13 @@ describe('acting on a flag', () => {
     expect((await call('reviewFlag', { ...FLAG, flagId: 'late-props:../x', action: 'handled' }, ADMIN)).error).toBe('INVALID_ARGUMENT')
     expect((await call('reviewFlag', { ...FLAG, action: 'handled' }, ADMIN)).ok).toBe(true)   // a note is optional here
   })
+  it("the owner's own flags can be excused too (owner, Nov 5: 'says I'm not a creator')", async () => {
+    const OWNER = 'alexisricordi@gmail.com'
+    const mine = { flagId: 'props-damaged:res9', email: OWNER, kind: 'props-damaged', label: 'Props damaged · Oct 21' }
+    const r = await call('reviewFlag', { ...mine, action: 'excuse', note: 'test' }, OWNER)
+    expect(r.ok, r.message).toBe(true)
+    expect(await doc(mine.flagId)).toMatchObject({ status: 'excused', email: OWNER })
+  })
   it('excuse, count again, send a note: all kept on the flag', async () => {
     expect((await call('reviewFlag', { ...FLAG, action: 'excuse', note: 'Arts said it was their mix-up' }, ADMIN)).result.status).toBe('excused')
     expect(await doc(FLAG.flagId)).toMatchObject({ status: 'excused', email: CREATOR, kind: 'late-props' })
