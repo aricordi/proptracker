@@ -644,8 +644,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // "Not a video idea" (owner, Nov 4: "it blocked me"): ask what they want instead of refusing.
       if (r.note && !found && !demo) {
         pendingSwitch.current = q
-        setMsgs(x => [...x, { who: 'bot', text: plan ? withNote('Hmm, I didn\'t catch a video idea there. Want to keep going with props, book a time instead, or start over?') : 'I didn\'t catch a video idea there. Want props for a video, or to book a time?' }])
-        return plan ? [KEEP_GOING, SWITCH_TIME, START_OVER] : [SWITCH_TIME, 'Props for a video idea']
+        setMsgs(x => [...x, { who: 'bot', text: plan ? withNote('Hmm, I didn\'t catch a video idea there. Want to keep going with props, book a time instead, or start over?') : 'What\'s the video about? A scene, a character or a vibe is enough, and I\'ll find props for it. (Or did you mean a time to film?)' }])
+        if (!plan) setMode('props')
+        return plan ? [KEEP_GOING, SWITCH_TIME, START_OVER] : [...STARTERS.props.slice(0, 2), SWITCH_TIME]
       }
       setMsgs(x => [...x, { who: 'bot', text: quiet ? '' : r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
         ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])

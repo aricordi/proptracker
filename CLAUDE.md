@@ -2222,6 +2222,23 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       findFree except. data_check.py lists clashes separately. Tests 670.
       NOT DONE (need owner decisions): unsent basket silently follows a newly chosen shoot (ask "move these N props?"); Sunday (closed day)
       shoots can't get gear (should they?); late-request strike edge (request made inside 48 h, cancelled after approval = strike).
+    - CHAT QA (owner, Nov 6: "super thorough test of the AI chat… people will type the stupidest stuff… still expect it to work"; NOT
+      deployed: backend (assistant.ts, chatBrain.ts, timeFinder.ts, appGuide.ts; no new callable, no rules change) + website, ask).
+      Layers: (1) no-AI rules (src/lib/aiRoute.ts detectIntent/pickOption, timeFinder normalizeWhen/namedDate/parseAt/namesIn; tests
+      tests/unit/chatQa.test.ts) — slang/typos ("tmrw @ 7", "c2", "thurs"), named dates, French ("samedi à 17h", "demain 9h30",
+      "maison 2"), shared first names asked not guessed, typed picks after options ("the 5pm one", "second one", "yes book it" →
+      Which one: Cliff 1 or Cliff 2?), LOCAL_FIRST intents (im here / running late / we're done / door code / house problems / are you
+      a bot) answered before the AI. (2) Chat screen (Assistant.tsx): bare ok/yes/no with no open question (lastBotAsked) = local
+      answer; plan step words skip/next/that's it → review, cancel/stop → askRestart; props with no idea → asks the idea (no closet
+      search); `also` = a second action in the same message; time finder `notice` kept when the AI's own reaction is shown.
+      (3) AI brain prompt (chatBrain.ts): honest it's the app's AI (not a person); knows only STATE/RULES/DAYS/GUIDE, so never says a
+      time is free/taken/too late or that we have a prop, never invents facts/features (door codes, Wi-Fi, replacements), never
+      "booked/all set/locked in"; DAYS list (daysList) for weekdays; RULES list the real slot starts (to 1 AM); query in English;
+      "me and X" = filming with X; also-field; flirting taken lightly. cleanTurn: shoot ids in replies → their label; times/props
+      replies cut to a short reaction (brief). askForTime never answers "I can only help find filming times" (offTopic ignored).
+      Real-AI harness: button "Test the AI chat (practice)" (.github/workflows/chat-qa.yml + .github/scripts/chat_qa.mjs, 180 cases in
+      chat_qa_cases.json, input `only` = one group) prints action/reply/query per message, follows times/props, and marks ⚠ SAID for
+      banned phrases (RED_FLAGS). Run 2 (before the fixes) = the findings above; re-run after "Update the practice app".
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
