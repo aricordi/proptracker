@@ -470,6 +470,12 @@ async function scanCalendar(cals: Source[]) {
       const g = guessFor(base, cal)
       if (g.action === 'shoot' && (g.emails?.length || g.email)) { events.push({ ...base, ...tag, kind: 'new', regrade: true, guess: g }); continue }
     }
+    // Audit, Nov 5 (live: three "Justin" shoots were guessed while two creators are called Justin): a shoot the check placed by
+    // itself, nobody checked, whose name now fits more than one person goes back to the team to say who (it keeps holding the time).
+    if (was.action === 'shoot' && was.by === 'calendar check' && !was.checkedBy && !was.removed && !why) {
+      const g = guessFor(base, cal)
+      if (g.ambiguous?.length) { events.push({ ...base, ...tag, kind: 'new', recheck: true, guess: g }); continue }
+    }
     // Owner, Nov 5: "Val / Sam / Preslea - Offsite Filming" (in the Cliff 1 calendar) was put AT Cliff 1 by the automatic
     // check before "offsite" was read. A shoot the check placed at a house by itself (nobody checked it yet) whose words
     // say offsite (and name no house) moves to offsite at its real hours.
@@ -661,8 +667,8 @@ export async function runCalendarCheck() {
   const status = db.doc('app_settings/calendarCheck')
   try {
     const { events, people } = await scanCalendar(cals) as { events: any[]; people: { email: string; name: string }[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
-    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && !e.redo && placeable(e.guess)))
-    const unclear = events.filter(e => e.kind === 'new' && (e.redo || !placeable(e.guess)))
+    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && !e.redo && !e.recheck && placeable(e.guess)))
+    const unclear = events.filter(e => e.kind === 'new' && (e.redo || e.recheck || !placeable(e.guess)))
     const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true }) : []
     // The queue (calendar_queue/{eventId}): one card per event, until the team confirms, fixes or skips it.
     const waiting = new Map((await db.collection('calendar_queue').where('status', '==', 'waiting').get()).docs.map(d => [d.id, d.data()]))

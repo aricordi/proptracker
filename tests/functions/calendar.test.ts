@@ -406,6 +406,21 @@ describe('calendar audit fixes (Nov 5)', () => {
     expect((await getDoc('calendar_queue/m2'))!.message).toMatch(/more than one person/)
   })
 
+  it('an old automatic guess on a name two people share goes back to the team (it keeps holding the time)', async () => {
+    await put('users/justin1@example.com', { email: 'justin1@example.com', role: 'creator', active: true, name: 'Justin Figs' })
+    await put('users/justin2@example.com', { email: 'justin2@example.com', role: 'creator', active: true, name: 'Justin Show' })
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('test_calendar/events', { items: [ev('ju1', 'Justin - Cliff 1', FRI, '13:00', '15:00')] })
+    // What the check did before: guessed the first Justin.
+    await call('applyCalendarImport', { items: [{ id: 'ju1', action: 'shoot', email: 'justin1@example.com', house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Justin - Cliff 1' }] }, OWNER)
+    const { checkedBy, checkedAt, ...imp } = (await getDoc('calendar_imports/ju1'))!   // eslint-disable-line @typescript-eslint/no-unused-vars
+    await put('calendar_imports/ju1', { ...imp, by: 'calendar check' })
+    await call('checkCalendarNow', {}, MAANIK)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].email).toBe('justin1@example.com')
+    expect(await getDoc('calendar_queue/ju1')).toMatchObject({ placed: false, status: 'waiting' })
+    expect((await getDoc('calendar_queue/ju1'))!.message).toMatch(/more than one person/)
+  })
+
   it('a group that cannot all be placed leaves nothing behind; Redo waits for a person', async () => {
     const r = await call('applyCalendarImport', { items: [{ id: 'g4', action: 'shoot', emails: [ANA, BEN, 'nobody@example.com'], house: 'cliff1', date: FRI, start: 780, end: 960, title: 'grp' }] }, OWNER)
     expect(r.result.results[0].ok).toBe(false)

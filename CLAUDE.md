@@ -2199,6 +2199,29 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the Calendar tab now has 71 waiting cards (everyone's regraded events). Nov 6 17:45 shows "CLASH with Alex, Preslea": the event
       "Val / Sam / Preslea - Offsite Filming" (10 AM–8 PM, in the Cliff 1 feed) was imported AT Cliff 1 because "Offsite" in a title
       isn't read as offsite yet (possible fix: houseFromText 'offsite' → offsite). No bulk "confirm" in the Calendar tab yet.
+    - OFFSITE + CONFIRM ALL + EDGE-CASE AUDIT (owner, Nov 5: "read it as offsite… let him confirm them all"; then "go through the app with
+      a fine-toothed comb… reduce my own testing"; NOT deployed: backend + website, ask; no rules change). calendarText.ts saysOffsite/
+      placeFromText (offsite/off-site/on location beat the feed's house; address still wins); wrongPlace re-homes unchecked auto imports.
+      reviewCalendarImport action 'confirmAll' {ids} (queueReady: placed, no problem, no clash) + Calendar tab "Confirm all N".
+      AUDIT (4 read-only reviewers, ~55 findings, verified + fixed): CALENDAR: read from 30 h back + never remove what's over (today's
+      finished shoots were being cancelled); splitHours floor (no 0-min turns) + group rollback; namedPeopleInfo (ambiguous names e.g. two
+      Justins → unplaced card with reason; own name beats nickname; accents); mixed feed with no house → houseUnsure (never auto);
+      ignoreReason(…, named) + filming words never hidden; whole-word block words; multi-day timed events per day; small-hours → night
+      before; deleted-then-restored + Redo marker (calendar_imports {redo}); renamed people follow until checked; cancelled-in-app shoots
+      stay cancelled; removeImportedShoot releases links; takeOut promotes a waiting clash into the freed slot (promote=false in giveSlotTo);
+      giveSlot refuses a move-pending slot; same() compares cut titles; checkedBy kept; removed overrides new; past cards settle quietly
+      (note 'past', no push); old auto guesses on ambiguous names come back as cards (recheck). CHECK-INS: schedule.ts expectsCheckIn
+      (not offsite, not toCheck, shoot.checksIn stamped by pushReminders when check-in opens = Full app/owner then; unstamped imports
+      don't) used by isMissed, analytics, creatorStats, reminders, decideShoot (transaction), Schedule team, approval facts; reminders skip
+      toCheck + Props-only. STRIKES: decide/report/flag-strike race-safe; excuse removes the flag's strike; manual longer pause kept;
+      removal lift doesn't set liftedAt; daily recount (push_sent/recount_<date>). CHAT/SCHEDULE: basket dates after send; check-in Try
+      again; findShoot date-first (loose for cancel/intents; 'namesADay'); invite expiry in studio time; takeGear booked only, late slot due
+      at shoot end, refused after midnight; wrap card past midnight; partial return keeps reminder; past packed props hidden; "cancel my
+      props request" → My requests; owner creator mode = owner rules; expireRequests sweeps lapsed invites; approve after start refused;
+      move-expired push; swaps check priority lock + guideline; month grid greys > 120 days; owner sees locks (lockFree = equipment only);
+      findFree except. data_check.py lists clashes separately. Tests 670.
+      NOT DONE (need owner decisions): unsent basket silently follows a newly chosen shoot (ask "move these N props?"); Sunday (closed day)
+      shoots can't get gear (should they?); late-request strike edge (request made inside 48 h, cancelled after approval = strike).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

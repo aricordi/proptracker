@@ -75,6 +75,7 @@ for gid, g in gb.items():
 shoots, days = docs('shoots'), docs('schedule_days')
 today = now[:10]
 referenced = set()
+clashing = set()
 for date, d in days.items():
     for house in ('cliff1', 'cliff2'):
         for slot, e in (d.get(house) or {}).items():
@@ -87,8 +88,13 @@ for date, d in days.items():
                 bad('schedule', f'{date} {house} {slot}: slot taken by a shoot that is {"missing" if not s else s.get("status")} (nobody can book it)')
     for o in d.get('offsite') or []:
         referenced.add(o.get('shootId'))
+    # An imported shoot on top of another one is listed as a clash (the team sorts it out), not missing.
+    for c in d.get('clashes') or []:
+        if c.get('shootId'): clashing.add(c.get('shootId'))
 for sid, s in shoots.items():
-    if s.get('status') in ('booked', 'requested') and s.get('date', '') >= today and sid not in referenced:
+    if s.get('status') in ('booked', 'requested') and s.get('date', '') >= today and sid not in referenced and sid in clashing:
+        bad('schedule', f'{s.get("status")} shoot {s.get("date")} {s.get("place")} ({s.get("creatorName")}) is a CLASH with another shoot, waiting for the team (Requests)')
+    elif s.get('status') in ('booked', 'requested') and s.get('date', '') >= today and sid not in referenced:
         bad('schedule', f'{s.get("status")} shoot {s.get("date")} {s.get("place")} ({s.get("creatorName")}) is missing from the schedule (someone else could book over it)')
 
 users = docs('users')
