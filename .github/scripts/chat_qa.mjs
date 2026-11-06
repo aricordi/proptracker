@@ -49,7 +49,8 @@ const STATES = {
 
 const cases = JSON.parse(readFileSync(CASES, 'utf8')).filter(c => !FILTER || c.group === FILTER || c.msg.includes(FILTER))
 console.log(`Today ${today}. ${cases.length} messages.\n`)
-let i = 0, fallbacks = 0, errors = 0
+let i = 0, fallbacks = 0, errors = 0, flagged = 0
+const RED_FLAGS = /first shoot of the (month|week)|all set|locked in|is booked|you'?re booked|been (booked|cancelled|sent|moved|approved|reported)|i'?m (not a bot|human|a real person|a person)|not quite a bot|far from it|door code is|wi-?fi (password|reset)|reset the router|replacement|we wrap up|houses close|too late for (the|our) houses|\bsh[A-Z]\b|right back at (you|ya)|love you too|we(?:'ve| have) (got )?(a few|plenty|some|several|definitely)/gi
 const tally = {}
 for (const c of cases) {
   const email = PEOPLE[i++ % PEOPLE.length]
@@ -61,11 +62,14 @@ for (const c of cases) {
   else {
     tally[t.action] = (tally[t.action] ?? 0) + 1
     const ok = !c.expect || c.expect.split('|').includes(t.action)
-    line += `   ${ok ? '' : `✗ expected ${c.expect} · `}action=${t.action}${t.shoot ? ` shoot=${t.shoot}` : ''}${t.query ? ` query="${t.query}"` : ''}\n   reply: ${t.reply.replace(/\n/g, ' ⏎ ')}\n${t.chips?.length ? `   chips: ${t.chips.join(' | ')}\n` : ''}${t.steps?.length ? `   steps: ${t.steps.join(' > ')}\n` : ''}`
+    // Things the chat must never say (chat QA, Nov 6): made-up facts, "done" claims, pretending to be human, internal ids.
+    const bad = (t.reply.match(RED_FLAGS) ?? []).map(x => x.toLowerCase())
+    if (bad.length) flagged++
+    line += `   ${ok ? '' : `✗ expected ${c.expect} · `}${bad.length ? `⚠ SAID "${[...new Set(bad)].join('", "')}" · ` : ''}action=${t.action}${t.shoot ? ` shoot=${t.shoot}` : ''}${t.query ? ` query="${t.query}"` : ''}${t.also ? ` also=${t.also.action}:"${t.also.query}"` : ''}\n   reply: ${t.reply.replace(/\n/g, ' ⏎ ')}\n${t.chips?.length ? `   chips: ${t.chips.join(' | ')}\n` : ''}${t.steps?.length ? `   steps: ${t.steps.join(' > ')}\n` : ''}`
     if (t.action === 'times' && c.follow !== false) {
       await sleep(1500)
       const f = await call('askForTime', { text: t.query || c.msg }, email)
-      line += f?.error ? `   times ERROR ${f.error}\n` : `   → times: ${f.ask.from}..${f.ask.to} ${f.ask.houses.join('+')} ${f.ask.timeOfDay}${f.ask.at !== undefined ? ` at ${f.ask.at}` : ''} people[${f.ask.people.join(',')}] slots ${f.ask.mySlots} → ${f.options.length} options${f.options[0] ? ` (first ${f.options[0].date} ${f.options[0].place} ${f.options[0].start})` : ''} · "${f.reply}"\n`
+      line += f?.error ? `   times ERROR ${f.error}\n` : `   → times: ${f.ask.from}..${f.ask.to} ${f.ask.houses.join('+')} ${f.ask.timeOfDay}${f.ask.at !== undefined ? ` at ${f.ask.at}` : ''} people[${f.ask.people.join(',')}] slots ${f.ask.mySlots} → ${f.options.length} options${f.options[0] ? ` (first ${f.options[0].date} ${f.options[0].place} ${f.options[0].start})` : ''} · "${f.reply}"${f.notice ? ` · notice: "${f.notice}"` : ''}\n`
     }
     if (t.action === 'props' && c.follow) {
       await sleep(1500)
@@ -76,5 +80,5 @@ for (const c of cases) {
   console.log(line)
   await sleep(2200)
 }
-console.log(`\nDone. ${cases.length} messages, ${fallbacks} without an AI answer, ${errors} errors. Actions: ${JSON.stringify(tally)}`)
+console.log(`\nDone. ${cases.length} messages, ${fallbacks} without an AI answer, ${errors} errors, ${flagged} replies with a red-flag phrase. Actions: ${JSON.stringify(tally)}`)
 if (fallbacks === cases.length) console.log('Every answer was a fallback: the practice site has no real AI key (GEMINI_API_KEY is the placeholder).')

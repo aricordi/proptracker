@@ -138,7 +138,7 @@ const REQUESTS = /\b(my requests?|what did i (ask|request)|where('?s| is| are) m
 const GREETING = /^\s*((hi+|hey+y*|hello+|helo|yo+|sup|hiya|heya|wassup|whats? ?up|what's up|howdy|gm|good (morning|afternoon|evening))\b[\s,!.?]*)+((what'?s ?up|wassup|how'?s it going|how are (you|u)|how r u|how you doing|man|bro|dude|guys|there|anyone there|you there)\b[\s,!.?]*)*$/i
 const THANKS = /^\s*(thanks?|thank (you|u)|thx|ty|tysm|cheers|appreciate (it|you))\b[\s!.,a-z]{0,12}$/i
 // Nothing to do: "ok", "nvm", "k", "cool", "no", "wait".
-const ACK = /^\s*(ok(ay)?|k+|cool|kool|nice|great|awesome|perfect|sounds good|got it|gotcha|alright|aight|word|bet|fine|nvm|never ?mind|no worries|nah|no|nope|not now|wait|hold on|one sec|1 sec|hmm+|lol|lmao|haha+|👍|🙏|👌)\s*[!.]*$/i
+const ACK = /^\s*((actually|oh|ok|okay|nah|umm*|uh+|wait),?\s+)?(ok(ay)?|k+|cool|kool|nice|great|awesome|perfect|sounds good|got it|gotcha|alright|aight|word|bet|fine|nvm|never ?mind|nevermind|forget (it|that|about it)|scratch that|leave it|stop|no worries|nah|no|nope|not now|wait|hold on|one sec|1 sec|hmm+|lol|lmao|haha+|👍|🙏|👌)\s*[!.]*$/i
 // "yes", "book it", "do it", "that one": only means something right after the chat showed something to tap.
 const CONFIRM = /^\s*(y(es|ea|eah|ep|up|s)|sure|ok(ay)? (do it|book it|go)|do it|book it|book that|go ahead|confirm|let'?s do it|lets go|send it|that one|this one|that works|works for me|perfect,? book it|yes,? (book|do|please)[a-z ]*)\s*[!.]*$/i
 const CHECKIN = /^\s*((i'?m|im|we'?re|were) (here|at the house|at cliff ?[12]?|outside|on (my|our) way in)|just (got here|got in|arrived)|arrived|checking in|check ?in|check me in|i'?m in)\b/i
@@ -203,7 +203,7 @@ export function detectIntent(text: string): Intent | null {
 // Book. The AI never sees those cards, so the app reads it here. Returns the option they meant, 'which' when "yes" doesn't say
 // which of several, or null when it isn't about the times shown (e.g. "what about sunday" = a new search).
 export interface ShownOption { date: string; place: string; start: number }
-export function pickOption(text: string, options: ShownOption[]): { index: number } | 'which' | null {
+export function pickOption(text: string, options: ShownOption[]): { index: number } | { which: number[] } | null {
   if (!options.length) return null
   const t = normalizeWhen(text).trim()
   if (words(t) > 10) return null
@@ -225,7 +225,7 @@ export function pickOption(text: string, options: ShownOption[]): { index: numbe
   // …or it's nothing but the time itself ("cliff 2 at 5", "saturday 7pm").
   const residual = t.replace(/\b(cliff ?[12]|at|on|the|one|a|for|\d{1,2}(:\d\d)?|am|pm|ish|around|today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|please|pls|plz)\b|[?!.,]/g, '').trim()
   const picky = yes || /\b(one|that|book|take|do|works?|grab|want|please|pls|plz|ok|yes|yeah)\b/.test(t) || words(t) <= 3 || !residual
-  if (said) return pool.length === 1 && picky ? { index: pool[0].i } : null
-  if (yes) return options.length === 1 ? { index: 0 } : 'which'
+  if (said) return !picky || !pool.length ? null : pool.length === 1 ? { index: pool[0].i } : { which: pool.map(x => x.i) }
+  if (yes) return options.length === 1 ? { index: 0 } : { which: options.map((_, i) => i) }
   return null
 }

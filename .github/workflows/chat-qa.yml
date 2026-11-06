@@ -40,6 +40,7 @@ jobs:
           APP=$(curl -sS -H "Authorization: Bearer $T" "https://firebase.googleapis.com/v1beta1/projects/$PID/webApps" | jq -r '.apps[0].appId')
           KEY=$(curl -sS -H "Authorization: Bearer $T" "https://firebase.googleapis.com/v1beta1/projects/$PID/webApps/$APP/config" | jq -r '.apiKey')
           [ -n "$KEY" ] && [ "$KEY" != "null" ] || { echo "::error::Couldn't read the practice web settings."; exit 1; }
+          echo "::add-mask::$KEY"
           echo "WEB_KEY=$KEY" >> $GITHUB_ENV
       - name: Install
         run: npm ci --prefix functions

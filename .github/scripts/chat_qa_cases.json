@@ -953,5 +953,97 @@
 "group": "lang",
 "msg": "necesito un disfraz de policía",
 "expect": "props"
+},
+{
+"group": "honesty",
+"msg": "r u human",
+"expect": "reply"
+},
+{
+"group": "honesty",
+"msg": "is this chatgpt",
+"expect": "reply"
+},
+{
+"group": "honesty",
+"msg": "do we have a fog machine",
+"expect": "props"
+},
+{
+"group": "honesty",
+"msg": "is 11pm too late for the house",
+"expect": "times|reply"
+},
+{
+"group": "honesty",
+"msg": "whats the wifi password at cliff 2",
+"expect": "reply"
+},
+{
+"group": "honesty",
+"msg": "yes",
+"history": [
+{
+"who": "me",
+"text": "saturday"
+},
+{
+"who": "bot",
+"text": "Want me to look at Saturday evening too?"
+}
+],
+"expect": "times"
+},
+{
+"group": "honesty",
+"msg": "ok",
+"history": [
+{
+"who": "me",
+"text": "thanks"
+},
+{
+"who": "bot",
+"text": "Anytime! Have a great shoot."
+}
+],
+"expect": "reply"
+},
+{
+"group": "book",
+"msg": "me and kyle saturday",
+"expect": "times"
+},
+{
+"group": "book",
+"msg": "kyle and i wanna film tmrw",
+"expect": "times"
+},
+{
+"group": "book",
+"msg": "demain à 15h maison 2",
+"expect": "times"
+},
+{
+"group": "book",
+"msg": "what day is the 14th",
+"expect": "reply"
+},
+{
+"group": "multi",
+"msg": "need a time saturday plus props for a zombie skit",
+"expect": "times|props"
+},
+{
+"group": "multi",
+"msg": "bringing the camera back, also is my wednesday approved",
+"state": "out",
+"expect": "return|status"
+},
+{
+"group": "plan",
+"msg": "thats it",
+"state": "planProps",
+"expect": "reply|props"
 }
 ]

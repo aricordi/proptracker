@@ -271,7 +271,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   function planReview() {
     commitTicks()
     setPlan(p => p && { ...p, step: 'review' }); setChips([])
-    bot('Step 4 · Review. Here\'s your shoot. On the next page you can change amounts, add or remove anything, then send it to the teams.', { who: 'review' })
+    bot(`Step ${gearOn ? 4 : 3} · Review. Here's your shoot. On the next page you can change amounts, add or remove anything, then send it to the teams.`, { who: 'review' })
   }
 
   // Everything already suggested (never repeated) and everything the AI already looked for.
@@ -315,6 +315,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const intent = detectIntent(q)
     if (fits && !intent) return false
     pendingSwitch.current = r.helpers.includes('time') || r.helpers.includes('props') ? q : ''
+    if (intent === 'ack') {
+      bot(withNote('No problem. Stop planning for now, or keep going?')); setChips([START_OVER, KEEP_GOING]); return true
+    }
     const greet = intent === 'greeting'
     const wantsTime = r.helpers.includes('time') && plan.step === 'props', wantsProps = r.helpers.includes('props') && plan.step === 'time'
     bot(greet ? `Hey${first ? ` ${first}` : ''}! We were ${plan.step === 'props' ? `picking props for ${planLabel}` : 'finding you a time'}. Want to keep going, or do something else?`
@@ -327,14 +330,42 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   // Typing instead of tapping (chat QA, Nov 6): "yes book it", "the 5pm one", "the second one" right after free times were shown
   // books that one; "yes" to a cancel card points at its button (cancelling stays a deliberate tap).
+  const askedWhich = useRef<TimeAskResult['options'] | null>(null)   // "Which one: Cliff 1 or Cliff 2?" waiting for the answer
+  // Did the chat's last words ask the person something? ("Want me to look at Saturday?")
+  // The opening greeting ("What are we making today?") doesn't count: nothing has been asked about yet.
+  function lastBotAsked(): boolean {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i]
+      if (m.who === 'me') return false
+      if (m.who === 'bot' && m.text.trim()) return msgs.slice(0, i).some(x => x.who === 'me') && /\?\s*(\*\*)?\s*$/.test(m.text.trim())
+    }
+    return false
+  }
   function typedPick(q: string): boolean {
+    const waiting = askedWhich.current; askedWhich.current = null
+    if (waiting) {
+      const r = pickOption(q, waiting)
+      if (r && 'index' in r) {
+        const o = waiting[r.index]
+        setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
+        void book(o); return true
+      }
+    }
     for (let i = msgs.length - 1; i >= 0 && i >= msgs.length - 4; i--) {
       const m = msgs[i]
       if (m.who === 'me') return false
       if (m.who === 'options') {
         const r = pickOption(q, m.options)
         if (!r) return false
-        if (r === 'which') { setMsgs(x => [...x, { who: 'bot', text: `Which one? Tap **${asks ? 'Request' : 'Book'}** on the time you want, or say it ("the 5 PM one").` }]); return true }
+        if ('which' in r) {
+          // Name the choices when there are only a few ("Cliff 1 or Cliff 2?").
+          const c = r.which.map(k => m.options[k])
+          const sameTime = c.every(o => o.start === c[0].start && o.date === c[0].date)
+          const names = c.map(o => sameTime ? house(o.place) : `${formatDay(o.date, { weekday: 'short' })} ${fmtTime(o.start)} at ${house(o.place)}`)
+          setMsgs(x => [...x, { who: 'bot', text: c.length <= 3 ? `Which one: **${names.join('** or **')}**?` : `Which one? Tap **${asks ? 'Request' : 'Book'}** on the time you want, or say it ("the 5 PM one").` }])
+          askedWhich.current = c
+          setChips(c.length <= 3 ? names : []); return true
+        }
         const o = m.options[r.index]
         setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
         void book(o)
@@ -355,9 +386,25 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: force ?? (more ? 'props' : mode ?? 'help') }])
     // Something wrong with the app itself (owner, Nov 5): straight to "Report a problem", no AI needed.
     if (!force && !more && typedPick(q)) return
+    // Typing a button's words ("start over", "keep going", "next") does what the button does (chat QA, Nov 6).
+    if (!force && !more) {
+      const lc = q.toLowerCase().replace(/[›.!]/g, '').trim()
+      const btn = [START_OVER, KEEP_GOING, SWITCH_TIME, SWITCH_PROPS, NEXT_GEAR, SKIP_PROPS, NEXT_REVIEW].find(c => c.toLowerCase().replace(/[›.!]/g, '').trim() === lc)
+      if (btn && (plan || btn === START_OVER)) { chip(btn); return }
+      if (/^(start (over|again)|restart|reset|new chat|clear( chat)?)$/.test(lc)) { if (plan) askRestart(); else restart(); return }
+    }
+    // Planning (chat QA, Nov 6): "skip" / "next" / "that's it" on the props step moves on; "cancel" / "stop" asks whether to stop.
+    if (!force && !more && plan) {
+      const lc = q.toLowerCase().replace(/[.!?]/g, '').trim()
+      if (plan.step === 'props' && /^(skip( (it|this|props))?|next( step)?|done|that'?s (it|all|everything)|no (more )?props|none|nothing( else)?|i'?m good|all good|move on)$/.test(lc)) { chip(gearOn ? NEXT_GEAR : NEXT_REVIEW); return }
+      if (/^(cancel|stop|quit|exit|end|stop (it|this|planning)|cancel (it|this|the plan|planning)|i'?m done|forget (it|this))$/.test(lc)) { askRestart(); return }
+    }
     if (!force && !more && !plan) {
       const pre = detectIntent(q)
       if (pre && LOCAL_FIRST.includes(pre) && localTurn(q)) return
+      // A bare "ok" / "yes" / "no" with no question waiting (chat QA, Nov 6: the AI once answered "yes" with "you're all set").
+      // After a question, the AI reads it with the conversation, so "yes" answers that question.
+      if ((pre === 'ack' || pre === 'confirm') && !lastBotAsked() && localTurn(q)) return
       // Only punctuation or emoji ("???", "🎬🎬", "."): no need to wake the AI.
       if (!/[\p{L}\p{N}]/u.test(q)) { setMsgs(x => [...x, { who: 'bot', text: 'Not sure what you mean. Tell me what you need: a time to film, props for a video, or anything about your shoots.' }]); setChips(defaultChips()); return }
     }
@@ -390,6 +437,16 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   // Do what the AI picked. Everything here is a card or a button; the person still taps to make anything happen.
   async function runTurn(turn: ChatTurn, q: string) {
+    await runOne(turn, q)
+    // A second thing in the same message ("book friday 5pm and i need a cop costume"): done right after (chat QA, Nov 6).
+    const also = turn.also
+    if (also && !plan) {
+      aiSpoke.current = false
+      if (also.action === 'return') { localTurn(q, { intent: 'return', text: '' }); return }
+      await runHelpers(also.query, false, also.action === 'times' ? 'time' : 'props')
+    }
+  }
+  async function runOne(turn: ChatTurn, q: string) {
     aiSpoke.current = !!turn.reply
     const say = (txt: string, extra: Msg[] = []) => setMsgs(x => [...x, { who: 'bot', text: txt }, ...extra])
     switch (turn.action) {
@@ -399,6 +456,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       case 'props':
         if (plan && plan.step === 'time') return confirmLeave(turn.reply, turn.query || q, 'props')
         if (turn.shoot) choose(turn.shoot)
+        // "props", "i need props", "props for tomorrow": no idea yet, so ask for one instead of searching the closet for
+        // the word "props" (chat QA, Nov 6: that answered "I didn't catch a video idea there").
+        if (!turn.query && !demo && !/\b(for (a|an|the|my|our) (\w+ )?(video|skit|sketch|scene|prank|episode|short)|about|with a|like a)\b/i.test(q) && q.split(/\s+/).length <= 6) {
+          setMode('props'); aiSpoke.current = false
+          say(turn.reply || 'What\'s the video about? A scene, a character or a vibe is enough.'); setChips(turn.chips.length ? turn.chips : STARTERS.props.slice(0, 3)); return
+        }
         if (turn.reply) say(turn.reply)
         return runHelpers(turn.query || q, false, 'props', turn.shoot)
       case 'help':
@@ -418,6 +481,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   function localTurn(q: string, ai?: { intent: string; text: string; shootId?: string }): boolean {
     // Props only: the words never reach the time finder (the server would refuse anyway).
     if (demo && !helpOnly && !ai) {
+      // Shoots, check-in, gear, returns… aren't open for them yet (chat QA, Nov 6: "im here" got prop ideas).
+      const i0 = detectIntent(q)
+      if ((i0 && !['greeting', 'thanks', 'ack', 'whoami', 'capabilities', 'upset', 'access', 'house'].includes(i0)) || cancelIntent(q, []) || isStatusQuestion(q)) {
+        setMsgs(x => [...x, { who: 'bot', text: 'Booking and shoots aren\'t open for you yet, so I can\'t help with that one. Tell me about a video and I\'ll find props for it, or ask me how the app works.' }]); setChips(STARTERS.props.slice(0, 3)); return true
+      }
       const r = routeMessage(q, { last: 'props', shoots: [] })
       if (!r.helpers.includes('props') && !r.helpers.includes('help')) { setMsgs(x => [...x, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return true }
     }
@@ -426,10 +494,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const say = (reply: string, extra: Msg[] = [], chips: string[] = [], fact = false) => {
       setChips(chips); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
     }
-    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What are you working on? I can find you a time at the houses or props for the shoot.`, [], defaultChips()); return true }
+    if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! ${helpOnly ? 'Ask me how to do anything in the app and I\'ll show you where.' : demo ? 'Tell me about a video and I\'ll find props for it.' : 'What are you working on? I can find you a time at the houses or props for the shoot.'}`, [], defaultChips()); return true }
     if (intent === 'thanks') { say('Anytime! Have a great shoot.'); return true }
     // Honest, always (chat QA, Nov 6: the AI once said "far from it, I'm your friendly PA").
-    if (intent === 'whoami') { say(`I'm the app's AI assistant, not a person. I can ${demo ? 'find props for your video ideas' : helpOnly ? 'show you how anything in the app works' : 'find you a time to film, find props, check on your shoots'} and answer how the app works. For anything else, message the team directly.`, [], defaultChips(), true); return true }
+    if (intent === 'whoami') { say(`I'm the app's AI assistant, not a person. I can ${demo ? 'find props for your video ideas and explain how the app works' : helpOnly ? 'show you how anything in the app works' : 'find you a time to film, find props, check on your shoots and explain how the app works'}. For anything else, message the team directly.`, [], defaultChips(), true); return true }
     if (intent === 'ack') { say(ai?.text || 'No problem. I\'m here when you need me.', [], defaultChips(), true); return true }
     if (intent === 'confirm') { say('Yes to what? Tell me what you\'d like: a time to film, props for a video, or something about one of your shoots.', [], defaultChips(), true); return true }
     if (intent === 'capabilities') {
@@ -492,9 +560,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         const live = sorted.filter(x => x.status === 'booked')
         // Owner, Nov 3: gear isn't reserved any more; it's taken on the shoot day (from an hour before).
         const now0 = live.find(x => gw(x).state === 'take'), later = live.find(x => gw(x).state === 'early' || gw(x).state === 'reserve')
-        if (now0) { say(`Your shoot is on (${label(now0)}). Pick what you're taking, then tick every piece and take one photo.`, [{ who: 'actions', items: [{ label: 'Pick the gear', to: '/gear', shootId: now0.id }] }]); return true }
-        if (later) { say(`For ${label(later)}: take what's free from an hour before your shoot. Nothing to do yet.`, [], [], true); return true }
-        say('Gear goes with a shoot. Book a time first, then take what you need on the day.', [], ['Find me a time today', 'Earliest free slot'], true); return true
+        // "reserve the drone", "book the fx3": gear isn't held ahead (owner, Nov 3), so say that first.
+        const ahead = gearOn ? '' : /\b(book|reserve|rent|hold|save)\b/i.test(q) ? 'Gear can\'t be reserved ahead: it\'s first come, first served on your shoot day. ' : ''
+        if (now0) { say(`${ahead}Your shoot is on (${label(now0)}). Pick what you're taking, then tick every piece and take one photo.`, [{ who: 'actions', items: [{ label: 'Pick the gear', to: '/gear', shootId: now0.id }] }]); return true }
+        if (later) { say(`${ahead}For ${label(later)}: take what's free from an hour before your shoot. Nothing to do yet.`, [], [], true); return true }
+        say(`${ahead}Gear goes with a shoot. Book a time first, then take what you need on the day.`, [], ['Find me a time today', 'Earliest free slot'], true); return true
       }
       if (intent === 'move' || intent === 'swap') {
         if (!named && wrongDay) { say(`I don't see a shoot of yours that day. Your next ones: ${sorted.slice(0, 3).map(label).join('; ')}.`, [], [], true); return true }
@@ -603,7 +673,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const r = (await askForTime({ text: q, ...(previous ? { previous } : {}) })).data
       setPrevious(r.ask)
       const quiet = aiSpoke.current && r.options.length > 0; aiSpoke.current = false
-      setMsgs(x => [...x, ...(quiet ? [] : [{ who: 'bot' as const, text: r.reply, ...(offerOther ? { alt: { q, to: 'props' as const } } : {}) }]), ...(r.options.length ? [{ who: 'options' as const, options: r.options }] : [])])
+      // The chat's own short reaction already showed: keep only the facts that matter ("5 PM isn't free; closest times").
+      const said = quiet ? r.notice ?? '' : r.reply
+      setMsgs(x => [...x, ...(said ? [{ who: 'bot' as const, text: said, ...(offerOther && !quiet ? { alt: { q, to: 'props' as const } } : {}) }] : []), ...(r.options.length ? [{ who: 'options' as const, options: r.options }] : [])])
       // Follow-ups that change something (never "Evenings only" when it already is).
       const a = r.ask as { timeOfDay?: string; houses?: string[] }
       const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h

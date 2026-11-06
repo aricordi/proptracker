@@ -90,9 +90,17 @@ describe('reading a time without the AI', () => {
     expect(namedDate('11/14', today)).toBe('2026-11-14')
     expect(namedDate('14/11', today)).toBe('2026-11-14')
     expect(namedDate('jan 5', today)).toBe('2027-01-05')
-    expect(namedDate('the 31st', today)).toBe('bad')
+    expect(namedDate('the 31st', today)).toBe('2026-12-31')   // November has no 31st: the next month that does
     expect(namedDate('feb 30', today)).toBe('bad')
+    expect(namedDate('nov 31', today)).toBe('bad')
     expect(p('november 14 at 3')).toMatchObject({ from: '2026-11-14', to: '2026-11-14', at: 900 })
+  })
+  it('French days and times (Montréal creators): "samedi à 17h", "demain 9h30", "maison 2"', () => {
+    expect(parseAt('je veux filmer samedi à 17h')).toBe(1020)
+    expect(parseAt('demain 9h30')).toBe(570)
+    expect(parseAt('ce soir à 23h')).toBe(1380)
+    expect(p('samedi a 17h30 maison 2')).toMatchObject({ houses: ['cliff2'], at: 1050 })
+    expect(p('demain à 15h')).toMatchObject({ at: 900 })
   })
   it('names: a shared first name is never guessed; "with ari" finds Ariel', () => {
     expect(namesIn('filming with justin', people)).toMatchObject({ names: [], unclear: [{ said: 'justin' }] })
@@ -112,8 +120,8 @@ describe('typing instead of tapping a time', () => {
     expect(pickOption('yes book it', [opts[0]])).toEqual({ index: 0 })
   })
   it('asks which, or leaves it for a new search', () => {
-    expect(pickOption('yes', opts)).toBe('which')
-    expect(pickOption('5pm', opts)).toBeNull()          // two at 5 PM: not sure which house
+    expect(pickOption('yes', opts)).toEqual({ which: [0, 1, 2] })
+    expect(pickOption('the 5pm one', opts)).toEqual({ which: [0, 1] })   // two at 5 PM: ask which house
     expect(pickOption('what about 9am', opts)).toBeNull()
     expect(pickOption('earlier?', opts)).toBeNull()
   })

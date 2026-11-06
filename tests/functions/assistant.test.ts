@@ -111,7 +111,11 @@ describe('the chat\'s brain (askChat)', () => {
     const r = await call('askChat', { message: 'yo can i get cliff 1 thursday at 5', history: [], state: { shoots: [], out: { props: 0, gear: [] } } }, ANA)
     expect(r.ok).toBe(true)
     expect(r.result).toEqual({ fallback: true })
-    expect(await getDoc(`ai_usage/${month}`)).toBeFalsy()
+    // (The month doc may exist from an earlier test's search-index counter, written by a background trigger: only check chat use.)
+    const m = await getDoc(`ai_usage/${month}`)
+    expect(m?.by?.chat ?? 0).toBe(0)
+    expect(m?.spentUsd ?? 0).toBe(0)
+    expect(await getDoc(`ai_usage/${month}/people/${ANA}`)).toBeFalsy()
   })
   it('needs a message, and Props-only creators and staff may use it', async () => {
     expect((await call('askChat', { message: '  ' }, ANA)).ok).toBe(false)

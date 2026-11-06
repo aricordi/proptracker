@@ -9,11 +9,11 @@ import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from
 import { nowStamp, fmtTime } from './gearBooking.js'
 import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, namesIn, namedDate, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
-import { INVITE_HOLD_MINUTES, cleanScheduleSettings, type ScheduleDay } from './schedule.js'
+import { INVITE_HOLD_MINUTES, cleanScheduleSettings, houseSlotsOn, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, safeRich, asData } from './gemini.js'
 import { loadSettings } from './reservations.js'
-import { guideFor, searchGuide, TABS, type GuideRole } from './appGuide.js'
+import { guideFor, searchGuide, shortAbout, TABS, type GuideRole } from './appGuide.js'
 import { actionsFor, chatPrompt, cleanState, cleanHistory, cleanTurn } from './chatBrain.js'
 import { plainNeeds, rankedPicks, signalsFrom, goesWith, type Pick, type PropSignals, isFilmGear } from './ideaHelpers.js'
 import { aiSkips, NOT_A_PROP } from './filmGear.js'
@@ -294,6 +294,7 @@ async function freeOnShootDay(email: string, shootId: string, itemIds: string[])
 
 // ─── Ask for a time (type or talk) ───────────────────────────────────────────
 
+const dayLabelOf = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async req => {
   const caller = await requireRole(req, ['owner', 'creator', 'equipment'])
   const text = str(req.data?.text, 400)
@@ -308,7 +309,7 @@ export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, asy
   const previous: TimeAsk | null = req.data?.previous && typeof req.data.previous === 'object'
     ? cleanAsk(req.data.previous as Record<string, unknown>, today, roughParse('', today, people)) : null
   let ask: TimeAsk = previous ? roughAdjust(previous, text, today, people) : roughParse(text, today, people)
-  let reply = '', cost = 0, offTopic = false
+  let reply = '', cost = 0
   const key = apiKey()
   if (key && !isFakeMode(key)) {
     const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][weekday(today)]
@@ -340,16 +341,16 @@ Examples:
 at = the START time they asked for as "HH:MM" (24-hour), else null. "at 5" with no am/pm = 17:00; "tonight at 11" = 23:00.
 timeOfDay "night" = tonight / this evening (5 PM onward); "late" = after 9 PM. A named date ("nov 14", "the 14th", "11/14") = from and to that day.
 Slang: "tmrw"/"2moro" = tomorrow, "thurs" = Thursday, "c1"/"cliff one" = cliff1, "c2" = cliff2.
-Not about filming times → {"offTopic":true}.`
+Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. Never refuse: when unsure, search the next 14 days.`
     const prompt = { system, user: `<creator_text>${asData(text, 400)}</creator_text>` }
     try {
       const r = await askJson(key, prompt, 400, 0.1); cost = r.costUsd
-      if (r.data.offTopic) offTopic = true
-      else ask = cleanAsk(r.data, today, ask)
+      // "Not about times" is ignored now (chat QA, Nov 6: "book c2", "the 31st", French all got "I can only help find filming
+      // times"): the chat's brain already decided this is about times, so the simple reading of the words is used instead.
+      if (!r.data.offTopic) ask = cleanAsk(r.data, today, ask)
     } catch { /* the simple reading is used */ }
   }
   await settle(cost)
-  if (offTopic) return { reply: 'I can only help find filming times.', ask, friends: [], options: [] }
 
   // A first name two people share ("justin") is never guessed (chat QA, Nov 6): ask which one, with both as buttons.
   const { unclear } = namesIn(text, people)
@@ -390,8 +391,15 @@ Not about filming times → {"offTopic":true}.`
     : `Looking at ${where}: ${who}. Soonest first.`
   const note = (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
     + (capped ? ` You can book one ${s.slotMinutes / 60}-hour house slot a day; ask the schedule team if you need more.` : '')
+  // Nothing because they already film that day (one house slot a day): say that, not "nothing is free" (chat QA, Nov 6).
+  const own = !team && ask.from === ask.to && houseSlotsOn(days[ask.from], caller.email, now) >= s.slotsPerDay
+  if (!options.length && own) return { reply: `You already have a house slot on ${dayLabelOf(ask.from)} (one a day each). Pick another day, or move that shoot.`, ask: { ...ask, people: friends.map(f => f.name) }, friends, options }
+  // `notice` = what still needs saying when the chat shows its own short reaction instead of `reply` (the asked time
+  // isn't free, a friend wasn't found, one slot a day). Empty when the options speak for themselves.
+  const notice = [ask.at !== undefined && options.length && options[0].start !== ask.at ? `${atText} isn't free; these are the closest times.` : '', note.trim()].filter(Boolean).join(' ')
   return {
     reply: options.length ? `${reply}${note}` : `${reply}${note} Nothing is free for that. Try other days, the other house, or a different time of day.`,
+    ...(notice ? { notice } : {}),
     ask: { ...ask, people: friends.map(f => f.name) },
     friends,
     options,
@@ -400,7 +408,7 @@ Not about filming times → {"offTopic":true}.`
 
 // The live rule numbers, in one sentence the AI can quote (the same for "how do I…" and the chat).
 function rulesText(b: Awaited<ReturnType<typeof loadSettings>>, sch: Awaited<ReturnType<typeof loadScheduleSettings>>) {
-  return `props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}; gear is ${sch.gearReserve ? `grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo)` : "NOT booked ahead: it's checked out first come, first served on the shoot day, from an hour before (tick every piece + one photo); shoots only get props and costumes added"}; closed days don't count; house slots are ${sch.slotMinutes / 60} h, ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
+  return `props need ${b.leadTimeDays} open days' notice, things to make or find ${b.buildLeadDays ?? 4}; gear is ${sch.gearReserve ? `grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo)` : "NOT booked ahead: it's checked out first come, first served on the shoot day, from an hour before (tick every piece + one photo); shoots only get props and costumes added"}; closed days don't count; house slots are ${sch.slotMinutes / 60} h and start at ${sch.slots.map(m => fmtTime(m)).join(', ')} (the last one runs to ${fmtTime((sch.slots[sch.slots.length - 1] + sch.slotMinutes) % 1440)}; late slots are normal), ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice; check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
 }
 
 // ─── How do I…? (owner, Oct 28: "people will use the AI for everything… it should help them navigate the app") ───
@@ -418,7 +426,7 @@ export const askApp = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, async r
   // Without the AI (test mode, busy, refused): the closest guide entries, word for word.
   const plain = () => {
     const hit = searchGuide(question, entries, 3)
-    return hit.length ? { answer: hit[0].about, steps: [] as string[], links: linkOf(hit.map(e => e.id)) }
+    return hit.length ? { answer: shortAbout(hit[0].about, question), steps: [] as string[], links: linkOf(hit.map(e => e.id)) }
       : { answer: 'I\'m not sure about that one. Try Me → Help, or ask the team.', steps: [] as string[], links: linkOf(['help']) }
   }
   const settle = await reserveAi(caller.email, 'help', !!caller.demo)
@@ -476,10 +484,12 @@ export const askChat = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutS
       role, canBook, name: (caller.name || '').split(' ')[0], today: todayInStudio(), tabs: TABS[role],
       rules: b && sch ? rulesText(b, sch) : '', guide: entries, state: canBook ? state : { shoots: [], out: { props: 0, gear: [] } }, history, message,
     })
-    const r = await askJson(key, prompt, 800, 0.6).catch(e => { logger.warn('askChat failed', String(e)); return null })
+    const r = await askJson(key, prompt, 1000, 0.6).catch(e => { logger.warn('askChat failed', String(e)); return null })
     if (r) cost = r.costUsd
-    const turn = r && !r.blocked ? cleanTurn(r.data, { allowed: actionsFor(role, canBook), shootIds: state.shoots.map(s => s.id), screenIds: entries.map(e => e.id) }) : null
-    if (!turn) return { fallback: true as const }
+    const turn = r && !r.blocked ? cleanTurn(r.data, { allowed: actionsFor(role, canBook), shootIds: state.shoots.map(s => s.id), screenIds: entries.map(e => e.id),
+      shootLabels: Object.fromEntries(state.shoots.map(s => [s.id, s.label])) }) : null
+    // Why there was no usable answer (blocked, cut off, empty), so a run of fallbacks can be diagnosed from the logs.
+    if (!turn) { if (r) logger.info('askChat: no usable answer', { blocked: !!r.blocked, keys: Object.keys(r.data).join(','), length: message.length }); return { fallback: true as const } }
     const links = turn.screens.map(id => entries.find(e => e.id === id)).filter(e => e?.path && !e.path.includes(':')).map(e => ({ path: e!.path!, label: e!.title }))
     return { ...turn, links }
   } finally { await settle(cost) }

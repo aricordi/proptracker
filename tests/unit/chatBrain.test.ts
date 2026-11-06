@@ -1,6 +1,6 @@
 // The chat's AI is boxed in (owner, Nov 3): only fixed actions, only your own shoots, only your role's screens, clean text.
 import { describe, it, expect } from 'vitest'
-import { actionsFor, cleanTurn, cleanState, cleanHistory, chatPrompt, CHAT_ACTIONS } from '../../functions/src/chatBrain'
+import { actionsFor, cleanTurn, cleanState, cleanHistory, chatPrompt, CHAT_ACTIONS, brief, daysList } from '../../functions/src/chatBrain'
 import { guideFor } from '../../functions/src/appGuide'
 
 const ALL = actionsFor('creator', true)
@@ -63,11 +63,40 @@ describe('what the AI is told', () => {
     expect(p.user).toContain('<app_reply>Hi</app_reply>')
     expect(p.user.match(/<\/creator_text>/g)).toHaveLength(1)   // the fake closing tag is stripped
     expect(p.system).toMatch(/production assistant/)
-    expect(p.system).toMatch(/NEVER say something is booked/)
+    expect(p.system).toMatch(/Never say or imply something is booked/)
+    expect(p.system).toMatch(/not a person/)
+    expect(p.system).toMatch(/DAYS: Tue, Nov 3 \(today\); Wed, Nov 4 \(tomorrow\)/)
     expect(p.system).not.toMatch(/\bcosts \|/)   // owner-only screens never reach a creator's prompt
     const staff = chatPrompt({ role: 'equipment', canBook: false, name: '', today: '2026-11-03', tabs: '', rules: '', guide: guideFor('equipment'),
       state: { shoots: [{ id: 'x', label: 'y', status: 'booked' }], out: { props: 0, gear: [] } }, history: [], message: 'hi' })
     expect(staff.system).toMatch(/Only these actions are available to this person: reply, help\./)
     expect(staff.system).toMatch(/Not a booker/)
+  })
+})
+
+// Chat QA, Nov 6 (real-AI run on the practice site): what the AI said that it mustn't.
+describe('chat QA fixes', () => {
+  it('a shoot id never shows: it becomes the shoot\'s label', () => {
+    const t = cleanTurn({ action: 'move', reply: 'Moving **sh1** an hour later? Tap Move on sh1.' }, { ...opts, shootLabels: { sh1: 'Fri, Nov 6 · Cliff 1 · 1 PM–3 PM' } })!
+    expect(t.reply).not.toMatch(/\bsh1\b/)
+    expect(t.reply).toContain('**Fri, Nov 6 · Cliff 1 · 1 PM–3 PM**')
+    expect(t.reply.match(/\*\*/g)!.length % 2).toBe(0)
+  })
+  it('times/props replies are a short reaction, no lists (the results show right under it)', () => {
+    const t = cleanTurn({ action: 'props', reply: 'Ooh, a werewolf in the woods? Love it. We have plenty of fur.\n- Tap a photo\n- Add it', query: 'werewolf' }, opts)!
+    expect(t.reply).toBe('Ooh, a werewolf in the woods? Love it.')
+    expect(brief('One. Two. Three.')).toBe('One. Two.')
+    expect(brief('**Saturday** at 5? Let me look.')).toBe('**Saturday** at 5? Let me look.')
+    expect(cleanTurn({ action: 'reply', reply: 'Hi.\n- a\n- b' }, opts)!.reply).toContain('- a')   // plain replies keep lists
+  })
+  it('a second thing in the same message comes back as "also" (only times / props / return, never the same action)', () => {
+    expect(cleanTurn({ action: 'times', reply: 'On it', query: 'Friday 5 PM', also: { action: 'props', query: 'cop costume' } }, opts)!.also).toEqual({ action: 'props', query: 'cop costume' })
+    expect(cleanTurn({ action: 'times', reply: 'On it', also: { action: 'times', query: 'x' } }, opts)!.also).toBeUndefined()
+    expect(cleanTurn({ action: 'times', reply: 'On it', also: { action: 'cancel', query: 'x' } }, opts)!.also).toBeUndefined()
+    expect(cleanTurn({ action: 'return', reply: 'Ok', also: { action: 'times', query: 'next week' } }, opts)!.also).toEqual({ action: 'times', query: 'next week' })
+    expect(cleanTurn({ action: 'props', reply: 'Ok', also: { action: 'times', query: 'sat' } }, { ...opts, allowed: actionsFor('demo', false) })!.also).toBeUndefined()
+  })
+  it('the days list names each weekday (the AI never works one out)', () => {
+    expect(daysList('2026-11-05', 3)).toBe('Thu, Nov 5 (today); Fri, Nov 6 (tomorrow); Sat, Nov 7')
   })
 })

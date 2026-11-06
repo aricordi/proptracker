@@ -37,6 +37,15 @@ export function normalizeWhen(text: string): string {
     .replace(/\b(tmrw|tmrow|tmr|tmw|tmro|tmmrw|2moro|2morrow|2mrw|2mro|tomoro|tomorow|tommorow|tommorrow|tomorrw|tmorrow)\b/g, 'tomorrow')
     .replace(/\b(tonite|2nite|tnite|tonigh)\b/g, 'tonight')
     .replace(/\btdy\b/g, 'today')
+    // French (Montréal creators, chat QA Nov 6: "je veux filmer samedi à 17h"): days, today/tomorrow/tonight, "17h30".
+    .replace(/\bapr[eè]s[- ]demain\b/g, 'in 2 days')
+    .replace(/\bdemain\b/g, 'tomorrow').replace(/\baujourd'?hui\b/g, 'today').replace(/\bce soir\b/g, 'tonight')
+    .replace(/\blundi\b/g, 'monday').replace(/\bmardi\b/g, 'tuesday').replace(/\bmercredi\b/g, 'wednesday').replace(/\bjeudi\b/g, 'thursday')
+    .replace(/\bvendredi\b/g, 'friday').replace(/\bsamedi\b/g, 'saturday').replace(/\bdimanche\b/g, 'sunday')
+    .replace(/\bmaison\s*(1|un|une)\b/g, 'cliff 1').replace(/\bmaison\s*(2|deux)\b/g, 'cliff 2')
+    .replace(/(^|[\s(])(\d{1,2})\s?h\s?(\d{2})\b/g, '$1$2:$3')
+    .replace(/(^|[\s(])(\d{1,2})\s?h\b/g, (_m, a, h) => `${a}${Number(h) > 12 ? `${Number(h) - 12}pm` : Number(h) === 12 ? '12pm' : `${h}`}`)
+    .replace(/(\s)[àa](\s+\d)/g, '$1at$2')
     .replace(/@\s*(\d)/g, ' at $1')
     .replace(/\b(c|cliff|house)\s*(1|one)\b|\bfirst house\b/g, 'cliff 1')
     .replace(/\b(c|cliff|house)\s*(2|two)\b|\bsecond house\b/g, 'cliff 2')
@@ -59,9 +68,11 @@ export function namedDate(text: string, today: string): string | 'bad' | null {
       if (day > daysIn(yr, mon)) return 'bad'
       return `${yr}-${String(mon).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     }
-    // Just a day of the month: this month if it hasn't passed, else next month.
+    // Just a day of the month: this month if it hasn't passed, else the next month that has that day
+    // ("the 31st" said in November = December 31).
     let yr = y, mon2 = m0
     if (day < d0) { mon2++; if (mon2 > 12) { mon2 = 1; yr++ } }
+    if (day > daysIn(yr, mon2)) { mon2++; if (mon2 > 12) { mon2 = 1; yr++ } }
     if (day > daysIn(yr, mon2)) return 'bad'
     return `${yr}-${String(mon2).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
