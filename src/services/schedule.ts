@@ -152,6 +152,7 @@ export interface TimeAskResult {
   reply: string
   ask: Record<string, unknown>
   friends: { email: string; name: string }[]
+  choices?: string[]   // a name two people share: "With Justin Figs" / "With Justin Show"
   options: { date: string; place: House; start: number; slots: { email: string; name: string; start: number; me: boolean }[] }[]
 }
 export const askForTime = httpsCallable<{ text: string; previous?: Record<string, unknown> }, TimeAskResult>(functions, 'askForTime')

@@ -20,9 +20,9 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, type Helper, type Route } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, pickOption, type Helper, type Route, type Intent } from '../lib/aiRoute'
 import { useBugReport } from './BugReport'
-import { ReturnCard, ReportCard, PickupList } from './ChatNow'
+import { ReturnCard, ReportCard, PickupList, ShootNow } from './ChatNow'
 import GuidelinePicker from './GuidelinePicker'
 import { useReturnGroups, returnCount, canReturnProps, canReturnGear } from '../hooks/useReturnables'
 import ChatNow from './ChatNow'
@@ -42,7 +42,8 @@ import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type Cha
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useMyStatus, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
+  askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
+  checkinWindow,
   type TimeAskResult,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
@@ -64,6 +65,7 @@ type Msg =
   | { who: 'status' }   // chat: "is my shoot approved?" → your shoots with their status
   | { who: 'actions'; items: { label: string; to?: string; shootId?: string; ask?: string }[] }   // buttons that open the right screen
   | { who: 'return' } | { who: 'report'; text: string } | { who: 'pickup' }   // done right in the chat (Nov 3)
+  | { who: 'now'; shootId: string }   // "im here" / "we're done": the check-in or wrap card, right in the chat (chat QA, Nov 6)
 
 const STAFF_STARTERS: Record<string, string[]> = {
   arts: ['How do I pack a request?', 'How do I check props back in?', 'How do I do a bin check?'],
@@ -98,6 +100,11 @@ const DEMO_OPENER = 'Tell me your video idea and I\'ll find props from our close
 const DEMO_NO_TIME = 'Booking isn\'t open for you yet, so I can\'t look at times. Tell me about the video and I\'ll find props for it.'
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+const addMinutesLocal = (st: string, n: number) => { const d = new Date(`${st}:00Z`); d.setUTCMinutes(d.getUTCMinutes() + n); return d.toISOString().slice(0, 16) }
+const addDaysLocal = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10) }
+// Answered by the app itself before the AI (chat QA, Nov 6): the app knows these facts better, and "are you a bot?" must
+// always get an honest answer.
+const LOCAL_FIRST: Intent[] = ['checkin', 'done', 'late', 'access', 'house', 'whoami']
 const propsErr = (e: unknown) => friendlyError(e, "The AI helper didn't answer. Try again.")
 // The phone's own speech recognition, when the browser has it (Safari and Chrome do).
 const Speech = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null
@@ -137,6 +144,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const label = useShootLabel(), cutoffs = useCutoffs()
   const addToShoot = useAddToShoot()
   const invites = useMyInvites(profile.email)
+  const recent = useMyShoots(profile.email, addDaysLocal(todayInStudio(), -1))
   const returns = useReturnGroups(profile.email)
   const myStatus = useMyStatus(profile.email)
   const gw = useGearWindow()
@@ -317,12 +325,42 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     return true
   }
 
+  // Typing instead of tapping (chat QA, Nov 6): "yes book it", "the 5pm one", "the second one" right after free times were shown
+  // books that one; "yes" to a cancel card points at its button (cancelling stays a deliberate tap).
+  function typedPick(q: string): boolean {
+    for (let i = msgs.length - 1; i >= 0 && i >= msgs.length - 4; i--) {
+      const m = msgs[i]
+      if (m.who === 'me') return false
+      if (m.who === 'options') {
+        const r = pickOption(q, m.options)
+        if (!r) return false
+        if (r === 'which') { setMsgs(x => [...x, { who: 'bot', text: `Which one? Tap **${asks ? 'Request' : 'Book'}** on the time you want, or say it ("the 5 PM one").` }]); return true }
+        const o = m.options[r.index]
+        setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
+        void book(o)
+        return true
+      }
+      if (m.who === 'cancel') {
+        if (!(detectIntent(q) === 'confirm' || /^\s*(cancel( it)?|do it|yes,? cancel( it)?)\s*[!.]*$/i.test(q))) return false
+        setMsgs(x => [...x, { who: 'bot', text: 'Tap **Yes, cancel it** on the card above to confirm (or **Keep it**).' }]); return true
+      }
+    }
+    return false
+  }
+
   async function send(t = text, more = false, force?: Helper) {
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
     setText(''); setChips([])
     setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: force ?? (more ? 'props' : mode ?? 'help') }])
     // Something wrong with the app itself (owner, Nov 5): straight to "Report a problem", no AI needed.
+    if (!force && !more && typedPick(q)) return
+    if (!force && !more && !plan) {
+      const pre = detectIntent(q)
+      if (pre && LOCAL_FIRST.includes(pre) && localTurn(q)) return
+      // Only punctuation or emoji ("???", "🎬🎬", "."): no need to wake the AI.
+      if (!/[\p{L}\p{N}]/u.test(q)) { setMsgs(x => [...x, { who: 'bot', text: 'Not sure what you mean. Tell me what you need: a time to film, props for a video, or anything about your shoots.' }]); setChips(defaultChips()); return }
+    }
     if (!force && !more && isAppBug(q)) {
       bot('Sorry about that! Send it to us with a screenshot: tap Report a problem, go to the screen where it happened, then tap Report this screen.')
       setMsgs(x => [...x, { who: 'actions', items: [{ label: 'Report a problem', to: '#report' }, { label: "It's this chat", to: '#report-now' }] }])
@@ -390,7 +428,49 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     }
     if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! What are you working on? I can find you a time at the houses or props for the shoot.`, [], defaultChips()); return true }
     if (intent === 'thanks') { say('Anytime! Have a great shoot.'); return true }
+    // Honest, always (chat QA, Nov 6: the AI once said "far from it, I'm your friendly PA").
+    if (intent === 'whoami') { say(`I'm the app's AI assistant, not a person. I can ${demo ? 'find props for your video ideas' : helpOnly ? 'show you how anything in the app works' : 'find you a time to film, find props, check on your shoots'} and answer how the app works. For anything else, message the team directly.`, [], defaultChips(), true); return true }
+    if (intent === 'ack') { say(ai?.text || 'No problem. I\'m here when you need me.', [], defaultChips(), true); return true }
+    if (intent === 'confirm') { say('Yes to what? Tell me what you\'d like: a time to film, props for a video, or something about one of your shoots.', [], defaultChips(), true); return true }
+    if (intent === 'capabilities') {
+      say(demo ? 'Tell me a video idea and I\'ll find props from our closet that fit, scene by scene. Tap any prop to see it. I can also explain how the app works.'
+        : helpOnly ? 'Ask me how to do anything in the app and I\'ll show you the steps and the screen.'
+        : 'Here\'s what I can do:\n- **Book a time**: "Saturday at Cliff 1 at 5pm", "2 hours with Kyle this week"\n- **Props**: tell me the video idea\n- **Your shoots**: approved?, move, cancel, swap\n- **On the day**: check in, wrap, return gear', [], defaultChips(), true); return true
+    }
+    if (intent === 'upset') {
+      say('Sorry it\'s being a pain. Tell me what you were trying to do and I\'ll get you there. If something in the app looks broken, send it to us with a screenshot.',
+        [{ who: 'actions', items: [{ label: 'Report a problem', to: '#report' }] }], [], true); return true
+    }
+    if (intent === 'access') { say('I don\'t have door codes or keys. Message the equipment team (Maanik) directly and they\'ll get you in.', [], [], true); return true }
     if (demo || helpOnly) return false
+    // On the day (chat QA, Nov 6): "im here", "running late", "we're done". The app knows today's shoot better than the AI.
+    if (intent === 'checkin' || intent === 'done' || intent === 'late' || intent === 'house') {
+      const nowS = nowStamp(), todays = (recent ?? []).filter(x => x.status === 'booked' && x.date >= addDaysLocal(today, -1) && x.to > addDaysLocal(today, -1)).sort((a, b) => a.from.localeCompare(b.from))
+      const filming = todays.find(x => x.checkin && !x.wrap && x.from <= nowS && nowS < addMinutesLocal(x.to, 180))
+      const open = todays.find(x => x.place !== 'offsite' && !x.checkin && checkinWindow(x, nowS, s) === 'open')
+      const next = todays.find(x => x.date === today && nowS < x.to)
+      const t = (st: string) => fmtTime(Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16)))
+      if (intent === 'house') {
+        say(open ? 'Thanks for flagging it. If the person before you left it like this, tap **Report it** when you check in (with a photo). For anything broken in the house, tell the equipment team (Maanik) so it\'s fixed.'
+          : 'Thanks for flagging it. Tell the equipment team (Maanik) directly so it\'s sorted before the next shoot. If it was the person filming before you, you can report it when you check in.',
+          open ? [{ who: 'now', shootId: open.id }] : [], [], true); return true
+      }
+      if (intent === 'done') {
+        if (filming) { say('Nice work! What did you film? One line is enough.', [{ who: 'now', shootId: filming.id }], [], true); return true }
+        if ((returns ?? []).length) { say('Done? Let\'s bring the gear and props back. A few taps and one photo.', [{ who: 'return' }], [], true); return true }
+        say('Nice! Anything else I can line up for you?', [], defaultChips(), true); return true
+      }
+      if (intent === 'late') {
+        if (!next) { say('You don\'t have a shoot today. Anything I can help with?', [], defaultChips(), true); return true }
+        say(`No stress. ${next.place === 'offsite' ? 'Offsite shoots have no check-in.' : `Check in with a selfie when you get there: it stays open until **${t(next.to)}**. Checking in more than 15 minutes after **${t(next.from)}** is noted for the team.`} If you can't make it at all, cancel or swap it so someone else can use the slot.`, [], [], true); return true
+      }
+      // checkin
+      if (filming) { say('You\'re checked in ✓ Tell me what you filmed when you wrap.', [{ who: 'now', shootId: filming.id }], [], true); return true }
+      if (open) { say('You\'re up! Take the selfie to check in.', [{ who: 'now', shootId: open.id }], [], true); return true }
+      if (next && next.place === 'offsite') { say('Offsite shoots don\'t need a check-in. Have a great shoot!', [], [], true); return true }
+      if (next) { say(`Check-in opens at **${t(addMinutesLocal(next.from, -s.checkinBefore))}**, ${s.checkinBefore} minutes before your ${t(next.from)} slot. I'll show the selfie button here then.`, [], [], true); return true }
+      say(upcoming.length ? 'You don\'t have a shoot today. Here are your next ones.' : 'You don\'t have a shoot today. Want to book one?', upcoming.length ? [{ who: 'status' }] : [], defaultChips(), true); return true
+    }
     const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
     const pick = ai?.shootId ? sorted.find(x => x.id === ai.shootId) : undefined
     if (intent) {
@@ -527,6 +607,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // Follow-ups that change something (never "Evenings only" when it already is).
       const a = r.ask as { timeOfDay?: string; houses?: string[] }
       const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h
+      if (r.choices?.length) return r.choices
       const next = r.friends.length ? ['Anything on the weekend?', one('cliff2') ? '' : `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours']
         : ['Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only', one('cliff1') ? `Only ${s.houses.cliff2.name}` : `Only ${s.houses.cliff1.name}`]
       return next.filter(Boolean)
@@ -883,6 +964,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           returns && returns.length ? <ReportCard key={i} groups={returns} first={m.text} onSent={() => setMsgs(x => [...x.filter(y => y !== m), { who: 'bot', text: 'Reported ✓ The team knows. Keep using it carefully and bring it back as usual.' }])} /> : null
         ) : m.who === 'pickup' ? (
           <PickupList key={i} />
+        ) : m.who === 'now' ? (
+          (() => { const sh = (recent ?? []).find(x => x.id === m.shootId); return sh ? <ShootNow key={i} shoot={sh} /> : null })()
         ) : m.who === 'cancel' ? (
           <CancelCard key={i} shootId={m.shootId} shoots={[...upcoming].sort((a, b) => a.from.localeCompare(b.from))} label={label} />
         ) : m.who === 'status' ? (

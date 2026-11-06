@@ -4,7 +4,7 @@ import { detectIntent, cancelIntent, isStatusQuestion, isHelpQuestion, routeMess
 
 const cases: [string, ReturnType<typeof detectIntent>][] = [
   ['hi', 'greeting'], ['Hey!', 'greeting'], ['good morning', 'greeting'],
-  ['thanks', 'thanks'], ['thank you!', 'thanks'], ['ok', 'thanks'],
+  ['thanks', 'thanks'], ['thank you!', 'thanks'], ['ok', 'ack'],
   ['returning the camera', 'return'], ['bringing the props back', 'return'], ["I'm done with the gear", 'return'],
   ['dropping off the kit', 'return'], ['return everything', 'return'], ['giving it back now', 'return'],
   ['the tripod is broken', 'report'], ['a battery is missing from the case', 'report'], ["the camera won't turn on", 'report'],

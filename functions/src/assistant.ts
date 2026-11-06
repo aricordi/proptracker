@@ -7,7 +7,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from './booking.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
-import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, type TimeAsk } from './timeFinder.js'
+import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, namesIn, namedDate, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
 import { INVITE_HOLD_MINUTES, cleanScheduleSettings, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
@@ -298,6 +298,8 @@ export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, asy
   const caller = await requireRole(req, ['owner', 'creator', 'equipment'])
   const text = str(req.data?.text, 400)
   if (text.length < 3) throw new HttpsError('invalid-argument', 'Say when you want to film.')
+  // A date that doesn't exist ("the 31st" in November, "feb 30"): say so instead of guessing (chat QA, Nov 6). No AI needed.
+  if (namedDate(text, todayInStudio()) === 'bad') return { reply: "That date doesn't exist on the calendar. Which day did you mean?", ask: roughParse('', todayInStudio(), []), friends: [], options: [] }
   const settle = await reserveAi(caller.email, 'times')
   const s = await loadScheduleSettings()
   const today = todayInStudio(), now = nowStamp()
@@ -318,10 +320,10 @@ Studio facts: houses "cliff1" = ${s.houses.cliff1.name}, "cliff2" = ${s.houses.c
 Friends filming together go back to back: the creator first, then each friend gets ONE slot of their own right after,
 at the same house. A length said together with friends is the WHOLE block for everyone, not the creator's share.
 Some days are priority days for a group of creators until the Sunday before; the app handles that.
-People in the app: ${people.map(p => p.name).join(', ') || '(none)'}.
+People in the app: ${people.map(p => p.name).join(', ') || '(none)'}. (When a first name belongs to two people and the message doesn't say which, put neither.)
 ${previous ? `Their previous search (they may be adjusting it): ${JSON.stringify(previous)}\n` : ''}Return ONLY JSON:
 {"from":"YYYY-MM-DD","to":"YYYY-MM-DD","people":["exact names from the list"],"totalHours":null,"myHours":null,
- "houses":["cliff1","cliff2"],"timeOfDay":"any|morning|afternoon|evening|late","at":null}
+ "houses":["cliff1","cliff2"],"timeOfDay":"any|morning|afternoon|evening|night|late","at":null}
 Rules: from >= today; at most 21 days between from and to; "this week" = today to Sunday; "next week" = next Monday to Sunday;
 "soonest", "asap", "earliest", "first available" or no dates = from today, to 14 days later; houses = both unless they name one;
 keep what they didn't change. You do NOT count slots: the app does that from the hours.
@@ -335,7 +337,9 @@ Examples:
 - "4 hours next week evenings" → people [], totalHours 4, myHours null, timeOfDay "evening"
 - "with Jana on saturday" → people ["Jana"], totalHours null, myHours null
 - "booking thursday cliff 1 at 5pm" → from/to = next Thursday, houses ["cliff1"], at "17:00", timeOfDay "any"
-at = the START time they asked for as "HH:MM" (24-hour), else null. "at 5" with no am/pm = 17:00.
+at = the START time they asked for as "HH:MM" (24-hour), else null. "at 5" with no am/pm = 17:00; "tonight at 11" = 23:00.
+timeOfDay "night" = tonight / this evening (5 PM onward); "late" = after 9 PM. A named date ("nov 14", "the 14th", "11/14") = from and to that day.
+Slang: "tmrw"/"2moro" = tomorrow, "thurs" = Thursday, "c1"/"cliff one" = cliff1, "c2" = cliff2.
 Not about filming times → {"offTopic":true}.`
     const prompt = { system, user: `<creator_text>${asData(text, 400)}</creator_text>` }
     try {
@@ -347,6 +351,14 @@ Not about filming times → {"offTopic":true}.`
   await settle(cost)
   if (offTopic) return { reply: 'I can only help find filming times.', ask, friends: [], options: [] }
 
+  // A first name two people share ("justin") is never guessed (chat QA, Nov 6): ask which one, with both as buttons.
+  const { unclear } = namesIn(text, people)
+  if (unclear.length) {
+    const u = unclear[0], first = u.said[0].toUpperCase() + u.said.slice(1)
+    return { reply: `There are ${u.options.length} ${first}s in the app: ${u.options.join(' or ')}. Which one are you filming with?`,
+      ask: { ...ask, people: ask.people.filter(n => !u.options.includes(n)) }, friends: [], options: [],
+      choices: u.options.map(n => `With ${n}`) }
+  }
   const friends = matchPeople(ask.people, people, caller.email)
   // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
   ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }

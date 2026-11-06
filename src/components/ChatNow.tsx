@@ -180,7 +180,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
 // Check in and wrap, right here (owner, Nov 3: "smaller, just a selfie of them with their camera, nothing crazy").
 // One line + a selfie button. The photo is the check-in. Only when someone filmed right before you: one optional
 // "All good / Report it" question (mess and/or ran over). Later, one line: what did you film?
-function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
+export function ShootNow({ shoot }: { shoot: Shoot; label?: string }) {
   const s = useScheduleSettings()
   const shootPlace = shoot.place === 'offsite' ? (shoot.where || 'Offsite') : s.houses[shoot.place].name
   const days = useScheduleDays(shoot.date, shoot.date)
