@@ -94,13 +94,21 @@ const MANAGERS = ['owner', 'admin']
 export const decideShoot = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, DISCIPLINE as any)
   const ref = db.doc(`shoots/${str(req.data?.id, 100)}`)
-  const sh = (await ref.get()).data()
-  if (!sh) throw new HttpsError('not-found', 'Shoot not found.')
-  if (!isMissed(sh as any, nowStamp())) throw new HttpsError('failed-precondition', 'This shoot was checked in or already decided.')
+  const pre = (await ref.get()).data()
+  if (!pre) throw new HttpsError('not-found', 'Shoot not found.')
+  // People on Props only can't check in, so their shoots are never a missed check-in (audit, Nov 5).
+  const u = pre.creatorEmail === OWNER_EMAIL ? null : (await db.doc(`users/${pre.creatorEmail}`).get()).data()
+  const canCheckIn = pre.creatorEmail === OWNER_EMAIL || (u?.role === 'creator' && u.access === 'full')
   const outcome = req.data?.outcome === 'noshow' ? 'noshow' : 'filmed'
   const at = new Date().toISOString()
-  await ref.update({ outcome, ...(outcome === 'noshow' ? { noShow: 'missed' } : {}), updatedAt: at,
-    history: FieldValue.arrayUnion({ at, by: caller.email, action: outcome === 'noshow' ? 'no-show' : 'marked-filmed' }) })
+  // Decided inside a transaction: two people pressing at once can't give two strikes (audit, Nov 5).
+  const sh = await db.runTransaction(async tx => {
+    const cur = (await tx.get(ref)).data()
+    if (!cur || !isMissed(cur as any, nowStamp(), () => canCheckIn)) throw new HttpsError('failed-precondition', 'This shoot was checked in or already decided.')
+    tx.update(ref, { outcome, ...(outcome === 'noshow' ? { noShow: 'missed' } : {}), updatedAt: at,
+      history: FieldValue.arrayUnion({ at, by: caller.email, action: outcome === 'noshow' ? 'no-show' : 'marked-filmed' }) })
+    return cur
+  })
   const strike = outcome === 'noshow' ? await addStrike(sh.creatorEmail, sh.creatorName, 'no-show', ref.id, caller.email) : null
   return { ok: true, strike }
 })
@@ -109,11 +117,14 @@ export const decideShoot = onCall(CALLABLE, async req => {
 export const reviewReport = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, DISCIPLINE as any)
   const ref = db.doc(`schedule_reports/${str(req.data?.id, 100)}`)
-  const r = (await ref.get()).data()
-  if (!r) throw new HttpsError('not-found', 'Report not found.')
-  if (r.status !== 'open') throw new HttpsError('failed-precondition', 'This report was already reviewed.')
   const uphold = req.data?.uphold === true
-  await ref.update({ status: uphold ? 'upheld' : 'dismissed', reviewedBy: caller.email, reviewedAt: new Date().toISOString() })
+  const r = await db.runTransaction(async tx => {
+    const cur = (await tx.get(ref)).data()
+    if (!cur) throw new HttpsError('not-found', 'Report not found.')
+    if (cur.status !== 'open') throw new HttpsError('failed-precondition', 'This report was already reviewed.')
+    tx.update(ref, { status: uphold ? 'upheld' : 'dismissed', reviewedBy: caller.email, reviewedAt: new Date().toISOString() })
+    return cur
+  })
   const strike = uphold && r.onEmail ? await addStrike(r.onEmail, r.onName, 'report', r.onShootId, caller.email) : null
   return { ok: true, strike }
 })
@@ -178,6 +189,8 @@ export const pauseCreator = onCall(CALLABLE, async req => {
 //  strike   = a strike for this flag (counts toward the automatic pause; one per flag)
 //  handled  = looked at, nothing more to do (optional note)
 const FLAG_ACTIONS = ['excuse', 'unexcuse', 'warn', 'strike', 'handled']
+// The automatic strike that comes with each kind of flag (on that shoot).
+const STRIKE_FOR_KIND: Record<string, string[]> = { 'no-show': ['no-show'], 'missed-checkin': ['no-show'], 'late-cancel': ['late-cancel'], 'ran-over': ['report'], mess: ['report'] }
 const ABOUT_FOR: Record<string, string> = { 'late-props': 'props', 'props-damaged': 'props', 'late-gear': 'gear', 'gear-missing': 'gear',
   'no-show': 'schedule', 'late-cancel': 'schedule', 'late-start': 'schedule', 'ran-over': 'schedule', 'missed-checkin': 'schedule',
   'no-wrap': 'schedule', 'invite-lapsed': 'schedule', mess: 'behaviour' }
@@ -198,17 +211,35 @@ export const reviewFlag = onCall(CALLABLE, async req => {
       const old = (await db.doc(`strikes/${cur.strikeId}`).get()).data()
       if (old && !old.removedAt) throw new HttpsError('failed-precondition', 'This flag already has a strike.')
     }
+    // Claim the flag first, so two people pressing at once can't both give a strike (audit, Nov 5).
+    await db.runTransaction(async tx => {
+      const c = (await tx.get(ref)).data()
+      if (c?.striking && c.striking > new Date(Date.now() - 60000).toISOString()) throw new HttpsError('failed-precondition', 'Someone is giving a strike for this flag right now.')
+      if (c?.strikeId && c.strikeId !== cur?.strikeId) throw new HttpsError('failed-precondition', 'This flag already has a strike.')
+      tx.set(ref, { striking: at }, { merge: true })
+    })
     strike = await addStrike(email, name, 'manual', id.startsWith('strike:') ? '' : str(req.data?.shootId, 100), caller.email,
       { note: label ? `${note} (${label})` : note, about: ABOUT_FOR[kind] ?? 'other' })
     await db.doc(`strikes/${strike.id}`).update({ flagId: id })
+  }
+  // Excusing a flag takes off the strike that came with it (audit, Nov 5: the admin read "won't count" while the creator stayed
+  // paused). The strike stays on record as removed, with the reason.
+  let removedStrikes = 0
+  if (action === 'excuse') {
+    const reasons = STRIKE_FOR_KIND[kind] ?? []
+    const shootId = str(req.data?.shootId, 100), srcId = id.split(':')[1] ?? ''
+    const list = (await db.collection('strikes').where('email', '==', email).get()).docs
+      .filter(d => !d.get('removedAt') && (d.get('flagId') === id || d.id === cur?.strikeId
+        || (reasons.includes(d.get('reason')) && !!d.get('shootId') && [shootId, srcId].includes(d.get('shootId')))))
+    for (const d of list) { await removeStrikeById(d.id, caller.email, `Excused: ${note}`); removedStrikes++ }
   }
   if (action === 'warn') {
     const { sendPush } = await import('./push.js')
     await sendPush({ to: [email], title: 'A note from the Prime Capitol team', body: note, url: '/account', tag: `warn-${id}` }).catch(() => 0)
   }
   const status = action === 'excuse' ? 'excused' : action === 'unexcuse' ? 'open' : action === 'strike' ? 'struck' : action === 'warn' ? 'warned' : 'handled'
-  await ref.set({ flagId: id, email, name, kind, label, status, updatedAt: at, updatedBy: caller.email,
+  await ref.set({ flagId: id, email, name, kind, label, status, updatedAt: at, updatedBy: caller.email, striking: FieldValue.delete(),
     ...(strike ? { strikeId: strike.id } : {}),
     actions: FieldValue.arrayUnion({ at, by: caller.email, action, ...(note ? { note } : {}), ...(strike ? { strikeId: strike.id } : {}) }) }, { merge: true })
-  return { ok: true, status, strike }
+  return { ok: true, status, strike, removedStrikes }
 })

@@ -4,7 +4,7 @@ import { fmtTime, addMinutes, isGearLate } from './gearBooking.js'
 import { LATE_FEE_PERCENT } from './gearStock.js'
 import { responsible } from './gearCrew.js'
 import { returnDueDay, lastDayToBook, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
-import { checkinWindow, isMissed, explainUntil, type ScheduleSettings } from './schedule.js'
+import { checkinWindow, isMissed, expectsCheckIn, explainUntil, type ScheduleSettings } from './schedule.js'
 
 type Doc = Record<string, any> | null | undefined
 // Who: email addresses, or a whole team ('arts-team' = props, 'gear-team' = equipment + schedule).
@@ -185,13 +185,14 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
 export interface Reminder { key: string; push: Push }
 
 export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSettings, hasNeeds: boolean, closed: ClosedDays, propsLead: number): Reminder[] {
-  if (!sh || sh.status !== 'booked' || !sh.creatorEmail) return []
+  // Not for calendar imports nobody has confirmed (maybe the wrong person) or people on Props only (audit, Nov 5).
+  if (!sh || sh.status !== 'booked' || !sh.creatorEmail || sh.toCheck || sh.checksIn === false) return []
   const out: Reminder[] = []
   const url = `/?shoot=${id}`, to = [sh.creatorEmail], where = placeName(sh, s)
   const house = sh.place !== 'offsite'
   const win = checkinWindow(sh as { from: string; to: string }, now, s)
   // Check-in time (houses only): one ping when it opens.
-  if (house && win === 'open' && !sh.checkin) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Tap and take a quick selfie with your camera.` } })
+  if (house && win === 'open' && !sh.checkin && expectsCheckIn(sh as any)) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Tap and take a quick selfie with your camera.` } })
   // An hour before (when check-in isn't open yet).
   else if (win === 'early' && now >= addMinutes(sh.from, -60)) out.push({ key: `hour_${id}`, push: { to, url, tag: `shoot-${id}`, title: `Your shoot starts at ${fmtTime(sh.start)}`, body: `${where}.${house ? ` Check-in opens ${s.checkinBefore} min before.` : ''}` } })
   // Checked in and the slot is over: one nudge to wrap ("what did you film?"), within 3 hours.

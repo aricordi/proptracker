@@ -3,6 +3,7 @@
 // Pure, so it's unit-tested; the screens feed it what the security rules let owner + admins read.
 import { isLate, wasReturnedLate, type ClosedDays } from '../../functions/src/booking'
 import { isGearLate, nowStamp } from '../../functions/src/gearBooking'
+import { expectsCheckIn } from '../../functions/src/schedule'
 
 export const LATE_START_MINUTES = 15   // checked in more than 15 min after the slot started = started late
 
@@ -68,7 +69,7 @@ export function creatorStats(opts: {
     if (x.to > now) { c.upcoming++; continue }
     c.booked++
     const decidedNo = !!x.noShow || x.outcome === 'noshow'
-    const trusted = x.place === 'offsite' || (opts.checksIn ? !opts.checksIn(x.creatorEmail) : false)
+    const trusted = !expectsCheckIn(x as never, opts.checksIn)   // same rule as Analytics (schedule.ts)
     if (x.checkin || x.outcome === 'filmed' || (trusted && !decidedNo)) {
       c.filmed++
       // Check-ins are saved in UTC; shoot times are studio (Toronto) time.
@@ -112,6 +113,8 @@ export function creatorStats(opts: {
 
   for (const s of opts.strikes) {
     if (s.at.slice(0, 10) < from || s.removedAt) continue   // removed strikes don't count
+    // A strike that came with a no-show, late cancel or upheld report on a shoot is already that flag (audit, Nov 5).
+    if ((s as { flagId?: string }).flagId || (s.reason !== 'manual' && s.shootId)) continue
     const c = get(s.email)
     const why = s.reason === 'manual' ? `${s.about && s.about !== 'other' ? `${s.about}: ` : ''}${s.note ?? 'given by an admin'}`
       : s.reason === 'late-cancel' ? 'late cancel' : s.reason === 'report' ? 'upheld report' : 'no-show'

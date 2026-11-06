@@ -27,7 +27,10 @@ export async function addStrike(email: string, name: string, reason: StrikeReaso
   const status = (await statusRef.get()).data() ?? {}
   const recent = await countStrikes(email, s, status.liftedAt)
   const paused = recent >= s.strikeCount && s.pauseDays > 0
-  await statusRef.set({ email, name, strikes: recent, ...(paused ? { pausedUntil: addDays(todayInStudio(), s.pauseDays), pausedAt: at, manualPause: false } : {}), updatedAt: at }, { merge: true })
+  // A longer pause someone set by hand stays as it is (audit, Nov 5: a strike shortened a 60-day pause to 14).
+  const until = addDays(todayInStudio(), s.pauseDays)
+  const longerByHand = status.manualPause === true && typeof status.pausedUntil === 'string' && status.pausedUntil >= until
+  await statusRef.set({ email, name, strikes: recent, ...(paused && !longerByHand ? { pausedUntil: until, pausedAt: at, manualPause: false } : {}), updatedAt: at }, { merge: true })
   return { strikes: recent, paused, id: doc.id }
 }
 
@@ -45,7 +48,8 @@ export async function removeStrikeById(id: string, by: string, note: string) {
   const status = (await statusRef.get()).data() ?? {}
   const recent = await countStrikes(st.email, s, status.liftedAt)
   const lift = recent < s.strikeCount && !!status.pausedUntil && status.manualPause !== true
-  await statusRef.set({ email: st.email, strikes: recent, ...(lift ? { pausedUntil: null, liftedAt: at, liftedBy: by } : {}), updatedAt: at }, { merge: true })
+  // (No liftedAt here: that would stop the strikes that are left from counting, audit Nov 5.)
+  await statusRef.set({ email: st.email, strikes: recent, ...(lift ? { pausedUntil: null, unpausedAt: at, unpausedBy: by } : {}), updatedAt: at }, { merge: true })
   return { strikes: recent, lifted: lift }
 }
 

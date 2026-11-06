@@ -4,6 +4,8 @@ import { useState } from 'react'
 import BottomSheet from './BottomSheet'
 import { giveStrike, removeStrike, pauseCreator, liftPause, errorText, type UserStatus } from '../services/schedule'
 import { formatDay } from '../lib/dates'
+import { todayInStudio } from '../../functions/src/booking'
+import { OWNER_EMAIL } from '../config'
 
 const ABOUT: [string, string][] = [['props', 'Props'], ['gear', 'Gear'], ['schedule', 'Schedule'], ['behaviour', 'Behaviour'], ['other', 'Other']]
 type Sheet = null | { kind: 'strike' } | { kind: 'pause' } | { kind: 'remove'; id: string; text: string }
@@ -22,13 +24,14 @@ export function useManageCreator(email: string, name: string, status: UserStatus
     try { setDone(await f()) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   const first = name.split(' ')[0]
-  const paused = !!status?.pausedUntil && status.pausedUntil > new Date().toISOString().slice(0, 10)
+  const paused = !!status?.pausedUntil && status.pausedUntil > todayInStudio()   // studio day, not UTC (audit, Nov 5)
   const field = 'w-full bg-pt-bg rounded-xl px-3 py-3 text-pt-text shadow-hairline focus:outline-none focus:ring-1 focus:ring-pt-accent'
   const reason = (placeholder: string) => (
     <textarea value={note} onChange={e => setNote(e.target.value.slice(0, 300))} rows={3} placeholder={placeholder} className={`${field} resize-none`} />
   )
 
-  const buttons = (
+  // Not on the owner's own record: strikes and pauses never stop the owner booking (audit, Nov 5).
+  const buttons = email === OWNER_EMAIL ? null : (
     <div className="flex gap-2">
       <button onClick={() => open({ kind: 'strike' })} className="flex-1 py-3 rounded-xl bg-red-500/15 text-red-300 font-semibold text-sm">Give a strike</button>
       {paused

@@ -12,7 +12,7 @@ import { loadScheduleSettings } from './scheduling.js'
 import { loadSettings } from './reservations.js'
 import { openLinks } from './shootLinks.js'
 import { addDays, todayInStudio, lastDayToBook } from './booking.js'
-import { nowStamp, GEAR_LEAD_TIME_DAYS } from './gearBooking.js'
+import { nowStamp, addMinutes, GEAR_LEAD_TIME_DAYS } from './gearBooking.js'
 import {
   inviteChange, swapChange, reservationChange, gearChange, reportCreated, strikeCreated, shootChange,
   shootReminders, propsReminders, gearReminders, type Push, type Reminder,
@@ -186,14 +186,35 @@ export async function runReminders(now = nowStamp()) {
   ])
   const lead = Math.max(booking.leadTimeDays, GEAR_LEAD_TIME_DAYS)
   const list: Reminder[] = []
+  // Who can check in with the app right now: the owner and creators on the Full app (cached for this run).
+  const access = new Map<string, boolean>()
+  const canCheckIn = async (email: string) => {
+    if (email === OWNER_EMAIL) return true
+    if (!access.has(email)) { const u = (await db.doc(`users/${email}`).get()).data(); access.set(email, u?.role === 'creator' && u.access === 'full' && u.active !== false) }
+    return access.get(email)!
+  }
   for (const d of shoots.docs) {
     const sh = d.data()
-    if (sh.status !== 'booked') continue
+    if (sh.status !== 'booked' || sh.toCheck) continue
+    // When check-in opens, remember whether this person could check in then (audit, Nov 5): Props-only creators' shoots
+    // (calendar imports) never ask them to, and switching them to the Full app later doesn't turn old shoots into misses.
+    if (sh.place !== 'offsite' && sh.checksIn === undefined && now >= addMinutes(sh.from, -s.checkinBefore)) {
+      sh.checksIn = await canCheckIn(String(sh.creatorEmail ?? ''))
+      await d.ref.update({ checksIn: sh.checksIn }).catch(e => logger.warn('stamp checksIn', d.id, String(e)))
+    }
+    if (!(await canCheckIn(String(sh.creatorEmail ?? '')))) continue   // Props only: no shoot notifications (they can't open shoots)
     // Only look up props/gear for shoots whose last day to add them is today, and only until that reminder went out.
     const cutoffToday = sh.date > today && lastDayToBook(sh.date, lead, booking) === today && Number(now.slice(11, 13)) >= 9
       && !(await db.doc(`push_sent/cutoff_${d.id}`).get()).exists
     const needs = cutoffToday ? await openLinks(d.id) : null
     list.push(...shootReminders(d.id, sh, now, s, needs ? needs.props.length + needs.gear.length + needs.sharedGear.length > 0 : true, booking, lead))
+  }
+  // Once a day: strike counts go down as strikes get older than the window (audit, Nov 5: the stored count never dropped).
+  const recountKey = db.doc(`push_sent/recount_${today}`)
+  if (!(await recountKey.get()).exists) {
+    await recountKey.set({ at: new Date().toISOString() })
+    const { recountStrikes } = await import('./strikes.js')
+    for (const d of (await db.collection('user_status').where('strikes', '>', 0).get()).docs) await recountStrikes(d.id).catch(e => logger.warn('recount', d.id, String(e)))
   }
   props.docs.forEach(d => list.push(...propsReminders(d.id, d.data(), now, booking)))
   gear.docs.forEach(d => list.push(...gearReminders(d.id, d.data(), now)))

@@ -37,7 +37,8 @@ describe('creator dashboard numbers', () => {
   })
   it('collects every flag', () => {
     expect(by['ana@x'].counts).toEqual({ 'late-start': 1, 'no-show': 1, 'ran-over': 1, mess: 1 })
-    expect(by['kyle@x'].counts).toEqual({ 'late-cancel': 1, 'missed-checkin': 1, 'late-props': 1, strike: 1 })
+    // The strike came with the late cancel on shoot e: one flag, not two (audit, Nov 5).
+    expect(by['kyle@x'].counts).toEqual({ 'late-cancel': 1, 'missed-checkin': 1, 'late-props': 1 })
     expect(by['jana@x'].counts).toEqual({ 'late-gear': 1 })   // the last person to have it (owner, Oct 27)
     expect(flagTotal(by['riley@x'])).toBe(0)
   })

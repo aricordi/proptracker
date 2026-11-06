@@ -294,12 +294,20 @@ export const UNDO_MINUTES = 10
 export const withinUndo = (createdAt: string | undefined, nowMs = Date.now()) => !!createdAt && nowMs - Date.parse(createdAt) < UNDO_MINUTES * 60_000
 
 // ─── On the day: check in, wrap, missed check-ins (step 4) ───────────────────
-export interface AttendanceShoot { status: string; from: string; to: string; checkin?: { at: string } | null; outcome?: string | null }
+export interface AttendanceShoot { status: string; from: string; to: string; checkin?: { at: string } | null; outcome?: string | null
+  place?: string; creatorEmail?: string; toCheck?: boolean; checksIn?: boolean; importedFrom?: string }
+/** Whether a shoot expects a check-in with the app (audit, Nov 5). Not offsite shoots, not calendar imports nobody confirmed yet,
+ *  not people on Props only. `checksIn` is stamped on the shoot when its check-in opens (push.ts), from the person's access AT
+ *  THAT TIME, so switching someone to the Full app later never turns their past shoots into missed check-ins. Before the
+ *  stamp: shoots made in the app expect one (unless `canCheckIn` says the person can't); imported ones don't. */
+export const expectsCheckIn = (sh: AttendanceShoot, canCheckIn?: (email: string) => boolean) =>
+  sh.place !== 'offsite' && !sh.toCheck && (sh.checksIn ?? (!sh.importedFrom && (canCheckIn && sh.creatorEmail ? canCheckIn(sh.creatorEmail) : true)))
 // Check-in opens a little before the start and stays open until the end.
 export function checkinWindow(sh: { from: string; to: string }, now: string, s: ScheduleSettings): 'early' | 'open' | 'over' {
   if (now < addMinutes(sh.from, -s.checkinBefore)) return 'early'
   return now < sh.to ? 'open' : 'over'
 }
 // Booked, over, never checked in, and the team hasn't decided yet.
-export const isMissed = (sh: AttendanceShoot, now: string) => sh.status === 'booked' && !sh.checkin && !sh.outcome && now >= sh.to
+export const isMissed = (sh: AttendanceShoot, now: string, canCheckIn?: (email: string) => boolean) =>
+  sh.status === 'booked' && !sh.checkin && !sh.outcome && now >= sh.to && expectsCheckIn(sh, canCheckIn)
 export const explainUntil = (sh: { to: string }, s: ScheduleSettings) => addMinutes(sh.to, s.explainHours * 60)

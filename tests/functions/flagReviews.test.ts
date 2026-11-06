@@ -50,3 +50,24 @@ describe('acting on a flag', () => {
     expect((await doc(FLAG.flagId))!.status).toBe('struck')
   })
 })
+
+describe('strikes audit fixes (Nov 5)', () => {
+  it('excusing a no-show takes its strike off; a longer pause set by hand is not shortened by a new strike', async () => {
+    await put('app_settings/schedule', { strikeCount: 2, strikeDays: 30, pauseDays: 14 })
+    await put('strikes/s1', { email: CREATOR, name: 'Riley', reason: 'no-show', shootId: 'sh1', by: GEAR, at: new Date().toISOString() })
+    await put(`user_status/${CREATOR}`, { email: CREATOR, strikes: 1 })
+    const r = await call('reviewFlag', { flagId: 'no-show:sh1', email: CREATOR, kind: 'no-show', label: 'No-show', shootId: 'sh1', action: 'excuse', note: 'Car broke down' }, ADMIN)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result.removedStrikes).toBe(1)
+    expect((await getDoc('strikes/s1'))!.removedAt).toBeTruthy()
+    expect((await getDoc(`user_status/${CREATOR}`))!.strikes).toBe(0)
+    // A 60-day pause by hand, then two strikes: still 60 days.
+    expect((await call('pauseCreator', { email: CREATOR, days: 60, note: 'Repeated issues' }, ADMIN)).ok).toBe(true)
+    const until = (await getDoc(`user_status/${CREATOR}`))!.pausedUntil
+    await call('giveStrike', { email: CREATOR, about: 'props', note: 'late props' }, ADMIN)
+    await call('giveStrike', { email: CREATOR, about: 'props', note: 'late again' }, ADMIN)
+    const st = (await getDoc(`user_status/${CREATOR}`))!
+    expect(st.pausedUntil).toBe(until)
+    expect(st.manualPause).toBe(true)
+  })
+})

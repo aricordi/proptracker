@@ -150,7 +150,7 @@ export default function ScheduleScreen() {
 
       <div className={desk ? 'px-8 pt-2 grid grid-cols-[minmax(0,1fr)_400px] gap-10 items-start' : ''}>
       <div className={desk ? 'pt-4 space-y-4' : 'px-4 pt-4 space-y-3'}>
-        {paused && <div className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop bookings paused until {formatDay(status!.pausedUntil!)}</b> because of {status!.strikes ?? 2} strikes (no-shows or reports). You can still book house slots. Ask the schedule team if this looks wrong.</div>}
+        {paused && <div className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text"><b>Prop bookings paused until {formatDay(status!.pausedUntil!)}</b> {status!.manualPause ? <>by the team{status!.pauseNote ? <>: {status!.pauseNote}</> : ''}.</> : <>because of {status!.strikes ?? 2} strikes (no-shows or reports).</>} You can still book house slots. Ask the schedule team if this looks wrong.</div>}
         {!paused && (status?.strikes ?? 0) > 0 && <div className="rounded-xl px-3 py-2 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">{status!.strikes} strike{status!.strikes === 1 ? '' : 's'} in the last {s.strikeDays} days. {s.strikeCount} pause your prop bookings for {s.pauseDays} days.</div>}
         {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
         {swaps.outgoing.map(r => <SwapAsk key={r.id} r={r} />)}

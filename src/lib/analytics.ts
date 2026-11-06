@@ -6,6 +6,7 @@
 import { pickupDay, type ClosedDays } from '../../functions/src/booking'
 import { isGearLate, nowStamp } from '../../functions/src/gearBooking'
 import { isLate, wasReturnedLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
+import { expectsCheckIn } from '../../functions/src/schedule'
 
 export type Grain = 'week' | 'month'
 export type House = 'cliff1' | 'cliff2' | 'offsite'
@@ -53,7 +54,7 @@ export interface AGear { id: string; creatorEmail: string; creatorName?: string;
   problems?: { kind: string; name?: string; usedBy?: string[] }[]; returnedAt?: string }
 export interface AReport { id: string; onEmail: string; onName: string; date: string; overMinutes: number; mess: boolean; status: string; onShootId: string; byName?: string }
 export interface AStrike { id: string; email: string; reason: string; at: string; note?: string; about?: string; removedAt?: string; shootId?: string; flagId?: string }
-export interface AInvite { id: string; toEmail: string; toName: string; fromName: string; date: string; until: string; status: string; place: string }
+export interface AInvite { id: string; toEmail: string; toName: string; fromName: string; date: string; until: string; status: string; place: string; fromShootId?: string }
 
 // ── Outputs ──
 export interface Fact { id: string; email: string; name: string; date: string; house: House; filmed: boolean; title?: string; to: string }
@@ -113,8 +114,9 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     if (x.status !== 'booked' || x.toCheck) continue
     if (x.to > now) { upcoming.push({ email: x.creatorEmail, date: x.date, id: x.id }); continue }
     const decidedNo = !!x.noShow || x.outcome === 'noshow'
-    // No check-in expected: offsite shoots (the app only checks in at the houses) and people who can't use check-in yet.
-    const trusted = house === 'offsite' || (o.checksIn ? !o.checksIn(x.creatorEmail) : false)
+    // No check-in expected: offsite shoots (the app only checks in at the houses), people who couldn't use check-in at the time
+    // (stamped on the shoot when check-in opened), and calendar imports from before that stamp (schedule.ts expectsCheckIn).
+    const trusted = !expectsCheckIn(x as never, o.checksIn)
     const filmed = !!x.checkin || x.outcome === 'filmed' || (trusted && !decidedNo)
     facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed, title: x.wrap?.title, to })
     if (x.checkin) {
@@ -145,7 +147,8 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     const propsLate = (backAt: string | undefined): LateInfo => ({ minutes: Math.max(0, Math.round(minutesLocal(propsDue, backAt ?? now))), dueAt: propsDue, backAt, still: !backAt, fee: false, value: null, valueMissing: 0 })
     if (isLate(r.status, r.endDate, closed, nowDate)) { backlog.propsOutLate++; add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props still out, late`, to, open: true, late: propsLate(undefined) }) }
     else {
-      const back = h.find(e => e.status === 'return_pending')?.at ?? r.returnInfo?.at
+      // Dropped off without the app: the arts team's check-in is when it came back (audit, Nov 5).
+      const back = h.find(e => e.status === 'return_pending')?.at ?? r.returnInfo?.at ?? (r.status === 'returned' ? h.find(e => e.status === 'returned')?.at : undefined)
       if (back && wasReturnedLate(r.endDate, back, closed)) add({ ...pr('late-props'), kind: 'late-props', email: r.creatorEmail, date: r.endDate, text: `"${r.title}" props came back late`, to, late: propsLate(local(back)) })
     }
     const bad = (r.lines ?? []).filter(l => l.checkIn && l.checkIn.result !== 'ok')
@@ -194,7 +197,10 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     const why = s.reason === 'manual' ? `${s.about && s.about !== 'other' ? `${s.about}: ` : ''}${s.note ?? 'given by an admin'}` : s.reason === 'late-cancel' ? 'late cancel' : s.reason === 'report' ? 'upheld report' : 'no-show'
     add({ id: `strike:${s.id}`, src: { type: 'strike', id: s.id }, strikeId: s.id, shootId: s.shootId || undefined, kind: 'strike', email: s.email, date: local(s.at).slice(0, 10), house: s.shootId ? houseOfShoot.get(s.shootId) : undefined, text: `Strike: ${why}`, to: s.shootId ? `/schedule?shoot=${s.shootId}` : undefined })
   }
+  const shootStatus = new Map(o.shoots.map(x => [x.id, x.status]))
   for (const v of o.invites) {
+    // Not the friend's fault when the inviter's own request was denied, ran out or was withdrawn (audit, Nov 5).
+    if (v.fromShootId && shootStatus.has(v.fromShootId) && shootStatus.get(v.fromShootId) !== 'booked') continue
     if (v.status === 'expired' || (v.status === 'pending' && local(v.until) < now))
       add({ id: `invite-lapsed:${v.id}`, src: { type: 'invite', id: v.id }, kind: 'invite-lapsed', email: v.toEmail, name: v.toName, date: v.date, house: houseOf(v.place), text: `Let ${v.fromName}'s held slot run out` })
   }

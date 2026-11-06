@@ -3,7 +3,7 @@
 // with (owner, Nov 2: "establish a pattern of who they like to film with").
 import { addDays } from '../../functions/src/booking'
 import { addMinutes } from '../../functions/src/gearBooking'
-import { slotKey, blockAt, fmtSlot, BLOCK_TYPES, HOUSES, type House, type Place, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus } from '../services/schedule'
+import { slotKey, blockAt, fmtSlot, isMissed, BLOCK_TYPES, HOUSES, type House, type Place, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus } from '../services/schedule'
 import { collabPairs, partnersOf, neighboursOf, usual, type Partner, type Pair } from '../lib/collabs'
 
 export interface Req { shoot: Shoot; move: boolean; place: Place; date: string; start: number; end: number; from: string; where: string; since: string }
@@ -47,8 +47,9 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
   today: string, now: string, pairs: Pair[] = collabPairs(shoots)): Facts {
   const sh = r.shoot, email = sh.creatorEmail
   const theirs = shoots.filter(x => x.creatorEmail === email)
-  const past30s = theirs.filter(x => x.status === 'booked' && x.date >= addDays(today, -30) && x.to <= now)
-  const filmed = past30s.filter(x => x.checkin || x.outcome === 'filmed').length
+  const past30s = theirs.filter(x => x.status === 'booked' && !(x as { toCheck?: boolean }).toCheck && x.date >= addDays(today, -30) && x.to <= now)
+  // Same rule as Analytics: offsite and no-check-in shoots count as filmed unless marked a no-show (audit, Nov 5).
+  const filmed = past30s.filter(x => x.checkin || x.outcome === 'filmed' || (!x.noShow && x.outcome !== 'noshow' && !isMissed(x, now))).length
   const noShows = theirs.filter(x => x.noShow && x.date >= addDays(today, -30)).length
   const upcomingL = theirs.filter(x => x.status === 'booked' && x.from > now)
   const sameWeek = upcomingL.filter(x => x.id !== sh.id && Math.abs(new Date(`${x.date}T12:00:00Z`).getTime() - new Date(`${r.date}T12:00:00Z`).getTime()) < 4 * 86400000).length

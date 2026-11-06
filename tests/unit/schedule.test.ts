@@ -87,3 +87,18 @@ describe('notice and offsite hours', () => {
     expect(offsiteHoursOk(600, 600 + 19 * 60)).toBe(false)
   })
 })
+
+import { expectsCheckIn, isMissed as missed2 } from '../../functions/src/schedule'
+describe('who is expected to check in (audit, Nov 5)', () => {
+  const base = { status: 'booked', from: '2026-11-05T13:00', to: '2026-11-05T15:00', place: 'cliff1', creatorEmail: 'a@x' }
+  it('offsite, unconfirmed imports and people who could not check in at the time are never missed', () => {
+    expect(missed2(base, '2026-11-05T16:00')).toBe(true)
+    expect(missed2({ ...base, place: 'offsite' }, '2026-11-05T16:00')).toBe(false)
+    expect(missed2({ ...base, toCheck: true }, '2026-11-05T16:00')).toBe(false)
+    expect(missed2({ ...base, checksIn: false }, '2026-11-05T16:00')).toBe(false)
+    // An import from before the stamp: not a miss, even if the person is on the Full app now.
+    expect(missed2({ ...base, importedFrom: 'google-calendar' }, '2026-11-05T16:00', () => true)).toBe(false)
+    expect(missed2({ ...base, importedFrom: 'google-calendar', checksIn: true }, '2026-11-05T16:00')).toBe(true)
+    expect(expectsCheckIn(base, () => false)).toBe(false)
+  })
+})

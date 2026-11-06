@@ -32,16 +32,17 @@ export default function ScheduleTeamScreen() {
 
   const all = shoots ?? []
   // Offsite shoots have no check-in, and calendar imports nobody confirmed yet aren't anyone's miss (audit, Nov 5).
-  const missed = all.filter(x => isMissed(x, now) && x.place !== 'offsite' && !(x as { toCheck?: boolean }).toCheck).sort((a, b) => a.from.localeCompare(b.from))
+  // (isMissed leaves out offsite shoots, unconfirmed imports and people on Props only.)
+  const missed = all.filter(x => isMissed(x, now)).sort((a, b) => a.from.localeCompare(b.from))
   const recent = all.filter(x => x.status === 'booked' && (x.date === today || x.date === addDays(today, -1)) && !isMissed(x, now)).sort((a, b) => a.from.localeCompare(b.from))
   const people = useMemo(() => {
     const m = new Map<string, { email: string; name: string; booked: number; filmed: number; missed: number }>()
     for (const x of all) {
-      if (x.to > now && x.status === 'booked') continue                     // not happened yet
-      if (x.status === 'cancelled' && !x.noShow) continue                    // free cancels don't count
+      // Only approved shoots that happened (not requests, denied/ran-out ones, or unconfirmed imports; audit, Nov 5).
+      if (x.status === 'cancelled' ? !x.noShow : (x.status !== 'booked' || x.to > now || (x as { toCheck?: boolean }).toCheck)) continue
       const p = m.get(x.creatorEmail) ?? { email: x.creatorEmail, name: x.creatorName, booked: 0, filmed: 0, missed: 0 }
       p.booked++
-      if (x.checkin || x.outcome === 'filmed') p.filmed++
+      if (x.checkin || x.outcome === 'filmed' || (x.status === 'booked' && !x.noShow && x.outcome !== 'noshow' && !isMissed(x, now))) p.filmed++
       else if (x.noShow || x.outcome === 'noshow') p.missed++
       m.set(x.creatorEmail, p)
     }
@@ -77,7 +78,7 @@ export default function ScheduleTeamScreen() {
               {x.explanation ? <p className="text-pt-text text-sm">“{x.explanation.text}”</p> : <p className="text-pt-muted text-xs">No explanation yet.</p>}
               {canDecide ? <div className="flex gap-2">
                 <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'filmed' }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">They filmed</button>
-                <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'noshow' }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>
+                <button disabled={!!busy} onClick={() => { if (window.confirm(`Mark ${x.creatorName} as a no-show? It gives them a strike.`)) void run(x.id, () => decideShoot({ id: x.id, outcome: 'noshow' })) }} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>
               </div> : <p className="text-pt-muted text-xs">Waiting for the schedule team to decide.</p>}
             </div>
           ))}

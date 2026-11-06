@@ -135,7 +135,7 @@ export default function CreatorHomeScreen() {
         {paused && (
           <div className="bg-red-500/10 border border-red-500/40 rounded-2xl p-4 text-sm text-pt-text">
             <p className="text-red-300 font-semibold mb-1">Props are paused until {formatDay(status!.pausedUntil!)}</p>
-            Because of {status!.strikes} strikes (no-shows or reports). You can still book house time. Ask the schedule team if you think this is wrong.
+            {status!.manualPause ? `Paused by the team${status!.pauseNote ? `: ${status!.pauseNote}` : ''}.` : `Because of ${status!.strikes ?? 2} strikes (no-shows or reports).`} You can still book house time. Ask the schedule team if you think this is wrong.
           </div>
         )}
         <LateBanner late={late} />
