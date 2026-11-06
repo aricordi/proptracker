@@ -1,0 +1,49 @@
+# "Test the AI chat" button (Nov 6, owner: "a super thorough test of the AI chat… people will type the stupidest stuff").
+# Sends ~170 realistic, messy messages to the PRACTICE site's real chat brain and prints what it decided, then follows
+# "times" and some "props" answers like the app does. PRACTICE PROJECT ONLY: refuses the live project. Uses the practice
+# site's own AI budget (about 0.1–0.4 cents a message). Nothing is booked: only the chat, time finder and prop finder are asked.
+name: Test the AI chat (practice)
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: Only one group (e.g. book, props, plan) or words in the message; empty = all
+        required: false
+        default: ''
+
+concurrency: chat-qa
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Sign in to the practice project
+        id: practice
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.PRACTICE_FIREBASE_SERVICE_ACCOUNT }}
+      - name: Make sure it's the practice project, never the live one
+        run: |
+          PID="${{ steps.practice.outputs.project_id }}"
+          if [ -z "$PID" ] || [ "$PID" = "proptracker-9732e" ]; then echo "::error::Practice project only."; exit 1; fi
+          echo "PID=$PID" >> $GITHUB_ENV
+          T=$(gcloud auth print-access-token); echo "::add-mask::$T"
+          APP=$(curl -sS -H "Authorization: Bearer $T" "https://firebase.googleapis.com/v1beta1/projects/$PID/webApps" | jq -r '.apps[0].appId')
+          KEY=$(curl -sS -H "Authorization: Bearer $T" "https://firebase.googleapis.com/v1beta1/projects/$PID/webApps/$APP/config" | jq -r '.apiKey')
+          [ -n "$KEY" ] && [ "$KEY" != "null" ] || { echo "::error::Couldn't read the practice web settings."; exit 1; }
+          echo "WEB_KEY=$KEY" >> $GITHUB_ENV
+      - name: Install
+        run: npm ci --prefix functions
+      - name: Ask the chat
+        run: |
+          cp .github/scripts/chat_qa.mjs functions/chat_qa.mjs
+          node functions/chat_qa.mjs "$PID" "$WEB_KEY" .github/scripts/chat_qa_cases.json "${{ github.event.inputs.only }}"
