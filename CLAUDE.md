@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 653 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 762 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2292,7 +2292,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Activity log has the person); never deleted. Prop page says "Removed in the clean-up · <why> · by <who>"; its Restore clears
       the note. Logic in src/lib/cleanup.ts (oddName, filters, counts, shelfOrder, nameWords/likeness/likelyDoubles,
       sameNameSameBin, bestToKeep, groupPairKeys), tests tests/unit/propCleanup.test.ts, tests/functions/samePhotos.test.ts, rules test.
-      Seed: imp-phone2 (Rotary phones, same bin as Rotary phone), imp-img (IMG_2034), imp-coat (Black peacoat, no bin).
+      Seed: imp-phone2 (Rotary phones, same bin as Rotary phone), imp-img (IMG_2034), imp-coat (Black peacoat, no bin). Tests 762. Crew sheet (one page, Black & Gold): docs/crew-cleanup-guide.html, published https://claude.ai/artifact/D6KCCQGe4JQJVLnHxR5Fk3.
       ALSO FIXED: the arts Team guide's "Got it" was never saved (TourGate `finished` only set state), so Farrell/Keith got it on
       every open. Now markTourDone (phone + profile); "Skip for now" stays a 7-day skip. App guide entries cleanup / cleanupcheck /
       cleanuplist / cleanupdoubles / cleanupremoved. Checked in a browser on the emulator (arts: check, save, remove + undo, double
