@@ -20,7 +20,7 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, isAppBug, type Helper, type Route } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, type Helper, type Route } from '../lib/aiRoute'
 import { useBugReport } from './BugReport'
 import { ReturnCard, ReportCard, PickupList } from './ChatNow'
 import GuidelinePicker from './GuidelinePicker'
@@ -46,7 +46,7 @@ import {
   type TimeAskResult,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
-import { fmtTime, fmtHours } from '../../functions/src/gearBooking'
+import { fmtTime, fmtHours, nowStamp } from '../../functions/src/gearBooking'
 import { Icon, type IconName } from './Icon'
 import { friendlyError } from '../lib/errors'
 
@@ -124,7 +124,7 @@ function useShootRequests(shootId: string | undefined, email: string) {
 
 export default function Assistant({ shown, ask, onClose, page = false }: { shown: boolean; ask: { mode?: AssistantMode; shootId?: string; text?: string; n: number }; onClose: () => void; page?: boolean }) {
   const navigate = useNavigate()
-  const { profile, user, demo, canBook, role } = useSession()
+  const { profile, user, demo, canBook, role, realRole } = useSession()
   // Staff who don't book (arts, equipment, admins): the chat only explains how the app works.
   const helpOnly = !canBook && !demo
   const items = useItems()
@@ -147,7 +147,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const first = (profile.name || user.displayName || '').split(' ')[0]
   const house = (p: string) => p === 'cliff2' ? s.houses.cliff2.name : s.houses.cliff1.name
   // Creators ask for times (the schedule team approves); the owner and people on "Books without approval" book straight away.
-  const asks = role !== 'owner' && !s.instantBookers.some(p => p.email === profile.email)
+  // (The owner in creator mode is still the owner to the server: booked at once, so say "Book", audit Nov 5.)
+  const asks = role !== 'owner' && realRole !== 'owner' && !s.instantBookers.some(p => p.email === profile.email)
 
   const hello = `Hi${first ? ` ${first}` : ''}!`
   const helper = ask.mode === 'plan' ? undefined : ask.mode
@@ -393,7 +394,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const sorted = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))
     const pick = ai?.shootId ? sorted.find(x => x.id === ai.shootId) : undefined
     if (intent) {
-      const named = pick ?? sorted.find(x => x.id === findShoot(`${q} my shoot`, sorted.map(y => ({ id: y.id, date: y.date })))) ?? sorted[0]
+      // A day that matches none of their shoots: say so instead of picking the first one (audit, Nov 5).
+      const hit = findShoot(q, sorted.map(y => ({ id: y.id, date: y.date })), true)
+      const wrongDay = !pick && !hit && namesADay(q) && sorted.length > 0
+      const named = pick ?? sorted.find(x => x.id === hit) ?? (wrongDay ? undefined : sorted[0])
       const out = (returns ?? []).length > 0
       if (intent === 'return') {
         if (!out) { say('Nothing to bring back right now: everything on your name is already returned.', [], [], true); return true }
@@ -413,6 +417,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         say('Gear goes with a shoot. Book a time first, then take what you need on the day.', [], ['Find me a time today', 'Earliest free slot'], true); return true
       }
       if (intent === 'move' || intent === 'swap') {
+        if (!named && wrongDay) { say(`I don't see a shoot of yours that day. Your next ones: ${sorted.slice(0, 3).map(label).join('; ')}.`, [], [], true); return true }
         if (!named) { say('You don\'t have any shoots coming up to change. Want to book one?', [], mixed().slice(0, 2), true); return true }
         const free = named.status === 'requested' ? 'It\'s still a request, so you can move it freely.' : `Moving is free with ${s.noticeHours} hours' notice; closer than that, a swap with someone is the only way without a strike.`
         say(intent === 'swap' ? `Your shoot: ${label(named)}. Open it and tap "Swap with someone" to ask another creator to trade.` : `Your shoot: ${label(named)}. ${free}`,
@@ -429,6 +434,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     }
     // Cancelling a shoot, and "is my shoot approved?" (owner, Nov 2: type it, it gets done).
     const c = ai ? (ai.intent === 'cancel' ? { shootId: pick?.id } : null) : cancelIntent(q, sorted.map(x => ({ id: x.id, date: x.date })))
+    // "Cancel my props request" is about props, not the house slot (audit, Nov 5): send them to their requests instead.
+    if (c && /\b(props?|costumes?|request)\b/i.test(q) && !/\b(shoot|booking|slot|time)\b/i.test(q)) {
+      say('Props requests are cancelled from My requests: open the request and tap Cancel. Your shoot stays booked.', [{ who: 'actions', items: [{ label: 'My requests', to: '/requests' }] }], [], true); return true
+    }
     if (c) {
       if (!sorted.length) { say('You don\'t have any shoots coming up.', [], [], true); return true }
       say(c.shootId ? 'Cancel this one?' : 'Which shoot do you want to cancel?', [{ who: 'cancel', shootId: c.shootId }]); return true
@@ -892,7 +901,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             {m.inviteIds.map(id => {
               const inv = invites.outgoing.find(x => x.id === id)
               if (!inv) return null
-              const expired = inv.status === 'pending' && inv.until <= new Date().toISOString().slice(0, 16)
+              const expired = inv.status === 'pending' && inv.until <= nowStamp()   // studio time, like the hold (audit: UTC made every hold look over)
               const [txt, cls] = inv.status === 'accepted' ? ['Confirmed ✓', 'bg-green-500/15 text-green-400']
                 : inv.status === 'pending' && !expired ? [`Held until ${fmtTime(Number(inv.until.slice(11, 13)) * 60 + Number(inv.until.slice(14, 16)))}`, 'bg-amber-400/15 text-amber-300']
                 : ['Not confirmed', 'bg-pt-border text-pt-muted']
@@ -995,6 +1004,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 // withdrawing a request is free, cancelling inside the notice period counts as a no-show (after the undo minutes).
 function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: import('../services/schedule').Shoot[]; label: (x: import('../services/schedule').Shoot) => string }) {
   const s = useScheduleSettings()
+  const { realRole } = useSession()
   const [pick, setPick] = useState<string | undefined>(shootId)
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
@@ -1007,7 +1017,8 @@ function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: impo
     </div>
   )
   const nowS = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).slice(0, 16).replace(' ', 'T')
-  const strike = sh.status === 'booked' && isShortNotice(sh.from, nowS, s) && !withinUndo(sh.createdAt)
+  // The owner (also in creator mode) is the schedule team to the server: never a strike.
+  const strike = realRole !== 'owner' && sh.status === 'booked' && isShortNotice(sh.from, nowS, s) && !withinUndo(sh.createdAt)
   async function go() {
     setBusy(true); setErr('')
     try {

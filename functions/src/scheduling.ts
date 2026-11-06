@@ -340,6 +340,8 @@ export const decideBooking = onCall(CALLABLE, async req => {
     if (!b) throw new HttpsError('not-found', 'Shoot not found.')
     const at = new Date().toISOString(), by = caller.email, name = caller.name
     const mr = b.moveRequest as (Spot & { from: string; to: string; kind: ShootKind }) | undefined
+    // Too late to approve: the time already started (audit, Nov 5; the 10-minute timer drops these).
+    if (approve && (mr?.from ?? b.from) <= nowStamp()) throw new HttpsError('failed-precondition', 'That time has already started, so it can\'t be approved any more.')
     if (b.status === 'booked' && mr) {
       const write = await editDays(tx, [b.date, mr.date], days => {
         if (approve) { if (b.date !== mr.date) takeOut(days[b.date], b as Spot, id); keepOnlyMove(days[mr.date], id) }
@@ -399,7 +401,33 @@ export async function expireRequests(now = nowStamp()) {
       expired++
     })
   }
+  // Friend holds nobody answered (audit, Nov 5: holds and invites stayed forever; blocks were refused over a hold long gone).
+  const lapsed = await db.collection('schedule_invites').where('status', '==', 'pending').get()
+  for (const d of lapsed.docs.filter(x => String(x.get('until') ?? '') <= now)) {
+    await db.runTransaction(async tx => {
+      const inv = (await tx.get(d.ref)).data()
+      if (!inv || inv.status !== 'pending' || inv.until > now) return
+      const write = await editDays(tx, [inv.date], days => {
+        const map = days[inv.date][inv.place as House]
+        if (map?.[slotKey(inv.start)]?.hold?.inviteId !== d.id) return
+        const { [slotKey(inv.start)]: _gone, ...rest } = map   // eslint-disable-line @typescript-eslint/no-unused-vars
+        days[inv.date][inv.place as House] = rest
+      })
+      write()
+      tx.update(d.ref, { status: 'expired', answeredAt: new Date().toISOString() })
+    })
+  }
   return expired
+}
+
+// A swap can't put someone on a priority-day slot before it opens to everyone, or on one that needs a filming guideline
+// they never gave (audit, Nov 5: swaps went round both rules).
+function assertSwapRules(a: FirebaseFirestore.DocumentData, b: FirebaseFirestore.DocumentData, s: ScheduleSettings, now: string) {
+  for (const [who, spot] of [[a, b], [b, a]] as const) {
+    if (spot.place === 'offsite') continue
+    if (priorityLocked(spot.date, spot.place, s, who.creatorEmail, now)) throw new HttpsError('failed-precondition', `${who.creatorName} isn't in the priority group, so they can't take that priority-day slot before it opens to everyone.`, { problem: 'locked' })
+    if (needsGuideline(spot.date, spot.place, who.creatorEmail, s) && !who.guideline) throw new HttpsError('failed-precondition', `That priority-day slot needs a filming guideline, and ${who.creatorName}'s shoot doesn't have one.`, { problem: 'guideline' })
+  }
 }
 
 // ─── Swaps: two creators trade house slots. Allowed any time before either starts,
@@ -418,6 +446,7 @@ export const requestSwap = onCall(CALLABLE, async req => {
   if (mine.place === 'offsite' || theirs.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
   if (mine.from <= now || theirs.from <= now) throw new HttpsError('failed-precondition', 'One of these shoots has already started.')
   await assertNoLinksForDayChange(mineId, mine.date, theirs.date)
+  assertSwapRules(mine, theirs, await loadScheduleSettings(), now)
   const open = await db.collection('swap_requests').where('fromShootId', '==', mineId).where('status', '==', 'pending').get()
   if (!open.empty) throw new HttpsError('failed-precondition', 'You already asked someone to swap this shoot. Wait for their answer or withdraw it first.')
   const ref = db.collection('swap_requests').doc()
@@ -460,6 +489,7 @@ export const answerSwap = onCall(CALLABLE, async req => {
       expired = true
       return
     }
+    if (!isTeam(caller)) assertSwapRules(a!, b!, s, now)
     const write = await editDays(tx, [a!.date, b!.date], days => {
       if (!isTeam(caller) && a!.date !== b!.date) {
         assertDayLimit(days[b!.date], a!.creatorEmail, 1, s, [aS.id, bS.id], a!.creatorName)
@@ -517,7 +547,8 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
       const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
       // Never silently wipe out a booking: the team cancels or moves it first (no strike), then blocks.
       // A heads-up never blocks anyone, so it can go on top of bookings.
-      const clash = soft ? [] : Object.entries(day[block.house] ?? {}).filter(([k]) => Number(k) < end && start < Number(k) + s.slotMinutes).map(([, e]) => e.name)
+      // (A friend hold that already ran out isn't a booking.)
+      const clash = soft ? [] : Object.entries(day[block.house] ?? {}).filter(([k, e]) => Number(k) < end && start < Number(k) + s.slotMinutes && !(e.hold && !holdActive(e, nowStamp()))).map(([, e]) => e.name)
       if (clash.length) {
         if (w === 0) throw new HttpsError('failed-precondition', `Already booked then: ${clash.join(', ')}. Move or cancel their shoot first (no strike), then block the time.`, { problem: 'booked', names: clash })
         skipped.push({ date, names: clash }); return

@@ -111,11 +111,15 @@ export const takeGear = onCall(CALLABLE, async req => {
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take a photo of what you\'re taking first.')
   const shoot = await shootToAddTo(caller, d.scheduleShootId)
   if (!shoot) throw new HttpsError('invalid-argument', 'Gear goes with a shoot on the schedule.', { problem: 'no-shoot' })
+  // Only an approved shoot (audit, Nov 5: gear went out for a request that then ran out and the shoot disappeared).
+  if (shoot.status !== 'booked') throw new HttpsError('failed-precondition', 'Your shoot isn\'t approved yet. You can take gear once it is.', { problem: 'not-approved' })
   const now = nowStamp(), from = stamp(shoot.date, shoot.start), to = addMinutes(from, shoot.end - shoot.start)
   if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot. Until then you can reserve it.` : 'This shoot is over.', { problem: 'take-window' })
   const settings = await loadSettings()
   const today = todayInStudio()
-  if (holdWindow(today, GEAR_DAY_START, GEAR_DAY_START + GEAR_STEP, settings).closedDay) throw new HttpsError('failed-precondition', 'The gear room is closed today. Reserve gear the day before.', { problem: 'closed' })
+  if (holdWindow(today, GEAR_DAY_START, GEAR_DAY_START + GEAR_STEP, settings).closedDay) throw new HttpsError('failed-precondition', 'The gear room is closed today, so gear can\'t go out. Ask the equipment team.', { problem: 'closed' })
+  // After midnight for the late slot: the gear room's day has ended (gear for the 11 PM slot is taken before midnight).
+  if (today > shoot.date) throw new HttpsError('failed-precondition', 'Gear for this shoot had to be taken before midnight. Ask the equipment team.', { problem: 'take-window' })
   const start = Math.max(GEAR_DAY_START, Math.floor(minutesNow() / GEAR_STEP) * GEAR_STEP)
   // Back by: the end of the shoot at the houses (it may go to someone else next), end of day for offsite (owner, Nov 3).
   const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -124,6 +128,8 @@ export const takeGear = onCall(CALLABLE, async req => {
   const { id } = await holdGear(caller, { ...d, date: today, start, end, title: str(d.title, 120) || 'Shoot' }, { take: true })
   try { await doPickup(caller, id, missingKeysIn(d.missing), photos) }
   catch (e) { await release(id, caller.email, 'cancelled', () => true, 'taking it failed').catch(() => {}); throw e }
+  // The 11 PM–1 AM slot: the gear's back-by time is the end of the shoot, not midnight (audit, Nov 5: it was late at 12:30).
+  if (shoot.place !== 'offsite' && shoot.end > GEAR_DAY_END) await db.doc(`gear_bookings/${id}`).update({ to })
   return { id }
 })
 

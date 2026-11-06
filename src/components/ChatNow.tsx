@@ -20,7 +20,7 @@ import { ChatCard, HeroCard, AlertCard, ReadyCard, NoticeRow, CountdownRing, Liv
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { todayInStudio, addDays } from '../../functions/src/booking'
-import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
+import { nowStamp, fmtTime, addMinutes } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, useMyShoots, useMySwaps, useMyInvites, useMyStatus, checkInShoot, wrapShoot,
   checkinWindow, isMissed, explainUntil, slotKey, fmtSlot, houseFreeFrom, type Shoot,
@@ -55,7 +55,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const returns = useReturnGroups(email)
   // Props packed and waiting for you: sign for them right here (owner, Nov 3: report missing props at pickup in the chat).
   const [packed, setPacked] = useState<Reservation[]>([])
-  useEffect(() => subscribeToReservations({ email, all: false }, list => setPacked(list.filter(r => r.status === 'packed' && r.startDate <= addDays(todayInStudio(), 1)))), [email])
+  useEffect(() => subscribeToReservations({ email, all: false }, list => setPacked(list.filter(r => r.status === 'packed' && r.startDate <= addDays(todayInStudio(), 1) && r.startDate >= todayInStudio()))), [email])
   const [params] = useSearchParams()
   const focus = params.get('shoot')
 
@@ -69,7 +69,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
 
   // A shoot happening now (check-in open, or checked in and not wrapped yet today), and missed check-ins to explain.
   const live = useMemo(() => (recent ?? []).filter(x => x.status === 'booked' && x.place !== 'offsite'), [recent])
-  const onNow = live.filter(x => !x.wrap && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && x.date === today)))
+  const onNow = live.filter(x => !x.wrap && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && now < addMinutes(x.to, 180))))
   const missed = live.filter(x => isMissed(x, now) && !x.explanation && now < explainUntil(x, s))
   const ahead = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from))
   // Only the next 3 here (owner, Nov 5: say so, so nobody thinks it's everything they're booked for); the rest on My shoots.
@@ -220,7 +220,7 @@ function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
 
   const shot = photos.length > 0 && !uploading
   return (
-    <HeroCard eyebrow={<><LiveDot />{shot ? (busy ? 'Checking in…' : 'Got it ✓') : "You're up · check in"}</>} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
+    <HeroCard eyebrow={<><LiveDot />{shot ? (busy ? 'Checking in…' : err ? 'Not checked in yet' : 'Got it ✓') : "You're up · check in"}</>} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
       sub={shot ? undefined : 'One selfie with your camera and you\'re checked in.'}
       action={!shot ? <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" hero max={1} /> : undefined}>
       {before && shot && !report ? (
@@ -242,6 +242,8 @@ function ShootNow({ shoot }: { shoot: Shoot; label: string }) {
         </div>
       ) : null}
       {err && <p className="text-red-900 text-sm font-semibold">{err}</p>}
+      {/* The automatic check-in failed (no signal, phone clock off…): try again with the same selfie (audit, Nov 5). */}
+      {err && shot && !before && <button disabled={busy} onClick={() => checkIn(false)} className="w-full rounded-full h-12 px-5 text-[16px] font-bold text-pt-accent bg-stone-900 disabled:opacity-40">{busy ? 'Checking in…' : 'Try again'}</button>}
     </HeroCard>
   )
 }
@@ -252,9 +254,12 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
   const [pick, setPick] = useState(0)
   const [done, setDone] = useState(0)
   const g = groups[Math.min(pick, groups.length - 1)]
-  if (done) return <NoticeRow tone="info" icon="check" title="Returned ✓ Thanks! The team will check it in." />
+  const thanks = <NoticeRow tone="info" icon="check" title="Returned ✓ Thanks! The team will check it in." />
+  // Kept something to bring back later: the reminder stays for what's still out (audit, Nov 5).
+  if (done && count === 0) return thanks
   const photos = groups.flatMap(x => [...x.props.filter(r => r.status === 'collected').flatMap(r => r.lines.map(l => l.photo)), ...x.gear.filter(b => b.status === 'out').flatMap(b => b.lines.map(l => l.photo))])
-  return (
+  return (<>
+    {done > 0 && thanks}
     <ReadyCard back icon="box" photos={photos} label="To bring back" title={count === 1 ? '1 thing is still with you' : `${count} things are still with you`} sub={open ? undefined : 'A few taps and one photo.'}
       actions={open ? undefined : <button onClick={() => setOpen(true)} className={primaryBtn}>Return it now</button>}>
       {open && <>
@@ -263,10 +268,10 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
             <button key={x.key} onClick={() => setPick(i)} className={`shrink-0 px-3 min-h-[36px] rounded-full text-[14px] ${i === pick ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border'}`}>{x.shoot ? label(x.shoot) : formatDay(x.date)}</button>))}
           </div>
         )}
-        <ReturnFlow key={g.key} group={g} compact onDone={n => { setDone(n); onReturned?.() }} />
+        <ReturnFlow key={g.key} group={g} compact onDone={n => { setDone(n); setOpen(false); setPick(0); onReturned?.() }} />
       </>}
     </ReadyCard>
-  )
+  </>)
 }
 
 // Props are packed: pick them up and say if anything is missing (tap the props), no screen to find.

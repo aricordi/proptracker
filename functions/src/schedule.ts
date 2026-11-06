@@ -233,12 +233,13 @@ export function slotState(day: ScheduleDay | undefined, date: string, house: Hou
 
 // The next free times that fit `count` back-to-back slots (e.g. 2 = 4 hours for two
 // creators filming together). Only slots that touch (one ends as the next starts) count.
-export function findFree(days: Record<string, ScheduleDay>, fromDate: string, dayCount: number, count: number, houses: House[], s: ScheduleSettings, email: string, now: string, isTeam: boolean, max = 8) {
+// except: shoots that don't count toward the one-slot-a-day limit (the one being moved can move within its own day).
+export function findFree(days: Record<string, ScheduleDay>, fromDate: string, dayCount: number, count: number, houses: House[], s: ScheduleSettings, email: string, now: string, isTeam: boolean, max = 8, except: string[] = []) {
   const out: { date: string; house: House; start: number }[] = []
   for (let k = 0; k < dayCount && out.length < max; k++) {
     const date = addDays(fromDate, k)
     // Creators: skip days where they already have their house slot(s).
-    if (!isTeam && houseSlotsOn(days[date], email, now) >= s.slotsPerDay) continue
+    if (!isTeam && houseSlotsOn(days[date], email, now, except) >= s.slotsPerDay) continue
     for (const house of houses) {
       for (let i = 0; i + count <= s.slots.length && out.length < max; i++) {
         let ok = true

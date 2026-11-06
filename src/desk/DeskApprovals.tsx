@@ -13,7 +13,7 @@ import { formatDay } from '../lib/dates'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, decideBooking, fmtSlot, slotKey, blockAt, slotWindow, BLOCK_TYPES, HOUSES,
+  useScheduleSettings, decideBooking, fmtSlot, slotKey, blockAt, holdActive, slotWindow, BLOCK_TYPES, HOUSES,
   type House, type Shoot, type ScheduleDay, type UserStatus,
 } from '../services/schedule'
 import { factsFor, reqKey, placeName, ago, hoursWaiting, REASONS, type Req } from './requestFacts'
@@ -196,7 +196,8 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
   const cell = (date: string, h: House, st: number) => {
     const day = days[date]
     const past = slotWindow(date, st, s.slotMinutes).to <= now
-    const e = day?.[h]?.[slotKey(st)]
+    // A friend hold that ran out is a free slot (audit, Nov 5).
+    const e0 = day?.[h]?.[slotKey(st)], e = e0?.hold && !holdActive(e0, now) ? undefined : e0
     const block = blockAt(day, h, st, s.slotMinutes)
     const r = reqAt(date, h, st)
     let cls = 'bg-white/[0.025]', who = '', sub = '', click: (() => void) | undefined, dot = false, title = 'Free'

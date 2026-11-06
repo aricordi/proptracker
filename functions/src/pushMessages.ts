@@ -151,6 +151,7 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking not approved', body: `${placeName(a, s)} · ${when(a)}: ${h.note ?? ''}`.trim() }]
   if (h.action === 'move-approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move approved ✓', body: `Your shoot is now ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'move-denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move not approved', body: `You keep ${placeName(a, s)} · ${when(a)}. ${h.note ?? ''}`.trim() }]
+  if (h.action === 'move-expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move not approved in time', body: `You keep ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Request ran out', body: `Nobody approved ${placeName(a, s)} · ${when(a)} in time. Request another time?` }]
   // A priority booking took the slot (owner, Nov 3: neutral, professional, no apology).
   if (h.action === 'bumped') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Schedule change',

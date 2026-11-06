@@ -166,7 +166,7 @@ export default function ScheduleScreen() {
             </div>
             <p className="text-pt-muted text-xs">{canBook ? 'Cliff 1 or Cliff 2 = free 2-hour spots there. All = every shoot that day, offsite too. Tap a day, then a time to book it.' : 'Cliff 1 or Cliff 2 = free 2-hour spots there. All = every shoot that day, offsite too. Tap a day to see it.'}</p>
             {days === null ? <p className="text-pt-muted text-sm text-center py-6">Loading…</p>
-              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} selected={desk ? date : null}
+              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} lockFree={role === 'equipment'} selected={desk ? date : null}
                   onPick={d => { setDate(d); if (!desk) setSheet({ kind: 'day', date: d }) }} />}
           </section>
         )}
@@ -215,14 +215,14 @@ export default function ScheduleScreen() {
       </div>
       {desk && (
         <div className="sticky top-4 pt-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-          <DayPickSheet inline date={date} day={days?.[date]} team={team} teamView={teamView} canBook={canBook} now={now}
+          <DayPickSheet inline date={date} day={days?.[date]} team={team} lockFree={role === 'equipment'} teamView={teamView} canBook={canBook} now={now}
             onClose={() => {}} onTap={(st, h, start) => tapSlot(st, date, h, start)}
             onShoot={id => setSheet({ kind: 'shoot', id })} onOffsite={() => setSheet({ kind: 'offsite', date })} />
         </div>
       )}
       </div>
 
-      {sheet?.kind === 'day' && <DayPickSheet date={sheet.date} day={days?.[sheet.date]} team={team} teamView={teamView} canBook={canBook} now={now}
+      {sheet?.kind === 'day' && <DayPickSheet date={sheet.date} day={days?.[sheet.date]} team={team} lockFree={role === 'equipment'} teamView={teamView} canBook={canBook} now={now}
         onClose={() => setSheet(null)} onTap={(st, h, start) => tapSlot(st, sheet.date, h, start)}
         onShoot={id => setSheet({ kind: 'shoot', id })}
         onOffsite={() => setSheet({ kind: 'offsite', date: sheet.date })} />}
@@ -272,8 +272,8 @@ export default function ScheduleScreen() {
 }
 
 // A day from the month view (owner, Nov 2): both houses side by side, one row per time. Free = gold, tap to request.
-function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
-  date: string; day?: ScheduleDay; team: boolean; teamView: boolean; canBook: boolean; now: string
+function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
+  date: string; day?: ScheduleDay; team: boolean; lockFree?: boolean; teamView: boolean; canBook: boolean; now: string
   onClose: () => void; onTap: (st: ReturnType<typeof slotState>, h: House, start: number) => void
   onShoot: (id: string) => void; onOffsite: () => void; inline?: boolean
 }) {
@@ -281,7 +281,8 @@ function DayPickSheet({ date, day, team, teamView, canBook, now, onClose, onTap,
   const { profile } = useSession()
   const email = profile.email
   const cell = (h: House, start: number) => {
-    const st = slotState(day, date, h, start, s, email, now, team)
+    // The owner booking for themselves follows the priority lock like the server does (audit, Nov 5).
+    const st = slotState(day, date, h, start, s, email, now, lockFree)
     let label: React.ReactNode, cls = 'bg-pt-surface text-pt-muted'
     const early = houseFreeFrom(day, h, start, s)
     // Cliff 1 priority days for people outside the priority group (owner, Nov 3): say it on the slot itself.
@@ -667,7 +668,7 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const instant = s.instantBookers.some(p => p.email === shoot.creatorEmail)
   const asks = !team && !instant && shoot.status === 'booked'
   // Moving the owner's own shoot follows the priority lock; the team moving someone else's doesn't.
-  const results = findFree(days, today, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), 10)
+  const results = findFree(days, today, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), 10, [shoot.id])
   // Moving onto a Cliff 1 Thursday/Saturday needs a guideline (owner, Nov 3), unless the shoot already has one.
   const [guide, setGuide] = useState<Guideline | null>(null)
   const [needFor, setNeedFor] = useState<{ date: string; house: House; start: number } | null>(null)

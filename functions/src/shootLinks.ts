@@ -8,7 +8,7 @@ import { db, type Caller } from './auth.js'
 export const PROPS_OPEN = ['requested', 'preparing', 'packed', 'collected', 'return_pending']
 export const GEAR_OPEN = ['held', 'out']
 
-export interface LinkedShoot { id: string; date: string; start: number; end: number; place: string; where: string; creatorEmail: string }
+export interface LinkedShoot { id: string; date: string; start: number; end: number; place: string; where: string; creatorEmail: string; status: string }
 
 const idOf = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v) ? v : null
 
@@ -23,7 +23,7 @@ export async function shootToAddTo(caller: Caller, raw: unknown): Promise<Linked
   // A request waiting for approval can take props and gear too (if it's denied, they're cancelled with it).
   if (sh.status !== 'booked' && sh.status !== 'requested') throw new HttpsError('failed-precondition', 'That shoot was cancelled, so nothing can be added to it.')
   if (sh.creatorEmail !== caller.email && caller.role !== 'owner') throw new HttpsError('permission-denied', 'You can only add to your own shoots.')
-  return { id, date: sh.date, start: sh.start, end: sh.end, place: sh.place, where: sh.where ?? '', creatorEmail: sh.creatorEmail }
+  return { id, date: sh.date, start: sh.start, end: sh.end, place: sh.place, where: sh.where ?? '', creatorEmail: sh.creatorEmail, status: sh.status }
 }
 
 // Note on the shoot's history that props or gear were added.

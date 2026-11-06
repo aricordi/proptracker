@@ -3,7 +3,7 @@
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
 import { useState } from 'react'
-import { slotState, headsUps, HOUSES, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { slotState, headsUps, HOUSES, BOOK_AHEAD_DAYS, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
 
 export const monthStart = (month: string) => `${month}-01`
 export const monthAdd = (month: string, n: number) => {
@@ -71,9 +71,10 @@ export function shootsOn(day: ScheduleDay | undefined) {
 const fmtHour = (m: number) => { const h = Math.floor(m / 60) % 24; return `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}` }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export default function MonthGrid({ month, days, s, email, now, today, team = false, selected, onPick }: {
+export default function MonthGrid({ month, days, s, email, now, today, team = false, lockFree = team, selected, onPick }: {
   month: string; days: Record<string, ScheduleDay> | null; s: ScheduleSettings; email: string; now: string; today: string
-  team?: boolean; selected?: string | null; onPick: (date: string) => void
+  // lockFree: priority days count as free (the equipment team books for anyone). The owner booking for themselves follows the lock.
+  team?: boolean; lockFree?: boolean; selected?: string | null; onPick: (date: string) => void
 }) {
   const list = daysOfMonth(month)
   const lead = weekday(list[0])
@@ -87,13 +88,14 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
       <div className="grid grid-cols-7 gap-1 lg:gap-2">
         {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} />)}
         {list.map(date => {
-          const past = date < today
-          const c = countDay(days?.[date], date, houses, s, email, now, team)
+          // Before today, or further ahead than anyone can book (audit, Nov 5: those days showed free slots the server refused).
+          const past = date < today || date > addDays(today, BOOK_AHEAD_DAYS)
+          const c = countDay(days?.[date], date, houses, s, email, now, lockFree)
           // Your shoots and waiting requests show whichever house is picked; only the free spots follow the switch.
-          const all = house === 'all' ? c : countDay(days?.[date], date, HOUSES, s, email, now, team)
+          const all = house === 'all' ? c : countDay(days?.[date], date, HOUSES, s, email, now, lockFree)
           c.mine = all.mine; c.requested = all.requested
           // Full (or one left) here but the other house has room → a small hint so nobody gives up on the day.
-          const alt = other && !past && c.free <= 1 ? countDay(days?.[date], date, [other], s, email, now, team).free : 0
+          const alt = other && !past && c.free <= 1 ? countDay(days?.[date], date, [other], s, email, now, lockFree).free : 0
           const hint = alt > c.free ? alt : 0
           const n = Number(date.slice(8))
           const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= 3 ? 'few' : 'lots'

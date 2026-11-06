@@ -73,3 +73,16 @@ describe('chat actions without the AI (Nov 2)', async () => {
     expect(isStatusQuestion('book thursday at 5pm')).toBe(false)
   })
 })
+
+import { findShoot as fs2, cancelIntent as ci2 } from '../../src/lib/aiRoute'
+describe('picking the right shoot by date (audit, Nov 5)', () => {
+  const shoots = [{ id: 'a', date: '2026-11-12' }, { id: 'b', date: '2026-11-19' }]   // both Thursdays
+  it('a date wins over "my shoot" and over the weekday; a date with no shoot points at nothing', () => {
+    expect(ci2('cancel my shoot on the 19th', shoots)).toEqual({ shootId: 'b' })
+    expect(ci2('cancel my nov 19 shoot', shoots)).toEqual({ shootId: 'b' })
+    expect(ci2('cancel thursday the 19th', shoots)).toEqual({ shootId: 'b' })
+    expect(ci2('cancel my shoot on the 27th', [shoots[0]])).toEqual({})
+    expect(fs2('props for my shoot on the 19th', shoots)).toBe('b')
+    expect(fs2('filming thursday with kyle', shoots)).toBeUndefined()
+  })
+})

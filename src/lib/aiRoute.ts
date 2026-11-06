@@ -41,25 +41,29 @@ export function isHelpQuestion(t: string) {
 
 function words(t: string) { return t.trim().split(/\s+/).filter(Boolean).length }
 
-// Which booked shoot does the message point at (by "next", a weekday or a date)?
-export function findShoot(text: string, shoots: RouteShoot[]): string | undefined {
-  if (!shoots.length || !SHOOT_REF.test(text)) return undefined
+// Which booked shoot does the message point at (by a date, a weekday, or "next")? A date or weekday that matches none of
+// your shoots points at nothing (audit, Nov 5: "cancel my shoot on the 19th" picked the 12th).
+export const namesADay = (text: string) => DAY_RE.test(text) || /\bthe \d{1,2}(st|nd|rd|th)\b/i.test(text)
+  || new RegExp(String.raw`\b(${MONTHS.join('|')})[a-z]*\.? \d{1,2}`, 'i').test(text)
+// loose: a bare day is enough ("cancel friday"); otherwise the message must be about a shoot ("my Friday shoot"), so
+// "filming Friday with Kyle" stays a time search.
+export function findShoot(text: string, shoots: RouteShoot[], loose = false): string | undefined {
+  if (!shoots.length || (!loose && !SHOOT_REF.test(text))) return undefined
   const t = text.toLowerCase()
-  if (/\bnext shoot\b|\bmy shoot\b|\bupcoming shoot\b/.test(t) && !DAY_RE.test(t)) return shoots[0].id
-  const day = t.match(DAY_RE)
-  if (day) {
-    const idx = DAYS.findIndex(d => d.startsWith(day[1].slice(0, 3)))
-    const hit = shoots.find(s => new Date(s.date + 'T12:00:00').getDay() === idx)
-    if (hit) return hit.id
-  }
-  const md = t.match(new RegExp(String.raw`\b(${MONTHS.join('|')})[a-z]*\.? (\d{1,2})`))
+  const md = t.match(new RegExp(String.raw`\b(${MONTHS.join('|')})[a-z]*\.? (\d{1,2})\b`))
   const th = t.match(/\bthe (\d{1,2})(st|nd|rd|th)\b/)
+  const day = t.match(DAY_RE)
+  const wd = day ? DAYS.findIndex(d => d.startsWith(day[1].slice(0, 3))) : -1
+  const onWeekday = (s: RouteShoot) => wd < 0 || new Date(s.date + 'T12:00:00').getDay() === wd
+  // A date first ("Thursday the 19th" = the 19th).
   if (md || th) {
     const dayNum = Number(md ? md[2] : th![1])
     const month = md ? MONTHS.indexOf(md[1]) : -1
-    const hit = shoots.find(s => Number(s.date.slice(8)) === dayNum && (month < 0 || Number(s.date.slice(5, 7)) === month + 1))
-    if (hit) return hit.id
+    return shoots.find(s => Number(s.date.slice(8)) === dayNum && (month < 0 || Number(s.date.slice(5, 7)) === month + 1) && onWeekday(s))?.id
   }
+  if (wd >= 0) return shoots.find(onWeekday)?.id   // the soonest one on that weekday
+  if (!SHOOT_REF.test(text)) return undefined
+  if (/\bnext shoot\b|\bmy shoot\b|\bupcoming shoot\b/.test(t)) return shoots[0].id
   return undefined
 }
 
@@ -91,8 +95,8 @@ export function cancelIntent(text: string, shoots: RouteShoot[]): { shootId?: st
   const t = text.trim()
   if (!CANCEL.test(t) || isHelpQuestion(t) && /^\s*how\b/i.test(t)) return null
   // A day or date names the shoot; "my next shoot" / "my shoot" (only one) = the soonest; otherwise ask which.
-  const named = DAY_RE.test(t) || /\bthe \d{1,2}(st|nd|rd|th)\b/i.test(t) || new RegExp(String.raw`\b(${MONTHS.join('|')})[a-z]*\.? \d{1,2}`, 'i').test(t)
-  if (named) { const id = findShoot(`${t} my shoot`.replace(/\bmy shoot\b(?=.*\bmy shoot\b)/i, ''), shoots.filter(Boolean)); if (id && !/\bnext shoot\b/i.test(t)) return { shootId: id } }
+  // A day or date that matches none of your shoots: ask which (never the wrong one).
+  if (namesADay(t)) { const id = findShoot(t, shoots.filter(Boolean), true); return id ? { shootId: id } : {} }
   if (/\bnext (shoot|booking)\b/i.test(t) && shoots.length) return { shootId: shoots[0].id }
   return shoots.length === 1 && !DAY_RE.test(t) ? { shootId: shoots[0].id } : {}
 }

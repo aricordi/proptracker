@@ -67,7 +67,8 @@ export function ActiveShootProvider({ children }: { children: ReactNode }) {
     const h = gearHoursFor(shoot)
     // Gear always matches the shoot's slot (owner, Oct 20: no picking times).
     if (gear.date !== shoot.date || gear.start !== h.start || gear.end !== h.end) gear.setWhen(shoot.date, h.start, h.end)
-  }, [shoot?.id, shoot?.date, shoot?.start, shoot?.end, gear.date, gear.start, gear.end])   // eslint-disable-line react-hooks/exhaustive-deps
+  // (cart.start/end too: sending empties the basket and its day; without them it stayed dayless, audit Nov 5.)
+  }, [shoot?.id, shoot?.date, shoot?.start, shoot?.end, cart.start, cart.end, gear.date, gear.start, gear.end])   // eslint-disable-line react-hooks/exhaustive-deps
   return <Ctx.Provider value={{ shoot, upcoming, loaded: mine !== null, choose }}>{children}</Ctx.Provider>
 }
 
@@ -101,7 +102,8 @@ export function useGearWindow() {
   return (sh: Shoot, now = nowStamp()): GearWindow => {
     const opens = gearReserveOpensAt(sh.from, s.gearReserveHours)
     // Reserving ahead is off unless the owner turns it on (owner, Nov 3: first come, first served on the day).
-    const state = now >= sh.to ? 'over' : canTakeGear(sh.from, sh.to, now) ? 'take' : now >= opens && s.gearReserve ? 'reserve' : 'early'
+    // Only an approved shoot can take gear (a request shows when it can, once approved).
+    const state = now >= sh.to ? 'over' : canTakeGear(sh.from, sh.to, now) && sh.status === 'booked' ? 'take' : now >= opens && s.gearReserve ? 'reserve' : 'early'
     return { state, opens }
   }
 }
