@@ -42,7 +42,7 @@ import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type Cha
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, isShortNotice, withinUndo,
+  askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
   checkinWindow,
   type TimeAskResult,
 } from '../services/schedule'
@@ -1178,7 +1178,7 @@ function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: impo
   )
   const nowS = new Date().toLocaleString('sv-SE', { timeZone: 'America/Toronto' }).slice(0, 16).replace(' ', 'T')
   // The owner (also in creator mode) is the schedule team to the server: never a strike.
-  const strike = realRole !== 'owner' && sh.status === 'booked' && isShortNotice(sh.from, nowS, s) && !withinUndo(sh.createdAt)
+  const strike = realRole !== 'owner' && cancelCountsAsNoShow(sh, nowS, s)
   async function go() {
     setBusy(true); setErr('')
     try {

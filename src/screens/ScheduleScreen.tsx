@@ -29,7 +29,7 @@ import {
   useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, redoCalendarImport, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
-  monthOf, isShortNotice, withinUndo, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
+  monthOf, isShortNotice, withinUndo, bookedLate, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, MONTHLY_SLOTS_ON, isLive,
 } from '../services/schedule'
@@ -573,11 +573,13 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
   const upcoming = isLive(shoot) && shoot.from > now
   const justBooked = withinUndo(shoot.createdAt)
   const short = isShortNotice(shoot.from, now, s) && !justBooked && !requested
+  // Booked less than 24 h before it starts: cancelling is free, even inside the notice period (owner, Nov 6).
+  const late = bookedLate(shoot)
   // Inside the notice period a creator can only swap (house slots) or cancel as a no-show; the team can always move/cancel.
   const canMove = upcoming && (team || (mine && !short))
   const canSwap = upcoming && mine && shoot.place !== 'offsite' && !requested && !shoot.moveRequest
   const canCancel = isLive(shoot) && (team || (mine && upcoming))
-  const noShow = !team && short
+  const noShow = !team && short && !late
   async function cancel() {
     setBusy(true); setErr('')
     try { await cancelShoot({ id, ...(noShow ? { confirmNoShow: true } : {}) }); onClose() } catch (e) { setErr(errorText(e)); setBusy(false) }
@@ -615,7 +617,8 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         {isLive(shoot) && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
         {mine && upcoming && short && !team && (
           <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
-            Less than {s.noticeHours} hours to go. You can still <b>swap</b> with someone; cancelling now counts as a no-show.
+            {late ? <>Less than {s.noticeHours} hours to go, so moving isn't possible. You booked it less than {LATE_BOOKING_FREE_HOURS} hours ahead, so <b>cancelling is free</b>.</>
+              : <>Less than {s.noticeHours} hours to go. You can still <b>swap</b> with someone; cancelling now counts as a no-show.</>}
           </p>
         )}
         {(canMove || canSwap) && (

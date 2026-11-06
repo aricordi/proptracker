@@ -63,7 +63,7 @@ const staffNav = [
   { to: '/browse',   label: 'Props',    icon: searchIcon, also: ['/item', '/bin'] },
   { to: '/calendar', label: 'Calendar', icon: reservationsIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
-  { to: '/admin',    label: 'Admin',    icon: adminIcon },
+  { to: '/admin',    label: 'Admin',    icon: adminIcon, also: ['/cleanup', '/duplicates', '/bins', '/health', '/suggestions', '/activity'] },
 ]
 
 const homeIcon = (
@@ -130,7 +130,7 @@ const ownerNav = [
   { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests', '/return'] },
   { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
     '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
-    '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet', '/approvals', '/personal'] },
+    '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet', '/approvals', '/personal', '/cleanup'] },
 ]
 
 // Demo mode (test launch, Oct 27): the props list and Me, nothing to book.

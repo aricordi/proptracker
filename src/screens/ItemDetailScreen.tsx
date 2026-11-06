@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, setItemArchived } from '../services/items'
+import { restoreProps } from '../services/cleanup'
 import { deleteImportedProp } from '../services/importer'
 import { getItemPrivate } from '../services/itemPrivate'
 import { useSession } from '../auth'
@@ -97,7 +98,11 @@ export default function ItemDetailScreen() {
     run({ condition }, () => updateItem(item.id, { condition, status: item.status }))
 
   const setArchived = (archived: boolean) =>
-    run({ archived }, async () => { await setItemArchived(item.id, archived); setShowArchiveConfirm(false) })
+    run({ archived }, async () => {
+      // A prop removed in the clean-up comes back without its "removed" note.
+      if (!archived && item.removedAt) await restoreProps([item.id]); else await setItemArchived(item.id, archived)
+      setShowArchiveConfirm(false)
+    })
 
   const characterIds = item.characters ?? []
 
@@ -167,8 +172,10 @@ export default function ItemDetailScreen() {
         )}
         {item.archived && (
           <div className="bg-pt-surface shadow-hairline rounded-xl px-4 py-3">
-            <p className="text-pt-text text-sm font-medium">Archived</p>
-            <p className="text-pt-muted text-xs mt-0.5">Hidden from search. Its history is kept.</p>
+            <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : 'Archived'}</p>
+            <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
+              ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
+              : 'Hidden from search. Its history is kept.'}</p>
           </div>
         )}
 

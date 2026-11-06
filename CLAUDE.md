@@ -2220,7 +2220,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       props request" → My requests; owner creator mode = owner rules; expireRequests sweeps lapsed invites; approve after start refused;
       move-expired push; swaps check priority lock + guideline; month grid greys > 120 days; owner sees locks (lockFree = equipment only);
       findFree except. data_check.py lists clashes separately. Tests 670.
-      NOT DONE (need owner decisions): unsent basket silently follows a newly chosen shoot (ask "move these N props?"); Sunday (closed day)
+      DECIDED Nov 6 (see OWNER DECISIONS ON THE 3 OPEN AUDIT ITEMS below): unsent basket silently follows a newly chosen shoot (ask "move these N props?"); Sunday (closed day)
       shoots can't get gear (should they?); late-request strike edge (request made inside 48 h, cancelled after approval = strike).
     - CHAT QA (owner, Nov 6: "super thorough test of the AI chat… people will type the stupidest stuff… still expect it to work"; NOT
       deployed: backend (assistant.ts, chatBrain.ts, timeFinder.ts, appGuide.ts; no new callable, no rules change) + website, ask).
@@ -2251,6 +2251,52 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       keep "you're booked" (STATE_CLAIM skipped for status), a props turn whose search was dropped as generic loses a reply that
       pretends props were found. NOTE: the 4 practice test people hit their 25/day finder limit after ~2 full runs a day (the
       harness then prints "times/props ERROR RESOURCE_EXHAUSTED", the brain still answers); run the full set once a day, or use `only`.
+    - OWNER DECISIONS ON THE 3 OPEN AUDIT ITEMS (owner, Nov 6; NOT deployed: backend + website, ask; no rules change):
+      (1) UNSENT BASKET: switching to ANOTHER shoot while props are unsent asks "Move your N props to this shoot?" (Yes, move them
+      here / No, empty the basket / Keep adding to <old day> instead), locked sheet in ActiveShootProvider (src/activeShoot.tsx).
+      The basket remembers its shoot in localStorage 'primeapp.basketShoot.v1' (set when the first prop goes in, cleared when
+      empty); while the question is open the baskets keep their old day. (2) SUNDAY GEAR: takeGear works on closed days too (no
+      permission, same tick-every-piece + photo out and back): the closed-day refusal is gone and taken gear's hold is
+      now → shoot end on that day (holdWindow is only used for reserving ahead). Help, team guide, AI rules, app guide.
+      (3) LATE BOOKINGS CANCEL FREE: schedule.ts `bookedLate(shoot)` (requestedAt || createdAt less than LATE_BOOKING_FREE_HOURS
+      = 24 h before `from`) + `cancelCountsAsNoShow(shoot, now, s)` = booked && inside noticeHours && not the 10-min undo && not
+      booked late; used by cancelShoot, the shoot sheet (amber note "booked less than 24 hours ahead, so cancelling is free") and
+      the chat's cancel card. Moving inside 48 h is still refused. Help, How it works, Rules sheet, app guide, AI rules.
+    - CLEAN UP PROPS (owner, Nov 6: "the crew is having a tough time importing the props and the wardrobe… delete duplicate entries
+      or change the number of certain props… duplicate pictures… very simple for somebody that's never seen this app"; NOT
+      deployed: backend (new callable findsamephotos in deploy/log lists, activity tracks removedNote) + website, ask; NO rules
+      change: validItem has no field list, so arts can write the new fields). ARTS + OWNER only (StaffOnly routes).
+      `/cleanup` CleanupScreen = progress (N of M checked, green bar), 1-minute "How this works" (5 steps, first time, then a
+      row), gold "Check props one by one", Find doubles (Same photo twice · Look-alikes = /duplicates), Fix many at once (Quick
+      list + chips No bin / Odd names / No photo / More than 1 / Costumes → the checker filtered), More (Removed props, Bin by bin,
+      How this works). Gold "Clean up props" card (N to check + bar) at the top of the arts Admin page and the owner's Team page;
+      also first in Admin → Props & storage (both roles); arts Team guide step 4.
+      `/cleanup/check?f=&bin=` CleanupCheckScreen: ONE prop at a time in shelf order (bin number order, no bin last; list frozen
+      when opened, after the bins load), filter pill (Not checked yet, No bin, Odd names, No photo, More than 1, Costumes, From the
+      photo import, Everything, or one bin). Card: photo (34vh, arrows, tap = zoom), Name, How many? (big − / +), Where is it?
+      (BinSheet: type to search, "It has no bin"), Category chips, "Description, size…". Bottom row: Remove (reason sheet:
+      Same prop twice / Not a prop / Blurry or bad photo / We don't have it any more / Supplies, not a prop) · It's a double
+      (DoubleSheet: likelyDoubles by name words + same bin, or search → "We have more than one" = mergeProps copies, or "It's the
+      same one, photographed twice" = angles; this one goes, the other stays) · Looks right ✓ / Save ✓ (saves + reviewedAt/By).
+      Top: ‹ Previous / Skip for now (saves edits without checking). Undo toast at the TOP of the screen (never over buttons).
+      A count can't go below what's booked (heldUnits = busiest overlap in item_bookings); a prop in a booking can't be removed.
+      `/cleanup/list` CleanupListScreen: search, filter chips, order (bin by bin / A to Z / newest), rows = tick box, photo, name
+      (tap to rename, Enter saves; 2 lines), bin · category · ✓, − / + (saves 0.7 s after the last tap); tick several or Pick all →
+      bar: Move to bin, Category, Mark checked, Combine (2–20: tap the one to keep, add up counts or photos only), Remove.
+      `/cleanup/doubles` CleanupDoublesScreen: tabs SAME PICTURE (callable `findSamePhotos`, dedupe.ts: lists Storage items/ md5s,
+      `groupSamePhotos` in functions/src/samePhotos.ts (pure, tested) joins props sharing an identical photo file, minus groups
+      whose pairs are all in health/dismissed) and SAME NAME, SAME BIN (sameNameSameBin, on the phone). Group = tiles (tap to keep;
+      bestToKeep = checked > has bin > category > photos), Make it one prop / They're copies × N, Same one twice, Not the same
+      (dismissDuplicatePairs, shared with Find duplicates). `/cleanup/removed` CleanupRemovedScreen: why · who · when + Put back.
+      REMOVED = archived + removedAt/removedBy/removedNote (src/services/cleanup.ts removeProps/restoreProps, client writes, so the
+      Activity log has the person); never deleted. Prop page says "Removed in the clean-up · <why> · by <who>"; its Restore clears
+      the note. Logic in src/lib/cleanup.ts (oddName, filters, counts, shelfOrder, nameWords/likeness/likelyDoubles,
+      sameNameSameBin, bestToKeep, groupPairKeys), tests tests/unit/propCleanup.test.ts, tests/functions/samePhotos.test.ts, rules test.
+      Seed: imp-phone2 (Rotary phones, same bin as Rotary phone), imp-img (IMG_2034), imp-coat (Black peacoat, no bin).
+      ALSO FIXED: the arts Team guide's "Got it" was never saved (TourGate `finished` only set state), so Farrell/Keith got it on
+      every open. Now markTourDone (phone + profile); "Skip for now" stays a 7-day skip. App guide entries cleanup / cleanupcheck /
+      cleanuplist / cleanupdoubles / cleanupremoved. Checked in a browser on the emulator (arts: check, save, remove + undo, double
+      sheet, same name group combined ×3, quick list move/rename/count, removed list; creator: basket question).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

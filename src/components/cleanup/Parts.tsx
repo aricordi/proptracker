@@ -1,0 +1,109 @@
+// Shared pieces of the clean-up tools (owner, Nov 6). Big text and big buttons: the crew has never used the app before.
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
+import BottomSheet from '../BottomSheet'
+import { useBins } from '../../hooks/useBins'
+import { useLocations } from '../../hooks/useLocations'
+import type { Item } from '../../types'
+import { thumbOf } from '../../services/itemShape'
+
+export function CleanupHeader({ title, sub, right, back = '/cleanup' }: { title: string; sub?: ReactNode; right?: ReactNode; back?: string | -1 }) {
+  const navigate = useNavigate()
+  return (
+    <div className="sticky top-0 bg-pt-bg pt-safe z-20 px-4 pb-2">
+      <div className="flex items-center gap-2 min-h-[52px]">
+        <button onClick={() => back === -1 ? navigate(-1) : navigate(back)} aria-label="Back" className="w-11 h-11 -ml-2 grid place-items-center text-pt-text text-[28px] leading-none">‹</button>
+        <h1 className="font-display text-[24px] text-pt-text flex-1 truncate">{title}</h1>
+        {right}
+      </div>
+      {sub && <div className="pb-1">{sub}</div>}
+    </div>
+  )
+}
+
+/** "Bin 12 · Main room", or "No bin". */
+export function useBinLabel() {
+  const bins = useBins(), locations = useLocations()
+  return useMemo(() => {
+    const byId = new Map(bins.map(b => [b.id, b]))
+    const area = new Map(locations.map(l => [l.id, l.name]))
+    return {
+      bins,
+      label: (id?: string) => id ? byId.get(id)?.label : undefined,
+      where: (id?: string) => {
+        const b = id ? byId.get(id) : undefined
+        if (!b) return 'No bin'
+        const a = area.get(b.locationId)
+        return a ? `${b.label} · ${a}` : b.label
+      },
+      locationOf: (id?: string) => (id ? byId.get(id)?.locationId : undefined) ?? '',
+    }
+  }, [bins, locations])
+}
+
+/** Pick a bin: type to search, tap one. */
+export function BinSheet({ open, onClose, onPick, current }: { open: boolean; onClose: () => void; onPick: (binId: string, locationId: string) => void; current?: string }) {
+  const { bins } = useBinLabel()
+  const locations = useLocations()
+  const [q, setQ] = useState('')
+  useEffect(() => { if (open) setQ('') }, [open])
+  const area = new Map(locations.map(l => [l.id, l.name]))
+  const t = q.trim().toLowerCase().replace(/^bin\s*/, '')
+  const shown = bins.filter(b => !t || b.label.toLowerCase().includes(t) || (area.get(b.locationId) ?? '').toLowerCase().includes(t)).slice(0, 80)
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Which bin is it in?">
+      <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Type the bin number or room"
+        className="w-full bg-pt-bg rounded-2xl px-4 min-h-[52px] text-[18px] text-pt-text placeholder:text-pt-muted outline-none focus:ring-2 focus:ring-pt-accent" />
+      <div className="mt-3 max-h-[50vh] overflow-y-auto -mx-1 px-1 space-y-1">
+        {shown.map(b => (
+          <button key={b.id} onClick={() => { onPick(b.id, b.locationId); onClose() }}
+            className={`w-full flex items-center gap-3 rounded-2xl px-4 min-h-[56px] text-left ${b.id === current ? 'bg-pt-accent/15 text-pt-accent' : 'bg-white/[0.05] text-pt-text'}`}>
+            <span className="text-[18px] font-semibold">{b.label}</span>
+            <span className="text-pt-muted text-[14px] truncate">{area.get(b.locationId) ?? ''}</span>
+            {b.id === current && <span className="ml-auto">✓</span>}
+          </button>
+        ))}
+        {!shown.length && <p className="text-pt-muted text-[16px] px-2 py-3">No bin called "{q}". Bins are made on Admin → Bins &amp; storage.</p>}
+        <button onClick={() => { onPick('', ''); onClose() }} className="w-full rounded-2xl px-4 min-h-[52px] text-left text-pt-muted text-[16px]">It has no bin</button>
+      </div>
+    </BottomSheet>
+  )
+}
+
+export function QtyStepper({ value, onChange, big = false }: { value: number; onChange: (n: number) => void; big?: boolean }) {
+  const btn = big ? 'w-14 h-14 text-[28px]' : 'w-11 h-11 text-[22px]'
+  return (
+    <div className="inline-flex items-center gap-1">
+      <button aria-label="One less" onClick={() => onChange(Math.max(1, value - 1))} disabled={value <= 1}
+        className={`${btn} rounded-full bg-white/[0.08] text-pt-text grid place-items-center disabled:opacity-30`}>−</button>
+      <input inputMode="numeric" aria-label="How many" value={value}
+        onChange={e => { const n = parseInt(e.target.value.replace(/\D/g, ''), 10); onChange(Number.isFinite(n) ? Math.min(9999, Math.max(1, n)) : 1) }}
+        className={`${big ? 'w-16 text-[28px]' : 'w-12 text-[18px]'} text-center font-bold bg-transparent text-pt-text outline-none`} />
+      <button aria-label="One more" onClick={() => onChange(Math.min(9999, value + 1))}
+        className={`${btn} rounded-full bg-white/[0.08] text-pt-text grid place-items-center`}>+</button>
+    </div>
+  )
+}
+
+/** A short message at the top (never over the buttons) with an optional Undo. */
+export function Toast({ text, onUndo, onDone }: { text: string; onUndo?: () => void; onDone: () => void }) {
+  useEffect(() => { const t = setTimeout(onDone, 6000); return () => clearTimeout(t) }, [text])   // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div role="status" onClick={onDone} className="fixed left-4 right-4 z-50 mx-auto max-w-[560px] rounded-2xl bg-pt-raised shadow-float px-4 min-h-[56px] flex items-center gap-3"
+      style={{ top: 'calc(env(safe-area-inset-top) + 8px)' }}>
+      <span className="flex-1 text-pt-text text-[16px]">{text}</span>
+      {onUndo && <button onClick={e => { e.stopPropagation(); onUndo(); onDone() }} className="tap text-pt-accent font-bold text-[16px] px-2 min-h-[44px]">Undo</button>}
+    </div>
+  )
+}
+
+/** A prop's photo (small version), or a grey box. */
+export function PropThumb({ item, size = 56, className = '' }: { item: Item; size?: number; className?: string }) {
+  const url = item.photos?.[0]
+  return (
+    <div className={`rounded-xl bg-white/[0.06] overflow-hidden shrink-0 ${className}`} style={{ width: size, height: size }}>
+      {url ? <img src={thumbOf(item, url)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+        : <div className="w-full h-full grid place-items-center text-pt-muted text-xs">No photo</div>}
+    </div>
+  )
+}

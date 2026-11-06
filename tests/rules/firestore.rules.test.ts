@@ -75,6 +75,14 @@ describe('who can get in', () => {
 })
 
 describe('inventory', () => {
+  it('clean-up (Nov 6): arts can mark a prop checked, remove it with a note and put it back; admins, gear team and creators cannot', async () => {
+    const at = '2026-11-06T12:00:00.000Z'
+    await assertSucceeds(updateDoc(doc(as(ARTS), 'items', 'cop'), { reviewedAt: at, reviewedBy: ARTS, quantity: 3, ...by(ARTS) }))
+    await assertSucceeds(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: true, removedAt: at, removedBy: ARTS, removedNote: 'Same prop twice', ...by(ARTS) }))
+    await assertSucceeds(updateDoc(doc(as(ARTS), 'items', 'cop'), { archived: false, ...by(ARTS) }))
+    for (const who of [ADMIN, GEAR, CREATOR]) await assertFails(updateDoc(doc(as(who), 'items', 'cop'), { reviewedAt: at, ...by(who) }))
+    await assertFails(deleteDoc(doc(as(ARTS), 'items', 'cop')))
+  })
   it('creators can view props', async () => {
     await assertSucceeds(getDoc(doc(as(CREATOR), 'items', 'cop')))
     await assertSucceeds(getDoc(doc(as(CREATOR), 'categories', 'prop')))

@@ -146,14 +146,28 @@ describe('taking gear on the day (grab-and-go)', () => {
     const noPhoto = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
     expect(noPhoto.message).toMatch(/photo/)
     const r = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'], missing: ['fx3|bat|1'] }, ANA)
-    if (weekday(today) === 0) { expect(r.message).toMatch(/closed today/); return }
     if (min < 360 || min >= 1410) return   // outside gear hours (6 AM to midnight): nothing to check
-    expect(r.ok).toBe(true)
+    expect(r.ok, r.message).toBe(true)
     const b = (await getDoc(`gear_bookings/${r.result.id}`))!
     expect(b).toMatchObject({ status: 'out', grab: true, creatorEmail: ANA, scheduleShootId: 'now', pickup: { by: ANA, photos: ['https://example.com/p.jpg'] } })
     expect(b.pickup.missing).toHaveLength(1)
     // Someone else can't take the same kit now.
     expect((await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)).ok).toBe(false)
+  })
+
+  it('on a closed day (Sunday, holidays) it works the same: no permission, out now, back when the shoot ends (owner, Nov 6)', async () => {
+    const now = nowStamp(), today = now.slice(0, 10), min = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+    if (min < 360 || min >= 1350) return   // outside gear hours (6 AM to midnight): nothing to check
+    await put('app_settings/booking', { leadTimeDays: 2, bufferDays: 1, closedWeekdays: [0], closedDates: [today] })
+    const start = Math.floor(min / 60) * 60, end = Math.min(1440, start + 120)
+    await put('shoots/sun', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: today, start, end,
+      from: `${today}T${String(Math.floor(start / 60)).padStart(2, '0')}:00`, to: end === 1440 ? `${today}T23:59` : `${today}T${String(Math.floor(end / 60)).padStart(2, '0')}:00`, kind: 'extra', history: [] })
+    const r = await call('takeGear', { scheduleShootId: 'sun', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)
+    expect(r.ok, r.message).toBe(true)
+    const b = (await getDoc(`gear_bookings/${r.result.id}`))!
+    expect(b).toMatchObject({ status: 'out', closedDay: false, pickupDay: today })
+    expect(b.from.slice(0, 10)).toBe(today)
+    expect(b.to <= `${today}T24:00`).toBe(true)
   })
 
   it('not on another person\'s shoot, and not days before', async () => {

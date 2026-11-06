@@ -42,6 +42,14 @@ export interface Item {
   cost?: number;            // legacy — read as replacementCost when that is missing
   whereToRebuy?: string;    // e.g. "Dollarama" or "Amazon: search 'fake eyeballs'"
   archived: boolean;        // archived props are hidden, never deleted
+  // Clean-up (owner, Nov 6): "Checked" = someone confirmed name, count and place; "Removed" = taken out by the crew
+  // (archived too), listed in Removed props with Put back.
+  reviewedAt?: string;
+  reviewedBy?: string;      // email
+  removedAt?: string;
+  removedBy?: string;       // email
+  removedNote?: string;     // why, e.g. "Same prop twice", "Not a prop"
+  mergedInto?: string;      // set by Merge when the double was kept for the records
   importedFrom?: { driveFileId: string; fileName: string; folder: string; mergedPhotos?: number }; // set on props from the batch import
   collection: PropCollection; // 'company' = Prime Capitol (everyone); 'personal' = the owner's own (owner only)
   embedding?: number[];     // legacy: from a retired AI model, no longer used or written

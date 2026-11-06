@@ -23,6 +23,7 @@ export const TRACKED_FIELDS: Record<string, string> = {
   binId: 'Bin',
   missingQty: 'Missing',
   archived: 'Archived',
+  removedNote: 'Removed because',
   status: 'Quick checkout',
   description: 'Description',
   notes: 'Notes for creators',

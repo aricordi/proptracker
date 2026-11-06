@@ -76,6 +76,13 @@ const items = [
     photos: [], status: 'available', archived: false },
   { id: 'old-lamp', name: 'Broken lamp (archived)', categoryId: 'set-dressing', quantity: 1, condition: 'damaged',
     tags: [], photos: [], status: 'available', archived: true },
+  // Messy imported props for the clean-up tools (owner, Nov 6): the same prop twice, a file name, one with no bin.
+  { id: 'imp-phone2', name: 'Rotary phones', categoryId: 'prop', quantity: 1, condition: 'good', tags: ['t-phone'], binId: 'bin-a2', locationId: 'loc-main',
+    photos: [], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-1', fileName: 'IMG_2201.HEIC', folder: 'Bin A2' } },
+  { id: 'imp-img', name: 'IMG_2034', categoryId: 'prop', quantity: 1, condition: 'good', tags: [], binId: 'bin-a1', locationId: 'loc-main',
+    photos: [], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-2', fileName: 'IMG_2034.HEIC', folder: 'Bin A1' } },
+  { id: 'imp-coat', name: 'Black peacoat', categoryId: 'costume', quantity: 1, condition: 'good', tags: [], description: 'Wool peacoat. Size XL.',
+    photos: [], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-3', fileName: 'IMG_3001.HEIC', folder: 'Wardrobe' } },
   // Old-style records, exactly as the previous version of the app saved them
   { id: 'legacy-skull', name: 'Fake skull', itemType: 'prop', status: 'damaged', cost: 25,
     tags: ['t-horror'], binId: 'bin-a2', locationId: 'loc-main', whereToRebuy: 'Spirit Halloween' },

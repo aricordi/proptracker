@@ -14,6 +14,8 @@ import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { comparePropPhotos as askGemini, GEMINI_API_KEY } from './gemini.js'
 import { reserveBudget, BUDGET, RESERVE_USD, everBooked } from './importer.js'
+import { getStorage } from 'firebase-admin/storage'
+import { groupSamePhotos } from './samePhotos.js'
 
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
 export const pairKey = (a: string, b: string) => [a, b].sort().join('|')
@@ -51,6 +53,19 @@ export const findDuplicates = onCall({ ...CALLABLE, timeoutSeconds: 120, memory:
   }
   pairs.sort((x, y) => y.score - x.score)
   return { pairs: pairs.slice(0, 1000), checked: vectors.length, withoutFingerprint: items.length - vectors.length }
+})
+
+// "Same photo twice" (owner, Nov 6): props whose photos are the very same file contents (Storage's md5 of each file).
+// Free: one listing of the photo folder, no AI. Owner + arts.
+export const findSamePhotos = onCall({ ...CALLABLE, timeoutSeconds: 120, memory: '512MiB' }, async req => {
+  await requireRole(req, ['owner', 'arts'])
+  const items = (await db.collection('items').where('collection', '==', 'company').get()).docs.filter(d => usable(d.data()))
+  const [files] = await getStorage().bucket().getFiles({ prefix: 'items/' })
+  const md5 = new Map<string, string>()
+  for (const f of files) { const h = f.metadata?.md5Hash; if (h) md5.set(f.name, String(h)) }
+  const dismissed = new Set<string>(((await db.doc('health/dismissed').get()).get('duplicatePairs') as string[] | undefined) ?? [])
+  const groups = groupSamePhotos(items.map(d => ({ id: d.id, photos: (d.get('photos') as string[] | undefined) ?? [] })), md5, dismissed)
+  return { groups: groups.slice(0, 300).map(ids => ({ ids })), checked: items.length }
 })
 
 export async function photoOf(item: DocumentData): Promise<{ base64: string; mimeType: string }> {

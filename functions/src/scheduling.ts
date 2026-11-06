@@ -12,7 +12,7 @@ import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline,
-  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, withinUndo,
+  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
@@ -204,7 +204,8 @@ export const bookShoot = onCall(CALLABLE, async req => {
 })
 
 // Cancel. With less than the notice period (48 h) left, a creator's cancel counts as a no-show:
-// the app must say so and the creator must confirm (confirmNoShow). The team never gets a no-show.
+// the app must say so and the creator must confirm (confirmNoShow). The team never gets a no-show. Free anyway: the
+// 10-minute undo, and shoots booked (or asked for) less than 24 h before they start (cancelCountsAsNoShow).
 export const cancelShoot = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
   const id = str(req.data?.id, 100)
@@ -220,8 +221,8 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     if (!team && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not allowed')
     if (b.status !== 'booked' && b.status !== 'requested') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started. Ask the schedule team if something went wrong.')
-    // Withdrawing a request that was never approved is always free.
-    noShow = !team && b.status === 'booked' && isShortNotice(b.from, now, s) && !withinUndo(b.createdAt)
+    // Withdrawing a request that was never approved is always free; so is a shoot booked less than 24 h before it starts.
+    noShow = !team && cancelCountsAsNoShow(b as { status: string; from: string; createdAt?: string; requestedAt?: string }, now, s)
     who = { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
     const mr = b.moveRequest as Spot | undefined

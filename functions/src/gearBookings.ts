@@ -117,7 +117,8 @@ export const takeGear = onCall(CALLABLE, async req => {
   if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot. Until then you can reserve it.` : 'This shoot is over.', { problem: 'take-window' })
   const settings = await loadSettings()
   const today = todayInStudio()
-  if (holdWindow(today, GEAR_DAY_START, GEAR_DAY_START + GEAR_STEP, settings).closedDay) throw new HttpsError('failed-precondition', 'The gear room is closed today, so gear can\'t go out. Ask the equipment team.', { problem: 'closed' })
+  // Closed days (Sundays): nobody supervises, so creators just take it with the same tick-every-piece + photo, and bring
+  // it back the same way (owner, Nov 6). No permission needed; the hold below is for that day only.
   // After midnight for the late slot: the gear room's day has ended (gear for the 11 PM slot is taken before midnight).
   if (today > shoot.date) throw new HttpsError('failed-precondition', 'Gear for this shoot had to be taken before midnight. Ask the equipment team.', { problem: 'take-window' })
   const start = Math.max(GEAR_DAY_START, Math.floor(minutesNow() / GEAR_STEP) * GEAR_STEP)
@@ -172,7 +173,8 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
     const h = crewHours([shoot, ...(await Promise.all(crew.map(c => db.doc(`shoots/${c.shootId}`).get()))).map(x => ({ start: x.get('start'), end: x.get('end') }))])
     if (h.start !== start || h.end !== end) throw new HttpsError('invalid-argument', `Shared gear covers the whole block (${fmtHours(h.start, h.end)}).`, { problem: 'crew-hours' })
   }
-  const win = holdWindow(date, start, end, settings)
+  // Taken on the day (incl. closed days): out now, back when the shoot ends. Reserved on a closed day: the old pickup rule.
+  const win = opts.take ? { from: stamp(date, start), to: stamp(date, end), pickup: date, closedDay: false } : holdWindow(date, start, end, settings)
   const title = str(d.title, 120) || 'Shoot'
   const now = new Date().toISOString()
   const ref = db.collection('gear_bookings').doc()

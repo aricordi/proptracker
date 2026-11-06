@@ -10,8 +10,12 @@ import { todayInStudio, lastDayToBook, pickupDay, addDays } from '../functions/s
 import { nowStamp, GEAR_DAY_START, GEAR_DAY_END, GEAR_LEAD_TIME_DAYS, gearReserveOpensAt, canTakeGear, fmtTime } from '../functions/src/gearBooking'
 import { useMyShoots, useScheduleSettings, fmtSlot, isLive, type Shoot } from './services/schedule'
 import { formatDay } from './lib/dates'
+import BottomSheet from './components/BottomSheet'
+import { primaryBtn, secondaryBtn } from './components/ChatCard'
 
 const KEY = 'primeapp.activeShoot.v1'
+// Which shoot the props basket was filled for (owner, Nov 6: switching shoots asks before moving an unsent basket).
+const BASKET_KEY = 'primeapp.basketShoot.v1'
 
 interface ActiveShootApi {
   shoot: Shoot | null          // the shoot being added to (null = just browsing)
@@ -60,16 +64,43 @@ export function ActiveShootProvider({ children }: { children: ReactNode }) {
     const t = setTimeout(() => choose(null), wait)
     return () => clearTimeout(t)
   }, [mine, id, shoot])   // eslint-disable-line react-hooks/exhaustive-deps
-  // Both baskets follow the shoot's day; gear follows its hours.
+  // The basket belongs to the shoot it was filled for. Switching to ANOTHER shoot with props still unsent asks first
+  // (owner, Nov 6: it might be a test basket they don't care about), instead of quietly moving them.
+  const [basketFor, setBasketForState] = useState<string>(() => { try { return localStorage.getItem(BASKET_KEY) ?? '' } catch { return '' } })
+  const setBasketFor = (v: string) => { setBasketForState(v); try { v ? localStorage.setItem(BASKET_KEY, v) : localStorage.removeItem(BASKET_KEY) } catch { /* private mode */ } }
   useEffect(() => {
-    if (!shoot) return
+    if (cart.count === 0) { if (basketFor) setBasketFor(''); return }
+    if (!basketFor && shoot) setBasketFor(shoot.id)
+  }, [cart.count, shoot?.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  const askMove = !!shoot && cart.count > 0 && !!basketFor && basketFor !== shoot.id
+  const label = useShootLabel()
+  const oldShoot = askMove ? upcoming.find(x => x.id === basketFor) ?? null : null
+  // Both baskets follow the shoot's day; gear follows its hours. (Not while the basket question is open.)
+  useEffect(() => {
+    if (!shoot || askMove) return
     if (cart.start !== shoot.date || cart.end !== shoot.date) cart.setDates(shoot.date, shoot.date)
     const h = gearHoursFor(shoot)
     // Gear always matches the shoot's slot (owner, Oct 20: no picking times).
     if (gear.date !== shoot.date || gear.start !== h.start || gear.end !== h.end) gear.setWhen(shoot.date, h.start, h.end)
   // (cart.start/end too: sending empties the basket and its day; without them it stayed dayless, audit Nov 5.)
-  }, [shoot?.id, shoot?.date, shoot?.start, shoot?.end, cart.start, cart.end, gear.date, gear.start, gear.end])   // eslint-disable-line react-hooks/exhaustive-deps
-  return <Ctx.Provider value={{ shoot, upcoming, loaded: mine !== null, choose }}>{children}</Ctx.Provider>
+  }, [shoot?.id, shoot?.date, shoot?.start, shoot?.end, cart.start, cart.end, gear.date, gear.start, gear.end, askMove])   // eslint-disable-line react-hooks/exhaustive-deps
+  const n = cart.count
+  return <Ctx.Provider value={{ shoot, upcoming, loaded: mine !== null, choose }}>
+    {children}
+    {askMove && shoot && (
+      <BottomSheet open locked onClose={() => {}} title={`Move your ${n} prop${n === 1 ? '' : 's'} to this shoot?`}>
+        <div className="space-y-3">
+          <p className="text-pt-muted text-[16px]">
+            {oldShoot ? <>You picked {n === 1 ? 'it' : 'them'} for <b className="text-pt-text">{label(oldShoot)}</b>.</> : <>You picked {n === 1 ? 'it' : 'them'} for another shoot.</>}
+            {' '}Nothing was sent yet.</p>
+          <p className="rounded-2xl bg-white/[0.06] px-4 py-3 text-[16px] text-pt-text">Now adding to: <b>{label(shoot)}</b></p>
+          <button onClick={() => setBasketFor(shoot.id)} className={`w-full ${primaryBtn}`}>Yes, move {n === 1 ? 'it' : 'them'} here</button>
+          <button onClick={() => { cart.clear(); setBasketFor(shoot.id) }} className={`w-full ${secondaryBtn}`}>No, empty the basket</button>
+          {oldShoot && <button onClick={() => choose(oldShoot.id)} className="tap w-full min-h-[44px] text-pt-accent text-[16px] font-semibold">Keep adding to {formatDay(oldShoot.date, { weekday: 'short', month: 'short', day: 'numeric' })} instead</button>}
+        </div>
+      </BottomSheet>
+    )}
+  </Ctx.Provider>
 }
 
 export function useActiveShoot(): ActiveShootApi {

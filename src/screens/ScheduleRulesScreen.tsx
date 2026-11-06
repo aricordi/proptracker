@@ -86,7 +86,7 @@ export default function ScheduleRulesScreen() {
         <H>Moving, swapping and cancelling</H>
         <ul className="list-disc pl-5 space-y-2">
           <Li>More than <b>{s.noticeHours} hours</b> before your shoot, you can <b>move</b> it to any free slot or <b>cancel</b> it for free. Moving an approved shoot is a request too: you keep your slot until the new one is approved.</Li>
-          <Li>Closer than {s.noticeHours} hours, you can only <b>swap</b> with another creator. Cancelling then <b>counts as a no-show</b>.</Li>
+          <Li>Closer than {s.noticeHours} hours, you can only <b>swap</b> with another creator. Cancelling then <b>counts as a no-show</b>, unless you booked the shoot <b>less than 24 hours</b> before it starts (then cancelling is free).</Li>
           <Li>To swap, open your shoot → <b>Swap with someone</b>, or tap someone's slot → <b>Ask to swap</b>. When they accept, both shoots switch instantly. A swap never counts against anyone.</Li>
           <Li>Booked something by mistake? You can cancel it for free within 10 minutes of booking.</Li>
           <Li>If the team moves or cancels your shoot (for example, for a repair), it never counts against you.</Li>

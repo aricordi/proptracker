@@ -33,6 +33,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('suggestions', '/suggestions', 'Suggested edits', 'Creators’ corrections to props', 'pencil'),
     ] },
     { key: 'props', title: 'Props & storage', icon: 'box', items: [
+      I('cleanup', '/cleanup', 'Clean up props', 'Fix names, counts, bins and doubles after the import', 'check'),
       I('addprop', '/add', 'Add a prop', 'Snap it, AI fills it in', 'plus'),
       I('personal', '/personal', 'My personal props', 'Your own props at home (only you see them)', 'lock'),
       I('bins', '/bins', 'Bins & storage', 'Storage areas, bins, QR codes', 'archive'),
@@ -110,6 +111,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('suggestions', '/suggestions', 'Suggested edits', 'Creators’ corrections to props', 'pencil'),
     ] },
     { key: 'props', title: 'Props & storage', icon: 'archive', items: [
+      I('cleanup', '/cleanup', 'Clean up props', 'Fix names, counts, bins and doubles after the import', 'check'),
       I('bins', '/bins', 'Bins & storage', 'Storage areas, bins, QR codes', 'archive'),
       I('duplicates', '/duplicates', 'Find duplicates', 'Look-alike props to merge', 'search'),
       I('health', '/health', 'Health', 'Fix-it list, counts, export', 'check'),

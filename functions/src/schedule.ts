@@ -6,7 +6,7 @@
 // document in a transaction, which is what makes double-booking a house impossible.
 // Times are minutes after midnight (420 = 7 AM). The last slot may run past midnight.
 import { weekday, addDays, isDay } from './booking.js'
-import { stamp, addMinutes, fmtTime } from './gearBooking.js'
+import { stamp, addMinutes, fmtTime, nowStamp } from './gearBooking.js'
 
 export type House = 'cliff1' | 'cliff2'
 export type Place = House | 'offsite'
@@ -293,6 +293,23 @@ export const isShortNotice = (from: string, now: string, s: ScheduleSettings) =>
 // Just booked it by mistake? Cancelling within 10 minutes of booking is always free.
 export const UNDO_MINUTES = 10
 export const withinUndo = (createdAt: string | undefined, nowMs = Date.now()) => !!createdAt && nowMs - Date.parse(createdAt) < UNDO_MINUTES * 60_000
+
+// Booked (or asked for) less than 24 hours before it starts? Then cancelling is always free (owner, Nov 6): the creator
+// never had the full notice period to begin with.
+export const LATE_BOOKING_FREE_HOURS = 24
+export function bookedLate(sh: { from: string; createdAt?: string; requestedAt?: string }): boolean {
+  const asked = sh.requestedAt || sh.createdAt
+  if (!asked || !sh.from) return false
+  const t = Date.parse(asked)
+  if (Number.isNaN(t)) return false
+  return nowStamp(new Date(t)) >= addMinutes(sh.from, -LATE_BOOKING_FREE_HOURS * 60)
+}
+
+/** Does a CREATOR cancelling this shoot right now count as a no-show? Only an approved shoot, inside the notice period,
+ *  not within the 10-minute undo, and not one that was booked less than 24 h before it starts. (The team never gets one.) */
+export function cancelCountsAsNoShow(sh: { status: string; from: string; createdAt?: string; requestedAt?: string }, now: string, s: ScheduleSettings): boolean {
+  return sh.status === 'booked' && isShortNotice(sh.from, now, s) && !withinUndo(sh.createdAt) && !bookedLate(sh)
+}
 
 // ─── On the day: check in, wrap, missed check-ins (step 4) ───────────────────
 export interface AttendanceShoot { status: string; from: string; to: string; checkin?: { at: string } | null; outcome?: string | null

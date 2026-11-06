@@ -39,6 +39,11 @@ const PersonHistoryScreen = lazy(() => import('./screens/PersonHistoryScreen'))
 const ImportScreen = lazy(() => import('./screens/ImportScreen'))
 const ImportReviewScreen = lazy(() => import('./screens/ImportReviewScreen'))
 const DuplicatesScreen = lazy(() => import('./screens/DuplicatesScreen'))
+const CleanupScreen = lazy(() => import('./screens/CleanupScreen'))
+const CleanupCheckScreen = lazy(() => import('./screens/CleanupCheckScreen'))
+const CleanupListScreen = lazy(() => import('./screens/CleanupListScreen'))
+const CleanupDoublesScreen = lazy(() => import('./screens/CleanupDoublesScreen'))
+const CleanupRemovedScreen = lazy(() => import('./screens/CleanupRemovedScreen'))
 const GearItemsScreen = lazy(() => import('./screens/GearItemsScreen'))
 const GearBundlesScreen = lazy(() => import('./screens/GearBundlesScreen'))
 const GearBundleEditScreen = lazy(() => import('./screens/GearBundleEditScreen'))
@@ -69,7 +74,7 @@ import { AssistantProvider, ChatHome, isChatFirst } from './assistant'
 import { BugReportProvider } from './components/BugReport'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
 import Splash from './components/Splash'
-import { useTourDone, skipTour, tourSkipped } from './tour/tourState'
+import { useTourDone, skipTour, tourSkipped, markTourDone } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const BugsScreen = lazy(() => import('./screens/BugsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
@@ -119,8 +124,9 @@ function TourGate({ children }: { children: ReactNode }) {
   if (!required || done || tourSkipped(profile.email)) return <>{children}</>
   if (done === undefined) return <ScreenFallback />
   // Finished (or paused with Not now): land on Home (owner, Oct 20).
-  const finished = () => { setDone(); navigate('/', { replace: true }) }
-  const skipped = () => { skipTour(profile.email); finished() }
+  // Saved on the phone AND the profile (Nov 6: the arts Team guide's "Got it" wasn't saved, so it came back on every open).
+  const finished = () => { markTourDone(profile.email); setDone(); navigate('/', { replace: true }) }
+  const skipped = () => { skipTour(profile.email); setDone(); navigate('/', { replace: true }) }   // asks again in a week
   // Owner, Nov 3: the team gets a SHORT hands-on tour (equipment, admins); the arts department gets the one-page guide.
   return <Suspense fallback={<ScreenFallback />}>{realRole === 'equipment' || realRole === 'admin'
     ? <TeamTour role={realRole} required onFinish={finished} onSkip={skipped} /> : <TeamGuideScreen onDone={finished} />}</Suspense>
@@ -410,6 +416,12 @@ export default function App() {
           <Route path="/import" element={<OwnerOnly><ImportScreen /></OwnerOnly>} />
           <Route path="/import/:jobId" element={<OwnerOnly><ImportReviewScreen /></OwnerOnly>} />
           <Route path="/duplicates" element={<StaffOnly><DuplicatesScreen /></StaffOnly>} />
+          {/* Clean up props (owner, Nov 6): arts + owner. */}
+          <Route path="/cleanup" element={<StaffOnly><CleanupScreen /></StaffOnly>} />
+          <Route path="/cleanup/check" element={<StaffOnly><CleanupCheckScreen /></StaffOnly>} />
+          <Route path="/cleanup/list" element={<StaffOnly><CleanupListScreen /></StaffOnly>} />
+          <Route path="/cleanup/doubles" element={<StaffOnly><CleanupDoublesScreen /></StaffOnly>} />
+          <Route path="/cleanup/removed" element={<StaffOnly><CleanupRemovedScreen /></StaffOnly>} />
           <Route path="/suggestions" element={<StaffOnly><SuggestionsScreen /></StaffOnly>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

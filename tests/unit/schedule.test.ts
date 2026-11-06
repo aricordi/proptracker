@@ -102,3 +102,22 @@ describe('who is expected to check in (audit, Nov 5)', () => {
     expect(expectsCheckIn(base, () => false)).toBe(false)
   })
 })
+
+import { bookedLate, cancelCountsAsNoShow, DEFAULT_SCHEDULE as DS2 } from '../../functions/src/schedule'
+describe('free cancel for late bookings (owner, Nov 6)', () => {
+  // 2026-11-07 is EST (UTC-5): 17:00 Toronto = 22:00 UTC.
+  it('booked less than 24 h before the start = late', () => {
+    expect(bookedLate({ from: '2026-11-07T17:00', createdAt: '2026-11-06T23:00:00.000Z' })).toBe(true)    // 18 h ahead
+    expect(bookedLate({ from: '2026-11-07T17:00', createdAt: '2026-11-05T12:00:00.000Z' })).toBe(false)   // 2+ days ahead
+    expect(bookedLate({ from: '2026-11-07T17:00', requestedAt: '2026-11-06T23:00:00.000Z', createdAt: '2026-11-01T00:00:00.000Z' })).toBe(true)
+    expect(bookedLate({ from: '2026-11-07T17:00' })).toBe(false)
+  })
+  it('only an approved shoot inside the notice period, not just booked, not booked late, counts as a no-show', () => {
+    const old = '2026-11-01T12:00:00.000Z'
+    const now = '2026-11-07T09:00'
+    expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-07T17:00', createdAt: old }, now, DS2)).toBe(true)
+    expect(cancelCountsAsNoShow({ status: 'requested', from: '2026-11-07T17:00', createdAt: old }, now, DS2)).toBe(false)
+    expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-07T17:00', createdAt: '2026-11-06T23:00:00.000Z' }, now, DS2)).toBe(false)
+    expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-12T17:00', createdAt: old }, now, DS2)).toBe(false)
+  })
+})

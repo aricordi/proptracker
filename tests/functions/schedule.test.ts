@@ -180,6 +180,19 @@ describe('moving and the 48-hour notice', () => {
     expect(c.result.lateCancel).toBe(false)
   })
 
+  it('a shoot booked less than 24 hours before it starts can be cancelled for free (owner, Nov 6)', async () => {
+    const { nowStamp, addMinutes } = await import('../../functions/src/gearBooking')
+    const r = await book(ANA, { date: SOON, start: SOON_AT, kind: 'extra' })
+    const sh = (await getDoc(`shoots/${r.result.id}`))!
+    // Asked for an hour ago (past the 10-minute undo) for a shoot 5 hours from now = booked 6 hours ahead.
+    await put(`shoots/${r.result.id}`, { ...sh, from: addMinutes(nowStamp(), 5 * 60), createdAt: new Date(Date.now() - 3600e3).toISOString() })
+    const c = await call('cancelShoot', { id: r.result.id }, ANA)
+    expect(c.ok, c.message).toBe(true)
+    expect(c.result.lateCancel).toBe(false)
+    expect((await getDoc(`shoots/${r.result.id}`))!.noShow).toBeUndefined()
+    expect(await getDoc(`user_status/${ANA}`)).toBeFalsy()
+  })
+
   it('inside 48 hours: no free move; cancelling needs confirming and counts as a no-show; the team is exempt', async () => {
     const r = await book(ANA, { date: SOON, start: SOON_AT, kind: 'extra' })
     expect(r.ok, r.message).toBe(true)
