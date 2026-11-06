@@ -74,8 +74,26 @@ export async function restoreProps(ids: string[]) {
   await bulkUpdate(ids, { archived: false, removedAt: deleteField(), removedBy: deleteField(), removedNote: deleteField() })
 }
 
-// Server: props whose photos are the very same picture (same file contents), found from the stored photos' fingerprints.
-export interface SamePhotoGroup { ids: string[] }
-export const findSamePhotos = httpsCallable<void, { groups: SamePhotoGroup[]; checked: number }>(functions, 'findSamePhotos')
+// ─── Doubles (server: every clue merged, see functions/src/doubles.ts) ────────
+import type { DoublePair, AiVerdict } from '../../functions/src/doubles'
+export type { DoublePair, AiVerdict }
+const findDoublesFn = httpsCallable<void, { pairs: DoublePair[]; checked: number; withoutFingerprint: number }>(functions, 'findDoubles')
+export const aiCheckPairs = httpsCallable<{ pairs: { a: string; b: string }[] }, { verdicts: Record<string, AiVerdict>; resting: boolean }>(functions, 'aiCheckPairs')
+export const suggestPropNames = httpsCallable<{ ids: string[] }, { names: Record<string, string>; resting: boolean }>(functions, 'suggestPropNames')
+
+// One copy for the session (it takes the server a few seconds to compare everything), refreshed after 10 minutes.
+let cache: { at: number; pairs: DoublePair[]; checked: number } | null = null
+let pending: Promise<{ pairs: DoublePair[]; checked: number }> | null = null
+export function cachedDoubles() { return cache && Date.now() - cache.at < 10 * 60_000 ? cache : null }
+export function loadDoubles(force = false): Promise<{ pairs: DoublePair[]; checked: number }> {
+  const c = cachedDoubles()
+  if (c && !force) return Promise.resolve(c)
+  if (pending && !force) return pending
+  pending = findDoublesFn().then(r => { cache = { at: Date.now(), pairs: r.data.pairs, checked: r.data.checked }; return cache })
+    .finally(() => { pending = null })
+  return pending
+}
+/** Keep the session copy in step with what the screen did (combined, said different, AI opinions). */
+export function setCachedPairs(pairs: DoublePair[]) { if (cache) cache = { ...cache, pairs } }
 
 export const REMOVE_REASONS = ['Same prop twice', 'Not a prop', 'Blurry or bad photo', "We don't have it any more", 'Supplies, not a prop'] as const

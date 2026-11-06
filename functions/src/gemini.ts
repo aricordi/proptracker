@@ -278,6 +278,43 @@ Return ONLY JSON: {"same": true|false, "confidence": "high"|"medium"|"low", "rea
   return { verdict: { same: parsed.same === true, confidence, reason: String(parsed.reason ?? '').slice(0, 200) }, costUsd }
 }
 
+// ─── Clean-up: a better name for a prop, from its photo (owner, Nov 6) ─────────
+// The crew sees the suggestion and accepts or edits it; nothing is renamed by itself.
+export async function suggestPropName(
+  apiKey: string | undefined,
+  info: { name: string; description?: string; category?: string },
+  image: { base64: string; mimeType: string } | null,
+): Promise<{ name: string; costUsd: number }> {
+  if (isFakeMode(apiKey)) {
+    const words = (info.description || info.name || 'Prop').replace(/[^\w\s'-]/g, ' ').split(/\s+/).filter(Boolean).slice(0, 4).join(' ')
+    return { name: words ? words[0].toUpperCase() + words.slice(1) : 'Prop', costUsd: 0.001 }
+  }
+  if (!apiKey) throw new Error('Gemini API key is not configured')
+  const prompt = `You name props in a film production's prop inventory so the team can find them by searching.
+Current name: ${JSON.stringify(info.name.slice(0, 120))}. Category: ${JSON.stringify((info.category ?? '').slice(0, 40))}.
+Description: ${JSON.stringify((info.description ?? '').slice(0, 400))}.
+Look at the photo and give the prop a short, plain name of 2 to 5 words that a person would type to find it: what it is,
+plus the one detail that tells it apart (colour, material, era or style). Examples: "Red rotary phone", "Brass candle holder",
+"Black wool peacoat", "Fake skull". No brand names unless printed large on it, no quantities, no bin or shelf signs, no punctuation.
+If the photo shows a bin label, sign or several different things, name the main prop. Return ONLY JSON: {"name": "..."}`
+  const parts: unknown[] = [{ text: prompt }]
+  if (image) parts.push({ inlineData: { mimeType: image.mimeType, data: image.base64 } })
+  const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
+    method: 'POST', headers: keyHeaders(apiKey),
+    body: JSON.stringify({ contents: [{ parts }], generationConfig: { temperature: 0.2, maxOutputTokens: 200, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } } }),
+  })
+  if (!res.ok) throw new Error(`Gemini ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const json = await res.json() as any
+  const usage = json.usageMetadata ?? {}
+  const costUsd = ((usage.promptTokenCount ?? 0) * PRICE_PER_M.in + ((usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)) * PRICE_PER_M.out) / 1_000_000
+  const text: string = json.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const m = text.match(/\{[\s\S]*\}/)
+  let name = ''
+  try { name = String((m ? JSON.parse(m[0]) : {}).name ?? '') } catch { name = '' }
+  name = name.replace(/[\r\n\t"<>{}]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
+  return { name, costUsd }
+}
+
 // ─── Text in, JSON out (the creator AI helpers) ───────────────────────────────
 
 // One request answered as a JSON object, plus what it cost. Callers handle test mode.

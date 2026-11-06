@@ -274,6 +274,8 @@ describe('internal notes and server-only data', () => {
     await assertSucceeds(setDoc(doc(as(ARTS), 'item_private', 'cop'), { internalNotes: 'Repaired 2026' }))
   })
   it('nobody in the app can read or change search fingerprints', async () => {
+    await assertFails(getDoc(doc(as(ARTS), 'dup_verdicts', 'a__b')))   // the AI's double checks: server only
+    await assertFails(setDoc(doc(as(ARTS), 'dup_verdicts', 'a__b'), { same: true }))
     await assertFails(getDoc(doc(as(OWNER), 'item_vectors', 'cop')))
     await assertFails(setDoc(doc(as(OWNER), 'item_vectors', 'cop'), { textHash: 'y' }))
   })

@@ -12,10 +12,11 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
-import { comparePropPhotos as askGemini, GEMINI_API_KEY } from './gemini.js'
+import { comparePropPhotos as askGemini, suggestPropName, GEMINI_API_KEY } from './gemini.js'
 import { reserveBudget, BUDGET, RESERVE_USD, everBooked } from './importer.js'
 import { getStorage } from 'firebase-admin/storage'
-import { groupSamePhotos } from './samePhotos.js'
+import { buildDoubles, pairKeyOf, type AiVerdict } from './doubles.js'
+import { reserveCleanupAi } from './assistant.js'
 
 const apiKey = () => { try { return GEMINI_API_KEY.value() || undefined } catch { return undefined } }
 export const pairKey = (a: string, b: string) => [a, b].sort().join('|')
@@ -23,24 +24,21 @@ export const MIN_SIMILARITY = 0.86
 
 const usable = (d: DocumentData | undefined) => !!d && d.collection === 'company' && d.archived !== true
 
-export const findDuplicates = onCall({ ...CALLABLE, timeoutSeconds: 120, memory: '1GiB' }, async req => {
-  await requireRole(req, ['owner', 'arts'])
-  const min = typeof req.data?.min === 'number' && req.data.min >= 0.5 && req.data.min < 1 ? req.data.min : MIN_SIMILARITY
-
-  const items = (await db.collection('items').where('collection', '==', 'company').get()).docs.filter(d => usable(d.data()))
+// The smart-search fingerprints of these props (item_vectors), as unit-length vectors.
+async function loadVectors(ids: string[]): Promise<{ id: string; v: Float32Array }[]> {
   const vectors: { id: string; v: Float32Array }[] = []
-  for (let i = 0; i < items.length; i += 300) {
-    const chunk = items.slice(i, i + 300)
-    const snaps = await db.getAll(...chunk.map(d => db.doc(`item_vectors/${d.id}`)))
+  for (let i = 0; i < ids.length; i += 300) {
+    const snaps = await db.getAll(...ids.slice(i, i + 300).map(id => db.doc(`item_vectors/${id}`)))
     snaps.forEach(s => {
       const e = s.get('embedding')
       const arr: number[] | undefined = e?.toArray ? e.toArray() : Array.isArray(e) ? e : undefined
       if (arr?.length) vectors.push({ id: s.id, v: Float32Array.from(arr) })
     })
   }
-  const dismissed = new Set<string>(((await db.doc('health/dismissed').get()).get('duplicatePairs') as string[] | undefined) ?? [])
-
-  // Fingerprints are unit length, so the dot product is the similarity (1 = identical).
+  return vectors
+}
+// Fingerprints are unit length, so the dot product is the similarity (1 = identical).
+function lookPairs(vectors: { id: string; v: Float32Array }[], min: number) {
   const pairs: { a: string; b: string; score: number }[] = []
   for (let i = 0; i < vectors.length; i++) {
     const a = vectors[i].v
@@ -48,28 +46,110 @@ export const findDuplicates = onCall({ ...CALLABLE, timeoutSeconds: 120, memory:
       const b = vectors[j].v
       let dot = 0
       for (let k = 0; k < a.length; k++) dot += a[k] * b[k]
-      if (dot >= min && !dismissed.has(pairKey(vectors[i].id, vectors[j].id))) pairs.push({ a: vectors[i].id, b: vectors[j].id, score: dot })
+      if (dot >= min) pairs.push({ a: vectors[i].id, b: vectors[j].id, score: Math.round(dot * 1000) / 1000 })
     }
   }
+  return pairs
+}
+const dismissedPairs = async () => new Set<string>(((await db.doc('health/dismissed').get()).get('duplicatePairs') as string[] | undefined) ?? [])
+
+export const findDuplicates = onCall({ ...CALLABLE, timeoutSeconds: 120, memory: '1GiB' }, async req => {
+  await requireRole(req, ['owner', 'arts'])
+  const min = typeof req.data?.min === 'number' && req.data.min >= 0.5 && req.data.min < 1 ? req.data.min : MIN_SIMILARITY
+  const items = (await db.collection('items').where('collection', '==', 'company').get()).docs.filter(d => usable(d.data()))
+  const vectors = await loadVectors(items.map(d => d.id))
+  const dismissed = await dismissedPairs()
+  const pairs = lookPairs(vectors, min).filter(p => !dismissed.has(pairKey(p.a, p.b)))
   pairs.sort((x, y) => y.score - x.score)
   return { pairs: pairs.slice(0, 1000), checked: vectors.length, withoutFingerprint: items.length - vectors.length }
 })
 
-// "Same photo twice" (owner, Nov 6): props whose photos are the very same file contents (Storage's md5 of each file).
-// Free: one listing of the photo folder, no AI. Owner + arts.
-export const findSamePhotos = onCall({ ...CALLABLE, timeoutSeconds: 120, memory: '512MiB' }, async req => {
+// CLEAN-UP DOUBLES (owner, Nov 6): every clue in one sorted list of pairs (same photo file, fingerprints, names, same bin,
+// the AI's cached opinion). See doubles.ts. Free: no AI here. Owner + arts.
+export const findDoubles = onCall({ ...CALLABLE, timeoutSeconds: 180, memory: '1GiB' }, async req => {
   await requireRole(req, ['owner', 'arts'])
-  const items = (await db.collection('items').where('collection', '==', 'company').get()).docs.filter(d => usable(d.data()))
-  const [files] = await getStorage().bucket().getFiles({ prefix: 'items/' })
-  const md5 = new Map<string, string>()
-  for (const f of files) { const h = f.metadata?.md5Hash; if (h) md5.set(f.name, String(h)) }
-  const dismissed = new Set<string>(((await db.doc('health/dismissed').get()).get('duplicatePairs') as string[] | undefined) ?? [])
-  const groups = groupSamePhotos(items.map(d => ({ id: d.id, photos: (d.get('photos') as string[] | undefined) ?? [] })), md5, dismissed)
-  return { groups: groups.slice(0, 300).map(ids => ({ ids })), checked: items.length }
+  const docs = (await db.collection('items').where('collection', '==', 'company').get()).docs.filter(d => usable(d.data()))
+  const items = docs.map(d => ({ id: d.id, name: String(d.get('name') ?? ''), binId: (d.get('binId') as string | undefined) ?? null, photos: (d.get('photos') as string[] | undefined) ?? [] }))
+  const [[files], vectors, dismissed, verdictSnaps] = await Promise.all([
+    getStorage().bucket().getFiles({ prefix: 'items/' }),
+    loadVectors(docs.map(d => d.id)),
+    dismissedPairs(),
+    db.collection('dup_verdicts').get(),
+  ])
+  const md5ByPath = new Map<string, string>()
+  for (const f of files) { const h = f.metadata?.md5Hash; if (h) md5ByPath.set(f.name, String(h)) }
+  const verdicts = new Map<string, AiVerdict>(verdictSnaps.docs.map(v => [String(v.get('key')), { same: v.get('same') === true, confidence: v.get('confidence'), reason: String(v.get('reason') ?? '') }]))
+  const pairs = buildDoubles({ items, md5ByPath, lookPairs: lookPairs(vectors, MIN_SIMILARITY), dismissed, verdicts })
+  return { pairs, checked: items.length, withoutFingerprint: items.length - vectors.length }
 })
 
-export async function photoOf(item: DocumentData): Promise<{ base64: string; mimeType: string }> {
-  const url = (item.photos as string[] | undefined)?.[0] ?? item.photoUrl
+// The AI looks at both photos of up to 30 pairs (small photo versions, 5 at a time). Each answer is kept in dup_verdicts, so
+// a pair is never paid for twice. Counts against the monthly AI budget only (the crew goes through thousands). Owner + arts.
+const verdictId = (k: string) => k.replace('|', '__')
+export const aiCheckPairs = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutSeconds: 300, memory: '1GiB' }, async req => {
+  await requireRole(req, ['owner', 'arts'])
+  const asked = (Array.isArray(req.data?.pairs) ? req.data.pairs : []).slice(0, 30)
+    .map((p: { a?: unknown; b?: unknown }) => ({ a: String(p?.a ?? ''), b: String(p?.b ?? '') }))
+    .filter((p: { a: string; b: string }) => p.a && p.b && p.a !== p.b && !p.a.includes('/') && !p.b.includes('/'))
+  const out: Record<string, AiVerdict> = {}
+  const todo: { a: string; b: string; k: string }[] = []
+  for (const p of asked) {
+    const k = pairKeyOf(p.a, p.b)
+    const cached = await db.doc(`dup_verdicts/${verdictId(k)}`).get()
+    if (cached.exists) out[k] = { same: cached.get('same') === true, confidence: cached.get('confidence'), reason: String(cached.get('reason') ?? '') }
+    else todo.push({ ...p, k })
+  }
+  let resting = false
+  for (let i = 0; i < todo.length; i += 5) {
+    const chunk = todo.slice(i, i + 5)
+    const settle = await reserveCleanupAi('cleanup-compare', chunk.length)
+    if (!settle) { resting = true; break }
+    let cost = 0
+    await Promise.all(chunk.map(async p => {
+      try {
+        const [A, B] = await db.getAll(db.doc(`items/${p.a}`), db.doc(`items/${p.b}`))
+        if (!usable(A.data()) || !usable(B.data())) return
+        const { verdict, costUsd } = await askGemini(apiKey(), { name: A.get('name'), image: await photoOf(A.data()!, true) }, { name: B.get('name'), image: await photoOf(B.data()!, true) })
+        cost += costUsd
+        out[p.k] = verdict
+        await db.doc(`dup_verdicts/${verdictId(p.k)}`).set({ key: p.k, ...verdict, at: new Date().toISOString() })
+      } catch { /* no photo, or the AI hiccuped: that pair just stays without an AI opinion */ }
+    }))
+    await settle(cost)
+  }
+  return { verdicts: out, resting }
+})
+
+// AI name suggestions for up to 12 props (owner, Nov 6: "IMG_2034" and other names nobody would search). The crew sees each
+// suggestion and accepts or edits it; nothing is renamed here. Monthly AI budget only. Owner + arts.
+export const suggestPropNames = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY], timeoutSeconds: 120, memory: '512MiB' }, async req => {
+  await requireRole(req, ['owner', 'arts'])
+  const raw: unknown[] = Array.isArray(req.data?.ids) ? req.data.ids : []
+  const ids = [...new Set(raw.map(x => String(x)))].filter(id => !!id && !id.includes('/')).slice(0, 12)
+  if (!ids.length) return { names: {}, resting: false }
+  const settle = await reserveCleanupAi('cleanup-names', ids.length)
+  if (!settle) return { names: {}, resting: true }
+  const cats = new Map((await db.collection('categories').get()).docs.map(c => [c.id, String(c.get('label') ?? c.id)]))
+  const names: Record<string, string> = {}
+  let cost = 0
+  await Promise.all(ids.map(async id => {
+    try {
+      const d = (await db.doc(`items/${id}`).get()).data()
+      if (!usable(d)) return
+      const image = (d!.photos as string[] | undefined)?.length ? await photoOf(d!, true).catch(() => null) : null
+      const r = await suggestPropName(apiKey(), { name: String(d!.name ?? ''), description: String(d!.description ?? ''), category: cats.get(String(d!.categoryId ?? '')) }, image)
+      cost += r.costUsd
+      if (r.name) names[id] = r.name
+    } catch { /* skip this one */ }
+  }))
+  await settle(cost)
+  return { names, resting: false }
+})
+
+export async function photoOf(item: DocumentData, small = false): Promise<{ base64: string; mimeType: string }> {
+  const first = (item.photos as string[] | undefined)?.[0] ?? item.photoUrl
+  // The small version (≤480px, made by the server) is plenty for the AI and far cheaper to send.
+  const url = small && first ? ((item.thumbs as Record<string, string> | undefined)?.[first] ?? first) : first
   if (!url) throw new HttpsError('failed-precondition', `"${item.name}" has no photo to compare.`)
   const res = await fetch(url)
   if (!res.ok) throw new HttpsError('unavailable', `Couldn't load the photo of "${item.name}".`)
@@ -121,7 +201,9 @@ export const mergeProps = onCall({ ...CALLABLE, timeoutSeconds: 60 }, async req 
     const unique = [...new Set(photos)].slice(0, 20)
     tx.update(keepRef, {
       photos: unique, photoUrl: unique[0] ?? FieldValue.delete(),
-      ...(copies ? { quantity: FieldValue.increment(Number(remove.get('quantity')) || 1) } : {}),
+      // Copies add up; the same prop photographed twice keeps the higher count (one photo may have shown a "x2" sign).
+      ...(copies ? { quantity: FieldValue.increment(Number(remove.get('quantity')) || 1) }
+        : (Number(remove.get('quantity')) || 1) > (Number(keep.get('quantity')) || 1) ? { quantity: Number(remove.get('quantity')) } : {}),
       ...(bin ? { binId: bin.id, ...(bin.get('locationId') ? { locationId: bin.get('locationId') } : {}) } : {}),
       updatedAt: now, updatedBy: caller.email,
     })

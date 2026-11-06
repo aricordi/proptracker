@@ -1,7 +1,7 @@
 <title>Clean Up Props · Crew Sheet</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
-/* Layout: one phone-width column; each section answers one question the crew will have tonight. Matches the app (Black & Gold). */
+/* Layout: one phone-width column, in the order the crew will work tonight. Matches the app (Black & Gold). */
 :root {
   --bg: #000000;
   --surface: #1C1C1E;
@@ -12,7 +12,9 @@
   --gold-ink: #1C1917;
   --red-bg: rgba(239, 68, 68, 0.16);
   --red-ink: #FECACA;
-  --green: #22C55E;
+  --green: #16A34A;
+  --violet: #A78BFA;
+  --violet-bg: rgba(139, 92, 246, 0.15);
   --sky: #7DD3FC;
   --sky-bg: rgba(56, 189, 248, 0.10);
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -26,62 +28,52 @@ body {
 }
 main { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
 h1 { font-size: 34px; line-height: 1.1; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
-h2 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 12px; text-wrap: balance; }
+h2 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
 p { margin: 0; }
 .muted { color: var(--muted); }
 .lede { color: var(--muted); font-size: 18px; margin-top: 8px; }
-.card { background: var(--surface); border-radius: 20px; padding: 18px; }
 .path { display: inline-block; background: var(--raised); border-radius: 10px; padding: 1px 8px; font-weight: 600; white-space: nowrap; }
-
-/* The gold card exactly as it appears at the top of Admin. */
-.goldcard { background: var(--gold); color: var(--gold-ink); border-radius: 24px; padding: 16px; box-shadow: 0 8px 24px rgba(201,169,97,0.25); }
+.goldcard { background: var(--gold); color: var(--gold-ink); border-radius: 24px; padding: 16px; }
 .goldcard .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .goldcard b { font-size: 20px; }
 .goldcard .bar { margin-top: 12px; height: 8px; border-radius: 99px; background: rgba(28,25,23,0.2); overflow: hidden; }
 .goldcard .bar span { display: block; height: 100%; width: 22%; background: var(--gold-ink); }
 
-/* The three buttons on every prop. */
-.btns { display: flex; gap: 8px; margin: 4px 0 2px; }
-.btn { flex: 1; border-radius: 16px; min-height: 52px; display: grid; place-items: center; text-align: center; font-weight: 700; font-size: 16px; padding: 4px 8px; line-height: 1.2; }
-.btn.red { background: var(--red-bg); color: var(--red-ink); }
+/* The four jobs, numbered because the order matters. */
+ol.jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: j; }
+ol.jobs > li { background: var(--surface); border-radius: 20px; padding: 16px; display: grid; grid-template-columns: 40px 1fr; gap: 12px; counter-increment: j; }
+ol.jobs > li::before { content: counter(j); width: 40px; height: 40px; border-radius: 50%; background: var(--raised); color: var(--gold); display: grid; place-items: center; font-weight: 800; font-size: 18px; }
+ol.jobs > li:first-child { background: var(--gold); color: var(--gold-ink); }
+ol.jobs > li:first-child::before { background: var(--gold-ink); color: var(--gold); }
+ol.jobs > li:first-child .muted { color: rgba(28,25,23,0.78); }
+ol.jobs > li > div { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+ol.jobs h3 { margin: 0; font-size: 20px; line-height: 1.2; }
+
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border-radius: 14px; min-height: 44px; padding: 8px 14px; display: inline-grid; place-items: center; font-weight: 700; font-size: 15px; line-height: 1.2; text-align: center; }
+.btn.gold { background: var(--gold); color: var(--gold-ink); }
+.btn.dark { background: var(--gold-ink); color: var(--gold); }
 .btn.grey { background: rgba(255,255,255,0.08); color: var(--text); }
-.btn.gold { background: var(--gold); color: var(--gold-ink); flex: 1.5; }
+.btn.greyOnGold { background: rgba(28,25,23,0.12); color: var(--gold-ink); }
+.btn.green { background: var(--green); color: #fff; }
+.ai { background: var(--violet-bg); color: #EDE9FE; border-radius: 12px; padding: 8px 12px; font-size: 15px; }
+.ai b { color: var(--violet); }
 
-/* What do you see? → What to tap. */
-.decide { display: flex; flex-direction: column; gap: 10px; }
-.decide .item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: var(--surface); border-radius: 16px; padding: 12px 14px; }
+.decide { display: flex; flex-direction: column; gap: 8px; }
+.decide .item { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; background: rgba(28,25,23,0.08); border-radius: 14px; padding: 10px 12px; }
 .decide .item p { min-width: 0; }
-.tag { border-radius: 99px; padding: 6px 12px; font-weight: 700; font-size: 15px; white-space: nowrap; }
-.tag.gold { background: var(--gold); color: var(--gold-ink); }
-.tag.red { background: var(--red-bg); color: var(--red-ink); }
-.tag.grey { background: rgba(255,255,255,0.08); color: var(--text); }
-
-ol.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: s; }
-ol.steps li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; counter-increment: s; }
-ol.steps li::before { content: counter(s); width: 34px; height: 34px; border-radius: 50%; background: var(--raised); color: var(--gold); display: grid; place-items: center; font-weight: 700; }
-ol.steps li > div { min-width: 0; }
-ol.steps b { display: block; }
-
-.double { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.double .opt { border-radius: 16px; padding: 14px; }
-.double .opt.gold { background: var(--gold); color: var(--gold-ink); }
-.double .opt.grey { background: rgba(255,255,255,0.08); }
-.double b { display: block; font-size: 17px; line-height: 1.25; }
-.double small { display: block; margin-top: 6px; font-size: 15px; opacity: 0.85; font-variant-numeric: tabular-nums; }
 
 .safe { background: var(--sky-bg); border-radius: 20px; padding: 18px; }
 .safe h2 { color: var(--sky); }
-.safe ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
-.tips ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
-.check { color: var(--green); font-weight: 700; }
-@media (max-width: 420px) { .double { grid-template-columns: 1fr; } .btn { font-size: 15px; } }
+.safe ul, .tips ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+@media (max-width: 420px) { .btn { font-size: 14px; } ol.jobs > li { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
 <main>
   <header>
     <h1>Cleaning up the props</h1>
-    <p class="lede">The photo import put every prop in the app. Now we make sure each one has the right <b>name</b>, the right <b>number</b> and the right <b>bin</b>, and we get rid of junk and doubles. About 10 seconds a prop.</p>
+    <p class="lede">The photo import put every prop in the app, with some doubles, missing bins and odd names. The app finds the problems for you. Your job is mostly to answer <b>yes or no</b>, in this order.</p>
   </header>
 
   <section>
@@ -92,67 +84,63 @@ ol.steps b { display: block; }
       <p style="opacity:.9">Fix names, counts and bins. Remove junk and doubles.</p>
       <div class="bar"><span></span></div>
     </div>
-    <p class="muted" style="margin-top:10px">Then tap the big gold <b>Check props one by one</b>.</p>
-  </section>
-
-  <section class="card">
-    <h2>Every prop, the same 4 checks</h2>
-    <ol class="steps">
-      <li><div><b>Is the name right?</b><span class="muted">Tap the name and type over it. Use the words someone would search for: "Red rotary phone", not "IMG_2034".</span></div></li>
-      <li><div><b>How many do we have?</b><span class="muted">Tap − or +. Count what's really on the shelf.</span></div></li>
-      <li><div><b>Which bin is it in?</b><span class="muted">Tap <b>Change</b> and type the bin number. Amber "No bin" means it still needs one.</span></div></li>
-      <li><div><b>Then pick one of the three buttons</b><span class="muted">at the bottom of the screen:</span></div></li>
-    </ol>
-    <div class="btns" style="margin-top:14px" aria-hidden="true">
-      <span class="btn red">Remove</span><span class="btn grey">It's a double</span><span class="btn gold">Looks right ✓</span>
-    </div>
+    <p class="muted" style="margin-top:10px">Inside, the jobs are listed under <b>Do it in this order</b>, each with how many are left. Do them top to bottom; each one makes the next shorter.</p>
   </section>
 
   <section>
-    <h2>Which button?</h2>
-    <div class="decide">
-      <div class="item"><p>Name, number and bin are right now</p><span class="tag gold">Looks right ✓</span></div>
-      <div class="item"><p>You fixed something (it says <b>Save ✓</b>)</p><span class="tag gold">Save ✓</span></div>
-      <div class="item"><p>Not a prop, a blurry photo, tape or batteries, or we don't have it any more</p><span class="tag red">Remove</span></div>
-      <div class="item"><p>This prop is already in the app under another entry</p><span class="tag grey">It's a double</span></div>
-      <div class="item"><p>Not sure, or you can't find it right now</p><span class="tag grey">Skip for now ›</span></div>
-    </div>
-    <p class="muted" style="margin-top:10px">Skip and ‹ Previous are at the top of the screen. The top pill lets you work <b>one bin at a time</b>, or only props with no bin, odd names or no photo.</p>
-  </section>
-
-  <section class="card">
-    <h2>It's a double: the one question</h2>
-    <p class="muted" style="margin-bottom:12px">Tap the other entry (the closest names show first, or type to search). Then the app asks:</p>
-    <div class="double">
-      <div class="opt gold"><b>We have more than one</b><small>Two real chairs → one entry, count 1 + 1 = 2</small></div>
-      <div class="opt grey"><b>It's the same one, photographed twice</b><small>One chair, two photos → one entry, count stays 1</small></div>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Shortcuts</h2>
-    <ol class="steps">
-      <li><div><b>Same photo twice</b><span class="muted">The app finds entries with the very same picture, or the same name in the same bin. Tap the one to keep, then <b>Make it one prop</b>. "Not the same, leave them" hides that group.</span></div></li>
-      <li><div><b>Quick list</b><span class="muted">Everything in one list. Tap a name to rename, − / + to change the count. Tick several to <b>Move to bin</b>, set a <b>Category</b>, <b>Combine</b> or <b>Remove</b> them all at once.</span></div></li>
+    <ol class="jobs">
+      <li><div>
+        <h3>Combine doubles</h3>
+        <p class="muted">The app has already compared every prop. First, if it found <b>exact copies</b> (the very same picture twice), one green button combines them all:</p>
+        <div class="btns"><span class="btn green">Combine all 40</span></div>
+        <p class="muted">Then it shows two photos side by side and asks:</p>
+        <div class="btns"><span class="btn greyOnGold">No, different</span><span class="btn dark">Yes, combine</span></div>
+        <p class="muted">If yes, one more question:</p>
+        <div class="decide">
+          <div class="item"><p>One chair, photographed twice</p><span class="btn dark">One prop, photographed twice</span></div>
+          <div class="item"><p>Two real chairs</p><span class="btn greyOnGold">We have separate copies</span></div>
+        </div>
+        <p class="muted">The AI looks at the next pairs while you work and says what it thinks. When it's sure about some, you can check them in one list and combine them together. Not sure? <b>Skip</b>.</p>
+      </div></li>
+      <li><div>
+        <h3>Put props in their bin</h3>
+        <p class="muted">Props with no bin, but whose photo folder is named like a bin. Check the photos, then tap <b>Put them in A2</b> (or put them all).</p>
+      </div></li>
+      <li><div>
+        <h3>Quick approve</h3>
+        <p class="muted">Props that already look right: real name, a bin, a photo. 30 at a time, already ticked. <b>Untick</b> anything that looks wrong, then:</p>
+        <div class="btns"><span class="btn gold">Approve 30 ✓</span></div>
+      </div></li>
+      <li><div>
+        <h3>Work bin by bin</h3>
+        <p class="muted">Stand at the shelf, open that bin in the app: everything in it on one screen. Tap anything wrong (name, count, not here, junk) to fix it right there. When the rest is right:</p>
+        <div class="btns"><span class="btn gold">Everything here looks right ✓</span></div>
+        <p class="muted">Then the app takes you to the next bin. A name in <b>yellow</b> (like "IMG_2034") needs a real name first. Tap <b>✦ Suggest a name</b> and the AI looks at the photo for you.</p>
+      </div></li>
     </ol>
+  </section>
+
+  <section>
+    <h2>When you fix one prop</h2>
+    <p class="muted">Tap it. Fix the name (or <b>✦ Suggest a name</b>), how many (− / +), where it is (type the bin number), then <b>Save ✓</b>. Junk (not a prop, blurry photo, tape or batteries, gone)? <b>Remove</b>. Already in the app under another entry? <b>It's a double</b>.</p>
+    <div class="ai" style="margin-top:10px"><b>✦ AI</b> never changes anything by itself. It only suggests; you tap to accept.</div>
   </section>
 
   <section class="safe">
     <h2>You can't break anything</h2>
     <ul>
-      <li><b>Remove never deletes.</b> It goes to <span class="path">Removed props</span> with a <b>Put back</b> button. Right after removing, <b>Undo</b> shows at the top for a few seconds.</li>
-      <li>Every change is saved with your name, so mistakes are easy to find and fix.</li>
+      <li><b>Remove never deletes.</b> It goes to <span class="path">Removed props</span> with a <b>Put back</b> button, and <b>Undo</b> shows at the top for a few seconds.</li>
+      <li>Every change is saved with your name.</li>
       <li>The app won't let you lower a count below what creators have booked, or remove a prop that's out on a shoot.</li>
     </ul>
   </section>
 
   <section class="tips">
-    <h2>Tips for the first day</h2>
+    <h2>Tips</h2>
     <ul>
-      <li>Stand at the shelf with your phone and go <b>bin by bin</b> (top pill → pick the bin). The list is already in bin order.</li>
-      <li>Two people? Each takes different bins so you don't check the same props.</li>
-      <li>Wardrobe: put the size in <b>Description, size…</b> (for example "Size XL").</li>
-      <li>The progress at the top of Clean up props counts everyone's work: <span class="check">✓</span> = checked.</li>
+      <li>Two people? One does <b>Combine doubles</b> on the couch, the other walks the shelves with <b>Work by bin</b>.</li>
+      <li>Wardrobe: put the size in the description (for example "Size XL").</li>
+      <li>The progress at the top of Clean up props counts everyone's work.</li>
       <li>Stuck? Tap <b>✦ AI</b> on the Admin page and ask "how do I combine two props?", or tap <b>Report a problem</b>.</li>
     </ul>
   </section>

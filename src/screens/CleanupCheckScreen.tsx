@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useItems } from '../hooks/useItems'
 import { useCategories } from '../hooks/useCategories'
 import { inCleanup, matchesFilter, shelfOrder, likelyDoubles, FILTER_LABELS, type CleanupFilter } from '../lib/cleanup'
-import { saveChecked, removeProps, restoreProps, heldUnits, REMOVE_REASONS } from '../services/cleanup'
+import { saveChecked, removeProps, restoreProps, heldUnits, suggestPropNames, REMOVE_REASONS } from '../services/cleanup'
 import { mergeProps } from '../services/importer'
 import { matchesQuery } from '../lib/search'
 import { CleanupHeader, BinSheet, QtyStepper, Toast, PropThumb, useBinLabel } from '../components/cleanup/Parts'
@@ -125,6 +125,7 @@ function Card({ item, items, binInfo, onDone, onSkip, onBack }: {
   const [removeSheet, setRemoveSheet] = useState(false)
   const [doubleSheet, setDoubleSheet] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const changes = {
@@ -172,7 +173,12 @@ function Card({ item, items, binInfo, onDone, onSkip, onBack }: {
         </div>
 
         <label className="block">
-          <span className="text-pt-muted text-[14px]">Name</span>
+          <span className="flex items-center justify-between"><span className="text-pt-muted text-[14px]">Name</span>
+            <button type="button" disabled={aiBusy} onClick={async () => {
+              setAiBusy(true); setErr('')
+              try { const r = (await suggestPropNames({ ids: [item.id] })).data; if (r.names[item.id]) setName(r.names[item.id]); else setErr(r.resting ? 'The AI is resting until the 1st (monthly budget). Type the name instead.' : 'The AI had no idea for this one. Type the name instead.') }
+              catch (e) { setErr(friendlyError(e)) } finally { setAiBusy(false) }
+            }} className="tap min-h-[36px] text-violet-300 text-[14px] font-semibold disabled:opacity-50">{aiBusy ? 'Thinking…' : '✦ Suggest a name'}</button></span>
           <input value={name} onChange={e => setName(e.target.value)} maxLength={200}
             className="mt-1 w-full bg-pt-surface rounded-2xl px-4 min-h-[56px] text-[20px] font-semibold text-pt-text outline-none focus:ring-2 focus:ring-pt-accent" />
         </label>

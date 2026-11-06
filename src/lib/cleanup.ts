@@ -5,7 +5,8 @@
 //   • "Checked"  = someone looked at the prop and said it's right (item.reviewedAt).
 //   • "Removed"  = taken out of the app (archived + removedAt). It sits in "Removed props" and can be put back any time.
 import type { Item } from '../types'
-import { compareBinLabels } from '../../functions/src/binNames'
+import { compareBinLabels, binKey } from '../../functions/src/binNames'
+import { nameWords as nw, nameLikeness } from '../../functions/src/doubles'
 
 export type CleanupFilter = 'todo' | 'all' | 'nobin' | 'many' | 'nophoto' | 'names' | 'costumes' | 'imported' | 'checked'
 
@@ -66,21 +67,12 @@ export function shelfOrder(items: Item[], binLabel: (id?: string) => string | un
 }
 
 // ─── Look-alikes by name (no AI, instant) ────────────────────────────────────
-const STOP = new Set(['a', 'an', 'the', 'of', 'and', 'with', 'in', 'on', 'for', 'set', 'pair', 'x2', 'x3', 'x4'])
-export function nameWords(name: string): string[] {
-  return (name ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w && !STOP.has(w))
-    .map(w => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w))
-}
+export const nameWords = nw
 export const sameName = (a: string, b: string) => { const x = nameWords(a).join(' '), y = nameWords(b).join(' '); return !!x && x === y }
 
 /** How alike two props look on paper: shared words in the name (0–1), plus a little for the same bin / category. */
 export function likeness(a: Item, b: Item): number {
-  const wa = new Set(nameWords(a.name)), wb = new Set(nameWords(b.name))
-  if (!wa.size || !wb.size) return 0
-  let shared = 0
-  wa.forEach(w => { if (wb.has(w)) shared++ })
-  const words = shared / (wa.size + wb.size - shared)
+  const words = nameLikeness(a.name, b.name)
   if (!words) return 0
   return words + (a.binId && a.binId === b.binId ? 0.25 : 0) + (a.categoryId && a.categoryId === b.categoryId ? 0.05 : 0)
 }
@@ -104,9 +96,10 @@ export function sameNameSameBin(items: Item[]): Item[][] {
   return [...groups.values()].filter(g => g.length > 1)
 }
 
-/** Which prop of a double to keep: the one already checked, then the one with a bin, more photos, more words. */
+/** Which prop of a double to keep: the one already checked, then one added by hand (the original, often with history),
+ *  then a real name, a bin, more photos, more words. */
 export function bestToKeep(group: Item[]): Item {
-  const score = (i: Item) => (i.reviewedAt ? 1000 : 0) + (i.binId ? 100 : 0) + (i.categoryId ? 10 : 0) + Math.min(9, i.photos?.length ?? 0)
+  const score = (i: Item) => (i.reviewedAt ? 1000 : 0) + (i.importedFrom ? 0 : 500) + (oddName(i.name) ? 0 : 200) + (i.binId ? 100 : 0) + (i.categoryId ? 10 : 0) + Math.min(9, i.photos?.length ?? 0)
     + Math.min(0.9, (i.description?.length ?? 0) / 1000)
   return [...group].sort((a, b) => score(b) - score(a) || a.createdAt.localeCompare(b.createdAt))[0]
 }
@@ -116,4 +109,26 @@ export const groupPairKeys = (ids: string[]) => {
   const out: string[] = []
   for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) out.push([ids[i], ids[j]].sort().join('|'))
   return out
+}
+
+// ─── Smart fixes ─────────────────────────────────────────────────────────────
+/** Props with no bin whose photo-import folder is named like an existing bin ("Bin A2", "a2", "A-2" → bin A2).
+ *  binId → the props that belong there. */
+export function binGuesses(items: Item[], bins: { id: string; label: string }[]): Map<string, Item[]> {
+  const byKey = new Map<string, string>()
+  for (const b of bins) { const k = binKey(b.label); if (k && !byKey.has(k)) byKey.set(k, b.id) }
+  const out = new Map<string, Item[]>()
+  for (const i of items) {
+    if (!inCleanup(i) || i.binId || !i.importedFrom?.folder) continue
+    const folder = i.importedFrom.folder.split('/').pop() ?? ''
+    const id = byKey.get(binKey(folder))
+    if (id) out.set(id, [...(out.get(id) ?? []), i])
+  }
+  return out
+}
+
+/** Looks finished: a real name, a bin, a photo, not already checked, and nothing suggests it's a double. These can be
+ *  approved quickly in pages (Quick approve). */
+export function looksComplete(i: Item, doubleIds: Set<string>): boolean {
+  return inCleanup(i) && !i.reviewedAt && !oddName(i.name) && !!i.binId && !!i.photos?.length && !doubleIds.has(i.id)
 }

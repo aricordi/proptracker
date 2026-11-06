@@ -49,7 +49,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
       <P n={1} t="Start with Today"><p>The <B>Props queue</B> opens on <B>Today</B>: pickups due and props coming back. <B>To prepare</B> is everything still to pick.</p></P>
       <P n={2} t="Pick and pack"><p>Open a request: tick props as you pick them (grouped by room and bin). Can't find one? <B>Can't find it</B> with a reason, the rest still goes. Take the <B>pack photo</B>, then <B>Packed</B>. The creator signs at pickup.</p></P>
       <P n={3} t="Check returns in"><p><B>Returns</B>: the creator sends a photo. Check each prop: fine, <B>damaged</B> or <B>missing</B>. Built props can become new props here.</p></P>
-      <P n={4} t="Clean up the imported props"><p><B>Admin → Clean up props</B> (the gold card): <B>Check props one by one</B> (fix the name, how many, the bin; <B>Looks right</B>), <B>Remove</B> junk (it can be put back), <B>It's a double</B> to combine two. <B>Quick list</B> fixes many at once; <B>Same photo twice</B> finds doubles for you.</p></P>
+      <P n={4} t="Clean up the imported props"><p><B>Admin → Clean up props</B> (the gold card) lists the jobs in order, with what's left: <B>Combine doubles</B> (two photos: same thing? one tap; exact copies all at once), <B>Put props in their bin</B>, <B>Quick approve</B> (30 at a time), then <B>Work bin by bin</B> (a whole bin on one screen, <B>Everything here looks right</B>). Remove never deletes: <B>Removed props</B> has Put back.</p></P>
       <P n={5} t="Keep the closet tidy"><p><B>Requests calendar</B> shows every request by shoot day. <B>Bins</B>, <B>Find duplicates</B>, <B>Health</B> and <B>Suggested edits</B> keep the inventory right.</p></P>
     </>,
   }

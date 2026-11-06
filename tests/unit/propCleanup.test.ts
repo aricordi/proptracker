@@ -1,7 +1,7 @@
 // Clean-up tools for the arts crew (owner, Nov 6).
 import { describe, it, expect } from 'vitest'
-import { oddName, matchesFilter, cleanupCounts, likelyDoubles, sameNameSameBin, bestToKeep, shelfOrder, isRemoved, groupPairKeys, sameName } from '../../src/lib/cleanup'
-import { groupSamePhotos, storagePath } from '../../functions/src/samePhotos'
+import { oddName, matchesFilter, cleanupCounts, likelyDoubles, sameNameSameBin, bestToKeep, shelfOrder, isRemoved, groupPairKeys, sameName, binGuesses, looksComplete } from '../../src/lib/cleanup'
+import { buildDoubles, afterMerge, tierOf, reasonsOf, storagePath, nameLikeness } from '../../functions/src/doubles'
 import type { Item } from '../../src/types'
 
 const it_ = (id: string, x: Partial<Item> = {}): Item => ({
@@ -50,8 +50,11 @@ describe('doubles', () => {
   it('likely doubles: most alike first, never itself or removed ones', () => {
     expect(likelyDoubles(items[0], items).map(i => i.id)).toEqual(['2', '3'])
   })
-  it('keeps the checked one', () => {
+  it('keeps the checked one, then the original over an imported copy', () => {
     expect(bestToKeep([items[0], items[1]]).id).toBe('2')
+    const orig = it_('o', { name: 'Rotary phone', binId: 'b1', photos: ['u'] })
+    const copy = it_('c', { name: 'Rotary phones', binId: 'b1', photos: ['u', 'v'], importedFrom: { driveFileId: 'f', fileName: 'x', folder: 'y' } })
+    expect(bestToKeep([copy, orig]).id).toBe('o')
   })
   it('pair keys match the Health "not duplicates" list format', () => {
     expect(groupPairKeys(['b', 'a', 'c'])).toEqual(['a|b', 'b|c', 'a|c'])
@@ -66,23 +69,60 @@ describe('shelf order', () => {
   })
 })
 
-describe('same photo twice (server grouping)', () => {
+describe('doubles engine (every clue in one sorted list)', () => {
   const url = (p: string) => `https://firebasestorage.googleapis.com/v0/b/x/o/${encodeURIComponent(p)}?alt=media&token=t`
-  it('reads storage paths from download links', () => {
+  const md5 = new Map([['items/a.jpg', 'H1'], ['items/b.jpg', 'H1'], ['items/c.jpg', 'H2']])
+  const items = [
+    { id: 'p1', name: 'Red rotary phone', binId: 'b1', photos: [url('items/a.jpg')] },
+    { id: 'p2', name: 'Telephone', binId: 'b9', photos: [url('items/b.jpg')] },           // same picture as p1
+    { id: 'p3', name: 'Red rotary phones', binId: 'b1', photos: [url('items/c.jpg')] },  // same name, same bin
+    { id: 'p4', name: 'Brass lamp', binId: 'b2', photos: [] },
+    { id: 'p5', name: 'Old brass desk lamp', binId: 'b3', photos: [] },                 // only the fingerprint says so
+    { id: 'p6', name: 'Cop hat', binId: 'b2', photos: [] },
+  ]
+  it('reads storage paths and name likeness', () => {
     expect(storagePath(url('items/imported/abc.jpg'))).toBe('items/imported/abc.jpg')
     expect(storagePath('https://example.com/photo.jpg')).toBeNull()
+    expect(nameLikeness('Red rotary phone', 'red rotary phones')).toBe(1)
   })
-  it('groups props sharing an identical photo file, joins chains, skips dismissed groups', () => {
-    const md5 = new Map([['items/a.jpg', 'H1'], ['items/b.jpg', 'H1'], ['items/c.jpg', 'H2'], ['items/d.jpg', 'H2'], ['items/e.jpg', 'H3'], ['items/f.jpg', 'H4'], ['items/g.jpg', 'H4']])
+  it('sure first (same picture), then likely, then maybe; dismissed pairs never come back', () => {
+    const pairs = buildDoubles({ items, md5ByPath: md5, lookPairs: [{ a: 'p4', b: 'p5', score: 0.9 }, { a: 'p4', b: 'p6', score: 0.5 }], dismissed: new Set(['p2|p3']) })
+    expect(pairs.map(p => [p.a, p.b, p.tier])).toEqual([['p1', 'p2', 'sure'], ['p1', 'p3', 'likely'], ['p4', 'p5', 'maybe']])
+    expect(reasonsOf(pairs[1].signals)).toEqual(['Same name', 'Same bin'])
+    expect(reasonsOf(pairs[2].signals)).toContain('90% alike')
+  })
+  it("the AI's opinion moves a pair up (sure it's the same) or down (different)", () => {
+    expect(tierOf({ look: 0.87, ai: { same: true, confidence: 'high', reason: '' } })).toBe('likely')
+    const pairs = buildDoubles({ items, lookPairs: [{ a: 'p4', b: 'p5', score: 0.9 }, { a: 'p4', b: 'p6', score: 0.88 }], verdicts: new Map([['p4|p5', { same: false, confidence: 'high' as const, reason: 'different shape' }]]) })
+    const lamps = pairs.filter(p => p.a === 'p4')
+    expect(lamps.map(p => `${p.a}|${p.b}:${p.tier}`)).toEqual(['p4|p6:likely', 'p4|p5:maybe'])   // p4|p6 share a bin
+    expect(pairs[pairs.length - 1]).toMatchObject({ a: 'p4', b: 'p5' })                            // AI said different: last
+    expect(lamps[1].score).toBeLessThan(0)
+  })
+  it('after combining, pairs follow the prop that stayed (chains of three collapse)', () => {
+    const pairs = buildDoubles({ items, md5ByPath: md5 })
+    const after = afterMerge(pairs, 'p1', 'p3')
+    expect(after.some(p => p.a === 'p3' || p.b === 'p3')).toBe(false)
+    expect(after.filter(p => (p.a === 'p1' && p.b === 'p2') || (p.a === 'p2' && p.b === 'p1'))).toHaveLength(1)
+  })
+})
+
+describe('smart fixes', () => {
+  it('puts props with no bin in the bin their photo folder is named after', () => {
     const items = [
-      { id: 'p1', photos: [url('items/a.jpg')] },
-      { id: 'p2', photos: [url('items/b.jpg'), url('items/c.jpg')] },
-      { id: 'p3', photos: [url('items/d.jpg')] },
-      { id: 'p4', photos: [url('items/e.jpg')] },
-      { id: 'p5', photos: [url('items/f.jpg')] },
-      { id: 'p6', photos: [url('items/g.jpg')] },
+      it_('x', { name: 'Fan', importedFrom: { driveFileId: '1', fileName: 'a', folder: 'Props/BIN A-02' } }),
+      it_('y', { name: 'Hat', binId: 'b1', importedFrom: { driveFileId: '2', fileName: 'b', folder: 'A2' } }),
+      it_('z', { name: 'Cup', importedFrom: { driveFileId: '3', fileName: 'c', folder: 'Random stuff' } }),
     ]
-    const groups = groupSamePhotos(items, md5, new Set(['p5|p6']))
-    expect(groups.map(g => [...g].sort())).toEqual([['p1', 'p2', 'p3']])
+    const g = binGuesses(items, [{ id: 'b1', label: 'A2' }, { id: 'b2', label: 'C7' }])
+    expect([...g.entries()].map(([b, l]) => [b, l.map(i => i.id)])).toEqual([['b1', ['x']]])
+  })
+  it('looks complete = real name, bin, photo, not checked, not a double', () => {
+    const ok = it_('ok', { name: 'Brass lamp', binId: 'b1', photos: ['u'] })
+    expect(looksComplete(ok, new Set())).toBe(true)
+    expect(looksComplete(ok, new Set(['ok']))).toBe(false)
+    expect(looksComplete({ ...ok, name: 'IMG_1' }, new Set())).toBe(false)
+    expect(looksComplete({ ...ok, binId: undefined }, new Set())).toBe(false)
+    expect(looksComplete({ ...ok, reviewedAt: 'x' }, new Set())).toBe(false)
   })
 })

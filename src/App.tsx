@@ -44,6 +44,11 @@ const CleanupCheckScreen = lazy(() => import('./screens/CleanupCheckScreen'))
 const CleanupListScreen = lazy(() => import('./screens/CleanupListScreen'))
 const CleanupDoublesScreen = lazy(() => import('./screens/CleanupDoublesScreen'))
 const CleanupRemovedScreen = lazy(() => import('./screens/CleanupRemovedScreen'))
+const CleanupBinsScreen = lazy(() => import('./screens/CleanupBinsScreen').then(m => ({ default: m.CleanupBinsScreen })))
+const CleanupBinScreen = lazy(() => import('./screens/CleanupBinsScreen').then(m => ({ default: m.CleanupBinScreen })))
+const CleanupApproveScreen = lazy(() => import('./screens/CleanupSmartScreens').then(m => ({ default: m.CleanupApproveScreen })))
+const CleanupPlaceScreen = lazy(() => import('./screens/CleanupSmartScreens').then(m => ({ default: m.CleanupPlaceScreen })))
+const CleanupNamesScreen = lazy(() => import('./screens/CleanupSmartScreens').then(m => ({ default: m.CleanupNamesScreen })))
 const GearItemsScreen = lazy(() => import('./screens/GearItemsScreen'))
 const GearBundlesScreen = lazy(() => import('./screens/GearBundlesScreen'))
 const GearBundleEditScreen = lazy(() => import('./screens/GearBundleEditScreen'))
@@ -422,6 +427,11 @@ export default function App() {
           <Route path="/cleanup/list" element={<StaffOnly><CleanupListScreen /></StaffOnly>} />
           <Route path="/cleanup/doubles" element={<StaffOnly><CleanupDoublesScreen /></StaffOnly>} />
           <Route path="/cleanup/removed" element={<StaffOnly><CleanupRemovedScreen /></StaffOnly>} />
+          <Route path="/cleanup/bins" element={<StaffOnly><CleanupBinsScreen /></StaffOnly>} />
+          <Route path="/cleanup/bin/:id" element={<StaffOnly><CleanupBinScreen /></StaffOnly>} />
+          <Route path="/cleanup/approve" element={<StaffOnly><CleanupApproveScreen /></StaffOnly>} />
+          <Route path="/cleanup/place" element={<StaffOnly><CleanupPlaceScreen /></StaffOnly>} />
+          <Route path="/cleanup/names" element={<StaffOnly><CleanupNamesScreen /></StaffOnly>} />
           <Route path="/suggestions" element={<StaffOnly><SuggestionsScreen /></StaffOnly>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

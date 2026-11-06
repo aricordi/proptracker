@@ -194,7 +194,7 @@ function ListRow({ item, picked, onPick, where, cat, onSaved, onError }: {
   )
 }
 
-function CombineSheet({ props, where, onClose, onDone }: { props: Item[]; where: (id?: string) => string; onClose: () => void; onDone: (keep: Item, count: number) => void }) {
+export function CombineSheet({ props, where, onClose, onDone }: { props: Item[]; where: (id?: string) => string; onClose: () => void; onDone: (keep: Item, count: number) => void }) {
   const [keepId, setKeepId] = useState(() => bestToKeep(props).id)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')

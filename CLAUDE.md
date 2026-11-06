@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 762 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 773 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2297,6 +2297,46 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       every open. Now markTourDone (phone + profile); "Skip for now" stays a 7-day skip. App guide entries cleanup / cleanupcheck /
       cleanuplist / cleanupdoubles / cleanupremoved. Checked in a browser on the emulator (arts: check, save, remove + undo, double
       sheet, same name group combined ×3, quick list move/rename/count, removed list; creator: basket question).
+    - CLEAN UP PROPS V2 (owner, Nov 6: "thousands of props… use AI or logic to make it easy… collapse duplicate stuff… auto try to
+      match certain things that seem similar"; NOT deployed: backend (new callables finddoubles, aicheckpairs, suggestpropnames in
+      deploy/log lists; findSamePhotos + samePhotos.ts REMOVED before ever deploying) + website; NO rules change: dup_verdicts has no
+      rule = server only). HUB = "Do it in this order" (numbered, real sequence, each with what's left): 1 COMBINE DOUBLES (count from
+      the server, loaded in the background on the hub), 2 PUT PROPS IN THEIR BIN, 3 QUICK APPROVE, 4 WORK BIN BY BIN; then More ways
+      (Fix odd names with AI, Check one by one, Quick list, chips) and Safety net (Removed props, old Look-alike groups = /duplicates).
+      ENGINE `functions/src/doubles.ts` (pure, shared, tests/unit/propCleanup.test.ts): buildDoubles merges clues into PAIRS
+      {a,b,tier,score,signals{photo,look,name,bin,ai}}: photo = same Storage md5 (sure); look = item_vectors dot ≥0.86; name =
+      nameLikeness word-Jaccard (word index, words on >200 props ignored); bin; ai = cached verdict. tierOf: sure (photo) / likely
+      (AI same+high, look≥0.93, same name, look≥0.88+bin, name≥0.6+bin) / maybe (look≥0.86, name≥0.5+bin, name≥0.75). scoreOf sorts
+      (AI "different" = −1.5 → bottom). afterMerge re-points pairs to the kept prop (chains collapse). reasonsOf = chips. src/lib/cleanup
+      uses its nameWords/nameLikeness.
+      SERVER (dedupe.ts): `findDoubles` (owner+arts; items + Storage items/ md5 + vectors + health/dismissed + dup_verdicts →
+      buildDoubles, ≤3000 pairs; findDuplicates now shares loadVectors/lookPairs). `aiCheckPairs` ({pairs ≤30}; cached answers from
+      `dup_verdicts/{a__b}` {key,same,confidence,reason,at}; the rest 5 at a time with comparePropPhotos on the SMALL photo (photoOf
+      small → thumbs)); `suggestPropNames` ({ids ≤12}; gemini.ts suggestPropName: photo + name + description + category → 2–5 word
+      searchable name; never renames). Both use `reserveCleanupAi(helper, uses)` (assistant.ts): ONLY the monthly AI cap
+      (app_settings/ai monthlyCapUsd, default $50), not the creators' daily limit; by.cleanup-compare / by.cleanup-names in ai_usage;
+      returns null → resting. mergeProps 'angles' now keeps the HIGHER count.
+      APP: src/services/cleanup.ts loadDoubles (one session copy, 10 min; setCachedPairs keeps it in step), aiCheckPairs,
+      suggestPropNames. `/cleanup/doubles` (rewritten): tier chips (All / Same picture / Very likely / Maybe), green "Combine all N exact
+      copies" + violet "The AI is sure about N" (BulkSheet: pairs with ticks, untick wrong ones, one at a time with progress, 'angles'),
+      "The AI says N are different" (dismiss all), PairCard (tier pill + reason chips, two photos (tap = zoom), "✦ AI: looks like the
+      same thing / looks different", "Same thing?" No, different (dismissDuplicatePairs) / Yes, combine → "One prop, photographed
+      twice" (higher count) or "We have separate copies" (add up), Keep this one, Not sure skip; sure tier combines straight away).
+      The AI checks the next 10 pairs without an opinion in the background (asked once per pair per session). bestToKeep: checked >
+      added by hand (not importedFrom) > real name > bin > category > photos.
+      `/cleanup/bins` (CleanupBinsScreen.tsx CleanupBinsScreen): bins with props in number order with checked bar / ✓ Done, gold "Next
+      bin", "No bin yet" row, "The app can put N in their bin", "N bin names written two ways" (→ /bins). `/cleanup/bin/:id` ('none' =
+      no bin): grid (photo, ×count, ✓, amber odd name), tap = QuickEdit sheet (src/components/cleanup/QuickEdit.tsx: name + ✦ Suggest a
+      name, how many, bin, category, Save = checked, Remove, It's a double), "X is here N times" → CombineSheet, sticky "Everything here
+      looks right ✓ (N)" (ODD NAMES NEVER BULK-APPROVED: "N need a real name first"), then "Bin done ✓ · Next: <bin>".
+      CleanupSmartScreens.tsx: `/cleanup/approve` Quick approve (looksComplete = real name + bin + photo + unchecked + not in a
+      sure/likely pair; waits for loadDoubles; 30 per page, all ticked green; untick = later this session; tap photo = QuickEdit;
+      "Approve N ✓"), `/cleanup/place` (binGuesses: no bin + importedFrom.folder last part matches a bin by binKey; per bin "Put them in
+      A2" + "Put all N"), `/cleanup/names` (odd names, 12 at a time, AI suggestions fetched automatically, editable, Skip, "Accept these N
+      names"). Checker (/cleanup/check) has "✦ Suggest a name" too. Seed: placeholder SVG pictures (pic()), imp-fan (no bin, folder
+      "Props/BIN A-02" → A2), imp-glass. Tests: tests/unit/propCleanup.test.ts, tests/functions/doubles.test.ts (findDoubles tiers,
+      aiCheckPairs cache, suggestPropNames, merge keeps higher count), rules (dup_verdicts server only). App guide entries cleanup,
+      cleanupbins, cleanupbin, cleanupapprove, cleanupplace, cleanupnames, cleanupdoubles. Checked in a browser on the emulator.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

@@ -61,6 +61,24 @@ export async function aiSettings() {
 
 // Count one AI use for this person; refuses when the month's budget or their daily limit is used up.
 // Returns settle(cost) to record what the call really cost.
+/** Staff clean-up AI (owner, Nov 6): only the MONTHLY AI budget applies (the arts crew works through thousands of props,
+ *  so the creators' per-person daily limit would stop them). Returns a settle function like reserveAi, or null when the
+ *  month's budget is used up. */
+export async function reserveCleanupAi(helper: string, uses = 1): Promise<((costUsd: number) => Promise<void>) | null> {
+  const s = await aiSettings()
+  const month = todayInStudio().slice(0, 7)
+  const monthRef = db.doc(`ai_usage/${month}`)
+  const reserve = RESERVE_USD * uses
+  const ok = await db.runTransaction(async tx => {
+    const m = await tx.get(monthRef)
+    if (Number(m.get('spentUsd') ?? 0) + reserve > s.monthlyCapUsd) return false
+    tx.set(monthRef, { month, spentUsd: FieldValue.increment(reserve), calls: FieldValue.increment(uses), by: { [helper]: FieldValue.increment(uses) }, updatedAt: new Date().toISOString() }, { merge: true })
+    return true
+  })
+  if (!ok) return null
+  return async (costUsd: number) => { await monthRef.set({ spentUsd: FieldValue.increment(costUsd - reserve) }, { merge: true }).catch(() => {}) }
+}
+
 export async function reserveAi(email: string, helper: string, demo = false, chat = false) {
   const s = await aiSettings()
   const today = todayInStudio(), month = today.slice(0, 7)

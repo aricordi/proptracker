@@ -62,6 +62,8 @@ const tags = [
 ].map(([id, label]) => ({ id, label, normalizedKey: label, usageCount: 1 }))
 const characters = [{ id: 'ch-det', label: 'Detective', normalizedKey: 'detective', usageCount: 1 }]
 
+// Placeholder pictures for the test props (a coloured square with the word), so photo screens have something to show.
+const pic = (word, color) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="${color}"/><text x="200" y="215" font-size="44" text-anchor="middle" fill="white" font-family="sans-serif">${word}</text></svg>`)}`
 const items = [
   // New-style records
   { id: 'cop', name: 'Police officer costume', categoryId: 'costume', quantity: 1, condition: 'good',
@@ -70,19 +72,23 @@ const items = [
     photos: [], status: 'available', archived: false },
   { id: 'chairs', name: 'Wooden dining chair', categoryId: 'set-dressing', quantity: 10, condition: 'fair',
     replacementCost: 45, tags: ['t-chair', 't-wood'], binId: 'bin-a1', locationId: 'loc-main',
-    photos: [], status: 'available', archived: false },
+    photos: [pic('CHAIR', '#78350f')], status: 'available', archived: false },
   { id: 'phone', name: 'Rotary phone', categoryId: 'prop', quantity: 2, condition: 'good',
     replacementCost: 80, tags: ['t-phone', 't-vintage'], binId: 'bin-a2', locationId: 'loc-main',
-    photos: [], status: 'available', archived: false },
+    photos: [pic('PHONE', '#7f1d1d')], status: 'available', archived: false },
   { id: 'old-lamp', name: 'Broken lamp (archived)', categoryId: 'set-dressing', quantity: 1, condition: 'damaged',
     tags: [], photos: [], status: 'available', archived: true },
   // Messy imported props for the clean-up tools (owner, Nov 6): the same prop twice, a file name, one with no bin.
   { id: 'imp-phone2', name: 'Rotary phones', categoryId: 'prop', quantity: 1, condition: 'good', tags: ['t-phone'], binId: 'bin-a2', locationId: 'loc-main',
-    photos: [], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-1', fileName: 'IMG_2201.HEIC', folder: 'Bin A2' } },
-  { id: 'imp-img', name: 'IMG_2034', categoryId: 'prop', quantity: 1, condition: 'good', tags: [], binId: 'bin-a1', locationId: 'loc-main',
-    photos: [], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-2', fileName: 'IMG_2034.HEIC', folder: 'Bin A1' } },
+    photos: [pic('PHONE 2', '#991b1b')], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-1', fileName: 'IMG_2201.HEIC', folder: 'Bin A2' } },
+  { id: 'imp-img', name: 'IMG_2034', categoryId: 'prop', quantity: 1, condition: 'good', tags: [], binId: 'bin-a1', locationId: 'loc-main', description: 'Green glass desk lamp with a brass base.',
+    photos: [pic('LAMP', '#166534')], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-2', fileName: 'IMG_2034.HEIC', folder: 'Bin A1' } },
   { id: 'imp-coat', name: 'Black peacoat', categoryId: 'costume', quantity: 1, condition: 'good', tags: [], description: 'Wool peacoat. Size XL.',
     photos: [], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-3', fileName: 'IMG_3001.HEIC', folder: 'Wardrobe' } },
+  { id: 'imp-fan', name: 'Paper hand fan', categoryId: 'prop', quantity: 3, condition: 'good', tags: [], photos: [pic('FAN', '#1e3a8a')], status: 'available', archived: false,
+    importedFrom: { driveFileId: 'seed-4', fileName: 'IMG_3100.HEIC', folder: 'Props/BIN A-02' } },
+  { id: 'imp-glass', name: 'Wine glass', categoryId: 'set-dressing', quantity: 6, condition: 'good', tags: ['t-glass'], binId: 'bin-a1', locationId: 'loc-main',
+    photos: [pic('GLASS', '#4c1d95')], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-5', fileName: 'IMG_3101.HEIC', folder: 'Bin A1' } },
   // Old-style records, exactly as the previous version of the app saved them
   { id: 'legacy-skull', name: 'Fake skull', itemType: 'prop', status: 'damaged', cost: 25,
     tags: ['t-horror'], binId: 'bin-a2', locationId: 'loc-main', whereToRebuy: 'Spirit Halloween' },
