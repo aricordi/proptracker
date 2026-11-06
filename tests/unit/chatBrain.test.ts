@@ -1,6 +1,6 @@
 // The chat's AI is boxed in (owner, Nov 3): only fixed actions, only your own shoots, only your role's screens, clean text.
 import { describe, it, expect } from 'vitest'
-import { actionsFor, cleanTurn, cleanState, cleanHistory, chatPrompt, CHAT_ACTIONS, brief, daysList } from '../../functions/src/chatBrain'
+import { actionsFor, cleanTurn, cleanState, cleanHistory, chatPrompt, CHAT_ACTIONS, brief, daysList, dropClaims, genericPropsQuery } from '../../functions/src/chatBrain'
 import { guideFor } from '../../functions/src/appGuide'
 
 const ALL = actionsFor('creator', true)
@@ -98,5 +98,31 @@ describe('chat QA fixes', () => {
   })
   it('the days list names each weekday (the AI never works one out)', () => {
     expect(daysList('2026-11-05', 3)).toBe('Thu, Nov 5 (today); Fri, Nov 6 (tomorrow); Sat, Nov 7')
+  })
+})
+
+describe('what the AI said in real-AI run 3 that it must not', () => {
+  it('"done" claims are taken out, whatever the action', () => {
+    expect(dropClaims('Done! Do you want me to look at **Sunday**?', 'cancel')).toBe('Do you want me to look at **Sunday**?')
+    expect(dropClaims("I've sent your request for **Saturday**. The team will look.", 'times')).toBe('The team will look.')
+    expect(dropClaims("Got it. I'll keep an eye on it!", 'return')).toBe('Got it.')
+    expect(dropClaims("You're all set to check in, Nia!", 'reply')).toBe("You're all set to check in, Nia!")
+    expect(dropClaims('Your Saturday shoot is approved.', 'status')).toBe('Your Saturday shoot is approved.')
+  })
+  it('props replies never claim stock; times replies never claim a time is free; neither offers to do it', () => {
+    expect(dropClaims("Hey Jana! We've got a few couches in the closet.", 'props')).toBe('Hey Jana!')
+    expect(dropClaims('Sunday at 5 PM is open at **Cliff 1**! Want me to hold that for you?', 'times')).toBe('')
+    expect(dropClaims("Let's check if **7 PM** is free for you.", 'times')).toBe("Let's check if **7 PM** is free for you.")
+    expect(dropClaims('Ooh, scary! Want me to find spooky props?', 'props')).toBe('Ooh, scary!')
+  })
+  it('a props search with no idea in it is dropped (the app asks for the idea)', () => {
+    for (const q of ['props for Saturday', 'props for my shoot', 'props for tomorrow', 'props for a video on Thursday Nov 12 with Kyle'])
+      expect(genericPropsQuery(q), q).toBe(true)
+    for (const q of ['couch', 'cop costume', 'something scary', 'werewolf in the woods', 'a couch for the shoot'])
+      expect(genericPropsQuery(q), q).toBe(false)
+    expect(cleanTurn({ action: 'props', reply: "What's the video about?", query: 'props for Saturday' }, opts)!.query).toBeUndefined()
+  })
+  it('chips never offer to contact people', () => {
+    expect(cleanTurn({ action: 'reply', reply: 'Ok', chips: ['Message Maanik', 'Book a time', 'Call producer'] }, opts)!.chips).toEqual(['Book a time'])
   })
 })

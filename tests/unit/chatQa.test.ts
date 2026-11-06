@@ -2,7 +2,7 @@
 // send, and what the chat must make of them WITHOUT the AI (the AI is off, busy or out of budget sometimes, and these rules
 // also run before it for the things the app knows better).
 import { describe, it, expect } from 'vitest'
-import { detectIntent, routeMessage, cancelIntent, isStatusQuestion, isAppBug, pickOption } from '../../src/lib/aiRoute'
+import { detectIntent, routeMessage, cancelIntent, isStatusQuestion, isAppBug, pickOption, isJustWhen } from '../../src/lib/aiRoute'
 import { roughParse, parseAt, namedDate, namesIn, normalizeWhen } from '../../functions/src/timeFinder'
 import { addDays, weekday } from '../../functions/src/booking'
 
@@ -124,5 +124,23 @@ describe('typing instead of tapping a time', () => {
     expect(pickOption('the 5pm one', opts)).toEqual({ which: [0, 1] })   // two at 5 PM: ask which house
     expect(pickOption('what about 9am', opts)).toBeNull()
     expect(pickOption('earlier?', opts)).toBeNull()
+  })
+})
+
+describe('just a day or a time goes straight to the time finder (real-AI run 3)', () => {
+  it('reads when-only messages', () => {
+    for (const m of ['next sat', 'nov 14', '11/14', 'the 31st', '5:30', 'around 5', 'tmrw @ 7', 'tonight at 11', 'after 6pm', 'asap', 'right now',
+      'cliff 2 tomorrow at 3', 'saturday?', 'feb 30', 'samedi à 17h', 'this weekend', 'next week'])
+      expect(isJustWhen(m), m).toBe(true)
+  })
+  it('leaves everything else to the chat', () => {
+    for (const m of ['props for saturday', 'cancel saturday', 'with kyle saturday', 'is saturday approved', 'what day is the 14th',
+      'i need a cop costume', 'hello', 'k', '5', 'move my shoot to sunday', 'the house is locked'])
+      expect(isJustWhen(m), m).toBe(false)
+  })
+  it('names a friend who is not in the app instead of staying quiet', () => {
+    expect(namesIn('filming with bob tomorrow', people).unknown).toEqual(['Bob'])
+    expect(namesIn('with friends', people).unknown).toEqual([])
+    expect(namesIn('with ari', people).unknown).toEqual([])
   })
 })

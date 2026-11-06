@@ -353,7 +353,7 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   await settle(cost)
 
   // A first name two people share ("justin") is never guessed (chat QA, Nov 6): ask which one, with both as buttons.
-  const { unclear } = namesIn(text, people)
+  const { unclear, unknown: notFound } = namesIn(text, people)
   if (unclear.length) {
     const u = unclear[0], first = u.said[0].toUpperCase() + u.said.slice(1)
     return { reply: `There are ${u.options.length} ${first}s in the app: ${u.options.join(' or ')}. Which one are you filming with?`,
@@ -367,7 +367,8 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   // Creators get at most settings.slotsPerDay house slots a day (one); only the team can book more.
   const capped = !team && ask.mySlots > s.slotsPerDay
   if (capped) ask = { ...ask, mySlots: s.slotsPerDay }
-  const unknown = ask.people.filter(n => !friends.some(f => f.name.toLowerCase().split(/\s+/)[0] === n.toLowerCase().split(/\s+/)[0]))
+  const unknown = [...new Set([...ask.people.filter(n => !friends.some(f => f.name.toLowerCase().split(/\s+/)[0] === n.toLowerCase().split(/\s+/)[0])),
+    ...notFound.filter(n => !friends.some(f => f.name.toLowerCase().startsWith(n.toLowerCase())))])]
   const dates: string[] = []
   for (let d = ask.from; d <= ask.to; d = addDays(d, 1)) dates.push(d)
   const daySnaps = dates.length ? await db.getAll(...dates.map(d => db.doc(`schedule_days/${d}`))) : []

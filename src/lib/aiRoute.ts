@@ -198,6 +198,18 @@ export function detectIntent(text: string): Intent | null {
   return null
 }
 
+// ── Just a day or a time (chat QA, Nov 6, real-AI run: "next sat" got "you're filming Nov 14", "the 31st" got "the calendar
+// only goes to Nov 19") ── a message that is nothing but when ("next sat", "nov 14", "5:30", "tmrw @ 7", "the 31st", "asap",
+// "cliff 2 tomorrow at 3") goes straight to the time finder, which reads dates exactly and shows the real free times.
+const WHEN_WORD = /\b(today|tonight|tomorrow|tmrw|weekend|asap|now|next week|this week|morning|afternoon|evening|night|noon|midnight)\b/
+const WHEN_FILLER = /\b(next|this|on|at|around|after|before|by|from|the|a|an|in|any|anything|time|slot|please|pls|plz|ish|or|and|book|me|can|i|get|free|what about|how about|maybe|like|right|cliff ?[12]|today|tonight|tomorrow|weekend|asap|now|week|morning|afternoon|evening|night|noon|midnight|am|pm|of|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?|\d{1,2}\/\d{1,2}|\d{1,2}(:\d\d)?\s*(am|pm|a|p)|\d{1,2}(:\d\d)?(st|nd|rd|th|h)?)\b/g
+export function isJustWhen(text: string): boolean {
+  const t = normalizeWhen(text).replace(/[?!.,@]/g, ' ').trim()
+  if (!t || words(t) > 8 || /^\d{1,2}$/.test(t)) return false   // a bare "5" could mean anything
+  const says = DAY_RE.test(t) || WHEN_WORD.test(t) || !!namedDate(text, todayInStudio()) || parseAt(text) !== null
+  return says && !t.replace(WHEN_FILLER, ' ').trim()
+}
+
 // ── Typing instead of tapping (chat QA, Nov 6) ──
 // After the chat shows free times, people type "yes book it", "the 5pm one", "the second one", "cliff 2 one" instead of tapping
 // Book. The AI never sees those cards, so the app reads it here. Returns the option they meant, 'which' when "yes" doesn't say

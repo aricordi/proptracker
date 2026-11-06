@@ -32,7 +32,7 @@ export const CHAT_ACTIONS = {
   pickup: 'They are picking up their props.',
   take_gear: 'They want gear (camera, lights, kit…) for a shoot. Gear is never booked ahead: it is taken on the shoot day, from an hour before.',
   strikes: 'They ask about their strikes or a pause.',
-  requests: 'They want to see what they asked for (their props requests).',
+  requests: 'They want to see what they asked for (their props requests), or change / remove a prop they asked for.',
 } as const
 export type ChatAction = keyof typeof CHAT_ACTIONS
 
@@ -124,8 +124,9 @@ more conversational and personable"): warm, switched-on, natural, a little playf
   not a best friend or a therapist: always circling back to the shoot.
 
 BE HONEST:
-- You are the app's AI assistant, not a person. If they ask whether you're a bot, an AI or a real person, say so plainly in a
-  few words (e.g. "I'm the app's AI assistant, not a person.") and carry on helping. Never claim or hint that you're human.
+- You are the app's AI assistant, not a person. If they ask whether you're a bot, an AI or a real person (or who they're talking
+  to), say so plainly in a few words ("I'm the app's AI assistant, not a person.") and carry on helping. Never claim or hint that
+  you're human. Don't repeat it when nobody asked.
 - You only know what's written in STATE, RULES, DAYS and the GUIDE. You do NOT know which times are free, what's in the props
   closet, who else is filming, or anything else about the houses. So:
   - never say a time is free, open, taken, booked up, too early or too late (the houses run every slot in RULES, late ones too);
@@ -134,8 +135,10 @@ BE HONEST:
   - never invent facts about them ("first shoot of the month", how busy they are), and celebrate only what STATE shows;
   - weekdays come from DAYS only; never work one out yourself;
   - the app has NO door codes or keys, Wi-Fi help, repairs, replacements, refunds, payments, messaging or calling from the app.
-    For those, say you don't have that and they should message the equipment team (Maanik) directly. Never invent buttons,
-    screens, features or what the team will do ("we'll get you a replacement").
+    For those, say you don't have that and they should message the equipment team (Maanik) directly (don't name an app to message
+    him on). Never invent buttons, screens, features or what the team will do ("we'll get you a replacement").
+  - you can't see what's inside their props requests: to change or remove a prop, point them to More → My requests → the request.
+  - you can't watch, remind, follow up or notify later: never promise to ("I'll keep an eye on it", "I'll let you know").
 - You cannot do anything yourself. Never say or imply something is booked, held, locked in, all set, confirmed, approved,
   cancelled, sent, moved or reported because of this chat; only STATE says what's approved. Never offer to do it yourself
   ("want me to book/hold/reserve it?"); offer to look or show ("Want me to look at Saturday?"). The app shows a card and they tap.
@@ -164,8 +167,10 @@ FIELDS:
   scene, a character or an item; for just "props", "I need props", "props for tomorrow", leave it empty (the app asks what the
   video is about) and set "shoot" when they named one.
 - For "times" and "props" the reply is ONE short reaction (at most 2 short sentences, no list): the results appear right under it.
-- "chips": 0-2 short things THIS person might say to you next that you can act on (a day or time, a house, an idea, "Is it
-  approved?"), ≤40 characters. Never contacting people, restarting the app, or things the app can't do. [] when nothing obvious.
+  Never ask "want me to check / look / find?": the app is already showing the results.
+- "chips": 0-2 short things THIS person might say to you next that you can act on (a day or time, a house, an idea), ≤40
+  characters, fitting what they just asked ("Is it approved?" only when it's about a waiting request). Never contacting people,
+  restarting the app, or things the app can't do. [] when nothing obvious.
 
 The person is ${who}${p.name ? `, first name ${p.name}` : ''}. Today is ${p.today} (America/Toronto).
 DAYS: ${daysList(p.today)}
@@ -205,6 +210,45 @@ export function brief(reply: string, max = 200): string {
   return (out.match(/\*\*/g)?.length ?? 0) % 2 ? out.replace(/\*\*/g, '') : out
 }
 
+// Sentences the AI must never say (chat QA, Nov 6, real-AI runs): claims that something was done, and for times/props,
+// claims about what's free or in the closet (the real results show right under the reply) or offers to do it itself.
+const DONE_CLAIM = /\b(i'?ve|i have|we'?ve|we have) (just )?(sent|booked|cancel+ed|moved|requested|reserved|held|swapped|reported|added|submitted|locked|confirmed|approved)\b|^\s*(done|booked|sent|cancel+ed|all done)\s*[!.]|\byou'?re (all )?(booked|set|confirmed|locked in)\b(?! to)|\ball set\b(?! to)|\blocked in\b|\b(has|have) been (sent|booked|cancel+ed|moved|reserved|submitted|swapped)\b|\bi'?ll (keep an eye|remind|follow up|let you know|notify|ping|check back)\b/i
+const STOCK_CLAIM = /\b(we'?ve got|we have|we got|there'?s|there are|you'?ll find) (a few|some|plenty|several|lots|a couple|a bunch|many|definitely|tons|loads|a great|great|a ton)\b|\bin stock\b|\bwe (definitely )?have (it|that|one|them)\b/i
+const FREE_CLAIM = /\b(is|are|looks?|it'?s|that'?s) (wide )?(open|free|available|booked up|taken|full)\b|\bwide open\b|\bhas (some )?(great )?(spots|openings|room)\b/i
+const OFFER = /\b(want|shall|should|would you like|do you want) (me|i) to\b|^\s*(want|shall i|should i)\b/i
+const CONTACT_CHIP = /\b(message|call|text|e-?mail|contact|dm|slack|discord|whatsapp|phone)\b/i
+
+/** Splits a reply into sentences (keeping "- " list lines as their own sentences). */
+function sentences(text: string): string[] {
+  return text.split('\n').flatMap(l => /^\s*- /.test(l) ? [l] : (l.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g) ?? [l]))
+}
+/** Takes out the sentences the AI must not say for this action. */
+export function dropClaims(reply: string, action: string): string {
+  const finder = action === 'times' || action === 'props'
+  const keep = sentences(reply).filter(x => {
+    const t = x.replace(/\*\*/g, '')
+    if (DONE_CLAIM.test(t)) return false
+    if (finder && OFFER.test(t)) return false
+    // "Let's check if 7 PM is free" is fine; "7 PM is free" isn't (the app shows what's really free).
+    const hypothetical = /\b(if|whether|see|check|checking|look|looking|find|finding)\b/i.test(t)
+    if (action === 'props' && STOCK_CLAIM.test(t) && !hypothetical) return false
+    if (action === 'times' && FREE_CLAIM.test(t) && !hypothetical) return false
+    return true
+  })
+  const out = keep.join('').replace(/\n{3,}/g, '\n\n').trim()
+  return (out.match(/\*\*/g)?.length ?? 0) % 2 ? out.replace(/\*\*/g, '') : out
+}
+
+/** A props search with no idea in it ("props for Saturday", "props for my shoot"): no point searching the closet. */
+const PROPS_FILLER = /\b(props?|stuff|things|items?|costumes?|wardrobe|for|the|a|an|my|our|some|need|needs|i|me|more|any|shoot|shooting|video|filming|film|upcoming|next|this|that|on|at|in|with|and|to|get|find|look|looking|today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|tues|wed|thu|thurs|fri|sat|sun|jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t|tember)?|oct(ober)?|nov(ember)?|dec(ember)?|cliff|house|\d+(st|nd|rd|th)?|am|pm|week|weekend|day)\b/gi
+export function genericPropsQuery(query: string, people: string[] = []): boolean {
+  let t = ` ${query.toLowerCase().replace(/[^a-z0-9 ]/g, ' ')} `
+  for (const n of people) t = t.replace(new RegExp(`\\b${n.toLowerCase().replace(/[^a-z]/g, '')}\\b`, 'g'), ' ')
+  // "with Kyle" is who they film with, not what the video is about.
+  t = t.replace(/\b(with|w)\s+[a-z]+\s*$/g, ' ').replace(/\b(with|w)\s+[A-Z]?[a-z]+\s+(on|at|for)\b/g, ' ')
+  return !t.replace(PROPS_FILLER, ' ').trim()
+}
+
 /** Checks everything the AI sent back. Returns null when there's nothing usable (the app then answers without the AI). */
 export function cleanTurn(raw: Record<string, unknown>, o: { allowed: ChatAction[]; shootIds: string[]; screenIds: string[]; shootLabels?: Record<string, string> }): ChatTurn | null {
   let action = (typeof raw.action === 'string' ? raw.action.trim().toLowerCase() : '') as ChatAction
@@ -216,13 +260,16 @@ export function cleanTurn(raw: Record<string, unknown>, o: { allowed: ChatAction
     const label = o.shootLabels?.[id] ?? 'your shoot'
     reply = reply.replace(new RegExp(`(\\*\\*)?\\b${id.replace(/[^\w-]/g, '')}\\b(\\*\\*)?`, 'g'), label.includes('**') ? label : `**${label}**`)
   }
+  reply = dropClaims(reply, action)
   if (action === 'times' || action === 'props') reply = brief(reply)
-  const query = safeText(raw.query, 300)
+  let query = safeText(raw.query, 300)
+  if (action === 'props' && query && genericPropsQuery(query)) query = ''
   const shoot = typeof raw.shoot === 'string' && o.shootIds.includes(raw.shoot) ? raw.shoot : undefined
   const list = (v: unknown, n: number, max: number) => (Array.isArray(v) ? v : []).map(x => safeText(x, max)).filter(Boolean).slice(0, n)
   const steps = action === 'help' ? list(raw.steps, 5, 90) : []
   const screens = action === 'help' ? [...new Set((Array.isArray(raw.screens) ? raw.screens : []).filter((x): x is string => typeof x === 'string' && o.screenIds.includes(x)))].slice(0, 3) : []
-  const chips = list(raw.chips, 3, 40)
+  // Chips are things the person could say to the chat next: never "Message Maanik" (the app can't message anyone).
+  const chips = list(raw.chips, 4, 40).filter(c => !CONTACT_CHIP.test(c)).slice(0, 3)
   const a = (raw.also && typeof raw.also === 'object' ? raw.also : {}) as Record<string, unknown>
   const alsoAction = typeof a.action === 'string' ? a.action.trim().toLowerCase() : ''
   const alsoQuery = safeText(a.query, 300)

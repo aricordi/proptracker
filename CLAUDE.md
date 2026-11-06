@@ -2238,7 +2238,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       replies cut to a short reaction (brief). askForTime never answers "I can only help find filming times" (offTopic ignored).
       Real-AI harness: button "Test the AI chat (practice)" (.github/workflows/chat-qa.yml + .github/scripts/chat_qa.mjs, 180 cases in
       chat_qa_cases.json, input `only` = one group) prints action/reply/query per message, follows times/props, and marks ⚠ SAID for
-      banned phrases (RED_FLAGS). Run 2 (before the fixes) = the findings above; re-run after "Update the practice app".
+      banned phrases (RED_FLAGS). Run 2 (before the fixes) = the findings above. Run 3 (after): red flags 15 → 2, honest about being
+      an AI, no invented door codes/Wi-Fi/weekdays. Fixed after run 3: server filter `dropClaims` (chatBrain.ts) removes "done"
+      claims (I've sent/booked…, Done!, all set, I'll keep an eye on it) from every reply, stock claims from props replies, "is
+      free/open" claims and "want me to…?" offers from times/props replies; `genericPropsQuery` drops a props search with no idea
+      ("props for Saturday") so the app asks for it; chips that contact people are dropped; prompt: say "AI assistant" only when
+      asked, can't see inside props requests (→ My requests), no promises to follow up. App: `isJustWhen` (aiRoute.ts) sends a
+      day/time-only message ("next sat", "the 31st", "5:30") straight to the time finder (the AI got "next sat" wrong);
+      AI shoot actions (move/cancel…) mid-plan now show their card (localTurn anyStep). Time finder names friends not in the app
+      (namesIn `unknown`).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

@@ -191,10 +191,10 @@ export function roughParse(text: string, today: string, people: Person[]): TimeA
 /** Friends named in a message: a first name that fits exactly one person ("kyle"), a full name, or the start of one right after
  *  "with"/"and"/"w/" ("with ari" = Ariel). A first name that fits several people ("justin") is NOT guessed: it's in `unclear`
  *  with everyone it could be, so the chat asks which one (chat QA, Nov 6). */
-export function namesIn(text: string, people: Person[]): { names: string[]; unclear: { said: string; options: string[] }[] } {
+export function namesIn(text: string, people: Person[]): { names: string[]; unclear: { said: string; options: string[] }[]; unknown: string[] } {
   const t = ` ${text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')} `
   const plain = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, '')
-  const names: string[] = [], unclear: { said: string; options: string[] }[] = []
+  const names: string[] = [], unclear: { said: string; options: string[] }[] = [], unknown: string[] = []
   const firsts = new Map<string, Person[]>()
   for (const p of people) { const f = plain(p.name).split(/\s+/)[0]; if (f) firsts.set(f, [...(firsts.get(f) ?? []), p]) }
   for (const [first, list] of firsts) {
@@ -210,9 +210,17 @@ export function namesIn(text: string, people: Person[]): { names: string[]; uncl
     if (firsts.has(w)) continue
     const hits = [...firsts.entries()].filter(([f]) => f.startsWith(w)).flatMap(([, l]) => l)
     if (hits.length === 1 && !names.includes(hits[0].name)) names.push(hits[0].name)
+    // "filming with justin" when nobody called Justin is in the app (chat QA, Nov 6): say so instead of staying quiet.
+    else if (!hits.length && !NOT_NAMES.has(w)) unknown.push(w[0].toUpperCase() + w.slice(1))
   }
-  return { names: [...new Set(names)], unclear }
+  return { names: [...new Set(names)], unclear, unknown: [...new Set(unknown)] }
 }
+// Words after "with" / "and" that aren't people ("with friends", "and props", "with the team").
+const NOT_NAMES = new Set(['the', 'my', 'our', 'your', 'friends', 'friend', 'someone', 'somebody', 'people', 'team', 'crew', 'props', 'prop',
+  'gear', 'camera', 'cameras', 'lights', 'costumes', 'costume', 'also', 'then', 'need', 'want', 'book', 'film', 'filming', 'shoot', 'shooting',
+  'more', 'some', 'two', 'three', 'four', 'guys', 'girls', 'everyone', 'others', 'cliff', 'house', 'him', 'her', 'them', 'his', 'their',
+  'today', 'tomorrow', 'tonight', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday', 'next', 'this', 'that', 'can',
+  'get', 'make', 'for', 'from', 'all', 'any', 'one', 'other', 'another', 'kid', 'kids', 'actors', 'actor', 'extras', 'music', 'drone'])
 
 // A follow-up without AI ("only Cliff 2", "anything on the weekend?", "just me"): change only what was mentioned.
 export function roughAdjust(prev: TimeAsk, text: string, today: string, people: Person[]): TimeAsk {

@@ -20,7 +20,7 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, pickOption, type Helper, type Route, type Intent } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, pickOption, isJustWhen, type Helper, type Route, type Intent } from '../lib/aiRoute'
 import { useBugReport } from './BugReport'
 import { ReturnCard, ReportCard, PickupList, ShootNow } from './ChatNow'
 import GuidelinePicker from './GuidelinePicker'
@@ -405,6 +405,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // A bare "ok" / "yes" / "no" with no question waiting (chat QA, Nov 6: the AI once answered "yes" with "you're all set").
       // After a question, the AI reads it with the conversation, so "yes" answers that question.
       if ((pre === 'ack' || pre === 'confirm') && !lastBotAsked() && localTurn(q)) return
+      // Just a day or a time ("next sat", "the 31st", "5:30"): the time finder reads it exactly (the AI once got "next sat" wrong).
+      if (!demo && !helpOnly && !pre && isJustWhen(q)) { await runHelpers(q, false, 'time'); return }
       // Only punctuation or emoji ("???", "🎬🎬", "."): no need to wake the AI.
       if (!/[\p{L}\p{N}]/u.test(q)) { setMsgs(x => [...x, { who: 'bot', text: 'Not sure what you mean. Tell me what you need: a time to film, props for a video, or anything about your shoots.' }]); setChips(defaultChips()); return }
     }
@@ -471,14 +473,15 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       case 'reply': say(turn.reply); setChips(turn.chips); return
       default:
         // Shoots, returns, reports, gear…: the app's own facts decide the card (and win over the AI's words when they disagree).
-        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot })) { say(turn.reply || 'On it. What would you like to do?'); setChips(turn.chips) }
+        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot }, true)) { say(turn.reply || 'On it. What would you like to do?'); setChips(turn.chips) }
         else if (turn.chips.length) setChips(turn.chips)
     }
   }
 
   // The built-in answers (no AI). With `ai`, the AI already chose the intent and wrote a friendlier line, used unless
   // the facts say otherwise ("nothing to bring back", "no shoots", strike numbers). Returns false when it isn't one of these.
-  function localTurn(q: string, ai?: { intent: string; text: string; shootId?: string }): boolean {
+  // `anyStep`: the AI decided this message is about a shoot (cancel, move, return…) even in the middle of planning: show it anyway.
+  function localTurn(q: string, ai?: { intent: string; text: string; shootId?: string }, anyStep = false): boolean {
     // Props only: the words never reach the time finder (the server would refuse anyway).
     if (demo && !helpOnly && !ai) {
       // Shoots, check-in, gear, returns… aren't open for them yet (chat QA, Nov 6: "im here" got prop ideas).
@@ -489,7 +492,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const r = routeMessage(q, { last: 'props', shoots: [] })
       if (!r.helpers.includes('props') && !r.helpers.includes('help')) { setMsgs(x => [...x, { who: 'bot', text: DEMO_NO_TIME }]); setChips(STARTERS.props); return true }
     }
-    if (plan) return false
+    if (plan && !anyStep) return false
     const intent = ai?.intent ?? detectIntent(q)
     const say = (reply: string, extra: Msg[] = [], chips: string[] = [], fact = false) => {
       setChips(chips); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
