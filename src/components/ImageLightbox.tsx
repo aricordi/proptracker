@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface Props {
   src: string
@@ -79,8 +80,9 @@ export default function ImageLightbox({ src, alt, onClose }: Props) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black" onClick={onClose}>
+  // Rendered on top of the whole page (not inside a pop-up sheet, which would trap it), above sheets and toasts.
+  return createPortal((
+    <div className="fixed inset-0 z-[80] bg-black" onClick={onClose}>
       {/* Close button */}
       <div className="absolute top-0 right-0 pt-safe pr-4 z-10">
         <button
@@ -121,5 +123,5 @@ export default function ImageLightbox({ src, alt, onClose }: Props) {
         </p>
       )}
     </div>
-  )
+), document.body)
 }

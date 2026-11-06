@@ -152,3 +152,56 @@ export function reasonsOf(s: Signals): string[] {
   if ((s.look ?? 0) >= 0.86) r.push(`${Math.round((s.look ?? 0) * 100)}% alike`)
   return r
 }
+
+// ─── Groups (owner, Nov 6: "sometimes there are more than 2 of something") ───────
+export interface DoubleGroup {
+  ids: string[]            // every prop in the group (2 or more)
+  keys: string[]           // the pairs inside it (pair keys)
+  tier: Tier               // the most sure pair in it
+  score: number            // its best pair score (for sorting)
+  reasons: string[]        // every reason any pair gave
+  ai: { same: number; different: number; reason: string }   // what the AI said about the pairs it checked
+}
+
+export const MAX_GROUP = 10
+
+/** Joins pairs into groups (A~B and B~C → A, B, C), strongest links first. A group never grows past MAX_GROUP: a weak
+ *  "maybe" chain can't glue dozens of different props together; the links left out come back once the group is sorted. */
+export function groupDoubles(pairs: DoublePair[], max = MAX_GROUP): DoubleGroup[] {
+  const sorted = [...pairs].sort((x, y) => TIER_RANK[x.tier] - TIER_RANK[y.tier] || y.score - x.score)
+  const groupOf = new Map<string, number>()
+  const groups: { ids: Set<string>; pairs: DoublePair[] }[] = []
+  for (const p of sorted) {
+    const ga = groupOf.get(p.a), gb = groupOf.get(p.b)
+    if (ga === undefined && gb === undefined) {
+      groups.push({ ids: new Set([p.a, p.b]), pairs: [p] }); groupOf.set(p.a, groups.length - 1); groupOf.set(p.b, groups.length - 1)
+    } else if (ga !== undefined && gb !== undefined) {
+      if (ga === gb) { groups[ga].pairs.push(p); continue }
+      if (groups[ga].ids.size + groups[gb].ids.size > max) continue
+      for (const id of groups[gb].ids) { groups[ga].ids.add(id); groupOf.set(id, ga) }
+      groups[ga].pairs.push(...groups[gb].pairs, p)
+      groups[gb] = { ids: new Set(), pairs: [] }
+    } else {
+      const g = (ga ?? gb)!, other = ga === undefined ? p.a : p.b
+      if (groups[g].ids.size + 1 > max) continue
+      groups[g].ids.add(other); groupOf.set(other, g); groups[g].pairs.push(p)
+    }
+  }
+  return groups.filter(g => g.ids.size > 1).map(g => {
+    const best = [...g.pairs].sort((x, y) => TIER_RANK[x.tier] - TIER_RANK[y.tier] || y.score - x.score)[0]
+    const reasons = [...new Set(g.pairs.flatMap(p => reasonsOf(p.signals)))]
+    const said = g.pairs.filter(p => p.signals.ai)
+    const reason = said.find(p => p.signals.ai?.same)?.signals.ai?.reason ?? said[0]?.signals.ai?.reason ?? ''
+    return {
+      ids: [...g.ids], keys: g.pairs.map(p => pairKeyOf(p.a, p.b)), tier: best.tier, score: best.score, reasons,
+      ai: { same: said.filter(p => p.signals.ai!.same).length, different: said.filter(p => !p.signals.ai!.same).length, reason },
+    }
+  }).sort((x, y) => TIER_RANK[x.tier] - TIER_RANK[y.tier] || y.score - x.score)
+}
+
+/** Pairs between two sets of props (the ticked ones × the ones left out), for "not the same" after a partial combine. */
+export function keysBetween(a: string[], b: string[]): string[] {
+  const out: string[] = []
+  for (const x of a) for (const y of b) if (x !== y) out.push(pairKeyOf(x, y))
+  return out
+}

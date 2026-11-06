@@ -81,6 +81,8 @@ const items = [
   // Messy imported props for the clean-up tools (owner, Nov 6): the same prop twice, a file name, one with no bin.
   { id: 'imp-phone2', name: 'Rotary phones', categoryId: 'prop', quantity: 1, condition: 'good', tags: ['t-phone'], binId: 'bin-a2', locationId: 'loc-main',
     photos: [pic('PHONE 2', '#991b1b')], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-1', fileName: 'IMG_2201.HEIC', folder: 'Bin A2' } },
+  { id: 'imp-phone3', name: 'Red rotary phone', categoryId: 'prop', quantity: 1, condition: 'good', tags: ['t-phone'], binId: 'bin-a2', locationId: 'loc-main',
+    photos: [pic('PHONE 3', '#b91c1c')], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-6', fileName: 'IMG_2202.HEIC', folder: 'Bin A2' } },
   { id: 'imp-img', name: 'IMG_2034', categoryId: 'prop', quantity: 1, condition: 'good', tags: [], binId: 'bin-a1', locationId: 'loc-main', description: 'Green glass desk lamp with a brass base.',
     photos: [pic('LAMP', '#166534')], status: 'available', archived: false, importedFrom: { driveFileId: 'seed-2', fileName: 'IMG_2034.HEIC', folder: 'Bin A1' } },
   { id: 'imp-coat', name: 'Black peacoat', categoryId: 'costume', quantity: 1, condition: 'good', tags: [], description: 'Wool peacoat. Size XL.',

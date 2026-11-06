@@ -207,7 +207,7 @@ email service: DECIDE LATER (status emails are queued in `outbox`, nothing sends
   failed requests, function errors) for diagnosing live problems.
 
 ### Testing
-- `npm test`: 773 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
+- `npm test`: 776 tests in the emulator (rules, server functions incl. double-booking races and the full pick→return journey, booking/search/health logic).
 - Try it locally: `npm run emulator`, then `npm run seed`, then `npm run dev:emulator`,
   open http://localhost:5173 and use the "Test mode: sign in as" buttons.
 - CI: `.github/workflows/preview.yml` runs the tests on every push to a non-main
@@ -2337,6 +2337,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "Props/BIN A-02" → A2), imp-glass. Tests: tests/unit/propCleanup.test.ts, tests/functions/doubles.test.ts (findDoubles tiers,
       aiCheckPairs cache, suggestPropNames, merge keeps higher count), rules (dup_verdicts server only). App guide entries cleanup,
       cleanupbins, cleanupbin, cleanupapprove, cleanupplace, cleanupnames, cleanupdoubles. Checked in a browser on the emulator.
+    - DOUBLES IN GROUPS + MANUAL CONFIRM + PHOTOS OPEN LARGER (owner, Nov 6: "put everything live, but make sure combine doubles can
+      handle more than 2… I don't wanna automate it, everything should still have a manual confirm… if displaying a picture make sure
+      we can open it larger"). doubles.ts `groupDoubles(pairs, MAX_GROUP 10)` (pure, tested): joins pairs into groups, strongest first,
+      never past 10 (weak "maybe" chains can't glue dozens together; left-out links come back after) → {ids, keys, tier, score,
+      reasons, ai {same, different, reason}}; `keysBetween`. /cleanup/doubles = GroupCard: all photos (tap = full size), all ticked
+      ("✓ Same" / "Not this one" when 3+), "Combine N" → how step ("One prop, photographed N times" = keeps the highest count / "We
+      have N separate copies" = adds up, Keep this one) → mergeProps for each; the unticked ones get "not the same" only against the
+      kept one (they stay possible doubles of each other); "None are the same" dismisses the group's pairs; skip = its pairs. EVERY
+      bulk action opens a list first and needs a "Yes": BulkSheet (exact-same-picture groups / groups the AI thinks are the same; all
+      photos per row, untick rows, "Yes, combine N groups", 'angles'), ApartSheet (pairs the AI says are different, untick any that
+      are the same, "Yes, keep N apart"), Put all in their bins (inline confirm with counts per bin). The AI never combines anything:
+      it only gives an opinion. PHOTOS: ImageLightbox now renders through a portal on document.body at z-[80] (inside a BottomSheet
+      it was trapped by the sheet's transform); Parts.tsx PropThumb opens the full photo on tap (magnifier ZoomBadge; stopPropagation
+      so rows still select from their text; `zoom={false}` to opt out), ZoomButton on bin and quick-approve tiles, QuickEdit's photo
+      opens full size, the checker's photo shows the badge. Seed imp-phone3 (Red rotary phone, A2) = a group of 3 phones. Checked in
+      a browser on the emulator (group of 3, untick one, combine 2; combine 3 = "1 + 2 + 1 = 4"; zoom in tiles, list, bin, sheet).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

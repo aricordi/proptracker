@@ -6,6 +6,7 @@ import { useBins } from '../../hooks/useBins'
 import { useLocations } from '../../hooks/useLocations'
 import type { Item } from '../../types'
 import { thumbOf } from '../../services/itemShape'
+import ImageLightbox from '../ImageLightbox'
 
 export function CleanupHeader({ title, sub, right, back = '/cleanup' }: { title: string; sub?: ReactNode; right?: ReactNode; back?: string | -1 }) {
   const navigate = useNavigate()
@@ -97,13 +98,44 @@ export function Toast({ text, onUndo, onDone }: { text: string; onUndo?: () => v
   )
 }
 
-/** A prop's photo (small version), or a grey box. */
-export function PropThumb({ item, size = 56, className = '' }: { item: Item; size?: number; className?: string }) {
+/** A prop's photo (small version), or a grey box. Tap it to see the full photo, big (owner, Nov 6: every picture opens
+ *  larger). The tap never reaches the row around it, so rows that select on tap still work from their text. */
+export function PropThumb({ item, size = 56, className = '', zoom = true }: { item: Item; size?: number; className?: string; zoom?: boolean }) {
   const url = item.photos?.[0]
+  const [open, setOpen] = useState(false)
+  const box = `relative rounded-xl bg-white/[0.06] overflow-hidden shrink-0 ${className}`
+  if (!url) return <div className={box} style={{ width: size, height: size }}><div className="w-full h-full grid place-items-center text-pt-muted text-xs">No photo</div></div>
+  const img = <img src={thumbOf(item, url)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+  if (!zoom) return <div className={box} style={{ width: size, height: size }}>{img}</div>
   return (
-    <div className={`rounded-xl bg-white/[0.06] overflow-hidden shrink-0 ${className}`} style={{ width: size, height: size }}>
-      {url ? <img src={thumbOf(item, url)} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-        : <div className="w-full h-full grid place-items-center text-pt-muted text-xs">No photo</div>}
-    </div>
+    <>
+      <span role="button" tabIndex={0} aria-label={`See the photo of ${item.name} bigger`} className={`${box} block cursor-zoom-in`} style={{ width: size, height: size }}
+        onClick={e => { e.stopPropagation(); e.preventDefault(); setOpen(true) }}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); setOpen(true) } }}>
+        {img}<ZoomBadge />
+      </span>
+      {open && <ImageLightbox src={url} alt={item.name} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+/** The little magnifier in a photo's corner: "tap to see it bigger". */
+export function ZoomBadge({ className = 'bottom-1 right-1' }: { className?: string }) {
+  return (
+    <span aria-hidden className={`absolute ${className} w-6 h-6 rounded-full bg-black/65 grid place-items-center text-white`}>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round"><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5M11 8v6M8 11h6" /></svg>
+    </span>
+  )
+}
+
+/** A big photo tile (bin view, quick approve): tap the magnifier to open the full photo. */
+export function ZoomButton({ src, alt }: { src: string; alt: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={e => { e.stopPropagation(); setOpen(true) }} aria-label={`See the photo of ${alt} bigger`}
+        className="absolute bottom-1 right-1 w-11 h-11 grid place-items-center"><ZoomBadge className="inset-0 m-auto !w-8 !h-8" /></button>
+      {open && <ImageLightbox src={src} alt={alt} onClose={() => setOpen(false)} />}
+    </>
   )
 }

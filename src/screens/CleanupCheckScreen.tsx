@@ -9,7 +9,7 @@ import { inCleanup, matchesFilter, shelfOrder, likelyDoubles, FILTER_LABELS, typ
 import { saveChecked, removeProps, restoreProps, heldUnits, suggestPropNames, REMOVE_REASONS } from '../services/cleanup'
 import { mergeProps } from '../services/importer'
 import { matchesQuery } from '../lib/search'
-import { CleanupHeader, BinSheet, QtyStepper, Toast, PropThumb, useBinLabel } from '../components/cleanup/Parts'
+import { CleanupHeader, BinSheet, QtyStepper, Toast, PropThumb, useBinLabel, ZoomBadge } from '../components/cleanup/Parts'
 import BottomSheet from '../components/BottomSheet'
 import ImageLightbox from '../components/ImageLightbox'
 import { friendlyError } from '../lib/errors'
@@ -162,7 +162,7 @@ function Card({ item, items, binInfo, onDone, onSkip, onBack }: {
         {/* Photo: tap to zoom, arrows for the others. */}
         <div className={`relative rounded-[20px] overflow-hidden bg-black mx-auto w-full ${photos.length ? 'h-[34vh] min-h-[200px]' : 'h-20'}`}>
           {photos.length ? <button onClick={() => setZoom(true)} className="w-full h-full" aria-label="Zoom in on the photo">
-            <img src={photos[photo]} alt={item.name} className="w-full h-full object-contain" /></button>
+            <img src={photos[photo]} alt={item.name} className="w-full h-full object-contain" /><ZoomBadge className="bottom-2 right-2 !w-8 !h-8" /></button>
             : <div className="w-full h-full grid place-items-center text-pt-muted text-[16px]">No photo</div>}
           {photos.length > 1 && <>
             <button onClick={() => setPhoto(p => (p - 1 + photos.length) % photos.length)} aria-label="Previous photo" className="absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 text-white text-[24px]">‹</button>

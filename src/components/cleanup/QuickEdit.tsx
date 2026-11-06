@@ -4,7 +4,8 @@ import { useState } from 'react'
 import BottomSheet from '../BottomSheet'
 import { useCategories } from '../../hooks/useCategories'
 import { saveChecked, heldUnits, removeProps, restoreProps, suggestPropNames } from '../../services/cleanup'
-import { BinSheet, QtyStepper, useBinLabel } from './Parts'
+import { BinSheet, QtyStepper, useBinLabel, ZoomBadge } from './Parts'
+import ImageLightbox from '../ImageLightbox'
 import { RemoveSheet, DoubleSheet } from '../../screens/CleanupCheckScreen'
 import { friendlyError } from '../../lib/errors'
 import type { Item } from '../../types'
@@ -23,6 +24,7 @@ export default function QuickEdit({ item, items, onClose, onDone }: {
   const [busy, setBusy] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [zoom, setZoom] = useState(false)
   const changes = {
     ...(name.trim() !== item.name ? { name: name.trim() } : {}),
     ...(qty !== item.quantity ? { quantity: qty } : {}),
@@ -51,7 +53,8 @@ export default function QuickEdit({ item, items, onClose, onDone }: {
     <>
       <BottomSheet open={!sheet} onClose={onClose} title="Fix this prop">
         <div className="space-y-3">
-          {item.photos[0] && <img src={item.photos[0]} alt="" className="w-full max-h-[30vh] object-contain rounded-2xl bg-black" />}
+          {item.photos[0] && <button type="button" onClick={() => setZoom(true)} aria-label={`See the photo of ${item.name} bigger`} className="relative block w-full rounded-2xl bg-black overflow-hidden">
+            <img src={item.photos[0]} alt="" className="w-full max-h-[30vh] object-contain" /><ZoomBadge className="bottom-2 right-2 !w-8 !h-8" /></button>}
           <div>
             <div className="flex items-center justify-between"><span className="text-pt-muted text-[14px]">Name</span>
               <button onClick={suggest} disabled={aiBusy} className="tap min-h-[36px] text-violet-300 text-[14px] font-semibold disabled:opacity-50">{aiBusy ? 'Thinking…' : '✦ Suggest a name'}</button></div>
@@ -73,6 +76,7 @@ export default function QuickEdit({ item, items, onClose, onDone }: {
           </div>
         </div>
       </BottomSheet>
+      {zoom && item.photos[0] && <ImageLightbox src={item.photos[0]} alt={item.name} onClose={() => setZoom(false)} />}
       <BinSheet open={sheet === 'bin'} current={binId} onClose={() => setSheet('')} onPick={(b, l) => { setBinId(b); setLocationId(l) }} />
       <RemoveSheet open={sheet === 'remove'} name={item.name} onClose={() => setSheet('')} onRemove={async reason => {
         const r = await removeProps([item.id], reason)

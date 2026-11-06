@@ -1,7 +1,7 @@
 // Clean-up tools for the arts crew (owner, Nov 6).
 import { describe, it, expect } from 'vitest'
 import { oddName, matchesFilter, cleanupCounts, likelyDoubles, sameNameSameBin, bestToKeep, shelfOrder, isRemoved, groupPairKeys, sameName, binGuesses, looksComplete } from '../../src/lib/cleanup'
-import { buildDoubles, afterMerge, tierOf, reasonsOf, storagePath, nameLikeness } from '../../functions/src/doubles'
+import { buildDoubles, afterMerge, tierOf, reasonsOf, storagePath, nameLikeness, groupDoubles, keysBetween, type DoublePair } from '../../functions/src/doubles'
 import type { Item } from '../../src/types'
 
 const it_ = (id: string, x: Partial<Item> = {}): Item => ({
@@ -104,6 +104,25 @@ describe('doubles engine (every clue in one sorted list)', () => {
     const after = afterMerge(pairs, 'p1', 'p3')
     expect(after.some(p => p.a === 'p3' || p.b === 'p3')).toBe(false)
     expect(after.filter(p => (p.a === 'p1' && p.b === 'p2') || (p.a === 'p2' && p.b === 'p1'))).toHaveLength(1)
+  })
+})
+
+describe('doubles in groups (3 or more copies)', () => {
+  const pair = (a: string, b: string, tier: 'sure' | 'likely' | 'maybe', score: number, ai?: boolean): DoublePair =>
+    ({ a, b, tier, score, signals: { look: score, ...(ai === undefined ? {} : { ai: { same: ai, confidence: 'high' as const, reason: ai ? 'same lamp' : 'different' } }) } })
+  it('joins chains into one group (4 photos of the same lamp = one group), best first', () => {
+    const g = groupDoubles([pair('a', 'b', 'likely', 0.95, true), pair('b', 'c', 'likely', 0.94), pair('c', 'd', 'maybe', 0.87), pair('x', 'y', 'sure', 2)])
+    expect(g.map(x => [...x.ids].sort())).toEqual([['x', 'y'], ['a', 'b', 'c', 'd']])
+    expect(g[1]).toMatchObject({ tier: 'likely', ai: { same: 1, different: 0, reason: 'same lamp' } })
+    expect(g[1].keys).toHaveLength(3)
+  })
+  it('never glues more than 10 together through weak links', () => {
+    const chain = Array.from({ length: 15 }, (_, i) => pair(`p${i}`, `p${i + 1}`, 'maybe', 0.9 - i * 0.001))
+    const g = groupDoubles(chain)
+    expect(Math.max(...g.map(x => x.ids.length))).toBeLessThanOrEqual(10)
+  })
+  it('pairs between the ticked ones and the ones left out', () => {
+    expect(keysBetween(['a', 'b'], ['c'])).toEqual(['a|c', 'b|c'])
   })
 })
 

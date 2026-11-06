@@ -9,7 +9,7 @@ import { useLocations } from '../hooks/useLocations'
 import { inCleanup, shelfOrder, sameNameSameBin, oddName, binGuesses } from '../lib/cleanup'
 import { lookAlikeBins } from '../../functions/src/binNames'
 import { markChecked } from '../services/cleanup'
-import { CleanupHeader, Toast, useBinLabel } from '../components/cleanup/Parts'
+import { CleanupHeader, Toast, useBinLabel, ZoomButton } from '../components/cleanup/Parts'
 import QuickEdit from '../components/cleanup/QuickEdit'
 import { CombineSheet } from './CleanupListScreen'
 import { friendlyError } from '../lib/errors'
@@ -125,12 +125,15 @@ export function CleanupBinScreen() {
         ))}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {props.map(p => (
-            <button key={p.id} onClick={() => setEditing(p)} className={`relative text-left rounded-2xl overflow-hidden bg-pt-surface ${p.reviewedAt ? '' : ''}`}>
-              <div className="aspect-square bg-black">{p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" /> : <span className="grid place-items-center h-full text-pt-muted text-sm">No photo</span>}</div>
-              <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[14px] font-bold px-2 py-0.5">×{p.quantity}</span>
-              {p.reviewedAt && <span className="absolute top-2 left-2 rounded-full bg-green-600 text-white text-[12px] font-semibold px-2 py-0.5">✓</span>}
-              <span className={`block px-2 py-2 text-[14px] font-semibold leading-tight line-clamp-2 ${oddName(p.name) ? 'text-amber-300' : 'text-pt-text'}`}>{p.name}</span>
-            </button>
+            <div key={p.id} className="relative rounded-2xl overflow-hidden bg-pt-surface">
+              <button onClick={() => setEditing(p)} className="block w-full text-left" aria-label={`Fix ${p.name}`}>
+                <div className="aspect-square bg-black">{p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" /> : <span className="grid place-items-center h-full text-pt-muted text-sm">No photo</span>}</div>
+                <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[14px] font-bold px-2 py-0.5">×{p.quantity}</span>
+                {p.reviewedAt && <span className="absolute top-2 left-2 rounded-full bg-green-600 text-white text-[12px] font-semibold px-2 py-0.5">✓</span>}
+                <span className={`block px-2 py-2 text-[14px] font-semibold leading-tight line-clamp-2 ${oddName(p.name) ? 'text-amber-300' : 'text-pt-text'}`}>{p.name}</span>
+              </button>
+              {p.photos[0] && <div className="absolute inset-x-0 top-0 aspect-square pointer-events-none"><div className="pointer-events-auto"><ZoomButton src={p.photos[0]} alt={p.name} /></div></div>}
+            </div>
           ))}
         </div>
         {!props.length && <div className="rounded-[20px] bg-pt-surface p-6 text-center"><p className="text-pt-text text-[18px] font-semibold">Nothing in here</p></div>}

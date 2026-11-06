@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom'
 import { useItems } from '../hooks/useItems'
 import { inCleanup, looksComplete, shelfOrder, binGuesses, oddName } from '../lib/cleanup'
 import { markChecked, moveToBin, saveChecked, suggestPropNames, loadDoubles, cachedDoubles } from '../services/cleanup'
-import { CleanupHeader, Toast, PropThumb, useBinLabel } from '../components/cleanup/Parts'
+import { CleanupHeader, Toast, PropThumb, useBinLabel, ZoomButton } from '../components/cleanup/Parts'
 import QuickEdit from '../components/cleanup/QuickEdit'
 import { friendlyError } from '../lib/errors'
 import { thumbOf } from '../services/itemShape'
@@ -69,6 +69,7 @@ export function CleanupApproveScreen() {
                     <span className={`w-7 h-7 rounded-full grid place-items-center text-[16px] font-bold ${on ? 'bg-green-600 text-white' : 'bg-black/70 border-2 border-white/60'}`}>{on ? '✓' : ''}</span>
                   </button>
                   <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[14px] font-bold px-2 py-0.5">×{i.quantity}</span>
+                  {i.photos[0] && <div className="absolute inset-x-0 top-0 aspect-square pointer-events-none"><div className="pointer-events-auto"><ZoomButton src={i.photos[0]} alt={i.name} /></div></div>}
                   <button onClick={() => toggle(i.id)} className="block w-full text-left px-2 py-2">
                     <span className="block text-pt-text text-[14px] font-semibold leading-tight line-clamp-2">{i.name}</span>
                     <span className="block text-pt-muted text-[12px] truncate">{binInfo.label(i.binId)}</span>
@@ -108,6 +109,7 @@ export function CleanupPlaceScreen() {
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const [toast, setToast] = useState('')
+  const [confirmAll, setConfirmAll] = useState(false)
   async function place(list: [string, Item[]][], key: string) {
     setBusy(key); setErr('')
     let n = 0
@@ -119,7 +121,15 @@ export function CleanupPlaceScreen() {
       <CleanupHeader title="Put in their bin" back="/cleanup/bins" />
       <div className="px-4 max-w-[640px] mx-auto space-y-3">
         <p className="text-pt-muted text-[16px]">These props have no bin, but the Google Drive folder their photo came from is named like a bin. Check the photos, then put them there.</p>
-        {total > 1 && groups.length > 1 && <button disabled={!!busy} onClick={() => place(groups, 'all')} className="w-full rounded-2xl min-h-[56px] bg-pt-accent text-stone-900 text-[18px] font-bold shadow-gold disabled:opacity-40">{busy === 'all' ? 'Saving…' : `Put all ${total} in their bins`}</button>}
+        {total > 1 && groups.length > 1 && (confirmAll ? (
+          <div className="rounded-[20px] bg-pt-accent/10 ring-1 ring-pt-accent/40 p-4 space-y-2">
+            <p className="text-pt-text text-[16px]">Put <b>{total}</b> props in <b>{groups.length}</b> bins: {groups.map(([b, l]) => `${l.length} in ${binInfo.label(b)}`).join(', ')}?</p>
+            <div className="flex gap-2">
+              <button disabled={!!busy} onClick={() => setConfirmAll(false)} className="flex-1 rounded-2xl min-h-[52px] bg-white/[0.08] text-pt-text text-[16px] font-semibold">Not now</button>
+              <button disabled={!!busy} onClick={() => { setConfirmAll(false); void place(groups, 'all') }} className="flex-1 rounded-2xl min-h-[52px] bg-pt-accent text-stone-900 text-[16px] font-bold">Yes, put them there</button>
+            </div>
+          </div>
+        ) : <button disabled={!!busy} onClick={() => setConfirmAll(true)} className="w-full rounded-2xl min-h-[56px] bg-pt-accent text-stone-900 text-[18px] font-bold shadow-gold disabled:opacity-40">{busy === 'all' ? 'Saving…' : `Put all ${total} in their bins…`}</button>)}
         {err && <p className="rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
         {groups.map(([binId, props]) => (
           <div key={binId} className="rounded-[20px] bg-pt-surface p-3 space-y-2">
