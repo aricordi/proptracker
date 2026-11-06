@@ -126,3 +126,16 @@ describe('what the AI said in real-AI run 3 that it must not', () => {
     expect(cleanTurn({ action: 'reply', reply: 'Ok', chips: ['Message Maanik', 'Book a time', 'Call producer'] }, opts)!.chips).toEqual(['Book a time'])
   })
 })
+
+describe('real-AI run 4 leftovers', () => {
+  it('curly apostrophes are caught too; status answers keep "you\'re booked" (a fact there)', () => {
+    expect(dropClaims('We\u2019ve got a few different couches in the closet, **Jana**!', 'props')).toBe('')
+    expect(dropClaims('I\u2019ve sent your request.', 'reply')).toBe('')
+    expect(dropClaims("You're booked at **Cliff 1** on Saturday.", 'status')).toBe("You're booked at **Cliff 1** on Saturday.")
+    expect(dropClaims("You're booked at **Cliff 1** on Saturday.", 'reply')).toBe('')
+  })
+  it('a props turn with no idea drops a reply written as if props were found, keeps a question', () => {
+    expect(cleanTurn({ action: 'props', reply: 'Here are some prop ideas for your shoot tomorrow!', query: 'props for tomorrow' }, opts)!.reply).toBe('')
+    expect(cleanTurn({ action: 'props', reply: "What's the video about?", query: 'props for tomorrow' }, opts)!.reply).toBe("What's the video about?")
+  })
+})

@@ -50,7 +50,7 @@ const STATES = {
 const cases = JSON.parse(readFileSync(CASES, 'utf8')).filter(c => !FILTER || c.group === FILTER || c.msg.includes(FILTER))
 console.log(`Today ${today}. ${cases.length} messages.\n`)
 let i = 0, fallbacks = 0, errors = 0, flagged = 0
-const RED_FLAGS = /first shoot of the (month|week)|all set|locked in|is booked|you'?re booked|been (booked|cancelled|sent|moved|approved|reported)|i'?m (not a bot|human|a real person|a person)|not quite a bot|far from it|door code is|wi-?fi (password|reset)|reset the router|replacement|we wrap up|houses close|too late for (the|our) houses|\bsh[A-Z]\b|right back at (you|ya)|love you too|we(?:'ve| have) (got )?(a few|plenty|some|several|definitely)/gi
+const RED_FLAGS = /first shoot of the (month|week)|all set(?! to)|locked in|is booked|you'?re booked|been (booked|cancelled|sent|moved|approved|reported)|i'?m (not a bot|human|a real person|a person)|not quite a bot|far from it|door code is|wi-?fi password is|reset the router|replacement|we wrap up|houses close|too late for (the|our) houses|\bsh[A-Z]\b|right back at (you|ya)|love you too|we(?:'ve| have) (got )?(a few|plenty|some|several|definitely)/gi
 const tally = {}
 for (const c of cases) {
   const email = PEOPLE[i++ % PEOPLE.length]
@@ -63,7 +63,7 @@ for (const c of cases) {
     tally[t.action] = (tally[t.action] ?? 0) + 1
     const ok = !c.expect || c.expect.split('|').includes(t.action)
     // Things the chat must never say (chat QA, Nov 6): made-up facts, "done" claims, pretending to be human, internal ids.
-    const bad = (t.reply.match(RED_FLAGS) ?? []).map(x => x.toLowerCase())
+    const bad = (t.reply.replace(/[\u2018\u2019]/g, "'").match(RED_FLAGS) ?? []).map(x => x.toLowerCase())
     if (bad.length) flagged++
     line += `   ${ok ? '' : `✗ expected ${c.expect} · `}${bad.length ? `⚠ SAID "${[...new Set(bad)].join('", "')}" · ` : ''}action=${t.action}${t.shoot ? ` shoot=${t.shoot}` : ''}${t.query ? ` query="${t.query}"` : ''}${t.also ? ` also=${t.also.action}:"${t.also.query}"` : ''}\n   reply: ${t.reply.replace(/\n/g, ' ⏎ ')}\n${t.chips?.length ? `   chips: ${t.chips.join(' | ')}\n` : ''}${t.steps?.length ? `   steps: ${t.steps.join(' > ')}\n` : ''}`
     if (t.action === 'times' && c.follow !== false) {

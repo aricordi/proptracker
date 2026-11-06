@@ -2246,7 +2246,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       asked, can't see inside props requests (→ My requests), no promises to follow up. App: `isJustWhen` (aiRoute.ts) sends a
       day/time-only message ("next sat", "the 31st", "5:30") straight to the time finder (the AI got "next sat" wrong);
       AI shoot actions (move/cancel…) mid-plan now show their card (localTurn anyStep). Time finder names friends not in the app
-      (namesIn `unknown`).
+      (namesIn `unknown`, never the caller's own name). Run 4 (Nov 6, practice): 0 fallbacks, 0 errors, 2 harmless red flags
+      ("all set to check in", "I don't have the Wi-Fi password"); fixed after it: curly apostrophes in dropClaims, status answers
+      keep "you're booked" (STATE_CLAIM skipped for status), a props turn whose search was dropped as generic loses a reply that
+      pretends props were found. NOTE: the 4 practice test people hit their 25/day finder limit after ~2 full runs a day (the
+      harness then prints "times/props ERROR RESOURCE_EXHAUSTED", the brain still answers); run the full set once a day, or use `only`.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

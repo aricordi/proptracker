@@ -212,7 +212,9 @@ export function brief(reply: string, max = 200): string {
 
 // Sentences the AI must never say (chat QA, Nov 6, real-AI runs): claims that something was done, and for times/props,
 // claims about what's free or in the closet (the real results show right under the reply) or offers to do it itself.
-const DONE_CLAIM = /\b(i'?ve|i have|we'?ve|we have) (just )?(sent|booked|cancel+ed|moved|requested|reserved|held|swapped|reported|added|submitted|locked|confirmed|approved)\b|^\s*(done|booked|sent|cancel+ed|all done)\s*[!.]|\byou'?re (all )?(booked|set|confirmed|locked in)\b(?! to)|\ball set\b(?! to)|\blocked in\b|\b(has|have) been (sent|booked|cancel+ed|moved|reserved|submitted|swapped)\b|\bi'?ll (keep an eye|remind|follow up|let you know|notify|ping|check back)\b/i
+const DONE_CLAIM = /\b(i'?ve|i have|we'?ve|we have) (just )?(sent|booked|cancel+ed|moved|requested|reserved|held|swapped|reported|added|submitted|locked|confirmed|approved)\b|^\s*(done|booked|sent|cancel+ed|all done)\s*[!.]|\bi'?ll (keep an eye|remind|follow up|let you know|notify|ping|check back)\b/i
+// "You're booked for Saturday" is a fact in a status answer (STATE says it's approved), a false claim anywhere else.
+const STATE_CLAIM = /\byou'?re (all )?(booked|set|confirmed|locked in)\b(?! to)|\ball set\b(?! to)|\blocked in\b|\b(has|have) been (sent|booked|cancel+ed|moved|reserved|submitted|swapped)\b/i
 const STOCK_CLAIM = /\b(we'?ve got|we have|we got|there'?s|there are|you'?ll find) (a few|some|plenty|several|lots|a couple|a bunch|many|definitely|tons|loads|a great|great|a ton)\b|\bin stock\b|\bwe (definitely )?have (it|that|one|them)\b/i
 const FREE_CLAIM = /\b(is|are|looks?|it'?s|that'?s) (wide )?(open|free|available|booked up|taken|full)\b|\bwide open\b|\bhas (some )?(great )?(spots|openings|room)\b/i
 const OFFER = /\b(want|shall|should|would you like|do you want) (me|i) to\b|^\s*(want|shall i|should i)\b/i
@@ -226,8 +228,9 @@ function sentences(text: string): string[] {
 export function dropClaims(reply: string, action: string): string {
   const finder = action === 'times' || action === 'props'
   const keep = sentences(reply).filter(x => {
-    const t = x.replace(/\*\*/g, '')
+    const t = x.replace(/\*\*/g, '').replace(/[\u2018\u2019]/g, "'")   // the AI sometimes writes curly apostrophes (We’ve)
     if (DONE_CLAIM.test(t)) return false
+    if (action !== 'status' && STATE_CLAIM.test(t)) return false
     if (finder && OFFER.test(t)) return false
     // "Let's check if 7 PM is free" is fine; "7 PM is free" isn't (the app shows what's really free).
     const hypothetical = /\b(if|whether|see|check|checking|look|looking|find|finding)\b/i.test(t)
@@ -263,7 +266,9 @@ export function cleanTurn(raw: Record<string, unknown>, o: { allowed: ChatAction
   reply = dropClaims(reply, action)
   if (action === 'times' || action === 'props') reply = brief(reply)
   let query = safeText(raw.query, 300)
-  if (action === 'props' && query && genericPropsQuery(query)) query = ''
+  // No idea in the search ("props for Saturday"): the app asks what the video is about, so a reply written as if props were
+  // found ("Here are some prop ideas…") goes too; a reply that already asks a question stays.
+  if (action === 'props' && query && genericPropsQuery(query)) { query = ''; if (!/\?\s*$/.test(reply)) reply = '' }
   const shoot = typeof raw.shoot === 'string' && o.shootIds.includes(raw.shoot) ? raw.shoot : undefined
   const list = (v: unknown, n: number, max: number) => (Array.isArray(v) ? v : []).map(x => safeText(x, max)).filter(Boolean).slice(0, n)
   const steps = action === 'help' ? list(raw.steps, 5, 90) : []

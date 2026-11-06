@@ -462,7 +462,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         // the word "props" (chat QA, Nov 6: that answered "I didn't catch a video idea there").
         if (!turn.query && !demo && !/\b(for (a|an|the|my|our) (\w+ )?(video|skit|sketch|scene|prank|episode|short)|about|with a|like a)\b/i.test(q) && q.split(/\s+/).length <= 6) {
           setMode('props'); aiSpoke.current = false
-          say(turn.reply || 'What\'s the video about? A scene, a character or a vibe is enough.'); setChips(turn.chips.length ? turn.chips : STARTERS.props.slice(0, 3)); return
+          // The AI's line only when it asks for the idea itself (not "Here are some props…" with nothing below it).
+          say(/\?\s*$/.test(turn.reply) ? turn.reply : 'What\'s the video about? A scene, a character or a vibe is enough.'); setChips(turn.chips.length ? turn.chips : STARTERS.props.slice(0, 3)); return
         }
         if (turn.reply) say(turn.reply)
         return runHelpers(turn.query || q, false, 'props', turn.shoot)

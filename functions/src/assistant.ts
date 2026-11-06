@@ -353,7 +353,9 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   await settle(cost)
 
   // A first name two people share ("justin") is never guessed (chat QA, Nov 6): ask which one, with both as buttons.
-  const { unclear, unknown: notFound } = namesIn(text, people)
+  const myFirst = (caller.name || '').toLowerCase().split(/\s+/)[0]
+  const { unclear, unknown: found } = namesIn(text, people)
+  const notFound = found.filter(n => n.toLowerCase() !== myFirst)   // "me and kyle" typed by Kyle isn't a missing friend
   if (unclear.length) {
     const u = unclear[0], first = u.said[0].toUpperCase() + u.said.slice(1)
     return { reply: `There are ${u.options.length} ${first}s in the app: ${u.options.join(' or ')}. Which one are you filming with?`,
