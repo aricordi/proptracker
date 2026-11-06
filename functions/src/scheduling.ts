@@ -116,12 +116,23 @@ function eachEntry(day: ScheduleDay, shootId: string, fn: (e: SlotEntry | Offsit
 const approveIn = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e.move ? e : strip(e))
 const dropMove = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e.move ? null : e)
 const keepOnlyMove = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e.move ? strip(e) : null)
-function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootId: string) {
+function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootId: string, promote = true) {
   if (spot.place === 'offsite') { day.offsite = (day.offsite ?? []).filter(o => o.shootId !== shootId); return }
   // Every slot this shoot fills (an imported off-grid shoot can fill two), and any clash listing.
-  const slots = day[spot.place] ?? {}
-  if (Object.values(slots).some(e => e.shootId === shootId)) day[spot.place] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
+  const house = spot.place
+  const slots = day[house] ?? {}
+  const freed = Object.entries(slots).filter(([, e]) => e.shootId === shootId).map(([k]) => k)
+  if (freed.length) day[house] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
   if (day.clashes?.some(c => c.shootId === shootId)) day.clashes = day.clashes.filter(c => c.shootId !== shootId)
+  // A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
+  // (audit: the slot showed Free and could be booked twice, and the clash never cleared).
+  for (const k of promote ? freed : []) {
+    const c = (day.clashes ?? []).find(x => x.house === house && x.slot === k && !x.blockId && x.shootId && x.shootId !== shootId)
+    if (!c) continue
+    day[house] = { ...(day[house] ?? {}), [k]: { shootId: c.shootId, name: c.name, email: c.email ?? '', kind: 'extra',
+      ...(c.start === Number(k) && c.end === Number(k) + 120 ? {} : { time: { start: c.start, end: c.end } }) } }
+    day.clashes = (day.clashes ?? []).filter(x => x !== c)
+  }
 }
 
 // Load the day docs a change touches, let `change` edit them, then write them all back.
@@ -659,15 +670,19 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
 // The event was deleted in Google Calendar: take the app's copy off the schedule (the calendar itself is untouched).
 export async function removeImportedShoot(shootId: string, by: string, toCheck = false) {
   const ref = db.doc(`shoots/${shootId}`)
+  let email = ''
   await db.runTransaction(async tx => {
     const sh = (await tx.get(ref)).data()
     if (!sh || sh.status !== 'booked') return
+    email = String(sh.creatorEmail ?? '')
     const write = await editDays(tx, [sh.date], days => takeOut(days[sh.date], sh as Spot, shootId))
     write()
     const at = new Date().toISOString()
     // toCheck: the automatic check did it; the creator is told once the equipment team confirms it (Calendar tab).
     tx.update(ref, { status: 'cancelled', updatedAt: at, ...(toCheck ? { toCheck: true } : {}), history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: 'removed from Google Calendar' }) })
   })
+  // Props and gear asked for this shoot aren't needed any more (audit: they were left waiting for a shoot that was gone).
+  if (email) await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
 }
 
 // ─── Filming back to back with friends ───────────────────────────────────────
@@ -839,7 +854,10 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
     const write = await editDays(tx, [a.date], days => {
       const day = days[a.date]
       if (day[a.house]?.[key]?.shootId !== holderId) throw new HttpsError('failed-precondition', 'That slot changed in the meantime. Look again.')
-      takeOut(day, h as Spot, holderId)
+      // A slot someone asked to MOVE into (or a shoot with a move waiting) is sorted out first (audit: giving it away left the
+      // move request behind, and approving it later took the wrong slot).
+      if (day[a.house]?.[key]?.move || h.moveRequest) throw new HttpsError('failed-precondition', `${h.creatorName} has a move request waiting. Approve or deny it first.`)
+      takeOut(day, h as Spot, holderId, false)
       if (moveSpot) {
         if (moveSpot.place === a.house && moveSpot.start === a.start) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
         if (moveSpot.start < a.start + s.slotMinutes && moveSpot.start + s.slotMinutes > a.start && moveSpot.place === a.house) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')

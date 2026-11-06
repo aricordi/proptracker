@@ -99,13 +99,13 @@ describe('importing the existing calendar', () => {
     expect(d.clashes[0]).toMatchObject({ house: 'cliff2', slot: '900', name: 'Ben' })
     // Nobody can book over the imported shoot.
     expect((await call('bookShoot', { place: 'cliff2', date: day, start: 780 }, BEN)).ok).toBe(false)
-    // Cancelling it frees both slots; the clash listing for Ben stays until his is sorted out.
+    // Cancelling it frees her slots, and Ben's shoot that was clashing underneath takes the 3–5 slot (audit, Nov 5).
     const ana = (await getDoc(`schedule_days/${day}`))!.cliff2['900'].shootId
     expect((await call('cancelShoot', { id: ana }, MAANIK)).ok).toBe(true)
     const after = (await getDoc(`schedule_days/${day}`))!
     expect(after.cliff2['780']).toBeUndefined()
-    expect(after.cliff2['900']).toBeUndefined()
-    expect(after.clashes).toHaveLength(1)
+    expect(after.cliff2['900'].email).toBe(BEN)
+    expect(after.clashes).toHaveLength(0)
     expect((await getDoc(`shoots/${ana}`))!.start).toBe(870)
   })
 })
@@ -382,5 +382,43 @@ describe('Confirm all in the Calendar tab (owner, Nov 5)', () => {
     expect((await getDoc('calendar_queue/ok1'))!.status).toBe('confirmed')
     expect((await getDoc('calendar_queue/clash1'))!.status).toBe('waiting')
     expect((await getDoc('calendar_queue/unread1'))!.status).toBe('waiting')
+  })
+})
+
+describe('calendar audit fixes (Nov 5)', () => {
+  const STR = 'c_mixed@group.calendar.google.com'
+  const key = (id: string) => `test_calendar/${id.replace(/[^a-zA-Z0-9]/g, '_')}`
+  const ev = (id: string, summary: string, date: string, s: string, e: string) => ({ id, summary, start: { dateTime: `${date}T${s}:00${TZ}` }, end: { dateTime: `${date}T${e}:00${TZ}` } })
+
+  it('a mixed calendar that does not say where, or a name two people share, waits for a person', async () => {
+    await put('users/justin1@example.com', { email: 'justin1@example.com', role: 'creator', active: true, name: 'Justin Figs' })
+    await put('users/justin2@example.com', { email: 'justin2@example.com', role: 'creator', active: true, name: 'Justin Show' })
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: STR, name: 'Stromedy', house: 'any' }] })
+    await put('test_calendar/events', { items: [] })
+    await put(key(STR), { items: [ev('m1', 'Ana filming', FRI, '13:00', '15:00'), ev('m2', 'Justin - Cliff 2', FRI, '15:00', '17:00'), ev('m3', 'Ben - Cliff 1', FRI, '13:00', '15:00')] })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    const d = (await getDoc(`schedule_days/${FRI}`)) ?? {}
+    expect((d.offsite ?? []).length).toBe(0)                       // Ana not sent offsite by guess
+    expect(d.cliff1?.['780']?.email).toBe(BEN)                      // a clear one still goes in
+    expect(Object.keys(d.cliff2 ?? {})).toHaveLength(0)             // "Justin" could be two people
+    expect((await getDoc('calendar_queue/m1'))!.placed).toBe(false)
+    expect((await getDoc('calendar_queue/m2'))!.message).toMatch(/more than one person/)
+  })
+
+  it('a group that cannot all be placed leaves nothing behind; Redo waits for a person', async () => {
+    const r = await call('applyCalendarImport', { items: [{ id: 'g4', action: 'shoot', emails: [ANA, BEN, 'nobody@example.com'], house: 'cliff1', date: FRI, start: 780, end: 960, title: 'grp' }] }, OWNER)
+    expect(r.result.results[0].ok).toBe(false)
+    const d = (await getDoc(`schedule_days/${FRI}`)) ?? {}
+    expect(Object.keys(d.cliff1 ?? {})).toHaveLength(0)
+    // Redo: the 15-minute check doesn't place it again by itself.
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('test_calendar/events', { items: [ev('rd1', 'Ana - Cliff 1', FRI, '13:00', '15:00')] })
+    await call('checkCalendarNow', {}, MAANIK)
+    const shootId = (await getDoc('calendar_imports/rd1'))!.shootId
+    expect((await call('redoCalendarImport', { shootId }, MAANIK)).ok).toBe(true)
+    await call('checkCalendarNow', {}, MAANIK)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1?.['780']).toBeUndefined()
+    expect((await getDoc('calendar_queue/rd1'))!.placed).toBe(false)
   })
 })

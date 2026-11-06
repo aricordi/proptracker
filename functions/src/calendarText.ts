@@ -21,15 +21,21 @@ export function placeFromText(text: string): House | 'offsite' | null {
 
 // Events that aren't about filming (owner, Oct 30: "Valentyna away Nov 14 all day… useless"; birthdays are tracked in
 // the app, not on the schedule). Hidden from the import unless they name a house. Returns why, or ''.
-export function ignoreReason(e: { title: string; location: string; eventType?: string }) {
+export function ignoreReason(e: { title: string; location: string; eventType?: string }, named = false) {
   const text = `${e.title} ${e.location}`
   if (houseFromText(text)) return ''
-  if (e.eventType === 'birthday' || /\b(birthday|bday|b-day)\b|🎂/i.test(text)) return 'Birthday'
-  if (e.eventType === 'outOfOffice' || /\b(away|ooo|out of (the )?office|vacation|vacay|holiday|holidays|day off|days off|off work|sick|pto|leave)\b/i.test(text)) return 'Someone away'
+  if (e.eventType === 'birthday') return 'Birthday'
+  if (e.eventType === 'outOfOffice') return 'Someone away'
   if (e.eventType === 'workingLocation' || e.eventType === 'focusTime') return 'Not a booking'
+  // A filming event that happens to use one of these words ("Ariel - Holiday Special - Stromedy Talent Filming") is a shoot
+  // (audit, Nov 5): words only hide events that aren't about filming.
+  if (/\b(film|films|filming|filmed|shoot|shoots|shooting|recording)\b/i.test(text)) return ''
+  if (/\b(birthday|bday|b-day)\b|🎂/i.test(text)) return 'Birthday'
+  if (/\b(away|ooo|out of (the )?office|vacation|vacay|day off|days off|off work|pto)\b/i.test(text)) return 'Someone away'
+  // Looser words ("Jana - Sick prank") only when nobody the app knows is named.
+  if (!named && /\b(holiday|holidays|sick|leave)\b/i.test(text)) return 'Someone away'
   return ''
 }
-
 
 // What kind of blocked time an event is, from its words.
 export function blockTypeOf(text: string): 'cleaners' | 'maintenance' | 'event' | 'rental' | 'other' {
@@ -51,27 +57,48 @@ export function isClearEvent(e: { title: string; location: string }, guess: { ac
   return false
 }
 
+const plain = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** Everyone named, plus words that match more than one person (two "Justin"s, "Alex" = Alex or Alexandra): those are
+ *  left out and listed in `ambiguous`, so the team picks who it is instead of the app guessing (audit, Nov 5). A person's
+ *  own first name beats a nickname of someone else's ("Alexandra" is Alexandra, not Alex). Accents don't matter. */
+export function namedPeopleInfo<P extends { email: string; name: string }>(text: string, people: P[]): { people: P[]; ambiguous: string[] } {
+  const t = plain(text)
+  const at = new Map<number, { p: P; exact: boolean; word: string }[]>()
+  for (const p of people) {
+    const first = plain(p.name.split(/\s+/)[0] ?? '').replace(/[^a-z0-9]/g, '')
+    if (first.length < 2) continue
+    // The name itself, or a common nickname of it (owner, Nov 4: "Eddy" in the calendar is Eduard in the app).
+    for (const [word, exact] of [[first, true], ...nicknamesOf(first).map(n => [n, false] as const)] as [string, boolean][]) {
+      const m = new RegExp(`\\b${word}\\b`).exec(t)
+      if (!m) continue
+      const list = at.get(m.index) ?? []
+      if (!list.some(x => x.p.email === p.email)) list.push({ p, exact, word })
+      at.set(m.index, list)
+    }
+  }
+  const hits: { p: P; at: number }[] = [], ambiguous: string[] = []
+  for (const [i, list] of [...at.entries()].sort((a, b) => a[0] - b[0])) {
+    const exact = list.filter(x => x.exact)
+    const pick = exact.length ? exact : list
+    const people = [...new Map(pick.map(x => [x.p.email, x.p])).values()]
+    if (people.length === 1) { if (!hits.some(h => h.p.email === people[0].email)) hits.push({ p: people[0], at: i }) }
+    else ambiguous.push(pick[0].word)
+  }
+  return { people: hits.map(h => h.p).slice(0, 4), ambiguous: [...new Set(ambiguous)] }
+}
 // Everyone named in an event, in the order they appear (owner, Nov 4: some old events are ONE 6-hour booking for three
 // creators filming together, e.g. "Kyle / Jana / Ari - Cliff 1"). First names, whole words; each person once.
 export function namedPeople<P extends { email: string; name: string }>(text: string, people: P[]): P[] {
-  const t = text.toLowerCase()
-  const hits: { p: P; at: number }[] = []
-  for (const p of people) {
-    const first = (p.name.split(/\s+/)[0] ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
-    if (first.length < 2) continue
-    // The name itself, or a common nickname of it (owner, Nov 4: "Eddy" in the calendar is Eduard in the app).
-    const words = [first, ...nicknamesOf(first)]
-    const m = new RegExp(`\\b(${words.join('|')})\\b`).exec(t)
-    if (m && !hits.some(h => h.p.email === p.email)) hits.push({ p, at: m.index })
-  }
-  return hits.sort((a, b) => a.at - b.at).map(h => h.p).slice(0, 4)
+  return namedPeopleInfo(text, people).people
 }
 
 // One booking shared by several creators → back-to-back turns, one each, in the order picked (the app's way of filming
 // together). Equal parts on 30-minute steps; the last person's turn ends when the event ends.
 export function splitHours(start: number, end: number, n: number): { start: number; end: number }[] {
   if (n <= 1 || end - start < n * 30) return [{ start, end }]
-  const len = Math.max(30, Math.round((end - start) / n / 30) * 30)
+  // Rounded DOWN so every turn has time (audit: 3 h for 4 people made a 0-minute last turn).
+  const len = Math.max(30, Math.floor((end - start) / n / 30) * 30)
   return Array.from({ length: n }, (_, i) => ({ start: start + i * len, end: i === n - 1 ? end : start + (i + 1) * len }))
 }
 

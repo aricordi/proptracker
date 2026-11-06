@@ -19,7 +19,7 @@ import { importShootAsTeam, removeImportedShoot, filmingPeople } from './schedul
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
-import { houseFromText, placeFromText, saysOffsite, ignoreReason, blockTypeOf, isClearEvent, namedPeople, splitHours, splitOnGrid, looksLikeHeadsUp, queueReady } from './calendarText.js'
+import { houseFromText, placeFromText, saysOffsite, ignoreReason, blockTypeOf, isClearEvent, namedPeople, namedPeopleInfo, splitHours, splitOnGrid, looksLikeHeadsUp, queueReady } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
@@ -300,13 +300,21 @@ const torontoStamp = (iso: string) => {
 // Best guesses from the event's words; the team can change every one.
 export function guessImport(e: { title: string; location: string; date: string; startMin: number; endMin: number }, people: { email: string; name: string }[], slots: number[]) {
   const text = `${e.title} ${e.location}`.toLowerCase()
-  const house = houseFromText(text) ?? 'offsite'
-  const isBlock = /clean|maint|repair|plumb|event|party|airbnb|rental|guest|blocked|closed/.test(text)
-  const named = namedPeople(text, people)
+  const said = placeFromText(text)
+  // Nothing says where: a first guess of offsite for the screen, but never placed by itself (audit, Nov 5: "Kyle filming" in a
+  // mixed calendar went offsite automatically and left the house slot free to double-book).
+  const house = said ?? 'offsite'
+  const { people: named, ambiguous } = namedPeopleInfo(text, people)
   const person = named[0]
+  // Whole words only ("prevent", "parental", "Party prank" aren't blocks). When a creator is named, only words that are
+  // clearly not filming make it blocked time.
+  const isBlock = person
+    ? /\b(clean\w*|maint\w*|repair\w*|plumb\w*|airbnb|rental|blocked|closed)\b/.test(text)
+    : /\b(clean\w*|maint\w*|repair\w*|plumb\w*|events?|party|airbnb|rental|guests?|blocked|closed)\b/.test(text)
   // The 2-hour slot the event starts in (or the closest one).
   const slot = slots.reduce((best, s) => Math.abs(s - e.startMin) < Math.abs(best - e.startMin) ? s : best, slots[0])
-  return { action: isBlock ? 'block' : person ? 'shoot' : 'skip', email: person?.email ?? '', emails: named.map(p => p.email), house, start: house === 'offsite' ? e.startMin : slot }
+  return { action: isBlock ? 'block' : person ? 'shoot' : 'skip', email: person?.email ?? '', emails: named.map(p => p.email), house, start: house === 'offsite' ? e.startMin : slot,
+    ...(said ? {} : { houseUnsure: true }), ...(ambiguous.length ? { ambiguous } : {}) }
 }
 
 export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }, async req => {
@@ -324,8 +332,22 @@ export function eventDays(e: GEvent): ScanItem[] {
   if (e.start?.dateTime && e.end?.dateTime) {
     const from = torontoStamp(e.start.dateTime), to = torontoStamp(e.end.dateTime)
     const date = from.slice(0, 10), startMin = Number(from.slice(11, 13)) * 60 + Number(from.slice(14, 16))
-    const endMin = (to.slice(0, 10) > date ? 1440 : 0) + Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16))
-    return [{ id: e.id, title, location, date, startMin, endMin, allDay: false, eventType }]
+    const toDate = to.slice(0, 10), toMin = Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16))
+    // Starts in the small hours (before 6 AM) and is over by 8 AM: the studio's late night of the day before (audit: a 12:30–2 AM
+    // shoot landed on the next day's 7 AM slot).
+    if (toDate === date && startMin < 360 && toMin <= 480) return [{ id: e.id, title, location, date: addDays(date, -1), startMin: startMin + 1440, endMin: toMin + 1440, allDay: false, eventType }]
+    // Ends the next morning by 6 AM: one entry past midnight (the 11 PM–1 AM slot).
+    if (toDate <= addDays(date, 1) && (toDate === date || toMin <= 360)) {
+      const endMin = (toDate > date ? 1440 : 0) + toMin
+      return [{ id: e.id, title, location, date, startMin, endMin, allDay: false, eventType }]
+    }
+    // Longer than that (e.g. a rental Fri 3 PM → Sun 11 AM): one entry per day, at most 14 (audit: only Friday was blocked).
+    const out: ScanItem[] = []
+    for (let d = date; d <= toDate && out.length < 14; d = addDays(d, 1)) {
+      const s0 = d === date ? startMin : 0, e0 = d === toDate ? toMin : 1440
+      if (e0 > s0) out.push({ id: `${e.id}_${d.replace(/-/g, '')}`, title, location, date: d, startMin: s0, endMin: e0, allDay: false, eventType })
+    }
+    return out
   }
   // All-day (e.g. a day booked off): the whole day, one entry per day (end date is the day AFTER), at most 14.
   if (e.start?.date && e.end?.date) {
@@ -354,7 +376,7 @@ async function readCalendar(cal: Source): Promise<{ items: GEvent[]; title: stri
   const items: GEvent[] = []
   let pageToken = ''
   do {
-    const q = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', maxResults: '250', timeMin: new Date().toISOString(), timeMax: new Date(Date.now() + 120 * 86400000).toISOString(), ...(pageToken ? { pageToken } : {}) })
+    const q = new URLSearchParams({ singleEvents: 'true', orderBy: 'startTime', maxResults: '250', timeMin: new Date(Date.now() - 30 * 3600000).toISOString(), timeMax: new Date(Date.now() + 120 * 86400000).toISOString(), ...(pageToken ? { pageToken } : {}) })
     const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${q}`, { headers: { Authorization: `Bearer ${token}` } })
     // One calendar that can't be read stops the whole check: otherwise its events would look deleted.
     if (!r.ok) throw new HttpsError('failed-precondition', `Google Calendar said ${r.status} for "${cal.name}". Is it shared with the app's account? (${(await r.text()).slice(0, 160)})`)
@@ -385,6 +407,8 @@ async function scanCalendar(cals: Source[]) {
   const imports = new Map((await db.collection('calendar_imports').get()).docs.map(d => [d.id, d.data()]))
   const live: (ScanItem & { cal: Source })[] = []
   const seen = new Set<string>()
+  const today = todayInStudio()
+  const whyIgnored = (it: ScanItem) => { const n = namedPeopleInfo(`${it.title} ${it.location}`, people); return ignoreReason(it, n.people.length > 0 || n.ambiguous.length > 0) }
   const counts: { name: string; house: string; title: string; found: number; hidden: number }[] = []
   for (const cal of cals) {
     const { items, title } = await readCalendar(cal)
@@ -394,14 +418,19 @@ async function scanCalendar(cals: Source[]) {
       if (e.status === 'cancelled' || /^[sbt][0-9a-f]+$/.test(e.id)) continue   // the app's own events
       for (const it of eventDays(e)) {
         if (seen.has(it.id)) continue   // same event in two calendars: once
-        seen.add(it.id); live.push({ ...it, cal }); row.found++
-        if (ignoreReason(it)) row.hidden++
+        seen.add(it.id)
+        // Read from 30 hours back so today's finished events aren't mistaken for deleted ones; older days are left alone.
+        if (it.date < today) continue
+        live.push({ ...it, cal }); row.found++
+        if (whyIgnored(it)) row.hidden++
       }
     }
   }
-  // Same time, and (when we know them) the same title and place.
-  const same = (a: Record<string, any>, b: Record<string, any>) => a.date === b.date && a.startMin === b.startMin && a.endMin === b.endMin
-    && (!b.title || a.title === b.title) && (!b.location || a.location === b.location)
+  // Same time, and (when we know them) the same title and place, compared as saved (titles cut at 200, places at 300:
+  // otherwise a long title looked "changed" every 15 minutes).
+  const same = (a: Record<string, any>, b: Record<string, any>) => a.date === b.date && a.startMin === b.startMin
+    && (a.endMin === b.endMin || (a.endMin <= a.startMin && b.endMin === a.startMin + s.slotMinutes))
+    && (!b.title || String(a.title ?? '').slice(0, 200) === b.title) && (!b.location || String(a.location ?? '').slice(0, 300) === b.location)
   const guessFor = (it: ScanItem, cal: Source) => {
     const g0 = guessFor0(it, cal)
     const known = !!placeFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
@@ -419,17 +448,21 @@ async function scanCalendar(cals: Source[]) {
     const said = placeFromText(`${it.title} ${it.location}`)
     if (cal.house === 'any' || said) return (it.allDay && g.action === 'shoot') || (g.action === 'skip' && g.house !== 'offsite') ? { ...g, action: 'block' } : g
     // A calendar that's for one house and the event doesn't say otherwise: at that house; nobody named → blocked time to check.
-    return { ...g, house: cal.house, start: s.slots.find(x => x >= it.startMin) ?? s.slots[0], action: g.action === 'skip' || it.allDay ? 'block' : g.action }
+    const { houseUnsure, ...known } = g   // eslint-disable-line @typescript-eslint/no-unused-vars
+    return { ...known, house: cal.house, start: s.slots.find(x => x >= it.startMin) ?? s.slots[0], action: g.action === 'skip' || it.allDay ? 'block' : g.action }
   }
   const events: Record<string, unknown>[] = []
   for (const it of live) {
     const { cal, ...base } = it
     const tag = { calendar: cal.name, feedId: cal.id }
     const was = imports.get(it.id)
-    const why = ignoreReason(base)
+    const why = whyIgnored(base)
+    // Never imported; or "Redo this import" (the team wants to choose again: never placed by itself); or deleted in Google
+    // and put back there (audit: an Undo in Google never came back).
+    const fresh = !was || was.redo === true || (was.removed === true && was.action !== 'skip')
     // Time off and birthdays: not shoots or blocks. Listed as 'ignored' (hidden on the screen unless asked for).
-    if (!was && why) { events.push({ ...base, ...tag, kind: 'ignored', why, guess: { ...guessFor(base, cal), action: 'skip' } }); continue }
-    if (!was) { events.push({ ...base, ...tag, kind: 'new', guess: guessFor(base, cal) }); continue }
+    if (fresh && why) { events.push({ ...base, ...tag, kind: 'ignored', why, guess: { ...guessFor(base, cal), action: 'skip' } }); continue }
+    if (fresh) { events.push({ ...base, ...tag, kind: 'new', ...(was?.redo ? { redo: true } : {}), guess: guessFor(base, cal) }); continue }
     // Owner, Nov 5 (Ariel's shoots missing): on Nov 2 the automatic check brought "<Name> - Stromedy Talent Filming" in as
     // BLOCKED TIME because creators on Props only couldn't be matched yet. A block the check made by itself (no person ever
     // chose or confirmed it) whose title now names someone is brought in again as that person's shoot (the block goes).
@@ -450,15 +483,22 @@ async function scanCalendar(cals: Source[]) {
     // Already imported: only show it again if it was changed in Google Calendar since (skipped ones stay skipped).
     if (was.action === 'skip' || (was.date && same(base, was))) continue
     const g = guessFor(base, cal)
+    // Who it's for: what was decided before, unless nobody checked it and the names in the event changed (audit: "Bryan
+    // filming" renamed "Eddy filming" stayed Bryan's).
+    const before: string[] = Array.isArray(was.emails) && was.emails.length ? was.emails : was.email ? [was.email] : []
+    const renamed = !was.checkedBy && g.emails.length > 0 && !g.ambiguous && g.emails.join() !== before.join()
+    const emails = renamed || !before.length ? g.emails : before
     events.push({ ...base, ...tag, kind: 'changed', was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
-      guess: { ...g, action: was.action, email: was.email || g.email, emails: Array.isArray(was.emails) && was.emails.length ? was.emails : was.email ? [was.email] : g.emails, house: was.house || g.house, type: was.type, soft: was.soft === true } })
+      guess: { ...g, houseUnsure: undefined, ambiguous: undefined, action: was.action, email: emails[0] ?? '', emails, house: was.house || g.house, type: was.type, soft: was.soft === true } })
   }
   // Deleted (or moved out of view) in Google Calendar: still on the app's schedule. Only for calendars still read
   // (imports from before Oct 30 came from the app calendar); a calendar taken off the list never removes anything.
-  const today = todayInStudio()
+  // Never something already over (audit: today's finished shoots were being cancelled after they ended).
+  const nowMin = (n => Number(n.slice(11, 13)) * 60 + Number(n.slice(14, 16)))(torontoStamp(new Date().toISOString()))
   const read = new Set(cals.map(c => c.id)), appCal = s.googleCalendarId
   for (const [id, was] of imports) {
-    if (seen.has(id) || was.action === 'skip' || was.removed || !was.date || was.date < today) continue
+    if (seen.has(id) || was.action === 'skip' || was.removed || was.redo || !was.date || was.date < today) continue
+    if (was.date === today && Number(was.endMin) <= nowMin) continue
     if (!read.has(String(was.feedId ?? appCal))) continue
     events.push({ id, title: was.title ?? '(no title)', location: was.location ?? '', date: was.date, startMin: was.startMin, endMin: was.endMin, kind: 'removed',
       calendar: cals.find(c => c.id === String(was.feedId ?? appCal))?.name ?? '', allDay: !!was.allDay,
@@ -513,7 +553,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
       }
       const startMin = Number(it.start) || 0
       const snapshot = { title: String(it.title ?? '').slice(0, 200), location: String(it.location ?? '').slice(0, 300), date: String(it.date), startMin,
-        endMin: Number(it.end) > startMin ? Number(it.end) : startMin + s.slotMinutes,
+        endMin: Number(it.end) >= startMin ? Number(it.end) : startMin + s.slotMinutes,
         feedId: String(it.feedId || s.googleCalendarId).slice(0, 200), allDay: it.allDay === true }
       if (it.action === 'remove' || it.action === 'keep') {
         if (it.action === 'remove') await dropOld()
@@ -534,7 +574,18 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
         // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
         const parts = place === 'offsite' ? splitHours(start, end, users.length) : splitOnGrid(start, end, users.length, s.slots, s.slotMinutes)
+        // One shoot the creator cancelled (or that gave way to a priority booking) stays cancelled when the event changes in
+        // Google (audit: a change there brought it back as booked).
+        const kept = !multi && oldShootIds.length === 1 ? (await db.doc(`shoots/${oldShootIds[0]}`).get()).data() : undefined
+        if (kept && kept.status === 'cancelled' && !(kept.history ?? []).some((h: { note?: string }) => h.note === 'removed from Google Calendar' ) ) {
+          await db.doc(`calendar_imports/${id}`).set({ ...(was ?? {}), ...snapshot, at: new Date().toISOString(), by: caller.email })
+          results.push({ id, ok: true, message: 'Cancelled in the app, so it stays cancelled', saved: { action: 'shoot', shootId: oldShootIds[0], shootIds: oldShootIds, house: place, emails: who } }); continue
+        }
         const ids: string[] = []
+        // If one turn of a group can't be placed, the turns already made come off again (audit: half-made groups were left
+        // behind and made again every 15 minutes).
+        const undo = async () => { for (const sid of ids) if (!oldShootIds.includes(sid)) await removeImportedShoot(sid, caller.email).catch(() => 0) }
+        try {
         for (let i = 0; i < users.length; i++) {
           const part = parts[i] ?? parts[parts.length - 1]
           const r = await importShootAsTeam({ place, date: String(it.date), start: part.start, end: part.end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
@@ -543,6 +594,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
           ids.push(r.id)
           clash.push(...r.clashWith.filter(n => !users.some(u => u.name === n)))
         }
+        } catch (e) { await undo(); throw e }
         clash = [...new Set(clash)]
         if (clash.length && clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
           await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
@@ -579,7 +631,9 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
         saved = { blockId, house, type, soft, clashWith: clash }
       }
       // Remember the event as it is now, so the next import can tell if it changed in Google Calendar.
-      await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', ...snapshot, ...saved, at: new Date().toISOString(), by: caller.email })
+      // (Who checked it before is kept: the automatic check never re-reads a checked one as something else.)
+      await db.doc(`calendar_imports/${id}`).set({ action: it.action === 'shoot' || it.action === 'block' ? it.action : 'skip', ...snapshot, ...saved, at: new Date().toISOString(), by: caller.email,
+        ...(was?.checkedBy ? { checkedBy: was.checkedBy, checkedAt: was.checkedAt ?? '' } : {}) })
       results.push({ id, ok: true, saved: { action: it.action, ...saved }, ...(clash.length ? { message: `Imported · CLASH with ${clash.join(', ')}` } : {}) })
     } catch (e) { results.push({ id, ok: false, message: (e as Error).message }) }
   }
@@ -592,7 +646,9 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
 //   so nobody books over them, marked "to check"; creators are only told once the team confirms them;
 // - events changed or deleted in Google are followed the same way (to check);
 // - events it can't read (nobody named, no house) wait there unplaced for the team to say what they are.
-const placeable = (g: { action?: string; email?: string; emails?: string[] }) => g.action === 'block' || (g.action === 'shoot' && !!(g.emails?.length || g.email))
+// Never by itself when the house is only a guess (a mixed calendar that doesn't say where) or a name fits two people.
+const placeable = (g: { action?: string; email?: string; emails?: string[]; houseUnsure?: boolean; ambiguous?: string[] }) =>
+  !g.houseUnsure && !g.ambiguous?.length && (g.action === 'block' || (g.action === 'shoot' && !!(g.emails?.length || g.email)))
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const asItem = (e: any, g: any = e.guess) => e.kind === 'removed'
   ? { id: e.id, action: 'remove', date: e.date }
@@ -605,8 +661,8 @@ export async function runCalendarCheck() {
   const status = db.doc('app_settings/calendarCheck')
   try {
     const { events, people } = await scanCalendar(cals) as { events: any[]; people: { email: string; name: string }[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
-    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && placeable(e.guess)))
-    const unclear = events.filter(e => e.kind === 'new' && !placeable(e.guess))
+    const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && !e.redo && placeable(e.guess)))
+    const unclear = events.filter(e => e.kind === 'new' && (e.redo || !placeable(e.guess)))
     const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true }) : []
     // The queue (calendar_queue/{eventId}): one card per event, until the team confirms, fixes or skips it.
     const waiting = new Map((await db.collection('calendar_queue').where('status', '==', 'waiting').get()).docs.map(d => [d.id, d.data()]))
@@ -619,7 +675,7 @@ export async function runCalendarCheck() {
       // (JSON round trip: Firestore refuses undefined values, e.g. a changed event's old type.)
       await db.doc(`calendar_queue/${e.id}`).set(JSON.parse(JSON.stringify({
         title: e.title ?? '', location: e.location ?? '', date: e.date, startMin: e.startMin ?? 0, endMin: e.endMin ?? 0, allDay: !!e.allDay,
-        calendar: e.calendar ?? '', feedId: e.feedId ?? '', kind: prev?.kind === 'new' ? 'new' : e.kind, guess: e.guess ?? {}, ...(e.was ? { was: e.was } : {}),
+        calendar: e.calendar ?? '', feedId: e.feedId ?? '', kind: prev?.kind === 'new' && e.kind !== 'removed' ? 'new' : e.kind, guess: e.guess ?? {}, ...(e.was ? { was: e.was } : {}),
         ...(e.wasAction ? { wasAction: e.wasAction } : {}), status: 'waiting', at: prev?.at ?? at, updatedAt: at, ...extra,
       })))
     }
@@ -627,7 +683,15 @@ export async function runCalendarCheck() {
       const r = results[i]
       await put(auto[i], { placed: !!r?.ok, result: r?.saved ?? {}, message: r?.message ?? (r?.ok ? '' : 'Could not place it'), ...(r?.ok ? {} : { problem: r?.message ?? '' }) })
     }
-    for (const e of unclear) await put(e, { placed: false, result: {}, message: '' })
+    // Why the app didn't place it, in words for the team.
+    const whyNot = (g: { ambiguous?: string[]; houseUnsure?: boolean; action?: string }, redo?: boolean) => redo ? 'You asked to redo this one. Choose what it is.'
+      : g.ambiguous?.length ? `"${g.ambiguous[0][0].toUpperCase()}${g.ambiguous[0].slice(1)}" could be more than one person. Tap Fix and pick who.`
+      : g.houseUnsure && g.action !== 'skip' ? 'The event doesn\'t say which house (or offsite). Tap Fix and choose.' : ''
+    for (const e of unclear) await put(e, { placed: false, result: {}, message: whyNot(e.guess ?? {}, e.redo) })
+    // Placed cards for days already over settle by themselves, without telling anyone (audit: they piled up, and confirming
+    // one later told the creator "You have a new shoot" for a day that had passed).
+    const today = todayInStudio()
+    for (const [id, q] of waiting) if (q.placed && String(q.date) < today) await settleQueue(id, 'calendar check', 'confirmed', undefined, 'past').catch(e => logger.warn('settle past', String(e)))
     // Unplaced cards whose event is gone from Google (or was handled on the import screen) leave the queue.
     const stillNew = new Set(unclear.map(e => e.id))
     for (const [id, q] of waiting) if (!q.placed && !stillNew.has(id) && !auto.some(e => e.id === id)) await db.doc(`calendar_queue/${id}`).delete()
@@ -647,16 +711,16 @@ export async function runCalendarCheck() {
 
 // Finish a card in the Calendar tab: the shoots and block it made stop being "to check", and the creators are told
 // (pushMessages: 'import-confirmed'). Also used when a person imports on the import screen.
-async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>) {
+async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>, note?: 'past') {
   const qref = db.doc(`calendar_queue/${id}`)
   const q = (await qref.get()).data()
   const imp = (await db.doc(`calendar_imports/${id}`).get()).data()
   // A person looked at it: the automatic check never re-reads it as something else (see regradable).
-  if (imp) await db.doc(`calendar_imports/${id}`).set({ checkedBy: by, checkedAt: new Date().toISOString() }, { merge: true })
+  if (imp && !note) await db.doc(`calendar_imports/${id}`).set({ checkedBy: by, checkedAt: new Date().toISOString() }, { merge: true })
   const list = (x: unknown) => Array.isArray(x) ? x.map(String) : []
   const ids = new Set([...list(saved?.shootIds), ...list(imp?.shootIds), ...(imp?.shootId ? [String(imp.shootId)] : []), ...list(q?.result?.shootIds)])
   const at = new Date().toISOString()
-  const kind = String(q?.kind ?? 'new')
+  const kind = note ?? String(q?.kind ?? 'new')
   for (const sid of ids) {
     const ref = db.doc(`shoots/${sid}`)
     await db.runTransaction(async tx => {
@@ -739,7 +803,8 @@ export const redoCalendarImport = onCall(CALLABLE, async req => {
   const ids = new Set<string>([...(Array.isArray(imp?.shootIds) ? imp!.shootIds.map(String) : []), ...(imp?.shootId ? [String(imp.shootId)] : []), ...(shootId ? [shootId] : [])])
   for (const id of ids) await removeImportedShoot(id, caller.email)
   if (imp?.blockId && imp.date) await removeImportedBlock(String(imp.date), String(imp.blockId))
-  await db.doc(`calendar_imports/${eventId}`).delete()
+  // A marker, not a delete: the 15-minute check would otherwise place it again with the same guess before anyone looks.
+  await db.doc(`calendar_imports/${eventId}`).set({ redo: true, at: new Date().toISOString(), by: caller.email })
   await db.doc(`calendar_queue/${eventId}`).delete()
   return { removed: ids.size, eventId }
 })

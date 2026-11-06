@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { houseFromText, ignoreReason, placeFromText, saysOffsite } from '../../functions/src/calendarText'
+import { houseFromText, ignoreReason, placeFromText, saysOffsite, namedPeopleInfo, splitHours } from '../../functions/src/calendarText'
 
 describe('old calendar events', () => {
   it('reads the house from the address or the name', () => {
@@ -73,5 +73,30 @@ describe('offsite in the words (owner, Nov 5)', () => {
     expect(placeFromText('Ana - Stromedy Talent Filming')).toBe(null)
     expect(saysOffsite('Offsites planning')).toBe(false)
     expect(saysOffsite('Kickoff site walk')).toBe(false)
+  })
+})
+
+describe('audit fixes (Nov 5)', () => {
+  const people = [{ email: 'j1@x', name: 'Justin Figs' }, { email: 'j2@x', name: 'Justin Show' }, { email: 'a@x', name: 'Alex' },
+    { email: 'ad@x', name: 'Alexandra' }, { email: 'e@x', name: 'Élodie' }, { email: 'k@x', name: 'Kyle' }]
+  it('two people with the same first name are not guessed', () => {
+    expect(namedPeopleInfo('Justin - Stromedy Talent Filming', people)).toEqual({ people: [], ambiguous: ['justin'] })
+    expect(namedPeopleInfo('Kyle & Justin', people).people.map(p => p.email)).toEqual(['k@x'])
+  })
+  it('a person\'s own name beats someone else\'s nickname; accents don\'t matter', () => {
+    expect(namedPeopleInfo('Alexandra filming', people).people.map(p => p.email)).toEqual(['ad@x'])
+    expect(namedPeopleInfo('Alex filming', people).people.map(p => p.email)).toEqual(['a@x'])
+    expect(namedPeopleInfo('Elodie - Cliff 1', people).people.map(p => p.email)).toEqual(['e@x'])
+  })
+  it('every turn of a group has time', () => {
+    const t = splitHours(780, 960, 4)
+    expect(t.every(x => x.end > x.start)).toBe(true)
+    expect(t.at(-1)!.end).toBe(960)
+  })
+  it('filming events with "holiday" or "sick" in the title are not hidden', () => {
+    expect(ignoreReason({ title: 'Ariel - Holiday Special - Stromedy Talent Filming', location: '' })).toBe('')
+    expect(ignoreReason({ title: 'Jana - Sick prank', location: '' }, true)).toBe('')
+    expect(ignoreReason({ title: 'Valentyna away', location: '' })).toBe('Someone away')
+    expect(ignoreReason({ title: 'Sick day', location: '' })).toBe('Someone away')
   })
 })

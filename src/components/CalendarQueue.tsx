@@ -108,7 +108,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
             {q.kind === 'changed' && q.was && <p className="text-pt-muted text-sm">Was {formatDay(q.was.date)} · {fmtTime(q.was.startMin)}–{fmtTime(q.was.endMin)}{q.was.title && q.was.title !== q.title ? ` · "${q.was.title}"` : ''}</p>}
             {/* What the app did with it */}
             <div className="bg-pt-bg rounded-xl px-3 py-2.5 text-[15px]">
-              {!q.placed ? <p className="text-amber-300">The app couldn't tell who or what this is. Tap <b>Fix</b> to choose, or Skip.</p>
+              {!q.placed ? <p className="text-amber-300">{q.message || <>The app couldn't tell who or what this is. Tap <b>Fix</b> to choose, or Skip.</>}</p>
                 : q.kind === 'removed' ? <p className="text-pt-text">Taken off the schedule{emails.length ? ` (${emails.map(m => firstName(m, people)).join(' + ')})` : ''}.</p>
                 : r.action === 'shoot' ? <p className="text-pt-text"><span className="text-pt-muted">On the schedule · {houseName(r.house, s)}: </span>{turns(q, emails, r.house ?? 'cliff1', s, people)}</p>
                 : r.action === 'block' ? <p className="text-pt-text"><span className="text-pt-muted">{r.soft ? 'Heads-up' : 'Blocked'} · {houseName(r.house, s)}: </span>{r.soft ? `${q.title} (people can still film)` : r.type && r.type !== 'other' ? BLOCK_TYPES[r.type] : q.title || BLOCK_TYPES.other}</p>

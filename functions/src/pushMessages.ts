@@ -160,6 +160,7 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'given') return []
   // Calendar imports (owner, Nov 4): held back while "to check"; the creator hears once the equipment team confirms.
   if (h.action === 'import-confirmed') {
+    if (h.note === 'past') return []   // a day already over: nobody needs a notification
     if (a.status === 'booked') return [{ to: [a.creatorEmail], url: url0, tag: tag0, ...(b?.told === false || h.note === 'new'
       ? { title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }
       : { title: 'Your shoot changed', body: `Now ${placeName(a, s)} · ${when(a)}.` }) }]
