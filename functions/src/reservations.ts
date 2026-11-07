@@ -596,7 +596,8 @@ export const startReturn = onCall(CALLABLE, async req => {
     tx.update(r.ref, {
       status: 'return_pending',
       returnInfo: { at: now, by: caller.email, photos, ...(note ? { note } : {}), byStaff: r.res.creatorEmail !== caller.email,
-        ...(damagedIn.length ? { damaged: damagedIn.filter(d => (r.res.itemIds ?? []).includes(d.itemId)).map(d => ({ ...d, name: String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === d.itemId)?.itemName ?? 'a prop') })) } : {}) },
+        // Only props that were handed over (not marked "not available" at picking) can come back damaged.
+        ...(damagedIn.length ? { damaged: damagedIn.filter(d => ((r.res.lines ?? []) as ReservationLine[]).some(l => l.itemId === d.itemId && l.pick?.state !== 'unavailable')).map(d => ({ ...d, name: String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === d.itemId)?.itemName ?? 'a prop') })) } : {}) },
       updatedAt: now,
       history: historyWith(r.res, { status: 'return_pending', at: now, by: caller.email }),
     })

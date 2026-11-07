@@ -19,6 +19,9 @@ export default function ReturnAllScreen() {
   const ref = params.get('ref') ?? ''
   const group = useMemo(() => groups && (findReturnGroup(groups, ref) ?? (groups.length === 1 ? groups[0] : undefined)), [groups, ref])
 
+  // One request's own Return button ('props:<id>' / 'gear:<id>'): start with only that one ticked. A group key (from
+  // "Return everything" / "Return all") starts with everything ticked.
+  const one = /^(props|gear):/.test(ref)
   const [done, setDone] = useState<number | null>(null)
   const nothing = groups !== null && returnParts(group ?? undefined).length === 0
 
@@ -45,7 +48,7 @@ export default function ReturnAllScreen() {
       {header}
       <div className="px-4 space-y-6">
         <div>
-          <h1 className="font-display text-[34px] text-pt-text">Return everything</h1>
+          <h1 className="font-display text-[34px] text-pt-text">{one ? 'Bring it back' : 'Return everything'}</h1>
           {group && <p className="text-pt-muted text-[15px]">{group.shoot ? label(group.shoot) : `${formatDay(group.date)} shoot`}</p>}
         </div>
 
@@ -56,7 +59,7 @@ export default function ReturnAllScreen() {
             <button onClick={() => navigate('/requests')} className="text-pt-accent text-sm font-medium tap">My requests</button>
           </div>
         )}
-        {group && !nothing && <div className="bg-pt-surface rounded-2xl p-4"><ReturnFlow group={group} onDone={n => setDone(n)} /></div>}
+        {group && !nothing && <div className="bg-pt-surface rounded-2xl p-4"><ReturnFlow group={group} only={one ? ref : undefined} onDone={n => setDone(n)} /></div>}
       </div>
     </div>
   )
