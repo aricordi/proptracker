@@ -8,7 +8,7 @@ import { todayInStudio } from '../../functions/src/booking'
 import { OWNER_EMAIL } from '../config'
 
 const ABOUT: [string, string][] = [['props', 'Props'], ['gear', 'Gear'], ['schedule', 'Schedule'], ['behaviour', 'Behaviour'], ['other', 'Other']]
-type Sheet = null | { kind: 'strike' } | { kind: 'pause' } | { kind: 'remove'; id: string; text: string }
+type Sheet = null | { kind: 'strike' } | { kind: 'pause' } | { kind: 'lift' } | { kind: 'remove'; id: string; text: string }
 
 export function useManageCreator(email: string, name: string, status: UserStatus | null) {
   const [sheet, setSheet] = useState<Sheet>(null)
@@ -35,13 +35,13 @@ export function useManageCreator(email: string, name: string, status: UserStatus
     <div className="flex gap-2">
       <button onClick={() => open({ kind: 'strike' })} className="flex-1 py-3 rounded-xl bg-red-500/15 text-red-300 font-semibold text-sm">Give a strike</button>
       {paused
-        ? <button disabled={busy} onClick={() => run(async () => { await liftPause({ email }); return `${first}'s pause is lifted.` })} className="flex-1 py-3 rounded-xl bg-pt-surface text-pt-text font-semibold text-sm disabled:opacity-40">Lift the pause</button>
+        ? <button onClick={() => open({ kind: 'lift' })} className="flex-1 py-3 rounded-xl bg-pt-surface text-pt-text font-semibold text-sm disabled:opacity-40">Lift the pause</button>
         : <button onClick={() => open({ kind: 'pause' })} className="flex-1 py-3 rounded-xl bg-pt-surface text-pt-text font-semibold text-sm">Pause bookings</button>}
     </div>
   )
 
   const sheets = (
-    <BottomSheet open={!!sheet} onClose={() => setSheet(null)} title={sheet?.kind === 'strike' ? `Strike for ${first}` : sheet?.kind === 'pause' ? `Pause ${first}'s bookings` : 'Remove this strike'}>
+    <BottomSheet open={!!sheet} onClose={() => setSheet(null)} title={sheet?.kind === 'strike' ? `Strike for ${first}` : sheet?.kind === 'pause' ? `Pause ${first}'s bookings` : sheet?.kind === 'lift' ? `Lift ${first}'s pause?` : 'Remove this strike'}>
       {done ? (
         <div className="space-y-4 text-center py-2">
           <p className="text-pt-text text-[15px]">{done}</p>
@@ -72,6 +72,14 @@ export function useManageCreator(email: string, name: string, status: UserStatus
             const r = await pauseCreator({ email, days, note: note.trim() })
             return `Paused until ${formatDay(r.data.pausedUntil)}.`
           })} className="w-full py-4 rounded-2xl bg-red-500/80 text-white font-semibold disabled:opacity-40">{busy ? 'Saving…' : `Pause for ${days} days`}</button>
+        </div>
+      ) : sheet?.kind === 'lift' ? (
+        <div className="space-y-4">
+          <p className="text-pt-muted text-sm">{first} can request props again straight away{status?.pausedUntil ? ` (the pause was until ${formatDay(status.pausedUntil)})` : ''}. Their strike count starts again from zero.</p>
+          {err && <p className="text-red-300 text-sm">{err}</p>}
+          <button disabled={busy} onClick={() => run(async () => { await liftPause({ email }); return `${first}'s pause is lifted.` })}
+            className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">{busy ? 'Saving…' : 'Lift the pause'}</button>
+          <button onClick={() => setSheet(null)} className="w-full min-h-[44px] text-pt-muted text-sm">Cancel</button>
         </div>
       ) : sheet?.kind === 'remove' ? (
         <div className="space-y-4">
