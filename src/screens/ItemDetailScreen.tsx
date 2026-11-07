@@ -20,6 +20,7 @@ import type { Item, Condition } from '../types'
 import PropManage, { type ManageDone } from '../components/PropManage'
 import PropRecommendations from '../components/PropRecommendations'
 import { Toast } from '../components/cleanup/Parts'
+import { NotFound } from '../components/NotFound'
 
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
@@ -70,13 +71,7 @@ export default function ItemDetailScreen() {
     )
   }
 
-  if (!item) {
-    return (
-      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
-        <p className="text-pt-muted text-sm">Item not found.</p>
-      </div>
-    )
-  }
+  if (!item) return <NotFound title="This prop isn't here" />
 
   const location = item.locationId ? locationById[item.locationId] : null
   const bin      = item.binId ? binById[item.binId] : null

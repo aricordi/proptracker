@@ -22,6 +22,7 @@ import { useShootLine } from '../hooks/useShootLines'
 import ReturnTogether from '../components/ReturnTogether'
 import { Icon, IconText } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
+import { NotFound } from '../components/NotFound'
 
 const errText = (e: unknown) => friendlyError(e)
 
@@ -40,7 +41,7 @@ export default function ReservationDetailScreen() {
   const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email)
 
   if (res === undefined) return <Centered>Loading…</Centered>
-  if (res === null) return <Centered>Booking not found.</Centered>
+  if (res === null) return <NotFound title="This request isn't here" />
 
   const active = ACTIVE_STATUSES.includes(res.status)
   const overdue = isLate(res.status, res.endDate, settings)
