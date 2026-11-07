@@ -1,7 +1,7 @@
 // Journey 7 — the arts department tidies the closet: Clean up props hub, combine a group of doubles,
 // combine from a prop page (⋯ → Find duplicates), remove a prop and undo it, then Prop insights.
 // Seed: three rotary phones in bin A2 ("Rotary phone" ×2, "Rotary phones" ×1, "Red rotary phone" ×1).
-import { test, expect, reseed, signIn, openTab, sheet, type Page } from '../helpers'
+import { test, expect, reseed, signIn, openTab, sheet, getDoc, type Page } from '../helpers'
 
 test.describe.configure({ mode: 'serial' })
 test.beforeAll(() => reseed())
@@ -90,7 +90,11 @@ test('7c. remove a prop from its ⋯ menu, then Undo', async ({ page }) => {
   await test.step('Undo puts it back', async () => {
     await page.getByRole('status').getByRole('button', { name: 'Undo' }).click()
     await expect(page.getByText(/Removed in the clean-up/)).toHaveCount(0)
+    // Saved for real: the prop is back in the closet (not archived), so Removed props doesn't list it.
+    await expect.poll(async () => (await getDoc<{ archived?: boolean }>('items/imp-fan'))?.archived).toBe(false)
     await page.goto('/cleanup/removed')
+    await expect(page.getByRole('heading', { level: 1, name: 'Removed props' })).toBeVisible()
+    await expect(page.getByText('Nothing removed yet.')).toBeVisible()
     await expect(page.getByText('Paper hand fan')).toHaveCount(0)
   })
 })

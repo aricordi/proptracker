@@ -21,9 +21,11 @@ const BY_ROUTE: Record<string, string[]> = {
   '/gear/bundles/:id': ['/gear/bundles/tb-fx3', '/gear/bundles/new'],
   '/gear/b/:id': ['/gear/b/tb-fx3'],
   '/cleanup/bin/:id': ['/cleanup/bin/bin-a1', '/cleanup/bin/none'],
+  '/gear/bookings/:id': ['/gear/bookings/gb1'],     // Kyle's finished FX3 kit booking (emulator-only seed)
+  '/import/:jobId': ['/import/imp-job1'],           // a finished photo import (emulator-only seed)
 }
-// Routes with an id the seed doesn't have (no gear bookings or import jobs in the test data).
-const SKIPPED = ['/gear/bookings/:id', '/import/:jobId']
+// Routes with an id the test data doesn't have.
+const SKIPPED: string[] = []
 
 function routes(): { list: string[]; skipped: string[] } {
   const src = readFileSync(path.join(root, 'src/App.tsx'), 'utf8')
@@ -98,7 +100,11 @@ for (const role of Object.keys(ROLES) as RoleKey[]) {
       where = route
       await go(page, route)
       // Not blank: something readable on screen within a few seconds (a lazy screen that fails to load stays blank).
-      const ok = await page.waitForFunction(() => (document.getElementById('root')?.innerText.trim().length ?? 0) > 0, null, { timeout: 8000 })
+      // The tab bar stays while a screen loads, so look at the page area (<main>) when there is one.
+      const ok = await page.waitForFunction(() => {
+        const area = document.querySelector('main') ?? document.getElementById('root')
+        return (area?.textContent?.trim().length ?? 0) > 0
+      }, null, { timeout: 8000 })
         .then(() => true, () => false)
       if (!ok) blank.push(route)
       // Give listeners a moment to report errors (permission problems arrive after the first paint).

@@ -18,7 +18,7 @@ test('equipment team on a laptop: the Requests week board', async ({ page }) => 
     await expect(page.getByText('Requests waiting')).toBeVisible()
     // 7 days × 2 houses of 7 AM cells (a few may be blocked or booked).
     const cells = page.getByRole('button', { name: /· Cliff [12] · 7 AM–9 AM ·/ })
-    expect(await cells.count()).toBeGreaterThanOrEqual(10)
+    await expect.poll(() => cells.count(), { message: 'free 7 AM cells on the week board' }).toBeGreaterThanOrEqual(10)
     await expect(page.getByText('Request waiting', { exact: true })).toBeVisible()   // the colour key
   })
 

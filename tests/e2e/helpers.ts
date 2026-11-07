@@ -72,6 +72,7 @@ export const test = base.extend<{ problems: Problems }>({
   }, { auto: true }],
 })
 export { expect }
+export type { Page, Locator }
 
 // Sign in with a test button, then get past a staff member's one-time welcome (team guide or short tour).
 export async function signIn(page: Page, role: RoleKey) {
@@ -114,7 +115,7 @@ export function plainDayAhead(minDays: number, avoid: number[] = [0, 4, 6]) {
 
 // A real (small) photo for file inputs: the app shrinks and uploads it like a phone picture.
 let photo: Buffer | null = null
-export function testPhoto(name = 'photo.png') {
+export function testPhoto(name = 'photo.png'): { name: string; mimeType: string; buffer: Buffer } {
   if (!photo) {
     const png = new PNG({ width: 320, height: 240 })
     for (let y = 0; y < 240; y++) for (let x = 0; x < 320; x++) {
@@ -123,7 +124,7 @@ export function testPhoto(name = 'photo.png') {
     }
     photo = PNG.sync.write(png)
   }
-  return { name, mimeType: 'image/png', buffer: photo }
+  return { name, mimeType: 'image/png', buffer: photo! }
 }
 
 // The bottom sheet / dialog that's open right now.
@@ -144,9 +145,38 @@ function toValue(v: Plain): unknown {
   if (typeof v === 'object') return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toValue(x)])) } }
   return { stringValue: String(v) }
 }
-export async function putDoc(docPath: string, data: Record<string, Plain>) {
+// Read one document from the EMULATOR database as a plain object (null when it doesn't exist).
+function fromValue(v: Record<string, unknown>): unknown {
+  if ('nullValue' in v) return null
+  if ('booleanValue' in v) return v.booleanValue
+  if ('integerValue' in v) return Number(v.integerValue)
+  if ('doubleValue' in v) return v.doubleValue
+  if ('stringValue' in v) return v.stringValue
+  if ('timestampValue' in v) return v.timestampValue
+  if ('arrayValue' in v) return ((v.arrayValue as { values?: Record<string, unknown>[] }).values ?? []).map(fromValue)
+  if ('mapValue' in v) return Object.fromEntries(Object.entries((v.mapValue as { fields?: Record<string, Record<string, unknown>> }).fields ?? {}).map(([k, x]) => [k, fromValue(x)]))
+  return undefined
+}
+export async function getDoc<T = Record<string, unknown>>(docPath: string): Promise<T | null> {
   const url = `http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents/${docPath}`
-  const fields = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, toValue(v)]))
+  const res = await fetch(url, { headers: { Authorization: 'Bearer owner' } })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`${docPath}: ${res.status} ${await res.text()}`)
+  const { fields = {} } = await res.json() as { fields?: Record<string, Record<string, unknown>> }
+  return Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, fromValue(v)])) as T
+}
+
+// Text for a RegExp, taken literally.
+export const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// A day the way the app writes it ("Sat, Nov 14"), formatted by the browser itself so it always matches the screen.
+export function dayLabel(page: Page, date: string, opts: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' }) {
+  return page.evaluate(([d, o]) => new Date(`${d}T12:00:00`).toLocaleDateString('en-CA', o as Intl.DateTimeFormatOptions), [date, opts] as const)
+}
+
+export async function putDoc(docPath: string, data: Record<string, unknown>) {
+  const url = `http://127.0.0.1:8080/v1/projects/demo-proptracker/databases/(default)/documents/${docPath}`
+  const fields = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, toValue(v as Plain)]))
   const res = await fetch(url, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' }, body: JSON.stringify({ fields }) })
   if (!res.ok) throw new Error(`${docPath}: ${res.status} ${await res.text()}`)
 }

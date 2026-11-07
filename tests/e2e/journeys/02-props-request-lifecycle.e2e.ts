@@ -3,25 +3,29 @@
 //   3. the arts department picks it, takes a pack photo and marks it packed
 //   4. the creator signs for the pickup and returns it with a photo; arts checks it in with one prop damaged
 // The steps build on each other (serial). The file starts from fresh test data.
-import { test, expect, reseed, signIn, openTab, sheet, studioDate, testPhoto } from '../helpers'
+import { test, expect, reseed, signIn, openTab, sheet, testPhoto, getDoc, esc, dayLabel as labelOf } from '../helpers'
 
 test.describe.configure({ mode: 'serial' })
-test.beforeAll(() => reseed())
+// Riley's shoot next week (seed sh9: Cliff 1, 8 days out, 3–5 PM): always early enough to add props.
+// Its date is read back from the test data, so the run can't trip over midnight between seeding and testing.
+let shootDay = ''
+test.beforeAll(async () => {
+  reseed()
+  shootDay = (await getDoc<{ date: string }>('shoots/sh9'))!.date
+})
 
 const TITLE = `Robot test ${Date.now().toString(36)}`
-// Riley's shoot next week (seed sh9: Cliff 1, 8 days out, 3–5 PM): always early enough to add props.
-const shootDay = studioDate(8)
-const dayLabel = new Date(`${shootDay}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
 
 test('2. creator: search the props, add one to a shoot, send the request', async ({ page }) => {
   await signIn(page, 'creator')
+  const dayLabel = await labelOf(page, shootDay)
   await openTab(page, 'Props')
   await expect(page).toHaveURL(/\/browse/)
 
   await test.step('pick the shoot to add to', async () => {
     await page.getByRole('button', { name: 'Change which shoot you are adding to' }).click()
     const which = sheet(page, 'Which shoot?')
-    await which.getByRole('button', { name: new RegExp(`Cliff 1 · ${dayLabel} · 3 PM–5 PM`) }).click()
+    await which.getByRole('button', { name: new RegExp(`Cliff 1 · ${esc(dayLabel)} · 3 PM–5 PM`) }).click()
     await expect(page.getByRole('button', { name: 'Change which shoot you are adding to' })).toContainText(`${dayLabel} · 3 PM–5 PM`)
   })
 
@@ -35,7 +39,7 @@ test('2. creator: search the props, add one to a shoot, send the request', async
     await page.getByRole('button', { name: /^Rotary phone .*free/ }).click()
     await expect(page).toHaveURL(/\/item\/phone$/)
     await expect(page.getByRole('heading', { level: 1, name: 'Rotary phone' })).toBeVisible()
-    await expect(page.getByRole('button', { name: new RegExp(`Adding to Cliff 1 · ${dayLabel}`) })).toBeVisible()
+    await expect(page.getByRole('button', { name: new RegExp(`Adding to Cliff 1 · ${esc(dayLabel)}`) })).toBeVisible()
     await expect(page.getByText('2 of 2 free on this day')).toBeVisible()
     await page.getByRole('button', { name: '+', exact: true }).click()
     await page.getByRole('button', { name: 'Add to this shoot' }).click()

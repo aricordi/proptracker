@@ -146,6 +146,25 @@ await put('gear_items/g-cst', { name: 'C-stand', category: 'Grip', have: 4, seri
 await put('gear_bundles/x-cst', { name: 'C-stand', category: 'Grip', description: '', photos: [], archived: false,
   kind: 'extra', pieces: [{ itemId: 'g-cst', qty: 4, name: 'C-stand' }], ...meta })
 
+// Emulator only (not the practice site): one finished gear booking and one finished photo import, so the robot tests'
+// crawl can open the gear booking page (/gear/bookings/gb1) and the import review (/import/imp-job1). Nothing is held.
+if (!PROJECT) {
+  const ago = n => new Date(Date.now() - n * 86400000).toISOString()
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date(Date.now() - 10 * 86400000))
+  const fx3 = testGear.bundles.find(b => b.id === 'tb-fx3')
+  const pieces = fx3.pieces.map(([itemId, qty]) => ({ itemId, qty, name: gearName[itemId], value: gearValue[itemId] ?? null }))
+  await put('gear_bookings/gb1', { title: 'Cop prank call', notes: '', creatorEmail: 'kyle@example.com', creatorName: 'Kyle',
+    date: day, start: 780, end: 900, from: `${day}T13:00`, to: `${day}T15:00`, pickupDay: day,
+    lines: [{ offerId: 'tb-fx3', kind: 'bundle', name: fx3.name, qty: 1, photo: null, pieces }], offerIds: ['tb-fx3'],
+    status: 'checked_in', value: pieces.reduce((n, p) => n + (p.value ?? 0) * p.qty, 0), valueMissing: 0,
+    pickup: { at: ago(10), by: 'kyle@example.com', missing: [] }, returnedAt: ago(10),
+    return: { at: ago(10), by: 'kyle@example.com', photos: [], charging: true },
+    checkIn: { at: ago(9), by: 'gear@example.com', missing: [], note: 'All good' }, createdAt: ago(12),
+    history: [{ at: ago(12), by: 'kyle@example.com', action: 'held' }, { at: ago(9), by: 'gear@example.com', action: 'checked in' }] })
+  await put('import_jobs/imp-job1', { createdBy: 'alexisricordi@gmail.com', createdAt: ago(20), dryRun: true,
+    folders: [{ id: 'test:2', name: 'Bin A1', count: 2 }], total: 2, counts: { pending: 0, analyzed: 0, failed: 0, approved: 2, skipped: 0 }, spentUsd: 0.004 })
+}
+
 // House schedule: Jana is in the priority group; a few shoots over the next days.
 const dayOf = n => { const d = new Date(Date.now() + n * 86400000); return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(d) }
 await put('app_settings/schedule', { priority: [{ email: 'jana@example.com', name: 'Jana' }], instantBookers: [{ email: 'kyle@example.com', name: 'Kyle' }] })
@@ -182,8 +201,10 @@ if (slotNow) {
 const scheduleDays = {}
 for (const x of shoots) {
   const date = dayOf(x.d), pad = n => String(n).padStart(2, '0'), hm = m => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`
+  // The last slot (11 PM–1 AM) ends the next day.
+  const end = x.start + 120, endDay = end >= 1440 ? new Date(Date.parse(`${date}T12:00:00Z`) + 86400000).toISOString().slice(0, 10) : date
   await put(`shoots/${x.id}`, { creatorEmail: x.email, creatorName: x.name, place: x.place, where: x.where ?? '', date, month: date.slice(0, 7),
-    start: x.start, end: x.start + 120, from: `${date}T${hm(x.start)}`, to: `${date}T${hm(x.start + 120)}`, kind: x.kind, status: x.requested ? 'requested' : 'booked',
+    start: x.start, end, from: `${date}T${hm(x.start)}`, to: `${endDay}T${hm(end)}`, kind: x.kind, status: x.requested ? 'requested' : 'booked',
     ...(x.requested ? { requestedAt: now } : {}), ...(x.filmed ? { outcome: 'filmed' } : {}),
     bookedBy: x.email, createdAt: now, updatedAt: now, history: [{ at: now, by: x.email, action: 'booked', note: 'seed' }] })
   const day = scheduleDays[date] ??= { date }

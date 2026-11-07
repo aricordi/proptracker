@@ -36,12 +36,11 @@ test('Props-only creator: just Props and Me, no booking anywhere, prop pages wit
     await expect(page.getByRole('heading', { level: 1, name: 'Rotary phone' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Something wrong? Suggest an edit' })).toBeVisible()
     for (const name of [/^Add to/, /Adding to/, /Review shoot/]) await expect(page.getByRole('button', { name })).toHaveCount(0)
-    // Recommendations show only when there is history / similar props; the seed has both, but don't insist.
+    // Recommendations: past requests in the test data asked for the phone together with the dining chairs (3 times).
     const together = page.getByRole('region', { name: 'Booked together with this' })
-    const similar = page.getByRole('region', { name: 'Similar props' })
-    await expect(together.or(similar).first()).toBeVisible({ timeout: 5000 }).catch(() => {})
-    if (await together.isVisible()) await expect(together.getByRole('button').first()).toBeVisible()
-    if (await similar.isVisible()) await expect(similar.getByRole('button').first()).toBeVisible()
+    await expect(together).toBeVisible()
+    await expect(together.getByRole('button', { name: /^Wooden dining chair/ })).toBeVisible()
+    await expect(together.getByText('Together 3 times')).toBeVisible()
   })
 
   await test.step('Back, then Me opens', async () => {

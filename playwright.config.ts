@@ -33,7 +33,7 @@ export default defineConfig({
     video: 'off',
     screenshot: 'only-on-failure',
     // Fewer moving parts: no splash fade, no slide-up animations, no service worker caching old files.
-    reducedMotion: 'reduce',
+    contextOptions: { reducedMotion: 'reduce' },
     serviceWorkers: 'block',
     timezoneId: 'America/Toronto',
     locale: 'en-CA',
@@ -45,7 +45,8 @@ export default defineConfig({
   projects: [
     // Journeys share one emulator and each file starts from fresh test data, so they run one file at a time.
     { name: 'journeys', testDir: 'tests/e2e/journeys', workers: 1 },
-    // The crawl only looks around (every route, every role), so roles run side by side.
-    { name: 'crawl', testDir: 'tests/e2e/crawl' },
+    // The crawl only looks around (every route, every role), so roles run side by side, after fresh test data.
+    { name: 'fresh-data', testDir: 'tests/e2e/setup', testMatch: '**/*.setup.ts' },
+    { name: 'crawl', testDir: 'tests/e2e/crawl', dependencies: ['fresh-data'] },
   ],
 })

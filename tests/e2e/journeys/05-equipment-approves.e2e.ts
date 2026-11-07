@@ -2,6 +2,7 @@
 // then opens the Gear log and the Google Calendar tab.
 import { test, expect, reseed, signIn, openTab, type Page } from '../helpers'
 
+test.describe.configure({ mode: 'serial' })
 test.beforeAll(() => reseed())
 
 // One request card on the Requests screen (seed: Jana and Riley each asked for an evening slot in 3 days):
@@ -59,5 +60,18 @@ test('equipment team approves one request, denies another with a reason, opens t
     await page.getByRole('tab', { name: 'Google Calendar' }).click()
     await expect(page.getByRole('tab', { name: 'Google Calendar', selected: true })).toBeVisible()
     await expect(page).toHaveURL(/tab=calendar/)
+    await expect(page.getByText(/^Google Calendar is checked every 15 minutes/)).toBeVisible()
+    await expect(page.getByText('All checked ✓')).toBeVisible()   // nothing imported in the test data
+    await expect(page.getByRole('button', { name: 'Check now' })).toBeVisible()
   })
+})
+
+test('the creator sees that the request was not approved, with the reason', async ({ page }) => {
+  // Runs after the test above (same file, one worker): Riley's 9 PM request was denied with a reason.
+  await signIn(page, 'creator')
+  await expect(page).toHaveURL(/\/$/)
+  const notice = page.getByText(/^Not approved: .*Cliff 1 · 9 PM–11 PM/)
+  await expect(notice).toBeVisible()
+  await expect(page.getByText('"Robot test: please pick another time"')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Find a new time' })).toBeVisible()
 })

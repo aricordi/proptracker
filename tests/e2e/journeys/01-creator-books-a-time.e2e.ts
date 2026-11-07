@@ -23,7 +23,8 @@ test('creator lands on the chat, picks a free time on the calendar and it waits 
     await openTab(page, 'Calendar')
     await expect(page.getByRole('heading', { name: 'Calendar', level: 1 })).toBeVisible()
     await expect(page.getByRole('radiogroup', { name: 'Which house' })).toBeVisible()
-    // The day may fall in next month.
+    // The day may fall in next month (wait for the grid's month title first, then decide).
+    await expect(page.getByRole('heading', { level: 2, name: /^[A-Z][a-z]+ \d{4}$/ })).toBeVisible()
     const heading = page.getByRole('heading', { level: 2, name: new RegExp(`${monthName} ${y}`) })
     if (!(await heading.isVisible())) await page.getByRole('button', { name: 'Next month' }).click()
     await expect(heading).toBeVisible()
