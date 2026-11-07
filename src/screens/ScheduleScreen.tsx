@@ -1212,7 +1212,9 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
           {team && (
             <div className="flex gap-2">
               <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'filmed' }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">They filmed</button>
-              <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'noshow' }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>
+              {!shoot.explanation && now < explainUntil(shoot, s)
+                ? <p className="flex-1 bg-pt-bg rounded-xl px-2 py-2 text-pt-muted text-xs text-center">No-show possible after {stampLabel(explainUntil(shoot, s))}, unless they explain</p>
+                : <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'noshow' }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>}
             </div>
           )}
         </div>

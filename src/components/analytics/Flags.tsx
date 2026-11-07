@@ -11,10 +11,12 @@ import Avatar from '../Avatar'
 import BottomSheet from '../BottomSheet'
 import { PhotoStrip } from '../ProofPhotos'
 import { formatDay } from '../../lib/dates'
+import { stampLabel as stampWhen } from '../../activeShoot'
+import { nowStamp } from '../../../functions/src/gearBooking'
 import { KIND, type Incident } from '../../lib/analytics'
 import { flagState, stillOut, warnText, STATE_LABEL, type FlagState } from '../../lib/flagState'
 import { HOUSE_LABEL } from '../../lib/insights'
-import { decideShoot, reviewReport, removeStrike, reviewFlag, errorText, type FlagReview, type FlagAction, type Shoot, type ScheduleReport, type Strike } from '../../services/schedule'
+import { decideShoot, reviewReport, removeStrike, reviewFlag, errorText, useScheduleSettings, explainUntil, type FlagReview, type FlagAction, type Shoot, type ScheduleReport, type Strike } from '../../services/schedule'
 import { fmtHours, type GearBooking } from '../../services/gear'
 import type { Reservation } from '../../services/reservations'
 
@@ -92,6 +94,7 @@ export function FlagSheet({ flag, ctx, onClose, excused }: { flag: Incident | nu
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState('')
+  const settings = useScheduleSettings()
   const close = () => { setForm(null); setErr(''); setDone(''); onClose() }
   if (!flag) return <BottomSheet open={false} onClose={close} title="">{null}</BottomSheet>
   const i = flag, review = ctx.reviews.get(i.id), state = flagState(i, review, excused)
@@ -99,6 +102,8 @@ export function FlagSheet({ flag, ctx, onClose, excused }: { flag: Incident | nu
   const strike = i.strikeId ? ctx.raw.strikes.get(i.strikeId) : undefined
   const hasStrike = !!strike && !strike.removedAt
   const report = i.src.type === 'report' ? ctx.raw.reports.get(i.src.id) : undefined
+  const missedShoot = i.kind === 'missed-checkin' && i.shootId ? ctx.raw.shoots.get(i.shootId) : undefined
+  const explainOpen = !!missedShoot && !missedShoot.explanation && nowStamp() < explainUntil(missedShoot, settings)
 
   async function run(f: () => Promise<string>) {
     setBusy(true); setErr('')
@@ -177,9 +182,12 @@ export function FlagSheet({ flag, ctx, onClose, excused }: { flag: Incident | nu
           {err && <p className="text-red-300 text-sm">{err}</p>}
           {/* Decide first: these are waiting on the team. */}
           {state === 'decide' && i.kind === 'missed-checkin' && <>
-            <p className="text-pt-muted text-sm">Did {first} film? {i.shootId && ctx.raw.shoots.get(i.shootId)?.explanation ? 'Read what they explained above.' : "They haven't explained yet."}</p>
+            <p className="text-pt-muted text-sm">Did {first} film? {missedShoot?.explanation ? 'Read what they explained above.' : "They haven't explained yet."}</p>
             {action('They filmed', () => quick(() => decideShoot({ id: i.src.id, outcome: 'filmed' }), `Marked as filmed. The flag is gone.`), 'bg-green-500/80 text-white')}
-            {action('No-show · strike', () => setForm({ action: 'noshow', note: '' }), 'bg-red-500/15 text-red-300')}
+            {/* The creator gets explainHours to explain before a no-show can be given (owner, Oct 16). */}
+            {explainOpen
+              ? <p className="text-pt-muted text-sm text-center py-2">{first} can explain until {stampWhen(explainUntil(missedShoot!, settings))}. No-show is possible after that.</p>
+              : action('No-show · strike', () => setForm({ action: 'noshow', note: '' }), 'bg-red-500/15 text-red-300')}
           </>}
           {state === 'decide' && report && <>
             <p className="text-pt-muted text-sm">{report.byName || 'The next creator'} reported this. Check what they wrote and their photos above, then decide.</p>

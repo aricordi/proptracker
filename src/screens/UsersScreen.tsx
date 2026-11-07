@@ -15,8 +15,8 @@ const ROLE_ORDER: Role[] = ['owner', 'admin', 'arts', 'equipment', 'creator']
 const ROLE_HELP: Record<Role, string> = {
   creator: 'Books shoots and props. Sees only their own bookings.',
   arts: 'Runs the props: adds and edits props, the props queue, check-ins, duplicates and bins.',
-  equipment: 'Runs the gear and the schedule day to day: gear list, bundles, the gear queue, blocking time. Sees no props.',
-  admin: 'Manages the creators: sees every queue and the schedule, the Creators dashboard, gives and removes strikes, pauses, invites creators, booking rules. Books their own shoots. Changes nothing else.',
+  equipment: 'Runs the gear and the schedule day to day: approves or denies booking requests, priority bookings, the gear log, gear list and bundles, blocking time, Google Calendar imports. Sees no props.',
+  admin: 'Manages the creators: approves or denies booking requests, priority bookings, the scoreboard and flags, gives and removes strikes, pauses, invites creators, booking rules. Sees every queue. Doesn\'t book shoots or props.',
   owner: 'Full control of everything, including people and settings. Only give this to a partner.',
 }
 
@@ -209,6 +209,12 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
           <p className="text-pt-text text-[15px]">
             <b>{done.name.trim() || done.email}</b> can now sign in as <b>{ROLE_LABELS[done.role]}</b>.
           </p>
+          {done.role === 'creator' && (
+            <p className="text-amber-200 text-sm">
+              They start on <b>Props only</b> (they can look through the props, not book).{' '}
+              {isOwner ? 'When they\'re ready, open them on People & access and switch them to Full app.' : 'The owner switches them to Full app when they\'re ready.'}
+            </p>
+          )}
           <p className="text-pt-muted text-sm">
             The app doesn't send emails yet, so send them this message (text, WhatsApp, email…):
           </p>
@@ -259,16 +265,19 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
+  const [confirmOff, setConfirmOff] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => { if (user) { setRole(user.role); setError(null) } }, [user])
+  useEffect(() => setConfirmOff(false), [user?.email])
   if (user && moving) return <ChangeEmailSheet user={user} onClose={() => setMoving(false)} onDone={onClose} />
 
   if (!user) return null
 
   async function save(data: Partial<Pick<AppUser, 'role' | 'active' | 'access'>>) {
     setBusy(true); setError(null)
-    try { await updateUser(user!.email, data); if (!('access' in data)) onClose() }
+    // Access and on/off changes keep the sheet open (the person updates live), so a mistake can be undone right here.
+    try { await updateUser(user!.email, data); setConfirmOff(false); if (!('access' in data) && !('active' in data)) onClose() }
     catch { setError("Couldn't save. Check your connection and try again.") }
     finally { setBusy(false) }
   }
@@ -319,12 +328,20 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
           </button>
         )}
         {error && <p className="text-red-400 text-sm">{error}</p>}
-        {user.active ? (
-          <button onClick={() => save({ active: false })} disabled={busy}
+        {user.active ? (confirmOff ? (
+          <div className="bg-red-500/10 rounded-xl p-3 space-y-2">
+            <p className="text-pt-text text-sm">Turn off {(user.name || user.email).split(' ')[0]}'s access? They're signed out right away.</p>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmOff(false)} disabled={busy} className="flex-1 min-h-[44px] rounded-xl bg-pt-bg shadow-hairline text-pt-text font-medium active:opacity-70">Cancel</button>
+              <button onClick={() => save({ active: false })} disabled={busy} className="flex-1 min-h-[44px] rounded-xl bg-red-600 text-white font-semibold disabled:opacity-40 active:opacity-80">{busy ? 'Turning off…' : 'Turn off'}</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmOff(true)} disabled={busy}
             className="w-full py-3 rounded-xl bg-red-500/20 text-red-400 font-medium disabled:opacity-40 active:opacity-70">
             Turn off access
           </button>
-        ) : (
+        )) : (
           <button onClick={() => save({ active: true })} disabled={busy}
             className="w-full py-3 rounded-xl bg-green-500/20 text-green-400 font-medium disabled:opacity-40 active:opacity-70">
             Turn access back on
