@@ -32,6 +32,8 @@ import { readRequestDraft, writeRequestDraft } from '../lib/requestDraft'
 import AiButton from '../components/AiButton'
 import { useAssistant } from '../assistant'
 import { Icon } from '../components/Icon'
+import { useHotScores } from '../services/propsLike'
+import { hotOrder } from '../../functions/src/hot'
 
 type AvailabilityFilter = Availability | 'all' | 'archived'
 
@@ -103,6 +105,10 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
     return () => clearTimeout(t)
   }, [query, categoryFilter])   // eslint-disable-line react-hooks/exhaustive-deps
   const [availability, setAvailability] = useState<AvailabilityFilter>('all')
+  // Owner, Nov 7: "hot" first (asked for lately), not A–Z. A–Z stays one tap away in the Status sheet; personal props stay A–Z.
+  const [sortBy, setSortBy] = useState<'hot' | 'az'>(() => { try { return sessionStorage.getItem('pc.browseSort') === 'az' ? 'az' : 'hot' } catch { return 'hot' } })
+  const hotScores = useHotScores(!personal)
+  const useHot = !personal && sortBy === 'hot'
   const [similarIds, setSimilarIds] = useState<string[]>([])
   const [similarLoading, setSimilarLoading] = useState(false)
 
@@ -130,7 +136,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   const categoryById = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories])
 
   // Filters apply to both exact and similar results.
-  const filtered = useMemo(
+  const unsorted = useMemo(
     () => allItems
       .filter(i =>
         (availability === 'archived' ? i.archived : !i.archived)
@@ -139,11 +145,12 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
             ? (freeFor(i) ?? 0) > 0 && i.condition !== 'damaged'
             : availabilityOf(i) === availability))
         && i.collection === shownCollection
-        && (!categoryFilter || i.categoryId === categoryFilter))
-      .sort(byName),
+        && (!categoryFilter || i.categoryId === categoryFilter)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [allItems, availability, categoryFilter, dates?.start, dates?.end, bookings, turnaround, settings, shownCollection],
   )
+
+  const filtered = useMemo(() => useHot ? hotOrder(unsorted, hotScores, today) : [...unsorted].sort(byName), [unsorted, useHot, hotScores, today])
 
   const matched = useMemo(
     () => q ? filtered.filter(i => matchesQuery(i, q, tagById)) : filtered,
@@ -365,8 +372,18 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
         <div className={toRequest || cart.count + gearCart.count > 0 ? 'h-20' : 'h-4'} />
       </div>
 
-      <BottomSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Status">
+      <BottomSheet open={filtersOpen} onClose={() => setFiltersOpen(false)} title={personal ? 'Status' : 'Order and status'}>
         <div className="space-y-2">
+          {!personal && <>
+            <p className="text-pt-muted text-[13px] px-1">Order</p>
+            <div className="flex gap-2 pb-2">
+              {([['hot', 'Hot first'], ['az', 'A to Z']] as const).map(([v, l]) => (
+                <button key={v} onClick={() => { setSortBy(v); try { sessionStorage.setItem('pc.browseSort', v) } catch { /* fine */ } setFiltersOpen(false) }}
+                  className={`flex-1 min-h-[44px] rounded-xl px-4 ${sortBy === v ? 'bg-pt-accent/15 text-pt-accent font-semibold' : 'bg-pt-bg text-pt-text'}`}>{l}</button>
+              ))}
+            </div>
+            <p className="text-pt-muted text-[13px] px-1">Status</p>
+          </>}
           {AVAILABILITY_OPTIONS.filter(o => isStaff || !o.staffOnly).map(o => (
             <button key={o.value} onClick={() => { setAvailability(o.value); setFiltersOpen(false) }}
               className={`w-full text-left rounded-xl px-4 py-3 ${availability === o.value ? 'bg-pt-accent/15 text-pt-accent font-semibold' : 'bg-pt-bg text-pt-text'}`}>{o.label}</button>

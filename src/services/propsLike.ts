@@ -1,5 +1,6 @@
 // "More like this" for one prop (functions/src/propsLike.ts): similar props + props booked together (everyone), and the
 // duplicate check for the prop page (owner + arts). Neither costs AI: they read the fingerprints the app already has.
+import { useEffect, useState } from 'react'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import type { Signals, Tier } from '../../functions/src/doubles'
@@ -20,4 +21,20 @@ export function propsLike(id: string): Promise<PropsLike> {
   v.catch(() => cache.delete(id))
   cache.set(id, { at: Date.now(), v })
   return v
+}
+
+// "Hot" scores for Browse (functions/src/hot.ts): one copy for the session, refreshed after 30 minutes.
+const hotFn = httpsCallable<void, { scores: Record<string, number> }>(functions, 'hotProps')
+let hot: { at: number; scores: Record<string, number> } | null = null
+let hotPending: Promise<Record<string, number>> | null = null
+function loadHot(): Promise<Record<string, number>> {
+  if (hot && Date.now() - hot.at < 30 * 60_000) return Promise.resolve(hot.scores)
+  hotPending ??= hotFn().then(r => { hot = { at: Date.now(), scores: r.data.scores ?? {} }; return hot.scores })
+    .catch(() => ({} as Record<string, number>)).finally(() => { hotPending = null })
+  return hotPending
+}
+export function useHotScores(on = true): Record<string, number> {
+  const [s, setS] = useState<Record<string, number>>(() => hot?.scores ?? {})
+  useEffect(() => { if (on) loadHot().then(setS) }, [on])
+  return s
 }

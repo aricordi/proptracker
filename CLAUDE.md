@@ -2388,6 +2388,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       desk sidebar "Prop insights". Help Q "How do I find props like this one?", arts Team guide steps 5–6, appGuide entries item,
       itemmanage, insights, owner guide (v79), crew sheet (v4: "Spot a double while you work?"). Seed: 5 past requests rs1–rs5 (damaged
       phone, missing glass, fog machine builds, a declined cop costume). Tests: tests/functions/propsLike.test.ts + unit.
+    - CALENDAR TIDY (owner, Nov 7): MonthGrid day = ONE line (blue "C2: N" replaces "Full", only when the house is full) so days
+      never grow; colour key folds ("What the colours mean", localStorage pc.monthKey); blurb under the month removed.
+    - BROWSE "HOT" ORDER (owner, Nov 7: "not alphabetical… popular stuff to the top"; NOT deployed: new callable hotprops in
+      deploy/log lists + website): `functions/src/hot.ts` (pure, tests/unit/hot.test.ts): hotScores = each request (not cancelled,
+      last 120 days) adds a weight halving every 21 days; hotOrder = score, then props added in the last 14 days, then a daily
+      shuffle (hash of day|id, same on every phone). Callable `hotProps` (everyone incl. demo; 30-min server cache; company props
+      only unless owner). App `useHotScores` (services/propsLike.ts, 30-min session cache); HomeScreen sorts hot by default,
+      Status sheet → Order "Hot first | A to Z" (sessionStorage pc.browseSort); /personal stays A–Z.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

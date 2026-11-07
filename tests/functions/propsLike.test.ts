@@ -78,3 +78,18 @@ describe('duplicates of one prop', () => {
     expect(ids(pairs)[0]).toBe('b')                  // same picture first
   })
 })
+
+describe('hot order for Browse', () => {
+  it('scores recent requests for everyone, never personal props for non-owners', async () => {
+    await put('items/lamp', prop('Lamp'))
+    await put('items/mine', prop('My hat', { collection: 'personal' }))
+    const now = new Date().toISOString()
+    await put('reservations/h1', { creatorEmail: ANA, status: 'requested', createdAt: now, startDate: todayInStudio(), itemIds: ['lamp', 'mine'], lines: [] })
+    const r = await call('hotProps', {}, DEMO)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result.scores.lamp).toBeGreaterThan(0)
+    expect(r.result.scores.mine).toBeUndefined()
+    expect((await call('hotProps', {}, OWNER)).result.scores.mine).toBeGreaterThan(0)
+    expect((await call('hotProps', {}, 'stranger@example.com')).error).toBe('PERMISSION_DENIED')
+  })
+})

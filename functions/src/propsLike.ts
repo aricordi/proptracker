@@ -15,6 +15,7 @@ import { collectionOf, type PropCollection } from './collections.js'
 import { buildDoubles, pairKeyOf, nameWords, storagePath, type AiVerdict, type DoubleItem } from './doubles.js'
 import { goesWith, signalsFrom } from './ideaHelpers.js'
 import { addDays, todayInStudio } from './booking.js'
+import { hotScores, HOT_WINDOW_DAYS } from './hot.js'
 
 const SIMILAR_MAX = 10
 const TOGETHER_MAX = 10
@@ -107,4 +108,21 @@ export const doublesOf = onCall({ ...CALLABLE, timeoutSeconds: 60, memory: '512M
     near: near.filter(n => known.has(n.id) && !inPairs.has(n.id) && !dismissed.has(pairKeyOf(id, n.id)) && n.score >= NEAR_MIN).slice(0, 8),
     indexed: near.length > 0,
   }
+})
+
+// "Hot" scores for Browse (owner, Nov 7): recent requests count most (hot.ts). Everyone who can browse, Props-only too.
+// Only totals per prop leave the server; personal props are never in the list for anyone but the owner. Kept 30 minutes.
+let hotCache: { at: number; company: Record<string, number>; all: Record<string, number> } | null = null
+export const hotProps = onCall({ ...CALLABLE, timeoutSeconds: 30 }, async req => {
+  const caller = await requireRole(req, ['owner', 'arts', 'creator', 'admin'], { demoOk: true })
+  if (!hotCache || Date.now() - hotCache.at > 30 * 60_000) {
+    const since = new Date(Date.now() - HOT_WINDOW_DAYS * 86_400_000).toISOString()
+    const snap = await db.collection('reservations').where('createdAt', '>=', since).select('itemIds', 'status', 'createdAt').get()
+    const all = hotScores(snap.docs.map(d => ({ itemIds: ((d.get('itemIds') ?? []) as unknown[]).filter((x): x is string => typeof x === 'string'), createdAt: String(d.get('createdAt') ?? ''), status: d.get('status') })))
+    const ids = Object.keys(all)
+    const items = ids.length ? await db.getAll(...ids.map(id => db.doc(`items/${id}`))) : []
+    const company = Object.fromEntries(items.filter(s => s.exists && collectionOf(s.data()) === 'company').map(s => [s.id, all[s.id]]))
+    hotCache = { at: Date.now(), company, all }
+  }
+  return { scores: caller.role === 'owner' ? hotCache.all : hotCache.company }
 })
