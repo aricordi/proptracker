@@ -64,7 +64,7 @@ export default function RequestsCalendarScreen() {
           const total = r.lines.length + (r.builds ?? []).length
           // Where and when the request's shoot is, from the schedule (if it was booked for a schedule shoot).
           const spot = findShootOnDay(days?.[r.startDate], r.scheduleShootId, s.slotMinutes)
-          const where = spot ? `${placeName(spot, s.houses)} · ${compactHours(spot.start, spot.end)}` : ''
+          const where = spot ? `${placeName(spot, s.houses, true)} · ${compactHours(spot.start, spot.end)}` : ''
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)} className="w-full text-left bg-pt-surface shadow-hairline rounded-2xl p-4">
               <div className="flex items-start justify-between gap-2">

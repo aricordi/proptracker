@@ -30,8 +30,9 @@ function watchDay(date: string, cb: () => void) {
 export type ShootRef = { shootId?: string; date?: string }
 
 // Give it the requests on screen; get back shootId → the line ('' when there's no shoot, or it isn't on the schedule).
-// `viewer` = the person looking: their own name is left out of the line.
-export function useShootLines(refs: ShootRef[], viewer?: string): (shootId: string | undefined) => string {
+// `viewer` = the person looking: their own name is left out of the line. Lists of cards get a short offsite place
+// (so the day, hours and name always fit); a request's own page (useShootLine) shows the whole address.
+export function useShootLines(refs: ShootRef[], viewer?: string, { short = true }: { short?: boolean } = {}): (shootId: string | undefined) => string {
   const s = useScheduleSettings()
   const [, setVersion] = useState(0)
   const key = [...new Set(refs.filter(r => r.shootId && r.date).map(r => r.date as string))].sort().join(',')
@@ -45,12 +46,12 @@ export function useShootLines(refs: ShootRef[], viewer?: string): (shootId: stri
   for (const r of refs) {
     if (!r.shootId || !r.date || lines.has(r.shootId)) continue
     const spot = findShootOnDay(stores.get(r.date)?.day, r.shootId, s.slotMinutes)
-    if (spot) lines.set(r.shootId, shootLineText(spot, s.houses, viewer))
+    if (spot) lines.set(r.shootId, shootLineText(spot, s.houses, viewer, short))
   }
   return id => (id && lines.get(id)) || ''
 }
 
-// One request (its page header).
+// One request (its page header): the whole offsite address, wrapped.
 export function useShootLine(shootId: string | undefined, date: string | undefined, viewer?: string): string {
-  return useShootLines([{ shootId, date }], viewer)(shootId)
+  return useShootLines([{ shootId, date }], viewer, { short: false })(shootId)
 }

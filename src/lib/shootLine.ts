@@ -30,14 +30,24 @@ export function findShootOnDay(day: ScheduleDay | null | undefined, shootId: str
   return null
 }
 
-// "Cliff 1", or where an offsite shoot is ("Offsite" when that's only a map link).
-export function placeName(spot: ShootSpot, houses: Record<House, { name: string }>): string {
-  const where = (spot.where ?? '').trim()
-  return spot.place === 'offsite' ? (where && !/^https?:\/\//i.test(where) ? where : 'Offsite') : houses[spot.place]?.name ?? spot.place
+// Cards: an offsite address can be up to 200 characters, which would push the day, hours and name off the card.
+// Keep what's before the first comma ("123 Rue Saint-Paul Ouest, Montréal" → "123 Rue Saint-Paul Ouest"), at most 24 characters.
+export const SHORT_PLACE_MAX = 24
+export function shortPlace(where: string): string {
+  const first = (where.split(',')[0] ?? '').replace(/\s+/g, ' ').trim() || where.trim()
+  return first.length > SHORT_PLACE_MAX ? `${first.slice(0, SHORT_PLACE_MAX - 1).trimEnd()}…` : first
 }
 
-// The one line. The name is left out when it's the person looking (their own request).
-export function shootLineText(spot: ShootSpot, houses: Record<House, { name: string }>, viewer?: string): string {
+// "Cliff 1", or where an offsite shoot is ("Offsite" when that's only a map link). `short` = cut for a card (shortPlace).
+export function placeName(spot: ShootSpot, houses: Record<House, { name: string }>, short = false): string {
+  const where = (spot.where ?? '').trim()
+  if (spot.place !== 'offsite') return houses[spot.place]?.name ?? spot.place
+  if (!where || /^https?:\/\//i.test(where)) return 'Offsite'
+  return short ? shortPlace(where) : where
+}
+
+// The one line. The name is left out when it's the person looking (their own request). `short` = for a card.
+export function shootLineText(spot: ShootSpot, houses: Record<House, { name: string }>, viewer?: string, short = false): string {
   const name = spot.email && viewer && spot.email === viewer ? '' : spot.name
-  return [placeName(spot, houses), formatDay(spot.date), compactHours(spot.start, spot.end), name].filter(Boolean).join(' · ')
+  return [placeName(spot, houses, short), formatDay(spot.date), compactHours(spot.start, spot.end), name].filter(Boolean).join(' · ')
 }

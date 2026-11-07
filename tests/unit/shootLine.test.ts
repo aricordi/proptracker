@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compactHours, findShootOnDay, shootLineText, placeName } from '../../src/lib/shootLine'
+import { compactHours, findShootOnDay, shootLineText, placeName, shortPlace, SHORT_PLACE_MAX } from '../../src/lib/shootLine'
 import type { ScheduleDay } from '../../functions/src/schedule'
 
 const houses = { cliff1: { name: 'Cliff 1' }, cliff2: { name: 'Cliff 2' } }
@@ -71,5 +71,31 @@ describe('findShootOnDay', () => {
     expect(shootLineText(findShootOnDay(day, 'sh1', 120)!, houses, 'riley@x.com')).toBe('Cliff 1 · Sat, Nov 7 · 1–3 PM')
     expect(shootLineText(findShootOnDay(day, 'sh1', 120)!, houses, 'arts@x.com')).toContain('Riley Chen')
     expect(placeName(findShootOnDay(day, 'sh5', 120)!, houses)).toBe('Offsite')
+  })
+})
+
+describe('shortPlace (cards: the day, hours and name always fit)', () => {
+  it('keeps what is before the first comma', () => {
+    expect(shortPlace('123 Rue Saint-Paul Ouest, Montréal')).toBe('123 Rue Saint-Paul Ouest')
+    expect(shortPlace('Old Port, Montreal')).toBe('Old Port')
+    expect(shortPlace('Mount Royal')).toBe('Mount Royal')
+  })
+  it(`caps it at ${SHORT_PLACE_MAX} characters with …`, () => {
+    const cut = shortPlace('The big warehouse behind the bakery on Saint-Laurent')
+    expect(cut.length).toBeLessThanOrEqual(SHORT_PLACE_MAX)
+    expect(cut.endsWith('…')).toBe(true)
+    expect(shortPlace('x'.repeat(200)).length).toBe(SHORT_PLACE_MAX)
+  })
+  it('tidies spaces and never comes back empty', () => {
+    expect(shortPlace('  Old   Port  ,  Montreal ')).toBe('Old Port')
+    expect(shortPlace(', Montreal')).toBe(', Montreal')
+  })
+  it('cards get the short place, a request page the whole address; houses and map links unchanged', () => {
+    const spot = { place: 'offsite' as const, where: '123 Rue Saint-Paul Ouest, Montréal, QC H2Y 1Z5', date: DATE, start: 660, end: 780, name: 'Riley Chen', email: 'riley@x.com' }
+    expect(shootLineText(spot, houses, undefined, true)).toBe('123 Rue Saint-Paul Ouest · Sat, Nov 7 · 11 AM–1 PM · Riley Chen')
+    expect(shootLineText(spot, houses)).toBe('123 Rue Saint-Paul Ouest, Montréal, QC H2Y 1Z5 · Sat, Nov 7 · 11 AM–1 PM · Riley Chen')
+    expect(placeName({ ...spot, place: 'cliff1' }, houses, true)).toBe('Cliff 1')
+    expect(placeName({ ...spot, where: 'https://maps.app.goo.gl/abc' }, houses, true)).toBe('Offsite')
+    expect(placeName({ ...spot, where: '' }, houses, true)).toBe('Offsite')
   })
 })

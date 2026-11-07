@@ -104,7 +104,7 @@ export const GUIDE: GuideEntry[] = [
 
   // ── Arts department (props team) ──
   { id: 'queue', path: '/reservations', title: 'Props queue', who: ['owner', 'arts', 'admin'], words: 'queue to prepare pick pack ready out returns late which shoot house',
-    about: 'Tabs: Today, To prepare, Ready, Out, Returns, Done. Each card shows which shoot it is for on one line (clapperboard: house or offsite place, day, hours, creator). Open a request to pick (ticks grouped by storage area and bin), mark "Can\'t find it" with a reason, add the pack photo, then Packed. After the creator returns it, check each prop in (damaged / missing). Admins can look but not change.' },
+    about: 'Tabs: Today, To prepare, Ready, Out, Returns, Done. Each card shows which shoot it is for (clapperboard: house or offsite place, day, hours, creator; up to two lines, a long offsite address is shortened). Open a request to pick (ticks grouped by storage area and bin), mark "Can\'t find it" with a reason, add the pack photo, then Packed. After the creator returns it, check each prop in (damaged / missing). Admins can look but not change.' },
   { id: 'add', path: '/add', title: 'Add a prop', who: ['owner', 'arts'], words: 'new prop photo ai tag',
     about: 'Take a photo; the AI fills the name, category, tags and description (marked ✦ AI). Check them, set the bin and quantity, Save.' },
   { id: 'editprop', path: '/item/:id/edit', title: 'Edit a prop', who: ['owner', 'arts'], words: 'edit change archive bin quantity',
@@ -150,7 +150,7 @@ export const GUIDE: GuideEntry[] = [
 
   // ── Equipment team (gear + schedule) ──
   { id: 'gearqueue', path: '/gear/bookings', title: 'Gear queue', who: ['owner', 'equipment', 'admin'], words: 'gear queue today out check in late which shoot house',
-    about: 'Tabs: Today, Out (late first), To check in, Upcoming, Past. Each card shows which shoot the gear is for on one line (clapperboard: house or offsite place, day, the shoot\'s hours, creator), then the gear\'s own times. Open a booking to decline (reason needed), watch the pickup, and check it in (tick every piece, note damage).' },
+    about: 'Tabs: Today, Out (late first), To check in, Upcoming, Past. Each card shows which shoot the gear is for (clapperboard: house or offsite place, day, the shoot\'s hours, creator; up to two lines, a long offsite address is shortened), then the gear\'s own times. Open a booking to decline (reason needed), watch the pickup, and check it in (tick every piece, note damage).' },
   { id: 'bundles', path: '/gear/bundles', title: 'Bundles & single items', who: ['owner', 'equipment'], words: 'kit bundle build case found it',
     about: '"+ Bundle" builds a kit from loose pieces (a piece is in one kit at a time). Single items creators can book are switched on in All gear. Missing piece warnings have "Found it".' },
   { id: 'bundleedit', path: '/gear/bundles/:id', title: 'Edit a bundle', who: ['owner', 'equipment'], words: 'kit pieces',

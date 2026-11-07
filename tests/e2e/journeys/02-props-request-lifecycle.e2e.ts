@@ -86,6 +86,9 @@ test('3. arts: open the request from the props queue, tick everything, pack phot
     await page.getByRole('button', { name: /^To prepare \(\d+\)/ }).click()
     const card = page.getByRole('button', { name: new RegExp(TITLE) })
     await expect(card.getByText(shootLine)).toBeVisible()
+    // …and none of it is cut off on a phone-width card (it may take two lines; toBeVisible alone passes on cut text)
+    const line = card.locator('[data-shoot-line]')
+    expect(await line.evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1)).toBe(true)
     await card.click()
     await expect(page.getByRole('heading', { level: 1, name: TITLE })).toBeVisible()
     await expect(page.getByText(shootLine)).toBeVisible()   // …and so does the top of the request page
