@@ -85,7 +85,7 @@ export default function PropInsightsScreen() {
               })} onOpen={open} />
             </Card>
 
-            <Card icon="alert" title="Often unavailable" sub={`Every unit booked on a shoot day, couldn't be found when packing, in a declined request, or creators wanted it for their shoot while it was booked out. "Buy another?" = ran out on ${BUY_MIN_FULL_DAYS}+ days, or ${BUY_MIN_WANTED}+ wanted it while booked out.`}>
+            <Card icon="alert" title="Often unavailable" sub={`Every unit booked on a shoot day (props we have 2 or more of), couldn't be found when packing, in a declined request, or creators wanted it for their shoot while it was booked out. "Buy another?" = ran out on ${BUY_MIN_FULL_DAYS}+ days, or ${BUY_MIN_WANTED}+ wanted it while booked out.`}>
               <Ranked list={data.unavailable} empty="Nothing ran out in this period ✓" render={u => ({
                 main: u.buyMore ? 'Buy another?' : '', badge: u.buyMore,
                 sub: [u.fullDays && ((u.item?.quantity ?? 1) > 1 ? `All ${u.item!.quantity} booked on ${plural(u.fullDays, 'day')}` : `Booked out on ${plural(u.fullDays, 'day')}`),
