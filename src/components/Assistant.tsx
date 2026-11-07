@@ -13,7 +13,7 @@
 // It stays in its box: each message goes to one of the two server helpers (ideaToProps / askForTime), which check
 // the budget, treat the words as data only, and return fixed answers the server has checked. The AI can't book,
 // read or change anything itself; every Book / Add button here is a normal tap by the person.
-import RichText from './RichText'
+import TypeOut from './TypeOut'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -75,6 +75,10 @@ const STAFF_STARTERS: Record<string, string[]> = {
   admin: ['How do I give a strike?', 'What do the flags mean?', 'How do I invite a creator?'],
 }
 const MORE = 'More like these'
+// After an answer, at most 2 next steps, the most useful first (owner, Nov 7: "like a modern AI assistant", no menu of options).
+// Answers to a question the chat just asked (Keep going / Start over, "Cliff 1 or Cliff 2?") aren't capped.
+const NEXT_MAX = 2
+const nextSteps = (c: string[]) => [...new Set(c.filter(Boolean))].slice(0, NEXT_MAX)
 const TIME_CHIP = 'Find a time to film this'
 const PROPS_CHIP = 'Props for this shoot'
 const NEXT_GEAR = 'Next: gear ›'
@@ -178,7 +182,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   ]
   // `mode` = what the chat was last doing, so short follow-ups ("anything earlier?") keep going.
   const [mode, setMode] = useState<Helper | null>(helpOnly ? 'help' : demo ? 'props' : helper ?? null)
-  const [msgs, setMsgs] = useState<Msg[]>(() => fresh(helper))
+  // Answers type out word by word (owner, Nov 7); ones already on screen when the chat opens (or after New chat) show at once.
+  // A bot message is "done" once its text has finished: the cards and chips under it appear then.
+  const shownNow = useRef(new WeakSet<Msg>())
+  const atOnce = (list: Msg[]) => { list.forEach(m => shownNow.current.add(m)); return list }
+  const isDone = (m: Msg) => m.who !== 'bot' || !m.text || shownNow.current.has(m)
+  const [msgs, setMsgs] = useState<Msg[]>(() => atOnce(fresh(helper)))
   const demoChips = helpOnly ? (STAFF_STARTERS[role] ?? STARTERS.help) : [...STARTERS.props.slice(0, 3), 'How do I search the props?']
   const [chips, setChips] = useState<string[]>(() => demo || helpOnly ? demoChips : helper ? STARTERS[helper] : mixed())
   // Plan my shoot: which step, and which shoot it's for (set once the time is booked or picked).
@@ -198,9 +207,17 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const rec = useRef<any>(null)
   const [heard, setHeard] = useState(''), [micErr, setMicErr] = useState('')
   const stopped = useRef(false), quiet = useRef<ReturnType<typeof setTimeout>>()
-  const end = useRef<HTMLDivElement>(null)
+  const end = useRef<HTMLDivElement>(null), scroller = useRef<HTMLDivElement>(null)
   // Follow the conversation; an empty chat stays at the top (the hello and the to-dos).
-  useEffect(() => { if (shown && msgs.some(m => m.who === 'me')) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown])
+  const [revealTick, setRevealTick] = useState(0)
+  useEffect(() => { if (shown && msgs.some(m => m.who === 'me')) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown, revealTick])
+  // While an answer types out, keep its newest words in view (unless they scrolled up to read something earlier).
+  const follow = () => {
+    const el = scroller.current
+    if (!shown || !el || el.scrollHeight - el.scrollTop - el.clientHeight > 160) return
+    el.scrollTop = el.scrollHeight
+  }
+  const textDone = (m: Msg) => { if (shownNow.current.has(m)) return; shownNow.current.add(m); setRevealTick(t => t + 1) }
 
   // Point the chat at one helper (a screen that opened it for times, a chip, a button).
   function switchTo(m: Helper, say = true) {
@@ -222,7 +239,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     started.current = true
     if (ask.shootId) planProps(ask.shootId); else startPlan()
   }, [])
-  const restart = () => { setMode(helpOnly ? 'help' : demo ? 'props' : null); setPlan(null); setMsgs(fresh()); setChips(demo || helpOnly ? demoChips : mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
+  const restart = () => { setMode(helpOnly ? 'help' : demo ? 'props' : null); setPlan(null); setMsgs(atOnce(fresh())); setChips(demo || helpOnly ? demoChips : mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
 
   // "New chat" in the middle of a plan: explain what goes, then they choose (Start over / Keep going).
   function askRestart() {
@@ -416,7 +433,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // Just a day or a time ("next sat", "the 31st", "5:30"): the time finder reads it exactly (the AI once got "next sat" wrong).
       if (!demo && !helpOnly && !pre && isJustWhen(q)) { await runHelpers(q, false, 'time'); return }
       // Only punctuation or emoji ("???", "🎬🎬", "."): no need to wake the AI.
-      if (!/[\p{L}\p{N}]/u.test(q)) { setMsgs(x => [...x, { who: 'bot', text: 'Not sure what you mean. Tell me what you need: a time to film, props for a video, or anything about your shoots.' }]); setChips(defaultChips()); return }
+      if (!/[\p{L}\p{N}]/u.test(q)) { setMsgs(x => [...x, { who: 'bot', text: 'Not sure what you mean. Tell me what you need: a time to film, props for a video, or anything about your shoots.' }]); setChips(nextSteps(defaultChips())); return }
     }
     if (!force && !more && isAppBug(q)) {
       bot('Sorry about that! Send it to us with a screenshot: tap Report a problem, go to the screen where it happened, then tap Report this screen.')
@@ -473,19 +490,19 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         if (!turn.query && !demo && !/\b(for (a|an|the|my|our) (\w+ )?(video|skit|sketch|scene|prank|episode|short)|about|with a|like a)\b/i.test(q) && q.split(/\s+/).length <= 6) {
           setMode('props'); aiSpoke.current = false
           // The AI's line only when it asks for the idea itself (not "Here are some props…" with nothing below it).
-          say(/\?\s*$/.test(turn.reply) ? turn.reply : 'What\'s the video about? A scene, a character or a vibe is enough.'); setChips(turn.chips.length ? turn.chips : STARTERS.props.slice(0, 3)); return
+          say(/\?\s*$/.test(turn.reply) ? turn.reply : 'What\'s the video about? A scene, a character or a vibe is enough.'); setChips(nextSteps(turn.chips.length ? turn.chips : STARTERS.props)); return
         }
         if (turn.reply) say(turn.reply)
         return runHelpers(turn.query || q, false, 'props', turn.shoot)
       case 'help':
         markMe('help')
-        setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); setChips(turn.chips); return
+        setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); setChips(nextSteps(turn.chips)); return
       case 'plan': if (turn.reply) say(turn.reply); if (!plan) startPlan(); return
-      case 'reply': say(turn.reply); setChips(turn.chips); return
+      case 'reply': say(turn.reply); setChips(nextSteps(turn.chips)); return
       default:
         // Shoots, returns, reports, gear…: the app's own facts decide the card (and win over the AI's words when they disagree).
-        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot }, true)) { say(turn.reply || 'On it. What would you like to do?'); setChips(turn.chips) }
-        else if (turn.chips.length) setChips(turn.chips)
+        if (!localTurn(q, { intent: turn.action === 'take_gear' ? 'take-gear' : turn.action, text: turn.reply, shootId: turn.shoot }, true)) { say(turn.reply || 'On it. What would you like to do?'); setChips(nextSteps(turn.chips)) }
+        else if (turn.chips.length) setChips(nextSteps(turn.chips))
     }
   }
 
@@ -506,7 +523,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (plan && !anyStep) return false
     const intent = ai?.intent ?? detectIntent(q)
     const say = (reply: string, extra: Msg[] = [], chips: string[] = [], fact = false) => {
-      setChips(chips); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
+      setChips(nextSteps(chips)); setMsgs(x => [...x, { who: 'bot', text: ai?.text && !fact ? ai.text : reply }, ...extra])
     }
     if (intent === 'greeting') { say(`Hey${first ? ` ${first}` : ''}! ${helpOnly ? 'Ask me how to do anything in the app and I\'ll show you where.' : demo ? 'Tell me about a video and I\'ll find props for it.' : 'What are you working on? I can find you a time at the houses or props for the shoot.'}`, [], defaultChips()); return true }
     if (intent === 'thanks') { say('Anytime! Have a great shoot.'); return true }
@@ -636,7 +653,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       next.push(h === 'props' ? await sendProps(q, more, target, offer) : h === 'help' ? await sendHelp(q) : await sendTime(q, offer, fresh))
     }
     // Both ran: a few follow-ups from each.
-    setChips([...new Set(both ? [...next[0].filter(c => c !== TIME_CHIP).slice(0, 3), ...next[1].slice(0, 2)] : next[0])].slice(0, 5))
+    setChips(both ? nextSteps([...next[0].filter(c => c !== TIME_CHIP).slice(0, 1), ...next[1]]) : next[0])
     setThinking(null); setBusy(false)
   }
 
@@ -667,8 +684,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
       const own = (r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim()))
       for (const c of own) helperChips.current.set(c, 'props')
-      const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...own, ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
-      return [...new Set(next)].slice(0, 5)
+      const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : []), ...own]
+      return nextSteps(next)
     } catch (e) {
       // Busy, offline, today's limit: say so plainly, and offer to try again or search the closet instead.
       const limit = /resource-exhausted/.test(String((e as { code?: string })?.code ?? ''))
@@ -698,13 +715,14 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const a = r.ask as { timeOfDay?: string; houses?: string[] }
       const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h
       const next = r.choices?.length ? r.choices : (r.friends.length ? ['Anything on the weekend?', one('cliff2') ? '' : `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours']
-        : ['Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only', one('cliff1') ? `Only ${s.houses.cliff2.name}` : `Only ${s.houses.cliff1.name}`]).filter(Boolean)
+        : [one('cliff2') ? `Only ${s.houses.cliff1.name}` : `Only ${s.houses.cliff2.name}`, 'Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only']).filter(Boolean)
       // Nobody named (and not "just me"): offer the usual partner, once. The tap re-runs this search with them.
       const named = r.friends.length > 0 || (Array.isArray((r.ask as { people?: unknown }).people) && ((r.ask as { people: unknown[] }).people.length > 0))
       if (!r.choices?.length && r.options.length && !named && partners[0] && !/\b(just me|only me|alone|solo)\b/i.test(q)) next.unshift(`With ${partners[0].label}?`)
       if (r.waitlist && !r.choices?.length) { const c = `Tell me if ${fmtTime(r.waitlist.start)} opens`; waitChips.current.set(c, r.waitlist); next.unshift(c) }
-      for (const c of next) helperChips.current.set(c, 'time')
-      return next
+      const shown = r.choices?.length ? next : nextSteps(next)
+      for (const c of shown) helperChips.current.set(c, 'time')
+      return shown
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]); return [] }
   }
 
@@ -897,6 +915,32 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   // The empty chat (owner, Nov 3: "too busy… clean like the best apps"): a hello, then a short list of things to try.
   const welcome = page && !msgs.some(m => m.who === 'me') && !plan
+  // One answer = everything the chat said since your last message (text, then its times / props / cards, then its chips),
+  // shown as one block. What comes after a reply that's still typing waits until it has finished.
+  const lastMe = msgs.map(m => m.who).lastIndexOf('me')
+  const tail = { bot: lastMe < msgs.length - 1, open: msgs.slice(lastMe + 1).every(isDone) }
+  const chipButtons = chips.map(c => {
+    const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW || c === SWITCH_TIME || c === SWITCH_PROPS
+    return <button key={c} onClick={() => chip(c)} className={`shrink-0 inline-flex items-center gap-1 rounded-full px-3.5 min-h-[40px] text-[14px] ${special ? 'bg-[#BF9DFF]/15 text-[#CDB8FF] font-semibold' : 'bg-white/[0.06] text-pt-text'}`}>{c === MORE ? '✦ More like these' : c}</button>
+  })
+  function asTurns(els: (JSX.Element | null)[]) {
+    const out: JSX.Element[] = []
+    let turn: { key: number; kids: JSX.Element[] } | null = null, open = true
+    const close = () => { if (turn) { const t = turn; out.push(<div key={`t${t.key}`} className="space-y-3">{t.kids}</div>) } turn = null }
+    msgs.forEach((m, i) => {
+      const el = els[i]
+      if (m.who === 'me') { close(); open = true; if (el) out.push(el); return }
+      if (!turn) turn = { key: i, kids: [] }
+      if (!open) return
+      if (el) turn.kids.push(el)
+      if (!isDone(m)) open = false
+    })
+    // The newest answer ends with its next steps (no more than 2, chosen for what just happened).
+    if (turn && open && chips.length > 0 && !busy && !welcome) (turn as { kids: JSX.Element[] }).kids.push(
+      <div key="chips" className="fade-in -mx-5 px-5 flex gap-2 overflow-x-auto no-scrollbar" aria-label="Next steps">{chipButtons}</div>)
+    close()
+    return out
+  }
   const nextShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from))[0]
   // Starter cards (owner, Nov 3: "like the top apps"): concrete, about YOUR week, right above the typing box.
   const wd = (d: string) => WEEKDAY[new Date(d + 'T12:00:00').getDay()]
@@ -945,7 +989,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         ) : page ? null : <p className="text-pt-muted text-[14px]">{helpOnly ? 'Ask how anything in the app works.' : demo ? 'Prop ideas for your videos, from our real closet.' : <>Ideas from our real props and gear, and times that are actually free.{shoot ? ` Checking free or taken for ${label(shoot)}.` : ''}</>}</p>}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
+      <div ref={scroller} className="flex-1 overflow-y-auto px-5 py-4 space-y-5 [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
         {welcome && (
           <div className="rise-in pt-1 pb-1">
             <h2 className="font-display text-[28px] leading-tight font-extrabold tracking-tight">{first ? `Hi ${first}.` : 'Hi.'}</h2>
@@ -953,11 +997,13 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         )}
         {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time', true)} onProps={id => propsFor(id)} />}
-        {msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
+        {asTurns(msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
           <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
-            {m.text && <div className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[16px] leading-snug bg-white/[0.07]"><RichText text={m.text} /></div>}
+            {m.text && <TypeOut text={m.text} animate={!isDone(m)} onDone={() => textDone(m)} onGrow={follow}
+              className="rise-in max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[16px] leading-snug bg-white/[0.07]" />}
+            {isDone(m) && <div className="fade-in space-y-3 empty:hidden">
             {m.result?.fallback && <p className="text-pt-muted text-xs">Quick match: the AI was busy, so these are the closest props by name and tags.</p>}
             {m.guide && (m.guide.steps.length > 0 || m.guide.links.length > 0) && (
               <div className="rise-in space-y-2">
@@ -977,6 +1023,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               <button onClick={() => send(m.alt!.q, false, m.alt!.to)} className="tap text-[14px] text-[#CDB8FF] underline underline-offset-2">
                 {m.alt.to === 'time' ? 'Meant a time to film? Find one' : 'Meant props for this? Find some'}</button>
             )}
+            </div>}
           </div>
         ) : m.who === 'choose' ? (
           <div key={i} className="rise-in space-y-2">
@@ -1110,7 +1157,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               : <button onClick={() => propsFor(m.shootId)} className="w-full rounded-xl py-3 font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Find props for this shoot</button>)}
             {!plan && <button onClick={() => { choose(m.shootId); go('/browse') }} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Browse props</button>}
           </div>
-        ) : null)}
+        ) : null))}
         {busy && <div role="status" aria-label="Thinking" className="rise-in flex items-center gap-3">
           <p className="w-fit flex items-center gap-1.5 rounded-[20px] rounded-bl-md px-4 py-4 bg-[#BF9DFF]/10"><span className="typing-dot" /><span className="typing-dot" /><span className="typing-dot" /></p>
           {thinking && <span className="text-pt-muted text-[14px]">{thinking === 'chat' ? '' : thinking === 'props' ? 'Looking through the props…' : thinking === 'help' ? 'Looking at how the app works…' : 'Checking the schedule…'}</span>}
@@ -1138,14 +1185,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             ))}
           </div>
         )}
-        {chips.length > 0 && !busy && !welcome && (
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">
-            {chips.map(c => {
-              const special = c === MORE || c === TIME_CHIP || c === PROPS_CHIP || c === NEXT_GEAR || c === SKIP_PROPS || c === NEXT_REVIEW || c === SWITCH_TIME || c === SWITCH_PROPS
-              return <button key={c} onClick={() => chip(c)} className={`shrink-0 rounded-full px-3.5 h-9 text-[14px] ${special ? 'bg-[#BF9DFF]/15 text-[#CDB8FF] font-semibold' : 'bg-white/[0.06] text-pt-text'}`}>{c === MORE ? '✦ More like these' : c === TIME_CHIP ? c : c === PROPS_CHIP ? c : c}</button>
-            })}
-          </div>
-        )}
+        {chips.length > 0 && !busy && !welcome && !tail.bot && <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3">{chipButtons}</div>}
         {listening && (
           <div className="mb-2 flex items-start gap-3 rounded-2xl bg-[#BF9DFF]/10 px-4 py-3 shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.4)]" aria-live="polite">
             <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" aria-hidden />
