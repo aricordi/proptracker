@@ -849,7 +849,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const team = role === 'owner' || role === 'equipment' || realRole === 'owner'
     const owner = role === 'owner' || realRole === 'owner'
     const picks = o && idea ? topPicks(idea.groups, id => freeOnDay(id, o.date)) : []
-    const skip = planSkip({ hasTime: !!o, needsGuideline: !!o && !team && needsGuideline(o.date, o.place, profile.email, s),
+    const skip = planSkip({ hasTime: !!o, timeNote: !!t?.notice || !!t?.waitlist, needsGuideline: !!o && !team && needsGuideline(o.date, o.place, profile.email, s),
       tooLateForProps: !!o && !owner && today > lastDayToBook(o.date, settings.leadTimeDays, settings), picks: picks.length })
     if (skip || !t || !idea || !o) return separate(pair, tp, ip, !!turn.reply)
     setMsgs(x => [...x, { who: 'once', id: ++onceId.current, o, picks, ticks: picks, idea: pair.props, notice: t.notice ?? '', time: t, props: idea,

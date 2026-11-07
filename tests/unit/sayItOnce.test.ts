@@ -35,6 +35,8 @@ describe('say it once: planSkip', () => {
   it('shows the card when everything fits', () => expect(planSkip(ok)).toBeNull())
   it('falls back to the separate answers', () => {
     expect(planSkip({ ...ok, hasTime: false })).toBe('no-time')
+    expect(planSkip({ ...ok, timeNote: true })).toBe('time-note')
+    expect(planSkip({ ...ok, timeNote: false })).toBeNull()
     expect(planSkip({ ...ok, needsGuideline: true })).toBe('guideline')
     expect(planSkip({ ...ok, tooLateForProps: true })).toBe('too-late')
     expect(planSkip({ ...ok, picks: 0 })).toBe('no-props')

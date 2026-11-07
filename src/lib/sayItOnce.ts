@@ -31,9 +31,12 @@ export function topPicks(groups: { picks: PickLike[] }[], freeOn: (id: string) =
 }
 
 // Why the one-card plan can't be offered (then the chat shows today's separate answers). null = show the card.
-export type PlanSkip = 'no-time' | 'guideline' | 'too-late' | 'no-props'
-export function planSkip(o: { hasTime: boolean; needsGuideline: boolean; tooLateForProps: boolean; picks: number }): PlanSkip | null {
+// 'time-note' = the time answer has something to say (the asked time isn't free, a friend wasn't found, one slot a day,
+// or "Tell me if 5 PM opens" applies): one gold card would quietly book a different time or book solo, so show the choices.
+export type PlanSkip = 'no-time' | 'time-note' | 'guideline' | 'too-late' | 'no-props'
+export function planSkip(o: { hasTime: boolean; timeNote?: boolean; needsGuideline: boolean; tooLateForProps: boolean; picks: number }): PlanSkip | null {
   if (!o.hasTime) return 'no-time'
+  if (o.timeNote) return 'time-note'
   if (o.needsGuideline) return 'guideline'
   if (o.tooLateForProps) return 'too-late'
   if (o.picks === 0) return 'no-props'
