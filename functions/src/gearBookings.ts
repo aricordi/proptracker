@@ -1,6 +1,7 @@
 // Gear bookings: creators hold whole bundles and add-on extras by the hour.
 // Holds are written in a transaction together with gear_holds/{offerId}, which is
 // what makes double-booking impossible (same idea as item_bookings for props).
+import { storageLinks } from './storageLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator, isDemoCreator, type Caller } from './auth.js'
@@ -107,7 +108,7 @@ export const createGearBooking = onCall(CALLABLE, async req => {
 export const takeGear = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'creator'])
   const d = req.data ?? {}
-  const photos = Array.isArray(d.photos) ? d.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
+  const photos = storageLinks(d.photos, 6)   // our own storage only (audit, Nov 7)
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take a photo of what you\'re taking first.')
   const shoot = await shootToAddTo(caller, d.scheduleShootId)
   if (!shoot) throw new HttpsError('invalid-argument', 'Gear goes with a shoot on the schedule.', { problem: 'no-shoot' })
@@ -485,7 +486,7 @@ const emailsIn = (v: unknown) => Array.isArray(v) ? v.filter((e: unknown): e is 
 export const returnGear = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
   const id = str(req.data?.id, 100)
-  const photos = Array.isArray(req.data?.photos) ? req.data.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
+  const photos = storageLinks(req.data?.photos, 6)
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take the return photo first: everything in the case, batteries plugged in.')
   const usedIn = emailsIn(req.data?.usedBy)
   // Owner, Nov 3: report anything broken at the return (piece + what's wrong), and confirm the charging case is plugged in.

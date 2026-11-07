@@ -9,9 +9,10 @@ import { addStrike, removeStrikeById } from './strikes.js'
 import { addDays, todayInStudio } from './booking.js'
 
 const TEAM = ['owner', 'equipment']
+import { storageLinks } from './storageLinks.js'
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
-const photoList = (v: unknown) => Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 10) : []
+const photoList = (v: unknown) => storageLinks(v, 10)   // our own storage only (audit, Nov 7)
 const settings = async () => cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
 
 async function ownShoot(id: string, email: string) {

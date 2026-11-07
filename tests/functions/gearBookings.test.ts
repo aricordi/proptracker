@@ -145,14 +145,14 @@ describe('taking gear on the day (grab-and-go)', () => {
       from: `${today}T${String(Math.floor(start / 60)).padStart(2, '0')}:00`, to: end === 1440 ? `${today}T23:59` : `${today}T${String(Math.floor(end / 60)).padStart(2, '0')}:00`, kind: 'extra', history: [] })
     const noPhoto = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
     expect(noPhoto.message).toMatch(/photo/)
-    const r = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'], missing: ['fx3|bat|1'] }, ANA)
+    const r = await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'], missing: ['fx3|bat|1'] }, ANA)
     if (min < 360 || min >= 1410) return   // outside gear hours (6 AM to midnight): nothing to check
     expect(r.ok, r.message).toBe(true)
     const b = (await getDoc(`gear_bookings/${r.result.id}`))!
-    expect(b).toMatchObject({ status: 'out', grab: true, creatorEmail: ANA, scheduleShootId: 'now', pickup: { by: ANA, photos: ['https://example.com/p.jpg'] } })
+    expect(b).toMatchObject({ status: 'out', grab: true, creatorEmail: ANA, scheduleShootId: 'now', pickup: { by: ANA, photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'] } })
     expect(b.pickup.missing).toHaveLength(1)
     // Someone else can't take the same kit now.
-    expect((await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)).ok).toBe(false)
+    expect((await call('takeGear', { scheduleShootId: 'now', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'] }, ANA)).ok).toBe(false)
   })
 
   it('on a closed day (Sunday, holidays) it works the same: no permission, out now, back when the shoot ends (owner, Nov 6)', async () => {
@@ -162,7 +162,7 @@ describe('taking gear on the day (grab-and-go)', () => {
     const start = Math.floor(min / 60) * 60, end = Math.min(1440, start + 120)
     await put('shoots/sun', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: today, start, end,
       from: `${today}T${String(Math.floor(start / 60)).padStart(2, '0')}:00`, to: end === 1440 ? `${today}T23:59` : `${today}T${String(Math.floor(end / 60)).padStart(2, '0')}:00`, kind: 'extra', history: [] })
-    const r = await call('takeGear', { scheduleShootId: 'sun', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)
+    const r = await call('takeGear', { scheduleShootId: 'sun', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'] }, ANA)
     expect(r.ok, r.message).toBe(true)
     const b = (await getDoc(`gear_bookings/${r.result.id}`))!
     expect(b).toMatchObject({ status: 'out', closedDay: false, pickupDay: today })
@@ -173,7 +173,7 @@ describe('taking gear on the day (grab-and-go)', () => {
   it('not on another person\'s shoot, and not days before', async () => {
     const d = addDays(todayInStudio(), 3)
     await put('shoots/later', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: d, start: 780, end: 900, from: `${d}T13:00`, to: `${d}T15:00`, kind: 'extra', history: [] })
-    expect((await call('takeGear', { scheduleShootId: 'later', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, BEN)).error).toBe('PERMISSION_DENIED')
-    expect((await call('takeGear', { scheduleShootId: 'later', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['https://example.com/p.jpg'] }, ANA)).message).toMatch(/minutes before your shoot/)
+    expect((await call('takeGear', { scheduleShootId: 'later', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'] }, BEN)).error).toBe('PERMISSION_DENIED')
+    expect((await call('takeGear', { scheduleShootId: 'later', lines: [{ offerId: 'fx3', qty: 1 }], photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'] }, ANA)).message).toMatch(/minutes before your shoot/)
   })
 })

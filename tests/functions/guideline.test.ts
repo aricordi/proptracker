@@ -23,6 +23,10 @@ describe('guideline on priority days', () => {
     const no = await call('bookShoot', { place: 'cliff1', date: D, start: 1260 }, ANA)
     if (no.message?.match(/priority/i)) return   // still locked on this weekday (release timing): nothing to check
     expect(no.message).toMatch(/guideline/)
+    const outside = await call('bookShoot', { place: 'cliff1', date: D, start: 1260, guideline: { url: 'https://evil.example/guidelines/x.pdf', name: 'x.pdf' } }, ANA)
+    expect(outside.message).toMatch(/guideline/)   // an outside link isn't a guideline (audit, Nov 7)
+    const someoneElses = await call('bookShoot', { place: 'cliff1', date: D, start: 1260, guideline: { ...GUIDE, url: GUIDE.url.replace('gl-ana', 'gl-jana') } }, ANA)
+    expect(someoneElses.message).toMatch(/guideline/)
     const yes = await call('bookShoot', { place: 'cliff1', date: D, start: 1260, guideline: GUIDE }, ANA)
     expect(yes.ok).toBe(true)
     expect((await getDoc(`shoots/${yes.result.id}`))!.guideline).toEqual(GUIDE)

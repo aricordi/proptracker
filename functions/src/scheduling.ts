@@ -1,6 +1,7 @@
 // House schedule (Cliff 1 / Cliff 2 / offsite): book, move, swap, cancel, block time, settings.
 // Every booking change is written in a transaction together with schedule_days/{date}, which
 // is what makes double-booking a house impossible (same idea as gear_holds for gear).
+import { isStorageLink } from './storageLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
@@ -32,7 +33,9 @@ const fail = (problem: ScheduleProblem, message = SCHEDULE_MESSAGES[problem]) =>
 // The schedule team booking for someone doesn't need one. Returns what to store on the shoot.
 function guidelineFor(caller: Caller, email: string, spot: { place: Place; date: string }, s: ScheduleSettings, raw: unknown) {
   const g = raw && typeof raw === 'object' ? raw as { url?: unknown; name?: unknown } : null
-  const url = typeof g?.url === 'string' && /^https?:\/\/[^\s]+$/.test(g.url) && /guidelines(%2F|\/)/.test(g.url) ? g.url.slice(0, 1000) : ''
+  // Only a PDF in the app's own storage, in the folder of the person booking (or the shoot's person); never an
+  // outside link that staff would then open (audit, Nov 7).
+  const url = isStorageLink(g?.url, `guidelines/${caller.email}/`) || isStorageLink(g?.url, `guidelines/${email}/`) ? (g!.url as string) : ''
   if (url) return { url, name: str(g?.name, 120) || 'Guideline.pdf' }
   if (spot.place !== 'offsite' && !isTeam(caller) && needsGuideline(spot.date, spot.place, email, s))
     throw new HttpsError('failed-precondition', 'Thursdays and Saturdays at Cliff 1 need your filming guideline. Attach the PDF and ask again.', { problem: 'guideline' })

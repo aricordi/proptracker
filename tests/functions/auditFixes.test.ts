@@ -38,7 +38,7 @@ describe('audit fixes', () => {
   it('gear can\'t be taken for a shoot that is still a request', async () => {
     const from = addMinutes(nowStamp(), 10)
     await shoot('req1', ANA, 'Ana', from.slice(0, 10), { status: 'requested', from, to: addMinutes(from, 120), start: Number(from.slice(11, 13)) * 60 + Number(from.slice(14, 16)) })
-    const r = await call('takeGear', { scheduleShootId: 'req1', photos: ['https://x/y.jpg'], lines: [{ offerId: 'k', qty: 1 }] }, ANA)
+    const r = await call('takeGear', { scheduleShootId: 'req1', photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'], lines: [{ offerId: 'k', qty: 1 }] }, ANA)
     expect(r.ok).toBe(false)
     expect(r.message).toMatch(/approved/)
     expect(await getDoc('shoots/req1')).toBeTruthy()

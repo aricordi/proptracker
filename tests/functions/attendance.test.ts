@@ -4,7 +4,7 @@ import { put, call, getDoc, clearDatabase, soonSlot } from './helpers'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com'
-const PHOTO = 'https://example.com/set.jpg'
+const PHOTO = 'http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'
 const mins = (st: string) => Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16))
 
 // A shoot written straight into the database at a chosen time around now.
@@ -30,6 +30,7 @@ describe('check in and wrap', () => {
     expect((await call('checkInShoot', { id: 'early', photos: [PHOTO] }, ANA)).message).toMatch(/opens 15 minutes/)
     await shootAt('now', ANA, 'Ana', 10)
     expect((await call('checkInShoot', { id: 'now', photos: [] }, ANA)).message).toMatch(/photo/)
+    expect((await call('checkInShoot', { id: 'now', photos: ['https://evil.example.com/set.jpg'] }, ANA)).message).toMatch(/photo/)   // outside links don't count
     expect((await call('checkInShoot', { id: 'now', photos: [PHOTO] }, BEN)).error).toBe('PERMISSION_DENIED')
     expect((await call('checkInShoot', { id: 'now', photos: [PHOTO] }, ANA)).ok).toBe(true)
     expect((await getDoc('shoots/now'))!.checkin.photos).toEqual([PHOTO])
