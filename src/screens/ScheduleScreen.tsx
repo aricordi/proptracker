@@ -44,7 +44,10 @@ const btnGrey = 'w-full bg-pt-raised text-pt-text font-semibold rounded-[14px] p
 type Friend = { email: string; name: string }
 
 // Someone else's booked house slot (what a swap is asked for).
-interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number }
+// pending = someone's request the team hasn't approved yet; move = a slot someone asked to move into (also waiting).
+interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number; pending?: boolean; move?: boolean }
+// Only approved house shoots with no move waiting can be swapped (the server refuses the rest).
+const swappable = (x: Shoot, now: string) => x.place !== 'offsite' && x.from > now && x.status === 'booked' && !x.moveRequest
 
 type SheetState =
   | { kind: 'calendar' }
@@ -128,7 +131,7 @@ export default function ScheduleScreen() {
     if (st.t === 'free') { if (team) setSheet({ kind: 'block', date: d, house: h, start }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
     else if (st.t === 'booked') {
       const isMine = st.entry.email === profile.email || (mine ?? []).some(x => x.id === st.entry.shootId)
-      setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start } })
+      setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start, pending: !!st.entry.pending, move: !!st.entry.move } })
     }
     else if (st.t === 'block' && team) setSheet({ kind: 'unblock', date: d, block: st.block })
   }
@@ -244,12 +247,14 @@ export default function ScheduleScreen() {
               <p className="text-pt-muted text-sm">{formatDay(sheet.slot.date)} · {s.houses[sheet.slot.house].name} · {fmtSlot(sheet.slot.start, s.slotMinutes)}</p>
             </div>
           </div>
-          <p className="text-pt-text text-sm mt-4">This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.</p>
+          <p className="text-pt-text text-sm mt-4">{sheet.slot.move ? 'Someone asked to move their shoot here. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
+            : sheet.slot.pending ? 'Someone asked for this slot. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
+            : 'This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
-          {(mine ?? []).some(x => x.place !== 'offsite' && x.from > now) && (
+          {!sheet.slot.pending && (mine ?? []).some(x => swappable(x, now)) && (
             <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
           )}
-          {s.instantBookers.some(p => p.email === profile.email) && !s.instantBookers.some(p => p.email === sheet.slot.email) && (
+          {!sheet.slot.move && s.instantBookers.some(p => p.email === profile.email) && !s.instantBookers.some(p => p.email === sheet.slot.email) && (
             <TakeSlot slot={sheet.slot} onTaken={id => setSheet({ kind: 'shoot', id })} />
           )}
         </BottomSheet>
@@ -726,16 +731,21 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
   const [sent, setSent] = useState('')
   const others: TheirSlot[] = useMemo(() => {
     const out: TheirSlot[] = []
+    const seen = new Set<string>()
     for (const [date, d] of Object.entries(days).sort(([a], [b]) => a.localeCompare(b))) {
       for (const house of HOUSES) for (const [k, e] of Object.entries(d[house] ?? {})) {
         const start = Number(k)
+        // Only approved shoots: not a friend's held slot, someone's request or a move waiting for the team.
+        // An imported shoot can fill two slots: list it once.
+        if (!e.shootId || e.hold || e.pending || e.move || seen.has(e.shootId)) continue
         if (e.email === email || slotWindow(date, start, s.slotMinutes).from <= now) continue
+        seen.add(e.shootId)
         out.push({ shootId: e.shootId, name: e.name, email: e.email, date, house, start })
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start).slice(0, 60)
   }, [days, email, now, s.slotMinutes])
-  const mySlots = myShoots.filter(x => x.place !== 'offsite' && x.from > now)
+  const mySlots = myShoots.filter(x => swappable(x, now))
   async function ask(myId: string, theirId: string, name: string) {
     setBusy(myId + theirId); setErr('')
     try { await requestSwap({ myShootId: myId, theirShootId: theirId }); setSent(name) } catch (e) { setErr(errorText(e)) } finally { setBusy('') }
@@ -766,7 +776,7 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
           <div className="mt-3 space-y-2">
             {mine && others.length === 0 && <p className="text-pt-muted text-sm">No one else has an upcoming house slot.</p>}
             {mine && others.map(o => row(o.shootId, <Avatar email={o.email} name={o.name} />, `${o.name} · ${formatDay(o.date)} · ${s.houses[o.house].name} · ${fmtSlot(o.start, s.slotMinutes)}`, () => ask(mine.id, o.shootId, o.name)))}
-            {theirs && mySlots.length === 0 && <p className="text-pt-muted text-sm">You have no upcoming house shoots to offer.</p>}
+            {theirs && mySlots.length === 0 && <p className="text-pt-muted text-sm">You have no approved upcoming house shoots to offer.</p>}
             {theirs && mySlots.map(m => row(m.id, null, `Your ${formatDay(m.date)} · ${s.houses[m.place as House].name} · ${fmtSlot(m.start, m.end - m.start)}`, () => ask(m.id, theirs.shootId, theirs.name)))}
           </div>
         </>

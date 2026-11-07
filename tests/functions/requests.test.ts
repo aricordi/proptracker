@@ -125,6 +125,24 @@ describe('booking requests', () => {
     expect(sw.message).toMatch(/move/)
   })
 
+  it('swaps: only approved shoots, and both shoots must be picked (audit, Nov 7)', async () => {
+    const a = await book(ANA), b = await call('bookShoot', { place: 'cliff2', date: FRI, start: 780 }, BEN)
+    await decide(MAANIK, a.result.id, true)
+    const sw = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    expect(sw.ok).toBe(false)
+    expect(sw.message).toMatch(/Only approved shoots/)
+    expect((await call('requestSwap', { myShootId: a.result.id, theirShootId: '' }, ANA)).error).toBe('INVALID_ARGUMENT')
+  })
+
+  it('someone with top priority can\'t take a slot with a move waiting, and is told in plain words', async () => {
+    const a = await book(ANA)
+    await decide(MAANIK, a.result.id, true)
+    await call('moveShoot', { id: a.result.id, place: 'cliff2', date: FRI, start: 1020 }, ANA)
+    const t = await call('bookShoot', { place: 'cliff2', date: FRI, start: 1020, take: true }, KYLE)
+    expect(t.ok).toBe(false)
+    expect(t.message).toMatch(/change waiting for the team/)
+  })
+
   it('a waiting request counts toward the one-slot-a-day limit', async () => {
     await book(ANA)
     const second = await call('bookShoot', { place: 'cliff2', date: FRI, start: 1140 }, ANA)

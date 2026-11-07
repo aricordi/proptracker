@@ -443,11 +443,13 @@ function assertSwapRules(a: FirebaseFirestore.DocumentData, b: FirebaseFirestore
 export const requestSwap = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...BOOKERS])
   const mineId = str(req.data?.myShootId, 100), theirsId = str(req.data?.theirShootId, 100)
+  if (!mineId || !theirsId) throw new HttpsError('invalid-argument', 'Pick the two shoots to swap.')
   const [mine, theirs] = (await db.getAll(db.doc(`shoots/${mineId}`), db.doc(`shoots/${theirsId}`))).map(x => x.data())
   const now = nowStamp()
   if (!mine || !theirs) throw new HttpsError('not-found', 'Shoot not found.')
   if (mine.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'You can only offer your own shoot.')
   if (theirs.creatorEmail === caller.email) throw new HttpsError('invalid-argument', 'Pick someone else\'s shoot.')
+  if (mine.status === 'requested' || theirs.status === 'requested') throw new HttpsError('failed-precondition', 'Only approved shoots can be swapped. Wait for the equipment team to approve it first.')
   if (mine.status !== 'booked' || theirs.status !== 'booked') throw new HttpsError('failed-precondition', 'One of these shoots is cancelled.')
   if (mine.moveRequest || theirs.moveRequest) throw new HttpsError('failed-precondition', 'One of these shoots is waiting for a move to be approved. Wait for the answer first.')
   if (mine.place === 'offsite' || theirs.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
@@ -900,7 +902,10 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       if (day[a.house]?.[key]?.shootId !== holderId) throw new HttpsError('failed-precondition', 'That slot changed in the meantime. Look again.')
       // A slot someone asked to MOVE into (or a shoot with a move waiting) is sorted out first (audit: giving it away left the
       // move request behind, and approving it later took the wrong slot).
-      if (day[a.house]?.[key]?.move || h.moveRequest) throw new HttpsError('failed-precondition', `${h.creatorName} has a move request waiting. Approve or deny it first.`)
+      // (Said differently to someone with top priority taking it themselves: they can't approve anything.)
+      if (day[a.house]?.[key]?.move || h.moveRequest) throw new HttpsError('failed-precondition', (APPROVERS as readonly string[]).includes(caller.role)
+        ? `${h.creatorName} has a move request waiting. Approve or deny it first.`
+        : 'This slot has a change waiting for the team to decide. Pick another time, or try again later.')
       takeOut(day, h as Spot, holderId, false)
       if (moveSpot) {
         if (moveSpot.place === a.house && moveSpot.start === a.start) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
