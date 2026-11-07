@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useMyShoots, useScheduleSettings, checkinWindow, fmtSlot, type Shoot } from '../services/schedule'
+import { useMyShoots, useScheduleSettings, checkinWindow, expectsCheckIn, fmtSlot, type Shoot } from '../services/schedule'
 import { useActiveShoot, useCutoffs } from '../activeShoot'
 import { useAssistant } from '../assistant'
 import { todayInStudio, addDays } from '../../functions/src/booking'
@@ -70,7 +70,9 @@ export default function MyShootsScreen() {
     const cut = cutoffs(x)
     const win = checkinWindow(x, now, s)
     const filmed = x.outcome === 'filmed' || !!x.checkin
-    const pastState = x.noShow || x.outcome === 'noshow' ? { text: 'No-show', cls: 'text-red-300' } : filmed ? { text: 'Filmed ✓', cls: 'text-green-300' } : { text: 'Not checked in', cls: 'text-pt-muted' }
+    const pastState = x.noShow || x.outcome === 'noshow' ? { text: 'No-show', cls: 'text-red-300' } : filmed ? { text: 'Filmed ✓', cls: 'text-green-300' }
+      // Offsite and imported shoots don't check in; they count as filmed, like in the analytics (audit, Nov 7).
+      : !expectsCheckIn(x) ? { text: x.place === 'offsite' ? 'Offsite ✓' : 'Filmed ✓', cls: 'text-green-300' } : { text: 'Not checked in', cls: 'text-pt-muted' }
     const shared = g.find(b => b.creatorEmail !== profile.email)
     return (
       <div key={x.id} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-3">
