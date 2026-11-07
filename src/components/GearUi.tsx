@@ -132,10 +132,12 @@ export const STATUS_LABEL: Record<string, { text: string; tone: 'free' | 'taken'
 }
 
 // Tick every piece (or mark it missing). Used at pickup (creator) and check-in (team).
-export function PieceChecklist({ lines, ticked, missing, onTick, onMissing }: {
+// `known` = units the bundle already lists as missing (reported earlier): they start marked, and aren't on you.
+export function PieceChecklist({ lines, ticked, missing, onTick, onMissing, known }: {
   lines: { key: string; name: string; unit: number; of: number }[]
   ticked: Set<string>; missing: Set<string>
   onTick: (key: string) => void; onMissing: (key: string) => void
+  known?: Set<string>
 }) {
   return (
     <div className="space-y-2">
@@ -147,7 +149,7 @@ export function PieceChecklist({ lines, ticked, missing, onTick, onMissing }: {
               className={`flex-1 flex items-center gap-3 rounded-xl px-3 py-3 text-left border ${on ? 'bg-green-500/10 border-green-500/40' : gone ? 'bg-red-500/10 border-red-500/40' : 'bg-pt-bg border-pt-border'}`}>
               <span className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center font-bold shrink-0 ${on ? 'bg-green-500 border-green-500 text-black' : gone ? 'border-red-400 text-red-300' : 'border-pt-muted'}`}>{on ? '✓' : gone ? '!' : ''}</span>
               <span className="text-pt-text text-[15px]">{l.name}{l.of > 1 ? <span className="text-pt-muted"> · {l.unit} of {l.of}</span> : null}</span>
-              {gone && <span className="ml-auto text-xs font-semibold text-red-300">missing</span>}
+              {gone && <span className="ml-auto text-xs font-semibold text-red-300 text-right">{known?.has(l.key) ? 'already reported missing' : 'missing'}</span>}
             </button>
             {!on && <button onClick={() => onMissing(l.key)} className="text-xs text-pt-accent w-16 shrink-0 tap">{gone ? 'Found' : 'Missing?'}</button>}
           </div>

@@ -154,3 +154,30 @@ export const gearReserveOpensAt = (shootFrom: string, hours = GEAR_RESERVE_HOURS
 export const canReserveGear = (shootFrom: string, now: string, hours = GEAR_RESERVE_HOURS) => now >= gearReserveOpensAt(shootFrom, hours)
 // "Take it now": from an hour before the shoot until it ends.
 export const canTakeGear = (shootFrom: string, shootTo: string, now: string) => now >= addMinutes(shootFrom, -GEAR_TAKE_BEFORE_MINUTES) && now < shootTo
+
+// ─── Pieces already reported missing (audit, Nov 7) ──────────────────────────
+// A piece reported missing stays on the bundle's warning list until someone taps Found it. Later users find it
+// still missing, but that isn't on them (or on whoever reported it): it's left out of new reports and blame.
+export type KnownMissing = { itemId: string; qty: number }
+const knownCount = (known: KnownMissing[] | undefined, itemId: string) => (known ?? []).filter(k => k.itemId === itemId).reduce((n, k) => n + (Number(k.qty) || 0), 0)
+
+// The units to pre-mark as "already reported missing" on a checklist (the last units of each piece).
+export function knownMissingKeys(lines: CheckLine[], knownByOffer: Record<string, KnownMissing[] | undefined>): Set<string> {
+  const out = new Set<string>()
+  for (const l of lines) if (l.unit > l.of - knownCount(knownByOffer[l.offerId], l.itemId)) out.add(l.key)
+  return out
+}
+
+// What's newly missing: the reported counts minus what the bundle already lists as missing.
+export function newlyMissing<T extends { offerId: string; itemId: string; qty: number }>(missing: T[], knownByOffer: Record<string, KnownMissing[] | undefined>): T[] {
+  const used = new Map<string, number>()
+  const out: T[] = []
+  for (const m of missing) {
+    const k = `${m.offerId}|${m.itemId}`
+    const left = knownCount(knownByOffer[m.offerId], m.itemId) - (used.get(k) ?? 0)
+    const skip = Math.max(0, Math.min(left, m.qty))
+    used.set(k, (used.get(k) ?? 0) + skip)
+    if (m.qty - skip > 0) out.push({ ...m, qty: m.qty - skip })
+  }
+  return out
+}

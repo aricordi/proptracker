@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import {
-  subscribeToGearBooking, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
-  fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking,
+  subscribeToGearBooking, subscribeToGearBundles, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
+  fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking, type GearBundle,
 } from '../services/gear'
+import { knownMissingKeys } from '../../functions/src/gearBooking'
 import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote } from '../components/GearUi'
 import { fmtMoney } from '../../functions/src/gearStock'
 import { lateFor, stampLabel } from '../lib/lateReturns'
@@ -49,9 +50,15 @@ export default function GearBookingScreen() {
   const [, setTick] = useState(0)
   useEffect(() => id ? subscribeToGearBooking(id, setB) : undefined, [id])
   useEffect(() => { const t = setInterval(() => setTick(n => n + 1), 30_000); return () => clearInterval(t) }, [])   // keep "now" fresh
-  // A new step starts with a clean checklist.
-  useEffect(() => { setTicked(new Set()); setMissing(new Set()) }, [b?.status])
   const lines = useMemo(() => b ? checkLines(b.lines) : [], [b])
+  // Pieces the bundle already lists as missing (reported earlier, not found since) start marked: not on this person.
+  const [bundles, setBundles] = useState<GearBundle[]>([])
+  const needsCheck = b?.status === 'held' || b?.status === 'returned'
+  useEffect(() => needsCheck ? subscribeToGearBundles(setBundles) : undefined, [needsCheck])
+  const known = useMemo(() => knownMissingKeys(lines, Object.fromEntries(bundles.map(o => [o.id, o.missing]))), [lines, bundles])
+  const knownKey = [...known].join()
+  // A new step starts with a clean checklist.
+  useEffect(() => { setTicked(new Set()); setMissing(new Set(known)) }, [b?.status, knownKey])   // eslint-disable-line react-hooks/exhaustive-deps
   // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
   const shootText = useShootLine(b?.scheduleShootId, b?.date, profile.email)
 
@@ -76,7 +83,7 @@ export default function GearBookingScreen() {
     try { await fn(); setConfirmCancel(false); setDeclining(false) } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
   const checklist = (
-    <PieceChecklist lines={lines} ticked={ticked} missing={missing}
+    <PieceChecklist lines={lines} ticked={ticked} missing={missing} known={known}
       onTick={k => flip(ticked, setTicked, k, missing, setMissing)} onMissing={k => flip(missing, setMissing, k, ticked, setTicked)} />
   )
   const step = STEP_OF[b.status]

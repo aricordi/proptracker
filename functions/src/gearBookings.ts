@@ -13,7 +13,7 @@ import { byCount, linesValue, LATE_FEE_PERCENT } from './gearStock.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
   isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, GEAR_DAY_START, addMinutes,
-  canReserveGear, canTakeGear, gearReserveOpensAt, GEAR_TAKE_BEFORE_MINUTES, type GearHold,
+  canReserveGear, canTakeGear, gearReserveOpensAt, GEAR_TAKE_BEFORE_MINUTES, newlyMissing, type GearHold, type KnownMissing,
 } from './gearBooking.js'
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -396,6 +396,10 @@ export const declineGearBooking = onCall(CALLABLE, async req => {
 type Missing = { offerId: string; itemId: string; name: string; qty: number }
 const missingKeysIn = (v: unknown) => Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string').slice(0, 500) : []
 
+// What each bundle already lists as missing (reported earlier, not found since).
+const knownOn = (bundles: Map<string, FirebaseFirestore.DocumentSnapshot>) =>
+  Object.fromEntries([...bundles].map(([id, s]) => [id, (s.exists ? s.get('missing') as KnownMissing[] | undefined : undefined) ?? []]))
+
 // Add (or take back) missing pieces on the bundles themselves, so everyone sees a warning.
 function noteMissingOnBundles(tx: FirebaseFirestore.Transaction, bundles: Map<string, FirebaseFirestore.DocumentSnapshot>, missing: Missing[], bookingId: string, at: string) {
   const byOffer = new Map<string, Missing[]>()
@@ -456,16 +460,18 @@ async function doPickup(caller: Caller, id: string, missingKeys: string[], photo
       if (h.exists) tx.update(holdRefs[i], { entries: ((h.get('entries') as GearHold[] | undefined) ?? []).map(e => e.bookingId === id ? { ...e, out: true } : e) })
     })
 
-    noteMissingOnBundles(tx, bundleSnaps, missing, id, now)
+    // Pieces already on the bundle's missing list were missing before: not on the last holder, not reported twice.
+    const fresh = newlyMissing(missing, knownOn(bundleSnaps))
+    noteMissingOnBundles(tx, bundleSnaps, fresh, id, now)
     // Recorded against the previous holder (records only, no billing).
     for (const p of prevSnaps) {
-      const mine = missing.filter(m => previous.get(m.offerId) === p.id)
-      tx.update(p.ref, { problems: FieldValue.arrayUnion(...mine.map(m => ({ kind: 'missing_after', ...m, at: now, reportedOn: id, reportedBy: caller.email, usedBy: p.get('usedBy') ?? [p.get('creatorEmail')] }))) })
+      const mine = fresh.filter(m => previous.get(m.offerId) === p.id)
+      if (mine.length) tx.update(p.ref, { problems: FieldValue.arrayUnion(...mine.map(m => ({ kind: 'missing_after', ...m, at: now, reportedOn: id, reportedBy: caller.email, usedBy: p.get('usedBy') ?? [p.get('creatorEmail')] }))) })
     }
     tx.update(ref, {
       status: 'out', updatedAt: now,
       pickup: { at: now, by: caller.email, missing, ...(photos.length ? { photos } : {}) },
-      ...(missing.length ? { alerts: FieldValue.arrayUnion({ kind: 'missing_at_pickup', at: now, count: missing.reduce((n, m) => n + m.qty, 0) }) } : {}),
+      ...(fresh.length ? { alerts: FieldValue.arrayUnion({ kind: 'missing_at_pickup', at: now, count: fresh.reduce((n, m) => n + m.qty, 0) }) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'picked_up',
         ...(missing.length ? { note: `Missing at pickup: ${missing.map(m => `${m.qty}× ${m.name}`).join(', ')}` } : {}) }),
     })
@@ -610,11 +616,13 @@ export const checkInGear = onCall(CALLABLE, async req => {
     const offerIds = [...new Set(missing.map(m => m.offerId))]
     const bundleSnaps = new Map((await Promise.all(offerIds.map(o => tx.get(db.doc(`gear_bundles/${o}`))))).map(s => [s.id, s]))
     const now = new Date().toISOString()
-    noteMissingOnBundles(tx, bundleSnaps, missing, id, now)
+    // Already on the bundle's missing list (reported before this booking): not on these people, not listed twice.
+    const fresh = newlyMissing(missing, knownOn(bundleSnaps))
+    noteMissingOnBundles(tx, bundleSnaps, fresh, id, now)
     tx.update(ref, {
       status: 'checked_in', updatedAt: now,
       checkIn: { at: now, by: caller.email, missing, note },
-      ...(missing.length ? { problems: FieldValue.arrayUnion(...missing.map(m => ({ kind: 'missing_at_checkin', ...m, at: now, reportedBy: caller.email, usedBy: b.usedBy ?? [b.creatorEmail] }))) } : {}),
+      ...(fresh.length ? { problems: FieldValue.arrayUnion(...fresh.map(m => ({ kind: 'missing_at_checkin', ...m, at: now, reportedBy: caller.email, usedBy: b.usedBy ?? [b.creatorEmail] }))) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'checked_in',
         ...(missing.length ? { note: `Missing: ${missing.map(m => `${m.qty}× ${m.name}`).join(', ')}` } : note ? { note } : {}) }),
     })

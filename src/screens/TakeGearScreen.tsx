@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import { useActiveShoot, useGearWindow, useShootLabel } from '../activeShoot'
 import { useGearCart } from '../gearCart'
 import { friendlyError } from '../lib/errors'
-import { checkLines } from '../../functions/src/gearBooking'
+import { checkLines, knownMissingKeys } from '../../functions/src/gearBooking'
 import { byCount } from '../../functions/src/gearStock'
 import ProofPhotos from '../components/ProofPhotos'
 import { PieceChecklist, GearArt, LateFeeNote } from '../components/GearUi'
@@ -34,6 +34,10 @@ export default function TakeGearScreen() {
     return { offerId, qty, kind: byCount(o.kind) ? 'extra' : 'bundle', name: o.name, photo: o.photos?.[0], category: o.category, pieces: o.pieces.map(p => ({ itemId: p.itemId, qty: byCount(o.kind) ? qty : p.qty, name: p.name ?? '', value: (p as { value?: number | null }).value ?? null })) }
   }).filter((x): x is NonNullable<typeof x> => !!x), [picked.map(p => p.join(':')).join(), offers])   // eslint-disable-line react-hooks/exhaustive-deps
   const checks = checkLines(lines)
+  // Pieces already reported missing (and not found since) start marked: they aren't on this creator.
+  const known = useMemo(() => knownMissingKeys(checks, Object.fromEntries((offers ?? []).map(o => [o.id, o.missing]))), [checks.map(c => c.key).join(), offers])   // eslint-disable-line react-hooks/exhaustive-deps
+  const knownKey = [...known].join()
+  useEffect(() => { if (known.size) setMissing(m => new Set([...m, ...known])) }, [knownKey])   // eslint-disable-line react-hooks/exhaustive-deps
   const allDone = checks.length > 0 && checks.every(c => ticked.has(c.key) || missing.has(c.key))
   const value = linesValue(lines)
   const state = shoot ? gw(shoot).state : 'early'
@@ -70,7 +74,7 @@ export default function TakeGearScreen() {
               <div key={l.offerId} className="rounded-2xl bg-pt-surface p-3 space-y-2">
                 <div className="flex items-center gap-3"><GearArt photo={l.photo} category={l.category} className="w-11 h-11 rounded-xl shrink-0" />
                   <b className="text-[15px] flex-1 min-w-0">{l.name}{l.kind === 'extra' && l.qty > 1 ? ` × ${l.qty}` : ''}</b></div>
-                <PieceChecklist lines={checks.filter(c => c.offerId === l.offerId)} ticked={ticked} missing={missing}
+                <PieceChecklist lines={checks.filter(c => c.offerId === l.offerId)} ticked={ticked} missing={missing} known={known}
                   onTick={k => { setTicked(t => flip(t, k)); setMissing(m => { const n = new Set(m); n.delete(k); return n }) }}
                   onMissing={k => setMissing(m => flip(m, k))} />
               </div>
