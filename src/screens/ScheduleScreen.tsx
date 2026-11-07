@@ -632,7 +632,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         {lineup && <DayLineup date={shoot.date} shootId={id} />}
         {sent && mine && (
           <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text">
-            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : 'The arts team has your props request. Add gear below if you need it.'}
+            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : `The arts team has your props request. ${s.gearReserve ? 'Add gear below if you need it.' : 'Need gear? Take it on the shoot day from the chat.'}`}
           </div>
         )}
         {requested && <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
