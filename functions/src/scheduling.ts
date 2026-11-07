@@ -147,6 +147,25 @@ async function editDays(tx: Transaction, dates: string[], change: (days: Record<
   }
 }
 
+// Friends' slots held by a back-to-back booking (bookWithFriends) go when that booking leaves the schedule (cancelled,
+// denied, given away): the holds are cleared and the invites withdrawn (audit, Nov 7: the friend could still confirm a slot
+// next to nobody). Read inside the transaction before any write; clear in the day docs; mark the invites after.
+type HeldInvite = { ref: FirebaseFirestore.DocumentReference; date: string; place: House; start: number }
+async function pendingInvitesOf(tx: Transaction, shootId: string): Promise<HeldInvite[]> {
+  const snap = await tx.get(db.collection('schedule_invites').where('fromShootId', '==', shootId).where('status', '==', 'pending'))
+  return snap.docs.map(d => ({ ref: d.ref, date: String(d.get('date')), place: d.get('place') as House, start: Number(d.get('start')) }))
+}
+function clearHolds(days: Record<string, ScheduleDay>, invs: HeldInvite[]) {
+  for (const inv of invs) {
+    const map = days[inv.date]?.[inv.place]
+    if (map?.[slotKey(inv.start)]?.hold?.inviteId !== inv.ref.id) continue
+    const { [slotKey(inv.start)]: _gone, ...rest } = map   // eslint-disable-line @typescript-eslint/no-unused-vars
+    days[inv.date][inv.place] = rest
+  }
+}
+const withdrawInvites = (tx: Transaction, invs: HeldInvite[], at: string) =>
+  invs.forEach(i => tx.update(i.ref, { status: 'withdrawn', answeredAt: at, reason: 'shoot-gone' }))
+
 // One house slot a day per creator (owner, Oct 18; settings.slotsPerDay). The schedule team is never limited, so
 // "manually allowed" = the team books the extra slot for them. Checked on the day doc inside the transaction.
 function assertDayLimit(day: ScheduleDay, email: string, adding: number, s: ScheduleSettings, except: string[] = [], who?: string) {
@@ -226,12 +245,15 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     who = { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
     const mr = b.moveRequest as Spot | undefined
-    const write = await editDays(tx, [b.date, ...(mr ? [mr.date] : [])], days => {
+    const invs = await pendingInvitesOf(tx, id)
+    const write = await editDays(tx, [b.date, ...(mr ? [mr.date] : []), ...invs.map(i => i.date)], days => {
       takeOut(days[b.date], b as Spot, id)
       if (mr) takeOut(days[mr.date], mr, id)
+      clearHolds(days, invs)
     })
     write()
     const at = new Date().toISOString()
+    withdrawInvites(tx, invs, at)
     tx.update(ref, {
       status: 'cancelled', cancelledBy: caller.email, updatedAt: at, ...(noShow ? { lateCancel: true, noShow: 'late-cancel' } : {}),
       ...(mr ? { moveRequest: FieldValue.delete() } : {}),
@@ -366,8 +388,13 @@ export const decideBooking = onCall(CALLABLE, async req => {
       return
     }
     if (b.status !== 'requested') throw new HttpsError('failed-precondition', 'Someone already decided on this one.')
-    const write = await editDays(tx, [b.date], days => approve ? approveIn(days[b.date], id) : takeOut(days[b.date], b as Spot, id))
+    const invs = approve ? [] : await pendingInvitesOf(tx, id)
+    const write = await editDays(tx, [b.date, ...invs.map(i => i.date)], days => {
+      if (approve) approveIn(days[b.date], id)
+      else { takeOut(days[b.date], b as Spot, id); clearHolds(days, invs) }
+    })
     write()
+    withdrawInvites(tx, invs, at)
     tx.update(ref, approve
       ? { status: 'booked', approvedBy: by, approvedAt: at, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'approved', note: `by ${name}` }) }
       : { status: 'denied', deniedBy: by, deniedAt: at, deniedReason: reason, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'denied', note: reason }) })
@@ -819,6 +846,8 @@ export const answerInvite = onCall(CALLABLE, async req => {
     const withdraw = inv.fromEmail === caller.email && !accept
     if (inv.toEmail !== caller.email && !withdraw) throw new HttpsError('permission-denied', 'This invite is for someone else.')
     if (inv.status !== 'pending') throw new HttpsError('failed-precondition', 'This invite was already answered.')
+    // The inviter's shoot is gone (cancelled, not approved, given away): there's nobody to film back to back with.
+    const from = accept && inv.fromShootId ? (await tx.get(db.doc(`shoots/${inv.fromShootId}`))).data() : null
     const now = nowStamp(), at = new Date().toISOString()
     const ours = (days: Record<string, ScheduleDay>) => days[inv.date][inv.place as House]?.[slotKey(inv.start)]?.hold?.inviteId === id
     const clear = (days: Record<string, ScheduleDay>) => {
@@ -835,6 +864,11 @@ export const answerInvite = onCall(CALLABLE, async req => {
       const write = await editDays(tx, [inv.date], clear); write()
       tx.update(ref, { status: 'expired', answeredAt: at })
       outcome = 'expired'; return
+    }
+    if (from && !['booked', 'requested'].includes(from.status)) {
+      const write = await editDays(tx, [inv.date], clear); write()
+      tx.update(ref, { status: 'withdrawn', answeredAt: at, reason: 'shoot-gone' })
+      outcome = 'gone'; return
     }
     const sp: Spot = { place: inv.place, date: inv.date, start: inv.start, end: inv.end, where: '' }
     const pending = needsApproval(caller, inv.toEmail, s)
@@ -855,6 +889,7 @@ export const answerInvite = onCall(CALLABLE, async req => {
     outcome = 'accepted'
   })
   if (outcome === 'expired') throw new HttpsError('failed-precondition', `The ${INVITE_HOLD_MINUTES} minutes ran out, so the slot opened to everyone. Book it on the schedule if it's still free.`, { problem: 'expired' })
+  if (outcome === 'gone') throw new HttpsError('failed-precondition', 'Their shoot was cancelled, so this invite is off and the slot is open to everyone. Book it on the schedule if you still want it.', { problem: 'expired' })
   return { ok: true, shootId: outcome === 'accepted' ? shootRef.id : null }
 })
 
@@ -895,6 +930,8 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       to = { email, name: inst?.name || u.name || email }
     }
     if (to.email === h.creatorEmail) throw new HttpsError('failed-precondition', `${h.creatorName} already has this slot.`)
+    // Cancelled (not moved): a friend's slot held next to theirs goes too.
+    const invs = a.moveTo ? [] : await pendingInvitesOf(tx, holderId)
     const spot: Spot = { place: a.house, date: a.date, start: a.start, end: a.start + s.slotMinutes, where: '' }
     const moveSpot: Spot | null = a.moveTo ? { place: a.moveTo.house, date: a.date, start: a.moveTo.start, end: a.moveTo.start + s.slotMinutes, where: '' } : null
     const write = await editDays(tx, [a.date], days => {
@@ -907,6 +944,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
         ? `${h.creatorName} has a move request waiting. Approve or deny it first.`
         : 'This slot has a change waiting for the team to decide. Pick another time, or try again later.')
       takeOut(day, h as Spot, holderId, false)
+      clearHolds(days, invs)
       if (moveSpot) {
         if (moveSpot.place === a.house && moveSpot.start === a.start) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
         if (moveSpot.start < a.start + s.slotMinutes && moveSpot.start + s.slotMinutes > a.start && moveSpot.place === a.house) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
@@ -932,6 +970,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       tx.update(holderRef, { place: moveSpot.place, start: moveSpot.start, end: moveSpot.end, from: win.from, to: win.to, kind: moveSpot.place === MONTHLY_HOUSE ? h.kind : h.kind === 'monthly' ? 'extra' : h.kind,
         bumped, updatedAt: at, history: FieldValue.arrayUnion({ at, by: caller.email, action: 'bumped', note: `moved to ${spotLabel(moveSpot, s)} · ${why}` }) })
     } else {
+      withdrawInvites(tx, invs, at)
       tx.update(holderRef, { status: 'cancelled', cancelledBy: caller.email, bumped, updatedAt: at,
         history: FieldValue.arrayUnion({ at, by: caller.email, action: 'bumped', note: `cancelled · ${why}` }) })
     }

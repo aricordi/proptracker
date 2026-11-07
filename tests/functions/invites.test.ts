@@ -46,6 +46,27 @@ describe('book with friends', () => {
   })
 })
 
+describe('when the inviter\'s shoot goes (audit, Nov 7)', () => {
+  it('cancelling it clears the friend\'s held slot and withdraws the invite', async () => {
+    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
+    const [shootId] = r.result.shootIds, [inviteId] = r.result.inviteIds
+    expect((await call('cancelShoot', { id: shootId }, ANA)).ok).toBe(true)
+    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2?.['900']).toBeUndefined()
+    expect(await getDoc(`schedule_invites/${inviteId}`)).toMatchObject({ status: 'withdrawn', reason: 'shoot-gone' })
+    expect((await call('answerInvite', { id: inviteId, accept: true }, KYLE)).ok).toBe(false)
+  })
+
+  it('a friend can\'t confirm once the inviter\'s shoot is no longer on the schedule', async () => {
+    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
+    const [shootId] = r.result.shootIds, [inviteId] = r.result.inviteIds
+    await put(`shoots/${shootId}`, { ...(await getDoc(`shoots/${shootId}`))!, status: 'denied' })
+    const a = await call('answerInvite', { id: inviteId, accept: true }, KYLE)
+    expect(a.message).toMatch(/shoot was cancelled/)
+    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2['900']).toBeUndefined()
+    expect((await getDoc(`schedule_invites/${inviteId}`))!.status).toBe('withdrawn')
+  })
+})
+
 describe('ask for a time', () => {
   it('finds back-to-back options for you and a friend (simple reading in test mode)', async () => {
     const r = await call('askForTime', { text: 'filming with Kyle next week, evenings, cliff 2' }, ANA)

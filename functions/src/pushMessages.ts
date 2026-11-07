@@ -37,7 +37,8 @@ export function inviteChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): P
   if (b?.status === 'pending' && a.status === 'expired') return [
     { to: [a.fromEmail], tag: `invite-${id}`, url: '/schedule', title: `${first(a.toName)} didn't confirm in time`, body: `Their slot (${when(a)}) is open to everyone again.` },
     { to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'Invite ran out', body: `${first(a.fromName)}'s invite for ${when(a)} wasn't confirmed in time. The slot may still be free: book it yourself.` }]
-  if (b?.status === 'pending' && a.status === 'withdrawn') return [{ to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'Invite withdrawn', body: `${first(a.fromName)} took back the invite for ${when(a)}.` }]
+  if (b?.status === 'pending' && a.status === 'withdrawn') return [{ to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'Invite withdrawn',
+    body: a.reason === 'shoot-gone' ? `${first(a.fromName)}'s shoot was cancelled, so the invite for ${when(a)} is off.` : `${first(a.fromName)} took back the invite for ${when(a)}.` }]
   return []
 }
 

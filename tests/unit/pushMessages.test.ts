@@ -91,6 +91,8 @@ describe('more notifications (Nov 3)', () => {
     const ran = inviteChange('i1', invite, { ...invite, status: 'expired' }, s)
     expect(ran.map(p => p.to[0])).toEqual(['alex@x.com', 'ariel@x.com'])
     expect(inviteChange('i1', invite, { ...invite, status: 'withdrawn' }, s)[0]).toMatchObject({ to: ['ariel@x.com'], title: 'Invite withdrawn' })
+    // The inviter's shoot was cancelled / not approved (audit, Nov 7): say why.
+    expect(inviteChange('i1', invite, { ...invite, status: 'withdrawn', reason: 'shoot-gone' }, s)[0].body).toMatch(/shoot was cancelled/)
   })
   it('swaps that were withdrawn or called off', () => {
     const sw = { fromEmail: 'a@x.com', fromName: 'Ana', toEmail: 'b@x.com', toName: 'Ben', status: 'pending', from: { place: 'cliff1', date: '2026-10-23', start: 780 }, to: { place: 'cliff2', date: '2026-10-24', start: 900 } }
