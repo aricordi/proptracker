@@ -135,4 +135,4 @@ export const returnGear = httpsCallable<{ id: string; photos: string[]; usedBy?:
 export const checkInGear = httpsCallable<{ id: string; missing: string[]; note?: string }, { ok: boolean }>(functions, 'checkInGear')
 export const handOverGear = httpsCallable<{ id: string; toEmail: string; end: number; usedBy?: string[] }, { id: string }>(functions, 'handOverGear')
 export const takeGear = httpsCallable<{ scheduleShootId: string; title?: string; lines: { offerId: string; qty: number }[]; missing: string[]; photos: string[] }, { id: string }>(functions, 'takeGear')
-export const markGearFound = httpsCallable<{ offerId: string; index: number }, { ok: boolean }>(functions, 'markGearFound')
+export const markGearFound = httpsCallable<{ offerId: string; index?: number; entry?: { bookingId: string; itemId: string; at: string } }, { ok: boolean }>(functions, 'markGearFound')

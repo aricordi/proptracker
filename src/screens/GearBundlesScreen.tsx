@@ -13,6 +13,7 @@ export default function GearBundlesScreen() {
   const [items, setItems] = useState<GearItem[]>([])
   const [showArchived, setShowArchived] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [finding, setFinding] = useState<Set<string>>(new Set())   // "Found it" taps in flight (no double tap)
   useEffect(() => subscribeToGearBundles(setBundles), [])
   useEffect(() => subscribeToGearItems(setItems), [])
   const itemName = useMemo(() => new Map(items.map(i => [i.id, i.name])), [items])
@@ -70,8 +71,13 @@ export default function GearBundlesScreen() {
             {b.missing!.map((m, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <span className="text-pt-text">{m.qty}× {m.name} · {new Date(m.at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</span>
-                <button onClick={async () => { setError(null); try { await markGearFound({ offerId: b.id, index: i }) } catch (err) { setError(errText(err)) } }}
-                  className="text-pt-accent text-sm tap">Found it</button>
+                <button disabled={finding.has(`${b.id}|${m.bookingId}|${m.itemId}|${m.at}`)} onClick={async () => {
+                  const key = `${b.id}|${m.bookingId}|${m.itemId}|${m.at}`
+                  setError(null); setFinding(f => new Set(f).add(key))
+                  try { await markGearFound({ offerId: b.id, entry: { bookingId: m.bookingId, itemId: m.itemId, at: m.at } }) }
+                  catch (err) { setError(errText(err)) }
+                  finally { setFinding(f => { const n = new Set(f); n.delete(key); return n }) }
+                }} className="text-pt-accent text-sm tap disabled:opacity-40">Found it</button>
               </div>
             ))}
           </div>

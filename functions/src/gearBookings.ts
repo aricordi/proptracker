@@ -518,7 +518,8 @@ export const returnGear = onCall(CALLABLE, async req => {
   const usedIn = emailsIn(req.data?.usedBy)
   // Owner, Nov 3: report anything broken at the return (piece + what's wrong), and confirm the charging case is plugged in.
   const damage = damageIn(req.data?.damage)
-  const charging = req.data?.charging === true
+  // Only recorded when it was asked (the creator's return flow); a team return doesn't ask (audit, Nov 7).
+  const charging = typeof req.data?.charging === 'boolean' ? req.data.charging as boolean : null
   const ref = db.doc(`gear_bookings/${id}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
@@ -534,7 +535,7 @@ export const returnGear = onCall(CALLABLE, async req => {
     const late = lateRecord(b, at, lastHolder(b, caller))
     tx.update(ref, {
       status: 'returned', updatedAt: now, returnedAt: at, returnedLate: !!late, ...(late ? { late } : {}),
-      return: { at: now, by: caller.email, photos, charging, ...(damage.length ? { damage } : {}) },
+      return: { at: now, by: caller.email, photos, ...(charging === null ? {} : { charging }), ...(damage.length ? { damage } : {}) },
       usedBy, usedByNames,
       ...(damage.length ? { problems: FieldValue.arrayUnion(...damage.map(x => ({ kind: 'damaged_at_return', name: x.name, note: x.note, itemId: x.itemId, at: now, reportedBy: caller.email, usedBy }))) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote || damage.length ? { note: [late ? `Returned late (${lateText(late.minutes)} after the end time)` : '', usedNote, damage.length ? `Damage reported: ${damage.map(x => `${x.name}${x.note ? ` (${x.note})` : ''}`).join(', ')}` : ''].filter(Boolean).join(' · ') } : {}) }),
@@ -641,16 +642,21 @@ export const checkInGear = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
-// "Found it": take a missing-piece warning off a bundle.
+// "Found it": take a missing-piece warning off a bundle. The warning is named by {bookingId, itemId, at}, so a double
+// tap (or two people at once) can't clear the next one in the list (audit, Nov 7). `index` alone = older app versions.
 export const markGearFound = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'])
   const offerId = str(req.data?.offerId, 100), index = Number(req.data?.index)
+  const e = req.data?.entry as { bookingId?: unknown; itemId?: unknown; at?: unknown } | undefined
   const ref = db.doc(`gear_bundles/${offerId}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
-    const list = (snap.get('missing') as unknown[] | undefined) ?? []
-    if (!snap.exists || !Number.isInteger(index) || index < 0 || index >= list.length) throw new HttpsError('not-found', 'Already cleared.')
-    tx.update(ref, { missing: list.filter((_, i) => i !== index) })
+    const list = (snap.get('missing') as { bookingId?: string; itemId?: string; at?: string }[] | undefined) ?? []
+    const at = e && typeof e === 'object'
+      ? list.findIndex(m => m.bookingId === e.bookingId && m.itemId === e.itemId && m.at === e.at)
+      : Number.isInteger(index) ? index : -1
+    if (!snap.exists || at < 0 || at >= list.length) throw new HttpsError('not-found', 'Already cleared.')
+    tx.update(ref, { missing: list.filter((_, i) => i !== at) })
   })
   return { ok: true }
 })

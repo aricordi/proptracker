@@ -83,6 +83,15 @@ describe('pickup check', () => {
     expect((await call('markGearFound', { offerId: 'fx3', index: 0 }, GEAR)).ok).toBe(true)
     expect((await getDoc('gear_bundles/fx3'))!.missing).toEqual([])
   })
+
+  it('"Found it" names the warning, so a double tap never clears the next one (audit, Nov 7)', async () => {
+    await put('gear_bundles/fx3', { name: 'FX3 Bundle', kind: 'bundle', archived: false, pieces: lines[0].pieces,
+      missing: [{ itemId: 'bat', name: 'NP-FZ100 battery', qty: 1, at: 'x', bookingId: 'b' }, { itemId: 'cam', name: 'Sony FX3 body', qty: 1, at: 'y', bookingId: 'c' }] })
+    const entry = { bookingId: 'b', itemId: 'bat', at: 'x' }
+    expect((await call('markGearFound', { offerId: 'fx3', entry }, GEAR)).ok).toBe(true)
+    expect((await call('markGearFound', { offerId: 'fx3', entry }, GEAR)).message).toMatch(/Already cleared/)
+    expect((await getDoc('gear_bundles/fx3'))!.missing).toEqual([{ itemId: 'cam', name: 'Sony FX3 body', qty: 1, at: 'y', bookingId: 'c' }])
+  })
 })
 
 describe('return and check-in', () => {
