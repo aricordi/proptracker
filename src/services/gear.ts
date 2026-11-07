@@ -102,11 +102,20 @@ export function subscribeToGearHolds(cb: (byOffer: Record<string, GearHold[]>) =
 // Creators: their own gear bookings. Owner + equipment team: everyone's (newest shoots first).
 export function subscribeToGearBookings(mine: string | null, cb: (b: GearBooking[]) => void) {
   const col = collection(db, 'gear_bookings')
-  if (!mine) return onSnapshot(query(col, orderBy('date', 'desc'), limit(200)), snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))), () => cb([]))
+  const list = (snap: { docs: { id: string; data: () => object }[] }) => snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))
+  const merge = (a: GearBooking[], b: GearBooking[]) => [...a, ...b.filter(s => !a.some(o => o.id === s.id))].sort((x, y) => y.date.localeCompare(x.date))
+  if (!mine) {
+    // Everyone's: the 200 newest, plus EVERY booking still held, out or returned-not-checked-in however old, so lost
+    // gear never drops off Out / To check in (audit, Nov 7: at grab-and-go volume 200 is only a few weeks).
+    let recent: GearBooking[] | null = null, open: GearBooking[] | null = null
+    const emitAll = () => { if (recent && open) cb(merge(recent, open)) }
+    const a = onSnapshot(query(col, orderBy('date', 'desc'), limit(200)), snap => { recent = list(snap); emitAll() }, () => { recent = []; emitAll() })
+    const b = onSnapshot(query(col, where('status', 'in', ['held', 'out', 'returned'])), snap => { open = list(snap); emitAll() }, () => { open = []; emitAll() })
+    return () => { a(); b() }
+  }
   // Yours = the ones you booked + shared gear a friend booked for your back-to-back shoots.
   let own: GearBooking[] | null = null, shared: GearBooking[] | null = null
-  const emit = () => { if (own && shared) cb([...own, ...shared.filter(s => !own!.some(o => o.id === s.id))].sort((a, b) => b.date.localeCompare(a.date))) }
-  const list = (snap: { docs: { id: string; data: () => object }[] }) => snap.docs.map(d => ({ id: d.id, ...d.data() } as GearBooking))
+  const emit = () => { if (own && shared) cb(merge(own, shared)) }
   const u1 = onSnapshot(query(col, where('creatorEmail', '==', mine), orderBy('date', 'desc'), limit(100)), snap => { own = list(snap); emit() }, () => { own = []; emit() })
   const u2 = onSnapshot(query(col, where('crewEmails', 'array-contains', mine), limit(50)), snap => { shared = list(snap); emit() }, () => { shared = []; emit() })
   return () => { u1(); u2() }
