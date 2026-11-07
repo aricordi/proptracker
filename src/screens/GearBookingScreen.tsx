@@ -3,10 +3,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import {
-  subscribeToGearBooking, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
-  fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking,
+  subscribeToGearBooking, subscribeToGearBundles, cancelGearBooking, editGearBooking, declineGearBooking, pickUpGear, returnGear, checkInGear,
+  fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking, type GearBundle,
 } from '../services/gear'
-import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote } from '../components/GearUi'
+import { knownMissingKeys } from '../../functions/src/gearBooking'
+import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote, dueBackLabel } from '../components/GearUi'
 import { fmtMoney } from '../../functions/src/gearStock'
 import { lateFor, stampLabel } from '../lib/lateReturns'
 import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
@@ -22,7 +23,7 @@ import { Icon } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
 
 const errText = (e: unknown) => friendlyError(e)
-const ACTIONS: Record<string, string> = { handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
+const ACTIONS: Record<string, string> = { problem: 'Problem reported', handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
 const STEPS = ['Held', 'Picked up', 'Returned', 'Checked in']
 const STEP_OF: Record<string, number> = { held: 0, out: 1, returned: 2, checked_in: 3 }
 const stampMin = (s: string) => Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16))
@@ -49,9 +50,15 @@ export default function GearBookingScreen() {
   const [, setTick] = useState(0)
   useEffect(() => id ? subscribeToGearBooking(id, setB) : undefined, [id])
   useEffect(() => { const t = setInterval(() => setTick(n => n + 1), 30_000); return () => clearInterval(t) }, [])   // keep "now" fresh
-  // A new step starts with a clean checklist.
-  useEffect(() => { setTicked(new Set()); setMissing(new Set()) }, [b?.status])
   const lines = useMemo(() => b ? checkLines(b.lines) : [], [b])
+  // Pieces the bundle already lists as missing (reported earlier, not found since) start marked: not on this person.
+  const [bundles, setBundles] = useState<GearBundle[]>([])
+  const needsCheck = b?.status === 'held' || b?.status === 'returned'
+  useEffect(() => needsCheck ? subscribeToGearBundles(setBundles) : undefined, [needsCheck])
+  const known = useMemo(() => knownMissingKeys(lines, Object.fromEntries(bundles.map(o => [o.id, o.missing]))), [lines, bundles])
+  const knownKey = [...known].join()
+  // A new step starts with a clean checklist.
+  useEffect(() => { setTicked(new Set()); setMissing(new Set(known)) }, [b?.status, knownKey])   // eslint-disable-line react-hooks/exhaustive-deps
   // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
   const shootText = useShootLine(b?.scheduleShootId, b?.date, profile.email)
 
@@ -65,7 +72,8 @@ export default function GearBookingScreen() {
   const crew = b.crew ?? []
   const late = isGearLate(b, now)
   const win = pickupWindow(b, now)
-  const canCancel = b.status === 'held' && (booker || isGearStaff)
+  // Handed over on the spot: it's already in their hands, so only the equipment team can cancel or change it.
+  const canCancel = b.status === 'held' && ((booker && !b.handedFrom) || isGearStaff)
   const allDone = lines.every(l => ticked.has(l.key) || missing.has(l.key))
   const flip = (set: Set<string>, setter: (s: Set<string>) => void, key: string, other: Set<string>, otherSetter: (s: Set<string>) => void) => {
     const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); setter(n)
@@ -76,7 +84,7 @@ export default function GearBookingScreen() {
     try { await fn(); setConfirmCancel(false); setDeclining(false) } catch (err) { setError(errText(err)) } finally { setBusy(false) }
   }
   const checklist = (
-    <PieceChecklist lines={lines} ticked={ticked} missing={missing}
+    <PieceChecklist lines={lines} ticked={ticked} missing={missing} known={known}
       onTick={k => flip(ticked, setTicked, k, missing, setMissing)} onMissing={k => flip(missing, setMissing, k, ticked, setTicked)} />
   )
   const step = STEP_OF[b.status]
@@ -111,7 +119,7 @@ export default function GearBookingScreen() {
         )}
         {late && (
           <div className="bg-red-500/10 rounded-2xl px-4 py-3 text-red-200 text-[15px]">
-            This gear was due back {b.closedDay ? `${formatDay(b.to.slice(0, 10))} at 10 AM` : `at ${fmtTime(b.end)}`} and is late.
+            This gear was due back {b.closedDay ? dueBackLabel(b) : `at ${dueBackLabel(b)}`} and is late.
             {mine ? ' Bring it back as soon as you can. You can\'t book more gear until it\'s returned.' : ''}
           </div>
         )}
@@ -140,6 +148,7 @@ export default function GearBookingScreen() {
         {b.handedFrom && b.status === 'held' && (
           <div className="bg-sky-500/10 rounded-2xl px-4 py-3 text-sky-100 text-[15px]">
             <b>{b.handedFrom.name.split(' ')[0]}</b> is handing you this gear. Open the case together, tick every piece below and sign. Anything missing goes on their record, not yours.
+            {booker && !isGearStaff && <span className="block text-sky-200/90 text-sm mt-1">Don't need it after all? Give it back to {b.handedFrom.name.split(' ')[0]}, or ask the equipment team.</span>}
           </div>
         )}
 
@@ -149,7 +158,7 @@ export default function GearBookingScreen() {
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Pick up</span>
             <span className="text-pt-text">{formatDay(b.pickupDay)} · {fmtTime(b.start)}</span></div>
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Back by</span>
-            <span className="text-pt-text">{b.closedDay ? `${formatDay(b.to.slice(0, 10))} · 10 AM` : fmtTime(b.end)}</span></div>
+            <span className="text-pt-text">{dueBackLabel(b)}</span></div>
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Where</span><span className="text-pt-text">Equipment cage</span></div>
           {!!b.value && <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Value</span><span className="text-pt-text">{fmtMoney(b.value)}{b.valueMissing ? ' +' : ''}</span></div>}
         </div>
@@ -160,7 +169,9 @@ export default function GearBookingScreen() {
         {b.pickup?.photos?.length ? (
           <div className="bg-pt-surface rounded-2xl px-4 py-3 space-y-2">
             <p className="text-pt-text text-sm font-semibold">{b.grab ? 'Taken on the day' : 'Picked up'} · photo when it went out</p>
-            <div className="flex gap-2">{b.pickup.photos.map(u => <img key={u} src={u} alt="Gear when it went out" loading="lazy" decoding="async" className="w-20 h-20 rounded-xl object-cover" />)}</div>
+            <div className="flex gap-2">{b.pickup.photos.map(u => (
+              <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)} aria-label="Open the photo larger"><img src={u} alt="Gear when it went out" loading="lazy" decoding="async" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>
+            ))}</div>
           </div>
         ) : null}
         {/* ── Pickup check (creator, in the pickup window) ── */}
@@ -190,7 +201,7 @@ export default function GearBookingScreen() {
           <section className="space-y-3">
             <div>
               <h2 className="text-pt-text text-xl font-semibold tracking-tight">Return gear</h2>
-              <p className="text-pt-muted text-sm">Due back {b.closedDay ? `${formatDay(b.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(b.end)}`} (late from {fmtTime(stampMin(gearDueBy(b.to)))}).</p>
+              <p className="text-pt-muted text-sm">Due back {b.closedDay ? dueBackLabel(b) : `by ${dueBackLabel(b)}`} (late from {fmtTime(stampMin(gearDueBy(b.to)))}).</p>
             </div>
             {mine && <ReturnTogether kind="gear" id={b.id} />}
             {mine && <button onClick={() => navigate(`/return?ref=gear:${b.id}`)} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Return it</button>}
@@ -238,7 +249,9 @@ export default function GearBookingScreen() {
           <div className="bg-amber-500/10 rounded-2xl px-4 py-3 space-y-1 text-[15px]">
             <p className="text-amber-200 font-medium">Problems</p>
             {b.pickup?.missing?.map((m, i) => <p key={`p${i}`} className="text-pt-text">{m.qty}× {m.name} missing at pickup</p>)}
-            {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.kind === 'damaged_at_return' ? `${m.name}: damage reported at the return${m.note ? ` ("${m.note}")` : ''}` : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}</p>)}
+            {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.kind === 'damaged_at_return' ? `${m.name}: damage reported at the return${m.note ? ` ("${m.note}")` : ''}`
+              : m.kind === 'reported' ? `${m.name}: reported while it was out${m.note ? ` ("${m.note}")` : ''}`
+              : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}</p>)}
             {b.return && b.return.charging === false && <p className="text-pt-text">Charging case not confirmed at the return</p>}
           </div>
         ) : null}
@@ -260,7 +273,7 @@ export default function GearBookingScreen() {
           ))}
         </div>
 
-        {b.status === 'held' && booker && <ChangeGear b={b} />}
+        {b.status === 'held' && booker && !b.handedFrom && <ChangeGear b={b} />}
 
         {b.notes && <div className="bg-pt-surface rounded-2xl px-4 py-3"><p className="text-pt-muted text-xs mb-1">Notes</p><p className="text-pt-text text-[15px] whitespace-pre-wrap">{b.notes}</p></div>}
 
@@ -298,7 +311,7 @@ export default function GearBookingScreen() {
           ))}
         </div>
       </div>
-      {zoom && <ImageLightbox src={zoom} alt="Return photo" onClose={() => setZoom(null)} />}
+      {zoom && <ImageLightbox src={zoom} alt="Gear photo" onClose={() => setZoom(null)} />}
     </div>
   )
 }

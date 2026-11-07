@@ -49,6 +49,8 @@ export function useAddingNote(kind: 'props' | 'gear'): { text: string; late: boo
     const g = gw(shoot)
     if (g.state === 'early') return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
     if (g.state === 'take') return { text: 'Your shoot is on: take what you need now', late: false, take: true }
+    // Only when the owner turns on "Creators can reserve gear ahead" in Schedule settings.
+    if (g.state === 'reserve') return { text: 'Reserve gear for your shoot', late: false }
     if (g.state === 'over') return { text: 'This shoot is over', late: true }
     return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
   }

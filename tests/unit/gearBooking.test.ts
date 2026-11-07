@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { holdWindow, overlaps, freeQty, nextFreeStart, checkGearTimes, fmtTime, fmtHours, pruneHolds, stamp, canReserveGear, canTakeGear } from '../../functions/src/gearBooking'
+import { holdWindow, overlaps, freeQty, nextFreeStart, checkGearTimes, fmtTime, fmtHours, pruneHolds, stamp, canReserveGear, canTakeGear, checkLines, countMissing, knownMissingKeys, newlyMissing } from '../../functions/src/gearBooking'
 
 const closed = { closedWeekdays: [0], closedDates: ['2026-12-25'] }   // Sundays + Christmas
 // 2026-10-16 is a Friday, 10-18 a Sunday, 10-19 a Monday.
@@ -41,6 +41,17 @@ describe('what is free', () => {
     const old = { bookingId: 'x', from: '2026-09-01T10:00', to: '2026-09-01T12:00', qty: 1 }
     expect(pruneHolds([old, holds[0]], '2026-10-16')).toEqual([holds[0]])
   })
+  it('gear that is still out stays busy past its end time until it comes back', () => {
+    const out = [{ bookingId: 'a', from: '2026-10-16T12:00', to: '2026-10-16T15:00', qty: 1, out: true }]
+    expect(freeQty(1, out, '2026-10-16T15:00', '2026-10-16T17:00')).toBe(0)   // back to back, but not back yet
+    expect(freeQty(1, out, '2026-10-20T10:00', '2026-10-20T12:00')).toBe(0)   // days later, still not back
+    expect(freeQty(1, out, '2026-10-16T09:00', '2026-10-16T12:00')).toBe(1)   // before it went out
+    expect(freeQty(1, [{ ...out[0], out: false }], '2026-10-16T15:00', '2026-10-16T17:00')).toBe(1)
+  })
+  it('never tidies away gear that is still out', () => {
+    const lost = { bookingId: 'x', from: '2026-09-01T10:00', to: '2026-09-01T12:00', qty: 1, out: true }
+    expect(pruneHolds([lost], '2026-10-16')).toEqual([lost])
+  })
 })
 
 describe('checking the day and hours', () => {
@@ -70,5 +81,20 @@ describe('times in words', () => {
   it('reads like a person would say it', () => {
     expect(fmtTime(600)).toBe('10 AM'); expect(fmtTime(990)).toBe('4:30 PM'); expect(fmtTime(1440)).toBe('12 AM')
     expect(fmtHours(780, 1020)).toBe('1 PM–5 PM'); expect(stamp('2026-10-16', 75)).toBe('2026-10-16T01:15')
+  })
+})
+
+describe('pieces already reported missing', () => {
+  const lines = checkLines([{ offerId: 'fx3', kind: 'bundle', qty: 1, name: 'FX3', pieces: [{ itemId: 'cam', qty: 1, name: 'Body' }, { itemId: 'bat', qty: 3, name: 'Battery' }] }])
+  it('pre-marks the last units of a piece the bundle already lists as missing', () => {
+    expect([...knownMissingKeys(lines, { fx3: [{ itemId: 'bat', qty: 1 }] })]).toEqual(['fx3|bat|3'])
+    expect([...knownMissingKeys(lines, { fx3: [{ itemId: 'bat', qty: 1 }, { itemId: 'bat', qty: 1 }] })]).toEqual(['fx3|bat|2', 'fx3|bat|3'])
+    expect(knownMissingKeys(lines, {}).size).toBe(0)
+  })
+  it('only counts what is newly missing', () => {
+    const missing = countMissing(lines, ['fx3|bat|2', 'fx3|bat|3'])
+    expect(newlyMissing(missing, { fx3: [{ itemId: 'bat', qty: 1 }] })).toEqual([{ offerId: 'fx3', itemId: 'bat', name: 'Battery', qty: 1 }])
+    expect(newlyMissing(missing, { fx3: [{ itemId: 'bat', qty: 2 }] })).toEqual([])
+    expect(newlyMissing(missing, {})).toEqual(missing)
   })
 })

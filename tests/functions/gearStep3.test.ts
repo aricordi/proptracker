@@ -51,12 +51,46 @@ describe('pickup check', () => {
     expect((await call('pickUpGear', { id: 'now', missing: [], signed: true }, ANA)).error).toBe('FAILED_PRECONDITION')   // only once
   })
 
+  it('a piece already reported missing is not blamed on the last holder again or listed twice (audit, Nov 7)', async () => {
+    await put('gear_bundles/fx3', { name: 'FX3 Bundle', kind: 'bundle', category: 'Camera', archived: false, pieces: lines[0].pieces,
+      missing: [{ itemId: 'bat', name: 'NP-FZ100 battery', qty: 1, at: 'x', bookingId: 'older' }] })
+    await put('gear_bookings/before', { title: 'Earlier', creatorEmail: BEN, status: 'returned', offerIds: ['fx3'], lines,
+      from: addMinutes(nowStamp(), -600), to: addMinutes(nowStamp(), -300), history: [] })
+    await booking('now', ANA, 20, 120)
+    expect((await call('pickUpGear', { id: 'now', missing: ['fx3|bat|2'], signed: true }, ANA)).ok).toBe(true)
+    expect((await getDoc('gear_bookings/before'))!.problems).toBeUndefined()
+    expect((await getDoc('gear_bundles/fx3'))!.missing).toHaveLength(1)
+    const b = (await getDoc('gear_bookings/now'))!
+    expect(b.pickup.missing).toHaveLength(1)   // still written down on the pickup
+    expect(b.alerts).toBeUndefined()
+  })
+
+  it('once picked up the hold stays busy past its end time until it comes back (audit, Nov 7)', async () => {
+    const { from, to } = await booking('now', ANA, 20, 120)
+    await put('gear_holds/fx3', { entries: [{ bookingId: 'now', from, to, qty: 1 }, { bookingId: 'other', from: addMinutes(to, 600), to: addMinutes(to, 700), qty: 1 }] })
+    expect((await call('pickUpGear', { id: 'now', missing: [], signed: true }, ANA)).ok).toBe(true)
+    const entries = (await getDoc('gear_holds/fx3'))!.entries
+    expect(entries.find((e: { bookingId: string }) => e.bookingId === 'now')).toMatchObject({ out: true })
+    expect(entries.find((e: { bookingId: string }) => e.bookingId === 'other').out).toBeUndefined()
+    expect((await call('returnGear', { id: 'now', photos: [PHOTO] }, ANA)).ok).toBe(true)
+    expect((await getDoc('gear_holds/fx3'))!.entries.map((e: { bookingId: string }) => e.bookingId)).toEqual(['other'])
+  })
+
   it('"Found it" takes the warning off the bundle (team only)', async () => {
     await put('gear_bundles/fx3', { name: 'FX3 Bundle', kind: 'bundle', archived: false, pieces: lines[0].pieces,
       missing: [{ itemId: 'bat', name: 'NP-FZ100 battery', qty: 1, at: 'x', bookingId: 'b' }] })
     expect((await call('markGearFound', { offerId: 'fx3', index: 0 }, ANA)).error).toBe('PERMISSION_DENIED')
     expect((await call('markGearFound', { offerId: 'fx3', index: 0 }, GEAR)).ok).toBe(true)
     expect((await getDoc('gear_bundles/fx3'))!.missing).toEqual([])
+  })
+
+  it('"Found it" names the warning, so a double tap never clears the next one (audit, Nov 7)', async () => {
+    await put('gear_bundles/fx3', { name: 'FX3 Bundle', kind: 'bundle', archived: false, pieces: lines[0].pieces,
+      missing: [{ itemId: 'bat', name: 'NP-FZ100 battery', qty: 1, at: 'x', bookingId: 'b' }, { itemId: 'cam', name: 'Sony FX3 body', qty: 1, at: 'y', bookingId: 'c' }] })
+    const entry = { bookingId: 'b', itemId: 'bat', at: 'x' }
+    expect((await call('markGearFound', { offerId: 'fx3', entry }, GEAR)).ok).toBe(true)
+    expect((await call('markGearFound', { offerId: 'fx3', entry }, GEAR)).message).toMatch(/Already cleared/)
+    expect((await getDoc('gear_bundles/fx3'))!.missing).toEqual([{ itemId: 'cam', name: 'Sony FX3 body', qty: 1, at: 'y', bookingId: 'c' }])
   })
 })
 

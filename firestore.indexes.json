@@ -206,6 +206,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "gear_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "offerIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "to",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []
