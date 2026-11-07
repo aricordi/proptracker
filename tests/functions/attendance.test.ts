@@ -61,9 +61,19 @@ describe('missed check-ins, strikes and pauses', () => {
     expect((await call('decideShoot', { id: 'missed1', outcome: 'noshow' }, MAANIK)).message).toMatch(/already decided/)
   })
 
+  it('No-show waits for the 12 hours to explain; "They filmed" and an explained shoot can be decided at once', async () => {
+    await shootAt('w1', ANA, 'Ana', -150)
+    const early = await call('decideShoot', { id: 'w1', outcome: 'noshow' }, MAANIK)
+    expect(early.message).toMatch(/can still explain until/)
+    expect((await getDoc('shoots/w1'))!.outcome).toBeUndefined()
+    await call('explainMissedCheckIn', { id: 'w1', text: 'Overslept' }, ANA)
+    expect((await call('decideShoot', { id: 'w1', outcome: 'noshow' }, MAANIK)).result.strike).toMatchObject({ strikes: 1 })
+  })
+
   it('2 strikes in 30 days pause prop bookings (not gear); the team can lift it', async () => {
-    await shootAt('m1', ANA, 'Ana', -300)
-    await shootAt('m2', ANA, 'Ana', -150)
+    // Both slots ended more than 12 hours ago, so the time to explain is over.
+    await shootAt('m1', ANA, 'Ana', -900)
+    await shootAt('m2', ANA, 'Ana', -850)
     await call('decideShoot', { id: 'm1', outcome: 'noshow' }, MAANIK)
     const second = await call('decideShoot', { id: 'm2', outcome: 'noshow' }, MAANIK)
     expect(second.result.strike).toMatchObject({ strikes: 2, paused: true })

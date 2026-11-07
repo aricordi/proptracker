@@ -158,7 +158,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'allgear', path: '/gear/items', title: 'All gear', who: ['owner', 'equipment'], words: 'inventory piece serial value public internal',
     about: 'Every piece you own: + Add gear (name, type, serial or how many, replacement value), "Creators can book" vs "Internal only", and how many are loose.' },
   { id: 'scheduleteam', path: '/schedule/team', title: 'Schedule team', who: ['owner', 'equipment', 'admin'], words: 'check ins reports creators they filmed no show lift pause',
-    about: 'Check-ins (decide They filmed / No-show · strike for missed ones), Reports from the next creator (Dismiss or Strike), Creators (filmed of booked, strikes, Lift a pause).' },
+    about: 'Check-ins (decide They filmed / No-show · strike for missed ones; No-show only after the creator\'s hours to explain have passed, unless they already explained), Reports from the next creator (Dismiss or Strike), Creators (filmed of booked, strikes, Lift a pause).' },
   { id: 'block', title: 'Block time / book for someone', who: ['owner', 'equipment'], words: 'block cleaners maintenance event book for',
     about: 'On Book, tap a free slot → "Book this slot…" for a creator, or Block it (cleaners, maintenance, event…) with a note.' },
 
