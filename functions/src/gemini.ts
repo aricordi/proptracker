@@ -389,7 +389,8 @@ export function safeRich(v: unknown, max: number): string {
 // What a person typed, made safe to put inside a prompt as data: no control characters,
 // no way to fake the end of the data block, limited length.
 export function asData(v: string, max: number) {
-  return v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/<\/?\s*creator_text\s*>/gi, '').replace(/"""/g, '"').slice(0, max)
+  // Every tag name the prompts use to mark data, so typed text can't fake an app line either (audit, Nov 7: <app_reply>).
+  return v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/<\s*\/?\s*(creator_text|app_reply|inventory_list)\s*>/gi, '').replace(/"""/g, '"').slice(0, max)
 }
 
 // ─── Extra search words for props that already exist (one-off top-up) ────────
