@@ -258,10 +258,19 @@ async function release(id: string, by: string, status: 'cancelled' | 'declined',
 // Used when the shoot this gear was for is cancelled.
 export const cancelGearForShoot = (by: string, id: string) => release(id, by, 'cancelled', () => true, 'the shoot was cancelled')
 
+// Gear handed over on the spot is physically with the receiver: only the equipment team can cancel or change that
+// booking, or nobody's booking would cover the kit (audit, Nov 7).
+const handedOverText = (b: FirebaseFirestore.DocumentData) =>
+  `This gear was handed to you by ${String(b.handedFrom?.name ?? 'someone').split(' ')[0]}. Give it back to them, or ask the equipment team.`
+
 export const cancelGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
   const id = str(req.data?.id, 100)
-  await release(id, caller.email, 'cancelled', b => GEAR_STAFF.includes(caller.role) || b.creatorEmail === caller.email)
+  const staff = GEAR_STAFF.includes(caller.role)
+  await release(id, caller.email, 'cancelled', b => {
+    if (!staff && b.handedFrom) throw new HttpsError('failed-precondition', handedOverText(b), { problem: 'handed-over' })
+    return staff || b.creatorEmail === caller.email
+  })
   return { ok: true }
 })
 
@@ -295,6 +304,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
     const b = snap.data()
     if (!b) throw new HttpsError('not-found', 'Booking not found.')
     if (!GEAR_STAFF.includes(caller.role) && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your booking.')
+    if (!GEAR_STAFF.includes(caller.role) && b.handedFrom) throw new HttpsError('failed-precondition', handedOverText(b), { problem: 'handed-over' })
     if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This gear has been picked up already, so it can\'t be changed.')
     const start = crewH ? crewH.start : Number.isInteger(d.start) ? d.start as number : b.start
     const end = crewH ? crewH.end : Number.isInteger(d.end) ? d.end as number : b.end

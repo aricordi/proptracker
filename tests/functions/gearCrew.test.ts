@@ -128,6 +128,9 @@ describe('handing gear over on the spot', () => {
     expect(await getDoc('gear_bookings/g')).toMatchObject({ status: 'checked_in', usedBy: [ANA], handedTo: { email: BEN, bookingId: r.result.id } })
     expect(await getDoc(`gear_bookings/${r.result.id}`)).toMatchObject({ creatorEmail: BEN, status: 'held', handedFrom: { bookingId: 'g', email: ANA } })
     expect((await getDoc('gear_holds/fx3'))!.entries.map((e: any) => e.bookingId)).toEqual([r.result.id])
+    // It's already in Ben's hands: he can't cancel or change it (audit, Nov 7).
+    expect((await call('cancelGearBooking', { id: r.result.id }, BEN)).message).toMatch(/handed to you/)
+    expect((await call('editGearBooking', { id: r.result.id, lines: [] }, BEN)).ok).toBe(false)
     expect((await call('pickUpGear', { id: r.result.id, missing: ['fx3|g1|1'], signed: true }, BEN)).ok).toBe(true)
     expect((await getDoc('gear_bookings/g'))!.problems?.[0]).toMatchObject({ kind: 'missing_after', usedBy: [ANA] })
   })

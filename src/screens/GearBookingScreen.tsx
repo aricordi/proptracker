@@ -72,7 +72,8 @@ export default function GearBookingScreen() {
   const crew = b.crew ?? []
   const late = isGearLate(b, now)
   const win = pickupWindow(b, now)
-  const canCancel = b.status === 'held' && (booker || isGearStaff)
+  // Handed over on the spot: it's already in their hands, so only the equipment team can cancel or change it.
+  const canCancel = b.status === 'held' && ((booker && !b.handedFrom) || isGearStaff)
   const allDone = lines.every(l => ticked.has(l.key) || missing.has(l.key))
   const flip = (set: Set<string>, setter: (s: Set<string>) => void, key: string, other: Set<string>, otherSetter: (s: Set<string>) => void) => {
     const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); setter(n)
@@ -147,6 +148,7 @@ export default function GearBookingScreen() {
         {b.handedFrom && b.status === 'held' && (
           <div className="bg-sky-500/10 rounded-2xl px-4 py-3 text-sky-100 text-[15px]">
             <b>{b.handedFrom.name.split(' ')[0]}</b> is handing you this gear. Open the case together, tick every piece below and sign. Anything missing goes on their record, not yours.
+            {booker && !isGearStaff && <span className="block text-sky-200/90 text-sm mt-1">Don't need it after all? Give it back to {b.handedFrom.name.split(' ')[0]}, or ask the equipment team.</span>}
           </div>
         )}
 
@@ -267,7 +269,7 @@ export default function GearBookingScreen() {
           ))}
         </div>
 
-        {b.status === 'held' && booker && <ChangeGear b={b} />}
+        {b.status === 'held' && booker && !b.handedFrom && <ChangeGear b={b} />}
 
         {b.notes && <div className="bg-pt-surface rounded-2xl px-4 py-3"><p className="text-pt-muted text-xs mb-1">Notes</p><p className="text-pt-text text-[15px] whitespace-pre-wrap">{b.notes}</p></div>}
 
