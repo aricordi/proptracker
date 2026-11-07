@@ -2396,6 +2396,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       shuffle (hash of day|id, same on every phone). Callable `hotProps` (everyone incl. demo; 30-min server cache; company props
       only unless owner). App `useHotScores` (services/propsLike.ts, 30-min session cache); HomeScreen sorts hot by default,
       Status sheet → Order "Hot first | A to Z" (sessionStorage pc.browseSort); /personal stays A–Z.
+    - LIVE Nov 7 (owner "deploy today's work"): backend run 67 + website run (green) = fix as you go (⋯ menu), recommendations,
+      Prop insights, calendar tidy, Browse hot order. docs/app-at-a-glance.html = one-page feature sheet + 2-minute demo for the
+      owner (published https://claude.ai/artifact/5RtLgif5dv6RMz3VTaq1wY).
+    - OVERNIGHT NOV 7 (owner: "use a workflow… extreme polish… all the features"): robot tests (Playwright, `npm run e2e`,
+      tests/e2e/*.e2e.ts, scripts/e2e.mjs, preview.yml job robot-tests, non-blocking) + 10-area audit + fixes + features
+      (waitlist "Notify me if it opens", photo search, wanted-but-booked counter, requests show their shoot, usual-partner
+      suggestion, chat: answers type out + results inside the answer, chat remembers you, say-it-once one-tap plan, 📷 in chat,
+      read answers aloud after voice). This machine has 4 CPUs → workflows run only 2 agents at a time.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
