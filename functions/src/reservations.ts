@@ -330,7 +330,6 @@ export const cancelReservation = onCall(CALLABLE, async req => {
 // availability rules as a new request; taking things out is always fine.
 export const editReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
-  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const lines = cleanLines(req.data?.lines)
   const builds = cleanBuilds(req.data?.builds)
   if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Nothing left in this request. Cancel it instead.')
@@ -358,6 +357,8 @@ export const editReservation = onCall(CALLABLE, async req => {
     if (!caller.isStaff && newBuilds.length && start < addOpenDays(today, settings.buildLeadDays, settings)) {
       throw new HttpsError('failed-precondition', `New props (things to make or find) need ${settings.buildLeadDays} open days' notice, so they can't be added for this day.`, { problem: 'too-soon-build' })
     }
+    // A pause stops ADDING props; taking things out of a sent request is always fine (audit, Nov 7).
+    if (booksLikeCreator(caller) && (adding || newBuilds.length)) await assertNotPaused(caller.email)
 
     const ids = [...new Set([...before.keys(), ...lines.map(l => l.itemId)])]
     const snaps = ids.length ? await tx.getAll(...ids.map(id => db.doc(`items/${id}`)), ...ids.map(bookingsRef)) : []

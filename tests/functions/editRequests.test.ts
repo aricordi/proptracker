@@ -43,6 +43,16 @@ describe('change a props request', () => {
   })
 })
 
+describe('paused creators', () => {
+  it('can still lower or remove props, but not add any', async () => {
+    const id = (await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 2 }, { itemId: 'cake', qty: 1 }] }, ANA)).result.id
+    await put(`user_status/${ANA}`, { strikes: 2, pausedUntil: addDays(todayInStudio(), 10) })
+    expect((await call('editReservation', { id, lines: [{ itemId: 'chairs', qty: 3 }, { itemId: 'cake', qty: 1 }] }, ANA)).message).toMatch(/paused/)
+    expect((await call('editReservation', { id, lines: [{ itemId: 'chairs', qty: 2 }, { itemId: 'cake', qty: 1 }], builds: [{ description: 'Badge', qty: 1 }] }, ANA)).message).toMatch(/paused/)
+    expect((await call('editReservation', { id, lines: [{ itemId: 'chairs', qty: 1 }] }, ANA)).ok).toBe(true)
+  })
+})
+
 describe('change held gear', () => {
   it('add an extra, change hours, remove a bundle; refuses what is taken', async () => {
     const g = await bookGear({ title: 'Diner', date: DAY, start: 780, end: 900, lines: [{ offerId: 'fx3', qty: 1 }] }, ANA)
