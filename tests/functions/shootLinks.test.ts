@@ -69,6 +69,15 @@ describe('cancelling or moving the shoot', () => {
     expect((await getDoc('item_bookings/chairs'))!.entries).toEqual([])
   })
 
+  it("someone else's request that only names the shoot id doesn't tie itself to the shoot", async () => {
+    await shoot('shoot1', ANA, 'Ana')
+    const p = await call('createReservation', { title: 'Sneaky', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 1 }], shootId: 'shoot1' }, BEN)
+    expect(p.ok, p.message).toBe(true)
+    const c = await call('cancelShoot', { id: 'shoot1' }, ANA)
+    expect(c.result).toMatchObject({ cancelledProps: 0 })
+    expect((await getDoc(`reservations/${p.result.id}`))!.status).toBe('requested')
+  })
+
   it('a shoot with props or gear can move on the same day but not to another day', async () => {
     await shoot('shoot1', ANA, 'Ana')
     await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
