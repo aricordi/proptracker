@@ -265,7 +265,7 @@ export function useStrikesSince(fromDate: string, enabled: boolean, email?: stri
 // What an admin did about a flag (owner + admins read).
 export type FlagAction = 'excuse' | 'unexcuse' | 'warn' | 'strike' | 'handled'
 export interface FlagReview { id: string; flagId: string; email: string; kind: string; label?: string; status: 'excused' | 'warned' | 'struck' | 'handled' | 'open'
-  strikeId?: string; updatedAt: string; updatedBy: string; actions: { at: string; by: string; action: FlagAction; note?: string; strikeId?: string }[] }
+  strikeId?: string; updatedAt: string; updatedBy: string; actions: { at: string; by: string; action: FlagAction; note?: string; strikeId?: string; delivered?: boolean }[] }
 export function useFlagReviews(enabled: boolean): Map<string, FlagReview> {
   const [m, setM] = useState<Map<string, FlagReview>>(new Map())
   useEffect(() => {
@@ -275,7 +275,7 @@ export function useFlagReviews(enabled: boolean): Map<string, FlagReview> {
   return m
 }
 export const reviewFlag = httpsCallable<{ flagId: string; action: FlagAction; note?: string; email: string; kind: string; label?: string; shootId?: string },
-  { ok: boolean; status: string; strike: { strikes: number; paused: boolean } | null }>(functions, 'reviewFlag')
+  { ok: boolean; status: string; strike: { strikes: number; paused: boolean } | null; delivered?: boolean }>(functions, 'reviewFlag')
 
 // Error text from a server call, in plain words.
 export const errorText = (e: unknown) => friendlyError(e, 'Something went wrong. Try again.')

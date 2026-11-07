@@ -194,20 +194,24 @@ export async function runReminders(now = nowStamp()) {
     return access.get(email)!
   }
   for (const d of shoots.docs) {
-    const sh = d.data()
-    if (sh.status !== 'booked' || sh.toCheck) continue
-    // When check-in opens, remember whether this person could check in then (audit, Nov 5): Props-only creators' shoots
-    // (calendar imports) never ask them to, and switching them to the Full app later doesn't turn old shoots into misses.
-    if (sh.place !== 'offsite' && sh.checksIn === undefined && now >= addMinutes(sh.from, -s.checkinBefore)) {
-      sh.checksIn = await canCheckIn(String(sh.creatorEmail ?? ''))
-      await d.ref.update({ checksIn: sh.checksIn }).catch(e => logger.warn('stamp checksIn', d.id, String(e)))
-    }
-    if (!(await canCheckIn(String(sh.creatorEmail ?? '')))) continue   // Props only: no shoot notifications (they can't open shoots)
-    // Only look up props/gear for shoots whose last day to add them is today, and only until that reminder went out.
-    const cutoffToday = sh.date > today && lastDayToBook(sh.date, lead, booking) === today && Number(now.slice(11, 13)) >= 9
-      && !(await db.doc(`push_sent/cutoff_${d.id}`).get()).exists
-    const needs = cutoffToday ? await openLinks(d.id) : null
-    list.push(...shootReminders(d.id, sh, now, s, needs ? needs.props.length + needs.gear.length + needs.sharedGear.length > 0 : true, booking, lead))
+    // One odd shoot only skips itself; the rest still get their reminders (audit, Nov 7).
+    try {
+      const sh = d.data()
+      // Requests still waiting for approval only get the props cutoff reminder (shootReminders).
+      if (!(sh.status === 'booked' || sh.status === 'requested') || sh.toCheck) continue
+      // When check-in opens, remember whether this person could check in then (audit, Nov 5): Props-only creators' shoots
+      // (calendar imports) never ask them to, and switching them to the Full app later doesn't turn old shoots into misses.
+      if (sh.status === 'booked' && sh.place !== 'offsite' && sh.checksIn === undefined && now >= addMinutes(sh.from, -s.checkinBefore)) {
+        sh.checksIn = await canCheckIn(String(sh.creatorEmail ?? ''))
+        await d.ref.update({ checksIn: sh.checksIn }).catch(e => logger.warn('stamp checksIn', d.id, String(e)))
+      }
+      if (!(await canCheckIn(String(sh.creatorEmail ?? '')))) continue   // Props only: no shoot notifications (they can't open shoots)
+      // Only look up props/gear for shoots whose last day to add them is today, and only until that reminder went out.
+      const cutoffToday = sh.date > today && lastDayToBook(sh.date, lead, booking) === today && Number(now.slice(11, 13)) >= 9
+        && !(await db.doc(`push_sent/cutoff_${d.id}`).get()).exists
+      const needs = cutoffToday ? await openLinks(d.id) : null
+      list.push(...shootReminders(d.id, sh, now, s, needs ? needs.props.length + needs.gear.length + needs.sharedGear.length > 0 : true, booking, lead))
+    } catch (e) { logger.warn('Reminder skipped for a shoot', d.id, String(e)) }
   }
   // Once a day: strike counts go down as strikes get older than the window (audit, Nov 5: the stored count never dropped).
   const recountKey = db.doc(`push_sent/recount_${today}`)
@@ -223,6 +227,10 @@ export async function runReminders(now = nowStamp()) {
 
 // A request still waiting after 12 hours: one reminder to the equipment team (owner, Nov 2).
 async function nudgeWaitingRequests() {
+  // Not in the middle of the night (audit, Nov 7): before 9 AM or after 9 PM it waits for the morning
+  // (the reminder key is only written when it's sent).
+  const hour = Number(nowStamp().slice(11, 13))
+  if (hour < 9 || hour >= 21) return
   const cutoff = new Date(Date.now() - 12 * 3600_000).toISOString()
   const waiting = (await db.collection('shoots').where('status', '==', 'requested').get()).docs.filter(d => (d.get('requestedAt') ?? d.get('createdAt') ?? '') <= cutoff)
   if (!waiting.length) return
@@ -232,9 +240,11 @@ async function nudgeWaitingRequests() {
 }
 
 export const pushReminders = onSchedule({ schedule: 'every 10 minutes', timeZone: 'America/Toronto', timeoutSeconds: 120 }, async () => {
-  await runReminders()
-  // Requests nobody decided on by their start time are dropped (owner, Nov 2); waiting ones nudge the team once after 12 hours.
+  // Requests nobody decided on by their start time are dropped (owner, Nov 2) FIRST: freeing held slots and props matters
+  // most, and an error or timeout in the reminders below must never stop it (audit, Nov 7).
   try { await (await import('./scheduling.js')).expireRequests() } catch (e) { logger.warn('Expire requests failed', String(e)) }
+  try { await runReminders() } catch (e) { logger.warn('Reminders failed', String(e)) }
+  // Waiting requests nudge the team once after 12 hours.
   try { await nudgeWaitingRequests() } catch (e) { logger.warn('Request reminder failed', String(e)) }
   // The monthly Cliff 1 draw was RETIRED (owner, Nov 2): the equipment team puts the guaranteed slots in the Google Calendar
   // and the calendar check brings them in. draw.ts stays (its callables are unused) so a deploy doesn't have to delete functions.

@@ -16,6 +16,15 @@ self.addEventListener('push', event => {
   event.waitUntil(self.registration.showNotification(title, options))
 })
 
+function askAppToOpen(win, url) {
+  return new Promise(resolve => {
+    const ch = new MessageChannel()
+    const timer = setTimeout(() => resolve(false), 1000)
+    ch.port1.onmessage = () => { clearTimeout(timer); resolve(true) }
+    try { win.postMessage({ type: 'pc-open', url }, [ch.port2]) } catch (e) { clearTimeout(timer); resolve(false) }
+  })
+}
+
 self.addEventListener('notificationclick', event => {
   event.notification.close()
   const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href
@@ -24,7 +33,10 @@ self.addEventListener('notificationclick', event => {
     for (const w of wins) {
       if (new URL(w.url).origin === self.location.origin) {
         await w.focus()
-        if ('navigate' in w) return w.navigate(url)
+        // The app is already open: ask it to switch screens itself, so a chat in progress isn't wiped by a full reload
+        // (audit, Nov 7). Only if it doesn't answer within a second (old version, not loaded yet) reload it at that page.
+        if (await askAppToOpen(w, url)) return
+        if ('navigate' in w) return w.navigate(url).catch(() => {})
         return
       }
     }

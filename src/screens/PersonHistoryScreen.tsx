@@ -107,7 +107,7 @@ export default function PersonHistoryScreen() {
         )}
 
         {canManagePeople && manage.sheets}
-        {canManagePeople && <PushCheck email={email} name={user?.name || email} />}
+        {canManagePeople && <PushCheck email={email} name={user?.name || email} role={email === OWNER_EMAIL ? 'owner' : user?.role} demo={user?.role === 'creator' && user.access !== 'full'} />}
         {list === null ? <p className="text-pt-muted text-sm text-center">Loading…</p> : (
           <>
             {summary.lateNow.length > 0 && (

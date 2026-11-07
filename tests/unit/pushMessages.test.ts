@@ -94,6 +94,12 @@ describe('timed reminders', () => {
     expect(keys('2026-10-21T09:00', {}, false)).toEqual(['cutoff_h1'])
     expect(keys('2026-10-21T09:00', {}, true)).toEqual([])
   })
+  it('a request still waiting for approval gets the props cutoff reminder only', () => {
+    expect(keys('2026-10-21T09:00', { status: 'requested' }, false)).toEqual(['cutoff_h1'])
+    expect(keys('2026-10-23T12:50', { status: 'requested' })).toEqual([])
+    expect(keys('2026-10-23T12:05', { status: 'requested' })).toEqual([])
+    expect(keys('2026-10-21T09:00', { status: 'cancelled' }, false)).toEqual([])
+  })
   it('props due back by 10 AM the next open day, then late', () => {
     const r = { status: 'collected', creatorEmail: 'c@x.com', title: 'Diner', endDate: '2026-10-24' }   // Saturday; Sunday closed
     expect(propsReminders('r1', r, '2026-10-26T07:30', closed)).toEqual([])
@@ -120,6 +126,42 @@ describe('more notifications (Nov 3)', () => {
     const sw = { fromEmail: 'a@x.com', fromName: 'Ana', toEmail: 'b@x.com', toName: 'Ben', status: 'pending', from: { place: 'cliff1', date: '2026-10-23', start: 780 }, to: { place: 'cliff2', date: '2026-10-24', start: 900 } }
     expect(swapChange('s1', sw, { ...sw, status: 'withdrawn' }, s)[0]).toMatchObject({ to: ['b@x.com'], title: 'Swap withdrawn' })
     expect(swapChange('s1', sw, { ...sw, status: 'expired' }, s)[0].to).toEqual(['a@x.com', 'b@x.com'])
+  })
+  it('props marked not available / builds that can\'t be made → the creator hears it at once', () => {
+    const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', status: 'requested', history: [],
+      lines: [{ itemId: 'p1', itemName: 'Rotary phone' }, { itemId: 'p2', itemName: 'Chair' }], builds: [{ id: 'b1', description: 'Cop badge', state: 'todo' }] }
+    const one = { ...r, status: 'preparing', lines: [{ ...r.lines[0], pick: { state: 'unavailable', reason: 'Broken' } }, r.lines[1]] }
+    const out = reservationChange('r1', r, one)
+    expect(out).toHaveLength(1)
+    expect(out[0]).toMatchObject({ to: ['c@x.com'], title: '"Rotary phone" isn\'t available', url: '/reservations/r1' })
+    expect(out[0].body).toMatch(/Rotary phone: Broken.*rest of "Diner" still goes/)
+    // Already marked before: no repeat. A build marked can't be made: new message.
+    const build = { ...one, builds: [{ ...r.builds[0], state: 'unavailable', reason: 'No time' }] }
+    expect(reservationChange('r1', one, build)[0].body).toMatch(/Cop badge: No time/)
+    expect(reservationChange('r1', build, { ...build, notes: 'x' })).toEqual([])
+    // Packed later says how many aren't coming.
+    expect(reservationChange('r1', build, { ...build, status: 'packed' })[0].body).toMatch(/2 things aren't available/)
+  })
+  it('props cancelled by the creator after arts started → arts are told; a dropped shoot request doesn\'t say "by the team"', () => {
+    const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', status: 'packed', history: [] }
+    expect(reservationChange('r1', r, { ...r, status: 'cancelled', history: [{ by: 'c@x.com' }] })[0]).toMatchObject({ to: ['arts-team'], title: 'Props request cancelled' })
+    expect(reservationChange('r1', { ...r, status: 'requested' }, { ...r, status: 'cancelled', history: [{ by: 'c@x.com' }] })).toEqual([])
+    const dropped = reservationChange('r1', r, { ...r, status: 'cancelled', history: [{ by: 'schedule' }] })
+    expect(dropped.map(p => p.to)).toEqual([['arts-team']])
+    expect(dropped[0].body).toMatch(/shoot was dropped/)
+    expect(reservationChange('r1', { ...r, status: 'requested' }, { ...r, status: 'cancelled', history: [{ by: 'schedule' }] })).toEqual([])
+  })
+  it('props checked in with damage or something missing → said plainly, no "Thanks!"', () => {
+    const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', status: 'return_pending', history: [],
+      lines: [{ itemId: 'p1', itemName: 'Rotary phone', checkIn: { result: 'damaged' } }, { itemId: 'p2', itemName: 'Glass', checkIn: { result: 'missing' } }, { itemId: 'p3', itemName: 'Chair', checkIn: { result: 'ok' } }] }
+    const out = reservationChange('r1', r, { ...r, status: 'returned' })[0]
+    expect(out.title).toBe('Props checked in · something to look at')
+    expect(out.body).toBe('"Diner": Rotary phone damaged, Glass missing. Questions? Ask the arts department.')
+  })
+  it('strikes given by hand say what about and why', () => {
+    expect(strikeCreated('k', { email: 'c@x.com', reason: 'manual', about: 'gear', note: 'Returned the FX3 case 3 hours late' }, s)[0].body)
+      .toMatch(/^For a gear problem: "Returned the FX3 case 3 hours late"\. 2 strikes/)
+    expect(strikeCreated('k', { email: 'c@x.com', reason: 'manual' }, s)[0].body).toMatch(/^For something the team noted\./)
   })
   it('props checked in → the creator hears it', () => {
     const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', status: 'return_pending', history: [] }

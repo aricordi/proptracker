@@ -5,6 +5,7 @@ import BottomSheet from './BottomSheet'
 import { changeUserEmail, normalizeEmail, type EmailMovePreview } from '../services/users'
 import { friendlyError } from '../lib/errors'
 import type { AppUser } from '../types'
+import { notificationsPath } from './Notifications'
 
 export default function ChangeEmailSheet({ user, onClose, onDone }: { user: AppUser; onClose: () => void; onDone: () => void }) {
   const [to, setTo] = useState('')
@@ -29,7 +30,7 @@ export default function ChangeEmailSheet({ user, onClose, onDone }: { user: AppU
         <p className="text-pt-text">{who} is now <span className="font-semibold break-all">{done.to}</span>.
           {done.merging ? ' Their two accounts are now one.' : ''}</p>
         <p className="text-pt-muted text-sm">The old email is deleted from People and can't sign in any more. Ask them to sign in with the new one, then turn
-          notifications on again (Me → Notifications){done.phones ? '' : ' if they want them'}.</p>
+          notifications on again ({notificationsPath(user.role, user.role === 'creator' && user.access !== 'full')}){done.phones ? '' : ' if they want them'}.</p>
         <button onClick={onDone} className="w-full py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Done</button>
       </div>
     </BottomSheet>

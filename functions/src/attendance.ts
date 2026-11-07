@@ -242,13 +242,16 @@ export const reviewFlag = onCall(CALLABLE, async req => {
         || (reasons.includes(d.get('reason')) && !!d.get('shootId') && [shootId, srcId].includes(d.get('shootId')))))
     for (const d of list) { await removeStrikeById(d.id, caller.email, `Excused: ${note}`); removedStrikes++ }
   }
+  let delivered: boolean | undefined
   if (action === 'warn') {
-    const { sendPush } = await import('./push.js')
-    await sendPush({ to: [email], title: 'A note from the Prime Capitol team', body: note, url: '/account', tag: `warn-${id}` }).catch(() => 0)
+    const { sendPushDetailed } = await import('./push.js')
+    // Say whether it actually reached a phone (audit, Nov 7: "Note sent" even when they have no phone signed up).
+    delivered = await sendPushDetailed({ to: [email], title: 'A note from the Prime Capitol team', body: note, url: '/account', tag: `warn-${id}` })
+      .then(r => r.sent > 0).catch(() => false)
   }
   const status = action === 'excuse' ? 'excused' : action === 'unexcuse' ? 'open' : action === 'strike' ? 'struck' : action === 'warn' ? 'warned' : 'handled'
   await ref.set({ flagId: id, email, name, kind, label, status, updatedAt: at, updatedBy: caller.email, striking: FieldValue.delete(),
     ...(strike ? { strikeId: strike.id } : {}),
-    actions: FieldValue.arrayUnion({ at, by: caller.email, action, ...(note ? { note } : {}), ...(strike ? { strikeId: strike.id } : {}) }) }, { merge: true })
-  return { ok: true, status, strike, removedStrikes }
+    actions: FieldValue.arrayUnion({ at, by: caller.email, action, ...(note ? { note } : {}), ...(strike ? { strikeId: strike.id } : {}), ...(delivered === false ? { delivered: false } : {}) }) }, { merge: true })
+  return { ok: true, status, strike, removedStrikes, ...(delivered !== undefined ? { delivered } : {}) }
 })

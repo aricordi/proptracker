@@ -120,7 +120,12 @@ export function FlagSheet({ flag, ctx, onClose, excused }: { flag: Incident | nu
         case 'uphold': { await reviewReport({ id: report!.id, uphold: true }); return `Report upheld. ${first} got a strike.` }
         case 'remove-strike': { const r = await removeStrike({ id: i.strikeId!, note }); return `Strike removed.${r.data.lifted ? ` ${first}'s pause is lifted too.` : ''}` }
         case 'strike': { const r = await flagCall('strike', note); return r.data.strike?.paused ? `Strike given. ${first} now has ${r.data.strike.strikes}, so their prop bookings are paused.` : `Strike given. ${first} has ${r.data.strike?.strikes ?? 1} right now.` }
-        case 'warn': { await flagCall('warn', note); return `Note sent to ${first}'s phone.` }
+        case 'warn': {
+          const r = await flagCall('warn', note)
+          return r.data.delivered === false
+            ? `${first} hasn't turned on notifications, so the note didn't reach their phone. It's saved on the flag: tell them in person.`
+            : `Note sent to ${first}'s phone.`
+        }
         case 'excuse': { await flagCall('excuse', note); return "Excused. It won't count any more." }
         case 'handled': { await flagCall('handled', note); return 'Marked as handled.' }
         default: return ''
@@ -160,7 +165,7 @@ export function FlagSheet({ flag, ctx, onClose, excused }: { flag: Incident | nu
           <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
             {hasStrike && i.kind !== 'strike' && <p className="px-3 py-2.5 text-sm text-pt-text">Strike on their record{strike!.by ? ` · by ${ctx.staffName(strike!.by)}` : ''} · {when(strike!.at)}</p>}
             {(review?.actions ?? []).map((a, n) => <div key={n} className="px-3 py-2.5">
-              <p className="text-sm text-pt-text">{ACTION_LABEL[a.action]} by {ctx.staffName(a.by)} · {when(a.at)}</p>
+              <p className="text-sm text-pt-text">{a.action === 'warn' && a.delivered === false ? 'Note saved (no phone signed up)' : ACTION_LABEL[a.action]} by {ctx.staffName(a.by)} · {when(a.at)}</p>
               {a.note && <p className="text-pt-muted text-sm">“{a.note}”</p>}
             </div>)}
           </div>
