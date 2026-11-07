@@ -6,6 +6,7 @@ import { NotificationsCard } from '../components/Notifications'
 import { LaptopLayoutCard } from '../desk/LaptopLayoutCard'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
+import { pushSignOut } from '../services/push'
 import { useSession } from '../auth'
 import Avatar from '../components/Avatar'
 import { useProfiles, saveProfile, uploadProfilePhoto } from '../services/profiles'
@@ -102,7 +103,7 @@ export default function AccountScreen() {
           </div>
         )}
         <button
-          onClick={() => signOut(auth)}
+          onClick={async () => { await pushSignOut(); await signOut(auth) }}
           className="w-full py-3 rounded-xl bg-pt-surface shadow-hairline text-pt-text text-sm font-medium active:opacity-70"
         >
           Sign out
