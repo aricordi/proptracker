@@ -215,10 +215,14 @@ export function isJustWhen(text: string): boolean {
 // Book. The AI never sees those cards, so the app reads it here. Returns the option they meant, 'which' when "yes" doesn't say
 // which of several, or null when it isn't about the times shown (e.g. "what about sunday" = a new search).
 export interface ShownOption { date: string; place: string; start: number }
+// Saying no, narrowing or asking for something else ("can't do saturday", "only cliff 2", "anything later?", "not cliff 1")
+// is never a pick: it goes on to a new search instead of booking the first time shown (audit, Nov 7).
+const NOT_A_PICK = /\b(no|not|nope|nah|cant|cannot|dont|doesnt|wont|isnt|didnt|instead|only|other|else|any|anything|earlier|later|except|what about|how about)\b|n['’]t\b|\?\s*$/
 export function pickOption(text: string, options: ShownOption[]): { index: number } | { which: number[] } | null {
   if (!options.length) return null
   const t = normalizeWhen(text).trim()
   if (words(t) > 10) return null
+  if (!CONFIRM.test(text) && NOT_A_PICK.test(t)) return null
   const yes = CONFIRM.test(text) || /^\s*(ok(ay)?|perfect|great|cool|sounds good)\s*[,!.]?\s*(book|that|do|take)/i.test(text)
   const ord = /\b(first|1st|top)\b/.test(t) ? 0 : /\b(second|2nd)\b/.test(t) ? 1 : /\b(third|3rd)\b/.test(t) ? 2 : /\b(fourth|4th)\b/.test(t) ? 3 : /\blast\b/.test(t) ? options.length - 1 : -1
   if (ord >= 0 && /\b(one|option|slot|time|book|that|the|take)\b/.test(t) && ord < options.length) return { index: ord }

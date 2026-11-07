@@ -10,7 +10,7 @@
 // go to the Chat tab and ask it for that helper.
 import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from './auth'
 
 export type AssistantMode = 'props' | 'time' | 'plan'
@@ -31,6 +31,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const { canBook, demo, role } = session
   const chatFirst = isChatFirst(session)
   const navigate = useNavigate()
+  // Chat first: the chat is "shown" only while the Chat tab is open, so leaving it stops the microphone (audit, Nov 7).
+  const onChatTab = useLocation().pathname === '/'
   const variant = canBook ? 'full' : demo ? 'demo' : `help-${role}`
   const [shown, setShown] = useState(false)
   const [started, setStarted] = useState(chatFirst)
@@ -50,7 +52,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ open, available: true, chatFirst, host }}>
       {children}
       {started && (chatFirst && host
-        ? createPortal(<Suspense fallback={null}><Assistant key={variant} page shown ask={ask} onClose={() => navigate('/')} /></Suspense>, host)
+        ? createPortal(<Suspense fallback={null}><Assistant key={variant} page shown={onChatTab} ask={ask} onClose={() => navigate('/')} /></Suspense>, host)
         : !chatFirst && <Suspense fallback={null}><Assistant key={variant} shown={shown} ask={ask} onClose={() => setShown(false)} /></Suspense>)}
     </Ctx.Provider>
   )

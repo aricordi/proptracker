@@ -125,6 +125,22 @@ describe('typing instead of tapping a time', () => {
     expect(pickOption('what about 9am', opts)).toBeNull()
     expect(pickOption('earlier?', opts)).toBeNull()
   })
+  // Audit, Nov 7: "Only Cliff 1" (the chat's own chip) and "can't do saturday" booked the first time shown.
+  const weekend = [{ date: addDays(today, 1), place: 'cliff1', start: 1020 }, { date: addDays(today, 2), place: 'cliff2', start: 1020 }, { date: addDays(today, 2), place: 'cliff2', start: 1140 }]
+  it('saying no, narrowing or asking for more is never a pick', () => {
+    for (const m of ['Only Cliff 1', 'Only Cliff 2', "can't do saturday", 'cant do saturday', 'saturday doesn\'t work for me', 'saturday doesn’t work for me',
+      'no not saturday', 'not cliff 1', 'anything on saturday', 'later on saturday', 'what about sunday', 'how about sunday', 'sunday instead', 'cliff 2 at 5?'])
+      expect(pickOption(m, weekend), m).toBeNull()
+  })
+  it('still reads real picks', () => {
+    expect(pickOption('the 7pm one', weekend)).toEqual({ index: 2 })
+    expect(pickOption('cliff 2 at 5', weekend)).toEqual({ index: 1 })
+    expect(pickOption('the second one', weekend)).toEqual({ index: 1 })
+    expect(pickOption('sat 5pm', weekend)).toEqual({ index: 0 })
+    expect(pickOption('i want the sunday 7pm one', weekend)).toEqual({ index: 2 })
+    expect(pickOption('the 5pm one', weekend)).toEqual({ which: [0, 1] })
+    expect(pickOption('yes book it', [weekend[0]])).toEqual({ index: 0 })
+  })
 })
 
 describe('just a day or a time goes straight to the time finder (real-AI run 3)', () => {
