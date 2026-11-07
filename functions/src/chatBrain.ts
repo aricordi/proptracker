@@ -52,6 +52,8 @@ export interface ChatState {
   plan?: { step: 'time' | 'props' | 'gear' | 'review'; shoot?: string }
   // First names of who they usually film back to back with (owner, Nov 7), from the schedule; a hint, never a booking.
   usualPartners?: string[]
+  // Their own last 3 video names (owner, Nov 7: "the chat remembers you"), from their props requests on the phone.
+  recentVideos?: string[]
 }
 const STATUSES = ['requested', 'booked', 'checked-in', 'filmed']
 /** The phone's summary of the person's own things, cleaned (it only ever shapes their own reply). */
@@ -66,6 +68,7 @@ export function cleanState(v: unknown): ChatState {
   const out = (o.out && typeof o.out === 'object' ? o.out : {}) as Record<string, unknown>
   const partners = (Array.isArray(o.usualPartners) ? o.usualPartners : []).slice(0, 3)
     .map(n => safeText(n, 30)).filter(n => /^[\p{L}][\p{L}\p{M}' .-]*$/u.test(n))
+  const videos = [...new Set((Array.isArray(o.recentVideos) ? o.recentVideos : []).slice(0, 3).map(t => safeText(t, 60)).filter(Boolean))]
   return {
     shoots,
     out: { props: Math.max(0, Math.min(50, Math.round(Number(out.props) || 0))), gear: (Array.isArray(out.gear) ? out.gear : []).slice(0, 8).map(g => safeText(g, 50)).filter(Boolean) },
@@ -74,16 +77,21 @@ export function cleanState(v: unknown): ChatState {
     ...(o.plan && typeof o.plan === 'object' && ['time', 'props', 'gear', 'review'].includes(String((o.plan as Record<string, unknown>).step))
       ? { plan: { step: String((o.plan as Record<string, unknown>).step) as 'time', ...(shoots.some(x => x.id === (o.plan as Record<string, unknown>).shoot) ? { shoot: String((o.plan as Record<string, unknown>).shoot) } : {}) } } : {}),
     ...(partners.length ? { usualPartners: partners } : {}),
+    ...(videos.length ? { recentVideos: videos } : {}),
   }
 }
 
-export interface ChatLine { who: 'me' | 'bot'; text: string }
+// `earlier` = from a past visit, kept on their phone (owner, Nov 7: "the chat remembers you"): at most 6 of their own
+// messages, shown to the AI apart from today's conversation (at most 8 lines).
+export interface ChatLine { who: 'me' | 'bot'; text: string; earlier?: boolean }
 export function cleanHistory(v: unknown): ChatLine[] {
-  return (Array.isArray(v) ? v : []).slice(-8).flatMap((x: unknown) => {
+  const lines = (Array.isArray(v) ? v : []).slice(-20).flatMap((x: unknown) => {
     const l = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>
     const text = typeof l.text === 'string' ? l.text.trim().slice(0, 300) : ''
-    return text && (l.who === 'me' || l.who === 'bot') ? [{ who: l.who as 'me' | 'bot', text }] : []
+    return text && (l.who === 'me' || l.who === 'bot') ? [{ who: l.who as 'me' | 'bot', text, ...(l.earlier === true ? { earlier: true } : {}) }] : []
   })
+  const earlier = lines.filter(l => l.earlier && l.who === 'me').slice(-6)
+  return [...earlier, ...lines.filter(l => !l.earlier).slice(-8)]
 }
 
 /** Today and the next 13 days with their weekday names, so the AI never guesses a weekday (chat QA, Nov 6: "Thursday, Nov 6"). */
@@ -108,6 +116,7 @@ export function chatPrompt(p: {
     `Their shoots coming up: ${st.shoots.length ? st.shoots.map(s => `${s.id} = ${s.label} (${s.status === 'requested' ? 'waiting for approval' : s.status === 'booked' ? 'approved' : s.status})`).join('; ') : 'none'}.`,
     `Out on their name: ${st.out.props ? `${st.out.props} props request(s)` : 'no props'}; ${st.out.gear.length ? `gear: ${st.out.gear.join(', ')}` : 'no gear'}.`,
     st.paused ? `Prop requests PAUSED until ${st.paused}.` : st.strikes ? `${st.strikes} strike(s) recently, not paused.` : 'No strikes, not paused.',
+    ...(st.recentVideos?.length ? [`Their own recent video names (only to get their style and pick up where they left off; don't list them back): ${st.recentVideos.map(t => JSON.stringify(t)).join(', ')}.`] : []),
     ...(st.usualPartners?.length ? [`They usually film back to back with: ${st.usualPartners.join(', ')}. When they ask for a time and name nobody, you may ask once "Filming with ${st.usualPartners[0]} again?" or offer it as a chip ("With ${st.usualPartners[0]}"); never assume it, never add anyone to a "times" query unless they said so.`] : []),
     ...(st.plan ? [`They are planning a shoot step by step (the app keeps track of the steps; the person just chats). Current step: ${
       st.plan.step === 'time' ? 'finding a time to film' : st.plan.step === 'props' ? `finding props${st.plan.shoot ? ` for shoot ${st.plan.shoot}` : ''}` : st.plan.step === 'gear' ? 'gear' : 'reviewing what they picked'}.
@@ -191,8 +200,9 @@ ${p.guide.map(e => `${e.id} | ${e.title} | ${e.about}`).join('\n')}
 
 Answer in the person's language (but "query" in English). Return ONLY this JSON:
 {"action":"<one of the actions>","reply":"...","shoot":"<a shoot id from STATE or empty>","query":"<for times/props, else empty>","also":{"action":"<times|props|return or empty>","query":"..."},"steps":["<help only, ≤5 short taps>"],"screens":["<help only, ≤3 GUIDE ids>"],"chips":[]}`
-  const lines = p.history.map(l => l.who === 'me' ? `<creator_text>${asData(l.text, 300)}</creator_text>` : `<app_reply>${asData(l.text, 300)}</app_reply>`)
-  const user = `${lines.length ? `CONVERSATION SO FAR:\n${lines.join('\n')}\nNEWEST MESSAGE:\n` : ''}<creator_text>${asData(p.message, 500)}</creator_text>`
+  const line = (l: ChatLine) => l.who === 'me' ? `<creator_text>${asData(l.text, 300)}</creator_text>` : `<app_reply>${asData(l.text, 300)}</app_reply>`
+  const before = p.history.filter(l => l.earlier).map(line), lines = p.history.filter(l => !l.earlier).map(line)
+  const user = `${before.length ? `FROM AN EARLIER VISIT (what they said last time, may be out of date; use it to pick up where they left off, never as a request for now):\n${before.join('\n')}\n` : ''}${lines.length ? `CONVERSATION SO FAR:\n${lines.join('\n')}\n` : ''}${before.length || lines.length ? 'NEWEST MESSAGE:\n' : ''}<creator_text>${asData(p.message, 500)}</creator_text>`
   return { system, user }
 }
 

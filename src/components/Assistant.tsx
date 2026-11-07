@@ -52,6 +52,8 @@ import { joinWaitlist } from '../hooks/useWaitlist'
 import { fmtTime, fmtHours, nowStamp } from '../../functions/src/gearBooking'
 import { Icon, type IconName } from './Icon'
 import { friendlyError } from '../lib/errors'
+import { loadChat, saveChat, clearChat, summaryLine, earlierAsks, lastVideoNames, type Remembered } from '../lib/chatMemory'
+import { subscribeToReservations } from '../services/reservations'
 
 type Msg =
   | { who: 'me'; text: string; mode: Helper }
@@ -188,8 +190,35 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const atOnce = (list: Msg[]) => { list.forEach(m => shownNow.current.add(m)); return list }
   const isDone = (m: Msg) => m.who !== 'bot' || !m.text || shownNow.current.has(m)
   const [msgs, setMsgs] = useState<Msg[]>(() => atOnce(fresh(helper)))
+  // The chat remembers you (owner, Nov 7): the creator chat page keeps its words on this phone (per person, 30 turns, 7 days)
+  // and shows them again as plain text under "Earlier". Live cards are never brought back, only what they said.
+  const remember = page && !!profile.email
+  const store = () => { try { return window.localStorage } catch { return null } }
+  const [old, setOld] = useState<Remembered[]>(() => remember ? loadChat(store(), profile.email) : [])
+  // Their last 3 video names (from their own props requests), so the chat's AI knows them a little.
+  const [videos, setVideos] = useState<string[]>([])
+  useEffect(() => { if (!remember || demo || helpOnly) return; return subscribeToReservations({ email: profile.email, all: false }, l => setVideos(lastVideoNames(l))) }, [remember, demo, helpOnly, profile.email])
   const demoChips = helpOnly ? (STAFF_STARTERS[role] ?? STARTERS.help) : [...STARTERS.props.slice(0, 3), 'How do I search the props?']
   const [chips, setChips] = useState<string[]>(() => demo || helpOnly ? demoChips : helper ? STARTERS[helper] : mixed())
+  // Keep the words on the phone once something new was said (just opening the chat doesn't restart the 7 days).
+  // Result cards become one line of text ("Props I suggested: …", "Free times I found: …"); the hello isn't kept.
+  useEffect(() => {
+    if (!remember || !msgs.some(m => m.who === 'me')) return
+    const now: Remembered[] = msgs.flatMap((m, i): Remembered[] => {
+      if (m.who === 'me') return [{ who: 'me', text: m.text, mode: m.mode }]
+      if (m.who === 'bot') {
+        if (i === 0) return []
+        const props = m.result ? summaryLine('Props I suggested', m.result.groups.flatMap(g => g.picks.map(p => itemById.get(p.id)?.name ?? bundles.find(b => b.id === p.id)?.name ?? ''))) : ''
+        const asked = m.result ? summaryLine('Not in the closet', m.result.missing.map(x => x.name)) : ''
+        const text = [m.text, props, asked].filter(Boolean).join('\n')
+        return text ? [{ who: 'bot', text }] : []
+      }
+      if (m.who === 'options' && m.options.length) return [{ who: 'bot', text: summaryLine('Free times I found', m.options.map(o => `${formatDay(o.date, { weekday: 'short' })} ${house(o.place)} ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`), 4) }]
+      if (m.who === 'booked') return [{ who: 'bot', text: `${asks ? 'Asked for' : 'Booked'}: ${m.label}` }]
+      return []
+    })
+    saveChat(store(), profile.email, [...old, ...now])
+  }, [msgs])
   // Plan my shoot: which step, and which shoot it's for (set once the time is booked or picked).
   const [plan, setPlan] = useState<{ step: Step; shootId?: string; label?: string } | null>(null)
   const [holds, setHolds] = useState<Record<string, GearHold[]>>({})
@@ -211,6 +240,13 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // Follow the conversation; an empty chat stays at the top (the hello and the to-dos).
   const [, setRevealTick] = useState(0) // re-render so finished answers show their cards
   useEffect(() => { if (shown && msgs.some(m => m.who === 'me')) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown])
+  // Back with an earlier conversation: start just under it (the welcome and today's things), earlier words a scroll up.
+  const nowRef = useRef<HTMLDivElement>(null), placed = useRef(false)
+  useEffect(() => {
+    if (!shown || placed.current || !old.length || msgs.some(m => m.who === 'me')) return
+    placed.current = true
+    requestAnimationFrame(() => { const el = scroller.current, mark = nowRef.current; if (el && mark) el.scrollTop += mark.getBoundingClientRect().top - el.getBoundingClientRect().top - 8 })
+  }, [shown, old.length])
   // While an answer types out, keep its newest words in view (unless they scrolled up to read something earlier).
   const nearBottom = () => { const el = scroller.current; return !!el && el.scrollHeight - el.scrollTop - el.clientHeight <= 160 }
   const follow = () => {
@@ -248,7 +284,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     started.current = true
     if (ask.shootId) planProps(ask.shootId); else startPlan()
   }, [])
-  const restart = () => { setMode(helpOnly ? 'help' : demo ? 'props' : null); setPlan(null); setMsgs(atOnce(fresh())); setChips(demo || helpOnly ? demoChips : mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
+  const restart = () => { if (remember) clearChat(store(), profile.email); setOld([]); setMode(helpOnly ? 'help' : demo ? 'props' : null); setPlan(null); setMsgs(atOnce(fresh())); setChips(demo || helpOnly ? demoChips : mixed()); setPrevious(undefined); setSel([]); setAddedTo(''); setText('') }
 
   // "New chat" in the middle of a plan: explain what goes, then they choose (Start over / Keep going).
   function askRestart() {
@@ -311,7 +347,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const lastBot = msgs.reduce((n, x, i) => x.who === 'bot' ? i : n, -1)   // "Meant … instead?" only under the newest answer
 
   // What the chat's AI may know: the last few lines, and a summary of this person's own shoots and what they have out.
-  const chatLines = () => msgs.flatMap(x => (x.who === 'me' || x.who === 'bot') && x.text ? [{ who: x.who, text: x.text.slice(0, 300) }] : []).slice(-8)
+  // Plus up to 6 things they said on an earlier visit (kept on the phone), marked so the AI treats them as the past.
+  const chatLines = () => [
+    ...earlierAsks(old).map(text => ({ who: 'me' as const, text, earlier: true })),
+    ...msgs.flatMap(x => (x.who === 'me' || x.who === 'bot') && x.text ? [{ who: x.who, text: x.text.slice(0, 300) }] : []).slice(-8),
+  ]
   const chatState = (): ChatStateIn => {
     const groups = returns ?? []
     const paused = myStatus?.pausedUntil && myStatus.pausedUntil.slice(0, 10) > today ? myStatus.pausedUntil.slice(0, 10) : undefined
@@ -321,6 +361,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       ...(paused ? { paused } : {}), ...(myStatus?.strikes ? { strikes: myStatus.strikes } : {}),
       ...(plan ? { plan: { step: plan.step, ...(shoot?.id ? { shoot: shoot.id } : {}) } } : {}),
       ...(partners.length ? { usualPartners: partners.map(p => p.label) } : {}),
+      ...(videos.length ? { recentVideos: videos } : {}),
     }
   }
   // The newest "me" line takes the helper it ended up going to (the prop finder reads earlier prop messages).
@@ -979,12 +1020,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div className="flex items-center gap-2 py-2">
             <BrandMark className="w-7 h-7 text-white" title="" />
             <h1 className="font-display text-[28px] font-extrabold tracking-tight flex-1">Chat</h1>
-            {msgs.length > 2 && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
+            {(msgs.length > 2 || old.length > 0) && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
           </div>
         ) : <>
         <div className="flex items-center justify-between py-3">
           <button onClick={onClose} className="text-pt-accent text-[16px]">‹ Back</button>
-          {msgs.length > 2 && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
+          {(msgs.length > 2 || old.length > 0) && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
         </div>
         <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
         </>}
@@ -999,9 +1040,18 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       </div>
 
       <div ref={scroller} className="flex-1 overflow-y-auto px-5 py-4 space-y-5 [mask-image:linear-gradient(to_bottom,black_calc(100%-20px),transparent)]">
+        {old.length > 0 && (
+          <div className="space-y-3" aria-label="Earlier in this chat">
+            <div className="flex items-center gap-3 text-pt-muted text-xs" role="separator"><span className="h-px flex-1 bg-white/10" />Earlier<span className="h-px flex-1 bg-white/10" /></div>
+            {old.map((m, i) => m.who === 'me'
+              ? <p key={`o${i}`} className="ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-pt-text bg-pt-accent/25 whitespace-pre-line">{m.text}</p>
+              : <p key={`o${i}`} className="max-w-[86%] w-fit rounded-[20px] rounded-bl-md px-4 py-3 text-[16px] leading-snug text-pt-text/80 bg-white/[0.05] whitespace-pre-line">{m.text.replace(/\*\*/g, '')}</p>)}
+            <div ref={nowRef} className="h-px bg-white/10" />
+          </div>
+        )}
         {welcome && (
           <div className="rise-in pt-1 pb-1">
-            <h2 className="font-display text-[28px] leading-tight font-extrabold tracking-tight">{first ? `Hi ${first}.` : 'Hi.'}</h2>
+            <h2 className="font-display text-[28px] leading-tight font-extrabold tracking-tight">{old.length ? (first ? `Welcome back, ${first}.` : 'Welcome back.') : first ? `Hi ${first}.` : 'Hi.'}</h2>
             <p className="text-pt-muted text-[16px]">What are we making today?</p>
           </div>
         )}
