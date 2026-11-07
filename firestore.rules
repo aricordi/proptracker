@@ -339,7 +339,10 @@ service cloud.firestore {
     }
 
     match /app_settings/{id} {
-      allow read: if isMember() || (id in ['schedule', 'calendarCheck'] && canSeeGear());
+      // Costs, AI budgets, the cloud bill and email settings are the owner's only (owner, Oct 20); everyone who
+      // needs them reads booking rules, schedule settings and (gear team) the calendar check.
+      allow read: if isOwner() || (id == 'booking' && isMember()) || (id == 'schedule' && (isMember() || canSeeGear()))
+        || (id == 'calendarCheck' && canSeeGear());
       // Booking rules: the owner and admins only (owner, Oct 20). Every other setting: the owner.
       allow write: if isOwner()
         || (role() == 'admin' && id == 'booking'

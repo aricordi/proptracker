@@ -67,6 +67,12 @@ export const shootsCalendar = onRequest({ invoker: 'public' }, async (req, res) 
   const token = String(req.query.t ?? '')
   const t = /^[a-f0-9]{36}$/.test(token) ? (await db.doc(`calendar_tokens/${token}`).get()).data() : undefined
   if (!t) { res.status(404).send('This calendar link is no longer valid. Get a new one in Prime Capitol → Schedule.'); return }
+  // The person must still be active, and "everyone's shoots" follows their role TODAY (not the role when the link
+  // was made): someone deactivated or moved off the schedule team stops getting the feed.
+  const email = String(t.email ?? '')
+  const u = email === OWNER_EMAIL ? { role: 'owner', active: true } : (await db.doc(`users/${email}`).get()).data()
+  if (!email || !u || u.active !== true) { res.status(404).send('This calendar link is no longer valid. Get a new one in Prime Capitol → Schedule.'); return }
+  t.all = ['owner', 'equipment', 'admin'].includes(String(u.role))
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const from = addDays(todayInStudio(), -30), to = addDays(todayInStudio(), 120)
   const base = db.collection('shoots').where('date', '>=', from).where('date', '<=', to)

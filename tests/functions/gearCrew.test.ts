@@ -59,8 +59,8 @@ describe('everyone is responsible', () => {
     await out('g')
     expect((await call('pickUpGear', { id: 'g', missing: [], signed: true }, BEN)).error).toBe('PERMISSION_DENIED')
     expect((await call('pickUpGear', { id: 'g', missing: [], signed: true }, KYLE)).ok).toBe(true)
-    expect((await call('returnGear', { id: 'g', photos: ['https://example.com/p.jpg'], usedBy: [] }, KYLE)).message).toMatch(/who used/)
-    expect((await call('returnGear', { id: 'g', photos: ['https://example.com/p.jpg'], usedBy: [KYLE, BEN] }, KYLE)).ok).toBe(true)
+    expect((await call('returnGear', { id: 'g', photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'], usedBy: [] }, KYLE)).message).toMatch(/who used/)
+    expect((await call('returnGear', { id: 'g', photos: ['http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'], usedBy: [KYLE, BEN] }, KYLE)).ok).toBe(true)
     // Only the people who used it are on it (Ben isn't on the crew, so he's ignored).
     expect(await getDoc('gear_bookings/g')).toMatchObject({ status: 'returned', usedBy: [KYLE], usedByNames: ['Kyle'] })
   })

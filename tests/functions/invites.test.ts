@@ -34,6 +34,15 @@ describe('book with friends', () => {
   })
 
   // Cliff 2: Cliff 1 is priority-only on Thursdays and Saturdays, and DAY can land on one.
+  it("only people who film can be invited (not arts, equipment or admins)", async () => {
+    await put('users/sam@example.com', { email: 'sam@example.com', role: 'admin', active: true, name: 'Sam' })
+    await put('users/farrell@example.com', { email: 'farrell@example.com', role: 'arts', active: true, name: 'Farrell' })
+    for (const who of ['sam@example.com', 'farrell@example.com']) {
+      const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [who] }, ANA)
+      expect(r.message).toMatch(/doesn't film/)
+    }
+  })
+
   it('an ended hold can be booked by anyone; the late confirm is refused', async () => {
     const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
     const id = r.result.inviteIds[0]

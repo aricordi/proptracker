@@ -5,7 +5,7 @@ import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 
 const GEAR = 's3-team@example.com', ANA = 's3-ana@example.com', BEN = 's3-ben@example.com'
-const PHOTO = 'https://example.com/return.jpg'
+const PHOTO = 'http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'
 const lines = [{ offerId: 'fx3', kind: 'bundle', name: 'FX3 Bundle', qty: 1, photo: null,
   pieces: [{ itemId: 'cam', qty: 1, name: 'Sony FX3 body' }, { itemId: 'bat', qty: 2, name: 'NP-FZ100 battery' }] }]
 

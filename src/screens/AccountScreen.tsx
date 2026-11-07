@@ -6,6 +6,7 @@ import { NotificationsCard } from '../components/Notifications'
 import { LaptopLayoutCard } from '../desk/LaptopLayoutCard'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
+import { turnOffPush } from '../services/push'
 import { useSession } from '../auth'
 import Avatar from '../components/Avatar'
 import { useProfiles, saveProfile, uploadProfilePhoto } from '../services/profiles'
@@ -102,7 +103,12 @@ export default function AccountScreen() {
           </div>
         )}
         <button
-          onClick={() => signOut(auth)}
+          // Take this phone off the person's notifications first (it needs them still signed in), so a shared or
+          // borrowed phone stops showing their pushes. Never wait more than 5 s for it.
+          onClick={async () => {
+            await Promise.race([turnOffPush().catch(() => {}), new Promise(r => setTimeout(r, 5000))])
+            await signOut(auth)
+          }}
           className="w-full py-3 rounded-xl bg-pt-surface shadow-hairline text-pt-text text-sm font-medium active:opacity-70"
         >
           Sign out

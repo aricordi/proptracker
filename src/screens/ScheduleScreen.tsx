@@ -279,6 +279,13 @@ export default function ScheduleScreen() {
 }
 
 // A day from the month view (owner, Nov 2): both houses side by side, one row per time. Free = gold, tap to request.
+// The server never asks the schedule team (owner, equipment) for a guideline, even in the owner's creator mode or
+// "View as": match it by the REAL role, so the owner isn't sent to upload a PDF they don't need (audit, Nov 7).
+function useSkipsGuideline(team: boolean) {
+  const { realRole } = useSession()
+  return team || realRole === 'owner' || realRole === 'equipment'
+}
+
 function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
   date: string; day?: ScheduleDay; team: boolean; lockFree?: boolean; teamView: boolean; canBook: boolean; now: string
   onClose: () => void; onTap: (st: ReturnType<typeof slotState>, h: House, start: number) => void
@@ -286,6 +293,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
 }) {
   const s = useScheduleSettings()
   const { profile } = useSession()
+  const skipG = useSkipsGuideline(team)
   const email = profile.email
   const cell = (h: House, start: number) => {
     // The owner booking for themselves follows the priority lock like the server does (audit, Nov 5).
@@ -293,7 +301,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     let label: React.ReactNode, cls = 'bg-pt-surface text-pt-muted'
     const early = houseFreeFrom(day, h, start, s)
     // Cliff 1 priority days for people outside the priority group (owner, Nov 3): say it on the slot itself.
-    const guide = st.t === 'free' && !team && canBook && needsGuideline(date, h, email, s)
+    const guide = st.t === 'free' && !skipG && canBook && needsGuideline(date, h, email, s)
     if (st.t === 'free') { label = <>Free{guide && <span className="block text-[11px] font-normal text-amber-200">Guideline required</span>}{early && <span className="block text-[11px] font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
     else if (st.t === 'booked') {
       const me = st.entry.email === email
@@ -432,7 +440,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   const { profile } = useSession()
   const asks = !team && !s.instantBookers.some(p => p.email === profile.email)
   const [guide, setGuide] = useState<Guideline | null>(null)
-  const needG = !team && house !== 'offsite' && needsGuideline(date, house, profile.email, s)
+  const skipG = useSkipsGuideline(team)
+  const needG = !skipG && house !== 'offsite' && needsGuideline(date, house, profile.email, s)
   useEffect(() => { if (team) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team])
   // Friends (creators only): how many, then search by name or channel.
   const [friendCount, setFriendCount] = useState(0)
@@ -696,6 +705,7 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const [err, setErr] = useState('')
   const today = todayInStudio()
   const { role, profile } = useSession()
+  const skipG = useSkipsGuideline(team)
   const instant = s.instantBookers.some(p => p.email === shoot.creatorEmail)
   const asks = !team && !instant && shoot.status === 'booked'
   // Moving the owner's own shoot follows the priority lock; the team moving someone else's doesn't.
@@ -704,7 +714,7 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const [guide, setGuide] = useState<Guideline | null>(null)
   const [needFor, setNeedFor] = useState<{ date: string; house: House; start: number } | null>(null)
   async function go(date: string, house: House, start: number) {
-    if (!team && !shoot.guideline && !guide && needsGuideline(date, house, shoot.creatorEmail, s)) { setNeedFor({ date, house, start }); return }
+    if (!skipG && !shoot.guideline && !guide && needsGuideline(date, house, shoot.creatorEmail, s)) { setNeedFor({ date, house, start }); return }
     const key = `${date}${house}${start}`
     setBusy(key); setErr('')
     try {
@@ -1055,7 +1065,8 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
   const { profile } = useSession()
   const asks = !team && !s.instantBookers.some(p => p.email === profile.email)
   const [guide, setGuide] = useState<Guideline | null>(null)
-  const needG = !team && needsGuideline(date, house, profile.email, s)
+  const skipG = useSkipsGuideline(team)
+  const needG = !skipG && needsGuideline(date, house, profile.email, s)
   const rows = [{ email: profile.email, name: 'You', note: asks ? 'Requested' : 'Booked' }, ...friends.map(f => ({ email: f.email, name: f.name, note: `Held ${INVITE_HOLD_MINUTES} min` }))]
   return (
     <BottomSheet open onClose={onClose} title="Book back to back">
