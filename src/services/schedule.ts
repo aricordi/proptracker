@@ -6,6 +6,7 @@ import { db, functions } from '../firebase'
 import { cleanScheduleSettings, DEFAULT_SCHEDULE, type ScheduleSettings, type ScheduleDay, type Place, type ShootKind, type BlockType, type House } from '../../functions/src/schedule'
 import { friendlyError } from '../lib/errors'
 import { OWNER_EMAIL } from '../config'
+import { studioDayOf } from '../lib/dates'
 
 export * from '../../functions/src/schedule'
 // Owner (Oct 19, option A): the "monthly vs extra" choice stays hidden. Guaranteed monthly slots come from the Google Calendar
@@ -256,7 +257,7 @@ export function useStrikesSince(fromDate: string, enabled: boolean, email?: stri
   useEffect(() => {
     if (!enabled) return
     const q = email ? query(collection(db, 'strikes'), where('email', '==', email)) : query(collection(db, 'strikes'), where('at', '>=', fromDate))
-    return onSnapshot(q, snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Strike)).filter(x => x.at.slice(0, 10) >= fromDate)), () => setList([]))
+    return onSnapshot(q, snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Strike)).filter(x => studioDayOf(x.at) >= fromDate)), () => setList([]))
   }, [fromDate, enabled, email])
   return list
 }

@@ -49,11 +49,15 @@ export default function ItemDetailScreen() {
     setPhotoIndex(0); setLightboxIndex(null); setShowArchiveConfirm(false)
     const scroller = topRef.current?.closest('main') ?? document.getElementById('root')
     scroller?.scrollTo({ top: 0 })
+    // Don't show the previous prop under the new address while this one loads (audit Nov 7).
+    let stale = false
+    setLoading(true)
     getItem(id)
-      .then(setItem)
-      .catch(() => setItem(null))   // e.g. someone else's personal prop: treated as not found
-      .finally(() => setLoading(false))
-    if (canSeeStaff) getItemPrivate(id).then(p => setInternalNotes(p.internalNotes ?? '')).catch(() => {})
+      .then(x => { if (!stale) setItem(x) })
+      .catch(() => { if (!stale) setItem(null) })   // e.g. someone else's personal prop: treated as not found
+      .finally(() => { if (!stale) setLoading(false) })
+    if (canSeeStaff) getItemPrivate(id).then(p => { if (!stale) setInternalNotes(p.internalNotes ?? '') }).catch(() => {})
+    return () => { stale = true }
   }, [id, canSeeStaff])
 
   const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
@@ -62,18 +66,23 @@ export default function ItemDetailScreen() {
   const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
   const categoryById  = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories])
 
-  if (loading) {
+  // Loading / not found keep a Back button: this page has no tab bar, and the home-screen app has no browser Back.
+  if (loading || !item) {
     return (
-      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
-        <p className="text-pt-muted text-sm">Loading…</p>
-      </div>
-    )
-  }
-
-  if (!item) {
-    return (
-      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
-        <p className="text-pt-muted text-sm">Item not found.</p>
+      <div className="min-h-screen bg-pt-bg">
+        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3">
+          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/browse')}
+            className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted min-h-[44px]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+        </div>
+        <div className="px-6 pt-24 text-center">
+          <p className="text-pt-muted text-sm">{loading ? 'Loading…' : 'Prop not found.'}</p>
+          {!loading && <p className="text-pt-muted text-sm mt-1">It may have been removed.</p>}
+        </div>
       </div>
     )
   }
@@ -238,7 +247,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {!item.archived && !demo && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
+        {!item.archived && !demo && <ReservePanel key={item.id} item={item} entries={bookings[item.id] ?? []} />}
 
         {/* Location */}
         {canSeeStaff && locationPath && (

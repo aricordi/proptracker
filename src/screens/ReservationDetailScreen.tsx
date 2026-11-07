@@ -14,7 +14,7 @@ import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
-import { formatDay, formatRange } from '../lib/dates'
+import { formatDay, formatRange, studioDayOf } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
 import ShootLink from '../components/ShootLink'
 import ShootLine from '../components/ShootLine'
@@ -39,8 +39,18 @@ export default function ReservationDetailScreen() {
   // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
   const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email)
 
-  if (res === undefined) return <Centered>Loading…</Centered>
-  if (res === null) return <Centered>Booking not found.</Centered>
+  const goBack = () => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')
+  if (res === undefined || res === null) return (
+    <div className="min-h-screen bg-pt-bg">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3">
+        <button onClick={goBack} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
+      </div>
+      <div className="px-6 pt-24 text-center">
+        <p className="text-pt-muted text-sm">{res === undefined ? 'Loading…' : 'Request not found.'}</p>
+        {res === null && <p className="text-pt-muted text-sm mt-1">It may have been removed, or it isn't yours.</p>}
+      </div>
+    </div>
+  )
 
   const active = ACTIVE_STATUSES.includes(res.status)
   const overdue = isLate(res.status, res.endDate, settings)
@@ -52,7 +62,7 @@ export default function ReservationDetailScreen() {
   return (
     <div className="min-h-screen bg-pt-bg pb-12">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
+        <button onClick={goBack} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <span className={`text-xs px-3 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
           {overdue ? 'Late' : statusLabel(res)}
         </span>
@@ -118,7 +128,7 @@ export default function ReservationDetailScreen() {
 
         {/* ── Packed: proof + creator sign-off ── */}
         {res.packPhotos && (
-          <Section title={`Packed ${res.packedAt ? `· ${formatDay(res.packedAt.slice(0, 10))}` : ''}`}>
+          <Section title={`Packed ${res.packedAt ? `· ${formatDay(studioDayOf(res.packedAt))}` : ''}`}>
             <PhotoStrip urls={res.packPhotos} title="What was packed" />
             {res.packNote && <p className="text-pt-text text-sm mt-2"><IconText name="note">{res.packNote}</IconText></p>}
           </Section>
@@ -129,7 +139,7 @@ export default function ReservationDetailScreen() {
 
         {res.pickup && (
           <Banner tone={res.pickup.allReceived ? 'green' : 'red'} title={res.pickup.byStaff ? 'Collected: marked by the arts team' : res.pickup.allReceived ? 'Collected: creator confirmed everything ✓' : 'Collected, with an issue'}>
-            Signed by {res.pickup.by} on {formatDay(res.pickup.at.slice(0, 10))} at {time(res.pickup.at)}
+            Signed by {res.pickup.by} on {formatDay(studioDayOf(res.pickup.at))} at {time(res.pickup.at)}
             {res.pickup.issue && <><br /><strong>Reported:</strong> {res.pickup.issue}</>}
           </Banner>
         )}
@@ -148,7 +158,7 @@ export default function ReservationDetailScreen() {
           </Banner>
         )}
         {res.returnInfo && (
-          <Section title={`Returned ${formatDay(res.returnInfo.at.slice(0, 10))} at ${time(res.returnInfo.at)}`}>
+          <Section title={`Returned ${formatDay(studioDayOf(res.returnInfo.at))} at ${time(res.returnInfo.at)}`}>
             <PhotoStrip urls={res.returnInfo.photos} title={res.returnInfo.byStaff ? 'Return photos (taken by arts dept)' : 'How the creator left it'} />
             {res.returnInfo.note && <p className="text-pt-text text-sm mt-2"><IconText name="note">{res.returnInfo.note}</IconText></p>}
             {res.returnInfo.damaged?.length ? <p className="text-amber-200 text-sm mt-2">Damage reported: {res.returnInfo.damaged.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}</p> : null}
@@ -664,7 +674,7 @@ function CheckInSummary({ res }: { res: Reservation }) {
   const checked = res.lines.filter(l => l.checkIn)
   const problems = checked.filter(l => l.checkIn!.result !== 'ok')
   return (
-    <Section title={`Checked in ${res.checkedInAt ? `· ${formatDay(res.checkedInAt.slice(0, 10))}` : ''}`}>
+    <Section title={`Checked in ${res.checkedInAt ? `· ${formatDay(studioDayOf(res.checkedInAt))}` : ''}`}>
       {res.returnedWithoutCreatorPhoto && <p className="text-amber-300 text-xs mb-2">Returned without the creator's return photo.</p>}
       {problems.length === 0
         ? <p className="text-green-400 text-sm">✓ Everything came back fine.</p>
@@ -731,7 +741,7 @@ function History({ res }: { res: Reservation }) {
       <ul className="space-y-1">
         {res.history.map((h, i) => (
           <li key={i} className="text-pt-muted text-xs">
-            {formatDay(h.at.slice(0, 10), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
+            {formatDay(studioDayOf(h.at), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.event === 'reopened' ? 'Back to Requested (nothing picked yet)' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
             {h.reason ? ` ("${h.reason}")` : ''}
           </li>
         ))}
@@ -762,8 +772,4 @@ function Banner({ tone, title, children }: { tone: keyof typeof BANNER_TONES; ti
       <p className="text-pt-text/80 text-sm mt-0.5">{children}</p>
     </div>
   )
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return <div className="min-h-screen bg-pt-bg flex items-center justify-center text-pt-muted text-sm">{children}</div>
 }

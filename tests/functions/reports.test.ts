@@ -56,4 +56,11 @@ describe('props pickup and return', () => {
     expect(back.ok).toBe(true)
     expect((await getDoc('reservations/r1'))!.returnInfo.damaged).toEqual([{ itemId: 'chair', note: 'leg wobbly', name: 'Diner chair' }])
   })
+  it('a prop marked "not available" at picking can\'t be reported damaged at the return', async () => {
+    await put('reservations/r2', { title: 'Diner', creatorEmail: ANA, creatorName: 'Ana', startDate: DAY, endDate: DAY, status: 'collected',
+      lines: [{ itemId: 'chair', itemName: 'Diner chair', qty: 1, pick: { state: 'picked' } }, { itemId: 'cop', itemName: 'Cop costume', qty: 1, pick: { state: 'unavailable', reason: 'Torn' } }],
+      itemIds: ['chair', 'cop'], history: [] })
+    expect((await call('startReturn', { id: 'r2', photos: [PHOTO], damaged: [{ itemId: 'cop', note: 'ripped' }, { itemId: 'chair', note: 'scratch' }] }, ANA)).ok).toBe(true)
+    expect((await getDoc('reservations/r2'))!.returnInfo.damaged.map((d: { itemId: string }) => d.itemId)).toEqual(['chair'])
+  })
 })

@@ -17,11 +17,16 @@ interface Part { key: string; kind: 'props' | 'gear'; id: string; title: string;
 export function returnParts(group: ReturnGroup | undefined): Part[] {
   if (!group) return []
   return [
-    ...group.props.filter(canReturnProps).map(r => ({
-      key: `props:${r.id}`, kind: 'props' as const, id: r.id, title: `Props & costumes · ${r.lines.length + (r.builds ?? []).length}`,
-      detail: [...r.lines.map(l => l.qty > 1 ? `${l.itemName} ×${l.qty}` : l.itemName), ...(r.builds ?? []).filter(b => b.state === 'done').map(b => b.description)].join(', '),
-      things: r.lines.map(l => ({ key: `p|${r.id}|${l.itemId}`, itemId: l.itemId, name: l.itemName })),
-    })),
+    ...group.props.filter(canReturnProps).map(r => {
+      // Only what was handed over: props marked "not available" at picking and builds that weren't made never left.
+      const lines = r.lines.filter(l => l.pick?.state !== 'unavailable')
+      const builds = (r.builds ?? []).filter(b => b.state === 'done')
+      return {
+        key: `props:${r.id}`, kind: 'props' as const, id: r.id, title: `Props & costumes · ${lines.length + builds.length}`,
+        detail: [...lines.map(l => l.qty > 1 ? `${l.itemName} ×${l.qty}` : l.itemName), ...builds.map(b => b.description)].join(', '),
+        things: lines.map(l => ({ key: `p|${r.id}|${l.itemId}`, itemId: l.itemId, name: l.itemName })),
+      }
+    }),
     ...group.gear.filter(canReturnGear).map(b => ({
       key: `gear:${b.id}`, kind: 'gear' as const, id: b.id, booking: b, title: `Gear · ${fmtTime(b.start)}–${fmtTime(b.end)}`,
       detail: b.lines.map(l => l.qty > 1 ? `${l.name} ×${l.qty}` : l.name).join(', '),
@@ -33,9 +38,11 @@ export function returnParts(group: ReturnGroup | undefined): Part[] {
 const chip = (on: boolean) => `px-3 min-h-[40px] rounded-full text-[14px] ${on ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border text-pt-text'}`
 const q = 'text-[15px] text-pt-text font-semibold'
 
-export default function ReturnFlow({ group, compact = false, onDone }: { group: ReturnGroup; compact?: boolean; onDone: (n: number) => void }) {
+// `only` ('props:<id>' / 'gear:<id>'): opened from one request's own Return button, so only that one starts ticked;
+// the shoot's other requests are listed unticked ("Keeping it for now") and can be ticked to bring them back too.
+export default function ReturnFlow({ group, compact = false, only, onDone }: { group: ReturnGroup; compact?: boolean; only?: string; onDone: (n: number) => void }) {
   const parts = useMemo(() => returnParts(group), [group])
-  const [off, setOff] = useState<Set<string>>(new Set())
+  const [off, setOff] = useState<Set<string>>(() => only && parts.some(p => p.key === only) ? new Set(parts.filter(p => p.key !== only).map(p => p.key)) : new Set())
   const [broken, setBroken] = useState<boolean | null>(null)
   const [hurt, setHurt] = useState<Record<string, string>>({})   // thing key → what's wrong
   const [charging, setCharging] = useState<boolean | null>(null)

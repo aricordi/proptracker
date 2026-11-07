@@ -31,6 +31,28 @@ describe('instant notifications', () => {
     expect(reservationChange('r1', r, { ...r, status: 'return_pending' })[0].to).toEqual(['arts-team'])
     expect(reservationChange('r1', r, { ...r, notes: 'x' })).toEqual([])
   })
+  it('props: creator hears straight away when a prop or build is not available', () => {
+    const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', status: 'preparing', history: [{ by: 'arts@x.com' }],
+      lines: [{ itemId: 'cop', itemName: 'Cop costume' }, { itemId: 'chair', itemName: 'Chair' }], builds: [{ id: 'b1', description: 'Fake cake', state: 'todo' }] }
+    const one = reservationChange('r1', r, { ...r, lines: [{ itemId: 'cop', itemName: 'Cop costume', pick: { state: 'unavailable', reason: 'Torn' } }, r.lines[1]] })
+    expect(one).toHaveLength(1)
+    expect(one[0]).toMatchObject({ to: ['c@x.com'], title: '"Cop costume" isn\'t available' })
+    expect(one[0].body).toMatch(/Torn/)
+    const both = reservationChange('r1', { ...r, status: 'requested' }, { ...r, builds: [{ id: 'b1', description: 'Fake cake', state: 'unavailable', reason: 'No time' }],
+      lines: [{ itemId: 'cop', itemName: 'Cop costume', pick: { state: 'unavailable', reason: 'Torn' } }, r.lines[1]] })
+    expect(both[0].title).toBe('2 things aren\'t available')
+    // Already marked before: no second ping.
+    const marked = { ...r, lines: [{ itemId: 'cop', itemName: 'Cop costume', pick: { state: 'unavailable', reason: 'Torn' } }, r.lines[1]] }
+    expect(reservationChange('r1', marked, { ...marked, notes: 'x' })).toEqual([])
+  })
+  it('props: arts hear when a creator cancels a request they started on', () => {
+    const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', history: [{ by: 'c@x.com' }] }
+    const packed = reservationChange('r1', { ...r, status: 'packed' }, { ...r, status: 'cancelled' })
+    expect(packed[0]).toMatchObject({ to: ['arts-team'], title: 'Props request cancelled' })
+    expect(packed[0].body).toMatch(/Unpack the bin/)
+    expect(reservationChange('r1', { ...r, status: 'preparing' }, { ...r, status: 'cancelled' })[0].to).toEqual(['arts-team'])
+    expect(reservationChange('r1', { ...r, status: 'requested' }, { ...r, status: 'cancelled' })).toEqual([])
+  })
   it('gear: new → gear team; declined → creator', () => {
     const g = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', date: '2026-10-23', start: 780, status: 'held' }
     expect(gearChange('g1', null, g)[0]).toMatchObject({ to: ['gear-team'], title: 'New gear hold' })

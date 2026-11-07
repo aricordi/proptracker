@@ -4,6 +4,7 @@
 import { isLate, wasReturnedLate, type ClosedDays } from '../../functions/src/booking'
 import { isGearLate, nowStamp } from '../../functions/src/gearBooking'
 import { expectsCheckIn } from '../../functions/src/schedule'
+import { studioDayOf } from './dates'
 
 export const LATE_START_MINUTES = 15   // checked in more than 15 min after the slot started = started late
 
@@ -112,13 +113,13 @@ export function creatorStats(opts: {
   }
 
   for (const s of opts.strikes) {
-    if (s.at.slice(0, 10) < from || s.removedAt) continue   // removed strikes don't count
+    if (studioDayOf(s.at) < from || s.removedAt) continue   // removed strikes don't count
     // A strike that came with a no-show, late cancel or upheld report on a shoot is already that flag (audit, Nov 5).
     if ((s as { flagId?: string }).flagId || (s.reason !== 'manual' && s.shootId)) continue
     const c = get(s.email)
     const why = s.reason === 'manual' ? `${s.about && s.about !== 'other' ? `${s.about}: ` : ''}${s.note ?? 'given by an admin'}`
       : s.reason === 'late-cancel' ? 'late cancel' : s.reason === 'report' ? 'upheld report' : 'no-show'
-    flag(c, { kind: 'strike', date: s.at.slice(0, 10), text: `Strike: ${why}`, to: s.shootId ? `/schedule?shoot=${s.shootId}` : undefined, strikeId: s.id })
+    flag(c, { kind: 'strike', date: studioDayOf(s.at), text: `Strike: ${why}`, to: s.shootId ? `/schedule?shoot=${s.shootId}` : undefined, strikeId: s.id })
   }
 
   for (const c of m.values()) c.flags.sort((a, b) => b.date.localeCompare(a.date))

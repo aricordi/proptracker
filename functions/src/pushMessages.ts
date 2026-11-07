@@ -61,12 +61,34 @@ export function reservationChange(id: string, b: Doc, a: Doc): Push[] {
   if (!a) return []
   const url = `/reservations/${id}`, tag = `props-${id}`
   if (!b) return [{ to: ['arts-team'], url, tag, title: 'New props request', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.startDate)}` }]
-  if (b.status === a.status) return []
+  // Audit Nov 7: tell the creator straight away when a prop is marked not available or a build can't be made,
+  // so they still have time to find something else (email may not be set up).
+  const gone = [
+    ...((a.lines ?? []) as { itemId: string; itemName?: string; pick?: { state?: string; reason?: string } }[])
+      .filter(l => l.pick?.state === 'unavailable' && !((b.lines ?? []) as typeof a.lines).some((x: any) => x.itemId === l.itemId && x.pick?.state === 'unavailable'))
+      .map(l => ({ name: l.itemName || 'A prop', reason: l.pick?.reason })),
+    ...((a.builds ?? []) as { id: string; description?: string; state?: string; reason?: string }[])
+      .filter(x => x.state === 'unavailable' && !((b.builds ?? []) as typeof a.builds).some((y: any) => y.id === x.id && y.state === 'unavailable'))
+      .map(x => ({ name: x.description || 'Something you asked for', reason: x.reason })),
+  ]
+  const notAvailable: Push[] = gone.length && a.status !== 'cancelled' && a.status !== 'declined' ? [{ to: [a.creatorEmail], url, tag: `${tag}-na`,
+    title: gone.length === 1 ? `"${String(gone[0].name).slice(0, 60)}" isn't available` : `${gone.length} things aren't available`,
+    body: `${gone.map(g => `${String(g.name).slice(0, 60)}${g.reason ? `: ${String(g.reason).slice(0, 120)}` : ''}`).join(' · ')}. The rest of "${a.title}" still goes. Open it to add something else.` }] : []
+  if (b.status === a.status) return notAvailable
+  return [...notAvailable, ...statusPush(a, b, url, tag)]
+}
+
+function statusPush(a: Record<string, any>, b: Record<string, any>, url: string, tag: string): Push[] {
   switch (a.status) {
     case 'packed': return [{ to: [a.creatorEmail], url, tag, title: 'Your props are ready 📦', body: `"${a.title}" is packed. Pick it up for your ${dayLabel(a.startDate)} shoot.` }]
     case 'declined': return [{ to: [a.creatorEmail], url, tag, title: 'Props request declined', body: a.statusReason ? `"${a.title}": ${a.statusReason}` : `"${a.title}" was declined.` }]
     case 'collected': return a.pickup && !a.pickup.allReceived ? [{ to: ['arts-team'], url, tag, title: 'Pickup issue', body: `${a.creatorName} · "${a.title}": ${String(a.pickup.issue ?? 'something is missing').slice(0, 160)}` }] : []
-    case 'cancelled': return lastBy(a) !== a.creatorEmail ? [{ to: [a.creatorEmail], url, tag, title: 'Props request cancelled', body: `"${a.title}" was cancelled by the team.` }] : []
+    case 'cancelled': {
+      if (lastBy(a) !== a.creatorEmail) return [{ to: [a.creatorEmail], url, tag, title: 'Props request cancelled', body: `"${a.title}" was cancelled by the team.` }]
+      // Audit Nov 7: the arts team hears about it when they had already started picking or packing.
+      return b.status === 'preparing' || b.status === 'packed' ? [{ to: ['arts-team'], url, tag, title: 'Props request cancelled',
+        body: `${a.creatorName} cancelled "${a.title}".${b.status === 'packed' ? ' Unpack the bin.' : ' Stop picking it.'}` }] : []
+    }
     case 'return_pending': {
       const dmg = ((a.returnInfo?.damaged ?? []) as { name: string; note?: string }[])
       return [{ to: ['arts-team'], url, tag, title: dmg.length ? 'Props returned · damage reported' : 'Props returned', body: `${a.creatorName}'s "${a.title}" is back.${dmg.length ? ` Damaged: ${dmg.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}.` : ''} Check it in.` }]
