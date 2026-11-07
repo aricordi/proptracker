@@ -3,10 +3,10 @@
 // it's theirs until the shoot ends. Return is the usual one (Return everything / the gear page).
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useActiveShoot, useGearWindow, useShootLabel } from '../activeShoot'
+import { useActiveShoot, useGearWindow, useShootLabel, stampLabel } from '../activeShoot'
 import { useGearCart } from '../gearCart'
 import { friendlyError } from '../lib/errors'
-import { checkLines, knownMissingKeys } from '../../functions/src/gearBooking'
+import { checkLines, knownMissingKeys, addMinutes, GEAR_TAKE_BEFORE_MINUTES } from '../../functions/src/gearBooking'
 import { byCount } from '../../functions/src/gearStock'
 import ProofPhotos from '../components/ProofPhotos'
 import { PieceChecklist, GearArt, LateFeeNote } from '../components/GearUi'
@@ -66,7 +66,12 @@ export default function TakeGearScreen() {
       </div>
       <div className="px-4 space-y-5">
         {!shoot || state !== 'take' ? (
-          <p className="rounded-2xl bg-amber-400/10 text-amber-200 p-4 text-[15px]">{state === 'over' ? 'This shoot is over, so gear can\'t be taken for it any more.' : `You can take gear from an hour before your shoot until it ends.${state === 'reserve' ? ' Until then you can reserve it for your shoot.' : ''}`}</p>
+          // Say the real reason (audit, Nov 7: it pointed to a Gear tab creators don't have).
+          <p className="rounded-2xl bg-amber-400/10 text-amber-200 p-4 text-[15px]">{!shoot ? 'Pick your shoot first: gear is taken for a shoot.'
+            : state === 'over' ? 'This shoot is over, so gear can\'t be taken for it any more.'
+            : shoot.status === 'requested' ? 'Your shoot is waiting for approval. Once it\'s approved you can take gear from an hour before it starts.'
+            : state === 'reserve' ? `You can take gear from ${stampLabel(addMinutes(shoot.from, -GEAR_TAKE_BEFORE_MINUTES))} (an hour before your shoot). Until then you can reserve a kit ahead.`
+            : `You can take gear from ${stampLabel(addMinutes(shoot.from, -GEAR_TAKE_BEFORE_MINUTES))} (an hour before your shoot) until it ends.`}</p>
         ) : !picked.length ? (
           <div className="rounded-2xl bg-pt-surface p-4 space-y-3"><p className="text-[15px]">Nothing picked yet.</p>
             <button onClick={() => navigate('/gear')} className="w-full rounded-xl py-3 font-bold bg-pt-accent text-stone-900">Pick gear</button></div>

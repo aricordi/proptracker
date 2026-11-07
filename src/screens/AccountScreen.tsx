@@ -73,7 +73,7 @@ export default function AccountScreen() {
         )}
         {!shootFlow && isGearStaff && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
-            {([['Gear team tour', 'Practise the gear room: kits, the queue, check-ins, the schedule', '/tour/gear'], ['Help', 'How do I…? Booking, gear, check-in, sign-in', '/help']] as const).map(([t, d, to]) => (
+            {([['Gear team tour', 'Approve requests, the gear log, blocking time (5 min)', '/tour/gear'], ['Help', 'How do I…? Booking, gear, check-in, sign-in', '/help']] as const).map(([t, d, to]) => (
               <button key={to} onClick={() => navigate(to)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
                 <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span><span className="text-pt-muted">›</span>
               </button>

@@ -21,6 +21,7 @@ import ReturnTogether from '../components/ReturnTogether'
 import { formatDay } from '../lib/dates'
 import { Icon } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
+import { NotFound } from '../components/NotFound'
 
 const errText = (e: unknown) => friendlyError(e)
 const ACTIONS: Record<string, string> = { problem: 'Problem reported', handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
@@ -63,7 +64,7 @@ export default function GearBookingScreen() {
   const shootText = useShootLine(b?.scheduleShootId, b?.date, profile.email)
 
   if (b === undefined) return <div className="p-6 pt-safe text-pt-muted">Loading…</div>
-  if (b === null) return <div className="p-6 pt-safe text-pt-muted">Booking not found.</div>
+  if (b === null) return <NotFound title="This gear booking isn't here" />
 
   const now = nowStamp()
   const booker = b.creatorEmail === profile.email

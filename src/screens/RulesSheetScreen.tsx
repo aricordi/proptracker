@@ -68,7 +68,7 @@ export default function RulesSheetScreen() {
       ['Low show-up', `under ${Math.round(LOW_SHOW_UP * 100)}%`, 'Filmed out of booked, once they have 2 or more shoots in the range.', owner],
     ] },
     { title: 'On the day, strikes and pauses', rows: [
-      ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a set photo (camera only) from this time until the slot ends.', owner],
+      ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a selfie (camera only) from this time until the slot ends.', owner],
       ['Started late', `more than ${LATE_START_MIN} min`, 'Checking in this long after the slot began shows a "Started late" flag in Analytics.', owner],
       ['Time to explain a missed check-in', `${s.explainHours} h`, 'After that, the team decides: they filmed, or a no-show (strike).', owner],
       ['Automatic pause', `${s.strikeCount} strikes in ${s.strikeDays} days`, `Pauses prop bookings for ${s.pauseDays} days (house time still OK). Admins can give, remove and lift.`, owner],

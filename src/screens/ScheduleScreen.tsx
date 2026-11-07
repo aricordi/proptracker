@@ -302,14 +302,14 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     const early = houseFreeFrom(day, h, start, s)
     // Cliff 1 priority days for people outside the priority group (owner, Nov 3): say it on the slot itself.
     const guide = st.t === 'free' && !skipG && canBook && needsGuideline(date, h, email, s)
-    if (st.t === 'free') { label = <>Free{guide && <span className="block text-[11px] font-normal text-amber-200">Guideline required</span>}{early && <span className="block text-[11px] font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
+    if (st.t === 'free') { label = <>Free{guide && <span className="block text-xs font-normal text-amber-200">Guideline required</span>}{early && <span className="block text-xs font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
     else if (st.t === 'booked') {
       const me = st.entry.email === email
       label = me ? 'You' : st.entry.name
       cls = st.entry.pending ? 'bg-amber-400/[0.07] text-amber-200 border border-dashed border-amber-400/50' : me ? 'bg-pt-accent/10 text-pt-text font-semibold' : 'bg-pt-surface text-pt-text'
-      if (st.entry.pending) label = <>{label}<span className="block text-[11px] text-amber-300/80">{st.entry.move ? 'move asked' : 'asked'}</span></>
+      if (st.entry.pending) label = <>{label}<span className="block text-xs text-amber-300/80">{st.entry.move ? 'move asked' : 'asked'}</span></>
     }
-    else if (st.t === 'block') { label = <>{st.block.note || 'Blocked'}{st.block.end % 120 !== 0 || st.block.end - st.block.start < s.slotMinutes ? <span className="block text-[11px]">until {fmtTime(st.block.end)}</span> : null}</>; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted' }
+    else if (st.t === 'block') { label = <>{st.block.note || 'Blocked'}{st.block.end % 120 !== 0 || st.block.end - st.block.start < s.slotMinutes ? <span className="block text-xs">until {fmtTime(st.block.end)}</span> : null}</>; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted' }
     else if (st.t === 'held') { label = `Held · ${st.entry.name}`; cls = 'bg-amber-400/[0.06] text-amber-300 border border-dashed border-amber-400/50' }
     else if (st.t === 'locked') { label = <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority</span> }
     else label = '—'
@@ -641,7 +641,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         {lineup && <DayLineup date={shoot.date} shootId={id} />}
         {sent && mine && (
           <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text">
-            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : `The arts team has your props request. ${s.gearReserve ? 'Add gear below if you need it.' : 'Need gear? Take it on the shoot day from the chat.'}`}
+            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : s.gearReserve ? 'The arts team has your props request. Add gear below if you need it.' : 'The arts team has your props request. Gear: take what\'s free on your shoot day, from an hour before.'}
           </div>
         )}
         {requested && <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">

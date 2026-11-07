@@ -20,6 +20,7 @@ import type { Item, Condition } from '../types'
 import PropManage, { type ManageDone } from '../components/PropManage'
 import PropRecommendations from '../components/PropRecommendations'
 import { Toast } from '../components/cleanup/Parts'
+import { NotFound } from '../components/NotFound'
 
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
@@ -69,23 +70,13 @@ export default function ItemDetailScreen() {
   // Loading / not found keep a Back button: this page has no tab bar, and the home-screen app has no browser Back.
   if (loading || !item) {
     return (
-      <div className="min-h-screen bg-pt-bg">
-        <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3">
-          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/browse')}
-            className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted min-h-[44px]">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
-            </svg>
-            Back
-          </button>
-        </div>
-        <div className="px-6 pt-24 text-center">
-          <p className="text-pt-muted text-sm">{loading ? 'Loading…' : 'Prop not found.'}</p>
-          {!loading && <p className="text-pt-muted text-sm mt-1">It may have been removed.</p>}
-        </div>
+      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
+        <p className="text-pt-muted text-sm">Loading…</p>
       </div>
     )
   }
+
+  if (!item) return <NotFound title="This prop isn't here" />
 
   const location = item.locationId ? locationById[item.locationId] : null
   const bin      = item.binId ? binById[item.binId] : null
@@ -193,10 +184,16 @@ export default function ItemDetailScreen() {
         )}
         {item.archived && (
           <div className="bg-pt-surface shadow-hairline rounded-xl px-4 py-3">
-            <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : 'Archived'}</p>
-            <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
-              ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
-              : 'Hidden from search. Its history is kept.'}</p>
+            {/* Creators get plain words, not the staff's clean-up notes (audit, Nov 7). */}
+            {canSeeStaff ? <>
+              <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : item.mergedInto ? 'Combined with another prop' : 'Archived'}</p>
+              <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
+                ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
+                : 'Hidden from search. Its history is kept.'}</p>
+            </> : <p className="text-pt-text text-sm font-medium">This prop isn't in the closet any more.</p>}
+            {item.mergedInto && (
+              <button onClick={() => navigate(`/item/${item.mergedInto}`)} className="mt-2 min-h-[44px] text-pt-accent text-sm font-semibold">See the prop it was combined into ›</button>
+            )}
           </div>
         )}
 

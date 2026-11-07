@@ -22,6 +22,7 @@ import { useShootLine } from '../hooks/useShootLines'
 import ReturnTogether from '../components/ReturnTogether'
 import { Icon, IconText } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
+import { NotFound } from '../components/NotFound'
 
 const errText = (e: unknown) => friendlyError(e)
 
@@ -40,17 +41,8 @@ export default function ReservationDetailScreen() {
   const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email)
 
   const goBack = () => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')
-  if (res === undefined || res === null) return (
-    <div className="min-h-screen bg-pt-bg">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3">
-        <button onClick={goBack} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-      </div>
-      <div className="px-6 pt-24 text-center">
-        <p className="text-pt-muted text-sm">{res === undefined ? 'Loading…' : 'Request not found.'}</p>
-        {res === null && <p className="text-pt-muted text-sm mt-1">It may have been removed, or it isn't yours.</p>}
-      </div>
-    </div>
-  )
+  if (res === undefined) return <Centered>Loading…</Centered>
+  if (res === null) return <NotFound title="This request isn't here" />
 
   const active = ACTIVE_STATUSES.includes(res.status)
   const overdue = isLate(res.status, res.endDate, settings)
@@ -772,4 +764,8 @@ function Banner({ tone, title, children }: { tone: keyof typeof BANNER_TONES; ti
       <p className="text-pt-text/80 text-sm mt-0.5">{children}</p>
     </div>
   )
+}
+
+function Centered({ children }: { children: ReactNode }) {
+  return <div className="min-h-screen bg-pt-bg flex items-center justify-center"><p className="text-pt-muted text-sm">{children}</p></div>
 }

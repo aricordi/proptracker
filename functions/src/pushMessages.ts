@@ -76,7 +76,7 @@ export function reservationChange(id: string, b: Doc, a: Doc): Push[] {
   if (!b) return [{ to: ['arts-team'], url, tag, title: 'New props request', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.startDate)}` }]
   const gone = ['cancelled', 'declined'].includes(a.status) ? [] : newlyUnavailable(b, a)
   const goneMsg: Push[] = gone.length ? [{ to: [a.creatorEmail], url, tag: `props-na-${id}`,
-    title: gone.length === 1 ? `"${cut(gone[0].name, 40)}" isn't available` : `${gone.length} props aren't available`,
+    title: gone.length === 1 ? `"${cut(gone[0].name, 40)}" isn't available` : `${gone.length} things aren't available`,
     body: cut(`${gone.map(g => g.reason ? `${g.name}: ${g.reason}` : g.name).join('; ')}. The rest of "${a.title}" still goes. Tap to see the request.`, 220) }] : []
   if (b.status === a.status) return goneMsg
   const notAvail = ((a.lines ?? []) as PickLine[]).filter(l => l.pick?.state === 'unavailable').length + ((a.builds ?? []) as Build[]).filter(x => x.state === 'unavailable').length

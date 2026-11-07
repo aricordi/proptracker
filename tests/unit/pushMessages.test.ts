@@ -49,7 +49,7 @@ describe('instant notifications', () => {
     const r = { creatorEmail: 'c@x.com', creatorName: 'Cam', title: 'Diner', startDate: '2026-10-23', history: [{ by: 'c@x.com' }] }
     const packed = reservationChange('r1', { ...r, status: 'packed' }, { ...r, status: 'cancelled' })
     expect(packed[0]).toMatchObject({ to: ['arts-team'], title: 'Props request cancelled' })
-    expect(packed[0].body).toMatch(/Unpack the bin/)
+    expect(packed[0].body).toMatch(/Put the props back/)
     expect(reservationChange('r1', { ...r, status: 'preparing' }, { ...r, status: 'cancelled' })[0].to).toEqual(['arts-team'])
     expect(reservationChange('r1', { ...r, status: 'requested' }, { ...r, status: 'cancelled' })).toEqual([])
   })
