@@ -1,0 +1,57 @@
+# Robot tests (end-to-end)
+
+A robot opens the real app in a browser (Chromium) and uses it like a person: it taps the
+"Test mode: sign in as" buttons, books a time, sends a props request, packs it, returns it, and so on.
+Everything runs on the **local Firebase emulator** (project `demo-proptracker`, offline only): the live
+database is never touched.
+
+## Run them
+
+```
+npm run e2e
+```
+
+That one command builds the functions and the app, starts the emulators, fills them with the test data
+(`scripts/seed-emulator.mjs --reset`), serves the app on a free port, runs the journeys and then the crawl,
+and stops everything. Success looks like `[e2e] journeys: passed` and `[e2e] crawl: passed` at the end.
+
+Handy options:
+
+- `npm run e2e -- --only journeys` or `--only crawl`: one part only.
+- `npm run e2e -- --no-build`: reuse the last build (faster when only the tests changed).
+- `npm run e2e -- tests/e2e/journeys/05-equipment-approves.e2e.ts`: one file (with `--only journeys`).
+- `E2E_REUSE_EMULATORS=1 npm run e2e`: use emulators you already started with `npm run emulator`.
+
+When something fails, a screenshot and a page snapshot are in `.e2e/results/`, and the emulator and app
+logs in `.e2e/*.log`.
+
+## What's covered
+
+Journeys (`journeys/`, one file at a time, each file starts from fresh test data):
+
+1. Creator lands on the Chat, picks a free time on the month calendar, requests it → "Waiting for approval" / "Waiting for OK".
+2–4. One props request from start to finish: creator searches, adds props to a shoot, sends it → arts picks,
+   pack photo, packed → creator signs for the pickup, returns everything with a photo → arts checks it in
+   with one prop damaged → the prop shows Damaged.
+5. Equipment team approves one booking request and denies another with a reason; Gear log; Google Calendar tab.
+6. Admin: Dashboard, every Analytics tab, a creator's report card and record.
+7. Arts: Clean up props hub, combine a group of doubles, ⋯ → Find duplicates → combine, Remove + Undo, Prop insights.
+8. Creator on Props only: just Props and Me, no booking anywhere, prop pages without an add button.
+9. Owner: Team page groups, Settings sheet, "Use the app as: Creator" and back.
+10. Laptop (1440×900): the equipment team's Requests week board; the admin's Analytics with the side panel.
+11. Known bugs, written as tests that are switched off (`test.fixme`) until the bug is fixed.
+
+The crawl (`crawl/`): for every role, every route in `src/App.tsx` (read each run, ids filled in from the
+test data). It fails on a crash, a console error, a server function crash (5xx) or a blank screen.
+Refused server calls (4xx) and redirects are listed as notes on the test.
+
+## Writing more
+
+- Find things the way a person does: `getByRole('button', { name: 'Send the props' })`, `getByText(...)`.
+  Avoid CSS classes. Wait for what the person would see (`expect(...).toBeVisible()`), never a fixed sleep.
+- Use `test`, `expect`, `signIn`, `reseed`, `studioDate`, `testPhoto` from `helpers.ts`. Every test fails if
+  the app logs a console error; `allowConsole(page, /pattern/)` if one is expected.
+- Dates: the app counts days in Toronto time. Use `studioDate(n)` / `plainDayAhead(n)` and never assume what
+  day it is: the suite must pass at any hour.
+- A test fails because of a real app bug? Don't change the app in the same change: mark the step
+  `test.step.skip('BUG: …')` or the test `test.fixme(...)` with a note, and report it.

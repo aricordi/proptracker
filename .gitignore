@@ -9,3 +9,8 @@ dist
 *-debug.log
 firebase-export-*
 __pycache__/
+
+# Robot tests (npm run e2e): build, logs, screenshots of failures
+/.e2e/
+/test-results/
+/playwright-report/
