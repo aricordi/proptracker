@@ -41,6 +41,14 @@ describe('change a props request', () => {
     await put(`reservations/${id}`, { ...(await getDoc(`reservations/${id}`))!, status: 'preparing' })
     expect((await call('editReservation', { id, lines: [{ itemId: 'chairs', qty: 1 }] }, ANA)).message).toMatch(/started on this request/)
   })
+
+  it('a paused creator can still lower or remove props, but not add', async () => {
+    const id = (await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 3 }] }, ANA)).result.id
+    await put(`user_status/${ANA}`, { email: ANA, strikes: 2, pausedUntil: addDays(todayInStudio(), 10) })
+    expect((await call('editReservation', { id, lines: [{ itemId: 'chairs', qty: 1 }] }, ANA)).ok).toBe(true)
+    expect((await getDoc('item_bookings/chairs'))!.entries[0].qty).toBe(1)
+    expect((await call('editReservation', { id, lines: [{ itemId: 'chairs', qty: 2 }] }, ANA)).message).toMatch(/paused/i)
+  })
 })
 
 describe('change held gear', () => {
