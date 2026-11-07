@@ -5,6 +5,7 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { Icon } from './Icon'
 import { friendlyError } from '../lib/errors'
+import { notificationsPath } from './Notifications'
 
 interface Device { platform: string; lastSeen: string }
 interface Result { sent: number; phones: number; errors: string[]; devices: Device[] }
@@ -21,7 +22,8 @@ const when = (iso: string) => {
   return days >= 1 ? `${t} (${days} day${days === 1 ? '' : 's'} ago)` : t
 }
 
-export function PushCheck({ email, name }: { email: string; name: string }) {
+export function PushCheck({ email, name, role, demo = false }: { email: string; name: string; role?: string; demo?: boolean }) {
+  const where = notificationsPath(role, demo)
   const [info, setInfo] = useState<Result | null>(null)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -34,9 +36,9 @@ export function PushCheck({ email, name }: { email: string; name: string }) {
     try {
       const r = (await testPushTo({ email, send: true })).data
       setInfo(r)
-      if (!r.phones) setMsg({ ok: false, text: `${first} has no phone signed up. Ask them to open the app from the Home Screen icon, go to Me → Notifications and tap Turn on.` })
-      else if (r.sent) setMsg({ ok: true, text: `Google accepted it for ${r.sent} of ${r.phones} phone${r.phones === 1 ? '' : 's'}. If ${first} sees nothing within a minute, their phone is dropping it: ask them to turn notifications off and on again in Me → Notifications.` })
-      else setMsg({ ok: false, text: `Their phone refused it${r.errors[0] ? ` (${r.errors[0]})` : ''}. The sign-up has gone stale: ask ${first} to turn notifications off and on again in Me → Notifications.` })
+      if (!r.phones) setMsg({ ok: false, text: `${first} has no phone signed up. Ask them to open the app from the Home Screen icon, go to ${where} and tap Turn on.` })
+      else if (r.sent) setMsg({ ok: true, text: `Google accepted it for ${r.sent} of ${r.phones} phone${r.phones === 1 ? '' : 's'}. If ${first} sees nothing within a minute, their phone is dropping it: ask them to turn notifications off and on again in ${where}.` })
+      else setMsg({ ok: false, text: `Their phone refused it${r.errors[0] ? ` (${r.errors[0]})` : ''}. The sign-up has gone stale: ask ${first} to turn notifications off and on again in ${where}.` })
     } catch (e) {
       setMsg({ ok: false, text: friendlyError(e, 'Could not send it.') })
     } finally { setBusy(false) }

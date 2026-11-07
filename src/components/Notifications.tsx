@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import BottomSheet from './BottomSheet'
 import { pushState, turnOnPush, turnOffPush, testPush, isIOS, PUSH_CHANGED, type PushState } from '../services/push'
 import { errorText } from '../services/schedule'
+import { useSession } from '../auth'
 
 const bell = (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -119,8 +120,17 @@ export function NotificationsNudge() {
   )
 }
 
+// Where the Notifications card is for this person: the tab is "More" for creators on the Full app, "Me" for the owner
+// and Props-only creators, and team members reach it through Admin → My account (audit, Nov 7: help said "Me" to everyone).
+export function notificationsPath(role: string | undefined, demo = false) {
+  if (role === 'creator') return demo ? 'Me → Notifications' : 'More → Notifications'
+  if (role === 'owner') return 'Me → Notifications'
+  return 'Admin → My account → Notifications'
+}
+
 // iPhone: notifications only work in the app added to the Home Screen.
 export function InstallGuide({ onClose }: { onClose: () => void }) {
+  const { role, demo } = useSession()
   const share = (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#0A84FF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="inline -mt-1"><path d="M12 3v12M8 7l4-4 4 4" /><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" /></svg>
   )
@@ -128,7 +138,7 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
     [<>Tap {share} <b>Share</b> at the bottom of Safari</>, 'In Chrome: the ⋯ menu, then Share'],
     [<>Scroll down, tap <b>Add to Home Screen</b></>, 'Then tap Add'],
     [<>Open <b>Prime Capitol</b> from your Home Screen</>, 'The eagle icon'],
-    [<>Me → Notifications → <b>Turn on</b></>, 'Tap Allow when your phone asks'],
+    [<>{notificationsPath(role, demo)} → <b>Turn on</b></>, 'Tap Allow when your phone asks'],
   ]
   return (
     <BottomSheet open onClose={onClose} title="Put the app on your Home Screen">
