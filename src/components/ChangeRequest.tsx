@@ -42,6 +42,13 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
     : items.filter(i => lines[i.id] > 0 && matchesQuery(i, query.trim(), tagById)).length, [found, items, query, lines, tagById])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // Props the server said aren't free for that day (editReservation's details.conflicts), shown on their rows.
+  const [conflicts, setConflicts] = useState<Record<string, { name: string; free: number; reason: string }>>({})
+  const conflictText = (id: string) => {
+    const c = conflicts[id]
+    if (!c) return ''
+    return c.free > 0 ? `Only ${c.free} free that day` : c.reason === 'damaged' ? 'Damaged, can\'t be booked' : c.reason === 'no longer in the inventory' ? 'No longer in the closet' : 'Not free that day'
+  }
   const max = (id: string) => items.find(i => i.id === id)?.quantity ?? 99
   const location = useLocation()
   const cart = useCart()
@@ -77,7 +84,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
     setErr(''); setEditing(true)
   }
   async function save() {
-    setBusy(true); setErr('')
+    setBusy(true); setErr(''); setConflicts({})
     try {
       await editReservation({ id: res.id, lines: Object.entries(lines).filter(([, q]) => q > 0).map(([itemId, qty]) => ({ itemId, qty })), builds })
       // What the AI helper brought in is now in the request, so take it out of the basket.
@@ -87,7 +94,13 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
         setFromAi(false)
       }
       setEditing(false)
-    } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+    } catch (e) {
+      const list = (e as { details?: { conflicts?: { itemId: string; name: string; free: number; reason: string }[] } }).details?.conflicts
+      if (list?.length) {
+        setConflicts(Object.fromEntries(list.map(c => [c.itemId, c])))
+        setErr(`${list.length === 1 ? `"${list[0].name}" isn't` : `${list.length} props aren't`} free for that day. Lower or remove ${list.length === 1 ? 'it' : 'them'} (marked in red), then Save.`)
+      } else setErr(errText(e))
+    } finally { setBusy(false) }
   }
   // The whole closet, for this request: Browse adds straight into this edit.
   function seeAll() {
@@ -115,7 +128,10 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
         return (
           <div key={l.itemId} className={`flex items-center gap-3 ${n ? '' : 'opacity-40'}`}>
             <div className="w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
-            <p className={`flex-1 min-w-0 text-sm truncate ${n ? 'text-pt-text' : 'line-through text-pt-muted'}`}>{l.itemName}</p>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm truncate ${n ? 'text-pt-text' : 'line-through text-pt-muted'}`}>{l.itemName}</p>
+              {n > 0 && conflictText(l.itemId) && <p className="text-red-300 text-xs">{conflictText(l.itemId)}</p>}
+            </div>
             {n > 0 ? (
               <>
                 <div className="flex items-center rounded-xl bg-pt-bg shadow-hairline shrink-0">
@@ -135,7 +151,10 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
           <div key={id} className={`flex items-center gap-3 ${n ? '' : 'opacity-40'}`}>
             <div className="relative w-11 h-11 rounded-xl bg-pt-border overflow-hidden shrink-0">{it?.photos[0] && <img loading="lazy" decoding="async" src={it.photos[0]} alt="" className="w-full h-full object-cover" />}
               <span className="absolute bottom-0 inset-x-0 text-center text-xs font-bold bg-[#BF9DFF] text-[#140f22]">NEW</span></div>
-            <p className="flex-1 min-w-0 text-sm truncate text-pt-text">{it?.name ?? 'Prop'}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm truncate text-pt-text">{it?.name ?? 'Prop'}</p>
+              {n > 0 && conflictText(id) && <p className="text-red-300 text-xs">{conflictText(id)}</p>}
+            </div>
             {n > 0 ? (
               <>
                 <div className="flex items-center rounded-xl bg-pt-bg shadow-hairline shrink-0">

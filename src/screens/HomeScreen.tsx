@@ -195,7 +195,10 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   const qtyProps = (item: Item) => {
     if (toRequest) {
       if (!canAdd(item)) return {}
-      return { inCart: draftQty(item.id), max: Math.max(1, (freeFor(item) ?? item.quantity) + (draft?.orig[item.id] ?? 0)), onQty: (n: number) => setDraftQty(item.id, n) }
+      // Free that day, plus what this request already holds. Booked props get no + (audit Nov 7).
+      const cap = (freeFor(item) ?? item.quantity) + (draft?.orig[item.id] ?? 0)
+      if (cap <= 0) return { inCart: draftQty(item.id) }
+      return { inCart: draftQty(item.id), max: cap, onQty: (n: number) => setDraftQty(item.id, n) }
     }
     // No shoot picked yet: + still works, it asks which shoot (or books one) instead of a dead end.
     if (shootFlow && canBook && !active.shoot && canAdd(item) && !(item.missingQty && item.missingQty >= item.quantity))
