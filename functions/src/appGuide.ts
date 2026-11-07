@@ -172,7 +172,7 @@ export const GUIDE: GuideEntry[] = [
   { id: 'person', path: '/people/:email', title: 'A person\'s record', who: ['owner', 'admin', 'arts'], words: 'record strikes give strike pause test notification',
     about: 'Their bookings, late returns, damage, flags and strikes (a strike that came with a no-show, late cancel, report or flag shows on that flag with Remove), with Give a strike / Pause bookings (reasons required) and "Send a test notification". Flags excused in Analytics don\'t count here.' },
   { id: 'users', path: '/users', title: 'People & access', who: ['owner', 'admin'], words: 'invite people role access props only full app turn off change email',
-    about: 'Invite (owner: any role; admins: creators). Tap a person: Role, App access (Props only | Full app, owner only), Turn off access, and "Change their email…" (owner; merges into an existing account and removes the old one).' },
+    about: 'Invite (owner: any role; admins: creators). New creators start on Props only (the invite says so). Tap a person: Role, App access (Props only | Full app, owner only), Turn off access (asks first; the sheet stays open so you can turn it back on), and "Change their email…" (owner; merges into an existing account and removes the old one).' },
   { id: 'rules', path: '/booking-rules', title: 'Booking rules', who: ['owner', 'admin'], words: 'notice lead days closed days holidays turnaround washing',
     about: 'Props notice, new-props notice, turnaround (per category too, e.g. costume washing) and closed days / holidays.' },
   { id: 'rulessheet', path: '/rules-sheet', title: 'Settings sheet', who: ['owner', 'admin'], words: 'all rules at a glance',
