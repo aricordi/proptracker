@@ -132,6 +132,7 @@ export interface ScheduleInvite {
   id: string; fromEmail: string; fromName: string; fromShootId: string; toEmail: string; toName: string
   place: House; date: string; start: number; end: number; until: string
   status: 'pending' | 'accepted' | 'declined' | 'withdrawn' | 'expired'; shootId?: string; createdAt: string
+  waitlist?: boolean   // a slot that opened from "Notify me if it opens" (fromEmail is 'waitlist', not a person)
 }
 // Invites to film right after someone (held for 20 min), sent to me and by me, live. Recent ones only.
 export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgoing: ScheduleInvite[] } {
@@ -156,6 +157,7 @@ export interface TimeAskResult {
   choices?: string[]   // a name two people share: "With Justin Figs" / "With Justin Show"
   notice?: string      // what still needs saying when the chat shows its own reaction instead of `reply` ("5 PM isn't free…")
   options: { date: string; place: House; start: number; slots: { email: string; name: string; start: number; me: boolean }[] }[]
+  waitlist?: { date: string; house: House; start: number }   // the exact time asked for is someone else's: offer the waitlist
 }
 export const askForTime = httpsCallable<{ text: string; previous?: Record<string, unknown> }, TimeAskResult>(functions, 'askForTime')
 

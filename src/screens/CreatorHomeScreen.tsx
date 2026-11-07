@@ -101,7 +101,7 @@ export default function CreatorHomeScreen() {
   const first = (profile.name || user.displayName || '').split(' ')[0]
 
   const todo: { key: string; text: string; action: string; go: () => void }[] = [
-    ...invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => ({ key: i.id, text: `${i.fromName} invited you to film right after them: ${formatDay(i.date)} · ${fmtSlot(i.start, i.end - i.start)}. Held for you for a few minutes.`, action: 'Answer', go: () => navigate('/schedule') })),
+    ...invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => ({ key: i.id, text: i.waitlist ? `A time you wanted opened up: ${formatDay(i.date)} · ${fmtSlot(i.start, i.end - i.start)}. Held for you for a few minutes.` : `${i.fromName} invited you to film right after them: ${formatDay(i.date)} · ${fmtSlot(i.start, i.end - i.start)}. Held for you for a few minutes.`, action: 'Answer', go: () => navigate('/schedule') })),
     ...swaps.incoming.map(r => ({ key: r.id, text: `${r.fromName} asks to swap shoots with you`, action: 'Answer', go: () => navigate('/schedule') })),
     ...toExplain.map(x => ({ key: x.id, text: `You didn't check in for ${label(x)}. Say what happened.`, action: 'Explain', go: () => open(x.id) })),
     ...needsStuff.map(x => ({ key: x.id, text: `Props for ${label(x)}? Add by ${formatDay(cutoffs(x).props)}.`, action: '✦ Plan it', go: () => ai.open('plan', x.id) })),

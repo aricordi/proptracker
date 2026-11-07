@@ -44,10 +44,11 @@ import { thumbOf } from '../services/itemShape'
 import {
   askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useShoot, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
   checkinWindow,
-  type TimeAskResult,
+  type TimeAskResult, type House,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
 import { useUsualPartners } from '../hooks/useUsualPartners'
+import { joinWaitlist } from '../hooks/useWaitlist'
 import { fmtTime, fmtHours, nowStamp } from '../../functions/src/gearBooking'
 import { Icon, type IconName } from './Icon'
 import { friendlyError } from '../lib/errors'
@@ -339,6 +340,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // a tap goes straight back to that finder, never read as picking a time shown (audit, Nov 7: "Only Cliff 1" booked
   // the first option) and without a second AI call first.
   const helperChips = useRef(new Map<string, Helper>())
+  // "Tell me if 5 PM opens" (waitlist, Nov 7): the exact time asked for is someone else's; the chip puts them on its list.
+  const waitChips = useRef(new Map<string, { date: string; house: House; start: number }>())
   // Did the chat's last words ask the person something? ("Want me to look at Saturday?")
   // The opening greeting ("What are we making today?") doesn't count: nothing has been asked about yet.
   function lastBotAsked(): boolean {
@@ -699,6 +702,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // Nobody named (and not "just me"): offer the usual partner, once. The tap re-runs this search with them.
       const named = r.friends.length > 0 || (Array.isArray((r.ask as { people?: unknown }).people) && ((r.ask as { people: unknown[] }).people.length > 0))
       if (!r.choices?.length && r.options.length && !named && partners[0] && !/\b(just me|only me|alone|solo)\b/i.test(q)) next.unshift(`With ${partners[0].label}?`)
+      if (r.waitlist && !r.choices?.length) { const c = `Tell me if ${fmtTime(r.waitlist.start)} opens`; waitChips.current.set(c, r.waitlist); next.unshift(c) }
       for (const c of next) helperChips.current.set(c, 'time')
       return next
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]); return [] }
@@ -735,6 +739,14 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]) } finally { setBusy(false) }
   }
 
+  async function waitFor(c: string, w: { date: string; house: House; start: number }) {
+    setMsgs(x => [...x, { who: 'me', text: c, mode: 'time' }]); setChips([]); setBusy(true)
+    try {
+      const r = (await joinWaitlist(w)).data
+      bot(`You're on the list for **${formatDay(w.date, { weekday: 'short' })} · ${fmtTime(w.start)} at ${house(w.house)}**${r.position > 1 ? ` (#${r.position} in line)` : ''}. If it opens up, it's held for you for ${INVITE_HOLD_MINUTES} minutes and you get a notification. Leave the list from the bell on that time in the Calendar.`)
+    } catch (e) { bot(errorText(e)) } finally { setBusy(false) }
+  }
+
   // After booking a time here: brainstorm props for that shoot in the same chat (free/taken for its day).
   function propsFor(shootId: string) {
     choose(shootId); setMode('props'); setChips(STARTERS.props)
@@ -755,6 +767,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (c === NEXT_GEAR || c === SKIP_PROPS) return planGear()
     if (c === NEXT_REVIEW) return planReview()
     if (c === TIME_CHIP) return askTime()
+    const w = waitChips.current.get(c)
+    if (w) return waitFor(c, w)
     if (c === PROPS_CHIP) { const b = [...msgs].reverse().find(x => x.who === 'booked'); if (b && b.who === 'booked') propsFor(b.shootId); return }
     const h = c !== MORE ? helperChips.current.get(c) : undefined
     if (h) return send(c, false, h)

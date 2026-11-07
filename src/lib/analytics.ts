@@ -54,7 +54,7 @@ export interface AGear { id: string; creatorEmail: string; creatorName?: string;
   problems?: { kind: string; name?: string; usedBy?: string[] }[]; returnedAt?: string }
 export interface AReport { id: string; onEmail: string; onName: string; date: string; overMinutes: number; mess: boolean; status: string; onShootId: string; byName?: string }
 export interface AStrike { id: string; email: string; reason: string; at: string; note?: string; about?: string; removedAt?: string; shootId?: string; flagId?: string }
-export interface AInvite { id: string; toEmail: string; toName: string; fromName: string; date: string; until: string; status: string; place: string; fromShootId?: string }
+export interface AInvite { id: string; toEmail: string; toName: string; fromName: string; date: string; until: string; status: string; place: string; fromShootId?: string; waitlist?: boolean }
 
 // ── Outputs ──
 export interface Fact { id: string; email: string; name: string; date: string; house: House; filmed: boolean; title?: string; to: string }
@@ -201,6 +201,8 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
   for (const v of o.invites) {
     // Not the friend's fault when the inviter's own request was denied, ran out or was withdrawn (audit, Nov 5).
     if (v.fromShootId && shootStatus.has(v.fromShootId) && shootStatus.get(v.fromShootId) !== 'booked') continue
+    // A slot offered from the waitlist that they didn't take isn't letting a friend down: it just goes to the next person.
+    if (v.waitlist) continue
     if (v.status === 'expired' || (v.status === 'pending' && local(v.until) < now))
       add({ id: `invite-lapsed:${v.id}`, src: { type: 'invite', id: v.id }, kind: 'invite-lapsed', email: v.toEmail, name: v.toName, date: v.date, house: houseOf(v.place), text: `Let ${v.fromName}'s held slot run out` })
   }

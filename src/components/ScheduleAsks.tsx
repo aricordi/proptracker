@@ -61,14 +61,14 @@ export function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string; urge
     try { await answerInvite({ id: inv.id, accept }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
   return (
-    <ChatCard tone="ask" lead={<Avatar email={inv.fromEmail} name={inv.fromName} size={48} />} label="Needs your answer"
-      title={`${inv.fromName.split(' ')[0]} invited you to film`}
+    <ChatCard tone="ask" {...(inv.waitlist ? { icon: 'bell' as const } : { lead: <Avatar email={inv.fromEmail} name={inv.fromName} size={48} /> })} label="Needs your answer"
+      title={inv.waitlist ? 'A time you wanted opened up' : `${inv.fromName.split(' ')[0]} invited you to film`}
       side={<span className="shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 bg-amber-400/15 text-amber-200 text-[14px] font-bold"><Icon name="clock" className="w-3.5 h-3.5" />{until}{inv.until.slice(0, 10) !== now.slice(0, 10) ? ` ${formatDay(inv.until.slice(0, 10), { weekday: 'short' })}` : ''}</span>}
       actions={<>
         <button disabled={busy} onClick={() => answer(false)} className={secondaryBtn}>Can't</button>
         <button disabled={busy} onClick={() => answer(true)} className={primaryBtn}>Confirm my slot</button>
       </>}>
-      <SlotTile tag="Right after them · held for you" hot day={day(inv.date)} time={fmtSlot(inv.start, inv.end - inv.start)} place={s.houses[inv.place].name} />
+      <SlotTile tag={inv.waitlist ? 'From your waitlist · held for you' : 'Right after them · held for you'} hot day={day(inv.date)} time={fmtSlot(inv.start, inv.end - inv.start)} place={s.houses[inv.place].name} />
       {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
     </ChatCard>
   )

@@ -24,6 +24,7 @@ import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { whenLabel, formatDay } from '../lib/dates'
 import { useProfiles } from '../services/profiles'
 import { useUsualPartners } from '../hooks/useUsualPartners'
+import { useMyWaitlist, waitKey } from '../hooks/useWaitlist'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
@@ -254,6 +255,7 @@ export default function ScheduleScreen() {
             : sheet.slot.pending ? 'Someone asked for this slot. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
             : 'This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
+          {canBook && !team && <WaitButton slot={sheet.slot} email={profile.email} />}
           {!sheet.slot.pending && (mine ?? []).some(x => swappable(x, now)) && (
             <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
           )}
@@ -278,6 +280,25 @@ export default function ScheduleScreen() {
   )
 }
 
+// "Notify me if it opens" on the taken-slot sheet (same list as the bell in the day sheet).
+function WaitButton({ slot, email }: { slot: TheirSlot; email: string }) {
+  const waits = useMyWaitlist(email, true)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const w = waits.entries[waitKey(slot.date, slot.house, slot.start)]
+  async function go() {
+    setBusy(true); setErr('')
+    try { if (w) await waits.leave(w); else await waits.join(slot.date, slot.house, slot.start) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
+  }
+  return (<>
+    <button disabled={busy || w?.status === 'offered'} onClick={go} className={`mt-2 ${btnGrey} inline-flex items-center justify-center gap-2`}>
+      <Icon name="bell" className="w-4 h-4" />{w?.status === 'offered' ? "It's held for you: confirm in the chat" : w ? `On the list${w.position ? ` · #${w.position}` : ''} · Leave` : 'Notify me if it opens'}
+    </button>
+    {!w && <p className="text-pt-muted text-xs text-center mt-1">If it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes and you get a notification.</p>}
+    {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
+  </>)
+}
+
 // A day from the month view (owner, Nov 2): both houses side by side, one row per time. Free = gold, tap to request.
 function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
   date: string; day?: ScheduleDay; team: boolean; lockFree?: boolean; teamView: boolean; canBook: boolean; now: string
@@ -287,6 +308,15 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const s = useScheduleSettings()
   const { profile } = useSession()
   const email = profile.email
+  // "Notify me if it opens" (Nov 7): a bell on someone else's slot puts you on its list in one tap.
+  const waits = useMyWaitlist(email, canBook && !team)
+  const [waitErr, setWaitErr] = useState('')
+  const [waitBusy, setWaitBusy] = useState('')
+  async function bell(h: House, start: number) {
+    const k = waitKey(date, h, start), w = waits.entries[k]
+    setWaitBusy(k); setWaitErr('')
+    try { if (w) await waits.leave(w); else await waits.join(date, h, start) } catch (e) { setWaitErr(errorText(e)) } finally { setWaitBusy('') }
+  }
   const cell = (h: House, start: number) => {
     // The owner booking for themselves follows the priority lock like the server does (audit, Nov 5).
     const st = slotState(day, date, h, start, s, email, now, lockFree)
@@ -306,11 +336,26 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     else if (st.t === 'locked') { label = <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority</span> }
     else label = '—'
     const tappable = (st.t === 'free' && (canBook || team)) || st.t === 'booked' || ((st.t === 'block' || st.t === 'locked') && team)
-    return (
+    const cellBtn = (
       <button key={h} disabled={!tappable} onClick={() => onTap(st, h, start)}
         className={`flex-1 min-w-0 min-h-[48px] rounded-xl px-2 py-1.5 text-[14px] text-center truncate ${cls} ${st.t === 'past' ? 'opacity-40' : ''} ${tappable ? 'active:opacity-80' : ''}`}>
         <span className="block truncate">{label}</span>
       </button>
+    )
+    // Someone else's slot (booked, asked for, or held): creators can wait for it.
+    const theirs = (st.t === 'booked' || st.t === 'held') && st.entry.email?.toLowerCase() !== email.toLowerCase()
+    if (!(theirs && canBook && !team)) return cellBtn
+    const k = waitKey(date, h, start), w = waits.entries[k]
+    return (
+      <div key={h} className="flex-1 min-w-0 flex gap-1">
+        {cellBtn}
+        <button onClick={() => bell(h, start)} disabled={waitBusy === k || w?.status === 'offered'}
+          aria-label={w ? `On the list, number ${w.position}. Tap to leave the list` : 'Notify me if it opens'}
+          title={w ? 'On the list · tap to leave' : 'Notify me if it opens'}
+          className={`shrink-0 w-11 min-h-[48px] rounded-xl grid place-items-center text-[12px] font-bold disabled:opacity-50 ${w ? 'bg-pt-accent/[0.16] text-pt-accent shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' : 'bg-pt-surface text-pt-muted'}`}>
+          {w ? <span className="flex flex-col items-center leading-none"><Icon name="bell" className="w-4 h-4" />{w.position > 0 && <span className="mt-0.5">#{w.position}</span>}</span> : <Icon name="bell" className="w-5 h-5" />}
+        </button>
+      </div>
     )
   }
   const offsite = (day?.offsite ?? []).slice().sort((a, b) => a.start - b.start)
@@ -341,7 +386,9 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           </div>
         ))}
       </div>
-      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold time to ask for it (you can add friends next). The equipment team approves it, and it's held for you while you wait.</p>}
+      {waitErr && <p className="text-red-300 text-sm mt-3">{waitErr}</p>}
+      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold time to ask for it (you can add friends next). The equipment team approves it, and it's held for you while you wait.
+        {' '}Want a taken time? Tap its bell: if it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes{Object.keys(waits.entries).some(k => k.startsWith(date)) ? '. Tap a gold bell to leave the list.' : '.'}</p>}
       {offsite.length > 0 && (
         <div className="mt-4 space-y-1.5">
           <p className="text-pt-text text-sm font-semibold">Offsite this day</p>
