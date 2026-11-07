@@ -2353,6 +2353,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       so rows still select from their text; `zoom={false}` to opt out), ZoomButton on bin and quick-approve tiles, QuickEdit's photo
       opens full size, the checker's photo shows the badge. Seed imp-phone3 (Red rotary phone, A2) = a group of 3 phones. Checked in
       a browser on the emulator (group of 3, untick one, combine 2; combine 3 = "1 + 2 + 1 = 4"; zoom in tiles, list, bin, sheet).
+    - LIVE Nov 6 (owner "put everything live"): backend run 66 + website run 68 = chat QA fixes, offsite/Confirm all/edge-case audit,
+      the 3 decisions (basket question, Sunday gear, free cancel for late bookings), Clean up props v1 + v2, doubles in groups,
+      manual confirms, photos open larger, arts Team guide fix. Tests 776.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
