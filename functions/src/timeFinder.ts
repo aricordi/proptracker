@@ -155,6 +155,19 @@ export function parseAt(text: string): number | null {
 const hhmm = (n: number) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`
 export { hhmm as atLabel }
 
+// What to say about the exact time they asked for ("at 5pm"), from the options found (audit, Nov 7: "5 PM isn't free"
+// showed right above a Friday 5 PM option, because only the first option was checked). Options come day by day, each
+// day's closest to the asked time first. `line` goes in the full reply; `notice` is what still needs saying when the
+// chat shows its own short reaction instead (empty when the soonest day has that time).
+export function atTimeNote(atText: string, at: number | undefined, options: Pick<TimeOption, 'date' | 'start'>[], dayLabel: (d: string) => string): { line: string; notice: string } {
+  if (at === undefined || !options.length) return { line: '', notice: '' }
+  const soonest = options[0].date
+  const hit = options.find(o => o.start === at)
+  if (hit && hit.date === soonest) return { line: `${atText} is free.`, notice: '' }
+  if (hit) { const t = `${atText} isn't free on ${dayLabel(soonest)}, but it is on ${dayLabel(hit.date)}.`; return { line: t, notice: t } }
+  return { line: `${atText} isn't free; here are the closest times.`, notice: `${atText} isn't free; these are the closest times.` }
+}
+
 // A simple reading of the request without AI (test mode, or if the AI doesn't answer).
 export function roughParse(text: string, today: string, people: Person[]): TimeAsk {
   const t = normalizeWhen(text)

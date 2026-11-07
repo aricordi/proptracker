@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { roughParse, roughAdjust, findOptions, matchPeople, slotsFor, cleanAsk } from '../../functions/src/timeFinder'
+import { roughParse, roughAdjust, findOptions, matchPeople, slotsFor, cleanAsk, atTimeNote } from '../../functions/src/timeFinder'
 import { cleanScheduleSettings } from '../../functions/src/schedule'
 
 const s = cleanScheduleSettings({})
@@ -117,5 +117,24 @@ describe('asking for a specific start time', () => {
     expect(roughAdjust(a, 'at 9am instead', TODAY, people).at).toBe(540)
     expect(cleanAsk({ from: '2026-10-22', to: '2026-10-22', at: '19:00' }, TODAY, a).at).toBe(1140)
     expect(cleanAsk({ from: '2026-10-22', to: '2026-10-22', at: null }, TODAY, a).at).toBeUndefined()
+  })
+})
+
+describe('what to say about the exact time asked for (audit, Nov 7)', () => {
+  const day = (d: string) => (d === '2026-10-22' ? 'Thu, Oct 22' : 'Fri, Oct 23')
+  it('free on the soonest day', () => {
+    expect(atTimeNote('5 PM', 1020, [{ date: '2026-10-22', start: 1020 }, { date: '2026-10-23', start: 1020 }], day)).toEqual({ line: '5 PM is free.', notice: '' })
+  })
+  it('taken on the first day but free on a later one: says so, never "isn\'t free" alone', () => {
+    const r = atTimeNote('5 PM', 1020, [{ date: '2026-10-22', start: 900 }, { date: '2026-10-22', start: 1140 }, { date: '2026-10-23', start: 1020 }], day)
+    expect(r.line).toBe("5 PM isn't free on Thu, Oct 22, but it is on Fri, Oct 23.")
+    expect(r.notice).toBe(r.line)
+  })
+  it('not free on any day shown', () => {
+    expect(atTimeNote('5 PM', 1020, [{ date: '2026-10-22', start: 900 }], day).line).toBe("5 PM isn't free; here are the closest times.")
+  })
+  it('nothing to say without a time or options', () => {
+    expect(atTimeNote('', undefined, [{ date: '2026-10-22', start: 900 }], day)).toEqual({ line: '', notice: '' })
+    expect(atTimeNote('5 PM', 1020, [], day)).toEqual({ line: '', notice: '' })
   })
 })

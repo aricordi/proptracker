@@ -7,7 +7,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE } from './auth.js'
 import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from './booking.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
-import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, namesIn, namedDate, type TimeAsk } from './timeFinder.js'
+import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, namesIn, namedDate, atTimeNote, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
 import { INVITE_HOLD_MINUTES, cleanScheduleSettings, houseSlotsOn, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
@@ -407,8 +407,9 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
     ? `you ${h(ask.mySlots)}, then ${friends.map(f => `${f.name.split(' ')[0]} ${h(1)}`).join(', then ')}, back to back`
     : `${h(ask.mySlots)} for you`
   const atText = ask.at !== undefined ? fmtTime(ask.at) : ''
+  const atNote = atTimeNote(atText, ask.at, options, dayLabelOf)
   if (!reply) reply = ask.at !== undefined
-    ? `Looking at ${where} around ${atText}: ${who}. ${options[0] && options[0].start === ask.at ? `${atText} is free.` : options.length ? `${atText} isn't free; here are the closest times.` : ''}`.trim()
+    ? `Looking at ${where} around ${atText}: ${who}. ${atNote.line}`.trim()
     : `Looking at ${where}: ${who}. Soonest first.`
   const note = (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
     + (capped ? ` You can book one ${s.slotMinutes / 60}-hour house slot a day; ask the schedule team if you need more.` : '')
@@ -417,7 +418,7 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   if (!options.length && own) return { reply: `You already have a house slot on ${dayLabelOf(ask.from)} (one a day each). Pick another day, or move that shoot.`, ask: { ...ask, people: friends.map(f => f.name) }, friends, options }
   // `notice` = what still needs saying when the chat shows its own short reaction instead of `reply` (the asked time
   // isn't free, a friend wasn't found, one slot a day). Empty when the options speak for themselves.
-  const notice = [ask.at !== undefined && options.length && options[0].start !== ask.at ? `${atText} isn't free; these are the closest times.` : '', note.trim()].filter(Boolean).join(' ')
+  const notice = [atNote.notice, note.trim()].filter(Boolean).join(' ')
   return {
     reply: options.length ? `${reply}${note}` : `${reply}${note} Nothing is free for that. Try other days, the other house, or a different time of day.`,
     ...(notice ? { notice } : {}),

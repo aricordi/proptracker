@@ -331,6 +331,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // Typing instead of tapping (chat QA, Nov 6): "yes book it", "the 5pm one", "the second one" right after free times were shown
   // books that one; "yes" to a cancel card points at its button (cancelling stays a deliberate tap).
   const askedWhich = useRef<TimeAskResult['options'] | null>(null)   // "Which one: Cliff 1 or Cliff 2?" waiting for the answer
+  // The follow-up chips the time and prop finders just offered ("Only Cliff 2", "Anything earlier?", "Make it spookier"):
+  // a tap goes straight back to that finder, never read as picking a time shown (audit, Nov 7: "Only Cliff 1" booked
+  // the first option) and without a second AI call first.
+  const helperChips = useRef(new Map<string, Helper>())
   // Did the chat's last words ask the person something? ("Want me to look at Saturday?")
   // The opening greeting ("What are we making today?") doesn't count: nothing has been asked about yet.
   function lastBotAsked(): boolean {
@@ -345,11 +349,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const waiting = askedWhich.current; askedWhich.current = null
     if (waiting) {
       const r = pickOption(q, waiting)
-      if (r && 'index' in r) {
-        const o = waiting[r.index]
-        setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
-        void book(o); return true
-      }
+      if (r && 'index' in r) { void book(waiting[r.index], true); return true }
     }
     for (let i = msgs.length - 1; i >= 0 && i >= msgs.length - 4; i--) {
       const m = msgs[i]
@@ -366,9 +366,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           askedWhich.current = c
           setChips(c.length <= 3 ? names : []); return true
         }
-        const o = m.options[r.index]
-        setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
-        void book(o)
+        void book(m.options[r.index], true)
         return true
       }
       if (m.who === 'cancel') {
@@ -379,10 +377,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     return false
   }
 
-  async function send(t = text, more = false, force?: Helper) {
+  async function send(t = text, more = false, force?: Helper, fresh = false) {   // fresh: a whole new time request (see runHelpers)
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
     setText(''); setChips([])
+    helperChips.current = new Map()
+    if (force || more) askedWhich.current = null   // a new search: an old "Which one?" no longer applies
     setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: q, mode: force ?? (more ? 'props' : mode ?? 'help') }])
     // Something wrong with the app itself (owner, Nov 5): straight to "Report a problem", no AI needed.
     if (!force && !more && typedPick(q)) return
@@ -427,7 +427,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       if (askWhatTheyWant(q)) return
       if (localTurn(q)) return
     }
-    await runHelpers(q, more, force)
+    await runHelpers(q, more, force, undefined, fresh)
   }
 
   // The AI read a change of direction in the middle of the plan: say what leaving means, then let them choose.
@@ -445,7 +445,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (also && !plan) {
       aiSpoke.current = false
       if (also.action === 'return') { localTurn(q, { intent: 'return', text: '' }); return }
-      await runHelpers(also.query, false, also.action === 'times' ? 'time' : 'props')
+      await runHelpers(also.query, false, also.action === 'times' ? 'time' : 'props', undefined, true)
     }
   }
   async function runOne(turn: ChatTurn, q: string) {
@@ -454,7 +454,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     switch (turn.action) {
       case 'times':
         if (plan && plan.step === 'props') return confirmLeave(turn.reply, turn.query || q, 'time')
-        if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time')
+        // The AI's query is a whole new sentence ("Thursday at 5 at Cliff 1"): search it fresh, so an earlier search's
+        // friend, house or time doesn't sneak in (audit, Nov 7: "book me Thursday at 5" re-invited Kyle).
+        if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time', undefined, !!turn.query)
       case 'props':
         if (plan && plan.step === 'time') return confirmLeave(turn.reply, turn.query || q, 'props')
         if (turn.shoot) choose(turn.shoot)
@@ -606,7 +608,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // The prop finder, the time finder and the how-to guide (each its own server helper, same budget and safety box).
   // The AI's own line was just shown for this message: helpers skip their canned summary (owner, Nov 3: less boilerplate).
   const aiSpoke = useRef(false)
-  async function runHelpers(q: string, more: boolean, force?: Helper, shootId?: string) {
+  // `fresh`: a standalone time request (from the AI), so the time finder starts over instead of adjusting the last search.
+  async function runHelpers(q: string, more: boolean, force?: Helper, shootId?: string, fresh = false) {
     const route: Route = helpOnly ? { helpers: ['help'] } : demo ? (routeMessage(q, { last: mode, shoots: [] }).helpers[0] === 'help' && !more && force !== 'props' ? { helpers: ['help'] } : { helpers: ['props'] }) : force ? { helpers: [force], ...(shootId ? { shootId } : {}) } : more || plan?.step === 'props' ? { helpers: ['props'] }
       : plan?.step === 'time' ? { helpers: ['time'] }
       : routeMessage(q, { last: mode, shoots: upcoming.map(x => ({ id: x.id, date: x.date })) })
@@ -622,7 +625,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const next: string[][] = []
     for (const h of hs) {
       setThinking(h)
-      next.push(h === 'props' ? await sendProps(q, more, target, offer) : h === 'help' ? await sendHelp(q) : await sendTime(q, offer))
+      next.push(h === 'props' ? await sendProps(q, more, target, offer) : h === 'help' ? await sendHelp(q) : await sendTime(q, offer, fresh))
     }
     // Both ran: a few follow-ups from each.
     setChips([...new Set(both ? [...next[0].filter(c => c !== TIME_CHIP).slice(0, 3), ...next[1].slice(0, 2)] : next[0])].slice(0, 5))
@@ -654,7 +657,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       }
       setMsgs(x => [...x, { who: 'bot', text: quiet ? '' : r.note || r.reply || (found ? 'Here\'s what we have for that.' : 'Nothing new fits that. Try another angle, or search the closet.'),
         ...(found ? { result: kept } : r.note ? {} : { search: q }), ...(offerOther && !more ? { alt: { q, to: 'time' as const } } : {}) }])
-      const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...(r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim())), ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
+      const own = (r.chips ?? []).filter(c => !/^more like these$/i.test(c.trim()))
+      for (const c of own) helperChips.current.set(c, 'props')
+      const next = [...(plan?.step === 'props' ? [gearOn ? NEXT_GEAR : NEXT_REVIEW] : []), ...(found ? [MORE] : []), ...own, ...(found && !shootId && !plan && !demo ? [TIME_CHIP] : [])]
       return [...new Set(next)].slice(0, 5)
     } catch (e) {
       // Busy, offline, today's limit: say so plainly, and offer to try again or search the closet instead.
@@ -673,9 +678,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: propsErr(e), retry: q }]); return [] }
   }
 
-  async function sendTime(q: string, offerOther: boolean): Promise<string[]> {
+  async function sendTime(q: string, offerOther: boolean, fresh = false): Promise<string[]> {
     try {
-      const r = (await askForTime({ text: q, ...(previous ? { previous } : {}) })).data
+      const r = (await askForTime({ text: q, ...(previous && !fresh ? { previous } : {}) })).data
       setPrevious(r.ask)
       const quiet = aiSpoke.current && r.options.length > 0; aiSpoke.current = false
       // The chat's own short reaction already showed: keep only the facts that matter ("5 PM isn't free; closest times").
@@ -684,10 +689,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       // Follow-ups that change something (never "Evenings only" when it already is).
       const a = r.ask as { timeOfDay?: string; houses?: string[] }
       const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h
-      if (r.choices?.length) return r.choices
-      const next = r.friends.length ? ['Anything on the weekend?', one('cliff2') ? '' : `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours']
-        : ['Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only', one('cliff1') ? `Only ${s.houses.cliff2.name}` : `Only ${s.houses.cliff1.name}`]
-      return next.filter(Boolean)
+      const next = r.choices?.length ? r.choices : (r.friends.length ? ['Anything on the weekend?', one('cliff2') ? '' : `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours']
+        : ['Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only', one('cliff1') ? `Only ${s.houses.cliff2.name}` : `Only ${s.houses.cliff1.name}`]).filter(Boolean)
+      for (const c of next) helperChips.current.set(c, 'time')
+      return next
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]); return [] }
   }
 
@@ -695,12 +700,21 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const [guideFor, setGuideFor] = useState<string | null>(null)
   const [guide, setGuide] = useState<Guideline | null>(null)
   const optKey = (o: TimeAskResult['options'][number]) => `${o.date}-${o.place}-${o.start}`
-  async function book(o: TimeAskResult['options'][number]) {
-    if (needsGuideline(o.date, o.place, profile.email, s) && !(guide && guideFor === optKey(o))) { setGuideFor(optKey(o)); return }
+  // `typed`: they typed the pick ("the 5pm one") instead of tapping, so say which one is being sent.
+  async function book(o: TimeAskResult['options'][number], typed = false) {
+    // The schedule team (owner, also in creator mode; equipment) never needs a guideline, like the server (audit, Nov 7).
+    const team = role === 'owner' || role === 'equipment' || realRole === 'owner'
+    if (!team && needsGuideline(o.date, o.place, profile.email, s) && !(guide && guideFor === optKey(o))) {
+      // Nothing is sent yet: say why, and where to add it (audit, Nov 7: a typed pick said "Asking for…" and stopped).
+      if (guideFor !== optKey(o) || typed) setMsgs(x => [...x, { who: 'bot', text: `${formatDay(o.date, { weekday: 'long' })}s at ${house(o.place)} need your filming guideline (PDF). Nothing is sent yet: add it under the time above, then tap **${asks ? 'Request' : 'Book'}**.` }])
+      setGuideFor(optKey(o)); return
+    }
+    if (typed) setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
     setBusy(true)
     try {
       const friends = o.slots.filter(x => !x.me).map(x => x.email)
       const r = (await bookWithFriends({ place: o.place, date: o.date, start: o.start, friends, mySlots: o.slots.filter(x => x.me).length, ...(guide && guideFor === optKey(o) ? { guideline: guide } : {}) })).data
+      setPrevious(undefined)   // booked: the next time search starts from scratch (no friends or house carried over)
       const where = `${formatDay(o.date)} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`
       // Every creator booking is a request the schedule team approves (owner, Nov 2); the slot is held meanwhile.
       const asked = r.status === 'requested'
@@ -734,6 +748,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (c === NEXT_REVIEW) return planReview()
     if (c === TIME_CHIP) return askTime()
     if (c === PROPS_CHIP) { const b = [...msgs].reverse().find(x => x.who === 'booked'); if (b && b.who === 'booked') propsFor(b.shootId); return }
+    const h = c !== MORE ? helperChips.current.get(c) : undefined
+    if (h) return send(c, false, h)
     send(c, c === MORE)
   }
 
@@ -914,7 +930,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             <p className="text-pt-muted text-[16px]">What are we making today?</p>
           </div>
         )}
-        {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time')} onProps={id => propsFor(id)} />}
+        {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time', true)} onProps={id => propsFor(id)} />}
         {msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
           <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
