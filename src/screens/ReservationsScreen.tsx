@@ -8,6 +8,8 @@ import { useAtRisk } from '../hooks/useAtRisk'
 import { formatRange, formatDay } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { Pill } from '../components/GearUi'
+import ShootLine from '../components/ShootLine'
+import { useShootLines } from '../hooks/useShootLines'
 
 interface Tab { key: string; label: string; statuses: ReservationStatus[]; newestFirst?: boolean; byEnd?: boolean; today?: boolean }
 
@@ -72,6 +74,8 @@ export default function ReservationsScreen() {
 
   const shown = byTab[tabKey] ?? []
   const atRisk = useAtRisk(list ?? [])
+  // Which shoot each request is for (house, day, hours, creator), from the schedule.
+  const shootLine = useShootLines(shown.map(r => ({ shootId: r.scheduleShootId, date: r.startDate })), profile.email)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -112,6 +116,9 @@ export default function ReservationsScreen() {
           const done = r.lines.filter(l => l.pick).length + builds.filter(b => b.state !== 'todo').length
           const items = [...r.lines.map(l => l.qty > 1 ? `${l.qty}× ${l.itemName}` : l.itemName), ...builds.map(b => `${b.qty > 1 ? `${b.qty}× ` : ''}${b.description} (to make)`)]
           const todayLine = tabKey === 'today' && (r.status === 'collected' ? (returnDueDay(r.endDate, settings) < today ? `Was due back ${formatDay(returnDueDay(r.endDate, settings))}` : `Due back by ${RETURN_DEADLINE_HOUR} AM`) : pickup < today ? 'Pickup was due' : 'Pickup today')
+          const soon = isStaff && ['requested', 'preparing', 'packed'].includes(r.status) ? (pickup !== r.startDate ? `pickup ${whenLabel(pickup, today).toLowerCase()}` : whenLabel(r.startDate, today)) : ''
+          // With a shoot, its line already has the day and the creator: the line under it keeps only what's due when.
+          const shootText = shootLine(r.scheduleShootId)
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
               className={`w-full text-left bg-pt-surface rounded-2xl p-4 space-y-1 active:opacity-80 ${overdue || urgent ? 'ring-1 ring-red-400/60' : atRisk[r.id] ? 'ring-1 ring-amber-400/60' : ''}`}>
@@ -125,12 +132,15 @@ export default function ReservationsScreen() {
                   {!overdue && <span className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLES[r.status]}`}>{statusLabel(r)}</span>}
                 </div>
               </div>
-              <p className="text-pt-muted text-sm">
-                {todayLine || <>{formatRange(r.startDate, r.endDate)}{isStaff && ['requested', 'preparing', 'packed'].includes(r.status) && (
-                  <span className={urgent ? 'text-red-300' : ''}> · {pickup !== r.startDate ? `pickup ${whenLabel(pickup, today).toLowerCase()}` : whenLabel(r.startDate, today)}</span>
-                )}</>}
-                {isStaff && ` · ${r.creatorName}`}
-              </p>
+              <ShootLine text={shootText} />
+              {shootText ? (todayLine || soon) && (
+                <p className="text-pt-muted text-sm">{todayLine || <span className={urgent ? 'text-red-300' : ''}>{soon.charAt(0).toUpperCase() + soon.slice(1)}</span>}</p>
+              ) : (
+                <p className="text-pt-muted text-sm">
+                  {todayLine || <>{formatRange(r.startDate, r.endDate)}{soon && <span className={urgent ? 'text-red-300' : ''}> · {soon}</span>}</>}
+                  {isStaff && ` · ${r.creatorName}`}
+                </p>
+              )}
               <p className="text-pt-muted text-xs truncate">{items.join(', ')}</p>
               {atRisk[r.id] && (
                 <p className="text-amber-300 text-xs">

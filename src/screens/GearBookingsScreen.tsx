@@ -5,6 +5,8 @@ import { useSession } from '../auth'
 import { subscribeToGearBookings, fmtHours, fmtTime, nowStamp, isGearLate, type GearBooking } from '../services/gear'
 import { Pill, STATUS_LABEL } from '../components/GearUi'
 import { formatDay } from '../lib/dates'
+import ShootLine from '../components/ShootLine'
+import { useShootLines } from '../hooks/useShootLines'
 
 type Tab = 'today' | 'out' | 'checkin' | 'upcoming' | 'past'
 
@@ -41,6 +43,8 @@ export default function GearBookingsScreen() {
     ? [['today', `Today (${groups.today.length})`], ['out', `Out (${groups.out.length})`], ['checkin', `To check in (${groups.checkin.length})`], ['upcoming', 'Upcoming'], ['past', 'Past']]
     : [['upcoming', `Upcoming (${groups.upcoming.length})`], ['past', 'Past & cancelled']]
   const shown = groups[tab]
+  // Which shoot each booking is for (house, day, hours, creator), from the schedule.
+  const shootLine = useShootLines(shown.map(b => ({ shootId: b.scheduleShootId, date: b.date })), profile.email)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -68,6 +72,9 @@ export default function GearBookingsScreen() {
         {shown.map(b => {
           const late = isGearLate(b, now)
           const pickupToday = b.status === 'held' && b.pickupDay === today
+          // With a shoot, its line already has the day and the creator: the line under it keeps the gear's own times.
+          const shootText = shootLine(b.scheduleShootId)
+          const crewNames = (b.crew ?? []).map(c => c.name.split(' ')[0]).join(', ')
           return (
             <button key={b.id} onClick={() => navigate(`/gear/bookings/${b.id}`)}
               className={`w-full text-left bg-pt-surface rounded-2xl p-4 space-y-1 active:opacity-80 ${late ? 'ring-1 ring-red-400/60' : ''}`}>
@@ -79,11 +86,14 @@ export default function GearBookingsScreen() {
                   <Pill tone={STATUS_LABEL[b.status]?.tone ?? 'muted'}>{STATUS_LABEL[b.status]?.text ?? b.status}</Pill>
                 </div>
               </div>
+              <ShootLine text={shootText} />
               <p className="text-pt-muted text-sm">
                 {isGearStaff && tab === 'today'
                   ? (pickupToday ? `Pickup ${fmtTime(b.start)}` : `Due back ${fmtTime(b.end)}`)
-                  : `${formatDay(b.date)} · ${fmtHours(b.start, b.end)}`}
-                {isGearStaff ? ` · ${b.creatorName || b.creatorEmail}${b.crew?.length ? ` + ${b.crew.map(c => c.name.split(' ')[0]).join(', ')}` : ''}` : b.crew?.length && b.creatorEmail !== profile.email ? ` · shared by ${(b.creatorName ?? '').split(' ')[0]}` : ''}
+                  : shootText ? `Gear ${fmtHours(b.start, b.end)}` : `${formatDay(b.date)} · ${fmtHours(b.start, b.end)}`}
+                {isGearStaff
+                  ? (shootText ? (crewNames ? ` · with ${crewNames}` : '') : ` · ${b.creatorName || b.creatorEmail}${crewNames ? ` + ${crewNames}` : ''}`)
+                  : b.crew?.length && b.creatorEmail !== profile.email ? ` · shared by ${(b.creatorName ?? '').split(' ')[0]}` : ''}
               </p>
               <p className="text-pt-muted text-xs truncate">{b.lines.map(l => `${l.kind === 'extra' ? `${l.qty}× ` : ''}${l.name}`).join(', ')}</p>
             </button>

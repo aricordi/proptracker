@@ -17,6 +17,8 @@ import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
 import { formatDay, formatRange } from '../lib/dates'
 import { STATUS_LABELS, STATUS_STYLES, JOURNEY, statusLabel } from '../lib/reservationLabels'
 import ShootLink from '../components/ShootLink'
+import ShootLine from '../components/ShootLine'
+import { useShootLine } from '../hooks/useShootLines'
 import ReturnTogether from '../components/ReturnTogether'
 import { Icon, IconText } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
@@ -34,6 +36,8 @@ export default function ReservationDetailScreen() {
   const risky = useAtRisk(asList)[res?.id ?? ''] ?? []
 
   useEffect(() => id ? subscribeToReservation(id, setRes) : undefined, [id])
+  // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
+  const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email)
 
   if (res === undefined) return <Centered>Loading…</Centered>
   if (res === null) return <Centered>Booking not found.</Centered>
@@ -63,7 +67,9 @@ export default function ReservationDetailScreen() {
 
         <div>
           <h1 className="font-display text-2xl text-pt-text leading-tight">{res.title}</h1>
-          <p className="text-pt-text mt-1"><IconText name="calendar">{formatRange(res.startDate, res.endDate)}</IconText></p>
+          {shootText
+            ? <ShootLine text={shootText} wrap className="text-pt-text mt-1" />
+            : <p className="text-pt-text mt-1"><IconText name="calendar">{formatRange(res.startDate, res.endDate)}</IconText></p>}
           {active && pickup !== res.startDate && (
             <p className="text-amber-300 text-sm mt-0.5">Pick up {formatDay(pickup)}: the prop room is closed on the shoot day.</p>
           )}

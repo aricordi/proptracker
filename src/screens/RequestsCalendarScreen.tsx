@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
-import { useScheduleDays, useScheduleSettings, fmtSlot, type ScheduleDay } from '../services/schedule'
+import { useScheduleDays, useScheduleSettings } from '../services/schedule'
+import { findShootOnDay, placeName, compactHours } from '../lib/shootLine'
 import { todayInStudio, addDays, pickupDay, isLate } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { formatDay } from '../lib/dates'
@@ -11,17 +12,6 @@ import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { Icon } from '../components/Icon'
 
 const BEFORE = 7, AFTER = 42
-
-// Where and when the request's shoot is, from the schedule (if it was booked for a schedule shoot).
-function shootPlace(day: ScheduleDay | undefined, shootId: string | undefined, houses: Record<string, { name: string }>, slotMinutes: number) {
-  if (!day || !shootId) return ''
-  for (const h of ['cliff1', 'cliff2'] as const) {
-    const hit = Object.entries(day[h] ?? {}).find(([, e]) => e.shootId === shootId)
-    if (hit) return `${houses[h].name} · ${fmtSlot(Number(hit[0]), slotMinutes)}`
-  }
-  const o = (day.offsite ?? []).find(x => x.shootId === shootId)
-  return o ? `${o.where} · ${fmtSlot(o.start, o.end - o.start)}` : ''
-}
 
 export default function RequestsCalendarScreen() {
   const navigate = useNavigate()
@@ -72,7 +62,9 @@ export default function RequestsCalendarScreen() {
         {shown.map(r => {
           const late = isLate(r.status, r.endDate, settings)
           const total = r.lines.length + (r.builds ?? []).length
-          const where = shootPlace(days?.[r.startDate], (r as Reservation & { scheduleShootId?: string }).scheduleShootId, s.houses, s.slotMinutes)
+          // Where and when the request's shoot is, from the schedule (if it was booked for a schedule shoot).
+          const spot = findShootOnDay(days?.[r.startDate], r.scheduleShootId, s.slotMinutes)
+          const where = spot ? `${placeName(spot, s.houses)} · ${compactHours(spot.start, spot.end)}` : ''
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)} className="w-full text-left bg-pt-surface shadow-hairline rounded-2xl p-4">
               <div className="flex items-start justify-between gap-2">

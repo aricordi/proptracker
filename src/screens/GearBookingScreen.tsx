@@ -12,6 +12,8 @@ import { lateFor, stampLabel } from '../lib/lateReturns'
 import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
+import ShootLine from '../components/ShootLine'
+import { useShootLine } from '../hooks/useShootLines'
 import UsedByPicker, { usedByOf } from '../components/UsedByPicker'
 import HandOverSheet from '../components/HandOverSheet'
 import ReturnTogether from '../components/ReturnTogether'
@@ -50,6 +52,8 @@ export default function GearBookingScreen() {
   // A new step starts with a clean checklist.
   useEffect(() => { setTicked(new Set()); setMissing(new Set()) }, [b?.status])
   const lines = useMemo(() => b ? checkLines(b.lines) : [], [b])
+  // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
+  const shootText = useShootLine(b?.scheduleShootId, b?.date, profile.email)
 
   if (b === undefined) return <div className="p-6 pt-safe text-pt-muted">Loading…</div>
   if (b === null) return <div className="p-6 pt-safe text-pt-muted">Booking not found.</div>
@@ -91,6 +95,7 @@ export default function GearBookingScreen() {
           </div>
           <h1 className="font-display text-[34px] text-pt-text leading-tight">{b.title}</h1>
           <p className="text-pt-muted">{formatDay(b.date, { weekday: 'long', month: 'long', day: 'numeric' })} · {fmtHours(b.start, b.end)}</p>
+          <ShootLine text={shootText} label="Shoot:" wrap className="text-pt-text text-[15px]" />
           {canSeeGear && <p className="text-pt-muted text-sm">Booked by {b.creatorName || b.creatorEmail}</p>}
         </div>
 

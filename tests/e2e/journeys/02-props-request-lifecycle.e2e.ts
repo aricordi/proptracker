@@ -80,10 +80,15 @@ test('3. arts: open the request from the props queue, tick everything, pack phot
   await signIn(page, 'arts')
   await expect(page.getByRole('heading', { level: 1, name: 'Props queue' })).toBeVisible()
 
-  await test.step('find it under To prepare', async () => {
+  await test.step('find it under To prepare: the card says which shoot it is for', async () => {
+    const dayLabel = await labelOf(page, shootDay)
+    const shootLine = `Cliff 1 · ${dayLabel} · 3–5 PM · Riley (Creator)`
     await page.getByRole('button', { name: /^To prepare \(\d+\)/ }).click()
-    await page.getByRole('button', { name: new RegExp(TITLE) }).click()
+    const card = page.getByRole('button', { name: new RegExp(TITLE) })
+    await expect(card.getByText(shootLine)).toBeVisible()
+    await card.click()
     await expect(page.getByRole('heading', { level: 1, name: TITLE })).toBeVisible()
+    await expect(page.getByText(shootLine)).toBeVisible()   // …and so does the top of the request page
     await expect(page.getByText('Picking list')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Mark packed & ready for pickup' })).toBeDisabled()
   })
@@ -120,6 +125,8 @@ test('4a. creator: signs for the pickup, then returns everything with one photo'
     await page.getByRole('button', { name: /Props & costumes · 2 props Packed & ready/ }).click()
     await expect(page.getByRole('heading', { level: 1, name: TITLE })).toBeVisible()
     await expect(page.getByText('Ready for pickup!')).toBeVisible()
+    // The creator sees their shoot at the top too, without their own name.
+    await expect(page.getByText(`Cliff 1 · ${await labelOf(page, shootDay)} · 3–5 PM`, { exact: true })).toBeVisible()
   })
 
   await test.step('sign off the pickup', async () => {
