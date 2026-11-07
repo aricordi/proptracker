@@ -1,8 +1,9 @@
 // Give it to Kyle (owner, Nov 2): someone with top priority needs a slot another creator holds. The schedule team moves
 // the holder to another free time that day, or cancels them (sorry note + their next request goes first).
 import { beforeEach, describe, it, expect } from 'vitest'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, soonSlot } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
+import { slotWindow } from '../../functions/src/schedule'
 
 const MAANIK = 'maanik@example.com', SAM = 'sam@example.com', ANA = 'ana@example.com', BEN = 'ben@example.com', KYLE = 'kyle@example.com'
 const today = todayInStudio()
@@ -59,6 +60,32 @@ describe('give it to Kyle', () => {
     expect(r.result.bumped).toBe('Ana')
     expect(await getDoc(`shoots/${a}`)).toMatchObject({ status: 'cancelled' })
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780']).toMatchObject({ email: KYLE })
+  })
+
+  it('a creator the team moved can still move it and cancel free inside 48 h (audit, Nov 7)', async () => {
+    // Booked days ago (so neither the 10-minute undo nor "booked less than 24 h ahead" makes the cancel free).
+    const { date, start } = await soonSlot()
+    const old = new Date(Date.now() - 5 * 86400000).toISOString()
+    const shoot = (id: string, who: string, name: string, day: string, house: string, at: number) => put(`shoots/${id}`, { creatorEmail: who, creatorName: name, place: house, where: '',
+      date: day, start: at, end: at + 120, ...slotWindow(day, at, 120), month: day.slice(0, 7), status: 'booked', kind: 'extra', createdAt: old, bookedBy: who, history: [] })
+    await shoot('a1', ANA, 'Ana', date, 'cliff1', start)
+    await put(`schedule_days/${date}`, { date, cliff1: { [String(start)]: { shootId: 'a1', name: 'Ana', email: ANA, kind: 'extra' } } })
+    await shoot('b1', BEN, 'Ben', FRI, 'cliff2', 780)
+    await put(`schedule_days/${FRI}`, { date: FRI, cliff2: { '780': { shootId: 'b1', name: 'Ben', email: BEN, kind: 'extra' } } })
+    // A priority booking moves Ana to Cliff 2 at the same time; the team moves Ben's shoot (stamped as a team move).
+    const g = await give(MAANIK, { date, start, toEmail: KYLE, moveTo: { house: 'cliff2', start } })
+    expect(g.ok, g.message).toBe(true)
+    const m = await call('moveShoot', { id: 'b1', place: 'cliff2', date: FRI, start: 900 }, MAANIK)
+    expect(m.ok, m.message).toBe(true)
+    expect((await getDoc('shoots/b1'))!.teamMovedAt).toBeTruthy()
+    // Ana can still ask to move inside 48 h (short notice would normally refuse it), and cancelling is free.
+    const mv = await call('moveShoot', { id: 'a1', place: 'cliff1', date: FRI, start: 1020 }, ANA)
+    expect(mv.ok, mv.message).toBe(true)
+    const ca = await call('cancelShoot', { id: 'a1' }, ANA)
+    expect(ca.ok, ca.message).toBe(true)
+    expect(ca.result.lateCancel).toBe(false)
+    expect((await getDoc('shoots/a1'))!.noShow).toBeUndefined()
+    expect((await getDoc(`user_status/${ANA}`))?.strikes ?? 0).toBe(0)
   })
 
   it('a clashing event from Kyle\'s calendar can be given the slot', async () => {

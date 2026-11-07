@@ -103,7 +103,7 @@ describe('who is expected to check in (audit, Nov 5)', () => {
   })
 })
 
-import { bookedLate, cancelCountsAsNoShow, DEFAULT_SCHEDULE as DS2 } from '../../functions/src/schedule'
+import { bookedLate, cancelCountsAsNoShow, timeSetByTeam, DEFAULT_SCHEDULE as DS2 } from '../../functions/src/schedule'
 describe('free cancel for late bookings (owner, Nov 6)', () => {
   // 2026-11-07 is EST (UTC-5): 17:00 Toronto = 22:00 UTC.
   it('booked less than 24 h before the start = late', () => {
@@ -119,5 +119,14 @@ describe('free cancel for late bookings (owner, Nov 6)', () => {
     expect(cancelCountsAsNoShow({ status: 'requested', from: '2026-11-07T17:00', createdAt: old }, now, DS2)).toBe(false)
     expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-07T17:00', createdAt: '2026-11-06T23:00:00.000Z' }, now, DS2)).toBe(false)
     expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-12T17:00', createdAt: old }, now, DS2)).toBe(false)
+  })
+  it('a shoot the team moved (priority booking or team move) cancels free (audit, Nov 7)', () => {
+    const old = '2026-11-01T12:00:00.000Z', now = '2026-11-07T09:00'
+    const bumped = { for: 'kyle@example.com', forName: 'Kyle', by: 'maanik@example.com', at: '2026-11-07T08:00:00.000Z' }
+    expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-07T17:00', createdAt: old, bumped }, now, DS2)).toBe(false)
+    expect(cancelCountsAsNoShow({ status: 'booked', from: '2026-11-07T17:00', createdAt: old, teamMovedAt: '2026-11-07T08:00:00.000Z' }, now, DS2)).toBe(false)
+    expect(timeSetByTeam({ bumped })).toBe(true)
+    expect(timeSetByTeam({ teamMovedAt: '2026-11-07T08:00:00.000Z' })).toBe(true)
+    expect(timeSetByTeam({})).toBe(false)
   })
 })

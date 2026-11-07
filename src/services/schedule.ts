@@ -31,6 +31,7 @@ export interface Shoot {
   noShow?: 'late-cancel' | 'missed'
   // Given to someone with top priority (Kyle): moved (movedFrom) or cancelled.
   bumped?: { for: string; forName: string; by: string; at: string; movedFrom?: { place: House; start: number } }
+  teamMovedAt?: string   // the schedule team moved it (the creator didn't choose this time: moving/cancelling stays free)
   clash?: boolean; clashWith?: string[]
   guideline?: { url: string; name: string }   // filming guideline PDF (Cliff 1 Thu/Sat, owner Nov 3)
 }

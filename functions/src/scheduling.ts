@@ -12,7 +12,7 @@ import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline,
-  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow,
+  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
@@ -222,7 +222,7 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     if (b.status !== 'booked' && b.status !== 'requested') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started. Ask the schedule team if something went wrong.')
     // Withdrawing a request that was never approved is always free; so is a shoot booked less than 24 h before it starts.
-    noShow = !team && cancelCountsAsNoShow(b as { status: string; from: string; createdAt?: string; requestedAt?: string }, now, s)
+    noShow = !team && cancelCountsAsNoShow(b as Parameters<typeof cancelCountsAsNoShow>[0], now, s)
     who = { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
     const mr = b.moveRequest as Spot | undefined
@@ -296,7 +296,8 @@ export const moveShoot = onCall(CALLABLE, async req => {
     // (owner, Nov 2): the new spot is held as "move" and the old spot stays theirs until it's approved.
     const stillRequest = b.status === 'requested'
     const asRequest = !stillRequest && needsApproval(caller, b.creatorEmail, s)
-    if (!team && !stillRequest && isShortNotice(b.from, now, s)) throw shortNoticeFail(s)
+    // Inside the notice period a creator can't move, unless the team set this time for them (a priority booking or a team move).
+    if (!team && !stillRequest && isShortNotice(b.from, now, s) && !timeSetByTeam(b)) throw shortNoticeFail(s)
     const old = b.moveRequest as Spot | undefined
     const write = await editDays(tx, [b.date, spot.date, ...(old ? [old.date] : [])], days => {
       if (old) dropMove(days[old.date], id)
@@ -315,9 +316,13 @@ export const moveShoot = onCall(CALLABLE, async req => {
       })
       return
     }
+    // Who chose the new time: the team moving someone else's shoot stamps teamMovedAt (cancelling it stays free); the creator
+    // picking a time themselves clears the stamp (and an old priority-booking move).
+    const byTeam = team && b.creatorEmail !== caller.email
     tx.update(ref, {
       ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, updatedAt: at, ...(old ? { moveRequest: FieldValue.delete() } : {}), ...(guideline ? { guideline } : {}),
-      history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${team && b.creatorEmail !== caller.email ? ' · by the schedule team' : ''}` }),
+      ...(byTeam ? { teamMovedAt: at } : { teamMovedAt: FieldValue.delete(), bumped: FieldValue.delete() }),
+      history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${byTeam ? ' · by the schedule team' : ''}` }),
     })
   })
   return { ok: true, kind, status: result }
@@ -351,7 +356,8 @@ export const decideBooking = onCall(CALLABLE, async req => {
       write()
       const spot: Spot = { place: mr.place, date: mr.date, start: mr.start, end: mr.end, where: mr.where }
       tx.update(ref, {
-        ...(approve ? { ...spot, month: monthOf(mr.date), from: mr.from, to: mr.to, kind: mr.kind } : {}),
+        // The creator asked for this time themselves, so a team-move stamp from before no longer applies.
+        ...(approve ? { ...spot, month: monthOf(mr.date), from: mr.from, to: mr.to, kind: mr.kind, teamMovedAt: FieldValue.delete(), bumped: FieldValue.delete() } : {}),
         moveRequest: FieldValue.delete(), updatedAt: at,
         history: FieldValue.arrayUnion(approve
           ? { at, by, action: 'move-approved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)} · approved by ${name}` }
@@ -507,6 +513,8 @@ export const answerSwap = onCall(CALLABLE, async req => {
       return {
         place: other.place, date: other.date, start: other.start, end: other.end, where: '', month: monthOf(other.date), from: win.from, to: win.to,
         kind: other.place === MONTHLY_HOUSE ? x.kind : 'extra', updatedAt: at,
+        // Both creators agreed on the new times, so a team-move stamp from before no longer applies.
+        ...(isTeam(caller) ? {} : { teamMovedAt: FieldValue.delete(), bumped: FieldValue.delete() }),
         history: FieldValue.arrayUnion({ at, by: caller.email, action: 'swapped', note: `with ${name}: now ${spotLabel(other, s)}` }),
       }
     }
