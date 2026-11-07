@@ -3,7 +3,7 @@ import { Icon } from '../components/Icon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToGearBookings, fmtHours, fmtTime, nowStamp, isGearLate, type GearBooking } from '../services/gear'
-import { Pill, STATUS_LABEL } from '../components/GearUi'
+import { Pill, STATUS_LABEL, dueBackLabel } from '../components/GearUi'
 import { formatDay } from '../lib/dates'
 import ShootLine from '../components/ShootLine'
 import { useShootLines } from '../hooks/useShootLines'
@@ -89,7 +89,7 @@ export default function GearBookingsScreen() {
               <ShootLine text={shootText} />
               <p className="text-pt-muted text-sm">
                 {isGearStaff && tab === 'today'
-                  ? (pickupToday ? `Pickup ${fmtTime(b.start)}` : `Due back ${fmtTime(b.end)}`)
+                  ? (pickupToday ? `Pickup ${fmtTime(b.start)}` : `Due back ${dueBackLabel(b)}`)
                   : shootText ? `Gear ${fmtHours(b.start, b.end)}` : `${formatDay(b.date)} · ${fmtHours(b.start, b.end)}`}
                 {isGearStaff
                   ? (shootText ? (crewNames ? ` · with ${crewNames}` : '') : ` · ${b.creatorName || b.creatorEmail}${crewNames ? ` + ${crewNames}` : ''}`)

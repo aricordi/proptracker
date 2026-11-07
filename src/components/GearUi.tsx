@@ -15,6 +15,14 @@ import { LATE_FEE_PERCENT, fmtMoney } from '../../functions/src/gearStock'
 const TIMES: number[] = []
 for (let t = GEAR_DAY_START; t <= GEAR_DAY_END; t += GEAR_STEP) TIMES.push(t)
 
+// When gear is due back, from its real back-by stamp: "1 AM (Sat, Nov 8)" for the 11 PM slot or a shoot past
+// midnight, "Mon, Nov 10 · 10 AM" for a closed-day shoot, else just "3 PM" (audit, Nov 7: it said 12 AM).
+export function dueBackLabel(b: { date: string; to: string; closedDay?: boolean }) {
+  const day = b.to.slice(0, 10), t = fmtTime(Number(b.to.slice(11, 13)) * 60 + Number(b.to.slice(14, 16)))
+  if (b.closedDay) return `${formatDay(day)} · ${t}`
+  return day === b.date ? t : `${t} (${formatDay(day)})`
+}
+
 export function nowMinutes() {
   const [h, m] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
     .format(new Date()).split(':').map(Number)

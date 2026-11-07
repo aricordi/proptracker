@@ -7,7 +7,7 @@ import {
   fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt, isGearLate, gearDueBy, checkLines, type GearBooking, type GearBundle,
 } from '../services/gear'
 import { knownMissingKeys } from '../../functions/src/gearBooking'
-import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote } from '../components/GearUi'
+import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote, dueBackLabel } from '../components/GearUi'
 import { fmtMoney } from '../../functions/src/gearStock'
 import { lateFor, stampLabel } from '../lib/lateReturns'
 import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
@@ -119,7 +119,7 @@ export default function GearBookingScreen() {
         )}
         {late && (
           <div className="bg-red-500/10 rounded-2xl px-4 py-3 text-red-200 text-[15px]">
-            This gear was due back {b.closedDay ? `${formatDay(b.to.slice(0, 10))} at 10 AM` : `at ${fmtTime(b.end)}`} and is late.
+            This gear was due back {b.closedDay ? dueBackLabel(b) : `at ${dueBackLabel(b)}`} and is late.
             {mine ? ' Bring it back as soon as you can. You can\'t book more gear until it\'s returned.' : ''}
           </div>
         )}
@@ -158,7 +158,7 @@ export default function GearBookingScreen() {
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Pick up</span>
             <span className="text-pt-text">{formatDay(b.pickupDay)} · {fmtTime(b.start)}</span></div>
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Back by</span>
-            <span className="text-pt-text">{b.closedDay ? `${formatDay(b.to.slice(0, 10))} · 10 AM` : fmtTime(b.end)}</span></div>
+            <span className="text-pt-text">{dueBackLabel(b)}</span></div>
           <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Where</span><span className="text-pt-text">Equipment cage</span></div>
           {!!b.value && <div className="flex justify-between px-4 py-3 text-[15px]"><span className="text-pt-muted">Value</span><span className="text-pt-text">{fmtMoney(b.value)}{b.valueMissing ? ' +' : ''}</span></div>}
         </div>
@@ -201,7 +201,7 @@ export default function GearBookingScreen() {
           <section className="space-y-3">
             <div>
               <h2 className="text-pt-text text-xl font-semibold tracking-tight">Return gear</h2>
-              <p className="text-pt-muted text-sm">Due back {b.closedDay ? `${formatDay(b.to.slice(0, 10))} by 10 AM` : `by ${fmtTime(b.end)}`} (late from {fmtTime(stampMin(gearDueBy(b.to)))}).</p>
+              <p className="text-pt-muted text-sm">Due back {b.closedDay ? dueBackLabel(b) : `by ${dueBackLabel(b)}`} (late from {fmtTime(stampMin(gearDueBy(b.to)))}).</p>
             </div>
             {mine && <ReturnTogether kind="gear" id={b.id} />}
             {mine && <button onClick={() => navigate(`/return?ref=gear:${b.id}`)} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">Return it</button>}
