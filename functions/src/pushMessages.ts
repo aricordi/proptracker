@@ -231,9 +231,14 @@ export interface Reminder { key: string; push: Push }
 
 export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSettings, hasNeeds: boolean, closed: ClosedDays, propsLead: number): Reminder[] {
   // Not for calendar imports nobody has confirmed (maybe the wrong person) or people on Props only (audit, Nov 5).
-  if (!sh || sh.status !== 'booked' || !sh.creatorEmail || sh.toCheck || sh.checksIn === false) return []
+  // A request still waiting for approval only gets the "last day to add props" reminder (audit, Nov 7: props can be
+  // added to a request, and an unapproved one could pass its cutoff without a word).
+  if (!sh || !(sh.status === 'booked' || sh.status === 'requested') || !sh.creatorEmail || sh.toCheck || sh.checksIn === false) return []
   const out: Reminder[] = []
   const url = `/?shoot=${id}`, to = [sh.creatorEmail], where = placeName(sh, s)
+  const cutoff = (): Reminder[] => !hasNeeds && sh.date > now.slice(0, 10) && lastDayToBook(sh.date, propsLead, closed) === now.slice(0, 10) && Number(now.slice(11, 13)) >= 9
+    ? [{ key: `cutoff_${id}`, push: { to, url, tag: `needs-${id}`, title: 'Last day to add props', body: `For your ${dayLabel(sh.date)} shoot at ${where}.` } }] : []
+  if (sh.status === 'requested') return cutoff()
   const house = sh.place !== 'offsite'
   const win = checkinWindow(sh as { from: string; to: string }, now, s)
   // Check-in time (houses only): one ping when it opens.
@@ -246,8 +251,7 @@ export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSett
   // Missed check-in: a chance to explain.
   if (house && isMissed(sh as any, now) && now < explainUntil(sh as { to: string }, s)) out.push({ key: `missed_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Missed your check-in?', body: `Tell the schedule team what happened by ${stampTime(explainUntil(sh as { to: string }, s))}.` } })
   // Last day to add props + gear (from 9 AM), only if nothing is added yet.
-  if (!hasNeeds && sh.date > now.slice(0, 10) && lastDayToBook(sh.date, propsLead, closed) === now.slice(0, 10) && Number(now.slice(11, 13)) >= 9)
-    out.push({ key: `cutoff_${id}`, push: { to, url, tag: `needs-${id}`, title: 'Last day to add props', body: `For your ${dayLabel(sh.date)} shoot at ${where}.` } })
+  out.push(...cutoff())
   return out
 }
 

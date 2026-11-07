@@ -72,6 +72,12 @@ describe('timed reminders', () => {
     expect(keys('2026-10-21T09:00', {}, false)).toEqual(['cutoff_h1'])
     expect(keys('2026-10-21T09:00', {}, true)).toEqual([])
   })
+  it('a request still waiting for approval gets the props cutoff reminder only', () => {
+    expect(keys('2026-10-21T09:00', { status: 'requested' }, false)).toEqual(['cutoff_h1'])
+    expect(keys('2026-10-23T12:50', { status: 'requested' })).toEqual([])
+    expect(keys('2026-10-23T12:05', { status: 'requested' })).toEqual([])
+    expect(keys('2026-10-21T09:00', { status: 'cancelled' }, false)).toEqual([])
+  })
   it('props due back by 10 AM the next open day, then late', () => {
     const r = { status: 'collected', creatorEmail: 'c@x.com', title: 'Diner', endDate: '2026-10-24' }   // Saturday; Sunday closed
     expect(propsReminders('r1', r, '2026-10-26T07:30', closed)).toEqual([])
