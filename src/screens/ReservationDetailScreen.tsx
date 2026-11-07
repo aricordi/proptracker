@@ -39,8 +39,18 @@ export default function ReservationDetailScreen() {
   // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
   const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email)
 
-  if (res === undefined) return <Centered>Loading…</Centered>
-  if (res === null) return <Centered>Booking not found.</Centered>
+  const goBack = () => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')
+  if (res === undefined || res === null) return (
+    <div className="min-h-screen bg-pt-bg">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3">
+        <button onClick={goBack} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
+      </div>
+      <div className="px-6 pt-24 text-center">
+        <p className="text-pt-muted text-sm">{res === undefined ? 'Loading…' : 'Request not found.'}</p>
+        {res === null && <p className="text-pt-muted text-sm mt-1">It may have been removed, or it isn't yours.</p>}
+      </div>
+    </div>
+  )
 
   const active = ACTIVE_STATUSES.includes(res.status)
   const overdue = isLate(res.status, res.endDate, settings)
@@ -52,7 +62,7 @@ export default function ReservationDetailScreen() {
   return (
     <div className="min-h-screen bg-pt-bg pb-12">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
+        <button onClick={goBack} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
         <span className={`text-xs px-3 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
           {overdue ? 'Late' : statusLabel(res)}
         </span>
@@ -762,8 +772,4 @@ function Banner({ tone, title, children }: { tone: keyof typeof BANNER_TONES; ti
       <p className="text-pt-text/80 text-sm mt-0.5">{children}</p>
     </div>
   )
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return <div className="min-h-screen bg-pt-bg flex items-center justify-center text-pt-muted text-sm">{children}</div>
 }
