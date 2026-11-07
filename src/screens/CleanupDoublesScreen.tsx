@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { useItems } from '../hooks/useItems'
 import { inCleanup, bestToKeep } from '../lib/cleanup'
 import { afterMerge, pairKeyOf, groupDoubles, keysBetween, type Tier, type DoubleGroup } from '../../functions/src/doubles'
-import { loadDoubles, cachedDoubles, setCachedPairs, aiCheckPairs, type DoublePair } from '../services/cleanup'
+import { loadDoubles, cachedDoubles, setCachedPairs, aiCheckPairs, bookedOf, type DoublePair } from '../services/cleanup'
 import { mergeProps } from '../services/importer'
 import { dismissDuplicatePairs } from '../services/health'
 import { CleanupHeader, Toast, useBinLabel, PropThumb, ZoomBadge } from '../components/cleanup/Parts'
@@ -46,35 +46,50 @@ export default function CleanupDoublesScreen() {
 
   // Only pairs where both props are still in the app.
   const live = useMemo(() => (pairs ?? []).filter(p => byId.has(p.a) && byId.has(p.b)), [pairs, byId])
+  const pairByKey = useMemo(() => new Map(live.map(p => [pairKeyOf(p.a, p.b), p])), [live])
   const allGroups = useMemo(() => groupDoubles(live), [live])
   const counts = useMemo(() => ({ sure: allGroups.filter(g => g.tier === 'sure').length, likely: allGroups.filter(g => g.tier === 'likely').length, maybe: allGroups.filter(g => g.tier === 'maybe').length }), [allGroups])
   const sureGroups = useMemo(() => groupDoubles(live.filter(p => p.tier === 'sure')), [live])
   const aiSureGroups = useMemo(() => groupDoubles(live.filter(p => p.tier !== 'sure' && p.signals.ai?.same && p.signals.ai.confidence === 'high')), [live])
   const aiNo = live.filter(p => !p.signals.photo && p.signals.ai && !p.signals.ai.same && p.signals.ai.confidence === 'high')
   const queue = useMemo(() => groupDoubles(live.filter(p => !skipped.has(pairKeyOf(p.a, p.b)))).filter(g => tier === 'all' || g.tier === tier), [live, skipped, tier])
-  const current = queue[0]
+  // While a group is being combined it stays on screen as it was (each merge reshapes the groups, which would swap the card
+  // mid-way and lose any error); a failure is shown above the card, naming the prop that didn't go.
+  const [working, setWorking] = useState<DoubleGroup | null>(null)
+  const [cardErr, setCardErr] = useState('')
+  const current = working ?? queue[0]
 
   // The AI looks at the pairs of the next groups ahead of the crew (only an opinion; never the same pair twice; monthly budget).
   const asked = useRef(new Set<string>())
+  const [noOpinion, setNoOpinion] = useState<Set<string>>(new Set())   // asked, but no answer came (no photo, AI error, no signal)
   const [aiResting, setAiResting] = useState(false)
   useEffect(() => {
     if (aiResting) return
     const want = new Set(queue.slice(0, 4).flatMap(g => g.keys))
     const next = live.filter(p => p.tier !== 'sure' && !p.signals.ai && want.has(pairKeyOf(p.a, p.b)) && !asked.current.has(pairKeyOf(p.a, p.b))).slice(0, 10)
     if (!next.length) return
-    next.forEach(p => asked.current.add(pairKeyOf(p.a, p.b)))
+    const keys = next.map(p => pairKeyOf(p.a, p.b))
+    keys.forEach(k => asked.current.add(k))
+    const settle = (ks: string[]) => { if (ks.length) setNoOpinion(s => { const n = new Set(s); ks.forEach(k => n.add(k)); return n }) }
     aiCheckPairs({ pairs: next.map(p => ({ a: p.a, b: p.b })) }).then(r => {
       if (r.data.resting) setAiResting(true)
       const v = r.data.verdicts
       if (Object.keys(v).length) setPairs(ps => ps.map(p => v[pairKeyOf(p.a, p.b)] ? { ...p, signals: { ...p.signals, ai: v[pairKeyOf(p.a, p.b)] } } : p))
-    }).catch(() => { /* no AI right now: the crew decides without it */ })
+      settle(keys.filter(k => !v[k]))
+    }).catch(() => {
+      // No AI right now: the crew decides without it. Forget these so a later look can ask again.
+      keys.forEach(k => asked.current.delete(k)); settle(keys)
+    })
   }, [current ? gid(current) : '', queue.length, aiResting])   // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Combine the ticked props of a group into the kept one; the ones left out are marked "not the same" as them. */
   async function combine(g: DoubleGroup, ticked: string[], keepId: string, mode: 'copies' | 'angles') {
+    let done = 0
     for (const id of ticked) {
       if (id === keepId) continue
-      await mergeProps({ keepId, removeId: id, mode })
+      try { await mergeProps({ keepId, removeId: id, mode }) }
+      catch (e) { throw new Error(`${done ? `${done} already combined. ` : ''}"${byId.get(id)?.name ?? 'One prop'}" didn't go: ${friendlyError(e)}`) }
+      done++
       setPairs(ps => afterMerge(ps, keepId, id))
     }
     const left = g.ids.filter(id => !ticked.includes(id))
@@ -132,10 +147,20 @@ export default function CleanupDoublesScreen() {
           )}
 
           {current ? (
+            <>
+            {cardErr && <p className="rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{cardErr}</p>}
             <GroupCard key={gid(current)} group={current} byId={byId} where={binInfo.where} left={queue.length} aiResting={aiResting}
-              onCombine={async (ticked, keepId, mode) => { await combine(current, ticked, keepId, mode); setToast(`Combined ${ticked.length} into one ✓`) }}
-              onApart={async () => { await apart(current.keys); setToast(current.ids.length > 2 ? 'Kept them all apart ✓' : 'Kept apart ✓') }}
-              onSkip={() => setSkipped(s => { const n = new Set(s); current.keys.forEach(k => n.add(k)); return n })} />
+              aiWaiting={current.keys.some(k => { const p = pairByKey.get(k); return !!p && p.tier !== 'sure' && !p.signals.ai && !noOpinion.has(k) })}
+              onCombine={async (ticked, keepId, mode) => {
+                const g = current
+                setWorking(g); setCardErr('')
+                try { await combine(g, ticked, keepId, mode); setToast(`Combined ${ticked.length} into one ✓`) }
+                catch (e) { setCardErr(friendlyError(e)) }
+                finally { setWorking(null) }
+              }}
+              onApart={async () => { setCardErr(''); await apart(current.keys); setToast(current.ids.length > 2 ? 'Kept them all apart ✓' : 'Kept apart ✓') }}
+              onSkip={() => { setCardErr(''); setSkipped(s => { const n = new Set(s); current.keys.forEach(k => n.add(k)); return n }) }} />
+            </>
           ) : (
             <div className="rounded-[20px] bg-pt-surface p-6 text-center">
               <p className="text-pt-text text-[20px] font-bold">{live.length ? 'Nothing left in this list ✓' : 'No doubles left ✓'}</p>
@@ -158,8 +183,8 @@ export default function CleanupDoublesScreen() {
   )
 }
 
-function GroupCard({ group, byId, where, left, aiResting, onCombine, onApart, onSkip }: {
-  group: DoubleGroup; byId: Map<string, Item>; where: (id?: string) => string; left: number; aiResting: boolean
+function GroupCard({ group, byId, where, left, aiResting, aiWaiting, onCombine, onApart, onSkip }: {
+  group: DoubleGroup; byId: Map<string, Item>; where: (id?: string) => string; left: number; aiResting: boolean; aiWaiting: boolean
   onCombine: (ticked: string[], keepId: string, mode: 'copies' | 'angles') => Promise<void>; onApart: () => Promise<void>; onSkip: () => void
 }) {
   const props = group.ids.map(id => byId.get(id)).filter((x): x is Item => !!x)
@@ -172,7 +197,7 @@ function GroupCard({ group, byId, where, left, aiResting, onCombine, onApart, on
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [zoom, setZoom] = useState<Item | null>(null)
-  const run = async (fn: () => Promise<void>) => { setBusy(true); setErr(''); try { await fn() } catch (e) { setErr(friendlyError(e)); setBusy(false) } }
+  const run = async (fn: () => Promise<void>) => { setBusy(true); setErr(''); try { await fn() } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) } }
   const toggle = (id: string) => setTicked(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const total = picked.reduce((n, p) => n + p.quantity, 0)
   const highest = Math.max(0, ...picked.map(p => p.quantity))
@@ -208,7 +233,7 @@ function GroupCard({ group, byId, where, left, aiResting, onCombine, onApart, on
       {ai.same + ai.different > 0 ? (
         <p className={`rounded-2xl px-3 py-2 text-[14px] ${ai.same && !ai.different ? 'bg-violet-500/15 text-violet-100' : 'bg-white/[0.06] text-pt-muted'}`}>
           ✦ AI: {ai.same && !ai.different ? 'looks like the same thing' : ai.different && !ai.same ? 'looks different' : `${ai.same} look the same, ${ai.different} look different`}{ai.reason ? `. ${ai.reason}` : ''}</p>
-      ) : group.tier !== 'sure' && !aiResting ? <p className="px-1 text-pt-muted text-[14px]">✦ The AI is looking at these…</p> : null}
+      ) : group.tier !== 'sure' && !aiResting && aiWaiting ? <p className="px-1 text-pt-muted text-[14px]">✦ The AI is looking at these…</p> : null}
 
       {step === 'ask' ? (
         <>
@@ -249,20 +274,29 @@ function BulkSheet({ kind, groups, byId, onClose, combine, onDone }: {
   const [off, setOff] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(0)
+  const [total, setTotal] = useState(0)   // fixed when the run starts (the list shrinks as groups are combined)
   const [err, setErr] = useState('')
   const list = groups.slice(0, 150)
   const picked = list.filter(g => !off.has(gid(g)))
   const props = (g: DoubleGroup) => g.ids.map(id => byId.get(id)).filter((x): x is Item => !!x)
   async function go() {
-    setBusy(true); setErr('')
+    const run = picked.filter(g => props(g).length >= 2)
+    setBusy(true); setErr(''); setDone(0); setTotal(run.length)
     let n = 0
-    for (const g of picked) {
+    const skipped: string[] = []
+    for (const g of run) {
       const ps = props(g)
-      if (ps.length < 2) continue
-      try { await combine(g, ps.map(p => p.id), bestToKeep(ps).id, 'angles'); n++; setDone(n) }
-      catch (e) { setErr(`${n} combined, then: ${friendlyError(e)}`); setBusy(false); return }
+      const name = ps[0]?.name ?? 'a group'
+      try {
+        // A prop that's booked can't be the one that goes, so it's the one kept; two booked ones wait until they're back.
+        const booked = await bookedOf(ps.map(p => p.id))
+        if (booked.length > 1) { skipped.push(`"${name}" (${booked.length} of them are booked right now)`); continue }
+        await combine(g, ps.map(p => p.id), booked[0] ?? bestToKeep(ps).id, 'angles'); n++; setDone(n)
+      } catch (e) { skipped.push(`"${name}" (${friendlyError(e)})`) }
     }
-    onDone(n)
+    if (!skipped.length) { onDone(n); return }
+    setErr(`${n} combined. Not combined: ${skipped.join('; ')}. Untick ${skipped.length === 1 ? 'it' : 'them'} or try again later.`)
+    setBusy(false)
   }
   return (
     <BottomSheet open onClose={busy ? () => {} : onClose} title={kind === 'sure' ? 'Same picture, more than once' : '✦ The AI thinks these are the same'}>
@@ -285,8 +319,8 @@ function BulkSheet({ kind, groups, byId, onClose, combine, onDone }: {
           )
         })}
       </div>
-      {busy && <div className="mt-3"><div className="h-2 rounded-full bg-white/[0.08] overflow-hidden"><div className="h-full bg-green-500 transition-all" style={{ width: `${Math.round((done / Math.max(1, picked.length)) * 100)}%` }} /></div>
-        <p className="text-pt-muted text-[14px] mt-1">{done} of {picked.length} combined… keep this screen open.</p></div>}
+      {busy && <div className="mt-3"><div className="h-2 rounded-full bg-white/[0.08] overflow-hidden"><div className="h-full bg-green-500 transition-all" style={{ width: `${Math.min(100, Math.round((done / Math.max(1, total)) * 100))}%` }} /></div>
+        <p className="text-pt-muted text-[14px] mt-1">{done} of {total} combined… keep this screen open.</p></div>}
       {err && <p className="mt-3 rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
       <button disabled={busy || !picked.length} onClick={go} className="mt-3 w-full rounded-2xl min-h-[56px] bg-pt-accent text-stone-900 text-[18px] font-bold disabled:opacity-40">{busy ? 'Combining…' : `Yes, combine ${picked.length} group${picked.length === 1 ? '' : 's'}`}</button>
       {!busy && <button onClick={onClose} className="mt-2 w-full rounded-2xl min-h-[48px] text-pt-muted text-[16px]">Not now</button>}

@@ -76,6 +76,7 @@ const ApprovalsScreen = lazy(() => import('./screens/ApprovalsScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import { warmItems } from './hooks/useItems'
+import { warmHot } from './services/propsLike'
 import { AssistantProvider, ChatHome, isChatFirst } from './assistant'
 import { BugReportProvider } from './components/BugReport'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
@@ -110,6 +111,7 @@ function Prefetch() {
   // Start loading the props list in the background (the equipment team can't read props).
   const { realRole } = useSession()
   useEffect(() => realRole === 'equipment' ? undefined : warmItems(realRole === 'owner' ? 'all' : 'company'), [realRole])
+  useEffect(() => { if (realRole !== 'equipment') warmHot() }, [realRole])   // Browse's "hot" order, ready before the first visit
   return null
 }
 

@@ -8,6 +8,7 @@ import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../service
 import { getOrCreateCharacter, incrementCharacterUsage, decrementCharacterUsage } from '../services/characters'
 import { analyzeItemPhoto } from '../services/ai'
 import { getItemPrivate, setItemPrivate } from '../services/itemPrivate'
+import { heldUnits } from '../services/cleanup'
 import { normalizeTag } from '../lib/normalizeTag'
 import type { PhotoAnalysis } from '../services/ai'
 import { useLocations } from '../hooks/useLocations'
@@ -29,7 +30,9 @@ export default function AddItemScreen() {
   const [searchParams] = useSearchParams()
   const { id: editId } = useParams<{ id: string }>()
   const isEditMode = !!editId
-  const { isOwner } = useSession()
+  const { isOwner, profile, user } = useSession()
+  // Opened from a bin's page ("It's not in the app → add it"): after saving, go back there.
+  const fromBin = !isEditMode && !!searchParams.get('binId')
   // New props are Prime Capitol's unless the owner says they're personal.
   const [collection, setCollection] = useState<PropCollection>('company')
 
@@ -220,6 +223,12 @@ export default function AddItemScreen() {
     setSaving(true)
     setError(null)
     try {
+      // Same promise as the clean-up: the count can't go below what's booked right now.
+      const wantQty = Math.max(1, Math.floor(Number(quantity) || 1))
+      if (isEditMode && editId && editItem && wantQty < editItem.quantity) {
+        const held = await heldUnits(editId)
+        if (wantQty < held) { setError(`${held} of "${editItem.name}" are booked right now, so the count can't go below ${held}.`); return }
+      }
       const [newTagIds, newCharacterIds] = await Promise.all([
         Promise.all(tagLabels.map(l => getOrCreateTag(l, tags))),
         Promise.all(characterLabels.map(l => getOrCreateCharacter(l, characters))),
@@ -286,9 +295,12 @@ export default function AddItemScreen() {
           ...newTagIds.map(id => incrementTagUsage(id)),
           ...newCharacterIds.map(id => incrementCharacterUsage(id)),
         ])
-        const ref = await addItem({ ...common, status: 'available', archived: false })
+        // Added during a bin check: it counts as ticked "Here" (only counts while a check of this bin is running).
+        const binCheck = fromBin && common.binId ? { binCheck: { binId: common.binId, at: new Date().toISOString(), by: profile.name || user.displayName || profile.email } } : {}
+        const ref = await addItem({ ...common, ...binCheck, status: 'available', archived: false })
         await savePrivate(ref.id)
-        navigate('/browse')
+        if (fromBin) navigate(-1)
+        else navigate('/browse')
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

@@ -33,6 +33,8 @@ function loadHot(): Promise<Record<string, number>> {
     .catch(() => ({} as Record<string, number>)).finally(() => { hotPending = null })
   return hotPending
 }
+/** Start loading the scores right after sign-in, so Browse's first visit is already in "hot" order (no reshuffle under a tap). */
+export function warmHot() { void loadHot() }
 export function useHotScores(on = true): Record<string, number> {
   const [s, setS] = useState<Record<string, number>>(() => hot?.scores ?? {})
   useEffect(() => { if (on) loadHot().then(setS) }, [on])

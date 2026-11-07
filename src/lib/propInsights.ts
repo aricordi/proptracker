@@ -145,6 +145,7 @@ export function propInsights(input: { items: Item[]; reservations: Reservation[]
     let day = r.startDate
     for (let n = 0; day <= (r.endDate || r.startDate) && n < 31; n++, day = addDaysTo(day, 1)) {
       if (from && day < from) continue
+      if (day > today) break   // a shoot next week hasn't run out of anything yet
       for (const l of r.lines ?? []) {
         const { id } = resolve(l.itemId)
         const k = `${id}|${day}`
@@ -156,7 +157,10 @@ export function propInsights(input: { items: Item[]; reservations: Reservation[]
   for (const [k, units] of perDay) {
     const [id] = k.split('|')
     const it = byId.get(id)
-    if (it && units >= Math.max(1, it.quantity - (it.missingQty ?? 0))) unOf(id, it.name).fullDays++
+    // Only props we have more than one of: a one-off prop is "fully booked" every time anyone books it, which says
+    // nothing about needing another (for those, "wanted while booked out" is the real sign someone was turned away).
+    const stock = it ? it.quantity - (it.missingQty ?? 0) : 0
+    if (it && stock > 1 && units >= stock) unOf(id, it.name).fullDays++
   }
   // Wanted while booked out: counted on the shoot day, like "ran out" (Prime Capitol props only).
   const wantedBy = new Map<string, Set<string>>()

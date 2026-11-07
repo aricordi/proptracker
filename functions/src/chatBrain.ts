@@ -50,6 +50,8 @@ export interface ChatState {
   strikes?: number
   // Owner, Nov 4: "keep the steps in the backend and let the creator just chat". Where they are in Plan my shoot.
   plan?: { step: 'time' | 'props' | 'gear' | 'review'; shoot?: string }
+  // First names of who they usually film back to back with (owner, Nov 7), from the schedule; a hint, never a booking.
+  usualPartners?: string[]
 }
 const STATUSES = ['requested', 'booked', 'checked-in', 'filmed']
 /** The phone's summary of the person's own things, cleaned (it only ever shapes their own reply). */
@@ -62,6 +64,8 @@ export function cleanState(v: unknown): ChatState {
     return id && label ? [{ id, label, status: STATUSES.includes(String(s.status)) ? String(s.status) : 'booked' }] : []
   })
   const out = (o.out && typeof o.out === 'object' ? o.out : {}) as Record<string, unknown>
+  const partners = (Array.isArray(o.usualPartners) ? o.usualPartners : []).slice(0, 3)
+    .map(n => safeText(n, 30)).filter(n => /^[\p{L}][\p{L}\p{M}' .-]*$/u.test(n))
   return {
     shoots,
     out: { props: Math.max(0, Math.min(50, Math.round(Number(out.props) || 0))), gear: (Array.isArray(out.gear) ? out.gear : []).slice(0, 8).map(g => safeText(g, 50)).filter(Boolean) },
@@ -69,6 +73,7 @@ export function cleanState(v: unknown): ChatState {
     ...(Number.isFinite(Number(o.strikes)) && Number(o.strikes) > 0 ? { strikes: Math.min(20, Math.round(Number(o.strikes))) } : {}),
     ...(o.plan && typeof o.plan === 'object' && ['time', 'props', 'gear', 'review'].includes(String((o.plan as Record<string, unknown>).step))
       ? { plan: { step: String((o.plan as Record<string, unknown>).step) as 'time', ...(shoots.some(x => x.id === (o.plan as Record<string, unknown>).shoot) ? { shoot: String((o.plan as Record<string, unknown>).shoot) } : {}) } } : {}),
+    ...(partners.length ? { usualPartners: partners } : {}),
   }
 }
 
@@ -103,6 +108,7 @@ export function chatPrompt(p: {
     `Their shoots coming up: ${st.shoots.length ? st.shoots.map(s => `${s.id} = ${s.label} (${s.status === 'requested' ? 'waiting for approval' : s.status === 'booked' ? 'approved' : s.status})`).join('; ') : 'none'}.`,
     `Out on their name: ${st.out.props ? `${st.out.props} props request(s)` : 'no props'}; ${st.out.gear.length ? `gear: ${st.out.gear.join(', ')}` : 'no gear'}.`,
     st.paused ? `Prop requests PAUSED until ${st.paused}.` : st.strikes ? `${st.strikes} strike(s) recently, not paused.` : 'No strikes, not paused.',
+    ...(st.usualPartners?.length ? [`They usually film back to back with: ${st.usualPartners.join(', ')}. When they ask for a time and name nobody, you may ask once "Filming with ${st.usualPartners[0]} again?" or offer it as a chip ("With ${st.usualPartners[0]}"); never assume it, never add anyone to a "times" query unless they said so.`] : []),
     ...(st.plan ? [`They are planning a shoot step by step (the app keeps track of the steps; the person just chats). Current step: ${
       st.plan.step === 'time' ? 'finding a time to film' : st.plan.step === 'props' ? `finding props${st.plan.shoot ? ` for shoot ${st.plan.shoot}` : ''}` : st.plan.step === 'gear' ? 'gear' : 'reviewing what they picked'}.
 If their message gives what this step needs, in any words (a day or time → "times"; what the video is about, a vibe, a scene, an item → "props"${st.plan.shoot ? ' with that shoot' : ''}), pick that action.

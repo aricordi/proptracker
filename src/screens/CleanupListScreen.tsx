@@ -6,7 +6,7 @@ import { useItems } from '../hooks/useItems'
 import { useCategories } from '../hooks/useCategories'
 import { useTags } from '../hooks/useTags'
 import { inCleanup, matchesFilter, shelfOrder, bestToKeep, FILTER_LABELS, type CleanupFilter } from '../lib/cleanup'
-import { saveChecked, bulkUpdate, markChecked, moveToBin, removeProps, restoreProps, heldUnits } from '../services/cleanup'
+import { saveChecked, bulkUpdate, markChecked, moveToBin, removeProps, restoreProps, heldUnits, snapshotFields, restoreFields } from '../services/cleanup'
 import { mergeProps } from '../services/importer'
 import { matchesQuery } from '../lib/search'
 import { CleanupHeader, BinSheet, QtyStepper, Toast, PropThumb, useBinLabel } from '../components/cleanup/Parts'
@@ -18,6 +18,7 @@ import type { Item } from '../types'
 const FILTERS: CleanupFilter[] = ['all', 'todo', 'nobin', 'names', 'nophoto', 'many', 'costumes', 'imported', 'checked']
 type Sort = 'shelf' | 'az' | 'new'
 const PAGE = 60
+const CONFIRM_OVER = 20
 
 export default function CleanupListScreen() {
   const [params, setParams] = useSearchParams()
@@ -36,6 +37,8 @@ export default function CleanupListScreen() {
   const [sheet, setSheet] = useState<'' | 'bin' | 'cat' | 'remove' | 'combine'>('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  // Big changes (more than CONFIRM_OVER props) ask first: one tap must never re-shelve the whole closet.
+  const [confirm, setConfirm] = useState<{ text: string; go: () => void } | null>(null)
   const set = (k: string, v: string) => { const n = new URLSearchParams(params); n.set(k, v); setParams(n, { replace: true }); setShown(PAGE) }
 
   const list = useMemo(() => {
@@ -57,6 +60,18 @@ export default function CleanupListScreen() {
   }
   const ids = pickedLive.map(i => i.id)
   const n = ids.length
+  const ask = (text: string, go: () => void) => { if (n > CONFIRM_OVER) { setSheet(''); setConfirm({ text, go }) } else go() }
+  // Each bulk change keeps what the picked props were before, so the toast's Undo puts every one back.
+  function bulk(fields: (keyof Item)[], change: () => Promise<void>, done: string) {
+    const before = snapshotFields(pickedLive, fields)
+    void run(async () => { await change(); return done }, () => { restoreFields(before).catch(e => setErr(friendlyError(e))) })
+  }
+  const moveTo = (b: string, l: string) => ask(`Move ${n.toLocaleString()} props to ${b ? binInfo.label(b) : 'no bin'}?`,
+    () => bulk(['binId', 'locationId', 'lostFromBin'], () => moveToBin(ids, b, l), `${n} moved to ${b ? binInfo.label(b) : 'no bin'} ✓`))
+  const setCat = (id: string, label: string) => ask(`Set ${n.toLocaleString()} props to ${label}?`,
+    () => bulk(['categoryId'], () => bulkUpdate(ids, { categoryId: id }), `${n} set to ${label} ✓`))
+  const check = () => ask(`Mark ${n.toLocaleString()} props as checked?`,
+    () => bulk(['reviewedAt', 'reviewedBy'], () => markChecked(ids), `${n} checked ✓`))
 
   return (
     <div className="min-h-full bg-pt-bg flex flex-col">
@@ -109,7 +124,7 @@ export default function CleanupListScreen() {
             <div className="grid grid-cols-3 gap-2">
               <Action label="Move to bin" onClick={() => setSheet('bin')} />
               <Action label="Category" onClick={() => setSheet('cat')} />
-              <Action label="Mark checked" onClick={() => run(async () => { await markChecked(ids); return `${n} checked ✓` })} disabled={busy} />
+              <Action label="Mark checked" onClick={check} disabled={busy} />
               <Action label="Combine" onClick={() => setSheet('combine')} disabled={n < 2 || n > 20} />
               <Action label="Remove" danger onClick={() => setSheet('remove')} />
             </div>
@@ -118,11 +133,11 @@ export default function CleanupListScreen() {
       )}
 
       {toast && <Toast text={toast.text} onUndo={toast.undo} onDone={() => setToast(null)} />}
-      <BinSheet open={sheet === 'bin'} onClose={() => setSheet('')} onPick={(b, l) => run(async () => { await moveToBin(ids, b, l); return `${n} moved to ${b ? binInfo.label(b) : 'no bin'} ✓` })} />
+      <BinSheet open={sheet === 'bin'} onClose={() => setSheet('')} onPick={moveTo} />
       <BottomSheet open={sheet === 'cat'} onClose={() => setSheet('')} title={`Category for ${n} prop${n === 1 ? '' : 's'}`}>
         <div className="space-y-2">
           {categories.filter(c => c.active !== false).map(c => (
-            <button key={c.id} disabled={busy} onClick={() => run(async () => { await bulkUpdate(ids, { categoryId: c.id }); return `${n} set to ${c.label} ✓` })}
+            <button key={c.id} disabled={busy} onClick={() => setCat(c.id, c.label)}
               className="w-full rounded-2xl px-4 min-h-[52px] text-left text-[16px] bg-white/[0.06] text-pt-text">{c.label}</button>
           ))}
         </div>
@@ -133,6 +148,13 @@ export default function CleanupListScreen() {
         if (r.booked.length) setErr(`${r.booked.length} ${r.booked.length === 1 ? 'is' : 'are'} in a booking right now and stayed. Remove ${r.booked.length === 1 ? 'it' : 'them'} once back.`)
         if (r.removed.length) setToast({ text: `Removed ${r.removed.length}`, undo: () => { void restoreProps(r.removed) } })
       }} />
+      <BottomSheet open={!!confirm} onClose={() => setConfirm(null)} title={confirm?.text ?? ''}>
+        <p className="text-pt-muted text-[16px]">This changes every picked prop at once. You can undo it right after.</p>
+        <div className="mt-3 space-y-2">
+          <button disabled={busy} onClick={() => { const c = confirm; setConfirm(null); c?.go() }} className="w-full rounded-2xl min-h-[52px] bg-pt-accent text-stone-900 text-[18px] font-bold disabled:opacity-40">Yes, change {n.toLocaleString()}</button>
+          <button onClick={() => setConfirm(null)} className="w-full rounded-2xl min-h-[52px] bg-white/[0.08] text-pt-text text-[16px] font-semibold">No, go back</button>
+        </div>
+      </BottomSheet>
       {sheet === 'combine' && <CombineSheet props={pickedLive} where={binInfo.where} onClose={() => setSheet('')}
         onDone={(keep, count) => { setSheet(''); clear(); setToast({ text: `Combined ${count} into "${keep.name}" ✓` }) }} />}
     </div>
@@ -226,7 +248,7 @@ export function CombineSheet({ props, where, onClose, onDone }: { props: Item[];
         <button disabled={busy} onClick={() => go('copies')} className="w-full rounded-2xl p-4 text-left bg-pt-accent text-stone-900 disabled:opacity-40">
           <b className="block text-[18px]">We have more than one</b><span className="block text-[16px]">Add up the counts: {total} in total</span></button>
         <button disabled={busy} onClick={() => go('angles')} className="w-full rounded-2xl p-4 text-left bg-white/[0.08] text-pt-text disabled:opacity-40">
-          <b className="block text-[18px]">It's the same one, photographed more than once</b><span className="block text-[16px] text-pt-muted">Keep the count at {keep.quantity}, just add the photos</span></button>
+          <b className="block text-[18px]">It's the same one, photographed more than once</b><span className="block text-[16px] text-pt-muted">Keeps the higher count: {Math.max(...props.map(p => p.quantity))}, and adds the photos</span></button>
       </div>
       {busy && <p className="mt-2 text-pt-muted text-[14px]">Combining…</p>}
       {err && <p className="mt-3 rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
