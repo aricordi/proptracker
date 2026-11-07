@@ -442,7 +442,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   useEffect(() => { if (friendCount && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [friendCount, everyone])
   const chosen = friends.slice(0, friendCount)
   // "Usually films with" (owner, Nov 7): one-tap shortcut to the people they film back to back with most; never auto-added.
-  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team && friendCount > 0).filter(p => !chosen.some(c => c.email === p.email))
+  // Loads as soon as the sheet opens (shown only once they pick "+ 1 friend"), so the row is ready and doesn't push the search box down.
+  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !chosen.some(c => c.email === p.email))
   const h = house as House
   // The slot(s) right after yours must be free for your friends.
   const nextFree = Array.from({ length: friendCount }, (_, i) => start + (i + 1) * s.slotMinutes)
