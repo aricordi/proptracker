@@ -91,7 +91,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
     ArrowRight: () => view === 'week' ? setWeek(addDays(week, 7)) : setMonth(monthAdd(month, 1)),
     ArrowLeft: () => view === 'week' ? setWeek(addDays(week, -7)) : setMonth(monthAdd(month, -1)),
     Escape: () => setDenying(false),
-  })
+  }, !give)   // keys off while the Priority booking sheet is open (no approving the request behind it)
 
   // Numbers across the top.
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(week, i))
