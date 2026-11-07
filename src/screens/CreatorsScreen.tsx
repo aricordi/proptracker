@@ -8,11 +8,11 @@ import { subscribeToUsers } from '../services/users'
 import { OWNER_EMAIL } from '../config'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useShootsSince, useReportsSince, useStrikesSince, useAllStatuses } from '../services/schedule'
+import { useShootsSince, useReportsSince, useStrikesSince, useAllStatuses, useFlagReviews } from '../services/schedule'
 import { useBookingSettings } from '../hooks/useBookings'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
-import { creatorStats, flagTotal, FLAG_LABEL, SERIOUS, type CreatorStats, type FlagKind } from '../lib/creatorStats'
+import { creatorStats, flagTotal, strikeTotal, FLAG_LABEL, SERIOUS, type CreatorStats, type FlagKind } from '../lib/creatorStats'
 import type { AppUser } from '../types'
 import { creatorPeople, countedEmails } from '../lib/creatorPeople'
 
@@ -46,6 +46,9 @@ export default function CreatorsScreen() {
   const reports = useReportsSince(since, true)
   const strikes = useStrikesSince(since, true)
   const statuses = useAllStatuses(true)
+  // Flags excused in Analytics don't count here either.
+  const reviews = useFlagReviews(true)
+  const excused = useMemo(() => new Set([...reviews.values()].filter(r => r.status === 'excused').map(r => r.flagId)), [reviews])
   const [users, setUsers] = useState<AppUser[]>([])
   const [props, setProps] = useState<Reservation[]>([])
   const [gear, setGear] = useState<GearBooking[]>([])
@@ -57,15 +60,15 @@ export default function CreatorsScreen() {
   const counted = useMemo(() => countedEmails(users), [users])
   const stats = useMemo(() => {
     const list = creatorStats({ from, now, closed: settings, shoots: shoots ?? [], props, gear, reports, strikes, people,
-      checksIn: e => e === OWNER_EMAIL || users.some(u => u.email === e && u.role === 'creator' && u.access === 'full') }).filter(c => counted.has(c.email))
+      checksIn: e => e === OWNER_EMAIL || users.some(u => u.email === e && u.role === 'creator' && u.access === 'full'), excused }).filter(c => counted.has(c.email))
     return sort === 'flags' ? [...list].sort((a, b) => flagTotal(b, SERIOUS) - flagTotal(a, SERIOUS) || flagTotal(b) - flagTotal(a)) : list
-  }, [from, now, settings, shoots, props, gear, reports, strikes, people, counted, sort])
+  }, [from, now, settings, shoots, props, gear, reports, strikes, people, counted, sort, excused])
   const sum = (f: (c: CreatorStats) => number) => stats.reduce((n, c) => n + f(c), 0)
   const tiles: [string, number, string][] = [
     ['Shoots filmed', sum(c => c.filmed), 'text-pt-text'],
-    ['No-shows', sum(c => (c.counts['no-show'] ?? 0) + (c.counts['late-cancel'] ?? 0)), 'text-red-300'],
+    ['No-shows (incl. late cancels)', sum(c => (c.counts['no-show'] ?? 0) + (c.counts['late-cancel'] ?? 0)), 'text-red-300'],
     ['Late returns', sum(c => (c.counts['late-props'] ?? 0) + (c.counts['late-gear'] ?? 0)), 'text-amber-200'],
-    ['Strikes', sum(c => c.counts.strike ?? 0), 'text-red-300'],
+    ['Strikes', sum(strikeTotal), 'text-red-300'],
   ]
 
   // Laptop (owner, Nov 3): one wide table, every creator on one screen, click a column to sort.

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useShootsOf, useReportsSince, useStrikesSince, useMyStatus } from '../services/schedule'
+import { useShootsOf, useReportsSince, useStrikesSince, useMyStatus, useFlagReviews } from '../services/schedule'
 import { creatorStats, SERIOUS, FLAG_LABEL } from '../lib/creatorStats'
 import { FlagPills, PERIODS, periodStart, type Period } from './CreatorsScreen'
 import { useManageCreator } from '../components/ManageCreator'
@@ -34,6 +34,9 @@ export default function PersonHistoryScreen() {
   const reports = useReportsSince(since, canSeeGear, email)
   const strikes = useStrikesSince(since, canSeeGear, email)
   const status = useMyStatus(email)
+  // Flags excused in Analytics don't count here either (owner + admins can read the reviews).
+  const reviews = useFlagReviews(canManagePeople)
+  const excused = useMemo(() => new Set([...reviews.values()].filter(r => r.status === 'excused').map(r => r.flagId)), [reviews])
   const [gear, setGear] = useState<GearBooking[]>([])
   useEffect(() => canSeeGear ? subscribeToGearBookings(email, setGear) : undefined, [email, canSeeGear])
   const items = useItems()
@@ -51,9 +54,9 @@ export default function PersonHistoryScreen() {
   const newestFirst = [...(list ?? [])].sort((a, b) => b.startDate.localeCompare(a.startDate))
   const stats = useMemo(() => canSeeGear
     ? creatorStats({ from: periodStart(period, today), now, closed: settings, shoots: shoots ?? [], props: list ?? [], gear, reports, strikes, people: [{ email, name: user?.name || email }],
-      checksIn: () => email === OWNER_EMAIL || (user?.role === 'creator' && user.access === 'full') })
+      checksIn: () => email === OWNER_EMAIL || (user?.role === 'creator' && user.access === 'full'), excused })
       .find(c => c.email === email) ?? null
-    : null, [canSeeGear, period, today, now, settings, shoots, list, gear, reports, strikes, email, user])
+    : null, [canSeeGear, period, today, now, settings, shoots, list, gear, reports, strikes, email, user, excused])
   const paused = !!status?.pausedUntil && status.pausedUntil > today
   const manage = useManageCreator(email, user?.name || email, status)
 
@@ -92,7 +95,7 @@ export default function PersonHistoryScreen() {
                     <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${SERIOUS.includes(f.kind) ? 'bg-red-400' : 'bg-amber-300'}`} />
                     <span className="flex-1 min-w-0">
                       <span className="block text-pt-text text-sm">{f.text}</span>
-                      <span className="block text-pt-muted text-xs">{FLAG_LABEL[f.kind]} · {formatDay(f.date)}{f.open ? ' · still open' : ''}</span>
+                      <span className="block text-pt-muted text-xs">{FLAG_LABEL[f.kind]} · {formatDay(f.date)}{f.open ? ' · still open' : ''}{f.strikeId && f.kind !== 'strike' ? ' · came with a strike' : ''}</span>
                     </span>
                     {canManagePeople && f.strikeId ? <span role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) } }} onClick={e => { e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) }} className="shrink-0 text-pt-accent text-xs tap">Remove</span>
                       : f.to && <span className="text-pt-muted">›</span>}

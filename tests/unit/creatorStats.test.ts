@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { creatorStats, flagTotal, weeklyFilming } from '../../src/lib/creatorStats'
+import { creatorStats, flagTotal, strikeTotal, weeklyFilming } from '../../src/lib/creatorStats'
 
 const closed = { closedWeekdays: [0], closedDates: [] }
 const shoot = (id: string, email: string, date: string, extra: Record<string, unknown> = {}) =>
@@ -41,6 +41,40 @@ describe('creator dashboard numbers', () => {
     expect(by['kyle@x'].counts).toEqual({ 'late-cancel': 1, 'missed-checkin': 1, 'late-props': 1 })
     expect(by['jana@x'].counts).toEqual({ 'late-gear': 1 })   // the last person to have it (owner, Oct 27)
     expect(flagTotal(by['riley@x'])).toBe(0)
+  })
+})
+
+describe('strikes and excuses match Analytics', () => {
+  const now = '2026-11-10T12:00'
+  const base = {
+    from: '2026-11-01', now, closed, props: [], reports: [{ id: 'p1', onEmail: 'ana@x', onName: 'Ana', date: '2026-11-03', overMinutes: 20, mess: false, status: 'upheld', onShootId: 'b' }],
+    shoots: [
+      shoot('b', 'ana@x', '2026-11-03', { checkin: { at: '2026-11-03T18:05:00.000Z' } }),
+      shoot('c', 'ana@x', '2026-11-04', { noShow: 'missed', outcome: 'noshow' }),
+      shoot('e', 'ana@x', '2026-11-05', { status: 'cancelled', noShow: 'late-cancel', lateCancel: true }),
+    ],
+    gear: [{ id: 'g1', creatorEmail: 'ana@x', title: 'Cam', status: 'returned', to: '2026-11-02T15:00', date: '2026-11-02', returnedLate: true }],
+    strikes: [
+      { id: 's1', email: 'ana@x', reason: 'no-show', at: '2026-11-04T20:00:00.000Z', shootId: 'c' },
+      { id: 's2', email: 'ana@x', reason: 'late-cancel', at: '2026-11-05T15:00:00.000Z', shootId: 'e' },
+      { id: 's3', email: 'ana@x', reason: 'report', at: '2026-11-03T20:00:00.000Z', shootId: 'b' },
+      { id: 's4', email: 'ana@x', reason: 'manual', at: '2026-11-06T15:00:00.000Z', flagId: 'late-gear:g1:ana-x' },
+      { id: 's5', email: 'ana@x', reason: 'manual', at: '2026-11-07T15:00:00.000Z', note: 'rude' },
+      { id: 's6', email: 'ana@x', reason: 'manual', at: '2026-11-08T15:00:00.000Z', note: 'old', removedAt: '2026-11-09T00:00:00.000Z' },
+    ],
+  }
+  it('every live strike can be found (and removed) on its flag, and all of them are counted', () => {
+    const [ana] = creatorStats(base)
+    const id = (k: string) => ana.flags.find(f => f.kind === k)?.strikeId
+    expect([id('no-show'), id('late-cancel'), id('ran-over'), id('late-gear'), id('strike')]).toEqual(['s1', 's2', 's3', 's4', 's5'])
+    expect(ana.counts.strike).toBe(1)
+    expect(strikeTotal(ana)).toBe(5)
+  })
+  it('flags excused in Analytics drop out here too', () => {
+    const [ana] = creatorStats({ ...base, excused: new Set(['no-show:c', 'late-gear:g1:ana-x']) })
+    expect(ana.counts['no-show']).toBeUndefined()
+    expect(ana.counts['late-gear']).toBeUndefined()
+    expect(ana.counts['late-cancel']).toBe(1)
   })
 })
 
