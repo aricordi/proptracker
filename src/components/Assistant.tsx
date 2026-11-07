@@ -471,6 +471,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
     hush(); lastVoice.current = t === text && saidAloud.current; saidAloud.current = false
+    // iPhone Safari only lets a page speak after it has spoken once inside a tap; send() always comes from a tap or Enter,
+    // so a silent line here unlocks the answer read aloud later (after the awaits).
+    if (lastVoice.current && speak && Voice) { try { Voice.speak(new SpeechSynthesisUtterance('')) } catch { /* not supported */ } }
     setText(''); setChips([])
     helperChips.current = new Map()
     if (force || more) askedWhich.current = null   // a new search: an old "Which one?" no longer applies
@@ -1008,7 +1011,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     setMode('props'); setBusy(true); setThinking('props')
     try {
       const r = await photoSearch(file)
-      const a = photoAnswer(r.description, r.results.map(x => x.id).filter(id => itemById.has(id) && !shownIds.includes(id)))
+      const a = photoAnswer(r.description, r.results.map(x => x.id).filter(id => itemById.has(id)))
       setMsgs(x => [...x, { who: 'bot', ...a }])
       setChips(a.result && !demo && !plan ? [TIME_CHIP] : [])
     } catch (e) {
