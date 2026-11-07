@@ -158,6 +158,8 @@ export default function BinQrScreen() {
         {!checking && (
           <button onClick={() => navigate(`/add?binId=${bin.id}&locationId=${bin.locationId ?? ''}`)} className="w-full bg-pt-surface shadow-hairline text-pt-text rounded-2xl py-4 font-semibold">+ Add a prop to this bin</button>
         )}
+        {/* This page checks WHERE props are; names and counts are checked in Clean up (its progress counts those). */}
+        <button onClick={() => navigate(`/cleanup/bin/${bin.id}`)} className="w-full tap min-h-[44px] text-pt-accent text-[16px] font-semibold">Check names and counts in Clean up ›</button>
       </div>
 
       {checking && (
