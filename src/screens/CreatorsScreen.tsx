@@ -91,7 +91,8 @@ export default function CreatorsScreen() {
           ))}
         </div>
       </div>
-      <div className="rounded-[20px] bg-pt-surface overflow-hidden">
+      {/* Scrolls sideways on narrower laptop windows instead of cutting off the last columns (audit, Nov 7). */}
+      <div className="rounded-[20px] bg-pt-surface overflow-x-auto"><div className="min-w-[1040px]">
         <div className="grid grid-cols-[minmax(220px,1.4fr)_110px_minmax(160px,1fr)_90px_minmax(240px,2fr)_90px] gap-4 px-4 py-3 text-xs text-pt-muted border-b border-white/[0.06]">
           <span>Creator</span>
           <button onClick={() => setSort('filming')} className={`text-left ${sort === 'filming' ? 'text-pt-text font-semibold' : ''}`}>Filmed ↓</button>
@@ -119,7 +120,7 @@ export default function CreatorsScreen() {
           )
         })}
         {shoots !== null && stats.length === 0 && <p className="text-pt-muted text-sm text-center py-6">No creators yet.</p>}
-      </div>
+      </div></div>
       <p className="text-pt-muted text-xs mt-3">Filmed = checked in on the day (or marked filmed by the schedule team). Started late = checked in more than 15 minutes after the slot began. Late cancels count as booked.</p>
     </div>
   )
