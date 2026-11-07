@@ -129,8 +129,9 @@ export const takeGear = onCall(CALLABLE, async req => {
   const { id } = await holdGear(caller, { ...d, date: today, start, end, title: str(d.title, 120) || 'Shoot' }, { take: true })
   try { await doPickup(caller, id, missingKeysIn(d.missing), photos) }
   catch (e) { await release(id, caller.email, 'cancelled', () => true, 'taking it failed').catch(() => {}); throw e }
-  // The 11 PM–1 AM slot: the gear's back-by time is the end of the shoot, not midnight (audit, Nov 5: it was late at 12:30).
-  if (shoot.place !== 'offsite' && shoot.end > GEAR_DAY_END) await db.doc(`gear_bookings/${id}`).update({ to })
+  // A shoot that runs past midnight (the 11 PM–1 AM slot, or an offsite shoot until 3 AM): the gear's back-by time is
+  // the end of the shoot, not midnight (audit, Nov 5: it was late at 12:30; Nov 7: offsite too).
+  if (shoot.end > GEAR_DAY_END) await db.doc(`gear_bookings/${id}`).update({ to })
   return { id }
 })
 
