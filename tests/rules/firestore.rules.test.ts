@@ -349,6 +349,17 @@ describe('everything else', () => {
     await assertFails(getDoc(doc(as(ARTS), 'video_checklists', 'v1')))
     await assertFails(setDoc(doc(as(OWNER), 'video_checklists', 'v1'), { videoTitle: 'x' }))
   })
+  it('only the owner can read cost, AI and email settings', async () => {
+    for (const id of ['billLimit', 'import', 'ai', 'email']) {
+      await assertSucceeds(getDoc(doc(as(OWNER), 'app_settings', id)))
+      await assertFails(getDoc(doc(as(CREATOR), 'app_settings', id)))
+      await assertFails(getDoc(doc(as(ARTS), 'app_settings', id)))
+      await assertFails(getDoc(doc(as(ADMIN), 'app_settings', id)))
+    }
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'app_settings', 'booking')))
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'app_settings', 'schedule')))
+    await assertFails(getDoc(doc(as(CREATOR), 'app_settings', 'calendarCheck')))
+  })
   it('only the owner can change app settings', async () => {
     await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'general'), { leadTimeDays: 2 }))
     await assertSucceeds(setDoc(doc(as(OWNER), 'app_settings', 'general'), { leadTimeDays: 2 }))

@@ -50,12 +50,19 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // Prop photos: members open a photo by its link (get); only the owner may LIST folders (personal props sit
+    // in the owner's folder). Staff add new photos only to their own folder, never overwrite (thumbnails and
+    // imports are written by the server, which these rules don't affect).
     match /items/{allPaths=**} {
-      allow read: if isMember();
-      allow create, update: if isStaff()
+      allow get: if isMember();
+      allow list: if isOwner();
+      allow delete: if false;
+    }
+    match /items/{uid}/{file} {
+      allow create: if isStaff() && request.auth.uid == uid && resource == null
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
-      allow delete: if false;
+      allow update, delete: if false;
     }
 
     function isImage() {
