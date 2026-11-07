@@ -34,6 +34,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   // Chat first: the chat is "shown" only while the Chat tab is open, so leaving it stops the microphone (audit, Nov 7).
   const onChatTab = useLocation().pathname === '/'
   const variant = canBook ? 'full' : demo ? 'demo' : `help-${role}`
+  // Keyed by person too: the practice site's Switch signs straight from one person to the next without unmounting,
+  // so a fresh chat (and its remembered turns) must start for the new person (review, Nov 7).
+  const chatKey = `${variant}-${session.profile.email}`
   const [shown, setShown] = useState(false)
   const [started, setStarted] = useState(chatFirst)
   // Each open() asks for a mode; the counter lets the chat notice a new request even for the same mode.
@@ -41,6 +44,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   // The chat's own box (chat-first): parked off screen until the Chat tab takes it in.
   const host = useMemo(() => { if (typeof document === 'undefined') return null; const d = document.createElement('div'); d.className = 'h-full'; return d }, [])
   useEffect(() => { if (chatFirst) setStarted(true) }, [chatFirst])
+  useEffect(() => { setShown(false) }, [session.profile.email])
   // shootId (with 'plan'): plan an already-booked shoot, starting at its props. text: send this message straight away.
   const open = (mode?: AssistantMode, shootId?: string, text?: string) => {
     const m = demo ? 'props' : mode, id = demo ? undefined : shootId
@@ -52,8 +56,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={{ open, available: true, chatFirst, host }}>
       {children}
       {started && (chatFirst && host
-        ? createPortal(<Suspense fallback={null}><Assistant key={variant} page shown={onChatTab} ask={ask} onClose={() => navigate('/')} /></Suspense>, host)
-        : !chatFirst && <Suspense fallback={null}><Assistant key={variant} shown={shown} ask={ask} onClose={() => setShown(false)} /></Suspense>)}
+        ? createPortal(<Suspense fallback={null}><Assistant key={chatKey} page shown={onChatTab} ask={ask} onClose={() => navigate('/')} /></Suspense>, host)
+        : !chatFirst && <Suspense fallback={null}><Assistant key={chatKey} shown={shown} ask={ask} onClose={() => setShown(false)} /></Suspense>)}
     </Ctx.Provider>
   )
 }
