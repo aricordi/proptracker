@@ -61,10 +61,17 @@ describe('props with quantities (10 chairs)', () => {
 })
 
 describe('props not yet marked returned', () => {
-  it('stay tied up after the shoot ends until someone marks them returned', () => {
-    const overdue = entry('2026-10-05', '2026-10-08')
+  it('stay tied up after the shoot ends until someone checks them in (out, or brought back)', () => {
+    const overdue = { ...entry('2026-10-05', '2026-10-08'), out: true }
     expect(holdUntil(overdue, TODAY, 1)).toBe('9999-12-31')
     expect(freeForRange({ quantity: 1 }, [overdue], '2026-11-20', '2026-11-21', TODAY, 1)).toBe(0)
+    const back = { ...entry('2026-10-05', '2026-10-08'), back: true }
+    expect(holdUntil(back, TODAY, 1)).toBe('9999-12-31')
+  })
+  it('a request nobody picked up frees its props after the turnaround', () => {
+    const never = entry('2026-10-05', '2026-10-08')
+    expect(holdUntil(never, TODAY, 1)).toBe('2026-10-09')
+    expect(freeForRange({ quantity: 1 }, [never], '2026-11-20', '2026-11-21', TODAY, 1)).toBe(1)
   })
   it('units reported missing are not bookable until found', () => {
     expect(freeForRange({ quantity: 10, missingQty: 3 }, [], '2026-11-01', '2026-11-01', TODAY, 1)).toBe(7)

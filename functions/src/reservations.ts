@@ -512,7 +512,7 @@ export const markPacked = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
-// Mark this reservation's holds as out with the creator (or back), so the app can
+// Mark this reservation's holds as out with the creator (or back, waiting for check-in), so the app can
 // tell which props are late and warn people who booked them next.
 async function setOut(tx: Transaction, reservationId: string, itemIds: string[], out: boolean) {
   if (!itemIds.length) return () => {}
@@ -521,8 +521,9 @@ async function setOut(tx: Transaction, reservationId: string, itemIds: string[],
     tx.set(bookingsRef(itemId), {
       entries: entriesOf(snaps[i]).map(e => {
         if (e.reservationId !== reservationId) return e
-        const { out: _was, ...rest } = e
-        return out ? { ...rest, out: true } : rest
+        const { out: _was, back: _back, ...rest } = e
+        // Back = brought back but not checked in yet: still held open-ended until check-in (holdUntil).
+        return out ? { ...rest, out: true } : { ...rest, back: true }
       }),
     })
   })

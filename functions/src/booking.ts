@@ -31,6 +31,7 @@ export interface BookingEntry {
   end: string
   qty: number
   out?: boolean   // the props are with the creator (picked up, not yet brought back)
+  back?: boolean  // brought back, waiting for the arts department's check-in (still held until then)
 }
 
 // Turnaround for one prop: its category's own setting if it has one (e.g.
@@ -131,10 +132,11 @@ export function isLate(status: string, end: string, closed: ClosedDays, now = ne
 // ─── Availability ────────────────────────────────────────────────────────────
 
 // The last day an entry keeps its units tied up. Normally the shoot's end plus
-// the turnaround days (counting only days the arts department is open). If the shoot is over but nobody has marked the props
-// returned yet, they stay tied up until someone does (open-ended).
+// the turnaround days (counting only days the arts department is open). If the shoot is over and the props were picked up
+// but not checked in yet (out with the creator, or brought back and waiting for check-in), they stay tied up until someone
+// checks them in (open-ended). Props that never left the building (a request nobody picked up) free up after the turnaround.
 export function holdUntil(entry: BookingEntry, today: string, bufferDays: number, closed: ClosedDays = NO_CLOSED_DAYS): string {
-  if (entry.end < today) return '9999-12-31'
+  if (entry.end < today && (entry.out || entry.back)) return '9999-12-31'
   return addOpenDays(entry.end, bufferDays, closed)
 }
 

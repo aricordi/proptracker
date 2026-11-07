@@ -58,6 +58,7 @@ describe('the happy path', () => {
     expect((await call('startReturn', { id, photos: [PHOTO], note: 'Left on the returns shelf' }, ALEX)).ok).toBe(true)
     expect((await getDoc(`reservations/${id}`))!.status).toBe('return_pending')
     expect((await getDoc('item_bookings/cop'))!.entries[0].out).toBeUndefined()
+    expect((await getDoc('item_bookings/cop'))!.entries[0].back).toBe(true)   // still held until check-in
 
     expect((await call('checkIn', { id, lines: [{ itemId: 'cop', result: 'ok' }, { itemId: 'chairs', result: 'ok' }] }, ARTS)).ok).toBe(true)
     res = (await getDoc(`reservations/${id}`))!
