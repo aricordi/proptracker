@@ -45,7 +45,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const [now, setNow] = useState(nowStamp())
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 30_000); return () => clearInterval(t) }, [])
   const today = todayInStudio()
-  const { upcoming } = useActiveShoot()
+  const { upcoming, loaded } = useActiveShoot()
   const soonDays = useScheduleDays(todayInStudio(), addDays(todayInStudio(), 30))
   const cutoffs = useCutoffs()
   const recent = useMyShoots(email, addDays(today, -2))
@@ -56,6 +56,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   // Props packed and waiting for you: sign for them right here (owner, Nov 3: report missing props at pickup in the chat).
   const [packed, setPacked] = useState<Reservation[]>([])
   useEffect(() => subscribeToReservations({ email, all: false }, list => setPacked(list.filter(r => r.status === 'packed' && r.startDate <= addDays(todayInStudio(), 1) && r.startDate >= todayInStudio()))), [email])
+  // Signed for just now: the request is 'collected' at once and leaves `packed`, so the parent keeps the "Picked up ✓"
+  // line (audit, Nov 7: the card vanished and only "To bring back" showed, as if the pickup had failed).
+  const [picked, setPicked] = useState<Record<string, string>>({})
   const [params] = useSearchParams()
   const focus = params.get('shoot')
 
@@ -69,7 +72,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
 
   // A shoot happening now (check-in open, or checked in and not wrapped yet today), and missed check-ins to explain.
   const live = useMemo(() => (recent ?? []).filter(x => x.status === 'booked' && x.place !== 'offsite'), [recent])
-  const onNow = live.filter(x => !x.wrap && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && now < addMinutes(x.to, 180))))
+  // Just wrapped (last 10 minutes): the card stays to say "Wrapped ✓" instead of vanishing with no confirmation.
+  const justWrapped = (x: Shoot) => !!x.wrap && Date.now() - Date.parse(x.wrap.at) < 10 * 60_000
+  const onNow = live.filter(x => (!x.wrap || justWrapped(x)) && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && now < addMinutes(x.to, 180))))
   const missed = live.filter(x => isMissed(x, now) && !x.explanation && now < explainUntil(x, s))
   const ahead = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from))
   // Only the next 3 here (owner, Nov 5: say so, so nobody thinks it's everything they're booked for); the rest on My shoots.
@@ -106,7 +111,8 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
         )
       })}
       {(returns ?? []).length > 0 && <ReturnCard groups={returns!} count={backCount} label={label} />}
-      {packed.map(r => <PickupCard key={r.id} r={r} />)}
+      {packed.map(r => <PickupCard key={r.id} r={r} onDone={m => setPicked(p => ({ ...p, [r.id]: m }))} />)}
+      <PickedUp picked={picked} still={packed} onClose={id => setPicked(p => { const n = { ...p }; delete n[id]; return n })} />
       {ended.filter(x => x.bumped && !seen.includes(`b${x.id}${x.bumped.at}`)).map(x => {
         const k = `b${x.id}${x.bumped!.at}`, gone = x.status === 'cancelled'
         return (
@@ -127,7 +133,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       ))}
       <UnsentBasket />
       {/* Nothing booked yet (first day): turn the empty space into the next step (mobile-app-ui-design: empty states guide). */}
-      {!chatting && upcoming.length === 0 && onNow.length === 0 && (
+      {!chatting && loaded && upcoming.length === 0 && onNow.length === 0 && (
         <ChatCard tone="plain" icon="calendar" label="Your first shoot" title="Nothing booked yet"
           sub="Pick a free 2-hour slot at Cliff 1 or Cliff 2, or just type when you want to film."
           actions={<button onClick={() => navigate('/schedule')} className={primaryBtn}>See free times</button>} />
@@ -205,6 +211,8 @@ export function ShootNow({ shoot }: { shoot: Shoot; label?: string }) {
     if (!before && photos.length && !uploading && !shoot.checkin && !tried.current) { tried.current = true; void checkIn(false) }
   }, [before, photos.length, uploading, shoot.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Wrapped (the card also lives in the conversation, where the shoot stays listed): confirm it, no second Wrap (audit, Nov 7).
+  if (shoot.wrap) return <NoticeRow tone="info" icon="check" title={`Wrapped ✓ “${shoot.wrap.title}”`} sub="Nice work. It's on your shoot's history." />
   if (shoot.checkin) return (
     <div className="rise-in rounded-[22px] p-4 bg-pt-surface ring-1 ring-red-400/30">
       <p className="flex items-center gap-2 text-[14px] font-extrabold text-red-300"><LiveDot className="bg-red-400" />Filming now · {shootPlace} · {fmtTime(shoot.start)}</p>
@@ -219,9 +227,12 @@ export function ShootNow({ shoot }: { shoot: Shoot; label?: string }) {
   )
 
   const shot = photos.length > 0 && !uploading
+  // Someone filmed right before: the selfie alone doesn't check you in yet, so never say "Got it" before the answer
+  // below is sent (audit, Nov 7: people closed the app at "Got it ✓" and ended up with a missed check-in).
+  const oneMore = !!before && shot && !busy && !err
   return (
-    <HeroCard eyebrow={<><LiveDot />{shot ? (busy ? 'Checking in…' : err ? 'Not checked in yet' : 'Got it ✓') : "You're up · check in"}</>} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
-      sub={shot ? undefined : 'One selfie with your camera and you\'re checked in.'}
+    <HeroCard eyebrow={<><LiveDot />{shot ? (busy ? 'Checking in…' : err ? 'Not checked in yet' : oneMore ? 'One more tap to check in' : 'Got it ✓') : "You're up · check in"}</>} title={`${shootPlace} · ${fmtTime(shoot.start)}`}
+      sub={!shot ? 'One selfie with your camera and you\'re checked in.' : oneMore ? (report ? 'Send this to finish checking in.' : 'Tap All good below to finish checking in.') : undefined}
       action={!shot ? <ProofPhotos folder={`shoot-photos/${shoot.id}`} urls={photos} onChange={setPhotos} onUploading={setUploading} label="Check-in selfie" selfie compact="Selfie" hero max={1} /> : undefined}>
       {before && shot && !report ? (
         <div className="flex items-center gap-2">
@@ -275,7 +286,7 @@ export function ReturnCard({ groups, count, label, onReturned }: { groups: Retur
 }
 
 // Props are packed: pick them up and say if anything is missing (tap the props), no screen to find.
-export function PickupCard({ r }: { r: Reservation }) {
+export function PickupCard({ r, onDone }: { r: Reservation; onDone?: (message: string) => void }) {
   const [missing, setMissing] = useState<Record<string, number> | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -285,7 +296,8 @@ export function PickupCard({ r }: { r: Reservation }) {
     try {
       const list = Object.entries(missing ?? {}).map(([itemId, qty]) => ({ itemId, qty }))
       await confirmPickup({ id: r.id, allReceived: all, ...(all ? {} : { missing: list }) })
-      setDone(all ? 'Picked up ✓ Enjoy the shoot.' : 'Picked up ✓ The props team knows what was missing.')
+      const msg = all ? 'Picked up ✓ Enjoy the shoot.' : 'Picked up ✓ The props team knows what was missing.'
+      setDone(msg); onDone?.(msg)
     } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
   }
   if (done) return <NoticeRow tone="info" icon="check" title={done} />
@@ -310,6 +322,12 @@ export function PickupCard({ r }: { r: Reservation }) {
       {err && <p className="text-red-300 text-sm">{err}</p>}
     </ReadyCard>
   )
+}
+
+// "Picked up ✓" for the requests signed for just now (they're no longer 'packed', so their card is gone).
+function PickedUp({ picked, still, onClose }: { picked: Record<string, string>; still: Reservation[]; onClose: (id: string) => void }) {
+  const gone = Object.entries(picked).filter(([id]) => !still.some(r => r.id === id))
+  return <>{gone.map(([id, m]) => <NoticeRow key={`picked-${id}`} tone="info" icon="check" title={m} onClose={() => onClose(id)} />)}</>
 }
 
 // "The tripod is broken": report a problem on gear or props you have out right now (owner, Nov 3).
@@ -348,11 +366,18 @@ export function PickupList() {
   const { profile } = useSession()
   const navigate = useNavigate()
   const [list, setList] = useState<Reservation[] | null>(null)
+  const [picked, setPicked] = useState<Record<string, string>>({})
   useEffect(() => subscribeToReservations({ email: profile.email, all: false }, setList), [profile.email])
   if (!list) return null
   const packed = list.filter(r => r.status === 'packed')
   const going = list.filter(r => ['requested', 'preparing'].includes(r.status))
-  if (packed.length) return <div className="space-y-3">{packed.map(r => <PickupCard key={r.id} r={r} />)}</div>
+  const close = (id: string) => setPicked(p => { const n = { ...p }; delete n[id]; return n })
+  if (packed.length || Object.keys(picked).length) return (
+    <div className="space-y-3">
+      {packed.map(r => <PickupCard key={r.id} r={r} onDone={m => setPicked(p => ({ ...p, [r.id]: m }))} />)}
+      <PickedUp picked={picked} still={packed} onClose={close} />
+    </div>
+  )
   return (
     <div className={card}>
       <p className="text-[16px]">{going.length ? `Nothing packed yet. ${going.length === 1 ? `"${going[0].title}" is` : `${going.length} requests are`} still with the props team.` : 'No props waiting for you right now.'}</p>

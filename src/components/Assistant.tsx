@@ -42,7 +42,7 @@ import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type Cha
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
+  askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useShoot, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
   checkinWindow,
   type TimeAskResult,
 } from '../services/schedule'
@@ -371,7 +371,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       }
       if (m.who === 'cancel') {
         if (!(detectIntent(q) === 'confirm' || /^\s*(cancel( it)?|do it|yes,? cancel( it)?)\s*[!.]*$/i.test(q))) return false
-        setMsgs(x => [...x, { who: 'bot', text: 'Tap **Yes, cancel it** on the card above to confirm (or **Keep it**).' }]); return true
+        // The card's button says "Withdraw it", "Cancel anyway" or "Yes, cancel it", or it still asks which shoot: don't name one.
+        setMsgs(x => [...x, { who: 'bot', text: m.shootId ? 'Tap the button on the card above to confirm (or **Keep it**).' : 'Tap the shoot on the card above, then confirm there (or **Keep it**).' }]); return true
       }
     }
     return false
@@ -582,7 +583,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       if (intent === 'offsite') { say('Shooting somewhere else? Pick the day, the hours and the address. It still goes to the schedule team.', [{ who: 'actions', items: [{ label: 'Book an offsite shoot', to: `/schedule?offsite=${today}` }] }]); return true }
       if (intent === 'strikes') {
         const paused = !!myStatus?.pausedUntil && myStatus.pausedUntil > today
-        say(paused ? `Prop requests are paused until ${myStatus!.pausedUntil}. You can still book filming time and take gear. Ask the schedule team if this looks wrong.`
+        say(paused ? `Prop requests are paused until ${formatDay(myStatus!.pausedUntil!.slice(0, 10), { weekday: 'short', month: 'short', day: 'numeric' })}. You can still book filming time and take gear. Ask the schedule team if this looks wrong.`
           : myStatus?.strikes ? `You have ${myStatus.strikes} strike${myStatus.strikes === 1 ? '' : 's'} in the last ${s.strikeDays} days. ${s.strikeCount} in that time pauses prop requests for ${s.pauseDays} days.`
           : 'No strikes. You\'re all good.', [], [], true); return true
       }
@@ -793,7 +794,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const [addedTo, setAddedTo] = useState('')
   const toggle = (k: string) => { setAddedTo(''); setSel(x => x.includes(k) ? x.filter(y => y !== k) : [...x, k]) }
   const picks = () => ({ props: sel.filter(k => k.startsWith('p:')).map(k => k.slice(2)), gear: sel.filter(k => k.startsWith('g:')).map(k => k.slice(2)), builds: sel.filter(k => k.startsWith('b:')).map(k => k.slice(2)) })
-  const go = (to: string, state?: unknown) => { if (!page) onClose(); navigate(to, state ? { state } : undefined) }
+  const go = (to: string, state?: unknown) => { if (rec.current) stopTalk(); if (!page) onClose(); navigate(to, state ? { state } : undefined) }
   const addTo = (id: string, name?: string) => {
     const sh = upcoming.find(x => x.id === id)
     addToShoot(id, picks()); setSel([]); setPicking(false); setAddedTo(sh ? label(sh) : name || 'your shoot')
@@ -904,12 +905,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div className="flex items-center gap-2 py-2">
             <BrandMark className="w-7 h-7 text-white" title="" />
             <h1 className="font-display text-[28px] font-extrabold tracking-tight flex-1">Chat</h1>
-            {msgs.length > 2 && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
+            {msgs.length > 2 && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
           </div>
         ) : <>
         <div className="flex items-center justify-between py-3">
           <button onClick={onClose} className="text-pt-accent text-[16px]">‹ Back</button>
-          {msgs.length > 2 && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
+          {msgs.length > 2 && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
         </div>
         <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
         </>}
@@ -1216,10 +1217,19 @@ function CancelCard({ shootId, shoots, label }: { shootId?: string; shoots: impo
   )
 }
 
-// Your own slot after booking in the chat: live, so it changes from "Waiting for OK" to "Approved ✓".
+// Your own slot after booking in the chat: live, so it changes from "Waiting for OK" to "Approved ✓" — and to
+// "Not approved", "Ran out", "Cancelled" or "Filmed ✓" later (the chat stays open for days; audit, Nov 7).
 function BookedYou({ shootId }: { shootId: string }) {
-  const { upcoming } = useActiveShoot()
-  const sh = upcoming.find(x => x.id === shootId)
-  const waiting = !sh || sh.status === 'requested'
-  return <div className="flex items-center justify-between text-sm"><span>You</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${waiting ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{waiting ? 'Waiting for OK' : 'Approved ✓'}</span></div>
+  const sh = useShoot(shootId)
+  if (sh === undefined) return null   // still loading
+  const amber = 'bg-amber-400/15 text-amber-300', green = 'bg-green-500/15 text-green-400', red = 'bg-red-500/15 text-red-300', grey = 'bg-pt-border text-pt-muted'
+  const over = !!sh && sh.status === 'booked' && sh.to <= nowStamp()
+  const [txt, cls] = !sh || sh.status === 'cancelled' ? ['Cancelled', grey]
+    : sh.status === 'denied' ? ['Not approved', red]
+    : sh.status === 'expired' ? ['Ran out', grey]
+    : sh.status === 'requested' ? ['Waiting for OK', amber]
+    : over ? (sh.wrap || sh.checkin ? ['Filmed ✓', green] : ['Done', grey])
+    : sh.moveRequest ? ['Move asked', amber]
+    : ['Approved ✓', green]
+  return <div className="flex items-center justify-between text-sm"><span>You</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>{txt}</span></div>
 }
