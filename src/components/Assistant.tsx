@@ -209,15 +209,24 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const stopped = useRef(false), quiet = useRef<ReturnType<typeof setTimeout>>()
   const end = useRef<HTMLDivElement>(null), scroller = useRef<HTMLDivElement>(null)
   // Follow the conversation; an empty chat stays at the top (the hello and the to-dos).
-  const [revealTick, setRevealTick] = useState(0)
-  useEffect(() => { if (shown && msgs.some(m => m.who === 'me')) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown, revealTick])
+  const [, setRevealTick] = useState(0) // re-render so finished answers show their cards
+  useEffect(() => { if (shown && msgs.some(m => m.who === 'me')) end.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy, shown])
   // While an answer types out, keep its newest words in view (unless they scrolled up to read something earlier).
+  const nearBottom = () => { const el = scroller.current; return !!el && el.scrollHeight - el.scrollTop - el.clientHeight <= 160 }
   const follow = () => {
     const el = scroller.current
-    if (!shown || !el || el.scrollHeight - el.scrollTop - el.clientHeight > 160) return
+    if (!shown || !el || !nearBottom()) return
     el.scrollTop = el.scrollHeight
   }
-  const textDone = (m: Msg) => { if (shownNow.current.has(m)) return; shownNow.current.add(m); setRevealTick(t => t + 1) }
+  // When an answer finishes typing, its cards fade in: follow them only if the person was at the bottom
+  // (checked BEFORE the cards make the page taller), never yank them down from something they scrolled up to read.
+  const textDone = (m: Msg) => {
+    if (shownNow.current.has(m)) return
+    shownNow.current.add(m)
+    const atBottom = shown && nearBottom()
+    setRevealTick(t => t + 1)
+    if (atBottom) requestAnimationFrame(() => requestAnimationFrame(() => { const el = scroller.current; if (el) el.scrollTop = el.scrollHeight }))
+  }
 
   // Point the chat at one helper (a screen that opened it for times, a chip, a button).
   function switchTo(m: Helper, say = true) {
