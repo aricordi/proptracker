@@ -250,6 +250,8 @@ export function ShootNow({ shoot }: { shoot: Shoot; label?: string }) {
           <input value={note} onChange={e => setNote(e.target.value.slice(0, 300))} placeholder="Anything to add? (optional)" className="w-full bg-pt-bg rounded-xl px-3 min-h-[44px] text-base" />
           <button disabled={busy || uploading || (!mess && !over) || (mess && !messPhotos.length)} onClick={() => checkIn(true)} className={`w-full ${primaryBtn}`}>
             {busy ? 'Checking in…' : mess && !messPhotos.length ? 'Add a photo of the mess' : !mess && !over ? 'Tap what happened' : 'Check in and tell the team'}</button>
+          {/* Tapped Report it by mistake: one tap checks in with no report (audit, Nov 7: there was no way back). */}
+          <button disabled={busy} onClick={() => checkIn(false)} className="w-full min-h-[44px] text-[14px] font-semibold text-pt-muted disabled:opacity-40">Never mind, all good</button>
         </div>
       ) : null}
       {err && <p className="text-red-900 text-sm font-semibold">{err}</p>}

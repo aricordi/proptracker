@@ -18,7 +18,7 @@ export default function ScheduleRulesScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
+        <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/schedule'))} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
         <h1 className="font-display text-[34px] text-pt-text">How it works</h1>
       </div>
       <div className="px-4 max-w-prose">
@@ -29,7 +29,7 @@ export default function ScheduleRulesScreen() {
           <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>: {s.slots.map(t => fmtSlot(t, s.slotMinutes)).join(', ')}.</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
           <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {BOOK_AHEAD_DAYS} days ahead. A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
-          <Li>Filming with someone? In <b>Book a shoot</b> pick "+ 1 friend" or "+ 2 friends": you each get a slot back to back, and theirs is held for them to confirm.</Li>
+          <Li>Filming with someone? Tap a gold time on the <b>Calendar</b> and choose "+ 1 friend" or "+ 2 friends": you each get a slot back to back, and theirs is held for them to confirm.</Li>
         </ul>
 
         <H>{MONTHLY_SLOTS_ON ? `Your ${s.monthlySlots} monthly slots (${c1})` : 'How much you can book'}</H>
@@ -38,7 +38,7 @@ export default function ScheduleRulesScreen() {
           <Li>Every creator is guaranteed <b>{s.monthlySlots} {c1} slots a month</b>. Choose "Monthly slot" when you book.</Li>
           <Li>Anything beyond that is an <b>extra slot</b>, booked the same way whenever it's free.</Li>
           </>}
-          <Li>Every creator gets <b>{s.monthlySlots} guaranteed {c1} slots a month</b> The equipment team schedules them for you each month; they show up on your calendar. Book extra slots any time they're free.</Li>
+          <Li>Every creator gets <b>{s.monthlySlots} guaranteed {c1} slots a month</b>. The equipment team schedules them for you each month; they show up on your calendar. Book extra slots any time they're free.</Li>
           <Li><b>{s.slotsPerDay === 1 ? 'One house slot' : `${s.slotsPerDay} house slots`} a day</b> ({s.slotsPerDay * s.slotMinutes / 60} hours) per creator, across both houses. Need more? Ask the schedule team; they can book it for you. Offsite shoots don't count.</Li>
         </ul>
 
@@ -59,7 +59,7 @@ export default function ScheduleRulesScreen() {
         <H>{c2} and offsite shoots</H>
         <ul className="list-disc pl-5 space-y-2">
           <Li>{c2} is first come, first served. External rentals come first.</Li>
-          <Li>Shooting somewhere else? Tap <b>Book a shoot</b> → <b>Somewhere else</b> (at the top): pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
+          <Li>Shooting somewhere else? Tap a day on the <b>Calendar</b> → <b>Book Offsite</b>: pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
         </ul>
 
         <H>Props for your shoot</H>
@@ -71,7 +71,7 @@ export default function ScheduleRulesScreen() {
 
         <H>On the day</H>
         <ul className="list-disc pl-5 space-y-2">
-          <Li>Check-in opens <b>{s.checkinBefore} minutes before</b> your shoot: open your shoot, take a photo of the set, tap <b>Check in</b>.</Li>
+          <Li>Check-in opens <b>{s.checkinBefore} minutes before</b> your shoot: a <b>Check in</b> card appears in the Chat. Take one selfie with your camera and you're checked in.</Li>
           <Li>When you're done, tap <b>Wrap</b> and name what you filmed.</Li>
           <Li>Finish on time and leave the house clean. When the next creator checks in, they can report an overrun or a mess (with photos and a short note). The team reviews every report.</Li>
           <Li>No check-in by the end of your slot? You have <b>{s.explainHours} hours</b> to explain on your shoot; then the team decides.</Li>
