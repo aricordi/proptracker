@@ -118,20 +118,42 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   // Snap a photo, find it in the closet (owner, Nov 7): the camera button opens the phone's picker (camera, photos or a
   // screenshot), the AI says what's in it, and the closest props show in their own section at the top.
   const photoInput = useRef<HTMLInputElement>(null)
-  const [photo, setPhoto] = useState<{ busy: true } | { error: string } | { description: string; ids: string[] } | null>(null)
+  // Kept for this visit (like pc.browseScroll): Back from a matching prop shows the same results, so comparing
+  // matches doesn't cost another AI use. Only a finished result is kept, and only restored on Back.
+  const navType = useNavigationType()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const photoKey = personal ? 'pc.personalPhoto' : 'pc.photoSearch'
+  type PhotoResult = { description: string; ids: string[] }
+  const [photo, setPhoto] = useState<{ busy: true } | { error: string } | PhotoResult | null>(() => {
+    if (navType !== 'POP') return null
+    try {
+      const v = JSON.parse(sessionStorage.getItem(photoKey) || 'null')
+      return v && typeof v.description === 'string' && Array.isArray(v.ids) ? { description: v.description, ids: v.ids.filter((x: unknown) => typeof x === 'string') } : null
+    } catch { return null }
+  })
+  const keepPhoto = (r: PhotoResult | null) => {
+    try { if (r) sessionStorage.setItem(photoKey, JSON.stringify(r)); else sessionStorage.removeItem(photoKey) } catch { /* private mode */ }
+  }
   const photoRun = useRef(0)
   async function onPhoto(file: File | undefined) {
     if (!file) return
     const run = ++photoRun.current
     setPhoto({ busy: true })
+    keepPhoto(null)
+    // The camera sits in the sticky search bar, so the person may be far down the list: bring them up to the results.
+    rootRef.current?.closest<HTMLElement>('.overflow-y-auto')?.scrollTo({ top: 0, behavior: 'smooth' })
     try {
       const r = await photoSearch(file)
-      if (run === photoRun.current) setPhoto({ description: r.description, ids: r.results.map(x => x.id) })
+      if (run === photoRun.current) {
+        const result = { description: r.description, ids: r.results.map(x => x.id) }
+        setPhoto(result)
+        keepPhoto(result)
+      }
     } catch (e) {
       if (run === photoRun.current) setPhoto({ error: friendlyError(e, "Couldn't read that photo. Try another one.") })
     }
   }
-  const clearPhoto = () => { photoRun.current++; setPhoto(null) }
+  const clearPhoto = () => { photoRun.current++; setPhoto(null); keepPhoto(null) }
 
   // Ask the server for similar-meaning props 600ms after typing stops.
   useEffect(() => {
@@ -241,8 +263,6 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   const draftAdded = draft ? Object.entries(draft.lines).filter(([id, n]) => n > (draft.orig[id] ?? 0)).length : 0
 
   // Back from a prop page: the same spot in the list (owner, Oct 20).
-  const navType = useNavigationType()
-  const rootRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const box = rootRef.current?.closest<HTMLElement>('.overflow-y-auto')
     if (!box) return
