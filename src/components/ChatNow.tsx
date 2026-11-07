@@ -11,6 +11,7 @@ import { useActiveShoot, useCutoffs } from '../activeShoot'
 import { useReturnGroups, returnCount } from '../hooks/useReturnables'
 import ProofPhotos from './ProofPhotos'
 import UnsentBasket from './UnsentBasket'
+import { NotificationsNudge } from './Notifications'
 import ReturnFlow from './ReturnFlow'
 import { subscribeToReservations, confirmPickup, type Reservation } from '../services/reservations'
 import { reportProblem } from '../services/problems'
@@ -132,6 +133,8 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
           action={<button onClick={() => { dismiss(x.id); onAsk(`Find me another time near ${formatDay(x.date, { weekday: 'long' })} ${fmtTime(x.start)}`) }} className={noticeLink}>Find a new time</button>} />
       ))}
       <UnsentBasket />
+      {/* Approvals, friend invites (held 20 min) and reminders all come as notifications: ask once, here (audit, Nov 7). */}
+      {!chatting && <NotificationsNudge />}
       {/* Nothing booked yet (first day): turn the empty space into the next step (mobile-app-ui-design: empty states guide). */}
       {!chatting && loaded && upcoming.length === 0 && onNow.length === 0 && (
         <ChatCard tone="plain" icon="calendar" label="Your first shoot" title="Nothing booked yet"

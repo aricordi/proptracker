@@ -107,7 +107,7 @@ export function NotificationsNudge() {
     <div className="rise-in rounded-2xl bg-pt-surface shadow-hairline p-4">
       <div className="flex items-center gap-3">
       <span className="w-11 h-11 rounded-full grid place-items-center shrink-0 bg-pt-accent/15 text-pt-accent">{bell}</span>
-      <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">Get a ping</b><span className="block text-pt-muted text-xs">When a friend invites you, props are ready, or your shoot is coming up.</span></span>
+      <span className="flex-1 min-w-0"><b className="block text-pt-text text-[15px]">Get a ping</b><span className="block text-pt-muted text-xs">When your booking is approved, a friend invites you, or your shoot is coming up.</span></span>
       <span className="flex flex-col items-stretch gap-1 shrink-0 text-center">
         <button disabled={p.busy} onClick={() => p.state === 'needs-install' ? setGuide(true) : p.on()} className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 min-h-[36px] text-sm shadow-gold disabled:opacity-40">{p.busy ? 'Turning on…' : 'Turn on'}</button>
         <button onClick={dismiss} className="tap text-pt-muted text-xs text-center">Not now</button>
