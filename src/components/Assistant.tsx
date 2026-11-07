@@ -46,14 +46,16 @@ import {
   checkinWindow,
   type TimeAskResult, type House,
 } from '../services/schedule'
-import { freeForRange, todayInStudio } from '../../functions/src/booking'
+import { freeForRange, todayInStudio, lastDayToBook } from '../../functions/src/booking'
 import { useUsualPartners } from '../hooks/useUsualPartners'
 import { joinWaitlist } from '../hooks/useWaitlist'
 import { fmtTime, fmtHours, nowStamp } from '../../functions/src/gearBooking'
 import { Icon, type IconName } from './Icon'
 import { friendlyError } from '../lib/errors'
 import { loadChat, saveChat, clearChat, summaryLine, earlierAsks, lastVideoNames, type Remembered } from '../lib/chatMemory'
-import { subscribeToReservations } from '../services/reservations'
+import { subscribeToReservations, createReservation } from '../services/reservations'
+import { ChatCard, primaryBtn, secondaryBtn } from './ChatCard'
+import { pairOf, topPicks, planSkip, videoName } from '../lib/sayItOnce'
 
 type Msg =
   | { who: 'me'; text: string; mode: Helper }
@@ -70,6 +72,15 @@ type Msg =
   | { who: 'actions'; items: { label: string; to?: string; shootId?: string; ask?: string }[] }   // buttons that open the right screen
   | { who: 'return' } | { who: 'report'; text: string } | { who: 'pickup' }   // done right in the chat (Nov 3)
   | { who: 'now'; shootId: string }   // "im here" / "we're done": the check-in or wrap card, right in the chat (chat QA, Nov 6)
+  | OncePlan   // Say it once, confirm once (owner, Nov 7): a time AND props in one message → one card, one "Do it"
+
+// The one-card plan. `time` / `idea` keep both finders' answers, so "Change something" shows them as the usual
+// separate answers without asking the AI again.
+interface OncePlan {
+  who: 'once'; id: number; o: TimeAskResult['options'][number]; picks: string[]; ticks: string[]; idea: string; notice: string
+  time: TimeAskResult; props: IdeaResult; propsQuery: string; timeQuery: string
+  stage: 'ready' | 'booking' | 'sending' | 'done' | 'failed' | 'propsFailed'; error?: string; shootId?: string; requested?: boolean; invited?: string[]; sent?: number
+}
 
 const STAFF_STARTERS: Record<string, string[]> = {
   arts: ['How do I pack a request?', 'How do I check props back in?', 'How do I do a bin check?'],
@@ -215,6 +226,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       }
       if (m.who === 'options' && m.options.length) return [{ who: 'bot', text: summaryLine('Free times I found', m.options.map(o => `${formatDay(o.date, { weekday: 'short' })} ${house(o.place)} ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`), 4) }]
       if (m.who === 'booked') return [{ who: 'bot', text: `${asks ? 'Asked for' : 'Booked'}: ${m.label}` }]
+      if (m.who === 'once') return [{ who: 'bot', text: `${m.stage === 'done' || m.stage === 'propsFailed' ? (m.requested ? 'Asked for' : 'Booked') : 'Free time I found'}: ${formatDay(m.o.date, { weekday: 'short' })} ${house(m.o.place)} ${fmtSlot(m.o.start, m.o.slots.length * s.slotMinutes)}${m.sent ? ` · ${m.sent} props sent` : ''}` }]
       return []
     })
     saveChat(store(), profile.email, [...old, ...now])
@@ -514,6 +526,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   // Do what the AI picked. Everything here is a card or a button; the person still taps to make anything happen.
   async function runTurn(turn: ChatTurn, q: string) {
+    // A time AND props in one message: one card with one "Do it" (owner, Nov 7), instead of two separate answers.
+    const pair = !plan && !demo && !helpOnly ? pairOf(turn) : null
+    if (pair) return planOnce(turn, pair)
     await runOne(turn, q)
     // A second thing in the same message ("book friday 5pm and i need a cop costume"): done right after (chat QA, Nov 6).
     const also = turn.also
@@ -708,12 +723,13 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   }
 
   // Each helper returns its follow-up chips. `offerOther` adds "Meant a time instead?" under its answer.
-  async function sendProps(q: string, more: boolean, shootId: string | undefined, offerOther: boolean): Promise<string[]> {
+  // `pre`: the answer was already fetched (Say it once: both helpers ran at the same time for one message).
+  async function sendProps(q: string, more: boolean, shootId: string | undefined, offerOther: boolean, pre?: Promise<IdeaResult>): Promise<string[]> {
     const history = msgs.flatMap(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE ? [x.text] : [])
     try {
       // "More like these" repeats the last real ask as a second look.
       const idea = more ? (history[history.length - 1] ?? q) : q
-      const r = (await ideaToProps({
+      const r = pre ? await pre : (await ideaToProps({
         idea, history: more ? history.slice(0, -1) : history, exclude: [...new Set([...shownIds, ...sentPropIds, ...sentGearIds])], ...(more ? { searched, more: true } : {}),
         ...(shootId && !demo ? { shootId } : {}),
       })).data
@@ -753,9 +769,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: propsErr(e), retry: q }]); return [] }
   }
 
-  async function sendTime(q: string, offerOther: boolean, fresh = false): Promise<string[]> {
+  async function sendTime(q: string, offerOther: boolean, fresh = false, pre?: Promise<TimeAskResult>): Promise<string[]> {
     try {
-      const r = (await askForTime({ text: q, ...(previous && !fresh ? { previous } : {}) })).data
+      const r = pre ? await pre : (await askForTime({ text: q, ...(previous && !fresh ? { previous } : {}) })).data
       setPrevious(r.ask)
       const quiet = aiSpoke.current && r.options.length > 0; aiSpoke.current = false
       // The chat's own short reaction already showed: keep only the facts that matter ("5 PM isn't free; closest times").
@@ -805,6 +821,79 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       if (plan) planProps(r.shootIds[0], where)
       else setChips([PROPS_CHIP])
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]) } finally { setBusy(false) }
+  }
+
+  // ── Say it once, confirm once (owner, Nov 7) ──
+  // Both finders run at the same time for the one message. When the best free time and some free props come back, one
+  // card shows them with ONE "Do it". Anything that needs more (a guideline PDF, too late for props, nothing found)
+  // shows the usual separate answers, from the same answers (no second AI call).
+  const onceId = useRef(0)
+  const updOnce = (id: number, patch: Partial<OncePlan>) => setMsgs(x => x.map(y => y.who === 'once' && y.id === id ? { ...y, ...patch } : y))
+  const freeOnDay = (id: string, date: string) => {
+    const i = itemById.get(id)
+    if (!i || i.archived || i.condition === 'damaged') return 0
+    return freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' }, bookings[id] ?? [], date, date, today, turnaround(i), settings)
+  }
+  async function planOnce(turn: ChatTurn, pair: { time: string; props: string }) {
+    markMe('time'); setChips([])
+    if (turn.reply) setMsgs(x => [...x, { who: 'bot', text: turn.reply }])
+    setBusy(true); setThinking('time')
+    const history = msgs.flatMap(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE ? [x.text] : [])
+    const tp = askForTime({ text: pair.time }).then(r => r.data)
+    const ip = ideaToProps({ idea: pair.props, history, exclude: [...new Set([...shownIds, ...sentPropIds])] }).then(r => r.data)
+    const [tr, ir] = await Promise.allSettled([tp, ip])
+    setThinking(null); setBusy(false)
+    const t = tr.status === 'fulfilled' ? tr.value : null, idea = ir.status === 'fulfilled' ? ir.value : null
+    if (t) setPrevious(t.ask)
+    const o = t?.options[0]
+    const team = role === 'owner' || role === 'equipment' || realRole === 'owner'
+    const owner = role === 'owner' || realRole === 'owner'
+    const picks = o && idea ? topPicks(idea.groups, id => freeOnDay(id, o.date)) : []
+    const skip = planSkip({ hasTime: !!o, needsGuideline: !!o && !team && needsGuideline(o.date, o.place, profile.email, s),
+      tooLateForProps: !!o && !owner && today > lastDayToBook(o.date, settings.leadTimeDays, settings), picks: picks.length })
+    if (skip || !t || !idea || !o) return separate(pair, tp, ip, !!turn.reply)
+    setMsgs(x => [...x, { who: 'once', id: ++onceId.current, o, picks, ticks: picks, idea: pair.props, notice: t.notice ?? '', time: t, props: idea,
+      propsQuery: pair.props, timeQuery: pair.time, stage: 'ready' }])
+  }
+  // Today's two answers (times with Request buttons, then the props with ticks).
+  async function separate(pair: { time: string; props: string }, tp: Promise<TimeAskResult>, ip: Promise<IdeaResult>, aiSaid: boolean) {
+    setBusy(true)
+    aiSpoke.current = aiSaid
+    const a = await sendTime(pair.time, false, true, tp)
+    aiSpoke.current = false; markMe('time')
+    const b = await sendProps(pair.props, false, undefined, false, ip)
+    setMode('props'); setBusy(false)
+    setChips(nextSteps([...a.slice(0, 1), ...b]))
+  }
+  // "Change something": the card turns into the usual separate answers; the props still ticked stay ticked there.
+  function changeOnce(m: OncePlan) {
+    setMsgs(x => x.filter(y => !(y.who === 'once' && y.id === m.id)))
+    setSel(x => [...new Set([...x, ...m.ticks.map(id => `p:${id}`)])]); setAddedTo('')
+    void separate({ time: m.timeQuery, props: m.propsQuery }, Promise.resolve(m.time), Promise.resolve(m.props), false)
+  }
+  // "Do it" = the same taps as before, in order: ask for (or book) the time, then send the ticked props for that shoot.
+  // Booking fails → nothing else is sent. Props fail → the time stays requested and "Send props" tries again.
+  async function doOnce(m: OncePlan) {
+    if (busy) return
+    setBusy(true)
+    let shootId = m.shootId
+    if (!shootId) {
+      updOnce(m.id, { stage: 'booking', error: undefined })
+      try {
+        const friends = m.o.slots.filter(x => !x.me)
+        const r = (await bookWithFriends({ place: m.o.place, date: m.o.date, start: m.o.start, friends: friends.map(x => x.email), mySlots: m.o.slots.filter(x => x.me).length })).data
+        shootId = r.shootIds[0]
+        setPrevious(undefined)
+        updOnce(m.id, { shootId, requested: r.status === 'requested', invited: friends.map(x => x.name.split(' ')[0]) })
+      } catch (e) { updOnce(m.id, { stage: 'failed', error: errorText(e) }); setBusy(false); return }
+    }
+    if (!m.ticks.length) { updOnce(m.id, { stage: 'done', sent: 0 }); setBusy(false); return }
+    updOnce(m.id, { stage: 'sending', error: undefined })
+    try {
+      await createReservation({ title: videoName(m.idea), notes: '', startDate: m.o.date, endDate: m.o.date, scheduleShootId: shootId,
+        lines: m.ticks.map(itemId => ({ itemId, qty: 1 })), builds: [] })
+      updOnce(m.id, { stage: 'done', sent: m.ticks.length })
+    } catch (e) { updOnce(m.id, { stage: 'propsFailed', error: friendlyError(e, 'The props didn\'t go through.') }) } finally { setBusy(false) }
   }
 
   async function waitFor(c: string, w: { date: string; house: House; start: number }) {
@@ -954,6 +1043,62 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       )}
     </div>
   )
+
+  // The one-card plan (Say it once). Gold "act" card: the time as the title, the props as photo rows with ticks, one "Do it".
+  const renderOnce = (m: OncePlan) => {
+    const o = m.o, when = `${formatDay(o.date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`
+    const who = o.slots.length > 1 ? o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ') : ''
+    const verb = asks ? 'request' : 'book'
+    const n = m.ticks.length, props = `${n} prop${n === 1 ? '' : 's'}`
+    if (m.stage === 'done') {
+      const time = m.requested ? 'Requested ✓' : 'Booked ✓'
+      return (
+        <ChatCard tone="good" icon="check" label={m.sent ? `${time} · ${m.sent} prop${m.sent === 1 ? '' : 's'} sent` : time} title={when}
+          sub={[house(o.place), m.requested ? 'You\'ll get a notification when the schedule team approves it.' : '', m.invited?.length ? `${m.invited.join(' and ')}: their slot is held ${INVITE_HOLD_MINUTES} min for them to confirm.` : ''].filter(Boolean).join(' · ')}
+          actions={<button onClick={() => go(`/schedule?shoot=${m.shootId}`)} className={primaryBtn}>Open the shoot</button>} />
+      )
+    }
+    if (m.stage === 'propsFailed') {
+      return (
+        <ChatCard tone="warn" icon="alert" label={`Your time is ${m.requested ? 'requested' : 'booked'}`} title={when}
+          sub={`Props weren't sent: ${m.error ?? 'try again.'}`}
+          actions={<>
+            <button disabled={busy} onClick={() => doOnce(m)} className={primaryBtn}>Send props</button>
+            <button onClick={() => go(`/schedule?shoot=${m.shootId}`)} className={secondaryBtn}>Open the shoot</button>
+          </>} />
+      )
+    }
+    const working = m.stage === 'booking' || m.stage === 'sending'
+    return (
+      <ChatCard tone="act" icon="calendar" label={asks ? 'Ready to request' : 'Ready to book'} title={when} sub={[house(o.place), who].filter(Boolean).join(' · ')}
+        actions={<>
+          <button disabled={busy} onClick={() => doOnce(m)} className={primaryBtn}>
+            {m.stage === 'booking' ? (asks ? 'Requesting…' : 'Booking…') : m.stage === 'sending' ? 'Sending props…' : m.stage === 'failed' ? 'Try again' : n ? 'Do it' : `${asks ? 'Request' : 'Book'} the time only`}</button>
+          {!working && <button onClick={() => changeOnce(m)} className={secondaryBtn}>Change something</button>}
+        </>}>
+        {m.notice && <p className="text-[14px] text-amber-200 mb-2">{m.notice}</p>}
+        <div className="space-y-2">
+          {m.picks.map(id => {
+            const it = itemById.get(id); if (!it) return null
+            const on = m.ticks.includes(id)
+            return (
+              <div key={id} className={`flex items-center gap-3 rounded-2xl bg-black/25 p-2 ${on ? '' : 'opacity-60'}`}>
+                <button onClick={() => go(`/item/${id}`)} className="flex flex-1 min-w-0 items-center gap-3 text-left">
+                  <span className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0">{it.photos[0] && <img loading="lazy" decoding="async" src={thumbOf(it, it.photos[0])} alt="" className="w-full h-full object-cover" />}</span>
+                  <span className="min-w-0"><b className="block text-[16px] truncate">{it.name}</b><span className="block text-xs text-green-300">Free that day</span></span>
+                </button>
+                <button disabled={working} aria-pressed={on} aria-label={`${on ? 'Untick' : 'Tick'} ${it.name}`}
+                  onClick={() => updOnce(m.id, { ticks: on ? m.ticks.filter(x => x !== id) : [...m.ticks, id] })}
+                  className={`w-11 h-11 rounded-full grid place-items-center font-bold shrink-0 ${on ? 'bg-pt-accent text-stone-900' : 'bg-pt-border text-pt-text text-[22px]'}`}>{on ? '✓' : '+'}</button>
+              </div>
+            )
+          })}
+        </div>
+        {m.error && <p className="text-[14px] text-red-300 mt-3">Nothing was sent: {m.error}</p>}
+        {!m.error && <p className="text-[14px] text-pt-muted mt-3">{n ? `"Do it" will ${verb} this time, then send ${props} for "${videoName(m.idea)}" to the arts team.` : `Nothing ticked: "${asks ? 'Request' : 'Book'}" only ${verb}s the time.`}</p>}
+      </ChatCard>
+    )
+  }
 
   const choice = (m: AssistantMode, icon: string, title: string, sub: string) => (
     <button onClick={() => m === 'plan' ? startPlan() : (setPlan(null), switchTo(m))} className="w-full flex items-center gap-3 p-4 rounded-[20px] text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)] active:scale-[0.98] transition-transform">
@@ -1174,6 +1319,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               <button onClick={() => go('/browse')} className="flex-1 rounded-xl py-3 text-sm font-semibold bg-pt-border">Browse all</button>
             </div>
           </div>
+        ) : m.who === 'once' ? (
+          <div key={i}>{renderOnce(m)}</div>
         ) : m.who === 'actions' ? (
           <div key={i} className="rise-in flex flex-wrap gap-2">{m.items.map((a, k) => (
             <button key={a.label} onClick={() => { if (a.shootId) choose(a.shootId); if (a.ask) send(a.ask); else if (a.to === '#report') bugReport.start(); else if (a.to === '#report-now') void bugReport.now(); else if (a.to) go(a.to) }}
