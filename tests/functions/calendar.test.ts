@@ -50,6 +50,18 @@ describe('calendar links', () => {
     expect(ics).toContain(`DTEND;TZID=America/Toronto:${addDays(FRI, 1).replace(/-/g, '')}T010000`)
   })
 
+  it('a link stops working when the person is deactivated, and follows their role today', async () => {
+    await call('bookShoot', { place: 'cliff1', date: FRI, start: 780 }, ANA)
+    await call('bookShoot', { place: 'cliff2', date: FRI, start: 1380 }, BEN)
+    const url = (await call('myCalendarLink', {}, MAANIK)).result.url
+    await put(`users/${MAANIK}`, { email: MAANIK, role: 'creator', active: true, name: 'Maanik' })
+    const asCreator = await feed(url)
+    expect(asCreator).not.toContain('Ana · Cliff 1')
+    expect(asCreator).toContain('My shoots')
+    await put(`users/${MAANIK}`, { email: MAANIK, role: 'equipment', active: false, name: 'Maanik' })
+    expect(await feed(url)).toMatch(/no longer valid/)
+  })
+
   it('a made-up link shows nothing', async () => {
     const base = (await call('myCalendarLink', {}, ANA)).result.url.split('?')[0]
     expect(await feed(`${base}?t=${'0'.repeat(36)}`)).toMatch(/no longer valid/)
