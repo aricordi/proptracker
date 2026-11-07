@@ -51,7 +51,7 @@ export default function TakeGearScreen() {
     if (!shoot) return
     setBusy(true); setErr('')
     try {
-      const r = await takeGear({ scheduleShootId: shoot.id, title: 'Shoot', lines: picked.map(([offerId, qty]) => ({ offerId, qty })), missing: [...missing], photos })
+      const r = await takeGear({ scheduleShootId: shoot.id, title: label(shoot).slice(0, 120) || 'Shoot', lines: picked.map(([offerId, qty]) => ({ offerId, qty })), missing: [...missing], photos })
       cart.clear()
       navigate(`/gear/bookings/${r.data.id}`, { replace: true, state: { taken: true } })
     } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
