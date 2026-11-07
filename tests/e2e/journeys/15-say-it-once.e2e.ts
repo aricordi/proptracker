@@ -9,6 +9,9 @@ test.beforeAll(() => reseed())
 const date = plainDayAhead(10)
 const month = new Date(`${date}T12:00:00Z`).toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })
 const when = `${month} ${Number(date.slice(8))} at 1pm at Cliff 2`
+// The second test asks for a different time: the first one's request holds 1 PM, and an exact time that isn't free
+// shows the separate answers instead of the one card.
+const later = `${month} ${Number(date.slice(8))} at 5pm at Cliff 2`
 
 // The props list loads in the background after sign-in; open Props once so the chat can show them (like a person would).
 async function warmProps(page: Page) {
@@ -18,10 +21,10 @@ async function warmProps(page: Page) {
   await openTab(page, 'Chat')
 }
 
-async function fakeChat(page: Page) {
+async function fakeChat(page: Page, q = when) {
   await page.route('**/askChat', route => route.fulfill({
     contentType: 'application/json',
-    body: JSON.stringify({ result: { action: 'times', reply: 'Love it, a cop prank!', query: when, also: { action: 'props', query: 'cop costume and handcuffs' }, steps: [], screens: [], chips: [], links: [] } }),
+    body: JSON.stringify({ result: { action: 'times', reply: 'Love it, a cop prank!', query: q, also: { action: 'props', query: 'cop costume and handcuffs' }, steps: [], screens: [], chips: [], links: [] } }),
   }))
 }
 
@@ -64,9 +67,9 @@ test('a time and props in one message: one card, untick one, Do it', async ({ pa
 test('"Change something" shows the usual separate answers', async ({ page }) => {
   await signIn(page, 'kyle')
   await warmProps(page)
-  await fakeChat(page)
+  await fakeChat(page, later)
   const box = page.getByRole('textbox', { name: 'Message' })
-  await box.fill(`${when}, cop costume and handcuffs`)
+  await box.fill(`${later}, cop costume and handcuffs`)
   await box.press('Enter')
   const card = page.locator('div.rounded-\\[22px\\]').filter({ hasText: /Ready to (request|book)/ })
   await expect(card).toBeVisible({ timeout: 30_000 })
