@@ -88,7 +88,7 @@ service firebase.storage {
     // they, the schedule team and admins can read them. Add-only.
     match /guidelines/{email}/{file} {
       allow read: if canSeeGear() || (isMember() && myEmail() == email);
-      allow create: if resource == null && hasRole(['owner', 'creator']) && myEmail() == email
+      allow create: if resource == null && (isOwner() || hasRole(['owner', 'creator'])) && myEmail() == email
         && request.resource.size < 20 * 1024 * 1024 && request.resource.contentType == 'application/pdf';
       allow update, delete: if false;
     }

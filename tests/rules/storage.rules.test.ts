@@ -148,3 +148,13 @@ describe('problem report screenshots (owner, Nov 5)', () => {
     await assertFails(getMetadata(ref(storageAs('creator@example.com'), 'bug-reports/gear@example.com/1_screen.jpg')))
   })
 })
+
+describe('filming guidelines (PDF)', () => {
+  const pdf = { contentType: 'application/pdf' }
+  it('creators and the owner (who has no users record) upload their own; nobody else', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'guidelines/creator@example.com/1.pdf'), png, pdf))
+    await assertSucceeds(uploadBytes(ref(storageAs('alexisricordi@gmail.com'), 'guidelines/alexisricordi@gmail.com/1.pdf'), png, pdf))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'guidelines/other@example.com/1.pdf'), png, pdf))
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'guidelines/arts@example.com/1.pdf'), png, pdf))
+  })
+})
