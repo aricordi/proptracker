@@ -52,6 +52,31 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
     return () => clearTimeout(t)
   }, [item.id, wantDay])
 
+  // People who can't book (arts, admins): just the calendar to check a day, no "pick one of your shoots" or add buttons
+  // (audit Nov 7: admins were told to book a shoot they can't book).
+  if (!canBook) {
+    const day = cart.start && cart.end ? { start: cart.start, end: cart.end } : null
+    const freeThen = day
+      ? freeForRange({ quantity: item.quantity, missingQty: item.missingQty, legacyCheckedOut: legacyOut }, entries, day.start, day.end, today, turnaroundDays, settings)
+      : null
+    return (
+      <div className="space-y-3">
+        <p className="text-pt-muted text-xs">Availability</p>
+        <AvailabilityCalendar quantity={Math.max(0, item.quantity - (item.missingQty ?? 0))} entries={entries} today={today}
+          bufferDays={turnaroundDays} closed={settings} unavailable={legacyOut} selected={day} onPick={d => cart.setDates(d, d)} />
+        {legacyOut && <p className="text-amber-400 text-sm">Out on a quick checkout. Unavailable until the arts team marks it returned.</p>}
+        {day ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className={`text-sm font-medium ${freeThen ? 'text-green-400' : 'text-red-300'}`}>
+              {formatDay(day.start)}: {freeThen === 0 ? 'not available' : item.quantity > 1 ? `${freeThen} of ${item.quantity} free` : 'free'}
+            </p>
+            <button onClick={() => cart.setDates(null, null)} className="text-pt-accent text-xs tap">Clear</button>
+          </div>
+        ) : <p className="text-pt-muted text-sm">Tap a day to see how many are free.</p>}
+      </div>
+    )
+  }
+
   function pick(day: string) {
     if (!isStaff || shoot) { setNote(isStaff ? "You're adding to your shoot, so its day is used. Pick \"Just browsing\" above to choose another day." : 'Pick one of your shoots below. Its day is used.'); return }
     if (day < minStart) { setNote(`The earliest you can book is ${formatDay(minStart)}.`); return }
