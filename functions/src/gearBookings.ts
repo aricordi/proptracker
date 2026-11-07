@@ -114,7 +114,8 @@ export const takeGear = onCall(CALLABLE, async req => {
   // Only an approved shoot (audit, Nov 5: gear went out for a request that then ran out and the shoot disappeared).
   if (shoot.status !== 'booked') throw new HttpsError('failed-precondition', 'Your shoot isn\'t approved yet. You can take gear once it is.', { problem: 'not-approved' })
   const now = nowStamp(), from = stamp(shoot.date, shoot.start), to = addMinutes(from, shoot.end - shoot.start)
-  if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot. Until then you can reserve it.` : 'This shoot is over.', { problem: 'take-window' })
+  const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot.${sch.gearReserve ? ' Until then you can reserve it.' : ''}` : 'This shoot is over.', { problem: 'take-window' })
   const settings = await loadSettings()
   const today = todayInStudio()
   // Closed days (Sundays): nobody supervises, so creators just take it with the same tick-every-piece + photo, and bring
@@ -123,7 +124,6 @@ export const takeGear = onCall(CALLABLE, async req => {
   if (today > shoot.date) throw new HttpsError('failed-precondition', 'Gear for this shoot had to be taken before midnight. Ask the equipment team.', { problem: 'take-window' })
   const start = Math.max(GEAR_DAY_START, Math.floor(minutesNow() / GEAR_STEP) * GEAR_STEP)
   // Back by: the end of the shoot at the houses (it may go to someone else next), end of day for offsite (owner, Nov 3).
-  const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const end = Math.min(GEAR_DAY_END, shoot.place === 'offsite' ? Math.max(sch.gearOffsiteBackBy, now.slice(0, 10) === shoot.date ? shoot.end : 0) : now.slice(0, 10) === shoot.date ? shoot.end : GEAR_DAY_END)
   if (end <= start) throw new HttpsError('failed-precondition', 'It\'s too late in the day to take gear out.', { problem: 'bad-hours' })
   const { id } = await holdGear(caller, { ...d, date: today, start, end, title: str(d.title, 120) || 'Shoot' }, { take: true })

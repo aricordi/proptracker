@@ -134,7 +134,8 @@ export function useGearWindow() {
     const opens = gearReserveOpensAt(sh.from, s.gearReserveHours)
     // Reserving ahead is off unless the owner turns it on (owner, Nov 3: first come, first served on the day).
     // Only an approved shoot can take gear (a request shows when it can, once approved).
-    const state = now >= sh.to ? 'over' : canTakeGear(sh.from, sh.to, now) && sh.status === 'booked' ? 'take' : now >= opens && s.gearReserve ? 'reserve' : 'early'
+    // The 11 PM–1 AM slot: gear for it has to be taken before midnight (the server refuses after), so after midnight it's over.
+    const state = now >= sh.to || now.slice(0, 10) > sh.date ? 'over' : canTakeGear(sh.from, sh.to, now) && sh.status === 'booked' ? 'take' : now >= opens && s.gearReserve ? 'reserve' : 'early'
     return { state, opens }
   }
 }

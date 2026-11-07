@@ -66,7 +66,7 @@ export default function TakeGearScreen() {
       </div>
       <div className="px-4 space-y-5">
         {!shoot || state !== 'take' ? (
-          <p className="rounded-2xl bg-amber-400/10 text-amber-200 p-4 text-[15px]">You can take gear from an hour before your shoot until it ends. {state === 'early' || state === 'reserve' ? 'Until then you can reserve it from the Gear tab.' : ''}</p>
+          <p className="rounded-2xl bg-amber-400/10 text-amber-200 p-4 text-[15px]">{state === 'over' ? 'This shoot is over, so gear can\'t be taken for it any more.' : `You can take gear from an hour before your shoot until it ends.${state === 'reserve' ? ' Until then you can reserve it for your shoot.' : ''}`}</p>
         ) : !picked.length ? (
           <div className="rounded-2xl bg-pt-surface p-4 space-y-3"><p className="text-[15px]">Nothing picked yet.</p>
             <button onClick={() => navigate('/gear')} className="w-full rounded-xl py-3 font-bold bg-pt-accent text-stone-900">Pick gear</button></div>
