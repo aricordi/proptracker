@@ -125,6 +125,57 @@ describe('booking requests', () => {
     expect(sw.message).toMatch(/move/)
   })
 
+  it('swaps: only approved shoots, and both shoots must be picked (audit, Nov 7)', async () => {
+    const a = await book(ANA), b = await call('bookShoot', { place: 'cliff2', date: FRI, start: 780 }, BEN)
+    await decide(MAANIK, a.result.id, true)
+    const sw = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    expect(sw.ok).toBe(false)
+    expect(sw.message).toMatch(/Only approved shoots/)
+    expect((await call('requestSwap', { myShootId: a.result.id, theirShootId: '' }, ANA)).error).toBe('INVALID_ARGUMENT')
+  })
+
+  it('someone with top priority can\'t take a slot with a move waiting, and is told in plain words', async () => {
+    const a = await book(ANA)
+    await decide(MAANIK, a.result.id, true)
+    await call('moveShoot', { id: a.result.id, place: 'cliff2', date: FRI, start: 1020 }, ANA)
+    const t = await call('bookShoot', { place: 'cliff2', date: FRI, start: 1020, take: true }, KYLE)
+    expect(t.ok).toBe(false)
+    expect(t.message).toMatch(/change waiting for the team/)
+  })
+
+  // A Google Calendar event waiting under a slot as a clash (audit, Nov 7).
+  const clashUnder = async (slot: string) => {
+    await put('shoots/kcal', { creatorEmail: KYLE, creatorName: 'Kyle', place: 'cliff1', date: FRI, start: Number(slot), end: Number(slot) + 120, status: 'booked', kind: 'extra', clash: true, history: [] })
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    await put(`schedule_days/${FRI}`, { ...day, clashes: [{ house: 'cliff1', slot, shootId: 'kcal', name: 'Kyle', email: KYLE, start: Number(slot), end: Number(slot) + 120 }] })
+  }
+
+  it('an approved same-day move hands the old slot to a calendar event waiting under it', async () => {
+    const a = await book(ANA)
+    await decide(MAANIK, a.result.id, true)
+    await clashUnder('780')
+    expect((await call('moveShoot', { id: a.result.id, place: 'cliff1', date: FRI, start: 1020 }, ANA)).ok).toBe(true)
+    expect((await decide(MAANIK, a.result.id, true)).ok).toBe(true)
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff1['780']).toMatchObject({ shootId: 'kcal' })
+    expect(day.cliff1['1020']).toMatchObject({ shootId: a.result.id })
+    expect(day.clashes ?? []).toHaveLength(0)
+  })
+
+  it('a swap still works when a calendar event waits under one of the slots', async () => {
+    const a = await book(ANA), b = await call('bookShoot', { place: 'cliff2', date: FRI, start: 780 }, BEN)
+    await decide(MAANIK, a.result.id, true); await decide(MAANIK, b.result.id, true)
+    await clashUnder('780')
+    const sw = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
+    expect(sw.ok, sw.message).toBe(true)
+    const ok = await call('answerSwap', { id: sw.result.id, accept: true }, BEN)
+    expect(ok.ok, ok.message).toBe(true)
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff1['780']).toMatchObject({ shootId: b.result.id })
+    expect(day.cliff2['780']).toMatchObject({ shootId: a.result.id })
+    expect(day.clashes).toHaveLength(1)
+  })
+
   it('a waiting request counts toward the one-slot-a-day limit', async () => {
     await book(ANA)
     const second = await call('bookShoot', { place: 'cliff2', date: FRI, start: 1140 }, ANA)

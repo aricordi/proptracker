@@ -74,7 +74,7 @@ export default function HelpScreen() {
     ] },
     { title: 'Moving, swapping, cancelling', icon: 'swap', items: [
       { q: 'Can I move or cancel my shoot?', words: 'move cancel change time', a: <>Yes, free with at least <b>{s.noticeHours} hours'</b> notice: open the shoot and tap Move or Cancel. Changed your mind right after booking? Cancelling within {UNDO_MINUTES} minutes is always free. Cancelling a shoot also cancels its props and gear requests.</> },
-      { q: `It's less than ${s.noticeHours} hours before. What now?`, words: 'late cancel swap no show', a: <>You can still <b>swap</b> with another creator (they accept, and both shoots switch). Cancelling or moving now counts as a no-show, unless you booked it less than 24 hours before it starts: then cancelling is free.</> },
+      { q: `It's less than ${s.noticeHours} hours before. What now?`, words: 'late cancel swap no show', a: <>You can still <b>swap</b> with another creator (they accept, and both shoots switch). Cancelling or moving now counts as a no-show, unless you booked it less than 24 hours before it starts: then cancelling is free. If the schedule team moved your shoot (for example for a priority booking), you can still move it, and cancelling it is free.</> },
     ] },
     { title: 'Strikes', icon: 'stop', items: [
       { q: 'What gets me a strike?', words: 'strike penalty pause blocked', a: <>Not showing up, cancelling inside {s.noticeHours} hours, a report the team upholds, or a strike an admin gives you (always with the reason, which you can see). <b>{s.strikeCount} strikes in {s.strikeDays} days</b> pauses your prop requests for {s.pauseDays} days (you can still book house time and take gear). Your strikes are on the Me tab.</> },

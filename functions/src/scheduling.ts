@@ -12,7 +12,7 @@ import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline,
-  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow,
+  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
@@ -124,9 +124,13 @@ function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootI
   const freed = Object.entries(slots).filter(([, e]) => e.shootId === shootId).map(([k]) => k)
   if (freed.length) day[house] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
   if (day.clashes?.some(c => c.shootId === shootId)) day.clashes = day.clashes.filter(c => c.shootId !== shootId)
-  // A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
-  // (audit: the slot showed Free and could be booked twice, and the clash never cleared).
-  for (const k of promote ? freed : []) {
+  if (promote) promoteClashes(day, house, freed, shootId)
+}
+// A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
+// (audit: the slot showed Free and could be booked twice, and the clash never cleared). Only into slots that are empty now.
+function promoteClashes(day: ScheduleDay, house: House, freed: string[], shootId: string) {
+  for (const k of freed) {
+    if (day[house]?.[k]) continue
     const c = (day.clashes ?? []).find(x => x.house === house && x.slot === k && !x.blockId && x.shootId && x.shootId !== shootId)
     if (!c) continue
     day[house] = { ...(day[house] ?? {}), [k]: { shootId: c.shootId, name: c.name, email: c.email ?? '', kind: 'extra',
@@ -134,6 +138,9 @@ function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootI
     day.clashes = (day.clashes ?? []).filter(x => x !== c)
   }
 }
+// The slots a shoot holds on a day apart from a waiting move (what an approved same-day move gives up).
+const heldKeys = (day: ScheduleDay, shootId: string) => (['cliff1', 'cliff2'] as const).map(h =>
+  ({ house: h, keys: Object.entries(day[h] ?? {}).filter(([, e]) => e.shootId === shootId && !e.move).map(([k]) => k) }))
 
 // Load the day docs a change touches, let `change` edit them, then write them all back.
 async function editDays(tx: Transaction, dates: string[], change: (days: Record<string, ScheduleDay>) => void) {
@@ -146,6 +153,25 @@ async function editDays(tx: Transaction, dates: string[], change: (days: Record<
     for (const d of unique) tx.set(dayRefOf(d), { ...days[d], date: d })
   }
 }
+
+// Friends' slots held by a back-to-back booking (bookWithFriends) go when that booking leaves the schedule (cancelled,
+// denied, given away): the holds are cleared and the invites withdrawn (audit, Nov 7: the friend could still confirm a slot
+// next to nobody). Read inside the transaction before any write; clear in the day docs; mark the invites after.
+type HeldInvite = { ref: FirebaseFirestore.DocumentReference; date: string; place: House; start: number }
+async function pendingInvitesOf(tx: Transaction, shootId: string): Promise<HeldInvite[]> {
+  const snap = await tx.get(db.collection('schedule_invites').where('fromShootId', '==', shootId).where('status', '==', 'pending'))
+  return snap.docs.map(d => ({ ref: d.ref, date: String(d.get('date')), place: d.get('place') as House, start: Number(d.get('start')) }))
+}
+function clearHolds(days: Record<string, ScheduleDay>, invs: HeldInvite[]) {
+  for (const inv of invs) {
+    const map = days[inv.date]?.[inv.place]
+    if (map?.[slotKey(inv.start)]?.hold?.inviteId !== inv.ref.id) continue
+    const { [slotKey(inv.start)]: _gone, ...rest } = map   // eslint-disable-line @typescript-eslint/no-unused-vars
+    days[inv.date][inv.place] = rest
+  }
+}
+const withdrawInvites = (tx: Transaction, invs: HeldInvite[], at: string) =>
+  invs.forEach(i => tx.update(i.ref, { status: 'withdrawn', answeredAt: at, reason: 'shoot-gone' }))
 
 // One house slot a day per creator (owner, Oct 18; settings.slotsPerDay). The schedule team is never limited, so
 // "manually allowed" = the team books the extra slot for them. Checked on the day doc inside the transaction.
@@ -222,16 +248,19 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     if (b.status !== 'booked' && b.status !== 'requested') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started. Ask the schedule team if something went wrong.')
     // Withdrawing a request that was never approved is always free; so is a shoot booked less than 24 h before it starts.
-    noShow = !team && cancelCountsAsNoShow(b as { status: string; from: string; createdAt?: string; requestedAt?: string }, now, s)
+    noShow = !team && cancelCountsAsNoShow(b as Parameters<typeof cancelCountsAsNoShow>[0], now, s)
     who = { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
     const mr = b.moveRequest as Spot | undefined
-    const write = await editDays(tx, [b.date, ...(mr ? [mr.date] : [])], days => {
+    const invs = await pendingInvitesOf(tx, id)
+    const write = await editDays(tx, [b.date, ...(mr ? [mr.date] : []), ...invs.map(i => i.date)], days => {
       takeOut(days[b.date], b as Spot, id)
       if (mr) takeOut(days[mr.date], mr, id)
+      clearHolds(days, invs)
     })
     write()
     const at = new Date().toISOString()
+    withdrawInvites(tx, invs, at)
     tx.update(ref, {
       status: 'cancelled', cancelledBy: caller.email, updatedAt: at, ...(noShow ? { lateCancel: true, noShow: 'late-cancel' } : {}),
       ...(mr ? { moveRequest: FieldValue.delete() } : {}),
@@ -296,7 +325,8 @@ export const moveShoot = onCall(CALLABLE, async req => {
     // (owner, Nov 2): the new spot is held as "move" and the old spot stays theirs until it's approved.
     const stillRequest = b.status === 'requested'
     const asRequest = !stillRequest && needsApproval(caller, b.creatorEmail, s)
-    if (!team && !stillRequest && isShortNotice(b.from, now, s)) throw shortNoticeFail(s)
+    // Inside the notice period a creator can't move, unless the team set this time for them (a priority booking or a team move).
+    if (!team && !stillRequest && isShortNotice(b.from, now, s) && !timeSetByTeam(b)) throw shortNoticeFail(s)
     const old = b.moveRequest as Spot | undefined
     const write = await editDays(tx, [b.date, spot.date, ...(old ? [old.date] : [])], days => {
       if (old) dropMove(days[old.date], id)
@@ -315,9 +345,13 @@ export const moveShoot = onCall(CALLABLE, async req => {
       })
       return
     }
+    // Who chose the new time: the team moving someone else's shoot stamps teamMovedAt (cancelling it stays free); the creator
+    // picking a time themselves clears the stamp (and an old priority-booking move).
+    const byTeam = team && b.creatorEmail !== caller.email
     tx.update(ref, {
       ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, updatedAt: at, ...(old ? { moveRequest: FieldValue.delete() } : {}), ...(guideline ? { guideline } : {}),
-      history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${team && b.creatorEmail !== caller.email ? ' · by the schedule team' : ''}` }),
+      ...(byTeam ? { teamMovedAt: at } : { teamMovedAt: FieldValue.delete(), bumped: FieldValue.delete() }),
+      history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${byTeam ? ' · by the schedule team' : ''}` }),
     })
   })
   return { ok: true, kind, status: result }
@@ -345,13 +379,22 @@ export const decideBooking = onCall(CALLABLE, async req => {
     if (approve && (mr?.from ?? b.from) <= nowStamp()) throw new HttpsError('failed-precondition', 'That time has already started, so it can\'t be approved any more.')
     if (b.status === 'booked' && mr) {
       const write = await editDays(tx, [b.date, mr.date], days => {
-        if (approve) { if (b.date !== mr.date) takeOut(days[b.date], b as Spot, id); keepOnlyMove(days[mr.date], id) }
+        if (approve) {
+          if (b.date !== mr.date) { takeOut(days[b.date], b as Spot, id); keepOnlyMove(days[mr.date], id) }
+          else {
+            // Same day: the old slot is given up here, so a calendar event waiting under it as a clash takes it (like takeOut).
+            const old = heldKeys(days[b.date], id)
+            keepOnlyMove(days[mr.date], id)
+            for (const o of old) promoteClashes(days[b.date], o.house, o.keys, id)
+          }
+        }
         else dropMove(days[mr.date], id)
       })
       write()
       const spot: Spot = { place: mr.place, date: mr.date, start: mr.start, end: mr.end, where: mr.where }
       tx.update(ref, {
-        ...(approve ? { ...spot, month: monthOf(mr.date), from: mr.from, to: mr.to, kind: mr.kind } : {}),
+        // The creator asked for this time themselves, so a team-move stamp from before no longer applies.
+        ...(approve ? { ...spot, month: monthOf(mr.date), from: mr.from, to: mr.to, kind: mr.kind, teamMovedAt: FieldValue.delete(), bumped: FieldValue.delete() } : {}),
         moveRequest: FieldValue.delete(), updatedAt: at,
         history: FieldValue.arrayUnion(approve
           ? { at, by, action: 'move-approved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)} · approved by ${name}` }
@@ -360,8 +403,13 @@ export const decideBooking = onCall(CALLABLE, async req => {
       return
     }
     if (b.status !== 'requested') throw new HttpsError('failed-precondition', 'Someone already decided on this one.')
-    const write = await editDays(tx, [b.date], days => approve ? approveIn(days[b.date], id) : takeOut(days[b.date], b as Spot, id))
+    const invs = approve ? [] : await pendingInvitesOf(tx, id)
+    const write = await editDays(tx, [b.date, ...invs.map(i => i.date)], days => {
+      if (approve) approveIn(days[b.date], id)
+      else { takeOut(days[b.date], b as Spot, id); clearHolds(days, invs) }
+    })
     write()
+    withdrawInvites(tx, invs, at)
     tx.update(ref, approve
       ? { status: 'booked', approvedBy: by, approvedAt: at, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'approved', note: `by ${name}` }) }
       : { status: 'denied', deniedBy: by, deniedAt: at, deniedReason: reason, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'denied', note: reason }) })
@@ -437,11 +485,13 @@ function assertSwapRules(a: FirebaseFirestore.DocumentData, b: FirebaseFirestore
 export const requestSwap = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...BOOKERS])
   const mineId = str(req.data?.myShootId, 100), theirsId = str(req.data?.theirShootId, 100)
+  if (!mineId || !theirsId) throw new HttpsError('invalid-argument', 'Pick the two shoots to swap.')
   const [mine, theirs] = (await db.getAll(db.doc(`shoots/${mineId}`), db.doc(`shoots/${theirsId}`))).map(x => x.data())
   const now = nowStamp()
   if (!mine || !theirs) throw new HttpsError('not-found', 'Shoot not found.')
   if (mine.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'You can only offer your own shoot.')
   if (theirs.creatorEmail === caller.email) throw new HttpsError('invalid-argument', 'Pick someone else\'s shoot.')
+  if (mine.status === 'requested' || theirs.status === 'requested') throw new HttpsError('failed-precondition', 'Only approved shoots can be swapped. Wait for the equipment team to approve it first.')
   if (mine.status !== 'booked' || theirs.status !== 'booked') throw new HttpsError('failed-precondition', 'One of these shoots is cancelled.')
   if (mine.moveRequest || theirs.moveRequest) throw new HttpsError('failed-precondition', 'One of these shoots is waiting for a move to be approved. Wait for the answer first.')
   if (mine.place === 'offsite' || theirs.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
@@ -496,7 +546,9 @@ export const answerSwap = onCall(CALLABLE, async req => {
         assertDayLimit(days[b!.date], a!.creatorEmail, 1, s, [aS.id, bS.id], a!.creatorName)
         assertDayLimit(days[a!.date], b!.creatorEmail, 1, s, [aS.id, bS.id], b!.creatorName)
       }
-      takeOut(days[a!.date], a as Spot, aS.id); takeOut(days[b!.date], b as Spot, bS.id)
+      // No clash promotion here: each slot is refilled right away by the other shoot, and a waiting calendar clash stays
+      // listed against the new holder (promoting it made the next placeIn fail 'taken', so the swap could never be accepted).
+      takeOut(days[a!.date], a as Spot, aS.id, false); takeOut(days[b!.date], b as Spot, bS.id, false)
       const kindAt = (x: any, place: Place): ShootKind => place === MONTHLY_HOUSE ? x.kind : 'extra'
       placeIn(days[b!.date], b as Spot, { shootId: aS.id, name: a!.creatorName, email: a!.creatorEmail, kind: kindAt(a, b!.place) }, s)
       placeIn(days[a!.date], a as Spot, { shootId: bS.id, name: b!.creatorName, email: b!.creatorEmail, kind: kindAt(b, a!.place) }, s)
@@ -507,6 +559,8 @@ export const answerSwap = onCall(CALLABLE, async req => {
       return {
         place: other.place, date: other.date, start: other.start, end: other.end, where: '', month: monthOf(other.date), from: win.from, to: win.to,
         kind: other.place === MONTHLY_HOUSE ? x.kind : 'extra', updatedAt: at,
+        // Both creators agreed on the new times, so a team-move stamp from before no longer applies.
+        ...(isTeam(caller) ? {} : { teamMovedAt: FieldValue.delete(), bumped: FieldValue.delete() }),
         history: FieldValue.arrayUnion({ at, by: caller.email, action: 'swapped', note: `with ${name}: now ${spotLabel(other, s)}` }),
       }
     }
@@ -563,12 +617,16 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
 
 export const removeScheduleBlock = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'])
-  const date = req.data?.date, id = str(req.data?.id, 20)
+  // Blocks from Google Calendar have longer ids ('g' + the event id), so read the whole id (audit: cut at 20, nothing matched
+  // and the app said it worked). Clash listings that point at the block go with it.
+  const date = req.data?.date, id = str(req.data?.id, 100)
   if (!isDay(date)) throw fail('bad-date')
+  if (!id) throw new HttpsError('invalid-argument', 'Which block?')
   const dayRef = dayRefOf(date)
   await db.runTransaction(async tx => {
     const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
-    tx.set(dayRef, { blocks: (day.blocks ?? []).filter(b => b.id !== id) }, { merge: true })
+    if (!(day.blocks ?? []).some(b => b.id === id)) throw new HttpsError('not-found', 'That block was already removed.')
+    tx.set(dayRef, { blocks: (day.blocks ?? []).filter(b => b.id !== id), clashes: (day.clashes ?? []).filter(c => c.blockId !== id) }, { merge: true })
   })
   return { ok: true }
 })
@@ -594,8 +652,9 @@ export async function filmingPeople(opts: { includeDemo?: boolean } = {}) {
 }
 
 // People the schedule team can book for or add to the priority group (the team can't read users directly).
+// The schedule team, and admins (they approve requests and can make a priority booking for someone).
 export const listSchedulePeople = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner', 'equipment'])
+  await requireRole(req, [...APPROVERS])
   return { people: await filmingPeople() }
 })
 
@@ -805,6 +864,8 @@ export const answerInvite = onCall(CALLABLE, async req => {
     const withdraw = inv.fromEmail === caller.email && !accept
     if (inv.toEmail !== caller.email && !withdraw) throw new HttpsError('permission-denied', 'This invite is for someone else.')
     if (inv.status !== 'pending') throw new HttpsError('failed-precondition', 'This invite was already answered.')
+    // The inviter's shoot is gone (cancelled, not approved, given away): there's nobody to film back to back with.
+    const from = accept && inv.fromShootId ? (await tx.get(db.doc(`shoots/${inv.fromShootId}`))).data() : null
     const now = nowStamp(), at = new Date().toISOString()
     const ours = (days: Record<string, ScheduleDay>) => days[inv.date][inv.place as House]?.[slotKey(inv.start)]?.hold?.inviteId === id
     const clear = (days: Record<string, ScheduleDay>) => {
@@ -821,6 +882,11 @@ export const answerInvite = onCall(CALLABLE, async req => {
       const write = await editDays(tx, [inv.date], clear); write()
       tx.update(ref, { status: 'expired', answeredAt: at })
       outcome = 'expired'; return
+    }
+    if (from && !['booked', 'requested'].includes(from.status)) {
+      const write = await editDays(tx, [inv.date], clear); write()
+      tx.update(ref, { status: 'withdrawn', answeredAt: at, reason: 'shoot-gone' })
+      outcome = 'gone'; return
     }
     const sp: Spot = { place: inv.place, date: inv.date, start: inv.start, end: inv.end, where: '' }
     const pending = needsApproval(caller, inv.toEmail, s)
@@ -841,6 +907,7 @@ export const answerInvite = onCall(CALLABLE, async req => {
     outcome = 'accepted'
   })
   if (outcome === 'expired') throw new HttpsError('failed-precondition', `The ${INVITE_HOLD_MINUTES} minutes ran out, so the slot opened to everyone. Book it on the schedule if it's still free.`, { problem: 'expired' })
+  if (outcome === 'gone') throw new HttpsError('failed-precondition', 'Their shoot was cancelled, so this invite is off and the slot is open to everyone. Book it on the schedule if you still want it.', { problem: 'expired' })
   return { ok: true, shootId: outcome === 'accepted' ? shootRef.id : null }
 })
 
@@ -881,6 +948,8 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       to = { email, name: inst?.name || u.name || email }
     }
     if (to.email === h.creatorEmail) throw new HttpsError('failed-precondition', `${h.creatorName} already has this slot.`)
+    // Cancelled (not moved): a friend's slot held next to theirs goes too.
+    const invs = a.moveTo ? [] : await pendingInvitesOf(tx, holderId)
     const spot: Spot = { place: a.house, date: a.date, start: a.start, end: a.start + s.slotMinutes, where: '' }
     const moveSpot: Spot | null = a.moveTo ? { place: a.moveTo.house, date: a.date, start: a.moveTo.start, end: a.moveTo.start + s.slotMinutes, where: '' } : null
     const write = await editDays(tx, [a.date], days => {
@@ -888,8 +957,12 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       if (day[a.house]?.[key]?.shootId !== holderId) throw new HttpsError('failed-precondition', 'That slot changed in the meantime. Look again.')
       // A slot someone asked to MOVE into (or a shoot with a move waiting) is sorted out first (audit: giving it away left the
       // move request behind, and approving it later took the wrong slot).
-      if (day[a.house]?.[key]?.move || h.moveRequest) throw new HttpsError('failed-precondition', `${h.creatorName} has a move request waiting. Approve or deny it first.`)
+      // (Said differently to someone with top priority taking it themselves: they can't approve anything.)
+      if (day[a.house]?.[key]?.move || h.moveRequest) throw new HttpsError('failed-precondition', (APPROVERS as readonly string[]).includes(caller.role)
+        ? `${h.creatorName} has a move request waiting. Approve or deny it first.`
+        : 'This slot has a change waiting for the team to decide. Pick another time, or try again later.')
       takeOut(day, h as Spot, holderId, false)
+      clearHolds(days, invs)
       if (moveSpot) {
         if (moveSpot.place === a.house && moveSpot.start === a.start) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
         if (moveSpot.start < a.start + s.slotMinutes && moveSpot.start + s.slotMinutes > a.start && moveSpot.place === a.house) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
@@ -915,6 +988,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       tx.update(holderRef, { place: moveSpot.place, start: moveSpot.start, end: moveSpot.end, from: win.from, to: win.to, kind: moveSpot.place === MONTHLY_HOUSE ? h.kind : h.kind === 'monthly' ? 'extra' : h.kind,
         bumped, updatedAt: at, history: FieldValue.arrayUnion({ at, by: caller.email, action: 'bumped', note: `moved to ${spotLabel(moveSpot, s)} · ${why}` }) })
     } else {
+      withdrawInvites(tx, invs, at)
       tx.update(holderRef, { status: 'cancelled', cancelledBy: caller.email, bumped, updatedAt: at,
         history: FieldValue.arrayUnion({ at, by: caller.email, action: 'bumped', note: `cancelled · ${why}` }) })
     }

@@ -305,10 +305,17 @@ export function bookedLate(sh: { from: string; createdAt?: string; requestedAt?:
   return nowStamp(new Date(t)) >= addMinutes(sh.from, -LATE_BOOKING_FREE_HOURS * 60)
 }
 
+/** Was the shoot's current time set by someone else (moved for a priority booking, or moved by the schedule team)? Then the
+ *  creator didn't choose it: they may still move it inside the notice period, and cancelling it is free (owner: team moves
+ *  never count; audit Nov 7). Cleared again once the creator picks a new time themselves. */
+export const timeSetByTeam = (sh: { bumped?: unknown; teamMovedAt?: string | null }) => !!sh.bumped || !!sh.teamMovedAt
+
 /** Does a CREATOR cancelling this shoot right now count as a no-show? Only an approved shoot, inside the notice period,
- *  not within the 10-minute undo, and not one that was booked less than 24 h before it starts. (The team never gets one.) */
-export function cancelCountsAsNoShow(sh: { status: string; from: string; createdAt?: string; requestedAt?: string }, now: string, s: ScheduleSettings): boolean {
-  return sh.status === 'booked' && isShortNotice(sh.from, now, s) && !withinUndo(sh.createdAt) && !bookedLate(sh)
+ *  not within the 10-minute undo, not one that was booked less than 24 h before it starts, and not one the team moved.
+ *  (The team never gets one.) */
+export function cancelCountsAsNoShow(sh: { status: string; from: string; createdAt?: string; requestedAt?: string; bumped?: unknown; teamMovedAt?: string | null },
+  now: string, s: ScheduleSettings): boolean {
+  return sh.status === 'booked' && isShortNotice(sh.from, now, s) && !withinUndo(sh.createdAt) && !bookedLate(sh) && !timeSetByTeam(sh)
 }
 
 // ─── On the day: check in, wrap, missed check-ins (step 4) ───────────────────

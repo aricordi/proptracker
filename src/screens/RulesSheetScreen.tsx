@@ -50,7 +50,7 @@ export default function RulesSheetScreen() {
       ['Books without approval', s.instantBookers.length ? list(s.instantBookers.map(p => p.name)) : 'Nobody', 'People whose bookings are approved at once (e.g. Kyle / Stromedy).', owner],
       ['Slots', `${s.slots.length} a day, ${s.slotMinutes / 60} h each (${fmtTime(s.slots[0])} to ${fmtTime((s.slots[s.slots.length - 1] + s.slotMinutes) % 1440)})`, 'The fixed grid creators book at the houses.', owner],
       ['House slots a day', `${s.slotsPerDay} per creator`, 'How many house slots one creator can book on the same day (the team can book more for them).', owner],
-      ['Moving or cancelling for free', `${s.noticeHours} h before`, 'Inside this, a creator cancel counts as a no-show (a strike); only a swap avoids it. Free anyway: shoots booked less than 24 h before they start, and the 10-minute undo.', owner],
+      ['Moving or cancelling for free', `${s.noticeHours} h before`, 'Inside this, a creator cancel counts as a no-show (a strike); only a swap avoids it. Free anyway: shoots booked less than 24 h before they start, shoots the schedule team moved (those can still be moved too), and the 10-minute undo.', owner],
       ['Undo after booking', `${UNDO_MINUTES} min`, 'Cancelling within this many minutes of booking is always free.', owner],
       ['Friend invite hold', `${INVITE_HOLD_MINUTES} min`, 'How long a slot is held for an invited friend. If they let it run out, they get a "Didn\'t confirm" flag.', owner],
       ['Priority days', list(s.priorityWeekdays.map(d => DAYS[d])), `Only the priority group can book these; unclaimed slots open to everyone on Sunday at ${fmtTime(s.releaseMinute)}.`, owner],

@@ -29,7 +29,7 @@ import {
   useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, redoCalendarImport, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
-  monthOf, isShortNotice, withinUndo, bookedLate, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
+  monthOf, isShortNotice, withinUndo, bookedLate, cancelCountsAsNoShow, timeSetByTeam, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, MONTHLY_SLOTS_ON, isLive,
 } from '../services/schedule'
@@ -44,7 +44,10 @@ const btnGrey = 'w-full bg-pt-raised text-pt-text font-semibold rounded-[14px] p
 type Friend = { email: string; name: string }
 
 // Someone else's booked house slot (what a swap is asked for).
-interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number }
+// pending = someone's request the team hasn't approved yet; move = a slot someone asked to move into (also waiting).
+interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number; pending?: boolean; move?: boolean }
+// Only approved house shoots with no move waiting can be swapped (the server refuses the rest).
+const swappable = (x: Shoot, now: string) => x.place !== 'offsite' && x.from > now && x.status === 'booked' && !x.moveRequest
 
 type SheetState =
   | { kind: 'calendar' }
@@ -125,10 +128,12 @@ export default function ScheduleScreen() {
 
   // One rule for tapping a slot, used by the day list and the month's day sheet.
   const tapSlot = (st: ReturnType<typeof slotState>, d: string, h: House, start: number) => {
-    if (st.t === 'free') { if (team) setSheet({ kind: 'block', date: d, house: h, start }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
+    // A priority-day slot the owner sees as locked is still the team's to block or book for someone (the server allows it;
+    // only the owner's own booking follows the lock).
+    if (st.t === 'free' || (st.t === 'locked' && team)) { if (team) setSheet({ kind: 'block', date: d, house: h, start }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
     else if (st.t === 'booked') {
       const isMine = st.entry.email === profile.email || (mine ?? []).some(x => x.id === st.entry.shootId)
-      setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start } })
+      setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start, pending: !!st.entry.pending, move: !!st.entry.move } })
     }
     else if (st.t === 'block' && team) setSheet({ kind: 'unblock', date: d, block: st.block })
   }
@@ -244,12 +249,14 @@ export default function ScheduleScreen() {
               <p className="text-pt-muted text-sm">{formatDay(sheet.slot.date)} · {s.houses[sheet.slot.house].name} · {fmtSlot(sheet.slot.start, s.slotMinutes)}</p>
             </div>
           </div>
-          <p className="text-pt-text text-sm mt-4">This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.</p>
+          <p className="text-pt-text text-sm mt-4">{sheet.slot.move ? 'Someone asked to move their shoot here. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
+            : sheet.slot.pending ? 'Someone asked for this slot. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
+            : 'This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
-          {(mine ?? []).some(x => x.place !== 'offsite' && x.from > now) && (
+          {!sheet.slot.pending && (mine ?? []).some(x => swappable(x, now)) && (
             <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
           )}
-          {s.instantBookers.some(p => p.email === profile.email) && !s.instantBookers.some(p => p.email === sheet.slot.email) && (
+          {!sheet.slot.move && s.instantBookers.some(p => p.email === profile.email) && !s.instantBookers.some(p => p.email === sheet.slot.email) && (
             <TakeSlot slot={sheet.slot} onTaken={id => setSheet({ kind: 'shoot', id })} />
           )}
         </BottomSheet>
@@ -297,7 +304,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     else if (st.t === 'held') { label = `Held · ${st.entry.name}`; cls = 'bg-amber-400/[0.06] text-amber-300 border border-dashed border-amber-400/50' }
     else if (st.t === 'locked') { label = <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority</span> }
     else label = '—'
-    const tappable = (st.t === 'free' && (canBook || team)) || st.t === 'booked' || (st.t === 'block' && team)
+    const tappable = (st.t === 'free' && (canBook || team)) || st.t === 'booked' || ((st.t === 'block' || st.t === 'locked') && team)
     return (
       <button key={h} disabled={!tappable} onClick={() => onTap(st, h, start)}
         className={`flex-1 min-w-0 min-h-[48px] rounded-xl px-2 py-1.5 text-[14px] text-center truncate ${cls} ${st.t === 'past' ? 'opacity-40' : ''} ${tappable ? 'active:opacity-80' : ''}`}>
@@ -574,11 +581,14 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
   const short = isShortNotice(shoot.from, now, s) && !justBooked && !requested
   // Booked less than 24 h before it starts: cancelling is free, even inside the notice period (owner, Nov 6).
   const late = bookedLate(shoot)
+  // The team set this time (priority booking or a team move): the creator can still move it, and cancelling is free.
+  const teamTime = timeSetByTeam(shoot)
   // Inside the notice period a creator can only swap (house slots) or cancel as a no-show; the team can always move/cancel.
-  const canMove = upcoming && (team || (mine && !short))
+  const canMove = upcoming && (team || (mine && (!short || teamTime)))
   const canSwap = upcoming && mine && shoot.place !== 'offsite' && !requested && !shoot.moveRequest
   const canCancel = isLive(shoot) && (team || (mine && upcoming))
-  const noShow = !team && short && !late
+  // Same rule as the server, so the warning and what happens always agree.
+  const noShow = !team && cancelCountsAsNoShow(shoot, now, s)
   async function cancel() {
     setBusy(true); setErr('')
     try { await cancelShoot({ id, ...(noShow ? { confirmNoShow: true } : {}) }); onClose() } catch (e) { setErr(errorText(e)); setBusy(false) }
@@ -616,7 +626,8 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         {isLive(shoot) && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
         {mine && upcoming && short && !team && (
           <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
-            {late ? <>Less than {s.noticeHours} hours to go, so moving isn't possible. You booked it less than {LATE_BOOKING_FREE_HOURS} hours ahead, so <b>cancelling is free</b>.</>
+            {teamTime ? <>The schedule team set this time for you, so you can still <b>move</b> it, and <b>cancelling is free</b>.</>
+              : late ? <>Less than {s.noticeHours} hours to go, so moving isn't possible. You booked it less than {LATE_BOOKING_FREE_HOURS} hours ahead, so <b>cancelling is free</b>.</>
               : <>Less than {s.noticeHours} hours to go. You can still <b>swap</b> with someone; cancelling now counts as a no-show.</>}
           </p>
         )}
@@ -722,16 +733,21 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
   const [sent, setSent] = useState('')
   const others: TheirSlot[] = useMemo(() => {
     const out: TheirSlot[] = []
+    const seen = new Set<string>()
     for (const [date, d] of Object.entries(days).sort(([a], [b]) => a.localeCompare(b))) {
       for (const house of HOUSES) for (const [k, e] of Object.entries(d[house] ?? {})) {
         const start = Number(k)
+        // Only approved shoots: not a friend's held slot, someone's request or a move waiting for the team.
+        // An imported shoot can fill two slots: list it once.
+        if (!e.shootId || e.hold || e.pending || e.move || seen.has(e.shootId)) continue
         if (e.email === email || slotWindow(date, start, s.slotMinutes).from <= now) continue
+        seen.add(e.shootId)
         out.push({ shootId: e.shootId, name: e.name, email: e.email, date, house, start })
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start).slice(0, 60)
   }, [days, email, now, s.slotMinutes])
-  const mySlots = myShoots.filter(x => x.place !== 'offsite' && x.from > now)
+  const mySlots = myShoots.filter(x => swappable(x, now))
   async function ask(myId: string, theirId: string, name: string) {
     setBusy(myId + theirId); setErr('')
     try { await requestSwap({ myShootId: myId, theirShootId: theirId }); setSent(name) } catch (e) { setErr(errorText(e)) } finally { setBusy('') }
@@ -762,7 +778,7 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
           <div className="mt-3 space-y-2">
             {mine && others.length === 0 && <p className="text-pt-muted text-sm">No one else has an upcoming house slot.</p>}
             {mine && others.map(o => row(o.shootId, <Avatar email={o.email} name={o.name} />, `${o.name} · ${formatDay(o.date)} · ${s.houses[o.house].name} · ${fmtSlot(o.start, s.slotMinutes)}`, () => ask(mine.id, o.shootId, o.name)))}
-            {theirs && mySlots.length === 0 && <p className="text-pt-muted text-sm">You have no upcoming house shoots to offer.</p>}
+            {theirs && mySlots.length === 0 && <p className="text-pt-muted text-sm">You have no approved upcoming house shoots to offer.</p>}
             {theirs && mySlots.map(m => row(m.id, null, `Your ${formatDay(m.date)} · ${s.houses[m.place as House].name} · ${fmtSlot(m.start, m.end - m.start)}`, () => ask(m.id, theirs.shootId, theirs.name)))}
           </div>
         </>
