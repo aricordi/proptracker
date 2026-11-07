@@ -184,7 +184,7 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
     const holdRefs = lines.map(l => db.doc(`gear_holds/${l.offerId}`))
     const [offers, holds] = await Promise.all([tx.getAll(...offerRefs), tx.getAll(...holdRefs)])
     const values = await readValues(tx, offers)
-    const taken: { name: string; free: number; wanted: number }[] = []
+    const taken: { name: string; free: number; wanted: number; outUntil?: string }[] = []
     const out = lines.map((l, i) => {
       const o = offers[i]
       if (!o.exists || o.get('archived') === true) throw new HttpsError('failed-precondition', 'One of these is no longer offered. Remove it and try again.')
@@ -196,7 +196,9 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
       if (kind === 'bundle' && l.qty !== 1) throw new HttpsError('invalid-argument', 'A bundle is booked whole, one at a time.')
       const entries = (holds[i].get('entries') as GearHold[] | undefined) ?? []
       const free = freeQty(offered, entries, win.from, win.to)
-      if (free < l.qty) taken.push({ name: String(o.get('name')), free, wanted: l.qty })
+      // Still out with someone from before (not back yet): say so, so they can ask for it to be handed over.
+      const stillOut = entries.filter(h => h.out && h.from < win.to).sort((a, b) => a.to.localeCompare(b.to))[0]
+      if (free < l.qty) taken.push({ name: String(o.get('name')), free, wanted: l.qty, ...(stillOut ? { outUntil: stillOut.to } : {}) })
       return {
         offerId: l.offerId, kind, name: String(o.get('name') ?? ''), qty: l.qty,
         photo: ((o.get('photos') as string[] | undefined) ?? [])[0] ?? null,
@@ -205,8 +207,10 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
       }
     })
     if (taken.length) {
+      const dueText = (to: string) => `due back ${to.slice(0, 10) === date ? '' : `${to.slice(5, 10).replace('-', '/')} `}${fmtTime(Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16)))}`
       throw new HttpsError('failed-precondition',
-        taken.map(t => t.free ? `Only ${t.free} "${t.name}" free for those hours.` : `"${t.name}" is taken for those hours.`).join(' '),
+        taken.map(t => t.outUntil && !t.free ? `"${t.name}" is still out with someone from before (${dueText(t.outUntil)}). Ask them to hand it over to you in the app, or pick another.`
+          : t.free ? `Only ${t.free} "${t.name}" free for those hours.` : `"${t.name}" is taken for those hours.`).join(' '),
         { problem: 'taken', taken })
     }
     out.forEach((l, i) => tx.set(holdRefs[i], {
@@ -444,6 +448,13 @@ async function doPickup(caller: Caller, id: string, missingKeys: string[], photo
     const bundleSnaps = new Map((await Promise.all(offerIds.map(o => tx.get(db.doc(`gear_bundles/${o}`))))).map(s => [s.id, s]))
     const prevRefs = [...new Set(missing.map(m => previous.get(m.offerId)).filter((x): x is string => !!x))].map(p => db.doc(`gear_bookings/${p}`))
     const prevSnaps = prevRefs.length ? await tx.getAll(...prevRefs) : []
+    const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
+    const holdSnaps = await tx.getAll(...holdRefs)
+
+    // It's out now: the holds stay busy past the end time until it comes back (returnGear / handOverGear remove them).
+    holdSnaps.forEach((h, i) => {
+      if (h.exists) tx.update(holdRefs[i], { entries: ((h.get('entries') as GearHold[] | undefined) ?? []).map(e => e.bookingId === id ? { ...e, out: true } : e) })
+    })
 
     noteMissingOnBundles(tx, bundleSnaps, missing, id, now)
     // Recorded against the previous holder (records only, no billing).

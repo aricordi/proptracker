@@ -51,6 +51,17 @@ describe('pickup check', () => {
     expect((await call('pickUpGear', { id: 'now', missing: [], signed: true }, ANA)).error).toBe('FAILED_PRECONDITION')   // only once
   })
 
+  it('once picked up the hold stays busy past its end time until it comes back (audit, Nov 7)', async () => {
+    const { from, to } = await booking('now', ANA, 20, 120)
+    await put('gear_holds/fx3', { entries: [{ bookingId: 'now', from, to, qty: 1 }, { bookingId: 'other', from: addMinutes(to, 600), to: addMinutes(to, 700), qty: 1 }] })
+    expect((await call('pickUpGear', { id: 'now', missing: [], signed: true }, ANA)).ok).toBe(true)
+    const entries = (await getDoc('gear_holds/fx3'))!.entries
+    expect(entries.find((e: { bookingId: string }) => e.bookingId === 'now')).toMatchObject({ out: true })
+    expect(entries.find((e: { bookingId: string }) => e.bookingId === 'other').out).toBeUndefined()
+    expect((await call('returnGear', { id: 'now', photos: [PHOTO] }, ANA)).ok).toBe(true)
+    expect((await getDoc('gear_holds/fx3'))!.entries.map((e: { bookingId: string }) => e.bookingId)).toEqual(['other'])
+  })
+
   it('"Found it" takes the warning off the bundle (team only)', async () => {
     await put('gear_bundles/fx3', { name: 'FX3 Bundle', kind: 'bundle', archived: false, pieces: lines[0].pieces,
       missing: [{ itemId: 'bat', name: 'NP-FZ100 battery', qty: 1, at: 'x', bookingId: 'b' }] })

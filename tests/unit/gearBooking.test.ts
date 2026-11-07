@@ -41,6 +41,17 @@ describe('what is free', () => {
     const old = { bookingId: 'x', from: '2026-09-01T10:00', to: '2026-09-01T12:00', qty: 1 }
     expect(pruneHolds([old, holds[0]], '2026-10-16')).toEqual([holds[0]])
   })
+  it('gear that is still out stays busy past its end time until it comes back', () => {
+    const out = [{ bookingId: 'a', from: '2026-10-16T12:00', to: '2026-10-16T15:00', qty: 1, out: true }]
+    expect(freeQty(1, out, '2026-10-16T15:00', '2026-10-16T17:00')).toBe(0)   // back to back, but not back yet
+    expect(freeQty(1, out, '2026-10-20T10:00', '2026-10-20T12:00')).toBe(0)   // days later, still not back
+    expect(freeQty(1, out, '2026-10-16T09:00', '2026-10-16T12:00')).toBe(1)   // before it went out
+    expect(freeQty(1, [{ ...out[0], out: false }], '2026-10-16T15:00', '2026-10-16T17:00')).toBe(1)
+  })
+  it('never tidies away gear that is still out', () => {
+    const lost = { bookingId: 'x', from: '2026-09-01T10:00', to: '2026-09-01T12:00', qty: 1, out: true }
+    expect(pruneHolds([lost], '2026-10-16')).toEqual([lost])
+  })
 })
 
 describe('checking the day and hours', () => {

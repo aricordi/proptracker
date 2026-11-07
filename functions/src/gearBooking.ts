@@ -18,7 +18,13 @@ export const GEAR_STEP = 30               // times move in half hours
 export const GEAR_RETURN_HOUR = 10        // closed-day shoots: back by 10 AM next open day
 
 // One booking's hold on one bundle or extra. Lives in gear_holds/{offerId}.entries.
-export interface GearHold { bookingId: string; from: string; to: string; qty: number }
+// `out` = picked up and not back yet: it stays busy past its booked end until it's returned or handed over
+// (audit, Nov 7: a kit still with the 1–3 PM creator showed as free at 3 PM and a second creator could take it).
+export interface GearHold { bookingId: string; from: string; to: string; qty: number; out?: boolean }
+
+// Gear that's still out has no end until it comes back.
+export const STILL_OUT_UNTIL = '9999-12-31T23:59'
+export const openEnded = <T extends GearHold>(holds: T[]): T[] => holds.map(h => h.out ? { ...h, to: STILL_OUT_UNTIL } : h)
 
 const pad = (n: number) => String(n).padStart(2, '0')
 export const stamp = (day: string, min: number) => `${day}T${pad(Math.floor(min / 60))}:${pad(min % 60)}`
@@ -36,7 +42,7 @@ export const overlaps = (a: { from: string; to: string }, b: { from: string; to:
 
 // How many of a bundle (always 1) or extra are still free between from and to.
 export function freeQty(offered: number, holds: GearHold[], from: string, to: string, exceptBookingId?: string): number {
-  const used = holds.filter(h => h.bookingId !== exceptBookingId && overlaps(h, { from, to })).reduce((n, h) => n + h.qty, 0)
+  const used = openEnded(holds).filter(h => h.bookingId !== exceptBookingId && overlaps(h, { from, to })).reduce((n, h) => n + h.qty, 0)
   return Math.max(0, offered - used)
 }
 
@@ -51,10 +57,11 @@ export function nextFreeStart(offered: number, qty: number, holds: GearHold[], d
 }
 
 // Holds that ended more than a week before `today` are tidied away when the doc is next written.
+// Gear that's still out is never tidied away (a kit lost for a week mustn't look free again).
 export function pruneHolds(holds: GearHold[], today: string): GearHold[] {
   const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 7)
   const cut = d.toISOString().slice(0, 10)
-  return holds.filter(h => h.to.slice(0, 10) >= cut)
+  return holds.filter(h => h.out || h.to.slice(0, 10) >= cut)
 }
 
 export type GearTimeProblem = 'bad-format' | 'bad-hours' | 'in-past' | 'too-soon'

@@ -3,9 +3,10 @@
 // block direct writes) so the "a piece is in one bundle at a time" rule always holds.
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { db, requireRole, CALLABLE } from './auth.js'
-import { nowStamp as stampNow, type GearHold } from './gearBooking.js'
+import { nowStamp as stampNow, openEnded, type GearHold } from './gearBooking.js'
 
-const activeHolds = (entries: GearHold[] | undefined) => (entries ?? []).filter(h => h.to > stampNow())
+// Still booked, or picked up and not back yet (out has no end).
+const activeHolds = (entries: GearHold[] | undefined) => openEnded(entries ?? []).filter(h => h.to > stampNow())
 const samePieces = (a: { itemId: string; qty: number }[], b: { itemId: string; qty: number }[]) =>
   a.length === b.length && a.every(p => b.some(q => q.itemId === p.itemId && q.qty === p.qty))
 import {
@@ -38,7 +39,7 @@ function writeItemOffers(tx: Tx, itemIds: string[], items: Map<string, FirebaseF
     const d = items.get(id), offer = offers.get(itemOfferId(id)), entries = holds.get(id) ?? []
     const name = String(d?.name ?? '')
     if (d && d.public === true && d.archived !== true) {
-      const loose = looseCount({ id, name, have: Number(d.have) || 0 }, bundled), peak = peakHeld(entries, now)
+      const loose = looseCount({ id, name, have: Number(d.have) || 0 }, bundled), peak = peakHeld(openEnded(entries), now)
       if (peak > loose) throw new HttpsError('failed-precondition', `Creators have ${peak} "${name}" booked at the same time, so only ${loose} would be left to book. Change it after those bookings (or cancel them).`)
       tx.set(db.doc(`gear_bundles/${itemOfferId(id)}`), { name, kind: 'item', itemId: id, category: category(d.category), description: '', photos: photosOf(d.photos),
         pieces: [{ itemId: id, qty: loose, name, value: valueOf(d.value) }], archived: false, updatedAt: at, updatedBy: by, ...(offer ? {} : { createdAt: at, createdBy: by }) }, { merge: true })
