@@ -93,7 +93,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
   if (who === 'equipment') return [
     { key: 'gear', title: 'Gear', icon: 'camera', items: [
       I('gearqueue', '/gear/bookings', 'Gear log', 'Who has what, returns to check, what’s late', 'camera'),
-      I('bundles', '/gear/bundles', 'Bundles & single items', 'What creators can book; build a kit', 'box'),
+      I('bundles', '/gear/bundles', 'Bundles & single items', 'Kits creators take on the day; build a kit', 'box'),
       I('allgear', '/gear/items', 'All gear', 'Every piece you own', 'tools'),
     ] },
     { key: 'schedule', title: 'Schedule', icon: 'calendar', items: [
