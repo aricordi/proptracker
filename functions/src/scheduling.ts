@@ -652,8 +652,9 @@ export async function filmingPeople(opts: { includeDemo?: boolean } = {}) {
 }
 
 // People the schedule team can book for or add to the priority group (the team can't read users directly).
+// The schedule team, and admins (they approve requests and can make a priority booking for someone).
 export const listSchedulePeople = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner', 'equipment'])
+  await requireRole(req, [...APPROVERS])
   return { people: await filmingPeople() }
 })
 

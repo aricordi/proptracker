@@ -20,21 +20,23 @@ export function GiveSlotSheet({ t, onClose }: { t: GiveTarget; onClose: () => vo
   const days = useScheduleDays(t.date, t.date)
   const day = days?.[t.date]
   const now = nowStamp()
-  const [people, setPeople] = useState<{ email: string; name: string }[]>([])
+  const [people, setPeople] = useState<{ email: string; name: string }[] | null>(null)
   const [q, setQ] = useState('')
-  const [to, setTo] = useState<{ email: string; name: string } | null>(t.clash ? { email: t.clash.email ?? '', name: t.clash.name } : s.instantBookers[0] ?? null)
+  // People with priority, minus whoever has the slot now (picking them would just be refused).
+  const chips = useMemo(() => s.instantBookers.filter(p => p.email !== t.holder.email), [s.instantBookers, t.holder.email])
+  const [to, setTo] = useState<{ email: string; name: string } | null>(t.clash ? { email: t.clash.email ?? '', name: t.clash.name } : chips[0] ?? null)
   const [move, setMove] = useState<{ house: House; start: number } | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [done, setDone] = useState('')
   useEffect(() => { if (!t.clash) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [t.clash])
-  useEffect(() => { if (!to && !t.clash && s.instantBookers[0]) setTo(s.instantBookers[0]) }, [s.instantBookers, to, t.clash])
+  useEffect(() => { if (!to && !t.clash && chips[0]) setTo(chips[0]) }, [chips, to, t.clash])
   const first = t.holder.name.split(' ')[0]
   // Free times that day (both houses), soonest first, for moving the holder.
   const free = useMemo(() => HOUSES.flatMap(h => s.slots.filter(st => !(h === t.house && st === t.start))
     .filter(st => slotState(day, t.date, h, st, s, t.holder.email, now, true).t === 'free').map(st => ({ house: h, start: st }))
   ).sort((a, b) => Math.abs(a.start - t.start) - Math.abs(b.start - t.start) || a.house.localeCompare(b.house)).slice(0, 6), [day, s, t, now])
-  const matches = q.trim().length < 2 ? [] : people.filter(p => `${p.name} ${p.email}`.toLowerCase().includes(q.trim().toLowerCase()) && p.email !== t.holder.email).slice(0, 5)
+  const matches = q.trim().length < 2 ? [] : (people ?? []).filter(p => `${p.name} ${p.email}`.toLowerCase().includes(q.trim().toLowerCase()) && p.email !== t.holder.email).slice(0, 5)
 
   async function go() {
     if (!to || move === undefined) return
@@ -55,12 +57,13 @@ export function GiveSlotSheet({ t, onClose }: { t: GiveTarget; onClose: () => vo
             <div className="space-y-2">
               <p className="text-pt-muted text-xs font-semibold">Book it for</p>
               <div className="flex flex-wrap gap-2">
-                {[...s.instantBookers, ...(to && !s.instantBookers.some(p => p.email === to.email) ? [to] : [])].map(p => (
+                {[...chips, ...(to && !chips.some(p => p.email === to.email) ? [to] : [])].map(p => (
                   <button key={p.email} onClick={() => setTo(p)} className={`flex items-center gap-2 rounded-full pl-1 pr-3 min-h-[40px] ${to?.email === p.email ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-border text-pt-text'}`}>
                     <Avatar email={p.email} name={p.name} size={30} />{p.name}</button>))}
               </div>
               <input value={q} onChange={e => setQ(e.target.value)} placeholder="Someone else? Type a name" className="w-full min-h-[44px] rounded-xl bg-pt-bg text-pt-text px-3 text-[16px]" />
-              {matches.map(p => <button key={p.email} onClick={() => { setTo(p); setQ('') }} className="w-full text-left px-3 py-2 rounded-xl bg-pt-bg text-pt-text">{p.name}</button>)}
+              {matches.map(p => <button key={p.email} onClick={() => { setTo(p); setQ('') }} className="w-full text-left px-3 min-h-[44px] rounded-xl bg-pt-bg text-pt-text">{p.name}</button>)}
+              {q.trim().length >= 2 && people !== null && !matches.length && <p className="text-pt-muted text-[13px] px-1">No one called "{q.trim()}" who films.</p>}
             </div>
           )}
           <div className="space-y-2">

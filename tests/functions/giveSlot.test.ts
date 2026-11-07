@@ -44,6 +44,13 @@ describe('give it to Kyle', () => {
     expect((await getDoc(`user_status/${ANA}`))?.firstInLine).toBeUndefined()
   })
 
+  it('admins (who make priority bookings too) can search the people who film (audit, Nov 7)', async () => {
+    const r = await call('listSchedulePeople', {}, SAM)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result.people.map((p: { email: string }) => p.email)).toContain(KYLE)
+    expect((await call('listSchedulePeople', {}, ANA)).error).toBe('PERMISSION_DENIED')
+  })
+
   it('a moved-to time must be free, and creators can\'t give slots', async () => {
     const a = (await book(ANA)).result.id
     await book(BEN, { place: 'cliff2' })
