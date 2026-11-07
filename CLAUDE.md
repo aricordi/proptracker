@@ -2356,6 +2356,38 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Nov 6 (owner "put everything live"): backend run 66 + website run 68 = chat QA fixes, offsite/Confirm all/edge-case audit,
       the 3 decisions (basket question, Sunday gear, free cancel for late bookings), Clean up props v1 + v2, doubles in groups,
       manual confirms, photos open larger, arts Team guide fix. Tests 776.
+    - FIX AS YOU GO + RECOMMENDATIONS + PROP INSIGHTS (owner, Nov 7: "cleanup will be happening as they go… you often don't
+      notice a duplicate until you're looking at it"; "Amazon-style similar items / frequently booked together"; "an arts dept
+      dashboard: most booked, most often unavailable, trending, who damages, who's responsible for missing… what to buy duplicates
+      of, what to move to Grab and Go"; NOT deployed: backend (new callables propslike + doublesof in deploy/log lists, no rules
+      change) + website, ask). SERVER `functions/src/propsLike.ts` (no AI cost; reads item_vectors): `propsLike({id})` (owner/arts/
+      creator/admin, demoOk) = similar (findNearest on the prop's OWN fingerprint, score ≥ 0.6, same collection, not archived/merged,
+      ≤10) + together (only the reservations with array-contains this prop, last 365 days, not cancelled/declined → signalsFrom/
+      goesWith, min 1, ≤10; read fresh, not the 10-min propSignals cache); someone else's personal prop = NOT_FOUND. `doublesOf({id})`
+      (owner + arts) = buildDoubles for this ONE prop: candidates = shared name word, same photo md5 (Storage items/ list), or among
+      its 30 nearest fingerprints (≤400); cached AI verdicts read for those pairs; returns pairs {id, tier, score, signals} + `near`
+      (fingerprint ≥ 0.78 not in pairs, not dismissed). APP: `src/components/PropManage.tsx` = ⋯ button next to Edit on the prop
+      page (isStaff = owner/arts; admins view only): Edit details / Find duplicates / Merge with another prop (search first) / Mark as
+      checked / Remove this prop (RemoveSheet reasons, Undo toast) / Put it back / Delete for good (imported only, deleteImportedProp).
+      DuplicatesSheet: server pairs (tier pill + reasons + ✦ AI opinion) → looser look-alikes → name matches (likelyDoubles) + search;
+      tick → "Combine N with this one" → keep which (default this prop), bin chips when bins differ (the prop in the chosen bin merges
+      first with binId), "One prop, photographed N times" (angles) / "We have N separate copies" (copies) → mergeProps each, session
+      doubles cache via afterMerge; "Just remove the others" (removeProps 'Same prop twice'); "Not same" = dismissDuplicatePairs.
+      Keeping another prop → navigate to it. Old bottom "Archive"/"Delete imported" buttons moved into ⋯ (personal props keep Archive).
+      `src/components/PropRecommendations.tsx` (+ `src/services/propsLike.ts`, 10-min session cache) at the bottom of every prop page:
+      "Booked together with this" (Together N times) + "Similar props" (falls back to `similarByTags` when the server has < 3), ItemCard
+      tiles 148 px in a swipe row with Free/Booked for the active shoot. ItemDetailScreen scrolls to top on id change (main or #root).
+      `src/lib/propInsights.ts` (pure, tests/unit/propInsights.test.ts): request = not cancelled (declined counts as demand), dated by
+      createdAt in studio time; periods 7d/30d/90d/all; mostBooked; trending (last 14 days vs 14 before, ≥2, rising); unavailable
+      (fullDays = shoot days with every unit (qty − missing) booked, cantFind = pick 'unavailable', declined; buyMore = fullDays ≥ 2 or
+      1 + a declined); wanted (builds grouped by wantedKey); grabAndGo (last 90 days, ≥3 requests, ≥2 creators, < $500, not damaged);
+      damagedBy/missingBy (check-in lines, on the booker, value = replacementCost × units); damagedNow/missingNow; neverBooked (oldest
+      first); byCategory (lines per prop). mergedInto followed so combined props keep their history. `src/screens/PropInsightsScreen.tsx`
+      `/insights` (SeeStaff: owner/arts/admin; ?p=): period chips, 4 tiles, cards (2 columns on the laptop; FULL_WIDTH), Show all,
+      people rows expand to their props + "Open record". Menu: arts Every day (first), owner Props & storage, admin Every day; admin
+      desk sidebar "Prop insights". Help Q "How do I find props like this one?", arts Team guide steps 5–6, appGuide entries item,
+      itemmanage, insights, owner guide (v79), crew sheet (v4: "Spot a double while you work?"). Seed: 5 past requests rs1–rs5 (damaged
+      phone, missing glass, fog machine builds, a declined cop costume). Tests: tests/functions/propsLike.test.ts + unit.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

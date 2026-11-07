@@ -29,6 +29,7 @@ const BinsScreen = lazy(() => import('./screens/BinsScreen'))
 const BinQrScreen = lazy(() => import('./screens/BinQrScreen'))
 const LocationsScreen = lazy(() => import('./screens/LocationsScreen'))
 const CreatorsScreen = lazy(() => import('./screens/CreatorsScreen'))
+const PropInsightsScreen = lazy(() => import('./screens/PropInsightsScreen'))
 const HealthScreen = lazy(() => import('./screens/HealthScreen'))
 const UsersScreen = lazy(() => import('./screens/UsersScreen'))
 const CategoriesScreen = lazy(() => import('./screens/CategoriesScreen'))
@@ -401,6 +402,7 @@ export default function App() {
           <Route path="/locations" element={<StaffOnly><LocationsScreen /></StaffOnly>} />
           <Route path="/checkout" element={<Navigate to="/admin" replace />} />
           <Route path="/creators" element={<PeopleOnly><CreatorsScreen /></PeopleOnly>} />
+          <Route path="/insights" element={<SeeStaff><PropInsightsScreen /></SeeStaff>} />
           <Route path="/analytics" element={<PeopleOnly><AnalyticsScreen /></PeopleOnly>} />
           <Route path="/rules-sheet" element={<PeopleOnly><RulesSheetScreen /></PeopleOnly>} />
           <Route path="/admin" element={<TeamOnly><AdminScreen /></TeamOnly>} />

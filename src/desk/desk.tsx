@@ -44,7 +44,7 @@ export function useDesk() {
 }
 
 /** Pages designed for the full width. Everything else sits phone-width in the middle. */
-export const FULL_WIDTH = ['/approvals', '/analytics']
+export const FULL_WIDTH = ['/approvals', '/analytics', '/insights']
 // Pages with their own laptop layout (owner, Nov 3: admins + the equipment team live on the laptop): only the page
 // itself (sub-pages like /schedule/settings stay phone width in the middle).
 export const FULL_EXACT = ['/admin', '/schedule', '/creators']   // + '/' for admins (their Dashboard)
@@ -81,6 +81,7 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/creators', label: 'Creators', icon: 'people', also: ['/people'] },
     '-',
     { to: '/reservations', label: 'Props queue', icon: 'list' },
+    { to: '/insights', label: 'Prop insights', icon: 'chart' },
     { to: '/gear/bookings', label: 'Gear log', icon: 'box' },
     { to: '/schedule', label: 'Schedule', icon: 'calendar' },
     { to: '/admin', label: 'More', icon: 'grid', also: ['/account', '/help', '/users'] },
@@ -95,7 +96,7 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/', label: 'Chat', icon: 'chat' },
     { to: '/schedule', label: 'Book a shoot', icon: 'pin', also: ['/shoots'] },
     { to: '/browse', label: 'Props', icon: 'search', also: ['/item'] },
-    { to: '/admin', label: 'Team', icon: 'grid', also: ['/users', '/health', '/bins', '/categories', '/connections', '/ai', '/costs'] },
+    { to: '/admin', label: 'Team', icon: 'grid', also: ['/users', '/health', '/bins', '/categories', '/connections', '/ai', '/costs', '/insights', '/cleanup'] },
   ],
 }
 

@@ -109,6 +109,30 @@ items.push({ id: 'my-lamp', name: "Grandma's brass lamp", categoryId: 'set-dress
 for (const { id, ...i } of items) await put(`items/${id}`, { collection: 'company', ...i, ...meta })
 await put('checkouts/co1', { label: 'Bar fight shoot', startedAt: now, itemIds: ['legacy-bottle'] })
 
+// Past props requests (owner, Nov 7: Prop insights + "Booked together" need some history). All finished, so no holds needed.
+{
+  const ago = n => new Date(Date.now() - n * 86400000).toISOString()
+  const dayAgo = n => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date(Date.now() - n * 86400000))
+  const line = (itemId, itemName, qty = 1, checkIn) => ({ itemId, itemName, qty, ...(checkIn ? { checkIn: { ...checkIn, by: 'arts@example.com', at: ago(1) } } : {}) })
+  const past = [
+    { id: 'rs1', who: ['creator@example.com', 'Riley (Creator)'], asked: 25, shoot: 22, title: 'Dinner party gone wrong', status: 'returned',
+      lines: [line('chairs', 'Wooden dining chair', 4), line('phone', 'Rotary phone', 1, { result: 'damaged', note: 'Dial cracked' }), line('imp-glass', 'Wine glass', 4)] },
+    { id: 'rs2', who: ['jana@example.com', 'Jana'], asked: 12, shoot: 9, title: 'Family dinner', status: 'returned',
+      lines: [line('chairs', 'Wooden dining chair', 6), line('phone', 'Rotary phone', 2), line('imp-glass', 'Wine glass', 2, { result: 'missing', missingQty: 1 })] },
+    { id: 'rs3', who: ['kyle@example.com', 'Kyle'], asked: 6, shoot: 3, title: 'Cop prank call', status: 'returned',
+      lines: [line('phone', 'Rotary phone', 2), line('cop', 'Police officer costume')], builds: [{ id: 'b1', description: 'Fog machine', qty: 1, state: 'unavailable', reason: 'None in the city' }] },
+    { id: 'rs4', who: ['creator@example.com', 'Riley (Creator)'], asked: 4, shoot: 2, title: 'Phone call skit', status: 'returned',
+      lines: [line('phone', 'Rotary phone'), line('chairs', 'Wooden dining chair', 2)], builds: [{ id: 'b1', description: 'A fog machine', qty: 1, state: 'done' }] },
+    { id: 'rs5', who: ['kyle@example.com', 'Kyle'], asked: 3, shoot: 1, title: 'Detective story', status: 'declined', lines: [line('cop', 'Police officer costume')] },
+  ]
+  for (const r of past) await put(`reservations/${r.id}`, {
+    title: r.title, creatorEmail: r.who[0], creatorName: r.who[1], startDate: dayAgo(r.shoot), endDate: dayAgo(r.shoot), status: r.status,
+    lines: r.lines, itemIds: r.lines.map(l => l.itemId), builds: r.builds ?? [], createdAt: ago(r.asked), updatedAt: ago(1),
+    ...(r.status === 'returned' ? { checkedInAt: ago(r.shoot - 1), checkedInBy: 'arts@example.com' } : {}),
+    history: [{ status: 'requested', at: ago(r.asked), by: r.who[0] }, { status: r.status, at: ago(1), by: 'arts@example.com' }],
+  })
+}
+
 // Gear: the owner's test gear (scripts/test-gear.json, also the live "Add test gear" button), plus a C-stand extra.
 const testGear = JSON.parse(await (await import('node:fs/promises')).readFile(new URL('./test-gear.json', import.meta.url), 'utf8'))
 const gearName = Object.fromEntries(testGear.items.map(i => [i.id, i.name]))

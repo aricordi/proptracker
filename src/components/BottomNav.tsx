@@ -63,7 +63,7 @@ const staffNav = [
   { to: '/browse',   label: 'Props',    icon: searchIcon, also: ['/item', '/bin'] },
   { to: '/calendar', label: 'Calendar', icon: reservationsIcon },
   { to: '/add',      label: 'Add',      icon: addIcon },
-  { to: '/admin',    label: 'Admin',    icon: adminIcon, also: ['/cleanup', '/duplicates', '/bins', '/health', '/suggestions', '/activity'] },
+  { to: '/admin',    label: 'Admin',    icon: adminIcon, also: ['/cleanup', '/duplicates', '/bins', '/health', '/suggestions', '/activity', '/insights'] },
 ]
 
 const homeIcon = (
@@ -117,7 +117,7 @@ export const TAB_ICONS: Record<string, JSX.Element> = { Chat: chatIcon, Calendar
 // Owner (Oct 20): the Dashboard is the admin's home; Props = the closet (it used to open the props queue a second time).
 const adminNav = [
   { to: '/',         label: 'Dashboard', icon: adminIcon, also: ['/admin', '/add', '/suggestions', '/duplicates', '/activity', '/health', '/users', '/people',
-    '/categories', '/booking-rules', '/bins', '/creators', '/calendar', '/account', '/schedule/team', '/analytics', '/rules-sheet'] },
+    '/categories', '/booking-rules', '/bins', '/creators', '/calendar', '/account', '/schedule/team', '/analytics', '/rules-sheet', '/insights'] },
   { to: '/approvals', label: 'Requests', icon: requestsIcon },
   { to: '/schedule', label: 'Schedule', icon: scheduleIcon },
   { to: '/reservations', label: 'Queue', icon: queueIcon },
@@ -130,7 +130,7 @@ const ownerNav = [
   { to: '/account',  label: 'Me',     icon: accountIcon, also: ['/requests', '/return'] },
   { to: '/admin',    label: 'Team',   icon: adminIcon, also: ['/reservations', '/add', '/gear/bookings', '/gear/bundles', '/gear/items',
     '/suggestions', '/import', '/duplicates', '/activity', '/health', '/users', '/people', '/categories', '/booking-rules', '/email',
-    '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet', '/approvals', '/personal', '/cleanup'] },
+    '/costs', '/ai', '/bins', '/creators', '/analytics', '/rules-sheet', '/approvals', '/personal', '/cleanup', '/insights'] },
 ]
 
 // Demo mode (test launch, Oct 27): the props list and Me, nothing to book.

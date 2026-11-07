@@ -34,6 +34,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'props', title: 'Props & storage', icon: 'box', items: [
       I('cleanup', '/cleanup', 'Clean up props', 'Fix names, counts, bins and doubles after the import', 'check'),
+      I('insights', '/insights', 'Prop insights', 'Most booked, what runs out, what to buy, damage and loss', 'chart'),
       I('addprop', '/add', 'Add a prop', 'Snap it, AI fills it in', 'plus'),
       I('personal', '/personal', 'My personal props', 'Your own props at home (only you see them)', 'lock'),
       I('bins', '/bins', 'Bins & storage', 'Storage areas, bins, QR codes', 'archive'),
@@ -71,6 +72,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('calendar', '/calendar', 'Requests calendar', 'Every props request by shoot day', 'calendar'),
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Missed check-ins and reports to decide', 'clock'),
       I('browse', '/browse', 'Props', 'Look through the closet', 'search'),
+      I('insights', '/insights', 'Prop insights', 'Most booked, what runs out, what to buy, damage and loss', 'chart'),
     ] },
     { key: 'people', title: 'Creators', icon: 'people', items: [
       I('analytics', '/analytics', 'Analytics', 'Who films more or less, every flag, the teams', 'chart'),
@@ -107,6 +109,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
   ]
   return [   // arts department
     { key: 'daily', title: 'Every day', icon: 'box', items: [
+      I('insights', '/insights', 'Prop insights', 'Most booked, what runs out, what to buy, damage and loss', 'chart'),
       I('calendar', '/calendar', 'Requests calendar', 'Every props request by shoot day', 'calendar'),
       I('suggestions', '/suggestions', 'Suggested edits', 'Creators’ corrections to props', 'pencil'),
     ] },

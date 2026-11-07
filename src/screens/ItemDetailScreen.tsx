@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, setItemArchived } from '../services/items'
 import { restoreProps } from '../services/cleanup'
-import { deleteImportedProp } from '../services/importer'
 import { getItemPrivate } from '../services/itemPrivate'
 import { useSession } from '../auth'
 import { HIGH_VALUE_THRESHOLD } from '../config'
@@ -18,14 +17,16 @@ import PropSuggestions, { WrongNameLink } from '../components/Suggestions'
 import { useBookings } from '../hooks/useBookings'
 import { photoMorphName, CONDITION_LABELS, CONDITION_STYLES, formatMoney } from '../components/ItemCard'
 import type { Item, Condition } from '../types'
-import { friendlyError } from '../lib/errors'
+import PropManage, { type ManageDone } from '../components/PropManage'
+import PropRecommendations from '../components/PropRecommendations'
+import { Toast } from '../components/cleanup/Parts'
 
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { isStaff, canSeeStaff, demo } = useSession()   // admins see staff details; only arts/owner change things; demo = look only
-  const [deleteState, setDeleteState] = useState<'idle' | 'confirm' | 'busy'>('idle')
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ text: string; undo?: () => void } | null>(null)
+  const topRef = useRef<HTMLDivElement>(null)
   const tags       = useTags()
   const characters = useCharacters()
   const locations  = useLocations()
@@ -44,6 +45,10 @@ export default function ItemDetailScreen() {
 
   useEffect(() => {
     if (!id) return
+    // Another prop opened from this page ("Similar props", a merge): start at the top with its first photo.
+    setPhotoIndex(0); setLightboxIndex(null); setShowArchiveConfirm(false)
+    const scroller = topRef.current?.closest('main') ?? document.getElementById('root')
+    scroller?.scrollTo({ top: 0 })
     getItem(id)
       .then(setItem)
       .catch(() => setItem(null))   // e.g. someone else's personal prop: treated as not found
@@ -92,6 +97,14 @@ export default function ItemDetailScreen() {
     }
   }
 
+  // The ⋯ menu finished something: say so (with Undo when possible), then show the prop as it is now.
+  function managed(d: ManageDone) {
+    setToast({ text: d.text, undo: d.undo ? () => { d.undo!(); setTimeout(() => getItem(item!.id).then(setItem).catch(() => {}), 600) } : undefined })
+    if (d.gone) { navigate(-1); return }
+    if (d.goTo) { navigate(d.goTo, { replace: true }); return }
+    getItem(item!.id).then(setItem).catch(() => {})
+  }
+
   // Also rewrite status: older records stored "damaged" as a status, which
   // would otherwise linger after the condition is set back to good.
   const setCondition = (condition: Condition) =>
@@ -108,7 +121,8 @@ export default function ItemDetailScreen() {
 
   return (
     <>
-    <div className="min-h-screen bg-pt-bg pb-10">
+    <div ref={topRef} className="min-h-screen bg-pt-bg pb-10">
+      {toast && <Toast text={toast.text} onUndo={toast.undo} onDone={() => setToast(null)} />}
       {/* Header */}
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
         <button
@@ -121,12 +135,10 @@ export default function ItemDetailScreen() {
           Back
         </button>
         {isStaff && (
-          <button
-            onClick={() => navigate(`/item/${item.id}/edit`)}
-            className="text-pt-accent text-sm font-medium active:opacity-70 py-1 tap"
-          >
-            Edit
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => navigate(`/item/${item.id}/edit`)} className="text-pt-accent text-[16px] font-semibold active:opacity-70 min-h-[44px] px-2">Edit</button>
+            <PropManage item={item} onDone={managed} />
+          </div>
         )}
       </div>
 
@@ -310,6 +322,8 @@ export default function ItemDetailScreen() {
 
         {!item.archived && <PropSuggestions item={item} />}
 
+        {!item.archived && <PropRecommendations item={item} />}
+
         {canSeeStaff && <PropHistory item={item} />}
 
         {/* The old quick checkout was removed (owner, Oct 20). A prop still marked out there can be put back here. */}
@@ -346,36 +360,13 @@ export default function ItemDetailScreen() {
 
             <div className="h-px bg-pt-border" />
 
-            {/* Owner + arts: imported props (never booked) can be deleted for good. */}
-            {isStaff && item.importedFrom && item.collection === 'company' && (
-              deleteState === 'idle' ? (
-                <button onClick={() => { setDeleteState('confirm'); setDeleteError(null) }} className="w-full text-red-400 text-sm py-2 active:opacity-70">
-                  Delete this imported prop
-                </button>
-              ) : (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 space-y-3">
-                  <p className="text-pt-text text-sm font-medium">Delete "{item.name}" for good?</p>
-                  <p className="text-pt-muted text-xs">This can't be undone. Its photo can be imported again later. (Props that were ever booked can't be deleted.)</p>
-                  {deleteError && <p className="text-red-300 text-xs">{deleteError}</p>}
-                  <div className="flex gap-3">
-                    <button onClick={() => setDeleteState('idle')} className="flex-1 py-2 rounded-lg shadow-hairline text-pt-text text-sm">Keep it</button>
-                    <button disabled={deleteState === 'busy'} onClick={async () => {
-                      setDeleteState('busy'); setDeleteError(null)
-                      try { await deleteImportedProp({ itemId: item.id }); navigate('/', { replace: true }) }
-                      catch (err) { setDeleteError(friendlyError(err, "Couldn't reach the server.")); setDeleteState('confirm') }
-                    }} className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold disabled:opacity-50">
-                      {deleteState === 'busy' ? 'Deleting…' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
-              )
-            )}
-
             {item.archived ? (
               <button onClick={() => setArchived(false)} disabled={busy}
                 className="w-full text-pt-accent text-sm py-2 active:opacity-70 disabled:opacity-40">
                 Restore to inventory
               </button>
+            ) : item.collection === 'company' ? (
+              <p className="text-pt-muted text-[14px] text-center">Duplicates, merging and removing: tap <b className="text-pt-text">⋯</b> at the top.</p>
             ) : !showArchiveConfirm ? (
               <button onClick={() => setShowArchiveConfirm(true)}
                 className="w-full text-red-400 text-sm py-2 active:opacity-70">
