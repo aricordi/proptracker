@@ -3,7 +3,9 @@
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
 import { useState, type ReactNode } from 'react'
-import { slotState, headsUps, HOUSES, BOOK_AHEAD_DAYS, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { slotState, headsUps, HOUSES, BOOK_AHEAD_DAYS, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { fmtTime } from '../../functions/src/gearBooking'
+import { Icon } from './Icon'
 
 export const monthStart = (month: string) => `${month}-01`
 export const monthAdd = (month: string, n: number) => {
@@ -14,15 +16,17 @@ export const monthTitle = (month: string) => new Date(`${month}-15T12:00:00Z`).t
 export function daysOfMonth(month: string) { const out: string[] = []; for (let d = monthStart(month); d.startsWith(month); d = addDays(d, 1)) out.push(d); return out }
 
 // freeAt: one entry per slot of the day (morning → night): free at either house? null = already over.
-export interface DayCount { free: number; total: number; booked: number; requested: number; mine: boolean; freeAt: (boolean | null)[] }
+// locked: empty slots on a Cliff 1 priority day that only the priority group can book until the Sunday release.
+export interface DayCount { free: number; total: number; booked: number; requested: number; locked: number; mine: boolean; freeAt: (boolean | null)[] }
 export function countDay(day: ScheduleDay | undefined, date: string, houses: House[], s: ScheduleSettings, email: string, now: string, team: boolean): DayCount {
-  const c: DayCount = { free: 0, total: 0, booked: 0, requested: 0, mine: false, freeAt: s.slots.map(() => null) }
+  const c: DayCount = { free: 0, total: 0, booked: 0, requested: 0, locked: 0, mine: false, freeAt: s.slots.map(() => null) }
   for (const h of houses) s.slots.forEach((st, i) => {
     const x = slotState(day, date, h, st, s, email, now, team)
     if (x.t === 'past') return
     c.total++
     c.freeAt[i] = c.freeAt[i] === true || x.t === 'free'
     if (x.t === 'free') c.free++
+    else if (x.t === 'locked') c.locked++
     else if (x.t === 'booked') { if (x.entry.pending) c.requested++; else c.booked++; if (x.entry.email === email) c.mine = true }
   })
   for (const o of day?.offsite ?? []) { if (o.pending) c.requested++; if (o.email === email) c.mine = true }
@@ -96,7 +100,10 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           c.mine = all.mine; c.requested = all.requested
           // Full here but the other house has room (owner, Nov 7: one line, in place of "Full", so the day never grows taller) → a small hint so nobody gives up on the day.
           const alt = other && !past && c.free === 0 ? countDay(days?.[date], date, [other], s, email, now, lockFree).free : 0
-          const hint = alt > c.free ? alt : 0
+          // Nothing free only because it's a priority day (audit, Nov 7: it read "Full" though the slots are empty and open to
+          // everyone on Sunday): say "Priority" with a lock instead of "Full" or the other-house hint.
+          const prio = !past && c.free === 0 && c.locked > 0
+          const hint = !prio && alt > c.free ? alt : 0
           const n = Number(date.slice(8))
           const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= 3 ? 'few' : 'lots'
           const tone = level === 'few' ? 'text-amber-300' : 'text-green-400'
@@ -105,7 +112,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const mine = c.mine && !team
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : ''
           return (
-            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? `${shootsOn(days?.[date]).length} shoots` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
+            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? `${shootsOn(days?.[date]).length} shoots` : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
               className={`relative aspect-[0.82] rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between pt-1.5 pb-2 lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               {!past && headsUps(days?.[date]).length > 0 && <i className="absolute top-1.5 right-1.5 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-amber-300" aria-label="Heads-up that day" />}
               <span className={`text-[18px] lg:text-[22px] font-bold ${date === today ? 'w-8 h-8 lg:w-10 lg:h-10 -mt-0.5 rounded-full bg-white text-stone-900 grid place-items-center' : mine ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
@@ -113,7 +120,9 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
               {!past && (
                 <span className="flex flex-col items-center leading-none gap-0.5">
                   {team && c.requested > 0 && <span className="min-w-5 h-5 px-1 mb-0.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
-                  {hint > 0
+                  {prio
+                    ? <span className="inline-flex items-center gap-1 text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap"><Icon name="lock" className="w-3.5 h-3.5" /><span className="hidden lg:inline">Priority</span></span>
+                    : hint > 0
                     ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'}: {hint}<span className="hidden lg:inline"> free</span></span>
                     : c.free === 0
                     ? <span className="text-xs font-semibold text-pt-muted">Full</span>
@@ -141,6 +150,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>}
         {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3' : 'C1: 3'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free spots</span>}
+        {house === PRIORITY_HOUSE && !lockFree && s.priorityWeekdays.length > 0 && <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5 text-pt-text/80" />Priority day: open to everyone from Sunday {fmtTime(s.releaseMinute)}</span>}
         <span><i className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team ? <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>
           : <span><i className="inline-block w-2.5 h-2.5 rounded-sm bg-pt-accent/30 shadow-[inset_0_0_0_2px_#C9A961] mr-1 align-[-1px]" />You're filming</span>}
