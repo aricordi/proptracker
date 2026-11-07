@@ -30,6 +30,7 @@ export function SwapAsk({ r, incoming = false }: { r: SwapRequest; incoming?: bo
         <Icon name="swap" className="w-5 h-5 text-pt-muted shrink-0" />
         <SlotTile tag="You get" hot day={day(r.to.date)} time={fmtSlot(r.to.start, r.to.end - r.to.start)} place={place(r.to, s)} />
       </div>
+      {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
     </ChatCard>
   )
   return (

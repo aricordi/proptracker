@@ -442,7 +442,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   useEffect(() => { if (friendCount && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [friendCount, everyone])
   const chosen = friends.slice(0, friendCount)
   // "Usually films with" (owner, Nov 7): one-tap shortcut to the people they film back to back with most; never auto-added.
-  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team && friendCount > 0).filter(p => !chosen.some(c => c.email === p.email))
+  // Loads as soon as the sheet opens (shown only once they pick "+ 1 friend"), so the row is ready and doesn't push the search box down.
+  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !chosen.some(c => c.email === p.email))
   const h = house as House
   // The slot(s) right after yours must be free for your friends.
   const nextFree = Array.from({ length: friendCount }, (_, i) => start + (i + 1) * s.slotMinutes)
@@ -631,7 +632,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         {lineup && <DayLineup date={shoot.date} shootId={id} />}
         {sent && mine && (
           <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text">
-            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : 'The arts team has your props request. Add gear below if you need it.'}
+            <b className="text-green-400">Sent ✓</b> {sent === 'gear' ? 'Your gear is held.' : sent === 'both' ? 'Props went to the arts team, gear to the equipment team.' : `The arts team has your props request. ${s.gearReserve ? 'Add gear below if you need it.' : 'Need gear? Take it on the shoot day from the chat.'}`}
           </div>
         )}
         {requested && <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
