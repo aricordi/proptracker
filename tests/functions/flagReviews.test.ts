@@ -33,7 +33,8 @@ describe('acting on a flag', () => {
     expect((await call('reviewFlag', { ...FLAG, action: 'excuse', note: 'Arts said it was their mix-up' }, ADMIN)).result.status).toBe('excused')
     expect(await doc(FLAG.flagId)).toMatchObject({ status: 'excused', email: CREATOR, kind: 'late-props' })
     await call('reviewFlag', { ...FLAG, action: 'unexcuse' }, ADMIN)
-    await call('reviewFlag', { ...FLAG, action: 'warn', note: 'Please bring props back on time' }, ADMIN)
+    // The emulator logs pushes instead of sending, so it counts as delivered (a real creator with no phone gets delivered: false).
+    expect((await call('reviewFlag', { ...FLAG, action: 'warn', note: 'Please bring props back on time' }, ADMIN)).result.delivered).toBe(true)
     const d = await doc(FLAG.flagId)
     expect(d!.status).toBe('warned')
     expect(d!.actions.map((a: { action: string }) => a.action)).toEqual(['excuse', 'unexcuse', 'warn'])
