@@ -808,6 +808,8 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
     const u = email === OWNER_EMAIL ? { active: true, name: 'Owner' } : (await db.doc(`users/${email}`).get()).data()
     if (!u || u.active !== true) throw new HttpsError('not-found', `${email} has no active account.`)
     if (isDemoCreator((u as { role?: string }).role, (u as { access?: string }).access)) throw new HttpsError('failed-precondition', `${u.name || email} can't book yet (Props only for now).`, { problem: 'demo' })
+    // Only creators and the owner film (same rule as the friend list and hand-over; audit, Nov 7).
+    if (email !== OWNER_EMAIL && (u as { role?: string }).role !== 'creator') throw new HttpsError('failed-precondition', `${u.name || email} doesn't film, so they can't be invited to a slot.`, { problem: 'not-filming' })
     friends.push({ email, name: u.name || email })
   }
   const now = nowStamp()
