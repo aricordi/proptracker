@@ -5,5 +5,7 @@ export default defineConfig({
     // Rules tests share one emulator, so run test files one at a time.
     fileParallelism: false,
     testTimeout: 20000,
+    // Agents' private copies of the repo (git worktrees) live in .claude/; never run their tests here.
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**', '**/*.e2e.ts'],
   },
 })
