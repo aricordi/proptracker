@@ -128,7 +128,9 @@ export default function ScheduleScreen() {
 
   // One rule for tapping a slot, used by the day list and the month's day sheet.
   const tapSlot = (st: ReturnType<typeof slotState>, d: string, h: House, start: number) => {
-    if (st.t === 'free') { if (team) setSheet({ kind: 'block', date: d, house: h, start }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
+    // A priority-day slot the owner sees as locked is still the team's to block or book for someone (the server allows it;
+    // only the owner's own booking follows the lock).
+    if (st.t === 'free' || (st.t === 'locked' && team)) { if (team) setSheet({ kind: 'block', date: d, house: h, start }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
     else if (st.t === 'booked') {
       const isMine = st.entry.email === profile.email || (mine ?? []).some(x => x.id === st.entry.shootId)
       setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start, pending: !!st.entry.pending, move: !!st.entry.move } })
@@ -302,7 +304,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     else if (st.t === 'held') { label = `Held · ${st.entry.name}`; cls = 'bg-amber-400/[0.06] text-amber-300 border border-dashed border-amber-400/50' }
     else if (st.t === 'locked') { label = <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority</span> }
     else label = '—'
-    const tappable = (st.t === 'free' && (canBook || team)) || st.t === 'booked' || (st.t === 'block' && team)
+    const tappable = (st.t === 'free' && (canBook || team)) || st.t === 'booked' || ((st.t === 'block' || st.t === 'locked') && team)
     return (
       <button key={h} disabled={!tappable} onClick={() => onTap(st, h, start)}
         className={`flex-1 min-w-0 min-h-[48px] rounded-xl px-2 py-1.5 text-[14px] text-center truncate ${cls} ${st.t === 'past' ? 'opacity-40' : ''} ${tappable ? 'active:opacity-80' : ''}`}>
