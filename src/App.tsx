@@ -233,6 +233,17 @@ function NotArts({ children, to = '/' }: { children: ReactNode; to?: string }) {
   return role === 'arts' ? <Navigate to={to} replace /> : <>{children}</>
 }
 
+// Sending a props request (/reserve, old /gear/review): only people who book (creators + owner). Everyone else goes home.
+function Bookers({ children }: { children: ReactNode }) {
+  const { canBook } = useSession()
+  return canBook ? <>{children}</> : <Navigate to="/" replace />
+}
+// The props closet: the equipment team can't read props (gear only), so typing /browse would show an empty page.
+function NotGearTeam({ children }: { children: ReactNode }) {
+  const { role } = useSession()
+  return role === 'equipment' ? <Navigate to="/" replace /> : <>{children}</>
+}
+
 function StaffOnly({ children }: { children: ReactNode }) {
   const { isStaff } = useSession()
   return isStaff ? <>{children}</> : <Navigate to="/" replace />
@@ -362,9 +373,9 @@ export default function App() {
       <Routes>
         {/* Full-screen routes outside the shell */}
         <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
-        <Route path="/item/:id" element={<ItemDetailScreen />} />
+        <Route path="/item/:id" element={<NotGearTeam><ItemDetailScreen /></NotGearTeam>} />
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
-        <Route path="/reserve" element={<NotArts><ReserveScreen /></NotArts>} />
+        <Route path="/reserve" element={<Bookers><ReserveScreen /></Bookers>} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/tour" element={<TourReplay />} />
         <Route path="/team-guide" element={<TeamGuideScreen />} />
@@ -378,7 +389,7 @@ export default function App() {
 
         <Route element={<ShellLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/browse" element={<HomeScreen />} />
+          <Route path="/browse" element={<NotGearTeam><HomeScreen /></NotGearTeam>} />
           <Route path="/gear" element={<GearBookers><GearShopScreen /></GearBookers>} />
           <Route path="/gear/bookings" element={<GearBookingsScreen />} />
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />
