@@ -55,11 +55,11 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 <header class="top">
   <div class="kicker">Prime Capitol · how the app works</div>
   <h1>The Owner's Guide</h1>
-  <p class="lede">Everything the app does, who can do what, what runs by itself, and where to change things. Updated November 7, 2026.</p>
+  <p class="lede">Everything the app does, who can do what, what runs by itself, and where to change things. Updated November 8, 2026.</p>
 </header>
 
 <nav class="toc" aria-label="Chapters">
-  <a href="#roles">Who's who</a><a href="#chat">Chat</a><a href="#kyle">Priority bookings</a><a href="#gear-go">Grab-and-go gear</a><a href="#book">Booking shoots</a><a href="#props">Props &amp; gear</a><a href="#day">On the day</a>
+  <a href="#roles">Who's who</a><a href="#nov8">New Nov 8</a><a href="#chat">Chat</a><a href="#kyle">Priority bookings</a><a href="#gear-go">Grab-and-go gear</a><a href="#book">Booking shoots</a><a href="#props">Props &amp; gear</a><a href="#day">On the day</a>
   <a href="#calendar">Google Calendar</a><a href="#ai">AI helper</a><a href="#notify">Notifications</a><a href="#auto">Runs by itself</a>
   <a href="#settings">Where to change things</a><a href="#updates">Updates &amp; undo</a><a href="#todo">Your to-do list</a>
 </nav>
@@ -136,6 +136,40 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 <section id="birthdays">
   <h2>Birthdays</h2>
   <p>Everyone can add their birthday on <span class="path">Me → Birthday</span> (just the month and day, no year). On the day, the app throws them a little party when they open it (cake, candles, confetti), and everyone else gets a pop-up "It's Kyle's birthday today!" once. It's the same for creators and staff. They can remove it there any time.</p>
+</section>
+
+<section id="nov8">
+  <h2>New overnight (Nov 8)</h2>
+  <p><b>For creators</b> (no new steps anywhere):</p>
+  <ul>
+    <li><b>Usually films with:</b> when they book with a friend, the people they filmed back to back with twice or more in the last 90 days show as chips above the search box. In the chat, a time answer can offer "With Kyle?". Nobody is ever added without a tap.</li>
+    <li><b>"Notify me if it opens" (waitlist):</b> a time someone else has shows a small bell in the day sheet (and the chat offers "Tell me if 5 PM opens"). If it frees up, the first person on the list gets it <b>held for 20 minutes</b> with a notification and confirms with one tap. It's still a request the team approves. If they don't confirm, the next person gets it.</li>
+    <li><b>Photo search:</b> a camera button on Props (and in the chat). Snap a photo or pick a screenshot: the app finds the closest props in the closet. Uses a little AI (counts in the AI budget; Prime Capitol props only).</li>
+    <li><b>The chat feels like a real assistant:</b> answers type out word by word, with the free times or props inside the answer and at most 2 next steps. It <b>remembers the conversation</b> on their phone for 7 days ("Welcome back"). One message with a time AND props ("Thursday 5pm with Kyle, I need a cop costume") gets <b>one card with one "Do it"</b>: it requests the time, then sends the props. When they speak to the chat with the mic, it <b>reads the answer aloud</b> (speaker button in the chat to turn that off).</li>
+  </ul>
+  <p><b>For the teams:</b></p>
+  <ul>
+    <li>Every props request and gear booking shows <b>which shoot it's for</b> on one line ("Cliff 1 · Sat Nov 8 · 1–3 PM · Riley").</li>
+    <li><b>Prop insights</b> now also counts "wanted it while it was booked out" (a creator opened the prop while adding to their shoot and none were free). Two or more people → "Buy another?".</li>
+    <li>Approve / Deny now shows a confirmation that stays on screen.</li>
+  </ul>
+  <p><b>About 110 fixes</b> from a 10-area check of the whole app. The biggest ones:</p>
+  <ul>
+    <li>Google Calendar imports no longer cancel props before someone confirms.</li>
+    <li>Group shoots keep each creator's shoot when the event changes.</li>
+    <li>"Skip" can't cancel a confirmed shoot.</li>
+    <li>"Keep it in the app" sticks.</li>
+    <li>Two checks running at once can't import an event twice.</li>
+    <li>A kit still out never shows as free.</li>
+    <li>A missing piece isn't blamed on everyone after.</li>
+    <li>Evening actions no longer show tomorrow's date.</li>
+    <li>No-shows can't be marked before the 12 hours to explain are over.</li>
+    <li>"Turn off" notifications stays off.</li>
+    <li>Signing out takes that phone off your notifications.</li>
+    <li>Quick list bulk changes ask first and can be undone.</li>
+    <li>Photo and storage rules are tighter.</li>
+  </ul>
+  <p><b>Robot tests:</b> 22 full journeys (book → approve → pack → pickup → return → check in, gear, chat, clean-up…) plus a visit to every screen as every role now run on every push to the preview.</p>
 </section>
 
 <section id="chat">
@@ -483,6 +517,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
     <li>Invite the team with the right roles (Admins, arts, equipment).</li>
     <li>Ask the equipment team to fill in the <b>replacement value</b> of every piece in All gear (needed for the late return fee; creators see what each kit is worth).</li>
     <li>Emails are step 3 on the same Calendar &amp; email page: one tap, then send a test.</li>
+    <li>Try <b>read aloud</b> in the chat on an iPhone (speak a message with the mic): it couldn't be checked on a real phone yet.</li>
   </ul>
 </section>
 

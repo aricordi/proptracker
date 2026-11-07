@@ -2404,6 +2404,31 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (waitlist "Notify me if it opens", photo search, wanted-but-booked counter, requests show their shoot, usual-partner
       suggestion, chat: answers type out + results inside the answer, chat remembers you, say-it-once one-tap plan, 📷 in chat,
       read answers aloud after voice). This machine has 4 CPUs → workflows run only 2 agents at a time.
+      DONE Nov 8 (NOT deployed: backend + website + FIRESTORE AND STORAGE RULES → ask the owner; preview has it):
+      - FIXES: ~110 audit findings across chat, schedule, calendar, props, gear, clean-up, security, staff, push, ux (merged from
+        per-area worktrees). Highlights: calendar auto-check never releases props before a person confirms, refuses day moves with
+        props, keeps each group turn's shoot, Skip refused on 'changed' cards, kept:true for "Keep it in the app", lease lock
+        app_settings/calendarLock (withCalendarLock), nightBefore(), unreadable feed reported not fatal, both-houses → unsure;
+        props holds: open-ended only when out/back (startReturn sets back:true); push when a prop/build is not available + arts told
+        of creator cancels; studio day (studioDayOf in src/lib/dates.ts) instead of UTC slice everywhere; gear hold out:true at
+        pickup, known-missing not re-blamed; handed-over receiver can't cancel/edit; no-show refused inside the explain window;
+        storageLinks() (functions) = only our own Storage links for photos; storage rules: own folder, no overwrite, owner-only list;
+        cost/AI/email settings owner-only read; push Turn off sticks, pushSignOut on sign out, 'Get a ping' card on the chat;
+        Approve/Deny toast (role=status); NotFound component; quick list bulk confirm + undo. vitest.config excludes .claude/ and *.e2e.ts.
+      - FEATURES: usual partner (src/lib/collabs.ts collabShootsFromDays, src/hooks/useUsualPartners.ts: chips in BookSheet, chat
+        "With X?", chatBrain usualPartners); waitlist (functions/src/waitlist.ts + waitlistRules.ts; callables joinwaitlist
+        leavewaitlist mywaitlist; waitlist/{id}; trigger on schedule_days offers a 20-min hold as a schedule_invites doc
+        {fromEmail:'waitlist', waitlist:true}; bell in DayPickSheet; chat "Tell me if 5 PM opens"); photo search (callable
+        photosearch, askJson with an image, budget helper 'photo', Browse camera + chat camera); wanted-but-booked (notewanted →
+        prop_wants, Prop insights); each request shows its shoot (src/lib/shootLine.ts, useShootLines, ShootLine); chat reveal
+        (word-by-word, results + ≤2 chips inside the answer), chat memory (localStorage pc.chat.<email>, 30 turns, 7 days, keyed by
+        role+email), say-it-once PlanCard (one "Do it": request time → send props; any note on the time answer → separate answers),
+        read aloud after a spoken message (speechSynthesis, toggle pc.chatSpeak; iPhone untested).
+      - Tests Nov 8: unit 515, functions+rules 405, robot 22 journeys + crawl 8 roles (all green). Summaries for the owner:
+        scratchpad fixes2_summary.md / features2_summary.md (session only).
+      - Owner decisions open: copy old-calendar imports into the app calendar?; hand-over "Give it back" button?; switching a
+        creator back to Props only while they have things out (A refuse+explain recommended / B warn / C small return screen);
+        invite straight onto Full app toggle?; "Missed check-ins to decide" count only after the 12 h?
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
