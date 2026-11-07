@@ -124,9 +124,13 @@ function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootI
   const freed = Object.entries(slots).filter(([, e]) => e.shootId === shootId).map(([k]) => k)
   if (freed.length) day[house] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
   if (day.clashes?.some(c => c.shootId === shootId)) day.clashes = day.clashes.filter(c => c.shootId !== shootId)
-  // A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
-  // (audit: the slot showed Free and could be booked twice, and the clash never cleared).
-  for (const k of promote ? freed : []) {
+  if (promote) promoteClashes(day, house, freed, shootId)
+}
+// A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
+// (audit: the slot showed Free and could be booked twice, and the clash never cleared). Only into slots that are empty now.
+function promoteClashes(day: ScheduleDay, house: House, freed: string[], shootId: string) {
+  for (const k of freed) {
+    if (day[house]?.[k]) continue
     const c = (day.clashes ?? []).find(x => x.house === house && x.slot === k && !x.blockId && x.shootId && x.shootId !== shootId)
     if (!c) continue
     day[house] = { ...(day[house] ?? {}), [k]: { shootId: c.shootId, name: c.name, email: c.email ?? '', kind: 'extra',
@@ -134,6 +138,9 @@ function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootI
     day.clashes = (day.clashes ?? []).filter(x => x !== c)
   }
 }
+// The slots a shoot holds on a day apart from a waiting move (what an approved same-day move gives up).
+const heldKeys = (day: ScheduleDay, shootId: string) => (['cliff1', 'cliff2'] as const).map(h =>
+  ({ house: h, keys: Object.entries(day[h] ?? {}).filter(([, e]) => e.shootId === shootId && !e.move).map(([k]) => k) }))
 
 // Load the day docs a change touches, let `change` edit them, then write them all back.
 async function editDays(tx: Transaction, dates: string[], change: (days: Record<string, ScheduleDay>) => void) {
@@ -372,7 +379,15 @@ export const decideBooking = onCall(CALLABLE, async req => {
     if (approve && (mr?.from ?? b.from) <= nowStamp()) throw new HttpsError('failed-precondition', 'That time has already started, so it can\'t be approved any more.')
     if (b.status === 'booked' && mr) {
       const write = await editDays(tx, [b.date, mr.date], days => {
-        if (approve) { if (b.date !== mr.date) takeOut(days[b.date], b as Spot, id); keepOnlyMove(days[mr.date], id) }
+        if (approve) {
+          if (b.date !== mr.date) { takeOut(days[b.date], b as Spot, id); keepOnlyMove(days[mr.date], id) }
+          else {
+            // Same day: the old slot is given up here, so a calendar event waiting under it as a clash takes it (like takeOut).
+            const old = heldKeys(days[b.date], id)
+            keepOnlyMove(days[mr.date], id)
+            for (const o of old) promoteClashes(days[b.date], o.house, o.keys, id)
+          }
+        }
         else dropMove(days[mr.date], id)
       })
       write()
@@ -531,7 +546,9 @@ export const answerSwap = onCall(CALLABLE, async req => {
         assertDayLimit(days[b!.date], a!.creatorEmail, 1, s, [aS.id, bS.id], a!.creatorName)
         assertDayLimit(days[a!.date], b!.creatorEmail, 1, s, [aS.id, bS.id], b!.creatorName)
       }
-      takeOut(days[a!.date], a as Spot, aS.id); takeOut(days[b!.date], b as Spot, bS.id)
+      // No clash promotion here: each slot is refilled right away by the other shoot, and a waiting calendar clash stays
+      // listed against the new holder (promoting it made the next placeIn fail 'taken', so the swap could never be accepted).
+      takeOut(days[a!.date], a as Spot, aS.id, false); takeOut(days[b!.date], b as Spot, bS.id, false)
       const kindAt = (x: any, place: Place): ShootKind => place === MONTHLY_HOUSE ? x.kind : 'extra'
       placeIn(days[b!.date], b as Spot, { shootId: aS.id, name: a!.creatorName, email: a!.creatorEmail, kind: kindAt(a, b!.place) }, s)
       placeIn(days[a!.date], a as Spot, { shootId: bS.id, name: b!.creatorName, email: b!.creatorEmail, kind: kindAt(b, a!.place) }, s)
