@@ -3,12 +3,24 @@ import type { House } from './schedule.js'
 
 // Which house an event is at, from its address or name (owner, Oct 30: "check what address the events say":
 // 2375 Cliff = Cliff 1, 2371 Cliff = Cliff 2). null = it doesn't say.
+const saysCliff2 = (t: string) => /\b2371\b/.test(t) || /cliff\s*(#\s*)?(2|two|ii)\b/.test(t)
+const saysCliff1 = (t: string) => /\b2375\b/.test(t) || /cliff\s*(#\s*)?(1|one|i)\b/.test(t)
+// "Cleaners - Cliff 1 & 2", "Cliff 1 + Cliff 2", "Cliff 1/2": both houses (audit, Nov 7: only one was blocked).
+export function namesBothHouses(text: string): boolean {
+  const t = text.toLowerCase()
+  return (saysCliff1(t) && saysCliff2(t)) || /cliff\s*(#\s*)?(1|one|i)\s*(&|and|\+|\/|,)\s*(cliff\s*)?(2|two|ii)\b/.test(t)
+}
 export function houseFromText(text: string): House | null {
   const t = text.toLowerCase()
-  if (/\b2371\b/.test(t) || /cliff\s*(#\s*)?(2|two|ii)\b/.test(t)) return 'cliff2'
-  if (/\b2375\b/.test(t) || /cliff\s*(#\s*)?(1|one|i)\b/.test(t)) return 'cliff1'
+  if (namesBothHouses(t)) return null   // both: not one house, a person decides
+  if (saysCliff2(t)) return 'cliff2'
+  if (saysCliff1(t)) return 'cliff1'
   return null
 }
+
+// A same-day event in the small hours that belongs to the night before (the last slot runs 11 PM–1 AM): it starts before
+// 3 AM and is over by 6 AM. Later early-morning events (5–7 AM) stay on their own day. Minutes after midnight.
+export const nightBefore = (startMin: number, endMin: number) => startMin < 180 && endMin <= 360
 
 // Says it's shot somewhere else (owner, Nov 5: "Val / Sam / Preslea - Offsite Filming" sat in the Cliff 1 calendar and was
 // put at Cliff 1). An address or house name in the event still wins.
@@ -23,7 +35,7 @@ export function placeFromText(text: string): House | 'offsite' | null {
 // the app, not on the schedule). Hidden from the import unless they name a house. Returns why, or ''.
 export function ignoreReason(e: { title: string; location: string; eventType?: string }, named = false) {
   const text = `${e.title} ${e.location}`
-  if (houseFromText(text)) return ''
+  if (houseFromText(text) || namesBothHouses(text)) return ''
   if (e.eventType === 'birthday') return 'Birthday'
   if (e.eventType === 'outOfOffice') return 'Someone away'
   if (e.eventType === 'workingLocation' || e.eventType === 'focusTime') return 'Not a booking'
@@ -145,6 +157,6 @@ export function splitOnGrid(start: number, end: number, n: number, slots: number
 }
 
 // A Calendar-tab card "Confirm all" may confirm (owner, Nov 5): placed, no problem, no clash. Clashes and events the app
-// couldn't read stay for a person.
-export const queueReady = (c: { placed?: boolean; problem?: string; result?: { clashWith?: unknown[] } }) =>
-  !!c.placed && !c.problem && !(Array.isArray(c.result?.clashWith) && c.result!.clashWith.length)
+// couldn't read stay for a person, and so does a shoot that stays cancelled (cancelled in the app, then changed in Google).
+export const queueReady = (c: { placed?: boolean; problem?: string; result?: { clashWith?: unknown[]; action?: string } }) =>
+  !!c.placed && !c.problem && c.result?.action !== 'cancelled' && !(Array.isArray(c.result?.clashWith) && c.result!.clashWith.length)

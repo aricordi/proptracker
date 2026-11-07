@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { subscribeBugReports, updateBugReport, phoneLabel, BUG_KIND_LABEL, type BugReport, type BugStatus } from '../services/bugs'
 import { friendlyError } from '../lib/errors'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 
 const TABS: { k: BugStatus; label: string }[] = [{ k: 'open', label: 'Open' }, { k: 'fixed', label: 'Fixed' }, { k: 'wontfix', label: "Won't fix" }]
 const KIND_TONE: Record<string, string> = { broken: 'bg-red-500/15 text-red-200', wrong: 'bg-amber-400/15 text-amber-200', missing: 'bg-sky-400/15 text-sky-200' }
-const when = (iso: string) => `${formatDay(iso.slice(0, 10), { weekday: 'short', month: 'short', day: 'numeric' })}, ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+const when = (iso: string) => `${formatDay(studioDayOf(iso), { weekday: 'short', month: 'short', day: 'numeric' })}, ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
 
 export default function BugsScreen() {
   const navigate = useNavigate()

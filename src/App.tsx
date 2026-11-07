@@ -76,6 +76,7 @@ const ApprovalsScreen = lazy(() => import('./screens/ApprovalsScreen'))
 import { CartProvider } from './cart'
 import { ActiveShootProvider } from './activeShoot'
 import { warmItems } from './hooks/useItems'
+import { warmHot } from './services/propsLike'
 import { AssistantProvider, ChatHome, isChatFirst } from './assistant'
 import { BugReportProvider } from './components/BugReport'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
@@ -107,9 +108,24 @@ function usePrefetchTabs(on: boolean) {
 function Prefetch() {
   usePrefetchTabs(true)
   useEffect(() => { refreshPush() }, [])   // keep this phone's notification sign-up fresh
+  // A notification tapped while the app is open: switch screens in place (keeps the chat), then tell the service worker.
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type !== 'pc-open' || typeof e.data.url !== 'string') return
+      const u = new URL(e.data.url, location.origin)
+      if (u.origin !== location.origin) return
+      navigate(u.pathname + u.search + u.hash)
+      e.ports[0]?.postMessage('ok')
+    }
+    navigator.serviceWorker.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
+  }, [navigate])
   // Start loading the props list in the background (the equipment team can't read props).
   const { realRole } = useSession()
   useEffect(() => realRole === 'equipment' ? undefined : warmItems(realRole === 'owner' ? 'all' : 'company'), [realRole])
+  useEffect(() => { if (realRole !== 'equipment') warmHot() }, [realRole])   // Browse's "hot" order, ready before the first visit
   return null
 }
 
@@ -231,6 +247,17 @@ function GearBookers({ children }: { children: ReactNode }) {
 function NotArts({ children, to = '/' }: { children: ReactNode; to?: string }) {
   const { role } = useSession()
   return role === 'arts' ? <Navigate to={to} replace /> : <>{children}</>
+}
+
+// Sending a props request (/reserve, old /gear/review): only people who book (creators + owner). Everyone else goes home.
+function Bookers({ children }: { children: ReactNode }) {
+  const { canBook } = useSession()
+  return canBook ? <>{children}</> : <Navigate to="/" replace />
+}
+// The props closet: the equipment team can't read props (gear only), so typing /browse would show an empty page.
+function NotGearTeam({ children }: { children: ReactNode }) {
+  const { role } = useSession()
+  return role === 'equipment' ? <Navigate to="/" replace /> : <>{children}</>
 }
 
 function StaffOnly({ children }: { children: ReactNode }) {
@@ -362,9 +389,9 @@ export default function App() {
       <Routes>
         {/* Full-screen routes outside the shell */}
         <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
-        <Route path="/item/:id" element={<ItemDetailScreen />} />
+        <Route path="/item/:id" element={<NotGearTeam><ItemDetailScreen /></NotGearTeam>} />
         <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
-        <Route path="/reserve" element={<NotArts><ReserveScreen /></NotArts>} />
+        <Route path="/reserve" element={<Bookers><ReserveScreen /></Bookers>} />
         <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/tour" element={<TourReplay />} />
         <Route path="/team-guide" element={<TeamGuideScreen />} />
@@ -378,7 +405,7 @@ export default function App() {
 
         <Route element={<ShellLayout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/browse" element={<HomeScreen />} />
+          <Route path="/browse" element={<NotGearTeam><HomeScreen /></NotGearTeam>} />
           <Route path="/gear" element={<GearBookers><GearShopScreen /></GearBookers>} />
           <Route path="/gear/bookings" element={<GearBookingsScreen />} />
           <Route path="/gear/bundles" element={<GearOnly><GearBundlesScreen /></GearOnly>} />

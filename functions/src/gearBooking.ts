@@ -18,7 +18,13 @@ export const GEAR_STEP = 30               // times move in half hours
 export const GEAR_RETURN_HOUR = 10        // closed-day shoots: back by 10 AM next open day
 
 // One booking's hold on one bundle or extra. Lives in gear_holds/{offerId}.entries.
-export interface GearHold { bookingId: string; from: string; to: string; qty: number }
+// `out` = picked up and not back yet: it stays busy past its booked end until it's returned or handed over
+// (audit, Nov 7: a kit still with the 1–3 PM creator showed as free at 3 PM and a second creator could take it).
+export interface GearHold { bookingId: string; from: string; to: string; qty: number; out?: boolean }
+
+// Gear that's still out has no end until it comes back.
+export const STILL_OUT_UNTIL = '9999-12-31T23:59'
+export const openEnded = <T extends GearHold>(holds: T[]): T[] => holds.map(h => h.out ? { ...h, to: STILL_OUT_UNTIL } : h)
 
 const pad = (n: number) => String(n).padStart(2, '0')
 export const stamp = (day: string, min: number) => `${day}T${pad(Math.floor(min / 60))}:${pad(min % 60)}`
@@ -36,7 +42,7 @@ export const overlaps = (a: { from: string; to: string }, b: { from: string; to:
 
 // How many of a bundle (always 1) or extra are still free between from and to.
 export function freeQty(offered: number, holds: GearHold[], from: string, to: string, exceptBookingId?: string): number {
-  const used = holds.filter(h => h.bookingId !== exceptBookingId && overlaps(h, { from, to })).reduce((n, h) => n + h.qty, 0)
+  const used = openEnded(holds).filter(h => h.bookingId !== exceptBookingId && overlaps(h, { from, to })).reduce((n, h) => n + h.qty, 0)
   return Math.max(0, offered - used)
 }
 
@@ -51,10 +57,11 @@ export function nextFreeStart(offered: number, qty: number, holds: GearHold[], d
 }
 
 // Holds that ended more than a week before `today` are tidied away when the doc is next written.
+// Gear that's still out is never tidied away (a kit lost for a week mustn't look free again).
 export function pruneHolds(holds: GearHold[], today: string): GearHold[] {
   const d = new Date(`${today}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - 7)
   const cut = d.toISOString().slice(0, 10)
-  return holds.filter(h => h.to.slice(0, 10) >= cut)
+  return holds.filter(h => h.out || h.to.slice(0, 10) >= cut)
 }
 
 export type GearTimeProblem = 'bad-format' | 'bad-hours' | 'in-past' | 'too-soon'
@@ -147,3 +154,30 @@ export const gearReserveOpensAt = (shootFrom: string, hours = GEAR_RESERVE_HOURS
 export const canReserveGear = (shootFrom: string, now: string, hours = GEAR_RESERVE_HOURS) => now >= gearReserveOpensAt(shootFrom, hours)
 // "Take it now": from an hour before the shoot until it ends.
 export const canTakeGear = (shootFrom: string, shootTo: string, now: string) => now >= addMinutes(shootFrom, -GEAR_TAKE_BEFORE_MINUTES) && now < shootTo
+
+// ─── Pieces already reported missing (audit, Nov 7) ──────────────────────────
+// A piece reported missing stays on the bundle's warning list until someone taps Found it. Later users find it
+// still missing, but that isn't on them (or on whoever reported it): it's left out of new reports and blame.
+export type KnownMissing = { itemId: string; qty: number }
+const knownCount = (known: KnownMissing[] | undefined, itemId: string) => (known ?? []).filter(k => k.itemId === itemId).reduce((n, k) => n + (Number(k.qty) || 0), 0)
+
+// The units to pre-mark as "already reported missing" on a checklist (the last units of each piece).
+export function knownMissingKeys(lines: CheckLine[], knownByOffer: Record<string, KnownMissing[] | undefined>): Set<string> {
+  const out = new Set<string>()
+  for (const l of lines) if (l.unit > l.of - knownCount(knownByOffer[l.offerId], l.itemId)) out.add(l.key)
+  return out
+}
+
+// What's newly missing: the reported counts minus what the bundle already lists as missing.
+export function newlyMissing<T extends { offerId: string; itemId: string; qty: number }>(missing: T[], knownByOffer: Record<string, KnownMissing[] | undefined>): T[] {
+  const used = new Map<string, number>()
+  const out: T[] = []
+  for (const m of missing) {
+    const k = `${m.offerId}|${m.itemId}`
+    const left = knownCount(knownByOffer[m.offerId], m.itemId) - (used.get(k) ?? 0)
+    const skip = Math.max(0, Math.min(left, m.qty))
+    used.set(k, (used.get(k) ?? 0) + skip)
+    if (m.qty - skip > 0) out.push({ ...m, qty: m.qty - skip })
+  }
+  return out
+}

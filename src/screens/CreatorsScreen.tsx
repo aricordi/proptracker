@@ -8,11 +8,11 @@ import { subscribeToUsers } from '../services/users'
 import { OWNER_EMAIL } from '../config'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useShootsSince, useReportsSince, useStrikesSince, useAllStatuses } from '../services/schedule'
+import { useShootsSince, useReportsSince, useStrikesSince, useAllStatuses, useFlagReviews } from '../services/schedule'
 import { useBookingSettings } from '../hooks/useBookings'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
-import { creatorStats, flagTotal, FLAG_LABEL, SERIOUS, type CreatorStats, type FlagKind } from '../lib/creatorStats'
+import { creatorStats, flagTotal, strikeTotal, FLAG_LABEL, SERIOUS, type CreatorStats, type FlagKind } from '../lib/creatorStats'
 import type { AppUser } from '../types'
 import { creatorPeople, countedEmails } from '../lib/creatorPeople'
 
@@ -46,6 +46,9 @@ export default function CreatorsScreen() {
   const reports = useReportsSince(since, true)
   const strikes = useStrikesSince(since, true)
   const statuses = useAllStatuses(true)
+  // Flags excused in Analytics don't count here either.
+  const reviews = useFlagReviews(true)
+  const excused = useMemo(() => new Set([...reviews.values()].filter(r => r.status === 'excused').map(r => r.flagId)), [reviews])
   const [users, setUsers] = useState<AppUser[]>([])
   const [props, setProps] = useState<Reservation[]>([])
   const [gear, setGear] = useState<GearBooking[]>([])
@@ -57,15 +60,15 @@ export default function CreatorsScreen() {
   const counted = useMemo(() => countedEmails(users), [users])
   const stats = useMemo(() => {
     const list = creatorStats({ from, now, closed: settings, shoots: shoots ?? [], props, gear, reports, strikes, people,
-      checksIn: e => e === OWNER_EMAIL || users.some(u => u.email === e && u.role === 'creator' && u.access === 'full') }).filter(c => counted.has(c.email))
+      checksIn: e => e === OWNER_EMAIL || users.some(u => u.email === e && u.role === 'creator' && u.access === 'full'), excused }).filter(c => counted.has(c.email))
     return sort === 'flags' ? [...list].sort((a, b) => flagTotal(b, SERIOUS) - flagTotal(a, SERIOUS) || flagTotal(b) - flagTotal(a)) : list
-  }, [from, now, settings, shoots, props, gear, reports, strikes, people, counted, sort])
+  }, [from, now, settings, shoots, props, gear, reports, strikes, people, counted, sort, excused])
   const sum = (f: (c: CreatorStats) => number) => stats.reduce((n, c) => n + f(c), 0)
   const tiles: [string, number, string][] = [
     ['Shoots filmed', sum(c => c.filmed), 'text-pt-text'],
-    ['No-shows', sum(c => (c.counts['no-show'] ?? 0) + (c.counts['late-cancel'] ?? 0)), 'text-red-300'],
+    ['No-shows (incl. late cancels)', sum(c => (c.counts['no-show'] ?? 0) + (c.counts['late-cancel'] ?? 0)), 'text-red-300'],
     ['Late returns', sum(c => (c.counts['late-props'] ?? 0) + (c.counts['late-gear'] ?? 0)), 'text-amber-200'],
-    ['Strikes', sum(c => c.counts.strike ?? 0), 'text-red-300'],
+    ['Strikes', sum(strikeTotal), 'text-red-300'],
   ]
 
   // Laptop (owner, Nov 3): one wide table, every creator on one screen, click a column to sort.
@@ -88,7 +91,8 @@ export default function CreatorsScreen() {
           ))}
         </div>
       </div>
-      <div className="rounded-[20px] bg-pt-surface overflow-hidden">
+      {/* Scrolls sideways on narrower laptop windows instead of cutting off the last columns (audit, Nov 7). */}
+      <div className="rounded-[20px] bg-pt-surface overflow-x-auto"><div className="min-w-[1040px]">
         <div className="grid grid-cols-[minmax(220px,1.4fr)_110px_minmax(160px,1fr)_90px_minmax(240px,2fr)_90px] gap-4 px-4 py-3 text-xs text-pt-muted border-b border-white/[0.06]">
           <span>Creator</span>
           <button onClick={() => setSort('filming')} className={`text-left ${sort === 'filming' ? 'text-pt-text font-semibold' : ''}`}>Filmed ↓</button>
@@ -116,7 +120,7 @@ export default function CreatorsScreen() {
           )
         })}
         {shoots !== null && stats.length === 0 && <p className="text-pt-muted text-sm text-center py-6">No creators yet.</p>}
-      </div>
+      </div></div>
       <p className="text-pt-muted text-xs mt-3">Filmed = checked in on the day (or marked filmed by the schedule team). Started late = checked in more than 15 minutes after the slot began. Late cancels count as booked.</p>
     </div>
   )

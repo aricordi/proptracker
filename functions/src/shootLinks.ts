@@ -35,8 +35,10 @@ export async function noteOnShoot(shootId: string, by: string, action: 'props-ad
 // Props and gear bookings for this shoot that are still going.
 export async function openLinks(shootId: string) {
   const [props, gear, shared] = await Promise.all([
-    db.collection('reservations').where('shootId', '==', shootId).get(),
-    db.collection('gear_bookings').where('shootId', '==', shootId).get(),
+    // scheduleShootId is only ever set from a shoot the server checked is the caller's (shootToAddTo); a bare `shootId`
+    // can be sent by anyone, so it must never tie a request to someone else's shoot.
+    db.collection('reservations').where('scheduleShootId', '==', shootId).get(),
+    db.collection('gear_bookings').where('scheduleShootId', '==', shootId).get(),
     db.collection('gear_bookings').where('crewShootIds', 'array-contains', shootId).get(),
   ])
   return {

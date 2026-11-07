@@ -57,7 +57,7 @@ export default function CreatorDashboard() {
       <StandingTiles tourId="tiles" list={list} filter={filter} onFilter={setFilter} />
       <div className="grid grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
         <div className="space-y-4">{people_}</div>
-        <div className="space-y-4 sticky top-4"><SectionHead title="Needs you now" />{needs}{buttons}</div>
+        <div className="space-y-4 sticky top-[104px]"><SectionHead title="Needs you now" />{needs}{buttons}</div>
       </div>
     </div>
   )

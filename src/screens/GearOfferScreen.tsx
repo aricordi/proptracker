@@ -12,6 +12,7 @@ import AddingToBar from '../components/AddingToBar'
 import ImageLightbox from '../components/ImageLightbox'
 import { formatDay } from '../lib/dates'
 import { Icon } from '../components/Icon'
+import { NotFound } from '../components/NotFound'
 
 // One bundle: what's in the case, when it's free, and "Add to my shoot".
 export default function GearOfferScreen() {
@@ -34,7 +35,7 @@ export default function GearOfferScreen() {
   useEffect(() => subscribeToGearHolds(setHolds), [])
 
   const b = offers?.find(o => o.id === id)
-  if (offers && (!b || b.archived)) return <div className="p-6 pt-safe text-pt-muted">This bundle isn't available any more.</div>
+  if (offers && (!b || b.archived)) return <NotFound title="This kit isn't available any more" sub="The equipment team took it out of the gear room." />
   if (!b) return <div className="p-6 pt-safe text-pt-muted">Loading…</div>
 
   const mine = holds[b.id] ?? []

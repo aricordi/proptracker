@@ -330,7 +330,6 @@ export const cancelReservation = onCall(CALLABLE, async req => {
 // availability rules as a new request; taking things out is always fine.
 export const editReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
-  if (booksLikeCreator(caller)) await assertNotPaused(caller.email)
   const lines = cleanLines(req.data?.lines)
   const builds = cleanBuilds(req.data?.builds)
   if (lines.length === 0 && builds.length === 0) throw new HttpsError('invalid-argument', 'Nothing left in this request. Cancel it instead.')
@@ -358,6 +357,8 @@ export const editReservation = onCall(CALLABLE, async req => {
     if (!caller.isStaff && newBuilds.length && start < addOpenDays(today, settings.buildLeadDays, settings)) {
       throw new HttpsError('failed-precondition', `New props (things to make or find) need ${settings.buildLeadDays} open days' notice, so they can't be added for this day.`, { problem: 'too-soon-build' })
     }
+    // Paused creators can still lower or take props out (audit Nov 7); only adding is blocked.
+    if ((adding || newBuilds.length) && booksLikeCreator(caller)) await assertNotPaused(caller.email)
 
     const ids = [...new Set([...before.keys(), ...lines.map(l => l.itemId)])]
     const snaps = ids.length ? await tx.getAll(...ids.map(id => db.doc(`items/${id}`)), ...ids.map(bookingsRef)) : []
@@ -417,6 +418,11 @@ export const declineReservation = onCall(CALLABLE, async req => {
 
 // ─── 3. Picking (arts) ───────────────────────────────────────────────────────
 
+// Nothing ticked, nothing marked: the arts team hasn't really started on it.
+function untouched(lines: ReservationLine[], builds: BuildLine[]) {
+  return lines.every(l => !l.pick) && builds.every(b => !b.state || b.state === 'todo')
+}
+
 // Tick a prop as picked (or untick it), or mark it not available with a reason.
 // "Not available" is final for this booking: its hold is released straight away.
 export const setLinePick = onCall(CALLABLE, async req => {
@@ -441,11 +447,15 @@ export const setLinePick = onCall(CALLABLE, async req => {
     else next[idx] = { ...next[idx], pick: { state, by: caller.email, at: now, ...(reason ? { reason } : {}) } }
 
     apply?.()
-    const starting = r.res.status === 'requested'
+    // Unticking isn't starting; and if everything is back to untouched, it goes back to Requested so the
+    // creator can change it again (an accidental tick + untick, audit Nov 7).
+    const starting = r.res.status === 'requested' && state !== 'todo'
+    const reopen = r.res.status === 'preparing' && untouched(next, (r.res.builds ?? []) as BuildLine[])
     tx.update(r.ref, {
       lines: next,
       updatedAt: now,
       ...(starting ? { status: 'preparing', history: historyWith(r.res, { status: 'preparing', at: now, by: caller.email }) } : {}),
+      ...(reopen ? { status: 'requested', history: historyWith(r.res, { status: 'requested', at: now, by: caller.email, event: 'reopened' }) } : {}),
     })
     if (starting) creatorUpdate(tx, r.res, r.id, 'preparing')
     if (state === 'unavailable') {
@@ -473,10 +483,12 @@ export const setBuildState = onCall(CALLABLE, async req => {
     const next = [...builds]
     const { reason: _old, ...rest } = next[idx]
     next[idx] = { ...rest, state, ...(state === 'unavailable' ? { reason } : {}) }
-    const starting = r.res.status === 'requested'
+    const starting = r.res.status === 'requested' && state !== 'todo'
+    const reopen = r.res.status === 'preparing' && untouched((r.res.lines ?? []) as ReservationLine[], next)
     tx.update(r.ref, {
       builds: next, updatedAt: now,
       ...(starting ? { status: 'preparing', history: historyWith(r.res, { status: 'preparing', at: now, by: caller.email }) } : {}),
+      ...(reopen ? { status: 'requested', history: historyWith(r.res, { status: 'requested', at: now, by: caller.email, event: 'reopened' }) } : {}),
     })
     if (starting) creatorUpdate(tx, r.res, r.id, 'preparing')
     if (state === 'unavailable') creatorUpdate(tx, r.res, r.id, starting ? 'preparing' : r.res.status,
@@ -512,7 +524,7 @@ export const markPacked = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
-// Mark this reservation's holds as out with the creator (or back), so the app can
+// Mark this reservation's holds as out with the creator (or back, waiting for check-in), so the app can
 // tell which props are late and warn people who booked them next.
 async function setOut(tx: Transaction, reservationId: string, itemIds: string[], out: boolean) {
   if (!itemIds.length) return () => {}
@@ -521,8 +533,9 @@ async function setOut(tx: Transaction, reservationId: string, itemIds: string[],
     tx.set(bookingsRef(itemId), {
       entries: entriesOf(snaps[i]).map(e => {
         if (e.reservationId !== reservationId) return e
-        const { out: _was, ...rest } = e
-        return out ? { ...rest, out: true } : rest
+        const { out: _was, back: _back, ...rest } = e
+        // Back = brought back but not checked in yet: still held open-ended until check-in (holdUntil).
+        return out ? { ...rest, out: true } : { ...rest, back: true }
       }),
     })
   })
@@ -583,7 +596,8 @@ export const startReturn = onCall(CALLABLE, async req => {
     tx.update(r.ref, {
       status: 'return_pending',
       returnInfo: { at: now, by: caller.email, photos, ...(note ? { note } : {}), byStaff: r.res.creatorEmail !== caller.email,
-        ...(damagedIn.length ? { damaged: damagedIn.filter(d => (r.res.itemIds ?? []).includes(d.itemId)).map(d => ({ ...d, name: String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === d.itemId)?.itemName ?? 'a prop') })) } : {}) },
+        // Only props that were handed over (not marked "not available" at picking) can come back damaged.
+        ...(damagedIn.length ? { damaged: damagedIn.filter(d => ((r.res.lines ?? []) as ReservationLine[]).some(l => l.itemId === d.itemId && l.pick?.state !== 'unavailable')).map(d => ({ ...d, name: String(((r.res.lines ?? []) as { itemId: string; itemName?: string }[]).find(l => l.itemId === d.itemId)?.itemName ?? 'a prop') })) } : {}) },
       updatedAt: now,
       history: historyWith(r.res, { status: 'return_pending', at: now, by: caller.email }),
     })

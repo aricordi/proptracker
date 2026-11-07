@@ -5,7 +5,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import { doc, setDoc } from 'firebase/firestore'
-import { ref, uploadBytes, getBytes, getMetadata, deleteObject } from 'firebase/storage'
+import { ref, uploadBytes, getBytes, getMetadata, deleteObject, listAll } from 'firebase/storage'
 
 const PROJECT_ID = 'demo-proptracker'
 let env: RulesTestEnvironment
@@ -41,11 +41,20 @@ beforeEach(async () => {
 })
 
 describe('prop photos', () => {
-  it('arts department can upload photos', async () => {
-    await assertSucceeds(uploadBytes(ref(storageAs('arts@example.com'), 'items/a/new.png'), png, { contentType: 'image/png' }))
+  it('arts department can upload photos to their own folder', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('arts@example.com'), 'items/arts_example_com/new.png'), png, { contentType: 'image/png' }))
+  })
+  it("arts can't upload into someone else's folder or overwrite a photo", async () => {
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'items/a/new.png'), png, { contentType: 'image/png' }))
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'items/x/photo.png'), png, { contentType: 'image/png' }))
   })
   it('only images can be uploaded', async () => {
-    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'items/a/new.txt'), png, { contentType: 'text/plain' }))
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'items/arts_example_com/new.txt'), png, { contentType: 'text/plain' }))
+  })
+  it('only the owner can list prop photo folders', async () => {
+    await assertFails(listAll(ref(storageAs('creator@example.com'), 'items/x')))
+    await assertFails(listAll(ref(storageAs('arts@example.com'), 'items/x')))
+    await assertSucceeds(listAll(ref(storageAs('alexisricordi@gmail.com'), 'items/x')))
   })
   it('creators can view but not upload photos', async () => {
     await assertSucceeds(getBytes(ref(storageAs('creator@example.com'), 'items/x/photo.png')))
@@ -137,5 +146,15 @@ describe('problem report screenshots (owner, Nov 5)', () => {
     await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'bug-reports/creator@example.com/1_screen.jpg'), png, img))   // add-only
     await assertSucceeds(getMetadata(ref(storageAs('creator@example.com'), 'bug-reports/creator@example.com/1_screen.jpg')))
     await assertFails(getMetadata(ref(storageAs('creator@example.com'), 'bug-reports/gear@example.com/1_screen.jpg')))
+  })
+})
+
+describe('filming guidelines (PDF)', () => {
+  const pdf = { contentType: 'application/pdf' }
+  it('creators and the owner (who has no users record) upload their own; nobody else', async () => {
+    await assertSucceeds(uploadBytes(ref(storageAs('creator@example.com'), 'guidelines/creator@example.com/1.pdf'), png, pdf))
+    await assertSucceeds(uploadBytes(ref(storageAs('alexisricordi@gmail.com'), 'guidelines/alexisricordi@gmail.com/1.pdf'), png, pdf))
+    await assertFails(uploadBytes(ref(storageAs('creator@example.com'), 'guidelines/other@example.com/1.pdf'), png, pdf))
+    await assertFails(uploadBytes(ref(storageAs('arts@example.com'), 'guidelines/arts@example.com/1.pdf'), png, pdf))
   })
 })

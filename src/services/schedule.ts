@@ -6,6 +6,7 @@ import { db, functions } from '../firebase'
 import { cleanScheduleSettings, DEFAULT_SCHEDULE, type ScheduleSettings, type ScheduleDay, type Place, type ShootKind, type BlockType, type House } from '../../functions/src/schedule'
 import { friendlyError } from '../lib/errors'
 import { OWNER_EMAIL } from '../config'
+import { studioDayOf } from '../lib/dates'
 
 export * from '../../functions/src/schedule'
 // Owner (Oct 19, option A): the "monthly vs extra" choice stays hidden. Guaranteed monthly slots come from the Google Calendar
@@ -84,7 +85,7 @@ export interface QueueItem {
   id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean; calendar: string
   kind: 'new' | 'changed' | 'removed'; placed: boolean; message?: string; problem?: string; at: string
   was?: { date: string; startMin: number; endMin: number; title: string }
-  guess: { action?: string; email?: string; emails?: string[]; house?: string; type?: BlockType; soft?: boolean }
+  guess: { action?: string; email?: string; emails?: string[]; house?: string; type?: BlockType; soft?: boolean; houseUnsure?: boolean; bothHouses?: boolean; ambiguous?: string[] }
   result: { action?: string; email?: string; emails?: string[]; house?: string; shootIds?: string[]; blockId?: string; type?: BlockType; soft?: boolean; clashWith?: string[] }
 }
 export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
@@ -98,7 +99,7 @@ export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
   return list
 }
 export type QueueFix = { action: 'shoot' | 'block'; emails: string[]; house: string; type: BlockType; soft: boolean }
-export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport')
+export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const confirmAllCalendar = httpsCallable<{ action: 'confirmAll'; ids: string[] }, { ok: boolean; confirmed: number; left: number }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
@@ -258,7 +259,7 @@ export function useStrikesSince(fromDate: string, enabled: boolean, email?: stri
   useEffect(() => {
     if (!enabled) return
     const q = email ? query(collection(db, 'strikes'), where('email', '==', email)) : query(collection(db, 'strikes'), where('at', '>=', fromDate))
-    return onSnapshot(q, snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Strike)).filter(x => x.at.slice(0, 10) >= fromDate)), () => setList([]))
+    return onSnapshot(q, snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Strike)).filter(x => studioDayOf(x.at) >= fromDate)), () => setList([]))
   }, [fromDate, enabled, email])
   return list
 }
@@ -266,7 +267,7 @@ export function useStrikesSince(fromDate: string, enabled: boolean, email?: stri
 // What an admin did about a flag (owner + admins read).
 export type FlagAction = 'excuse' | 'unexcuse' | 'warn' | 'strike' | 'handled'
 export interface FlagReview { id: string; flagId: string; email: string; kind: string; label?: string; status: 'excused' | 'warned' | 'struck' | 'handled' | 'open'
-  strikeId?: string; updatedAt: string; updatedBy: string; actions: { at: string; by: string; action: FlagAction; note?: string; strikeId?: string }[] }
+  strikeId?: string; updatedAt: string; updatedBy: string; actions: { at: string; by: string; action: FlagAction; note?: string; strikeId?: string; delivered?: boolean }[] }
 export function useFlagReviews(enabled: boolean): Map<string, FlagReview> {
   const [m, setM] = useState<Map<string, FlagReview>>(new Map())
   useEffect(() => {
@@ -276,7 +277,7 @@ export function useFlagReviews(enabled: boolean): Map<string, FlagReview> {
   return m
 }
 export const reviewFlag = httpsCallable<{ flagId: string; action: FlagAction; note?: string; email: string; kind: string; label?: string; shootId?: string },
-  { ok: boolean; status: string; strike: { strikes: number; paused: boolean } | null }>(functions, 'reviewFlag')
+  { ok: boolean; status: string; strike: { strikes: number; paused: boolean } | null; delivered?: boolean }>(functions, 'reviewFlag')
 
 // Error text from a server call, in plain words.
 export const errorText = (e: unknown) => friendlyError(e, 'Something went wrong. Try again.')

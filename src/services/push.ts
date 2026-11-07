@@ -27,6 +27,13 @@ const store = {
     window.dispatchEvent(new Event(PUSH_CHANGED))
   },
 }
+// The person tapped "Turn off" (or signed out): never sign this phone up again by itself, only from a tap on "Turn on".
+// (The browser's "allowed" can't be taken back from code, so without this the next start quietly turned it back on.)
+const OFF_KEY = 'pc-push-off'
+const optedOut = {
+  get: () => { try { return localStorage.getItem(OFF_KEY) === '1' } catch { return false } },
+  set: (v: boolean) => { try { if (v) localStorage.setItem(OFF_KEY, '1'); else localStorage.removeItem(OFF_KEY) } catch { /* private mode */ } },
+}
 // Fired whenever this phone's notifications change, so the Home prompt and the Me card stay in step.
 export const PUSH_CHANGED = 'pc-push-changed'
 
@@ -65,12 +72,14 @@ export async function turnOnPush(): Promise<PushState> {
   if (answer !== 'granted') return answer === 'denied' ? 'blocked' : 'off'
   const token = await getDeviceToken()
   await registerPush({ token, platform: platform() })
+  optedOut.set(false)
   store.set(token)
   return 'on'
 }
 
 export async function turnOffPush() {
   const token = store.get()
+  optedOut.set(true)
   store.set(null)
   if (!token) return
   await unregisterPush({ token }).catch(() => {})
@@ -80,13 +89,25 @@ export async function turnOffPush() {
   }
 }
 
+// Before signing out: this phone stops getting that person's notifications, and the next person to sign in here
+// isn't signed up without tapping "Turn on" themselves. Keeps the phone's push token (no deleteToken) so turning
+// back on is quick. Never blocks signing out.
+export async function pushSignOut() {
+  const token = store.get()
+  optedOut.set(true)
+  // The next person on this phone gets the "Get a ping" prompt again.
+  try { localStorage.removeItem('pc-push-nudge-off') } catch { /* private mode */ }
+  store.set(null)
+  if (token) await withTimeout(unregisterPush({ token }), 5000).catch(() => {})
+}
+
 // On each app start: keep this phone's token fresh (tokens can change); quietly does nothing if it's off.
 export async function refreshPush() {
   try {
     // Also finish signing up a phone that allowed notifications but never got its token saved
     // (e.g. the app was closed or lost signal right after tapping Allow).
     const st = pushState()
-    if (st !== 'on' && !(st === 'off' && Notification.permission === 'granted')) return
+    if (st !== 'on' && !(st === 'off' && Notification.permission === 'granted' && !optedOut.get())) return
     const token = await getDeviceToken()
     await registerPush({ token, platform: platform() })
     store.set(token)

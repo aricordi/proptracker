@@ -1,6 +1,7 @@
 // Gear bookings: creators hold whole bundles and add-on extras by the hour.
 // Holds are written in a transaction together with gear_holds/{offerId}, which is
 // what makes double-booking impossible (same idea as item_bookings for props).
+import { storageLinks } from './storageLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type DocumentReference } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, booksLikeCreator, isDemoCreator, type Caller } from './auth.js'
@@ -13,7 +14,7 @@ import { byCount, linesValue, LATE_FEE_PERCENT } from './gearStock.js'
 import {
   checkGearTimes, holdWindow, freeQty, pruneHolds, GEAR_TIME_MESSAGES, fmtHours, fmtTime, nowStamp, pickupWindow, pickupOpensAt,
   isGearLate, wasGearReturnedLate, checkLines, countMissing, stamp, GEAR_STEP, GEAR_DAY_END, GEAR_DAY_START, addMinutes,
-  canReserveGear, canTakeGear, gearReserveOpensAt, GEAR_TAKE_BEFORE_MINUTES, type GearHold,
+  canReserveGear, canTakeGear, gearReserveOpensAt, GEAR_TAKE_BEFORE_MINUTES, newlyMissing, type GearHold, type KnownMissing,
 } from './gearBooking.js'
 
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -107,14 +108,15 @@ export const createGearBooking = onCall(CALLABLE, async req => {
 export const takeGear = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'creator'])
   const d = req.data ?? {}
-  const photos = Array.isArray(d.photos) ? d.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
+  const photos = storageLinks(d.photos, 6)   // our own storage only (audit, Nov 7)
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take a photo of what you\'re taking first.')
   const shoot = await shootToAddTo(caller, d.scheduleShootId)
   if (!shoot) throw new HttpsError('invalid-argument', 'Gear goes with a shoot on the schedule.', { problem: 'no-shoot' })
   // Only an approved shoot (audit, Nov 5: gear went out for a request that then ran out and the shoot disappeared).
   if (shoot.status !== 'booked') throw new HttpsError('failed-precondition', 'Your shoot isn\'t approved yet. You can take gear once it is.', { problem: 'not-approved' })
   const now = nowStamp(), from = stamp(shoot.date, shoot.start), to = addMinutes(from, shoot.end - shoot.start)
-  if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot. Until then you can reserve it.` : 'This shoot is over.', { problem: 'take-window' })
+  const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  if (!canTakeGear(from, to, now)) throw new HttpsError('failed-precondition', now < from ? `You can take gear from ${GEAR_TAKE_BEFORE_MINUTES} minutes before your shoot.${sch.gearReserve ? ' Until then you can reserve it.' : ''}` : 'This shoot is over.', { problem: 'take-window' })
   const settings = await loadSettings()
   const today = todayInStudio()
   // Closed days (Sundays): nobody supervises, so creators just take it with the same tick-every-piece + photo, and bring
@@ -123,14 +125,14 @@ export const takeGear = onCall(CALLABLE, async req => {
   if (today > shoot.date) throw new HttpsError('failed-precondition', 'Gear for this shoot had to be taken before midnight. Ask the equipment team.', { problem: 'take-window' })
   const start = Math.max(GEAR_DAY_START, Math.floor(minutesNow() / GEAR_STEP) * GEAR_STEP)
   // Back by: the end of the shoot at the houses (it may go to someone else next), end of day for offsite (owner, Nov 3).
-  const sch = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const end = Math.min(GEAR_DAY_END, shoot.place === 'offsite' ? Math.max(sch.gearOffsiteBackBy, now.slice(0, 10) === shoot.date ? shoot.end : 0) : now.slice(0, 10) === shoot.date ? shoot.end : GEAR_DAY_END)
   if (end <= start) throw new HttpsError('failed-precondition', 'It\'s too late in the day to take gear out.', { problem: 'bad-hours' })
   const { id } = await holdGear(caller, { ...d, date: today, start, end, title: str(d.title, 120) || 'Shoot' }, { take: true })
   try { await doPickup(caller, id, missingKeysIn(d.missing), photos) }
   catch (e) { await release(id, caller.email, 'cancelled', () => true, 'taking it failed').catch(() => {}); throw e }
-  // The 11 PM–1 AM slot: the gear's back-by time is the end of the shoot, not midnight (audit, Nov 5: it was late at 12:30).
-  if (shoot.place !== 'offsite' && shoot.end > GEAR_DAY_END) await db.doc(`gear_bookings/${id}`).update({ to })
+  // A shoot that runs past midnight (the 11 PM–1 AM slot, or an offsite shoot until 3 AM): the gear's back-by time is
+  // the end of the shoot, not midnight (audit, Nov 5: it was late at 12:30; Nov 7: offsite too).
+  if (shoot.end > GEAR_DAY_END) await db.doc(`gear_bookings/${id}`).update({ to })
   return { id }
 })
 
@@ -184,7 +186,7 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
     const holdRefs = lines.map(l => db.doc(`gear_holds/${l.offerId}`))
     const [offers, holds] = await Promise.all([tx.getAll(...offerRefs), tx.getAll(...holdRefs)])
     const values = await readValues(tx, offers)
-    const taken: { name: string; free: number; wanted: number }[] = []
+    const taken: { name: string; free: number; wanted: number; outUntil?: string }[] = []
     const out = lines.map((l, i) => {
       const o = offers[i]
       if (!o.exists || o.get('archived') === true) throw new HttpsError('failed-precondition', 'One of these is no longer offered. Remove it and try again.')
@@ -196,7 +198,9 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
       if (kind === 'bundle' && l.qty !== 1) throw new HttpsError('invalid-argument', 'A bundle is booked whole, one at a time.')
       const entries = (holds[i].get('entries') as GearHold[] | undefined) ?? []
       const free = freeQty(offered, entries, win.from, win.to)
-      if (free < l.qty) taken.push({ name: String(o.get('name')), free, wanted: l.qty })
+      // Still out with someone from before (not back yet): say so, so they can ask for it to be handed over.
+      const stillOut = entries.filter(h => h.out && h.from < win.to).sort((a, b) => a.to.localeCompare(b.to))[0]
+      if (free < l.qty) taken.push({ name: String(o.get('name')), free, wanted: l.qty, ...(stillOut ? { outUntil: stillOut.to } : {}) })
       return {
         offerId: l.offerId, kind, name: String(o.get('name') ?? ''), qty: l.qty,
         photo: ((o.get('photos') as string[] | undefined) ?? [])[0] ?? null,
@@ -205,8 +209,10 @@ async function holdGear(caller: Caller, d: Record<string, any>, opts: { take?: b
       }
     })
     if (taken.length) {
+      const dueText = (to: string) => `due back ${to.slice(0, 10) === date ? '' : `${to.slice(5, 10).replace('-', '/')} `}${fmtTime(Number(to.slice(11, 13)) * 60 + Number(to.slice(14, 16)))}`
       throw new HttpsError('failed-precondition',
-        taken.map(t => t.free ? `Only ${t.free} "${t.name}" free for those hours.` : `"${t.name}" is taken for those hours.`).join(' '),
+        taken.map(t => t.outUntil && !t.free ? `"${t.name}" is still out with someone from before (${dueText(t.outUntil)}). Ask them to hand it over to you in the app, or pick another.`
+          : t.free ? `Only ${t.free} "${t.name}" free for those hours.` : `"${t.name}" is taken for those hours.`).join(' '),
         { problem: 'taken', taken })
     }
     out.forEach((l, i) => tx.set(holdRefs[i], {
@@ -254,10 +260,19 @@ async function release(id: string, by: string, status: 'cancelled' | 'declined',
 // Used when the shoot this gear was for is cancelled.
 export const cancelGearForShoot = (by: string, id: string) => release(id, by, 'cancelled', () => true, 'the shoot was cancelled')
 
+// Gear handed over on the spot is physically with the receiver: only the equipment team can cancel or change that
+// booking, or nobody's booking would cover the kit (audit, Nov 7).
+const handedOverText = (b: FirebaseFirestore.DocumentData) =>
+  `This gear was handed to you by ${String(b.handedFrom?.name ?? 'someone').split(' ')[0]}. Give it back to them, or ask the equipment team.`
+
 export const cancelGearBooking = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
   const id = str(req.data?.id, 100)
-  await release(id, caller.email, 'cancelled', b => GEAR_STAFF.includes(caller.role) || b.creatorEmail === caller.email)
+  const staff = GEAR_STAFF.includes(caller.role)
+  await release(id, caller.email, 'cancelled', b => {
+    if (!staff && b.handedFrom) throw new HttpsError('failed-precondition', handedOverText(b), { problem: 'handed-over' })
+    return staff || b.creatorEmail === caller.email
+  })
   return { ok: true }
 })
 
@@ -291,6 +306,7 @@ export const editGearBooking = onCall(CALLABLE, async req => {
     const b = snap.data()
     if (!b) throw new HttpsError('not-found', 'Booking not found.')
     if (!GEAR_STAFF.includes(caller.role) && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your booking.')
+    if (!GEAR_STAFF.includes(caller.role) && b.handedFrom) throw new HttpsError('failed-precondition', handedOverText(b), { problem: 'handed-over' })
     if (b.status !== 'held') throw new HttpsError('failed-precondition', 'This gear has been picked up already, so it can\'t be changed.')
     const start = crewH ? crewH.start : Number.isInteger(d.start) ? d.start as number : b.start
     const end = crewH ? crewH.end : Number.isInteger(d.end) ? d.end as number : b.end
@@ -392,6 +408,10 @@ export const declineGearBooking = onCall(CALLABLE, async req => {
 type Missing = { offerId: string; itemId: string; name: string; qty: number }
 const missingKeysIn = (v: unknown) => Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string').slice(0, 500) : []
 
+// What each bundle already lists as missing (reported earlier, not found since).
+const knownOn = (bundles: Map<string, FirebaseFirestore.DocumentSnapshot>) =>
+  Object.fromEntries([...bundles].map(([id, s]) => [id, (s.exists ? s.get('missing') as KnownMissing[] | undefined : undefined) ?? []]))
+
 // Add (or take back) missing pieces on the bundles themselves, so everyone sees a warning.
 function noteMissingOnBundles(tx: FirebaseFirestore.Transaction, bundles: Map<string, FirebaseFirestore.DocumentSnapshot>, missing: Missing[], bookingId: string, at: string) {
   const byOffer = new Map<string, Missing[]>()
@@ -423,12 +443,15 @@ async function doPickup(caller: Caller, id: string, missingKeys: string[], photo
   const previous = new Map<string, string>()
   // Handed over on the spot: the person who handed it over had it last.
   if (pre.handedFrom?.bookingId) for (const offerId of (pre.offerIds as string[])) previous.set(offerId, pre.handedFrom.bookingId)
-  else for (const offerId of (pre.offerIds as string[])) {
-    const q = await db.collection('gear_bookings').where('offerIds', 'array-contains', offerId).get()
+  else await Promise.all((pre.offerIds as string[]).map(async offerId => {
+    // Only the latest few that ended before this one (audit, Nov 7: it read every booking the kit ever had).
+    // Falls back to the full list if the index isn't built yet (right after a deploy).
+    const col = db.collection('gear_bookings').where('offerIds', 'array-contains', offerId)
+    const q = await col.where('to', '<=', pre.from).orderBy('to', 'desc').limit(10).get().catch(() => col.get())
     const last = q.docs.filter(d => d.id !== id && ['returned', 'checked_in'].includes(d.get('status')) && String(d.get('to')) <= pre.from)
       .sort((a, b) => String(b.get('to')).localeCompare(String(a.get('to'))))[0]
     if (last) previous.set(offerId, last.id)
-  }
+  }))
 
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
@@ -444,17 +467,26 @@ async function doPickup(caller: Caller, id: string, missingKeys: string[], photo
     const bundleSnaps = new Map((await Promise.all(offerIds.map(o => tx.get(db.doc(`gear_bundles/${o}`))))).map(s => [s.id, s]))
     const prevRefs = [...new Set(missing.map(m => previous.get(m.offerId)).filter((x): x is string => !!x))].map(p => db.doc(`gear_bookings/${p}`))
     const prevSnaps = prevRefs.length ? await tx.getAll(...prevRefs) : []
+    const holdRefs = (b.offerIds as string[]).map(o => db.doc(`gear_holds/${o}`))
+    const holdSnaps = await tx.getAll(...holdRefs)
 
-    noteMissingOnBundles(tx, bundleSnaps, missing, id, now)
+    // It's out now: the holds stay busy past the end time until it comes back (returnGear / handOverGear remove them).
+    holdSnaps.forEach((h, i) => {
+      if (h.exists) tx.update(holdRefs[i], { entries: ((h.get('entries') as GearHold[] | undefined) ?? []).map(e => e.bookingId === id ? { ...e, out: true } : e) })
+    })
+
+    // Pieces already on the bundle's missing list were missing before: not on the last holder, not reported twice.
+    const fresh = newlyMissing(missing, knownOn(bundleSnaps))
+    noteMissingOnBundles(tx, bundleSnaps, fresh, id, now)
     // Recorded against the previous holder (records only, no billing).
     for (const p of prevSnaps) {
-      const mine = missing.filter(m => previous.get(m.offerId) === p.id)
-      tx.update(p.ref, { problems: FieldValue.arrayUnion(...mine.map(m => ({ kind: 'missing_after', ...m, at: now, reportedOn: id, reportedBy: caller.email, usedBy: p.get('usedBy') ?? [p.get('creatorEmail')] }))) })
+      const mine = fresh.filter(m => previous.get(m.offerId) === p.id)
+      if (mine.length) tx.update(p.ref, { problems: FieldValue.arrayUnion(...mine.map(m => ({ kind: 'missing_after', ...m, at: now, reportedOn: id, reportedBy: caller.email, usedBy: p.get('usedBy') ?? [p.get('creatorEmail')] }))) })
     }
     tx.update(ref, {
       status: 'out', updatedAt: now,
       pickup: { at: now, by: caller.email, missing, ...(photos.length ? { photos } : {}) },
-      ...(missing.length ? { alerts: FieldValue.arrayUnion({ kind: 'missing_at_pickup', at: now, count: missing.reduce((n, m) => n + m.qty, 0) }) } : {}),
+      ...(fresh.length ? { alerts: FieldValue.arrayUnion({ kind: 'missing_at_pickup', at: now, count: fresh.reduce((n, m) => n + m.qty, 0) }) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'picked_up',
         ...(missing.length ? { note: `Missing at pickup: ${missing.map(m => `${m.qty}× ${m.name}`).join(', ')}` } : {}) }),
     })
@@ -485,12 +517,13 @@ const emailsIn = (v: unknown) => Array.isArray(v) ? v.filter((e: unknown): e is 
 export const returnGear = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator', 'equipment'])
   const id = str(req.data?.id, 100)
-  const photos = Array.isArray(req.data?.photos) ? req.data.photos.filter((u: unknown): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 6) : []
+  const photos = storageLinks(req.data?.photos, 6)
   if (!photos.length) throw new HttpsError('invalid-argument', 'Take the return photo first: everything in the case, batteries plugged in.')
   const usedIn = emailsIn(req.data?.usedBy)
   // Owner, Nov 3: report anything broken at the return (piece + what's wrong), and confirm the charging case is plugged in.
   const damage = damageIn(req.data?.damage)
-  const charging = req.data?.charging === true
+  // Only recorded when it was asked (the creator's return flow); a team return doesn't ask (audit, Nov 7).
+  const charging = typeof req.data?.charging === 'boolean' ? req.data.charging as boolean : null
   const ref = db.doc(`gear_bookings/${id}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
@@ -506,7 +539,7 @@ export const returnGear = onCall(CALLABLE, async req => {
     const late = lateRecord(b, at, lastHolder(b, caller))
     tx.update(ref, {
       status: 'returned', updatedAt: now, returnedAt: at, returnedLate: !!late, ...(late ? { late } : {}),
-      return: { at: now, by: caller.email, photos, charging, ...(damage.length ? { damage } : {}) },
+      return: { at: now, by: caller.email, photos, ...(charging === null ? {} : { charging }), ...(damage.length ? { damage } : {}) },
       usedBy, usedByNames,
       ...(damage.length ? { problems: FieldValue.arrayUnion(...damage.map(x => ({ kind: 'damaged_at_return', name: x.name, note: x.note, itemId: x.itemId, at: now, reportedBy: caller.email, usedBy }))) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'returned', ...(late || usedNote || damage.length ? { note: [late ? `Returned late (${lateText(late.minutes)} after the end time)` : '', usedNote, damage.length ? `Damage reported: ${damage.map(x => `${x.name}${x.note ? ` (${x.note})` : ''}`).join(', ')}` : ''].filter(Boolean).join(' · ') } : {}) }),
@@ -599,11 +632,13 @@ export const checkInGear = onCall(CALLABLE, async req => {
     const offerIds = [...new Set(missing.map(m => m.offerId))]
     const bundleSnaps = new Map((await Promise.all(offerIds.map(o => tx.get(db.doc(`gear_bundles/${o}`))))).map(s => [s.id, s]))
     const now = new Date().toISOString()
-    noteMissingOnBundles(tx, bundleSnaps, missing, id, now)
+    // Already on the bundle's missing list (reported before this booking): not on these people, not listed twice.
+    const fresh = newlyMissing(missing, knownOn(bundleSnaps))
+    noteMissingOnBundles(tx, bundleSnaps, fresh, id, now)
     tx.update(ref, {
       status: 'checked_in', updatedAt: now,
       checkIn: { at: now, by: caller.email, missing, note },
-      ...(missing.length ? { problems: FieldValue.arrayUnion(...missing.map(m => ({ kind: 'missing_at_checkin', ...m, at: now, reportedBy: caller.email, usedBy: b.usedBy ?? [b.creatorEmail] }))) } : {}),
+      ...(fresh.length ? { problems: FieldValue.arrayUnion(...fresh.map(m => ({ kind: 'missing_at_checkin', ...m, at: now, reportedBy: caller.email, usedBy: b.usedBy ?? [b.creatorEmail] }))) } : {}),
       history: FieldValue.arrayUnion({ at: now, by: caller.email, action: 'checked_in',
         ...(missing.length ? { note: `Missing: ${missing.map(m => `${m.qty}× ${m.name}`).join(', ')}` } : note ? { note } : {}) }),
     })
@@ -611,16 +646,21 @@ export const checkInGear = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
-// "Found it": take a missing-piece warning off a bundle.
+// "Found it": take a missing-piece warning off a bundle. The warning is named by {bookingId, itemId, at}, so a double
+// tap (or two people at once) can't clear the next one in the list (audit, Nov 7). `index` alone = older app versions.
 export const markGearFound = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'])
   const offerId = str(req.data?.offerId, 100), index = Number(req.data?.index)
+  const e = req.data?.entry as { bookingId?: unknown; itemId?: unknown; at?: unknown } | undefined
   const ref = db.doc(`gear_bundles/${offerId}`)
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
-    const list = (snap.get('missing') as unknown[] | undefined) ?? []
-    if (!snap.exists || !Number.isInteger(index) || index < 0 || index >= list.length) throw new HttpsError('not-found', 'Already cleared.')
-    tx.update(ref, { missing: list.filter((_, i) => i !== index) })
+    const list = (snap.get('missing') as { bookingId?: string; itemId?: string; at?: string }[] | undefined) ?? []
+    const at = e && typeof e === 'object'
+      ? list.findIndex(m => m.bookingId === e.bookingId && m.itemId === e.itemId && m.at === e.at)
+      : Number.isInteger(index) ? index : -1
+    if (!snap.exists || at < 0 || at >= list.length) throw new HttpsError('not-found', 'Already cleared.')
+    tx.update(ref, { missing: list.filter((_, i) => i !== at) })
   })
   return { ok: true }
 })

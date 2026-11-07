@@ -3,15 +3,18 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue } from 'firebase-admin/firestore'
 import { OWNER_EMAIL, db, requireRole, CALLABLE } from './auth.js'
-import { nowStamp } from './gearBooking.js'
+import { nowStamp, fmtTime } from './gearBooking.js'
 import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, slotKey, type ScheduleDay, type House } from './schedule.js'
 import { addStrike, removeStrikeById } from './strikes.js'
 import { addDays, todayInStudio } from './booking.js'
 
 const TEAM = ['owner', 'equipment']
+import { storageLinks } from './storageLinks.js'
 const ANYONE = ['owner', 'arts', 'creator', 'equipment'] as const
 const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : ''
-const photoList = (v: unknown) => Array.isArray(v) ? v.filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).slice(0, 10) : []
+const photoList = (v: unknown) => storageLinks(v, 10)   // our own storage only (audit, Nov 7)
+// 'YYYY-MM-DDTHH:MM' (studio time) → "Sat 3:00 AM".
+const stampClock = (st: string) => `${new Date(`${st.slice(0, 10)}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })} ${fmtTime(Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16)))}`
 const settings = async () => cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
 
 async function ownShoot(id: string, email: string) {
@@ -101,10 +104,16 @@ export const decideShoot = onCall(CALLABLE, async req => {
   const canCheckIn = pre.creatorEmail === OWNER_EMAIL || (u?.role === 'creator' && u.access === 'full')
   const outcome = req.data?.outcome === 'noshow' ? 'noshow' : 'filmed'
   const at = new Date().toISOString()
+  const s = await settings()
   // Decided inside a transaction: two people pressing at once can't give two strikes (audit, Nov 5).
   const sh = await db.runTransaction(async tx => {
     const cur = (await tx.get(ref)).data()
-    if (!cur || !isMissed(cur as any, nowStamp(), () => canCheckIn)) throw new HttpsError('failed-precondition', 'This shoot was checked in or already decided.')
+    const now = nowStamp()
+    if (!cur || !isMissed(cur as any, now, () => canCheckIn)) throw new HttpsError('failed-precondition', 'This shoot was checked in or already decided.')
+    // Owner's rule (Oct 16): the creator has explainHours to explain, THEN the team decides. "They filmed" is always fine.
+    if (outcome === 'noshow' && !cur.explanation && now < explainUntil(cur as any, s)) {
+      throw new HttpsError('failed-precondition', `${cur.creatorName || 'They'} can still explain until ${stampClock(explainUntil(cur as any, s))}. Decide after that.`, { problem: 'explain-window' })
+    }
     tx.update(ref, { outcome, ...(outcome === 'noshow' ? { noShow: 'missed' } : {}), updatedAt: at,
       history: FieldValue.arrayUnion({ at, by: caller.email, action: outcome === 'noshow' ? 'no-show' : 'marked-filmed' }) })
     return cur
@@ -233,13 +242,16 @@ export const reviewFlag = onCall(CALLABLE, async req => {
         || (reasons.includes(d.get('reason')) && !!d.get('shootId') && [shootId, srcId].includes(d.get('shootId')))))
     for (const d of list) { await removeStrikeById(d.id, caller.email, `Excused: ${note}`); removedStrikes++ }
   }
+  let delivered: boolean | undefined
   if (action === 'warn') {
-    const { sendPush } = await import('./push.js')
-    await sendPush({ to: [email], title: 'A note from the Prime Capitol team', body: note, url: '/account', tag: `warn-${id}` }).catch(() => 0)
+    const { sendPushDetailed } = await import('./push.js')
+    // Say whether it actually reached a phone (audit, Nov 7: "Note sent" even when they have no phone signed up).
+    delivered = await sendPushDetailed({ to: [email], title: 'A note from the Prime Capitol team', body: note, url: '/account', tag: `warn-${id}` })
+      .then(r => r.sent > 0).catch(() => false)
   }
   const status = action === 'excuse' ? 'excused' : action === 'unexcuse' ? 'open' : action === 'strike' ? 'struck' : action === 'warn' ? 'warned' : 'handled'
   await ref.set({ flagId: id, email, name, kind, label, status, updatedAt: at, updatedBy: caller.email, striking: FieldValue.delete(),
     ...(strike ? { strikeId: strike.id } : {}),
-    actions: FieldValue.arrayUnion({ at, by: caller.email, action, ...(note ? { note } : {}), ...(strike ? { strikeId: strike.id } : {}) }) }, { merge: true })
-  return { ok: true, status, strike, removedStrikes }
+    actions: FieldValue.arrayUnion({ at, by: caller.email, action, ...(note ? { note } : {}), ...(strike ? { strikeId: strike.id } : {}), ...(delivered === false ? { delivered: false } : {}) }) }, { merge: true })
+  return { ok: true, status, strike, removedStrikes, ...(delivered !== undefined ? { delivered } : {}) }
 })

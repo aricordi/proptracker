@@ -58,6 +58,7 @@ describe('the happy path', () => {
     expect((await call('startReturn', { id, photos: [PHOTO], note: 'Left on the returns shelf' }, ALEX)).ok).toBe(true)
     expect((await getDoc(`reservations/${id}`))!.status).toBe('return_pending')
     expect((await getDoc('item_bookings/cop'))!.entries[0].out).toBeUndefined()
+    expect((await getDoc('item_bookings/cop'))!.entries[0].back).toBe(true)   // still held until check-in
 
     expect((await call('checkIn', { id, lines: [{ itemId: 'cop', result: 'ok' }, { itemId: 'chairs', result: 'ok' }] }, ARTS)).ok).toBe(true)
     res = (await getDoc(`reservations/${id}`))!
@@ -91,6 +92,19 @@ describe('packing rules', () => {
     const r = await call('markPacked', { id, photos: [PHOTO] }, ARTS)
     expect(r.error).toBe('FAILED_PRECONDITION')
     expect(r.message).toContain('2 item')
+  })
+  it('an accidental tick + untick puts it back to Requested, so the creator can still change it', async () => {
+    const id = await newBooking()
+    await call('setLinePick', { id, itemId: 'cop', state: 'picked' }, ARTS)
+    expect((await getDoc(`reservations/${id}`))!.status).toBe('preparing')
+    await call('setLinePick', { id, itemId: 'cop', state: 'todo' }, ARTS)
+    const r = (await getDoc(`reservations/${id}`))!
+    expect(r.status).toBe('requested')
+    expect(r.history.at(-1)).toMatchObject({ status: 'requested', event: 'reopened' })
+    expect((await call('editReservation', { id, lines: [{ itemId: 'cop', qty: 1 }], builds: [{ description: 'Half-eaten birthday cake', qty: 1 }] }, ALEX)).ok).toBe(true)
+    // Unticking on a request that wasn't started doesn't start it.
+    await call('setBuildState', { id, buildId: 'b1', state: 'todo' }, ARTS)
+    expect((await getDoc(`reservations/${id}`))!.status).toBe('requested')
   })
   it('photo links must come from this app\'s storage', async () => {
     const id = await newBooking()

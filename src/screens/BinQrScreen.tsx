@@ -14,7 +14,7 @@ import { useItems } from '../hooks/useItems'
 import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import { useSession } from '../auth'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 import BottomSheet from '../components/BottomSheet'
 import type { Item, Location } from '../types'
 import { friendlyError } from '../lib/errors'
@@ -108,11 +108,11 @@ export default function BinQrScreen() {
         <h1 className="font-display text-[34px] text-pt-text leading-tight">{bin.label}</h1>
         {checking ? (
           <div className="mt-2">
-            <div className="flex justify-between text-xs text-pt-muted mb-1"><span>Checking: {done} of {binItems.length} ticked</span>{bin.checkedAt && <span>Last done {formatDay(bin.checkedAt.slice(0, 10))}</span>}</div>
+            <div className="flex justify-between text-xs text-pt-muted mb-1"><span>Checking: {done} of {binItems.length} ticked</span>{bin.checkedAt && <span>Last done {formatDay(studioDayOf(bin.checkedAt))}</span>}</div>
             <div className="h-1.5 rounded-full bg-pt-border overflow-hidden"><div className="h-full bg-pt-accent transition-all" style={{ width: `${binItems.length ? done / binItems.length * 100 : 100}%` }} /></div>
           </div>
         ) : (
-          <p className={`text-sm mt-1 ${bin.checkedAt ? 'text-green-400' : 'text-pt-muted'}`}>{bin.checkedAt ? `✓ Checked ${formatDay(bin.checkedAt.slice(0, 10))}${bin.checkedBy ? ` by ${bin.checkedBy.split(' ')[0]}` : ''}` : 'Not checked yet'}</p>
+          <p className={`text-sm mt-1 ${bin.checkedAt ? 'text-green-400' : 'text-pt-muted'}`}>{bin.checkedAt ? `✓ Checked ${formatDay(studioDayOf(bin.checkedAt))}${bin.checkedBy ? ` by ${bin.checkedBy.split(' ')[0]}` : ''}` : 'Not checked yet'}</p>
         )}
       </div>
 
@@ -158,6 +158,8 @@ export default function BinQrScreen() {
         {!checking && (
           <button onClick={() => navigate(`/add?binId=${bin.id}&locationId=${bin.locationId ?? ''}`)} className="w-full bg-pt-surface shadow-hairline text-pt-text rounded-2xl py-4 font-semibold">+ Add a prop to this bin</button>
         )}
+        {/* This page checks WHERE props are; names and counts are checked in Clean up (its progress counts those). */}
+        <button onClick={() => navigate(`/cleanup/bin/${bin.id}`)} className="w-full tap min-h-[44px] text-pt-accent text-[16px] font-semibold">Check names and counts in Clean up ›</button>
       </div>
 
       {checking && (

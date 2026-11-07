@@ -8,7 +8,7 @@ import {
   type Suggestion, type ProposedChanges,
 } from '../services/suggestions'
 import { CONDITION_LABELS } from './ItemCard'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 import type { Condition, Item } from '../types'
 
 const FIELD: Record<keyof ProposedChanges, string> = { name: 'Name', quantity: 'How many', condition: 'Condition', description: 'Description' }
@@ -46,7 +46,7 @@ export function SuggestionCard({ s, item, showProp }: { s: Suggestion; item?: It
       <div className="flex items-start justify-between gap-2">
         <p className="text-pt-text text-sm">
           {showProp && <><button onClick={() => navigate(`/item/${s.itemId}`)} className="font-medium text-pt-accent">{s.itemName}</button> · </>}
-          <span className="text-pt-muted">{s.byName || s.by} · {formatDay(s.at.slice(0, 10))}</span>
+          <span className="text-pt-muted">{s.byName || s.by} · {formatDay(studioDayOf(s.at))}</span>
         </p>
         {s.status !== 'open' && <span className={`text-xs shrink-0 ${s.status === 'applied' ? 'text-green-400' : 'text-pt-muted'}`}>{s.status}</span>}
       </div>

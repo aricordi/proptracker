@@ -20,6 +20,7 @@ import type { Item, Condition } from '../types'
 import PropManage, { type ManageDone } from '../components/PropManage'
 import PropRecommendations from '../components/PropRecommendations'
 import { Toast } from '../components/cleanup/Parts'
+import { NotFound } from '../components/NotFound'
 
 export default function ItemDetailScreen() {
   const { id } = useParams<{ id: string }>()
@@ -49,11 +50,15 @@ export default function ItemDetailScreen() {
     setPhotoIndex(0); setLightboxIndex(null); setShowArchiveConfirm(false)
     const scroller = topRef.current?.closest('main') ?? document.getElementById('root')
     scroller?.scrollTo({ top: 0 })
+    // Don't show the previous prop under the new address while this one loads (audit Nov 7).
+    let stale = false
+    setLoading(true)
     getItem(id)
-      .then(setItem)
-      .catch(() => setItem(null))   // e.g. someone else's personal prop: treated as not found
-      .finally(() => setLoading(false))
-    if (canSeeStaff) getItemPrivate(id).then(p => setInternalNotes(p.internalNotes ?? '')).catch(() => {})
+      .then(x => { if (!stale) setItem(x) })
+      .catch(() => { if (!stale) setItem(null) })   // e.g. someone else's personal prop: treated as not found
+      .finally(() => { if (!stale) setLoading(false) })
+    if (canSeeStaff) getItemPrivate(id).then(p => { if (!stale) setInternalNotes(p.internalNotes ?? '') }).catch(() => {})
+    return () => { stale = true }
   }, [id, canSeeStaff])
 
   const tagById       = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
@@ -62,7 +67,8 @@ export default function ItemDetailScreen() {
   const binById       = useMemo(() => Object.fromEntries(bins.map(b => [b.id, b])), [bins])
   const categoryById  = useMemo(() => Object.fromEntries(categories.map(c => [c.id, c])), [categories])
 
-  if (loading) {
+  // Loading / not found keep a Back button: this page has no tab bar, and the home-screen app has no browser Back.
+  if (loading || !item) {
     return (
       <div className="min-h-screen bg-pt-bg flex items-center justify-center">
         <p className="text-pt-muted text-sm">Loading…</p>
@@ -70,13 +76,7 @@ export default function ItemDetailScreen() {
     )
   }
 
-  if (!item) {
-    return (
-      <div className="min-h-screen bg-pt-bg flex items-center justify-center">
-        <p className="text-pt-muted text-sm">Item not found.</p>
-      </div>
-    )
-  }
+  if (!item) return <NotFound title="This prop isn't here" />
 
   const location = item.locationId ? locationById[item.locationId] : null
   const bin      = item.binId ? binById[item.binId] : null
@@ -184,10 +184,16 @@ export default function ItemDetailScreen() {
         )}
         {item.archived && (
           <div className="bg-pt-surface shadow-hairline rounded-xl px-4 py-3">
-            <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : 'Archived'}</p>
-            <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
-              ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
-              : 'Hidden from search. Its history is kept.'}</p>
+            {/* Creators get plain words, not the staff's clean-up notes (audit, Nov 7). */}
+            {canSeeStaff ? <>
+              <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : item.mergedInto ? 'Combined with another prop' : 'Archived'}</p>
+              <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
+                ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
+                : 'Hidden from search. Its history is kept.'}</p>
+            </> : <p className="text-pt-text text-sm font-medium">This prop isn't in the closet any more.</p>}
+            {item.mergedInto && (
+              <button onClick={() => navigate(`/item/${item.mergedInto}`)} className="mt-2 min-h-[44px] text-pt-accent text-sm font-semibold">See the prop it was combined into ›</button>
+            )}
           </div>
         )}
 
@@ -238,7 +244,7 @@ export default function ItemDetailScreen() {
           </div>
         )}
 
-        {!item.archived && !demo && <ReservePanel item={item} entries={bookings[item.id] ?? []} />}
+        {!item.archived && !demo && <ReservePanel key={item.id} item={item} entries={bookings[item.id] ?? []} />}
 
         {/* Location */}
         {canSeeStaff && locationPath && (

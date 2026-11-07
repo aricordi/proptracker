@@ -6,7 +6,7 @@ import {
   subscribeToEmailSettings, saveEmailSettings, subscribeToOutbox, sendTestEmail,
   EMPTY_EMAIL_SETTINGS, type EmailSettings, type OutboxEmail,
 } from '../services/email'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 
 // Ready-made settings for the services we've talked about. Switching later
 // (e.g. Gmail → Resend) = pick the service, change the login, update the secret.
@@ -164,7 +164,7 @@ export default function EmailSettingsScreen() {
                 <span className={`text-xs shrink-0 ${STATUS_STYLE[m.status ?? ''] ?? 'text-amber-300'}`}>{m.status ?? 'queued'}</span>
               </div>
               <p className="text-pt-muted text-xs truncate">
-                {formatDay(m.createdAt.slice(0, 10))} · to {m.sentTo?.join(', ') ?? (m.to === 'arts-team' ? 'arts department' : m.to)}
+                {formatDay(studioDayOf(m.createdAt))} · to {m.sentTo?.join(', ') ?? (m.to === 'arts-team' ? 'arts department' : m.to)}
                 {m.error ? ` · ${m.error}` : m.note ? ` · ${m.note}` : ''}
               </p>
             </div>

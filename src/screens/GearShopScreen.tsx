@@ -53,6 +53,8 @@ export default function GearShopScreen() {
   const takeWin = creator && shoot && note.take ? { from: nowStamp(), to: shoot.to < `${shoot.date}T23:59` ? shoot.to : `${shoot.date}T23:59` } : null
   const problem = takeWin ? null : w.problem
   const free = (o: GearBundle) => freeQty(byCount(o.kind) ? (o.pieces[0]?.qty ?? 0) : 1, holds[o.id] ?? [], takeWin?.from ?? w.win.from, takeWin?.to ?? w.win.to)
+  // Only what's still offered counts (a kit archived since it was picked is dropped on the Take screen).
+  const liveCount = offers ? Object.entries(cart.lines).filter(([id, q]) => q > 0 && all.some(o => o.id === id)).length : cart.count
 
   return (
     <div className="min-h-full bg-pt-bg pb-28">
@@ -187,11 +189,11 @@ export default function GearShopScreen() {
       </div>
 
       {/* The shoot being put together (props + gear): the same bar as on Props. */}
-      {creator && note.take && cart.count > 0 ? (
+      {creator && note.take && liveCount > 0 ? (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
           <button onClick={() => navigate('/gear/take')}
             className="w-full flex items-center justify-between bg-pt-accent text-stone-900 rounded-2xl px-4 py-4 shadow-lg font-semibold active:opacity-90 shadow-gold">
-            <span>Taking {cart.count} now</span><span>Take it</span>
+            <span>Taking {liveCount} now</span><span>Take it</span>
           </button>
         </div>
       ) : (reserveOn || !creator ? cart.count : 0) + propsCart.count > 0 && (

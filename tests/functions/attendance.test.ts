@@ -4,7 +4,7 @@ import { put, call, getDoc, clearDatabase, soonSlot } from './helpers'
 import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 
 const ANA = 'ana@example.com', BEN = 'ben@example.com', MAANIK = 'maanik@example.com'
-const PHOTO = 'https://example.com/set.jpg'
+const PHOTO = 'http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fx%2Fp.jpg?alt=media'
 const mins = (st: string) => Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16))
 
 // A shoot written straight into the database at a chosen time around now.
@@ -30,6 +30,7 @@ describe('check in and wrap', () => {
     expect((await call('checkInShoot', { id: 'early', photos: [PHOTO] }, ANA)).message).toMatch(/opens 15 minutes/)
     await shootAt('now', ANA, 'Ana', 10)
     expect((await call('checkInShoot', { id: 'now', photos: [] }, ANA)).message).toMatch(/photo/)
+    expect((await call('checkInShoot', { id: 'now', photos: ['https://evil.example.com/set.jpg'] }, ANA)).message).toMatch(/photo/)   // outside links don't count
     expect((await call('checkInShoot', { id: 'now', photos: [PHOTO] }, BEN)).error).toBe('PERMISSION_DENIED')
     expect((await call('checkInShoot', { id: 'now', photos: [PHOTO] }, ANA)).ok).toBe(true)
     expect((await getDoc('shoots/now'))!.checkin.photos).toEqual([PHOTO])
@@ -61,9 +62,19 @@ describe('missed check-ins, strikes and pauses', () => {
     expect((await call('decideShoot', { id: 'missed1', outcome: 'noshow' }, MAANIK)).message).toMatch(/already decided/)
   })
 
+  it('No-show waits for the 12 hours to explain; "They filmed" and an explained shoot can be decided at once', async () => {
+    await shootAt('w1', ANA, 'Ana', -150)
+    const early = await call('decideShoot', { id: 'w1', outcome: 'noshow' }, MAANIK)
+    expect(early.message).toMatch(/can still explain until/)
+    expect((await getDoc('shoots/w1'))!.outcome).toBeUndefined()
+    await call('explainMissedCheckIn', { id: 'w1', text: 'Overslept' }, ANA)
+    expect((await call('decideShoot', { id: 'w1', outcome: 'noshow' }, MAANIK)).result.strike).toMatchObject({ strikes: 1 })
+  })
+
   it('2 strikes in 30 days pause prop bookings (not gear); the team can lift it', async () => {
-    await shootAt('m1', ANA, 'Ana', -300)
-    await shootAt('m2', ANA, 'Ana', -150)
+    // Both slots ended more than 12 hours ago, so the time to explain is over.
+    await shootAt('m1', ANA, 'Ana', -900)
+    await shootAt('m2', ANA, 'Ana', -850)
     await call('decideShoot', { id: 'm1', outcome: 'noshow' }, MAANIK)
     const second = await call('decideShoot', { id: 'm2', outcome: 'noshow' }, MAANIK)
     expect(second.result.strike).toMatchObject({ strikes: 2, paused: true })

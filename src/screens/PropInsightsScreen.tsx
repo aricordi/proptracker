@@ -9,7 +9,7 @@ import { subscribeToReservations, type Reservation } from '../services/reservati
 import { subscribeToPropWants } from '../services/propWants'
 import { todayInStudio } from '../../functions/src/booking'
 import { HIGH_VALUE_THRESHOLD } from '../config'
-import { propInsights, agoLabel, PERIODS, TREND_DAYS, GRAB_DAYS, GRAB_MIN_REQUESTS, GRAB_MIN_CREATORS, BUY_MIN_FULL_DAYS, BUY_MIN_WANTED, type Period, type PersonLoss, type PropWant, type Unavailable } from '../lib/propInsights'
+import { propInsights, agoLabel, studioDay, PERIODS, TREND_DAYS, GRAB_DAYS, GRAB_MIN_REQUESTS, GRAB_MIN_CREATORS, BUY_MIN_FULL_DAYS, BUY_MIN_WANTED, type Period, type PersonLoss, type PropWant, type Unavailable } from '../lib/propInsights'
 import { PropThumb } from '../components/cleanup/Parts'
 import Avatar from '../components/Avatar'
 import { Icon, type IconName } from '../components/Icon'
@@ -85,7 +85,7 @@ export default function PropInsightsScreen() {
               })} onOpen={open} />
             </Card>
 
-            <Card icon="alert" title="Often unavailable" sub={`Every unit booked on a shoot day, couldn't be found when packing, in a declined request, or creators wanted it for their shoot while it was booked out. "Buy another?" = ran out on ${BUY_MIN_FULL_DAYS}+ days, or ${BUY_MIN_WANTED}+ wanted it while booked out.`}>
+            <Card icon="alert" title="Often unavailable" sub={`Every unit booked on a shoot day (props we have 2 or more of), couldn't be found when packing, in a declined request, or creators wanted it for their shoot while it was booked out. "Buy another?" = ran out on ${BUY_MIN_FULL_DAYS}+ days, or ${BUY_MIN_WANTED}+ wanted it while booked out.`}>
               <Ranked list={data.unavailable} empty="Nothing ran out in this period ✓" render={u => ({
                 main: u.buyMore ? 'Buy another?' : '', badge: u.buyMore,
                 sub: [u.fullDays && ((u.item?.quantity ?? 1) > 1 ? `All ${u.item!.quantity} booked on ${plural(u.fullDays, 'day')}` : `Booked out on ${plural(u.fullDays, 'day')}`),
@@ -133,7 +133,7 @@ export default function PropInsightsScreen() {
 
             <Card icon="archive" title="Never asked for" sub={`${data.neverBooked.length} of ${t.catalogue} props have never been in a request. Oldest first: they've had the longest chance.`}>
               {data.neverBooked.length ? <ShowMore list={data.neverBooked} max={5} row={i => (
-                <PropRow key={i.id} item={i} main="" sub={`${catLabel(i.categoryId)} · added ${agoLabel(i.createdAt.slice(0, 10), today)}`} onOpen={() => open(i.id, i)} />
+                <PropRow key={i.id} item={i} main="" sub={`${catLabel(i.categoryId)} · added ${agoLabel(studioDay(i.createdAt), today)}`} onOpen={() => open(i.id, i)} />
               )} /> : <Empty>Every prop has been asked for at least once ✓</Empty>}
             </Card>
 

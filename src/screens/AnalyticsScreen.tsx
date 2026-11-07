@@ -418,6 +418,7 @@ function PersonView(c: Ctx & { m: Metric }) {
       </div>
     </div>
     <div data-tour="manage">{mg.buttons}</div>
+    {mg.err && <p className="text-red-300 text-sm">{mg.err}</p>}
     {mg.sheets}
     <Top c={c} m={c.m} chart={false} metrics={['filmed', 'showRate', 'flags', 'serious']} onCard={onCard} />
     <SectionHead title="Month by month" sub={`Shoots filmed; the white lines are the typical creator · above typical ${above} of the last ${months.length} months`} />

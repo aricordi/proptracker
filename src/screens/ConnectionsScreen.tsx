@@ -22,7 +22,7 @@ const googleAccountStatus = httpsCallable<Record<string, never>, Status>(functio
 
 const saveGoogleClient = httpsCallable<{ clientId: string; clientSecret: string }, { ok: boolean }>(functions, 'saveGoogleClient')
 const googleConnectStart = httpsCallable<{ origin: string; loginHint?: string }, { url: string }>(functions, 'googleConnectStart')
-const previewCalendarImport = httpsCallable<Record<string, never>, { events: { calendar?: string; kind: string }[]; calendars: { name: string; title: string; found: number; hidden: number }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
+const previewCalendarImport = httpsCallable<Record<string, never>, { events: { calendar?: string; kind: string }[]; calendars: { name: string; title: string; found: number; hidden: number; error?: string }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
 const googleDisconnect = httpsCallable<Record<string, never>, { ok: boolean }>(functions, 'googleDisconnect')
 
 const PROJECT = 'proptracker-9732e'
@@ -107,12 +107,16 @@ export default function ConnectionsScreen() {
       const r = (await previewCalendarImport({})).data
       const fresh = (n: string) => r.events.filter(e => e.calendar === n && e.kind === 'new').length
       // Per calendar: Google's own name for it (spots a wrong ID), what's coming up, and what's hidden (time off, birthdays).
+      const who = c?.email ?? 'the account'
       const lines = r.calendars.filter(c => c.name !== 'App calendar').map(c => {
         const google = c.title && c.title !== c.name ? ` (Google calls it "${c.title}")` : ''
+        // Couldn't be read (wrong ID, not shared): the other calendars are still followed; this one is skipped until fixed.
+        if (c.error) return `${c.name}: couldn't read it. Check the ID and that it's shared with ${who} ("See all event details"). The other calendars still work.`
         if (!c.found) return `${c.name}${google}: nothing in the next 4 months. If it should have events, check the ID is this calendar's.`
         return `${c.name}${google}: ${c.found} event${c.found === 1 ? '' : 's'} in the next 4 months, ${fresh(c.name)} to check${c.hidden ? `, ${c.hidden} time off / birthdays hidden` : ''}.`
       })
-      setFeedMsg({ ok: true, text: `Read ✓ ${lines.join(' ')}` })
+      const bad = r.calendars.some(c => c.error && c.name !== 'App calendar')
+      setFeedMsg({ ok: !bad, text: `${bad ? 'Saved, but one calendar needs a look.' : 'Read ✓'} ${lines.join(' ')}` })
     } catch (e) { setFeedMsg({ ok: false, text: `${errorText(e)} Share each calendar with ${c?.email ?? 'the account'} ("See all event details"), wait a minute, then try again.` }) }
     finally { setBusy('') }
   }
@@ -212,7 +216,7 @@ export default function ConnectionsScreen() {
               <input value={calId} onChange={e => { setCalId(e.target.value.trim()); setCalMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} autoCapitalize="none" aria-label="App calendar ID" />
               <button onClick={linkCalendar} disabled={!!busy || !calId || !accountOk} className={btn}>{busy === 'cal' ? 'Checking…' : 'Save & test'}</button>
               {calMsg && <p className={`text-sm ${calMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{calMsg.text}</p>}</>)}
-            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey), with the props and gear on each shoot. Share this one calendar with everyone who needs to see the schedule.</p>
+            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey), with the props and gear on each shoot. Share this one calendar with everyone who needs to see the schedule. Shoots brought in from the old calendars stay in those old calendars and aren't copied here (the app's own schedule always shows everything).</p>
 
             <div className="border-t border-pt-border pt-3 space-y-3">
               <p className="text-pt-text text-sm font-semibold">Old calendars (read only)</p>

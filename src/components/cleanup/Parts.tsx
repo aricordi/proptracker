@@ -73,12 +73,23 @@ export function BinSheet({ open, onClose, onPick, current }: { open: boolean; on
 
 export function QtyStepper({ value, onChange, big = false }: { value: number; onChange: (n: number) => void; big?: boolean }) {
   const btn = big ? 'w-14 h-14 text-[28px]' : 'w-11 h-11 text-[22px]'
+  // What's typed, kept here so the box can be empty while typing (deleting "5" to type "3" must not turn into "13").
+  // Only a real number of 1 or more is passed on; leaving the box empty puts the last count back.
+  const [text, setText] = useState(String(value))
+  useEffect(() => { setText(t => (parseInt(t, 10) === value ? t : String(value))) }, [value])
   return (
     <div className="inline-flex items-center gap-1">
       <button aria-label="One less" onClick={() => onChange(Math.max(1, value - 1))} disabled={value <= 1}
         className={`${btn} rounded-full bg-white/[0.08] text-pt-text grid place-items-center disabled:opacity-30`}>−</button>
-      <input inputMode="numeric" aria-label="How many" value={value}
-        onChange={e => { const n = parseInt(e.target.value.replace(/\D/g, ''), 10); onChange(Number.isFinite(n) ? Math.min(9999, Math.max(1, n)) : 1) }}
+      <input inputMode="numeric" aria-label="How many" value={text}
+        onChange={e => {
+          const digits = e.target.value.replace(/\D/g, '').slice(0, 4)
+          setText(digits)
+          const n = parseInt(digits, 10)
+          if (Number.isFinite(n) && n >= 1) onChange(Math.min(9999, n))
+        }}
+        onBlur={() => { const n = parseInt(text, 10); if (!Number.isFinite(n) || n < 1) setText(String(value)) }}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
         className={`${big ? 'w-16 text-[28px]' : 'w-12 text-[18px]'} text-center font-bold bg-transparent text-pt-text outline-none`} />
       <button aria-label="One more" onClick={() => onChange(Math.min(9999, value + 1))}
         className={`${btn} rounded-full bg-white/[0.08] text-pt-text grid place-items-center`}>+</button>

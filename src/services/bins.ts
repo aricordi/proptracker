@@ -2,7 +2,8 @@ import {
   collection, updateDoc, deleteDoc,
   doc, onSnapshot, query, getDocs, where, orderBy, setDoc,
 } from 'firebase/firestore'
-import { db } from '../firebase'
+import { db, auth } from '../firebase'
+import { OWNER_EMAIL } from '../config'
 import type { Bin } from '../types'
 
 const col = collection(db, 'bins')
@@ -27,8 +28,14 @@ export async function updateBin(id: string, data: Partial<Omit<Bin, 'id' | 'qrSl
 }
 
 export async function canDeleteBin(id: string) {
-  const items = await getDocs(query(collection(db, 'items'), where('binId', '==', id)))
-  return { canDelete: items.empty, itemCount: items.size }
+  // Only the owner may read every prop; everyone else may only ask about Prime Capitol's (the rules refuse a wider query).
+  const owner = auth.currentUser?.email?.toLowerCase() === OWNER_EMAIL
+  const items = await getDocs(owner
+    ? query(collection(db, 'items'), where('binId', '==', id))
+    : query(collection(db, 'items'), where('collection', '==', 'company'), where('binId', '==', id)))
+  // Removed (archived) props keep their old bin but aren't on the shelf, so they don't stop the bin being deleted.
+  const onShelf = items.docs.filter(d => d.get('archived') !== true).length
+  return { canDelete: onShelf === 0, itemCount: onShelf }
 }
 
 export async function deleteBin(id: string) {

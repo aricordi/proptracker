@@ -6,7 +6,7 @@ import { useSession } from '../auth'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useCategories } from '../hooks/useCategories'
 import { useScheduleSettings, INVITE_HOLD_MINUTES, UNDO_MINUTES } from '../services/schedule'
-import { RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
+import { RETURN_DEADLINE_HOUR, todayInStudio } from '../../functions/src/booking'
 import { GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
 import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
@@ -32,7 +32,7 @@ export default function RulesSheetScreen() {
       ['Turnaround', `${b.bufferDays} open day${b.bufferDays === 1 ? '' : 's'}`, 'Days after a shoot before the same prop can go out again (checking, cleaning).', you],
       ...cats.map(c => [`Turnaround: ${c.label}`, `${c.turnaroundDays} open days`, 'Its own turnaround (e.g. washing costumes).', you] as [string, string, string, string]),
       ['Closed days', list(b.closedWeekdays.map(d => DAYS[d])), 'The prop room is closed: props are picked up the open day before; deadlines skip these days.', you],
-      ['Holidays', list(b.closedDates.filter(d => d >= new Date().toISOString().slice(0, 10)).map(d => formatDay(d))), 'Extra closed dates coming up.', you],
+      ['Holidays', list(b.closedDates.filter(d => d >= todayInStudio()).map(d => formatDay(d))), 'Extra closed dates coming up.', you],
       ['Props are late', `${RETURN_DEADLINE_HOUR} AM, next open day`, 'After this, the creator is flagged "late props" and can\'t book more props until they\'re back.', owner],
     ] },
     { title: 'Gear', rows: [
@@ -68,7 +68,7 @@ export default function RulesSheetScreen() {
       ['Low show-up', `under ${Math.round(LOW_SHOW_UP * 100)}%`, 'Filmed out of booked, once they have 2 or more shoots in the range.', owner],
     ] },
     { title: 'On the day, strikes and pauses', rows: [
-      ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a set photo (camera only) from this time until the slot ends.', owner],
+      ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a selfie (camera only) from this time until the slot ends.', owner],
       ['Started late', `more than ${LATE_START_MIN} min`, 'Checking in this long after the slot began shows a "Started late" flag in Analytics.', owner],
       ['Time to explain a missed check-in', `${s.explainHours} h`, 'After that, the team decides: they filmed, or a no-show (strike).', owner],
       ['Automatic pause', `${s.strikeCount} strikes in ${s.strikeDays} days`, `Pauses prop bookings for ${s.pauseDays} days (house time still OK). Admins can give, remove and lift.`, owner],

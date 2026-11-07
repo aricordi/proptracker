@@ -55,11 +55,14 @@ describe('prop insights', () => {
   })
   it('finds props that ran out, couldn’t be found or were turned away', () => {
     const lamp = all.unavailable.find(u => u.id === 'lamp')!
-    expect(lamp.fullDays).toBe(2)           // Nov 3 (old copy) and Nov 10 (ana + ben)
+    expect(lamp.fullDays).toBe(0)           // only 1 lamp: being booked isn't "running out" (and Nov 10 hasn't happened)
     expect(lamp.cantFind).toBe(1)
     expect(lamp.declined).toBe(1)
-    expect(lamp.buyMore).toBe(true)
+    expect(lamp.buyMore).toBe(false)        // nobody was turned away for want of a second one
     expect(all.unavailable.find(u => u.id === 'mask')!.fullDays).toBe(2)   // both units on Oct 22 and Nov 3
+    // Future shoot days never count as "ran out".
+    const future = propInsights({ items, reservations: [res('ana', '2026-11-06', '2026-11-20', [{ itemId: 'mask', qty: 2 }])], today: TODAY, period: '7d', highValue: 500 })
+    expect(future.unavailable.some(u => u.id === 'mask')).toBe(false)
     expect(all.unavailable.some(u => u.id === 'cup')).toBe(false)          // 2 of 6 isn't running out
   })
   it('counts creators who wanted a prop while it was booked out, and suggests buying another at 2+', () => {
