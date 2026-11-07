@@ -137,6 +137,18 @@ describe('schedule team', () => {
     expect((await getDoc(`schedule_days/${FRI}`))!.blocks).toEqual([])
   })
 
+  it('removes a block from Google Calendar (long id) with its clash listing, and says so when it is already gone', async () => {
+    // Imported blocks are 'g' + the event id (often 25+ characters); the id used to be cut at 20 and nothing was removed.
+    const id = 'g' + 'abcdefghij0123456789wxyz'
+    await put(`schedule_days/${FRI}`, { date: FRI, blocks: [{ id, house: 'cliff1', start: 780, end: 900, type: 'cleaning', note: 'Cleaners', imported: true }],
+      clashes: [{ house: 'cliff1', slot: '780', shootId: 'sh1', name: 'Ana', start: 780, end: 900, blockId: id }] })
+    expect((await call('removeScheduleBlock', { date: FRI, id }, MAANIK)).ok).toBe(true)
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.blocks ?? []).toEqual([])
+    expect(day.clashes ?? []).toEqual([])
+    expect((await call('removeScheduleBlock', { date: FRI, id }, MAANIK)).error).toBe('NOT_FOUND')
+  })
+
   it('the owner saves settings (cleaned); the team lists people; creators cannot', async () => {
     // Schedule settings are the owner's (owner, Oct 20); the gear team runs the schedule but can't change its rules.
     expect((await call('saveScheduleSettings', { monthlySlots: 5 }, MAANIK)).error).toBe('PERMISSION_DENIED')

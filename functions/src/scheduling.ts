@@ -563,12 +563,16 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
 
 export const removeScheduleBlock = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'equipment'])
-  const date = req.data?.date, id = str(req.data?.id, 20)
+  // Blocks from Google Calendar have longer ids ('g' + the event id), so read the whole id (audit: cut at 20, nothing matched
+  // and the app said it worked). Clash listings that point at the block go with it.
+  const date = req.data?.date, id = str(req.data?.id, 100)
   if (!isDay(date)) throw fail('bad-date')
+  if (!id) throw new HttpsError('invalid-argument', 'Which block?')
   const dayRef = dayRefOf(date)
   await db.runTransaction(async tx => {
     const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
-    tx.set(dayRef, { blocks: (day.blocks ?? []).filter(b => b.id !== id) }, { merge: true })
+    if (!(day.blocks ?? []).some(b => b.id === id)) throw new HttpsError('not-found', 'That block was already removed.')
+    tx.set(dayRef, { blocks: (day.blocks ?? []).filter(b => b.id !== id), clashes: (day.clashes ?? []).filter(c => c.blockId !== id) }, { merge: true })
   })
   return { ok: true }
 })
