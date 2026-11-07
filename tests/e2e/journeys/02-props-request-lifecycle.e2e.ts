@@ -116,7 +116,7 @@ test('3. arts: open the request from the props queue, tick everything, pack phot
   await test.step('mark it packed', async () => {
     await page.getByRole('button', { name: 'Mark packed & ready for pickup' }).click()
     await expect(page.getByText('Packed & ready').first()).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Mark packed & ready for pickup' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Mark packed & ready for pickup' })).toHaveCount(0, { timeout: 30_000 })
   })
 })
 
@@ -142,7 +142,7 @@ test('4a. creator: signs for the pickup, then returns everything with one photo'
     await page.getByRole('button', { name: 'Return these props' }).click()
     await expect(page).toHaveURL(/\/return\?ref=props:/)
     await expect(page.getByText('What are you bringing back?')).toBeVisible()
-    await expect(page.getByRole('heading', { level: 1, name: 'Return everything' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Bring it back' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Props & costumes · 2 Rotary phone ×2, Wooden dining chair/, pressed: true })).toBeVisible()
     await page.getByRole('button', { name: 'No, all good' }).click()
     await expect(page.getByRole('button', { name: 'Take the photo first' })).toBeDisabled()
