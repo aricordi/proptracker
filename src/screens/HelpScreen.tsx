@@ -47,6 +47,7 @@ export default function HelpScreen() {
     ] },
     { title: 'Filming with friends', icon: 'people', items: [
       { q: 'How do I book back to back with friends?', words: 'collab together partner invite', a: <>Tap <b>✦ Ask for a time</b> and say who you're filming with ("with Alex and Kyle this week"). Pick an option and tap Book: your slot is booked, and each friend gets the slot right after yours, held for them for <b>{INVITE_HOLD_MINUTES} minutes</b> to confirm.</> },
+      { q: 'Why does it suggest someone to film with?', words: 'usual partner usually films with suggest friend chip', a: <>If you've filmed back to back with someone at least twice in the last 3 months, they show as <b>Usually films with</b> when you add a friend to a booking, and the chat may offer <b>With their name?</b> after a time search. It's only a shortcut: tap it to add them, or ignore it. Nobody is ever added for you.</> },
       { q: 'Someone invited me. What do I do?', words: 'invite confirm held', a: <>You'll see the invite at the top of the Chat and on the Calendar. Tap <b>Confirm my slot</b> within {INVITE_HOLD_MINUTES} minutes and it's yours. If you can't make it, tap "Can't make it" so the slot opens up.</> },
       { q: 'A slot says "Held for…". Can I book it?', words: 'held amber dashed', a: <>Not yet: it's held for someone's collab for up to {INVITE_HOLD_MINUTES} minutes. If they don't confirm, it opens to everyone at the time shown. Check back then.</> },
     ] },

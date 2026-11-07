@@ -47,6 +47,7 @@ import {
   type TimeAskResult,
 } from '../services/schedule'
 import { freeForRange, todayInStudio } from '../../functions/src/booking'
+import { useUsualPartners } from '../hooks/useUsualPartners'
 import { fmtTime, fmtHours, nowStamp } from '../../functions/src/gearBooking'
 import { Icon, type IconName } from './Icon'
 import { friendlyError } from '../lib/errors'
@@ -148,6 +149,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const returns = useReturnGroups(profile.email)
   const myStatus = useMyStatus(profile.email)
   const gw = useGearWindow()
+  // Usual partners (owner, Nov 7): one "With Kyle?" chip after a time search that names nobody, and a hint for the chat's AI.
+  const partners = useUsualPartners(profile.email, s.slotMinutes, !demo && !helpOnly)
   const [bundles, setBundles] = useState<GearBundle[]>([])
   useEffect(() => subscribeToGearBundles(setBundles), [])
   const itemById = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
@@ -290,6 +293,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       out: { props: groups.reduce((n, g) => n + g.props.filter(canReturnProps).length, 0), gear: groups.flatMap(g => g.gear.filter(canReturnGear).flatMap(b => b.lines.map(l => l.name))).slice(0, 8) },
       ...(paused ? { paused } : {}), ...(myStatus?.strikes ? { strikes: myStatus.strikes } : {}),
       ...(plan ? { plan: { step: plan.step, ...(shoot?.id ? { shoot: shoot.id } : {}) } } : {}),
+      ...(partners.length ? { usualPartners: partners.map(p => p.label) } : {}),
     }
   }
   // The newest "me" line takes the helper it ended up going to (the prop finder reads earlier prop messages).
@@ -692,6 +696,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const one = (h: string) => a.houses?.length === 1 && a.houses[0] === h
       const next = r.choices?.length ? r.choices : (r.friends.length ? ['Anything on the weekend?', one('cliff2') ? '' : `Only ${s.houses.cliff2.name}`, 'Just me, 2 hours']
         : ['Anything earlier?', a.timeOfDay === 'evening' ? 'Mornings instead' : 'Evenings only', one('cliff1') ? `Only ${s.houses.cliff2.name}` : `Only ${s.houses.cliff1.name}`]).filter(Boolean)
+      // Nobody named (and not "just me"): offer the usual partner, once. The tap re-runs this search with them.
+      const named = r.friends.length > 0 || (Array.isArray((r.ask as { people?: unknown }).people) && ((r.ask as { people: unknown[] }).people.length > 0))
+      if (!r.choices?.length && r.options.length && !named && partners[0] && !/\b(just me|only me|alone|solo)\b/i.test(q)) next.unshift(`With ${partners[0].label}?`)
       for (const c of next) helperChips.current.set(c, 'time')
       return next
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]); return [] }

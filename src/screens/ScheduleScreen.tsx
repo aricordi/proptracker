@@ -23,6 +23,7 @@ import { Pill } from '../components/GearUi'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
 import { whenLabel, formatDay } from '../lib/dates'
 import { useProfiles } from '../services/profiles'
+import { useUsualPartners } from '../hooks/useUsualPartners'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
@@ -440,6 +441,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   const [q, setQ] = useState('')
   useEffect(() => { if (friendCount && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [friendCount, everyone])
   const chosen = friends.slice(0, friendCount)
+  // "Usually films with" (owner, Nov 7): one-tap shortcut to the people they film back to back with most; never auto-added.
+  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team && friendCount > 0).filter(p => !chosen.some(c => c.email === p.email))
   const h = house as House
   // The slot(s) right after yours must be free for your friends.
   const nextFree = Array.from({ length: friendCount }, (_, i) => start + (i + 1) * s.slotMinutes)
@@ -492,6 +495,20 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
               </div>
               {chosen.length < friendCount && (
                 <div className="bg-pt-bg rounded-xl p-2">
+                  {usualOnes.length > 0 && (
+                    <div className="px-1 pb-2" data-testid="usual-partners">
+                      <p className="text-pt-muted text-xs mb-2">Usually films with</p>
+                      <div className="flex flex-wrap gap-2">
+                        {usualOnes.map(p => (
+                          <button key={p.email} onClick={() => { setFriends([...chosen, { email: p.email, name: p.name }]); setQ('') }}
+                            aria-label={`Film with ${p.name}`}
+                            className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                            <Avatar email={p.email} name={p.name} size={32} />{p.label}<span className="text-pt-accent">+</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
                   <div className="max-h-48 overflow-y-auto mt-1">
                     {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}

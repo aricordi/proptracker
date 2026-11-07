@@ -75,3 +75,45 @@ export function neighboursOf(s: CollabShoot, shoots: CollabShoot[]): CollabShoot
   return shoots.filter(x => counts(x) && x.id !== s.id && x.date === s.date && x.place === s.place && x.creatorEmail !== s.creatorEmail
     && (x.to === s.from || x.from === s.to))
 }
+
+// SUGGEST THE USUAL PARTNER (owner, Nov 7): creators can't read other people's shoots, but every member can read the
+// schedule's day docs (schedule_days). These turn day docs into CollabShoots so the same pattern works on the phone.
+interface DaySlot { shootId?: string; name?: string; email?: string; time?: { start: number; end: number }; pending?: boolean; hold?: unknown }
+export interface CollabDay { date: string; cliff1?: Record<string, DaySlot>; cliff2?: Record<string, DaySlot> }
+
+const stamp = (date: string, min: number) => `${date}T${String(min).padStart(4, '0')}`   // only compared within one day
+
+/** Day docs → one CollabShoot per shoot (a shoot spread over several grid slots counts once). Holds are skipped. */
+export function collabShootsFromDays(days: CollabDay[], slotMinutes: number): CollabShoot[] {
+  const out: CollabShoot[] = []
+  for (const d of days) for (const place of ['cliff1', 'cliff2'] as const) {
+    const byShoot = new Map<string, { s: CollabShoot; start: number; end: number }>()
+    for (const [k, e] of Object.entries(d[place] ?? {})) {
+      if (!e?.shootId || !e.email || e.hold) continue
+      const start = e.time?.start ?? Number(k), end = e.time?.end ?? Number(k) + slotMinutes
+      if (!Number.isFinite(start) || !Number.isFinite(end)) continue
+      const was = byShoot.get(e.shootId)
+      if (was) { was.start = Math.min(was.start, start); was.end = Math.max(was.end, end); continue }
+      byShoot.set(e.shootId, { start, end, s: { id: e.shootId, creatorEmail: e.email.toLowerCase(), creatorName: e.name ?? '', place, date: d.date, from: '', to: '', status: e.pending ? 'requested' : 'booked' } })
+    }
+    for (const { s, start, end } of byShoot.values()) out.push({ ...s, from: stamp(d.date, start), to: stamp(d.date, end) })
+  }
+  return out
+}
+
+/** This person's usual partners (most often first) who can still film (`allowed` = the friend list), with the friend list's names. */
+export function usualPartners(email: string, shoots: CollabShoot[], allowed: { email: string; name: string }[], max = 3): { email: string; name: string; times: number }[] {
+  const me = email.toLowerCase()
+  const byEmail = new Map(allowed.map(p => [p.email.toLowerCase(), p]))
+  return usual(partnersOf(me, shoots)).flatMap(p => {
+    const a = byEmail.get(p.email)
+    return a && p.email !== me ? [{ email: a.email, name: a.name, times: p.times }] : []
+  }).slice(0, max)
+}
+
+/** What to call a partner in a chip: the first name, or the full name when someone else in the list shares it. */
+export function partnerLabel(p: { email: string; name: string }, allowed: { email: string; name: string }[]): string {
+  const first = (n: string) => n.trim().split(/\s+/)[0]?.toLowerCase() ?? ''
+  const shared = allowed.some(o => o.email !== p.email && first(o.name) === first(p.name))
+  return shared ? p.name.trim() : p.name.trim().split(/\s+/)[0]
+}
