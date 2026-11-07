@@ -23,7 +23,7 @@ import { Icon } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
 
 const errText = (e: unknown) => friendlyError(e)
-const ACTIONS: Record<string, string> = { handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
+const ACTIONS: Record<string, string> = { problem: 'Problem reported', handed_over: 'Handed over', edited: 'Changed', held: 'Held', cancelled: 'Cancelled', declined: 'Declined', picked_up: 'Picked up', returned: 'Returned', checked_in: 'Checked in' }
 const STEPS = ['Held', 'Picked up', 'Returned', 'Checked in']
 const STEP_OF: Record<string, number> = { held: 0, out: 1, returned: 2, checked_in: 3 }
 const stampMin = (s: string) => Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16))
@@ -169,7 +169,9 @@ export default function GearBookingScreen() {
         {b.pickup?.photos?.length ? (
           <div className="bg-pt-surface rounded-2xl px-4 py-3 space-y-2">
             <p className="text-pt-text text-sm font-semibold">{b.grab ? 'Taken on the day' : 'Picked up'} · photo when it went out</p>
-            <div className="flex gap-2">{b.pickup.photos.map(u => <img key={u} src={u} alt="Gear when it went out" loading="lazy" decoding="async" className="w-20 h-20 rounded-xl object-cover" />)}</div>
+            <div className="flex gap-2">{b.pickup.photos.map(u => (
+              <div key={u} className="w-24 space-y-1"><button onClick={() => setZoom(u)} aria-label="Open the photo larger"><img src={u} alt="Gear when it went out" loading="lazy" decoding="async" className="w-24 h-24 rounded-xl object-cover" /></button><PhotoStamp url={u} /></div>
+            ))}</div>
           </div>
         ) : null}
         {/* ── Pickup check (creator, in the pickup window) ── */}
@@ -247,7 +249,9 @@ export default function GearBookingScreen() {
           <div className="bg-amber-500/10 rounded-2xl px-4 py-3 space-y-1 text-[15px]">
             <p className="text-amber-200 font-medium">Problems</p>
             {b.pickup?.missing?.map((m, i) => <p key={`p${i}`} className="text-pt-text">{m.qty}× {m.name} missing at pickup</p>)}
-            {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.kind === 'damaged_at_return' ? `${m.name}: damage reported at the return${m.note ? ` ("${m.note}")` : ''}` : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}</p>)}
+            {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.kind === 'damaged_at_return' ? `${m.name}: damage reported at the return${m.note ? ` ("${m.note}")` : ''}`
+              : m.kind === 'reported' ? `${m.name}: reported while it was out${m.note ? ` ("${m.note}")` : ''}`
+              : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}</p>)}
             {b.return && b.return.charging === false && <p className="text-pt-text">Charging case not confirmed at the return</p>}
           </div>
         ) : null}
@@ -307,7 +311,7 @@ export default function GearBookingScreen() {
           ))}
         </div>
       </div>
-      {zoom && <ImageLightbox src={zoom} alt="Return photo" onClose={() => setZoom(null)} />}
+      {zoom && <ImageLightbox src={zoom} alt="Gear photo" onClose={() => setZoom(null)} />}
     </div>
   )
 }

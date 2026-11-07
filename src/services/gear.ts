@@ -86,7 +86,7 @@ export interface GearBooking {
   value?: number; valueMissing?: number
   late?: { minutes: number; dueAt: string; backAt: string; by: string; byName: string; value: number; valueMissing: number; feePercent: number }
   checkIn?: { at: string; by: string; missing: GearMissing[]; note?: string }
-  problems?: (GearMissing & { kind: 'missing_after' | 'missing_at_checkin' | 'damaged_at_return'; at: string; reportedOn?: string; note?: string })[]
+  problems?: (GearMissing & { kind: 'missing_after' | 'missing_at_checkin' | 'damaged_at_return' | 'reported'; at: string; reportedOn?: string; note?: string })[]
   alerts?: { kind: string; at: string; count: number }[]
   createdAt: string
   history: { at: string; by: string; action: string; note?: string }[]
