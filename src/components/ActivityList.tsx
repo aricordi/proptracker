@@ -6,7 +6,7 @@ import { useCategories } from '../hooks/useCategories'
 import { useBins } from '../hooks/useBins'
 import { useLocations } from '../hooks/useLocations'
 import { useTags } from '../hooks/useTags'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 import type { AppUser } from '../types'
 import { Icon, type IconName } from './Icon'
 
@@ -70,7 +70,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
   return (
     <div className="space-y-2">
       {shown.map(a => {
-        const day = a.at.slice(0, 10)
+        const day = studioDayOf(a.at)
         const header = day !== lastDay ? (lastDay = day) : null
         const who = nameOf(a.by)
         const what = a.kind === 'bin'

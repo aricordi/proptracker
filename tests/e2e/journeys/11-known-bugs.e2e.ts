@@ -4,12 +4,12 @@ import { test, expect, reseed, signIn, putDoc } from '../helpers'
 
 test.beforeAll(() => reseed())
 
-// BUG: dates in a request's History (and "Signed by … on", "Returned …", Suggested edits, Activity day headers) take the
+// FIXED (Nov 7, studioDayOf in src/lib/dates.ts): dates in a request's History (and "Signed by … on", "Returned …", Suggested edits, Activity day headers) take the
 // day from the UTC timestamp (`at.slice(0, 10)`) but the time in Toronto time. From 7/8 PM until midnight in Toronto the
 // date shows as TOMORROW: something done Jan 14 at 10:30 PM reads "Jan 15 10:30 p.m.".
 // Code: src/screens/ReservationDetailScreen.tsx History (+ lines with `.at.slice(0, 10)`), src/components/ActivityList.tsx,
 // src/components/Suggestions.tsx.
-test.fixme('request history shows the Toronto day for something done late in the evening', async ({ page }) => {
+test('request history shows the Toronto day for something done late in the evening', async ({ page }) => {
   // Jan 15 03:30 UTC = Jan 14, 10:30 PM in Toronto.
   await putDoc('reservations/rs-evening', {
     title: 'Evening request', creatorEmail: 'creator@example.com', creatorName: 'Riley (Creator)',

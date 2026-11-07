@@ -4,7 +4,7 @@ import QRCode from 'qrcode'
 import { useBins } from '../hooks/useBins'
 import { useItems } from '../hooks/useItems'
 import { thumbOf } from '../services/itemShape'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 import { useLocations } from '../hooks/useLocations'
 import { addBin, updateBin, deleteBin, canDeleteBin } from '../services/bins'
 import BottomSheet from '../components/BottomSheet'
@@ -309,7 +309,7 @@ export default function BinsScreen() {
                   >
                     <span className="font-medium text-pt-text">{bin.label}</span>
                     <span className={`block text-xs mt-0.5 ${bin.checkedAt ? 'text-green-400' : 'text-pt-muted'}`}>
-                      {perBin[bin.id] ?? 0} prop{perBin[bin.id] === 1 ? '' : 's'} · {bin.checkedAt ? `✓ Checked ${formatDay(bin.checkedAt.slice(0, 10))}` : 'Not checked'}
+                      {perBin[bin.id] ?? 0} prop{perBin[bin.id] === 1 ? '' : 's'} · {bin.checkedAt ? `✓ Checked ${formatDay(studioDayOf(bin.checkedAt))}` : 'Not checked'}
                     </span>
                   </button>
                   {/* Edit bin */}

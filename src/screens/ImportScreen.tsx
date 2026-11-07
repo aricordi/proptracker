@@ -5,7 +5,7 @@ import {
   subscribeToImportJobs, subscribeToImportBudget, setImportCap, importInfo, startImport, processImport, undoImport,
   DEFAULT_CAP_USD, type ImportJob, type ImportBudget,
 } from '../services/importer'
-import { formatDay } from '../lib/dates'
+import { formatDay, studioDayOf } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 
 const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`
@@ -200,7 +200,7 @@ export default function ImportScreen() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-pt-text text-sm font-medium truncate">{j.folders.map(f => f.name).join(', ')}</p>
-                    <p className="text-pt-muted text-xs">{formatDay(j.createdAt.slice(0, 10))} · {j.total} {j.total === 1 ? 'photo' : 'photos'} · {usd(j.spentUsd)}{j.dryRun ? ' · dry run' : ''}</p>
+                    <p className="text-pt-muted text-xs">{formatDay(studioDayOf(j.createdAt))} · {j.total} {j.total === 1 ? 'photo' : 'photos'} · {usd(j.spentUsd)}{j.dryRun ? ' · dry run' : ''}</p>
                     {(j.place || j.listNames?.length) && (
                       <p className="text-pt-muted text-xs">{j.place ? `All in "${j.place}"` : ''}{j.place && j.listNames?.length ? ' · ' : ''}{j.listNames?.length ? `checked against ${j.listNames.join(', ')}` : ''}</p>
                     )}
