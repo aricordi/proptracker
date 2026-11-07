@@ -512,6 +512,13 @@ describe('admin (a viewer who manages creators)', () => {
     for (const who of [CREATOR, ARTS, GEAR]) await assertFails(getDoc(doc(as(who), 'flag_reviews', 'late-props__r1')))
     await assertFails(setDoc(doc(as(ADMIN), 'flag_reviews', 'x'), { status: 'excused' }))
   })
+  it('"wanted but booked" records: owner, arts and admins read; nobody writes them from a phone', async () => {
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'prop_wants', 'cop_2026-11-20_abc'), { itemId: 'cop', day: '2026-11-20', email: CREATOR }) })
+    for (const who of [OWNER, ARTS, ADMIN]) await assertSucceeds(getDoc(doc(as(who), 'prop_wants', 'cop_2026-11-20_abc')))
+    for (const who of [CREATOR, GEAR]) await assertFails(getDoc(doc(as(who), 'prop_wants', 'cop_2026-11-20_abc')))
+    for (const who of [CREATOR, ARTS, OWNER]) await assertFails(setDoc(doc(as(who), 'prop_wants', 'cop_2026-11-21_abc'), { itemId: 'cop', day: '2026-11-21', email: CREATOR }))
+    await assertFails(deleteDoc(doc(as(OWNER), 'prop_wants', 'cop_2026-11-20_abc')))
+  })
 })
 
 describe('Prime Capitol Google account secrets', () => {

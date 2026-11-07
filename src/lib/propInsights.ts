@@ -6,7 +6,9 @@
 //   • its date is the day it was ASKED FOR (createdAt, studio time), so "this week" = what creators asked for this week;
 //   • "ran out" = a shoot day on which every unit was booked (only props from the closet: builds aren't props yet);
 //   • damage and loss = what the arts department marked at check-in (damaged = 1 unit, missing = the units missing),
-//     on the creator who booked it.
+//     on the creator who booked it;
+//   • "wanted but booked" = a creator opened the prop while adding to their shoot and every unit was already booked that
+//     day (prop_wants: one record per prop, shoot day and person, noted quietly by the prop page).
 import type { Item } from '../types'
 import type { Reservation } from '../services/reservations'
 import { nameLikeness, nameWords } from '../../functions/src/doubles'
@@ -20,6 +22,10 @@ export const GRAB_DAYS = 90           // grab-and-go candidates look at the last
 export const GRAB_MIN_REQUESTS = 3
 export const GRAB_MIN_CREATORS = 2
 export const BUY_MIN_FULL_DAYS = 2    // ran out on 2+ shoot days → "Buy another?"
+export const BUY_MIN_WANTED = 2       // …or wanted 2+ times (person + day) while it was booked out
+
+/** A creator opened this prop while adding to their shoot on `day`, and it was booked out (functions/src/propWants.ts). */
+export interface PropWant { itemId: string; day: string; email: string }
 
 /** 'YYYY-MM-DD' in studio time (Toronto) for an ISO time. */
 export function studioDay(iso: string): string {
@@ -35,7 +41,12 @@ export function addDaysTo(day: string, n: number): string {
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86_400_000)
 
 export interface PropStat { id: string; name: string; item?: Item; requests: number; units: number; creators: number; last: string }
-export interface Unavailable { id: string; name: string; item?: Item; fullDays: number; cantFind: number; declined: number; buyMore: boolean }
+export interface Unavailable {
+  id: string; name: string; item?: Item; fullDays: number; cantFind: number; declined: number
+  wantedWhileBooked: number   // records: one per person and shoot day
+  wantedBy: number            // different people among them
+  buyMore: boolean
+}
 export interface Wanted { key: string; label: string; requests: number; units: number; couldntGet: number; made: number; last: string }
 export interface PersonLoss { email: string; name: string; incidents: number; units: number; value: number; valueMissing: boolean; props: { id: string; name: string; units: number; day: string; resId: string }[] }
 export interface Trend { stat: PropStat; recent: number; before: number }
@@ -97,7 +108,7 @@ function tally(rs: Reservation[], resolve: ReturnType<typeof resolver>): PropSta
     .sort((a, b) => b.requests - a.requests || b.units - a.units || b.last.localeCompare(a.last) || a.name.localeCompare(b.name))
 }
 
-export function propInsights(input: { items: Item[]; reservations: Reservation[]; today: string; period: Period; highValue: number }): Insights {
+export function propInsights(input: { items: Item[]; reservations: Reservation[]; wants?: PropWant[]; today: string; period: Period; highValue: number }): Insights {
   const { today, period, highValue } = input
   const items = input.items.filter(i => i.collection === 'company')
   const active = items.filter(i => !i.archived)
@@ -124,7 +135,7 @@ export function propInsights(input: { items: Item[]; reservations: Reservation[]
   const un = new Map<string, Unavailable>()
   const unOf = (raw: string, name: string) => {
     const { id, item } = resolve(raw)
-    const u = un.get(id) ?? { id, name: item?.name ?? name, item, fullDays: 0, cantFind: 0, declined: 0, buyMore: false }
+    const u = un.get(id) ?? { id, name: item?.name ?? name, item, fullDays: 0, cantFind: 0, declined: 0, wantedWhileBooked: 0, wantedBy: 0, buyMore: false }
     un.set(id, u)
     return u
   }
@@ -147,15 +158,28 @@ export function propInsights(input: { items: Item[]; reservations: Reservation[]
     const it = byId.get(id)
     if (it && units >= Math.max(1, it.quantity - (it.missingQty ?? 0))) unOf(id, it.name).fullDays++
   }
+  // Wanted while booked out: counted on the shoot day, like "ran out" (Prime Capitol props only).
+  const wantedBy = new Map<string, Set<string>>()
+  for (const w of input.wants ?? []) {
+    if (from && w.day < from) continue
+    const it = byId.get(w.itemId)
+    if (!it) continue
+    const u = unOf(w.itemId, it.name)
+    u.wantedWhileBooked++
+    const who = wantedBy.get(u.id) ?? new Set<string>()
+    who.add(w.email); wantedBy.set(u.id, who)
+  }
   for (const r of asked) {
     for (const l of r.lines ?? []) {
       if (l.pick?.state === 'unavailable') unOf(l.itemId, l.itemName).cantFind++
       if (r.status === 'declined') unOf(l.itemId, l.itemName).declined++
     }
   }
-  const unavailable = [...un.values()].map(u => ({ ...u, buyMore: u.fullDays >= BUY_MIN_FULL_DAYS || (u.fullDays >= 1 && u.declined >= 1) }))
-    .filter(u => u.fullDays + u.cantFind + u.declined > 0 && (!u.item || !u.item.archived))
-    .sort((a, b) => (b.fullDays + 2 * b.cantFind + b.declined) - (a.fullDays + 2 * a.cantFind + a.declined) || a.name.localeCompare(b.name))
+  const unScore = (u: Unavailable) => u.fullDays + 2 * u.cantFind + u.declined + u.wantedWhileBooked
+  const unavailable = [...un.values()].map(u => ({ ...u, wantedBy: wantedBy.get(u.id)?.size ?? 0,
+    buyMore: u.fullDays >= BUY_MIN_FULL_DAYS || (u.fullDays >= 1 && u.declined >= 1) || u.wantedWhileBooked >= BUY_MIN_WANTED }))
+    .filter(u => unScore(u) > 0 && (!u.item || !u.item.archived))
+    .sort((a, b) => unScore(b) - unScore(a) || a.name.localeCompare(b.name))
 
   // Things creators asked us to make or find (build requests).
   const w = new Map<string, Wanted>()

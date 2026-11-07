@@ -1,14 +1,15 @@
 // Prop insights (owner, Nov 7): an at-a-glance dashboard for the arts department. What creators ask for most, what's hot
-// right now, what runs out (buy another?), what they ask for that we don't have, what could live on a grab-and-go shelf,
+// right now, what runs out or was wanted while booked out (buy another?), what they ask for that we don't have, what could live on a grab-and-go shelf,
 // who damages or loses props, and what's never asked for. Owner, arts and admins; view only. Numbers: src/lib/propInsights.ts.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useItems } from '../hooks/useItems'
 import { useCategories } from '../hooks/useCategories'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
+import { subscribeToPropWants } from '../services/propWants'
 import { todayInStudio } from '../../functions/src/booking'
 import { HIGH_VALUE_THRESHOLD } from '../config'
-import { propInsights, agoLabel, PERIODS, TREND_DAYS, GRAB_DAYS, GRAB_MIN_REQUESTS, GRAB_MIN_CREATORS, BUY_MIN_FULL_DAYS, type Period, type PersonLoss } from '../lib/propInsights'
+import { propInsights, agoLabel, PERIODS, TREND_DAYS, GRAB_DAYS, GRAB_MIN_REQUESTS, GRAB_MIN_CREATORS, BUY_MIN_FULL_DAYS, BUY_MIN_WANTED, type Period, type PersonLoss, type PropWant, type Unavailable } from '../lib/propInsights'
 import { PropThumb } from '../components/cleanup/Parts'
 import Avatar from '../components/Avatar'
 import { Icon, type IconName } from '../components/Icon'
@@ -19,6 +20,9 @@ import type { Item } from '../types'
 const times = (n: number) => n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
 const money = (n: number) => formatMoney(n).replace(/\.00$/, '')
+/** "2 people wanted it while booked out" (or "wanted 3 times…" when someone wanted it on more than one day). */
+const wantedText = (u: Unavailable) => u.wantedBy === u.wantedWhileBooked
+  ? `${plural(u.wantedBy, 'person', 'people')} wanted it while booked out` : `wanted ${times(u.wantedWhileBooked)} while booked out`
 
 export default function PropInsightsScreen() {
   const navigate = useNavigate()
@@ -29,9 +33,11 @@ export default function PropInsightsScreen() {
   const categories = useCategories()
   const [reservations, setReservations] = useState<Reservation[] | null>(null)
   useEffect(() => subscribeToReservations({ email: '', all: true }, setReservations), [])
+  const [wants, setWants] = useState<PropWant[]>([])
+  useEffect(() => subscribeToPropWants(setWants), [])
   const today = todayInStudio()
-  const data = useMemo(() => reservations ? propInsights({ items, reservations, today, period, highValue: HIGH_VALUE_THRESHOLD }) : null,
-    [items, reservations, today, period])
+  const data = useMemo(() => reservations ? propInsights({ items, reservations, wants, today, period, highValue: HIGH_VALUE_THRESHOLD }) : null,
+    [items, reservations, wants, today, period])
   const catLabel = (id: string) => categories.find(c => c.id === id)?.label ?? id
   const open = (id: string, item?: Item) => item && navigate(`/item/${id}`)
 
@@ -79,12 +85,13 @@ export default function PropInsightsScreen() {
               })} onOpen={open} />
             </Card>
 
-            <Card icon="alert" title="Often unavailable" sub={`Every unit booked on a shoot day, couldn't be found when packing, or in a declined request. "Buy another?" = ran out on ${BUY_MIN_FULL_DAYS}+ days.`}>
+            <Card icon="alert" title="Often unavailable" sub={`Every unit booked on a shoot day, couldn't be found when packing, in a declined request, or creators wanted it for their shoot while it was booked out. "Buy another?" = ran out on ${BUY_MIN_FULL_DAYS}+ days, or ${BUY_MIN_WANTED}+ wanted it while booked out.`}>
               <Ranked list={data.unavailable} empty="Nothing ran out in this period ✓" render={u => ({
                 main: u.buyMore ? 'Buy another?' : '', badge: u.buyMore,
                 sub: [u.fullDays && ((u.item?.quantity ?? 1) > 1 ? `All ${u.item!.quantity} booked on ${plural(u.fullDays, 'day')}` : `Booked out on ${plural(u.fullDays, 'day')}`),
-                  u.cantFind && `couldn't find it ${times(u.cantFind)}`, u.declined && `in ${plural(u.declined, 'declined request')}`].filter(Boolean).join(' · '),
-                value: u.fullDays + 2 * u.cantFind + u.declined,
+                  u.cantFind && `couldn't find it ${times(u.cantFind)}`, u.declined && `in ${plural(u.declined, 'declined request')}`,
+                  u.wantedWhileBooked && wantedText(u)].filter(Boolean).join(' · '),
+                value: u.fullDays + 2 * u.cantFind + u.declined + u.wantedWhileBooked,
               })} onOpen={open} />
             </Card>
 
@@ -142,6 +149,7 @@ export default function PropInsightsScreen() {
               <li>A <b className="text-pt-text">request</b> counts on the day it was asked for. Cancelled requests never count; declined ones do (someone wanted the prop).</li>
               <li><b className="text-pt-text">Props sent out</b> leaves out declined requests.</li>
               <li><b className="text-pt-text">Ran out</b> = a shoot day on which every unit (minus missing ones) was booked.</li>
+              <li><b className="text-pt-text">Wanted while booked out</b> = a creator opened the prop while adding to their shoot and every unit was already booked that day. The app notes it quietly (the creator sees nothing). Each person counts once per prop and shoot day, and not when it was their own request that booked it.</li>
               <li><b className="text-pt-text">Damaged / missing</b> come from the check-in after a return and go on the creator who booked it. Values use the replacement cost on the prop.</li>
               <li>Props combined in the clean-up keep their old requests.</li>
             </ul>

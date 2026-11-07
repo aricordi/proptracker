@@ -62,6 +62,29 @@ describe('prop insights', () => {
     expect(all.unavailable.find(u => u.id === 'mask')!.fullDays).toBe(2)   // both units on Oct 22 and Nov 3
     expect(all.unavailable.some(u => u.id === 'cup')).toBe(false)          // 2 of 6 isn't running out
   })
+  it('counts creators who wanted a prop while it was booked out, and suggests buying another at 2+', () => {
+    const wants = [
+      { itemId: 'cup', day: '2026-11-10', email: 'fay@x.com' },
+      { itemId: 'cup', day: '2026-11-10', email: 'gus@x.com' },
+      { itemId: 'mask', day: '2026-11-12', email: 'fay@x.com' },
+      { itemId: 'old', day: '2026-11-12', email: 'gus@x.com' },      // merged copy → counts for the lamp
+      { itemId: 'mine', day: '2026-11-12', email: 'gus@x.com' },     // personal prop: never counts
+      { itemId: 'cup', day: '2026-10-01', email: 'hal@x.com' },      // before the 7-day period
+    ]
+    const week = propInsights({ items, reservations, wants, today: TODAY, period: '7d', highValue: 500 })
+    const cup = week.unavailable.find(u => u.id === 'cup')!
+    expect(cup).toMatchObject({ fullDays: 0, wantedWhileBooked: 2, wantedBy: 2, buyMore: true })   // 2 people → buy another
+    expect(week.unavailable.find(u => u.id === 'mask')).toMatchObject({ wantedWhileBooked: 1, buyMore: false })
+    expect(week.unavailable.find(u => u.id === 'lamp')!.wantedWhileBooked).toBe(1)
+    expect(week.unavailable.some(u => u.id === 'mine')).toBe(false)
+    const all2 = propInsights({ items, reservations, wants, today: TODAY, period: 'all', highValue: 500 })
+    expect(all2.unavailable.find(u => u.id === 'cup')).toMatchObject({ wantedWhileBooked: 3, wantedBy: 3 })
+    // One person on two days still counts twice (2 shoot days it couldn't go out), but as 1 person.
+    const twice = propInsights({ items, reservations, wants: [{ itemId: 'never', day: '2026-11-10', email: 'fay@x.com' }, { itemId: 'never', day: '2026-11-11', email: 'fay@x.com' }], today: TODAY, period: 'all', highValue: 500 })
+    expect(twice.unavailable.find(u => u.id === 'never')).toMatchObject({ wantedWhileBooked: 2, wantedBy: 1, buyMore: true })
+    // Without any records nothing changes.
+    expect(all.unavailable.every(u => u.wantedWhileBooked === 0 && u.wantedBy === 0)).toBe(true)
+  })
   it('groups the things creators asked us to make or find', () => {
     expect(wantedKey('A fog machines!')).toBe(wantedKey('Fog machine'))
     expect(all.wanted).toHaveLength(1)

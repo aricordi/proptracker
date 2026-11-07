@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useCart } from '../cart'
 import { useSession } from '../auth'
@@ -13,12 +13,13 @@ import { useActiveShoot, useCutoffs } from '../activeShoot'
 import AddingToBar from './AddingToBar'
 import { IconText } from './Icon'
 import { useAddWithoutShoot } from './AddWithoutShoot'
+import { noteWanted } from '../services/propWants'
 
 // On a prop's page: when it's booked, and adding it to the reservation being built.
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
   const navigate = useNavigate()
   const cart = useCart()
-  const { isStaff, shootFlow, canBook } = useSession()
+  const { isStaff, shootFlow, canBook, demo, viewingAs } = useSession()
   const noShoot = useAddWithoutShoot()
   const settings = useBookingSettings()
   const turnaroundDays = useTurnaround()(item)
@@ -38,6 +39,18 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const [qty, setQty] = useState(Math.max(1, inCart))
   const [note, setNote] = useState<string | null>(null)
   const blocked = item.condition === 'damaged' && !isStaff
+
+  // "Wanted but booked" (owner, Nov 7): a creator adding to a shoot opens a prop with nothing free that day → the app quietly
+  // tells the arts department (Prop insights). Only when units exist but are all booked (not missing ones), only for people
+  // who book (not staff, not Props only, not the owner's "View as"), and after a moment so a page still loading never counts.
+  const units = Math.max(0, item.quantity - (item.missingQty ?? 0))
+  const wantDay = shoot && dates && free === 0 && units > 0 && !legacyOut && dates.start === shoot.date
+    && canBook && !isStaff && !demo && !viewingAs && item.collection === 'company' && !item.archived ? shoot.date : null
+  useEffect(() => {
+    if (!wantDay) return
+    const t = setTimeout(() => noteWanted(item.id, wantDay), 1500)
+    return () => clearTimeout(t)
+  }, [item.id, wantDay])
 
   function pick(day: string) {
     if (!isStaff || shoot) { setNote(isStaff ? "You're adding to your shoot, so its day is used. Pick \"Just browsing\" above to choose another day." : 'Pick one of your shoots below. Its day is used.'); return }

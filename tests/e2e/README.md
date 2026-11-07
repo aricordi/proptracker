@@ -48,6 +48,8 @@ Journeys (`journeys/`, one file at a time, each file starts from fresh test data
       anything done from 7 PM (8 PM in summer) until midnight Toronto time (day taken from the UTC timestamp);
     - (in journey 5, `test.step.skip`) the "Approved ✓ … gets a notification" / "Denied …" confirmation on a request
       card vanishes with the card the moment the request is decided, so nobody sees it.
+12. "Wanted but booked": a creator adding to their shoot opens a prop that someone else has booked that day → "Not
+    available", and a quiet `prop_wants` record is written; arts sees "1 person wanted it while booked out" on Prop insights.
 
 The crawl (`crawl/`): for every role, every route in `src/App.tsx` (read each run, ids filled in from the
 test data). It fails on a crash, a console error, a server function crash (5xx) or a blank page area.

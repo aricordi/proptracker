@@ -305,6 +305,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // "Wanted but booked" (Nov 7): a creator opened a prop that was booked out on their shoot's day. For Prop insights:
+    // owner, arts and admins read; only the server function noteWanted writes.
+    match /prop_wants/{id} {
+      allow read: if canSee();
+      allow write: if false;
+    }
+
     // AI usage counters (Health page) + this month's AI helper spend. Written by the server only.
     // Per-person daily counts: the owner, or that person.
     match /ai_usage/{month} {
