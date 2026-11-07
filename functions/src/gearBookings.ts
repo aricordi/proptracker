@@ -442,12 +442,15 @@ async function doPickup(caller: Caller, id: string, missingKeys: string[], photo
   const previous = new Map<string, string>()
   // Handed over on the spot: the person who handed it over had it last.
   if (pre.handedFrom?.bookingId) for (const offerId of (pre.offerIds as string[])) previous.set(offerId, pre.handedFrom.bookingId)
-  else for (const offerId of (pre.offerIds as string[])) {
-    const q = await db.collection('gear_bookings').where('offerIds', 'array-contains', offerId).get()
+  else await Promise.all((pre.offerIds as string[]).map(async offerId => {
+    // Only the latest few that ended before this one (audit, Nov 7: it read every booking the kit ever had).
+    // Falls back to the full list if the index isn't built yet (right after a deploy).
+    const col = db.collection('gear_bookings').where('offerIds', 'array-contains', offerId)
+    const q = await col.where('to', '<=', pre.from).orderBy('to', 'desc').limit(10).get().catch(() => col.get())
     const last = q.docs.filter(d => d.id !== id && ['returned', 'checked_in'].includes(d.get('status')) && String(d.get('to')) <= pre.from)
       .sort((a, b) => String(b.get('to')).localeCompare(String(a.get('to'))))[0]
     if (last) previous.set(offerId, last.id)
-  }
+  }))
 
   await db.runTransaction(async tx => {
     const snap = await tx.get(ref)
