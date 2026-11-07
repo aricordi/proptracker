@@ -25,6 +25,7 @@ import { whenLabel, formatDay } from '../lib/dates'
 import { useProfiles } from '../services/profiles'
 import { useUsualPartners } from '../hooks/useUsualPartners'
 import { useMyWaitlist, waitKey } from '../hooks/useWaitlist'
+import { waitRefusal } from '../../functions/src/waitlistRules'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
@@ -255,7 +256,7 @@ export default function ScheduleScreen() {
             : sheet.slot.pending ? 'Someone asked for this slot. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
             : 'This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
-          {canBook && !team && <WaitButton slot={sheet.slot} email={profile.email} />}
+          {canBook && !team && <WaitButton slot={sheet.slot} email={profile.email} day={days?.[sheet.slot.date]} now={now} />}
           {!sheet.slot.pending && (mine ?? []).some(x => swappable(x, now)) && (
             <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
           )}
@@ -281,11 +282,16 @@ export default function ScheduleScreen() {
 }
 
 // "Notify me if it opens" on the taken-slot sheet (same list as the bell in the day sheet).
-function WaitButton({ slot, email }: { slot: TheirSlot; email: string }) {
+function WaitButton({ slot, email, day, now }: { slot: TheirSlot; email: string; day?: ScheduleDay; now: string }) {
+  const s = useScheduleSettings()
   const waits = useMyWaitlist(email, true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const w = waits.entries[waitKey(slot.date, slot.house, slot.start)]
+  // Only offer it when the server would say yes (not started, no house slot that day yet, not locked, no guideline
+  // needed); if they're already on the list, keep the button so they can leave, until the time starts.
+  const why = waitRefusal(day, slot.date, slot.house, slot.start, s, email, now)
+  if (why === 'past' || (!w && why)) return null
   async function go() {
     setBusy(true); setErr('')
     try { if (w) await waits.leave(w); else await waits.join(slot.date, slot.house, slot.start) } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
@@ -346,6 +352,10 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     const theirs = (st.t === 'booked' || st.t === 'held') && st.entry.email?.toLowerCase() !== email.toLowerCase()
     if (!(theirs && canBook && !team)) return cellBtn
     const k = waitKey(date, h, start), w = waits.entries[k]
+    // No bell where the server would refuse: started already, you film that day, priority lock, guideline needed.
+    // Someone already on the list keeps it (to leave) until the time starts.
+    const why = waitRefusal(day, date, h, start, s, email, now)
+    if (why === 'past' || (!w && why)) return cellBtn
     return (
       <div key={h} className="flex-1 min-w-0 flex gap-1">
         {cellBtn}
@@ -388,7 +398,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       </div>
       {waitErr && <p className="text-red-300 text-sm mt-3">{waitErr}</p>}
       {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold time to ask for it (you can add friends next). The equipment team approves it, and it's held for you while you wait.
-        {' '}Want a taken time? Tap its bell: if it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes{Object.keys(waits.entries).some(k => k.startsWith(date)) ? '. Tap a gold bell to leave the list.' : '.'}</p>}
+        {' '}Want a taken time? If it has a bell, tap it: if it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes{Object.keys(waits.entries).some(k => k.startsWith(date)) ? '. Tap a gold bell to leave the list.' : '.'}</p>}
       {offsite.length > 0 && (
         <div className="mt-4 space-y-1.5">
           <p className="text-pt-text text-sm font-semibold">Offsite this day</p>

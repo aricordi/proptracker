@@ -1,6 +1,6 @@
 // "Notify me if it opens" (waitlist): the pure rules and the notification wording.
 import { describe, it, expect } from 'vitest'
-import { freedSlots, slotOccupant, positionOf, nextInLine, waitlistSpotFor, waitId } from '../../functions/src/waitlistRules'
+import { freedSlots, slotOccupant, positionOf, nextInLine, waitlistSpotFor, waitRefusal, waitId } from '../../functions/src/waitlistRules'
 import { inviteChange } from '../../functions/src/pushMessages'
 import { cleanScheduleSettings, type ScheduleDay } from '../../functions/src/schedule'
 
@@ -52,16 +52,29 @@ describe('the line', () => {
 })
 
 describe('the chat offers the waitlist', () => {
-  const day: ScheduleDay = { date: '2026-11-12', cliff1: { '1020': shoot('a@x.com') } }
+  const day: ScheduleDay = { date: '2026-11-11', cliff1: { '1020': shoot('a@x.com') } }
   it('only when the exact asked time that day is someone else\'s and not free anywhere', () => {
-    expect(waitlistSpotFor(day, '2026-11-12', ['cliff1', 'cliff2'], 1020, s, 'me@x.com', NOW, [{ date: '2026-11-12', start: 1140 }]))
-      .toEqual({ date: '2026-11-12', house: 'cliff1', start: 1020 })
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1', 'cliff2'], 1020, s, 'me@x.com', NOW, [{ date: '2026-11-11', start: 1140 }]))
+      .toEqual({ date: '2026-11-11', house: 'cliff1', start: 1020 })
     // 5 PM is free at Cliff 2 that day: book that instead.
-    expect(waitlistSpotFor(day, '2026-11-12', ['cliff1', 'cliff2'], 1020, s, 'me@x.com', NOW, [{ date: '2026-11-12', start: 1020 }])).toBeNull()
-    expect(waitlistSpotFor(day, '2026-11-12', ['cliff2'], 1020, s, 'me@x.com', NOW, [])).toBeNull()   // Cliff 2 is just empty
-    expect(waitlistSpotFor(day, '2026-11-12', ['cliff1'], 1020, s, 'a@x.com', NOW, [])).toBeNull()    // it's yours
-    expect(waitlistSpotFor(day, '2026-11-12', ['cliff1'], 1050, s, 'me@x.com', NOW, [])).toBeNull()   // not a slot start
-    expect(waitlistSpotFor(day, '2026-11-12', ['cliff1'], undefined, s, 'me@x.com', NOW, [])).toBeNull()
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1', 'cliff2'], 1020, s, 'me@x.com', NOW, [{ date: '2026-11-11', start: 1020 }])).toBeNull()
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff2'], 1020, s, 'me@x.com', NOW, [])).toBeNull()   // Cliff 2 is just empty
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], 1020, s, 'a@x.com', NOW, [])).toBeNull()    // it's yours
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], 1050, s, 'me@x.com', NOW, [])).toBeNull()   // not a slot start
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], undefined, s, 'me@x.com', NOW, [])).toBeNull()
+  })
+  it('never offers a spot the server would refuse (reviewer, Nov 7)', () => {
+    // The time has already started.
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], 1020, s, 'me@x.com', '2026-11-11T17:30', [])).toBeNull()
+    // They already film at a house that day (one slot a day).
+    const busy: ScheduleDay = { ...day, cliff2: { '780': shoot('me@x.com') } }
+    expect(waitlistSpotFor(busy, '2026-11-11', ['cliff1'], 1020, s, 'me@x.com', NOW, [])).toBeNull()
+    // Thursday at Cliff 1: still under the priority lock (and needs a guideline) for someone outside the priority group.
+    const thu: ScheduleDay = { date: '2026-11-12', cliff1: { '1020': shoot('a@x.com') } }
+    expect(waitlistSpotFor(thu, '2026-11-12', ['cliff1'], 1020, s, 'me@x.com', NOW, [])).toBeNull()
+    expect(waitRefusal(thu, '2026-11-12', 'cliff1', 1020, s, 'me@x.com', NOW)).toBe('locked')
+    expect(waitRefusal(thu, '2026-11-12', 'cliff1', 1020, s, 'me@x.com', '2026-11-09T12:00')).toBe('guideline')   // after the Sunday release
+    expect(waitRefusal(day, '2026-11-11', 'cliff1', 1020, s, 'me@x.com', NOW)).toBeNull()
   })
 })
 
