@@ -57,24 +57,61 @@ export function swapChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pus
 }
 
 const lastBy = (x: Doc) => (x?.history as { by?: string }[] | undefined)?.at(-1)?.by
+type PickLine = { itemId?: string; itemName?: string; pick?: { state?: string; reason?: string }; checkIn?: { result?: string } }
+type Build = { id?: string; description?: string; state?: string; reason?: string }
+const cut = (t: string, n: number) => (t.length > n ? t.slice(0, n - 1) + '…' : t)
+// Props the arts department marked "not available" / builds marked "can't be made" in this change (audit, Nov 7:
+// the creator only heard by email, and email is off).
+function newlyUnavailable(b: Doc, a: Doc): { name: string; reason?: string }[] {
+  const wasLine = new Set(((b?.lines ?? []) as PickLine[]).filter(l => l.pick?.state === 'unavailable').map(l => l.itemId))
+  const wasBuild = new Set(((b?.builds ?? []) as Build[]).filter(x => x.state === 'unavailable').map(x => x.id ?? x.description))
+  return [
+    ...((a?.lines ?? []) as PickLine[]).filter(l => l.pick?.state === 'unavailable' && !wasLine.has(l.itemId)).map(l => ({ name: l.itemName || 'A prop', reason: l.pick?.reason })),
+    ...((a?.builds ?? []) as Build[]).filter(x => x.state === 'unavailable' && !wasBuild.has(x.id ?? x.description)).map(x => ({ name: x.description || 'Something to make or find', reason: x.reason })),
+  ]
+}
 export function reservationChange(id: string, b: Doc, a: Doc): Push[] {
   if (!a) return []
   const url = `/reservations/${id}`, tag = `props-${id}`
   if (!b) return [{ to: ['arts-team'], url, tag, title: 'New props request', body: `${a.creatorName} · "${a.title}" · ${dayLabel(a.startDate)}` }]
-  if (b.status === a.status) return []
-  switch (a.status) {
-    case 'packed': return [{ to: [a.creatorEmail], url, tag, title: 'Your props are ready 📦', body: `"${a.title}" is packed. Pick it up for your ${dayLabel(a.startDate)} shoot.` }]
-    case 'declined': return [{ to: [a.creatorEmail], url, tag, title: 'Props request declined', body: a.statusReason ? `"${a.title}": ${a.statusReason}` : `"${a.title}" was declined.` }]
-    case 'collected': return a.pickup && !a.pickup.allReceived ? [{ to: ['arts-team'], url, tag, title: 'Pickup issue', body: `${a.creatorName} · "${a.title}": ${String(a.pickup.issue ?? 'something is missing').slice(0, 160)}` }] : []
-    case 'cancelled': return lastBy(a) !== a.creatorEmail ? [{ to: [a.creatorEmail], url, tag, title: 'Props request cancelled', body: `"${a.title}" was cancelled by the team.` }] : []
-    case 'return_pending': {
-      const dmg = ((a.returnInfo?.damaged ?? []) as { name: string; note?: string }[])
-      return [{ to: ['arts-team'], url, tag, title: dmg.length ? 'Props returned · damage reported' : 'Props returned', body: `${a.creatorName}'s "${a.title}" is back.${dmg.length ? ` Damaged: ${dmg.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}.` : ''} Check it in.` }]
+  const gone = ['cancelled', 'declined'].includes(a.status) ? [] : newlyUnavailable(b, a)
+  const goneMsg: Push[] = gone.length ? [{ to: [a.creatorEmail], url, tag: `props-na-${id}`,
+    title: gone.length === 1 ? `"${cut(gone[0].name, 40)}" isn't available` : `${gone.length} props aren't available`,
+    body: cut(`${gone.map(g => g.reason ? `${g.name}: ${g.reason}` : g.name).join('; ')}. The rest of "${a.title}" still goes. Tap to see the request.`, 220) }] : []
+  if (b.status === a.status) return goneMsg
+  const notAvail = ((a.lines ?? []) as PickLine[]).filter(l => l.pick?.state === 'unavailable').length + ((a.builds ?? []) as Build[]).filter(x => x.state === 'unavailable').length
+  const status = ((): Push[] => {
+    switch (a.status) {
+      case 'packed': return [{ to: [a.creatorEmail], url, tag, title: 'Your props are ready 📦', body: `"${a.title}" is packed. Pick it up for your ${dayLabel(a.startDate)} shoot.${notAvail ? ` ${notAvail} ${notAvail === 1 ? 'thing isn\'t' : 'things aren\'t'} available: tap to see.` : ''}` }]
+      case 'declined': return [{ to: [a.creatorEmail], url, tag, title: 'Props request declined', body: a.statusReason ? `"${a.title}": ${a.statusReason}` : `"${a.title}" was declined.` }]
+      case 'collected': return a.pickup && !a.pickup.allReceived ? [{ to: ['arts-team'], url, tag, title: 'Pickup issue', body: `${a.creatorName} · "${a.title}": ${String(a.pickup.issue ?? 'something is missing').slice(0, 160)}` }] : []
+      case 'cancelled': {
+        const by = lastBy(a), self = by === a.creatorEmail, dropped = by === 'schedule'
+        // The creator cancelled (or their shoot request ran out) while arts were already picking or had packed it: tell arts.
+        const started = b.status === 'preparing' || b.status === 'packed'
+        const arts: Push[] = started && (self || dropped) ? [{ to: ['arts-team'], url, tag, title: 'Props request cancelled',
+          body: dropped ? `${a.creatorName}'s shoot was dropped, so "${a.title}" (${dayLabel(a.startDate)}) is off. Put the props back.`
+            : `${a.creatorName} cancelled "${a.title}" (${dayLabel(a.startDate)}). Put the props back.` }] : []
+        // 'schedule' = the shoot request ran out: the creator already gets "Request ran out" for the shoot itself.
+        if (self || dropped) return arts
+        return [{ to: [a.creatorEmail], url, tag, title: 'Props request cancelled', body: `"${a.title}" was cancelled by the team.` }]
+      }
+      case 'return_pending': {
+        const dmg = ((a.returnInfo?.damaged ?? []) as { name: string; note?: string }[])
+        return [{ to: ['arts-team'], url, tag, title: dmg.length ? 'Props returned · damage reported' : 'Props returned', body: `${a.creatorName}'s "${a.title}" is back.${dmg.length ? ` Damaged: ${dmg.map(d => `${d.name}${d.note ? ` (${d.note})` : ''}`).join(', ')}.` : ''} Check it in.` }]
+      }
+      // Nov 3: the creator knows their return is done and they're clear. Damaged or missing props are said plainly
+      // (audit, Nov 7: the thank-you went out even when something was recorded as damaged or missing).
+      case 'returned': {
+        const issues = ((a.lines ?? []) as PickLine[]).filter(l => l.checkIn?.result === 'damaged' || l.checkIn?.result === 'missing')
+        if (!issues.length) return [{ to: [a.creatorEmail], url, tag, title: 'Props checked in ✓', body: `"${a.title}" is checked back in. Thanks!` }]
+        return [{ to: [a.creatorEmail], url, tag, title: 'Props checked in · something to look at',
+          body: cut(`"${a.title}": ${issues.map(l => `${l.itemName || 'a prop'} ${l.checkIn!.result}`).join(', ')}. Questions? Ask the arts department.`, 220) }]
+      }
+      default: return []
     }
-    // Nov 3: the creator knows their return is done and they're clear.
-    case 'returned': return [{ to: [a.creatorEmail], url, tag, title: 'Props checked in ✓', body: `"${a.title}" is checked back in. Thanks!` }]
-    default: return []
-  }
+  })()
+  return [...goneMsg, ...status]
 }
 
 export function gearChange(id: string, b: Doc, a: Doc): Push[] {
@@ -131,10 +168,16 @@ export function reportCreated(id: string, r: Doc): Push[] {
 }
 
 const STRIKE_WHY: Record<string, string> = { 'late-cancel': 'a late cancel', 'no-show': 'a missed shoot', report: 'a report from another creator' }
+// Strikes an admin gave by hand (or from a flag) carry what it was about + the reason they had to write (audit, Nov 7).
+const STRIKE_ABOUT: Record<string, string> = { props: 'a props problem', gear: 'a gear problem', schedule: 'a schedule problem', behaviour: 'behaviour', other: 'something the team noted' }
 export function strikeCreated(id: string, st: Doc, s: ScheduleSettings): Push[] {
   if (!st?.email) return []
+  const note = typeof st.note === 'string' ? st.note.trim() : ''
+  const why = st.reason === 'manual'
+    ? `For ${STRIKE_ABOUT[st.about] ?? STRIKE_ABOUT.other}${note ? `: "${cut(note, 120)}"` : ''}.`
+    : `For ${STRIKE_WHY[st.reason] ?? 'a schedule problem'}.`
   return [{ to: [st.email], url: '/account', tag: `strike-${id}`, title: 'You got a strike',
-    body: `For ${STRIKE_WHY[st.reason] ?? 'a schedule problem'}. ${s.strikeCount} strikes in ${s.strikeDays} days pause props for ${s.pauseDays} days.` }]
+    body: `${why} ${s.strikeCount} strikes in ${s.strikeDays} days pause props for ${s.pauseDays} days.` }]
 }
 
 // The schedule team booked, moved or cancelled someone's shoot: tell that creator.
