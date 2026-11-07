@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
+import { shrinkPhoto } from '../lib/shrinkPhoto'
 
 // The AI runs on the server (functions/src). These are thin wrappers.
 
@@ -93,3 +94,16 @@ export const askChat = httpsCallable<{ message: string; history: { who: 'me' | '
 // optionally pointing at one Analytics page (see src/lib/analyticsPack.ts and functions/src/analyticsAsk.ts).
 export interface AnalyticsAnswer { answer: string; open: { tab?: string; who?: string; kind?: string; period?: string } | null; chips: string[] }
 export const askAnalytics = httpsCallable<{ question: string; pack: unknown; history?: { q: string; a: string }[] }, AnalyticsAnswer>(functions, 'askAnalytics', { timeout: 95_000 })
+
+// "Snap a photo, find it in the closet" (Browse camera button, Nov 7): the photo is shrunk on the phone (~1024px JPEG),
+// the server's AI says what's in it, and the smart search finds the closest Prime Capitol props. Throws a friendly error.
+export interface PhotoSearchResult { description: string; results: SimilarResult[] }
+const photoCall = httpsCallable<{ imageBase64: string; mimeType: string }, PhotoSearchResult>(functions, 'photoSearch', { timeout: 70_000 })
+export async function photoSearch(file: File): Promise<PhotoSearchResult> {
+  const blob = await shrinkPhoto(file, 1024)
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(r.error); r.readAsDataURL(blob)
+  })
+  const imageBase64 = dataUrl.split(',')[1] ?? ''
+  return (await photoCall({ imageBase64, mimeType: blob.type || file.type || 'image/jpeg' })).data
+}

@@ -16,7 +16,8 @@ import { useCart } from '../cart'
 import { useTurnaround } from '../hooks/useTurnaround'
 import { freeForRange, todayInStudio, earliestStart } from '../../functions/src/booking'
 import { formatDay, formatRange } from '../lib/dates'
-import { searchSimilar } from '../services/ai'
+import { searchSimilar, photoSearch } from '../services/ai'
+import { friendlyError } from '../lib/errors'
 import { matchesQuery, availabilityOf, byName, type Availability } from '../lib/search'
 import { SIMILAR_MIN_SCORE } from '../config'
 import type { Item } from '../types'
@@ -114,6 +115,24 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
 
   const q = query.trim()
 
+  // Snap a photo, find it in the closet (owner, Nov 7): the camera button opens the phone's picker (camera, photos or a
+  // screenshot), the AI says what's in it, and the closest props show in their own section at the top.
+  const photoInput = useRef<HTMLInputElement>(null)
+  const [photo, setPhoto] = useState<{ busy: true } | { error: string } | { description: string; ids: string[] } | null>(null)
+  const photoRun = useRef(0)
+  async function onPhoto(file: File | undefined) {
+    if (!file) return
+    const run = ++photoRun.current
+    setPhoto({ busy: true })
+    try {
+      const r = await photoSearch(file)
+      if (run === photoRun.current) setPhoto({ description: r.description, ids: r.results.map(x => x.id) })
+    } catch (e) {
+      if (run === photoRun.current) setPhoto({ error: friendlyError(e, "Couldn't read that photo. Try another one.") })
+    }
+  }
+  const clearPhoto = () => { photoRun.current++; setPhoto(null) }
+
   // Ask the server for similar-meaning props 600ms after typing stops.
   useEffect(() => {
     setSimilarIds([])
@@ -163,6 +182,12 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
     const byId = new Map(filtered.map(i => [i.id, i]))
     return similarIds.filter(id => !exact.has(id)).map(id => byId.get(id)).filter((i): i is Item => !!i).slice(0, 8)
   }, [q, matched, filtered, similarIds])
+
+  const photoMatches = useMemo(() => {
+    if (!photo || !('ids' in photo)) return []
+    const byId = new Map(allItems.filter(i => !i.archived && i.collection === 'company').map(i => [i.id, i]))
+    return photo.ids.map(id => byId.get(id)).filter((i): i is Item => !!i)
+  }, [photo, allItems])
 
   function subtitle(item: Item) {
     const category = categoryById[item.categoryId]?.label ?? ''
@@ -290,11 +315,20 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
             placeholder="Search props, costumes, set dressing…"
             enterKeyHint="search"
             aria-label="Search props"
-            className="w-full bg-pt-surface border border-pt-border rounded-xl pl-10 pr-10 py-2.5 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base"
+            className={`w-full bg-pt-surface border border-pt-border rounded-xl pl-10 ${personal ? 'pr-10' : 'pr-[84px]'} py-2.5 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base`}
           />
           {query && (
-            <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 text-pt-muted text-xl leading-none">×</button>
+            <button onClick={() => setQuery('')} aria-label="Clear search" className={`absolute ${personal ? 'right-1' : 'right-11'} top-1/2 -translate-y-1/2 w-10 h-10 text-pt-muted text-xl leading-none`}>×</button>
           )}
+          {!personal && <>
+            <button onClick={() => photoInput.current?.click()} aria-label="Search with a photo" title="Search with a photo" data-testid="photo-search"
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 w-11 h-11 inline-flex items-center justify-center text-pt-accent">
+              <Icon name="camera" className="w-[22px] h-[22px]" />
+            </button>
+            {/* No `capture`: the phone offers the camera, the photo library and screenshots. */}
+            <input ref={photoInput} type="file" accept="image/*" className="hidden" aria-hidden tabIndex={-1} data-testid="photo-search-input"
+              onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; onPhoto(f) }} />
+          </>}
         </div>
         <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar -mx-4 px-4">
           {shootFlow && !toRequest && <AddingToChip kind="props" />}
@@ -327,6 +361,29 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
           {filtersActive && <button onClick={() => { setCategoryFilter(null); setAvailability('all') }} className="ml-auto text-pt-accent shrink-0 tap">Clear filters</button>}
         </p>
         {late.length > 0 && <div className="mb-4"><LateBanner late={late} /></div>}
+        {photo && (
+          <section className="mb-5" aria-live="polite" data-testid="photo-results">
+            <div className="flex items-start gap-3 mb-3">
+              <span className="w-10 h-10 shrink-0 rounded-full bg-pt-accent/15 text-pt-accent inline-flex items-center justify-center"><Icon name="camera" className="w-5 h-5" /></span>
+              <div className="flex-1 min-w-0">
+                <p className="text-pt-text text-[16px] font-semibold leading-snug">
+                  {'busy' in photo ? 'Looking at your photo…' : 'error' in photo ? 'Photo search didn’t work' : photo.description ? 'Looks like your photo' : 'Couldn’t tell what that is'}
+                </p>
+                <p className={`text-sm leading-snug ${'error' in photo ? 'text-red-300' : 'text-pt-muted'}`}>
+                  {'busy' in photo ? 'Finding the closest props in the closet.' : 'error' in photo ? photo.error
+                    : !photo.description ? 'Try a closer, clearer photo, or type what you’re looking for.'
+                    : photoMatches.length ? photo.description : `${photo.description} · nothing in the closet looks like it.`}
+                </p>
+              </div>
+              {!('busy' in photo) && <button onClick={clearPhoto} className="shrink-0 min-h-[40px] px-3.5 rounded-full bg-pt-surface shadow-hairline text-pt-muted text-sm">Clear</button>}
+            </div>
+            {'description' in photo && photo.description && !photoMatches.length && (
+              <button onClick={() => { setQuery(photo.description.replace(/^(an?|the)\s+/i, '')); clearPhoto() }} className="text-pt-accent text-sm font-medium tap">Search for “{photo.description.replace(/^(an?|the)\s+/i, '')}” instead</button>
+            )}
+            {photoMatches.length > 0 && <div className="grid grid-cols-2 gap-3">{photoMatches.map(card)}</div>}
+            <div className="h-px bg-white/[0.06] mt-5" />
+          </section>
+        )}
         {nothingAtAll && (
           <p className="text-center mt-16 text-pt-muted text-sm leading-relaxed">
             No props yet.

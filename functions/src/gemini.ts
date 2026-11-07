@@ -327,14 +327,16 @@ const SAFETY = [
   ...['HARM_CATEGORY_HARASSMENT', 'HARM_CATEGORY_HATE_SPEECH', 'HARM_CATEGORY_SEXUALLY_EXPLICIT'].map(category => ({ category, threshold: 'BLOCK_MEDIUM_AND_ABOVE' })),
   { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
 ]
-export async function askJson(apiKey: string, prompt: string | { system: string; user: string }, maxOutputTokens = 1500, temperature = 0.3): Promise<{ data: Record<string, unknown>; costUsd: number; blocked?: boolean }> {
+// An optional photo goes next to the text (photo search, Nov 7); the same safety filters and JSON-only answer apply.
+export async function askJson(apiKey: string, prompt: string | { system: string; user: string }, maxOutputTokens = 1500, temperature = 0.3,
+  image?: { base64: string; mimeType: string }): Promise<{ data: Record<string, unknown>; costUsd: number; blocked?: boolean }> {
   const parts = typeof prompt === 'string' ? { system: '', user: prompt } : prompt
   const res = await fetch(`${BASE_URL}/models/${TAGGING_MODEL}:generateContent`, {
     method: 'POST',
     headers: keyHeaders(apiKey),
     body: JSON.stringify({
       ...(parts.system ? { systemInstruction: { parts: [{ text: parts.system }] } } : {}),
-      contents: [{ role: 'user', parts: [{ text: parts.user }] }],
+      contents: [{ role: 'user', parts: [{ text: parts.user }, ...(image ? [{ inlineData: { mimeType: image.mimeType, data: image.base64 } }] : [])] }],
       safetySettings: SAFETY,
       generationConfig: { temperature, maxOutputTokens, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
     }),

@@ -44,7 +44,7 @@ export default function AiSettingsScreen() {
           <p className="text-pt-muted text-xs">This month</p>
           <p className="text-pt-text text-3xl font-bold">${spent.toFixed(2)} <span className="text-pt-muted text-base font-normal">of ${settings.monthlyCapUsd}</span></p>
           <div className="h-2 rounded-full bg-pt-border overflow-hidden"><div className={`h-full ${pct >= 80 ? 'bg-amber-400' : 'bg-pt-accent'}`} style={{ width: `${pct}%` }} /></div>
-          <p className="text-pt-muted text-sm">{usage?.calls ?? 0} uses{usage?.by ? ` · ${Object.entries(usage.by).map(([k, n]) => `${n} ${k === 'ideas' ? 'video ideas' : k === 'times' ? 'time searches' : k === 'demo' ? 'ideas from Props only creators' : k}`).join(' · ')}` : ''}</p>
+          <p className="text-pt-muted text-sm">{usage?.calls ?? 0} uses{usage?.by ? ` · ${Object.entries(usage.by).map(([k, n]) => `${n} ${k === 'ideas' ? 'video ideas' : k === 'times' ? 'time searches' : k === 'photo' ? 'photo searches' : k === 'demo' ? 'ideas from Props only creators' : k}`).join(' · ')}` : ''}</p>
           {pct >= 80 && <p className="text-amber-200 text-sm">Over 80% of the budget is used. Raise it below if creators need more this month.</p>}
         </div>
         <div className="bg-pt-surface rounded-2xl p-4 space-y-3">
