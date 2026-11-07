@@ -179,10 +179,16 @@ export default function ItemDetailScreen() {
         )}
         {item.archived && (
           <div className="bg-pt-surface shadow-hairline rounded-xl px-4 py-3">
-            <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : 'Archived'}</p>
-            <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
-              ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
-              : 'Hidden from search. Its history is kept.'}</p>
+            {/* Creators get plain words, not the staff's clean-up notes (audit, Nov 7). */}
+            {canSeeStaff ? <>
+              <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : item.mergedInto ? 'Combined with another prop' : 'Archived'}</p>
+              <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
+                ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
+                : 'Hidden from search. Its history is kept.'}</p>
+            </> : <p className="text-pt-text text-sm font-medium">This prop isn't in the closet any more.</p>}
+            {item.mergedInto && (
+              <button onClick={() => navigate(`/item/${item.mergedInto}`)} className="mt-2 min-h-[44px] text-pt-accent text-sm font-semibold">See the prop it was combined into ›</button>
+            )}
           </div>
         )}
 
