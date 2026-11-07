@@ -93,6 +93,19 @@ describe('packing rules', () => {
     expect(r.error).toBe('FAILED_PRECONDITION')
     expect(r.message).toContain('2 item')
   })
+  it('an accidental tick + untick puts it back to Requested, so the creator can still change it', async () => {
+    const id = await newBooking()
+    await call('setLinePick', { id, itemId: 'cop', state: 'picked' }, ARTS)
+    expect((await getDoc(`reservations/${id}`))!.status).toBe('preparing')
+    await call('setLinePick', { id, itemId: 'cop', state: 'todo' }, ARTS)
+    const r = (await getDoc(`reservations/${id}`))!
+    expect(r.status).toBe('requested')
+    expect(r.history.at(-1)).toMatchObject({ status: 'requested', event: 'reopened' })
+    expect((await call('editReservation', { id, lines: [{ itemId: 'cop', qty: 1 }], builds: [{ description: 'Half-eaten birthday cake', qty: 1 }] }, ALEX)).ok).toBe(true)
+    // Unticking on a request that wasn't started doesn't start it.
+    await call('setBuildState', { id, buildId: 'b1', state: 'todo' }, ARTS)
+    expect((await getDoc(`reservations/${id}`))!.status).toBe('requested')
+  })
   it('photo links must come from this app\'s storage', async () => {
     const id = await newBooking()
     await pickAll(id)

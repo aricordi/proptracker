@@ -418,6 +418,11 @@ export const declineReservation = onCall(CALLABLE, async req => {
 
 // ─── 3. Picking (arts) ───────────────────────────────────────────────────────
 
+// Nothing ticked, nothing marked: the arts team hasn't really started on it.
+function untouched(lines: ReservationLine[], builds: BuildLine[]) {
+  return lines.every(l => !l.pick) && builds.every(b => !b.state || b.state === 'todo')
+}
+
 // Tick a prop as picked (or untick it), or mark it not available with a reason.
 // "Not available" is final for this booking: its hold is released straight away.
 export const setLinePick = onCall(CALLABLE, async req => {
@@ -442,11 +447,15 @@ export const setLinePick = onCall(CALLABLE, async req => {
     else next[idx] = { ...next[idx], pick: { state, by: caller.email, at: now, ...(reason ? { reason } : {}) } }
 
     apply?.()
-    const starting = r.res.status === 'requested'
+    // Unticking isn't starting; and if everything is back to untouched, it goes back to Requested so the
+    // creator can change it again (an accidental tick + untick, audit Nov 7).
+    const starting = r.res.status === 'requested' && state !== 'todo'
+    const reopen = r.res.status === 'preparing' && untouched(next, (r.res.builds ?? []) as BuildLine[])
     tx.update(r.ref, {
       lines: next,
       updatedAt: now,
       ...(starting ? { status: 'preparing', history: historyWith(r.res, { status: 'preparing', at: now, by: caller.email }) } : {}),
+      ...(reopen ? { status: 'requested', history: historyWith(r.res, { status: 'requested', at: now, by: caller.email, event: 'reopened' }) } : {}),
     })
     if (starting) creatorUpdate(tx, r.res, r.id, 'preparing')
     if (state === 'unavailable') {
@@ -474,10 +483,12 @@ export const setBuildState = onCall(CALLABLE, async req => {
     const next = [...builds]
     const { reason: _old, ...rest } = next[idx]
     next[idx] = { ...rest, state, ...(state === 'unavailable' ? { reason } : {}) }
-    const starting = r.res.status === 'requested'
+    const starting = r.res.status === 'requested' && state !== 'todo'
+    const reopen = r.res.status === 'preparing' && untouched((r.res.lines ?? []) as ReservationLine[], next)
     tx.update(r.ref, {
       builds: next, updatedAt: now,
       ...(starting ? { status: 'preparing', history: historyWith(r.res, { status: 'preparing', at: now, by: caller.email }) } : {}),
+      ...(reopen ? { status: 'requested', history: historyWith(r.res, { status: 'requested', at: now, by: caller.email, event: 'reopened' }) } : {}),
     })
     if (starting) creatorUpdate(tx, r.res, r.id, 'preparing')
     if (state === 'unavailable') creatorUpdate(tx, r.res, r.id, starting ? 'preparing' : r.res.status,
