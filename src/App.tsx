@@ -107,6 +107,20 @@ function usePrefetchTabs(on: boolean) {
 function Prefetch() {
   usePrefetchTabs(true)
   useEffect(() => { refreshPush() }, [])   // keep this phone's notification sign-up fresh
+  // A notification tapped while the app is open: switch screens in place (keeps the chat), then tell the service worker.
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type !== 'pc-open' || typeof e.data.url !== 'string') return
+      const u = new URL(e.data.url, location.origin)
+      if (u.origin !== location.origin) return
+      navigate(u.pathname + u.search + u.hash)
+      e.ports[0]?.postMessage('ok')
+    }
+    navigator.serviceWorker.addEventListener('message', onMsg)
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
+  }, [navigate])
   // Start loading the props list in the background (the equipment team can't read props).
   const { realRole } = useSession()
   useEffect(() => realRole === 'equipment' ? undefined : warmItems(realRole === 'owner' ? 'all' : 'company'), [realRole])
