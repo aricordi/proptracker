@@ -2,7 +2,7 @@
 // ONE grid for both sides: creators see how many 2-hour spots are free each day; the equipment team (mode 'team') sees how
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { slotState, headsUps, HOUSES, BOOK_AHEAD_DAYS, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
 
 export const monthStart = (month: string) => `${month}-01`
@@ -94,8 +94,8 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           // Your shoots and waiting requests show whichever house is picked; only the free spots follow the switch.
           const all = house === 'all' ? c : countDay(days?.[date], date, HOUSES, s, email, now, lockFree)
           c.mine = all.mine; c.requested = all.requested
-          // Full (or one left) here but the other house has room → a small hint so nobody gives up on the day.
-          const alt = other && !past && c.free <= 1 ? countDay(days?.[date], date, [other], s, email, now, lockFree).free : 0
+          // Full here but the other house has room (owner, Nov 7: one line, in place of "Full", so the day never grows taller) → a small hint so nobody gives up on the day.
+          const alt = other && !past && c.free === 0 ? countDay(days?.[date], date, [other], s, email, now, lockFree).free : 0
           const hint = alt > c.free ? alt : 0
           const n = Number(date.slice(8))
           const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= 3 ? 'few' : 'lots'
@@ -113,10 +113,11 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
               {!past && (
                 <span className="flex flex-col items-center leading-none gap-0.5">
                   {team && c.requested > 0 && <span className="min-w-5 h-5 px-1 mb-0.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
-                  {c.free === 0
+                  {hint > 0
+                    ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'}: {hint}<span className="hidden lg:inline"> free</span></span>
+                    : c.free === 0
                     ? <span className="text-xs font-semibold text-pt-muted">Full</span>
                     : <span className={`text-xs lg:text-[13px] font-semibold ${tone}`}>{c.free} free</span>}
-                  {hint > 0 && <span className="mt-0.5 text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'}: {hint}<span className="hidden lg:inline"> free</span></span>}
                 </span>
               )}
               {/* Owner, Nov 4: the bar shows WHICH times are free, morning (left) to night (right), not how many. */}
@@ -128,7 +129,8 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           )
         })}
       </div>
-      <div className="flex flex-wrap gap-3 mt-3 text-xs text-pt-muted">
+      <MonthKey>
+      <div className="flex flex-wrap gap-3 text-xs text-pt-muted">
         {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">One dot per shoot:
           <span><i className={`inline-block w-2 h-2 rounded-full mr-1 ${PLACE_DOT.cliff1}`} />Cliff 1</span>
           <span><i className={`inline-block w-2 h-2 rounded-full mr-1 ${PLACE_DOT.cliff2}`} />Cliff 2</span>
@@ -138,12 +140,13 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>}
-        {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3' : 'C1: 3'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free</span>}
+        {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3' : 'C1: 3'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free spots</span>}
         <span><i className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team ? <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>
           : <span><i className="inline-block w-2.5 h-2.5 rounded-sm bg-pt-accent/30 shadow-[inset_0_0_0_2px_#C9A961] mr-1 align-[-1px]" />You're filming</span>}
         <span><i className="inline-block w-3 h-3 rounded-full bg-white mr-1 align-[-2px]" />Today</span>
       </div>
+      </MonthKey>
     </div>
   )
 }
@@ -166,4 +169,18 @@ function AllCell({ list, past, team, requested }: { list: { place: House | 'offs
       {dots.length > shown.length && <span className="text-xs leading-[6px] text-pt-muted">+</span>}
     </span>
   </>
+}
+
+/** The symbols under the calendar fold away (owner, Nov 7): open the first time, then each phone remembers what you chose. */
+function MonthKey({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('pc.monthKey') !== 'closed' } catch { return true } })
+  const toggle = () => setOpen(o => { try { localStorage.setItem('pc.monthKey', o ? 'closed' : 'open') } catch { /* fine */ } return !o })
+  return (
+    <div className="mt-2">
+      <button onClick={toggle} aria-expanded={open} className="min-h-[40px] inline-flex items-center gap-1.5 text-pt-muted text-[13px]">
+        <span aria-hidden className={`inline-block transition-transform ${open ? 'rotate-90' : ''}`}>›</span>{open ? 'Hide what the colours mean' : 'What the colours mean'}
+      </button>
+      {open && <div className="pb-1">{children}</div>}
+    </div>
+  )
 }
