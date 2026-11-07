@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { houseFromText, ignoreReason, placeFromText, saysOffsite, namedPeopleInfo, splitHours } from '../../functions/src/calendarText'
+import { houseFromText, ignoreReason, placeFromText, saysOffsite, namedPeopleInfo, splitHours, namesBothHouses, nightBefore, queueReady } from '../../functions/src/calendarText'
 
 describe('old calendar events', () => {
   it('reads the house from the address or the name', () => {
@@ -98,5 +98,29 @@ describe('audit fixes (Nov 5)', () => {
     expect(ignoreReason({ title: 'Jana - Sick prank', location: '' }, true)).toBe('')
     expect(ignoreReason({ title: 'Valentyna away', location: '' })).toBe('Someone away')
     expect(ignoreReason({ title: 'Sick day', location: '' })).toBe('Someone away')
+  })
+})
+
+describe('calendar audit fixes (Nov 7)', () => {
+  it('an event naming both houses is not one house (a person picks)', () => {
+    for (const t of ['Cleaners - Cliff 1 & 2', 'Cleaners Cliff 1 + Cliff 2', 'Cliff 1/2 cleaners', 'Maintenance 2375 and 2371 Cliff']) {
+      expect(namesBothHouses(t)).toBe(true)
+      expect(houseFromText(t)).toBe(null)
+    }
+    expect(namesBothHouses('Kyle - Cliff 1')).toBe(false)
+    expect(houseFromText('Kyle - Cliff 1')).toBe('cliff1')
+    expect(ignoreReason({ title: 'Cleaners away Cliff 1 & 2', location: '' })).toBe('')
+  })
+  it('only the small hours belong to the night before; a 5–7 AM shoot stays on its own day', () => {
+    expect(nightBefore(30, 120)).toBe(true)      // 12:30–2 AM
+    expect(nightBefore(0, 60)).toBe(true)        // midnight–1 AM
+    expect(nightBefore(300, 420)).toBe(false)    // 5–7 AM
+    expect(nightBefore(330, 450)).toBe(false)    // 5:30–7:30 AM
+    expect(nightBefore(120, 420)).toBe(false)    // 2–7 AM runs into the morning
+  })
+  it('Confirm all leaves out a shoot that stays cancelled', () => {
+    expect(queueReady({ placed: true, result: { action: 'shoot' } })).toBe(true)
+    expect(queueReady({ placed: true, result: { action: 'cancelled' } })).toBe(false)
+    expect(queueReady({ placed: true, problem: 'Google now says Eddy', result: { action: 'shoot' } })).toBe(false)
   })
 })

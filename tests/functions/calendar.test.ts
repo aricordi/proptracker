@@ -309,6 +309,8 @@ describe('one booking, several creators (owner, Nov 4)', () => {
     const d2 = (await getDoc(`schedule_days/${FRI}`))!
     expect([d2.cliff1['780'].email, d2.cliff1['900'].email, d2.cliff1['1020'].email]).toEqual([BEN, BEN, BEN])
     expect((await getDoc(`shoots/${imp.shootIds[1]}`))!.status).toBe('cancelled')
+    // Ben keeps his own shoot (audit, Nov 7: every turn was cancelled and made again).
+    expect(d2.cliff1['780'].shootId).toBe(imp.shootIds[0])
   })
 })
 
@@ -435,5 +437,79 @@ describe('calendar audit fixes (Nov 5)', () => {
     await call('checkCalendarNow', {}, MAANIK)
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff1?.['780']).toBeUndefined()
     expect((await getDoc('calendar_queue/rd1'))!.placed).toBe(false)
+  })
+})
+
+describe('calendar audit fixes (Nov 7): props, groups, changes, keep', () => {
+  const at = (id: string, summary: string, day: string, st: string, en: string) => ({ id, summary, location: '2375 Cliff Road', start: { dateTime: `${day}T${st}:00${TZ}` }, end: { dateTime: `${day}T${en}:00${TZ}` } })
+  const props = (id: string, shootId: string) => put(`reservations/${id}`, { shootId, scheduleShootId: shootId, status: 'requested', itemIds: [], lines: [], history: [], creatorEmail: ANA, creatorName: 'Ana', title: 'Prank', startDate: FRI, endDate: FRI })
+
+  it('a shoot deleted in Google: off the schedule at once, its props are only cancelled once the team confirms', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })
+    await put('test_calendar/events', { items: [at('p1', 'Ana filming', FRI, '13:00', '15:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const sid = (await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId
+    await props('r1', sid)
+    await put('test_calendar/events', { items: [] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    expect((await getDoc(`shoots/${sid}`))!.status).toBe('cancelled')
+    expect((await getDoc('reservations/r1'))!.status).toBe('requested')
+    expect((await call('reviewCalendarImport', { id: 'p1', action: 'confirm' }, MAANIK)).ok).toBe(true)
+    await waitFor(async () => (await getDoc('reservations/r1'))!.status === 'cancelled')
+  })
+
+  it('a shoot moved to another day in Google while it has props is not moved; the card says why', async () => {
+    const NEXT = addDays(FRI, 7)
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })
+    await put('test_calendar/events', { items: [at('p2', 'Ana filming', FRI, '13:00', '15:00')] })
+    await call('applyCalendarImport', { items: [{ id: 'p2', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana filming' }] }, OWNER)
+    const sid = (await getDoc('calendar_imports/p2'))!.shootId
+    await props('r2', sid)
+    await put('test_calendar/events', { items: [at('p2', 'Ana filming', NEXT, '13:00', '15:00')] })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    expect((await getDoc(`shoots/${sid}`))!.date).toBe(FRI)
+    expect((await getDoc('reservations/r2'))!.status).toBe('requested')
+    const card = (await getDoc('calendar_queue/p2'))!
+    expect(card.placed).toBe(false)
+    expect(card.problem).toMatch(/props or gear booked/)
+  })
+
+  it('a group booking that changes keeps each creator\'s own shoot (and props)', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await call('applyCalendarImport', { items: [{ id: 'g9', action: 'shoot', emails: [BEN, ANA], house: 'cliff1', date: FRI, start: 780, end: 1020, title: 'Ben & Ana' }] }, OWNER)
+    const first = (await getDoc('calendar_imports/g9'))!.shootIds as string[]
+    expect(first).toHaveLength(2)
+    await props('r3', first[1])
+    await call('applyCalendarImport', { items: [{ id: 'g9', action: 'shoot', emails: [BEN, ANA], house: 'cliff1', date: FRI, start: 900, end: 1140, title: 'Ben & Ana' }] }, OWNER)
+    const second = (await getDoc('calendar_imports/g9'))!.shootIds as string[]
+    expect(second).toEqual(first)
+    expect((await getDoc(`shoots/${first[1]}`))!.status).toBe('booked')
+    expect((await getDoc('reservations/r3'))!.status).toBe('requested')
+  })
+
+  it('a "Changed in Google" card cannot be skipped (it would cancel a booking)', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })
+    await put('test_calendar/events', { items: [at('c1', 'Ana filming', FRI, '13:00', '15:00')] })
+    await call('checkCalendarNow', {}, MAANIK)
+    expect((await call('reviewCalendarImport', { id: 'c1', action: 'confirm' }, MAANIK)).ok).toBe(true)
+    await put('test_calendar/events', { items: [at('c1', 'Ana filming', FRI, '15:00', '17:00')] })
+    await call('checkCalendarNow', {}, MAANIK)
+    expect((await getDoc('calendar_queue/c1'))!.kind).toBe('changed')
+    expect((await call('reviewCalendarImport', { id: 'c1', action: 'skip' }, MAANIK)).message).toMatch(/already on the schedule/)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['900'].email).toBe(ANA)
+  })
+
+  it('"Keep it in the app" for an event deleted in Google sticks', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('test_calendar/events', { items: [at('k1', 'Ana filming', FRI, '13:00', '15:00')] })
+    await call('applyCalendarImport', { items: [{ id: 'k1', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana filming' }] }, OWNER)
+    const sid = (await getDoc('calendar_imports/k1'))!.shootId
+    await put('test_calendar/events', { items: [] })
+    expect((await call('previewCalendarImport', {}, OWNER)).result.events[0]).toMatchObject({ kind: 'removed', id: 'k1' })
+    await call('applyCalendarImport', { items: [{ id: 'k1', action: 'keep', date: FRI }] }, OWNER)
+    await call('checkCalendarNow', {}, MAANIK)
+    expect((await getDoc(`shoots/${sid}`))!.status).toBe('booked')
+    expect((await call('previewCalendarImport', {}, OWNER)).result.events).toHaveLength(0)
   })
 })

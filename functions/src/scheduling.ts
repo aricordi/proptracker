@@ -773,7 +773,16 @@ export async function removeImportedShoot(shootId: string, by: string, toCheck =
     tx.update(ref, { status: 'cancelled', updatedAt: at, ...(toCheck ? { toCheck: true } : {}), history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: 'removed from Google Calendar' }) })
   })
   // Props and gear asked for this shoot aren't needed any more (audit: they were left waiting for a shoot that was gone).
-  if (email) await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
+  // toCheck (the automatic check): not yet. The event may have been deleted in Google by mistake and come back; they are let
+  // go when the equipment team confirms the card (releaseCancelledImport, from settleQueue).
+  if (email && !toCheck) await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
+}
+
+// A cancelled imported shoot the team just confirmed: let go of its props and gear (see removeImportedShoot).
+export async function releaseCancelledImport(shootId: string) {
+  const sh = (await db.doc(`shoots/${shootId}`).get()).data()
+  if (!sh || sh.status !== 'cancelled' || !sh.creatorEmail) return
+  await releaseLinks(SCHEDULE_CALLER, shootId, String(sh.creatorEmail)).catch(e => console.warn('release links of confirmed removed import', shootId, e))
 }
 
 // ─── Filming back to back with friends ───────────────────────────────────────

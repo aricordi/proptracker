@@ -14,7 +14,7 @@ import BottomSheet from './BottomSheet'
 import { useScheduleSettings, reviewCalendarImport, confirmAllCalendar, BLOCK_TYPES, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
 
 type Person = { email: string; name: string }
-const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow')
+const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow', { timeout: 310_000 })
 const field = 'w-full min-h-[44px] bg-pt-bg rounded-xl px-3 text-pt-text text-[15px]'
 
 const houseName = (h: string | undefined, s: ScheduleSettings) => h === 'cliff1' || h === 'cliff2' ? s.houses[h].name : 'Offsite'
@@ -110,6 +110,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
             <div className="bg-pt-bg rounded-xl px-3 py-2.5 text-[15px]">
               {!q.placed ? <p className="text-amber-300">{q.message || <>The app couldn't tell who or what this is. Tap <b>Fix</b> to choose, or Skip.</>}</p>
                 : q.kind === 'removed' ? <p className="text-pt-text">Taken off the schedule{emails.length ? ` (${emails.map(m => firstName(m, people)).join(' + ')})` : ''}.</p>
+                : r.action === 'cancelled' ? <p className="text-pt-text"><span className="text-pt-muted">Stays cancelled: </span>it was cancelled in the app, so the change in Google doesn't bring it back.</p>
                 : r.action === 'shoot' ? <p className="text-pt-text"><span className="text-pt-muted">On the schedule · {houseName(r.house, s)}: </span>{turns(q, emails, r.house ?? 'cliff1', s, people)}</p>
                 : r.action === 'block' ? <p className="text-pt-text"><span className="text-pt-muted">{r.soft ? 'Heads-up' : 'Blocked'} · {houseName(r.house, s)}: </span>{r.soft ? `${q.title} (people can still film)` : r.type && r.type !== 'other' ? BLOCK_TYPES[r.type] : q.title || BLOCK_TYPES.other}</p>
                 : <p className="text-pt-muted">Skipped.</p>}
@@ -120,7 +121,8 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
             <div className="flex gap-2 pt-1">
               {q.placed && !q.problem && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'confirm')} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === q.id ? 'Saving…' : 'Looks right ✓'}</button>}
               {q.kind !== 'removed' && <button disabled={busy === q.id || busy === '*'} onClick={() => setFixing(q)} className={`${q.placed && !q.problem ? 'px-5' : 'flex-1 bg-pt-accent text-stone-900 font-semibold'} min-h-[48px] rounded-xl ${q.placed && !q.problem ? 'bg-pt-raised text-pt-text' : ''} disabled:opacity-40`}>Fix</button>}
-              {q.kind !== 'removed' && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'skip')} className="px-4 min-h-[48px] rounded-xl text-pt-muted disabled:opacity-40">Skip</button>}
+              {/* No Skip on a change: it would cancel a booking that's already on the schedule (audit, Nov 7). */}
+              {q.kind === 'new' && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'skip')} className="px-4 min-h-[48px] rounded-xl text-pt-muted disabled:opacity-40">Skip</button>}
             </div>
           </div>
         )
@@ -132,10 +134,13 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
 
 function FixSheet({ q, people, s, onClose }: { q: QueueItem; people: Person[]; s: ScheduleSettings; onClose: () => void }) {
   const g = q.placed ? q.result : q.guess
-  const start0: QueueFix['action'] | 'heads' = g.action === 'block' ? (g.soft ? 'heads' : 'block') : 'shoot'
+  // The app's unsure guesses aren't shown as decisions (audit, Nov 7): a name two people share opens on "A shoot" with nobody
+  // picked, and a house the event doesn't say opens with no house picked.
+  const unsure = !q.placed ? q.guess : {}
+  const start0: QueueFix['action'] | 'heads' = unsure.ambiguous?.length ? 'shoot' : g.action === 'block' ? (g.soft ? 'heads' : 'block') : 'shoot'
   const [kind, setKind] = useState<QueueFix['action'] | 'heads'>(start0)
-  const [emails, setEmails] = useState<string[]>(g.emails?.length ? g.emails : g.email ? [g.email] : [])
-  const [house, setHouse] = useState<string>(g.house ?? 'cliff1')
+  const [emails, setEmails] = useState<string[]>(unsure.ambiguous?.length ? [] : g.emails?.length ? g.emails : g.email ? [g.email] : [])
+  const [house, setHouse] = useState<string>(unsure.houseUnsure ? '' : g.house ?? 'cliff1')
   const [type, setType] = useState<BlockType>(g.type ?? 'other')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -178,20 +183,22 @@ function FixSheet({ q, people, s, onClose }: { q: QueueItem; people: Person[]; s
             </select>
           </div>
           <select value={house} onChange={x => setHouse(x.target.value)} className={field}>
+            {!house && <option value="">Where? Pick a house or offsite</option>}
             <option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option>
           </select>
-          {emails.length > 0 && <p className="text-pt-muted text-sm">On the schedule: <span className="text-pt-text">{turns(q, emails, house, s, people)}</span></p>}
+          {emails.length > 0 && house && <p className="text-pt-muted text-sm">On the schedule: <span className="text-pt-text">{turns(q, emails, house, s, people)}</span></p>}
         </>}
         {kind !== 'shoot' && <>
-          <select value={house === 'cliff2' ? 'cliff2' : 'cliff1'} onChange={x => setHouse(x.target.value)} className={field}>
+          <select value={house === 'cliff2' || house === 'cliff1' ? house : ''} onChange={x => setHouse(x.target.value)} className={field}>
+            {house !== 'cliff1' && house !== 'cliff2' && <option value="">Which house?</option>}
             <option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option>
           </select>
           <select value={type} onChange={x => setType(x.target.value as BlockType)} className={field}>{(Object.keys(BLOCK_TYPES) as BlockType[]).map(t => <option key={t} value={t}>{BLOCK_TYPES[t]}</option>)}</select>
           {kind === 'heads' && <p className="text-pt-muted text-sm">Shows on the calendar as a heads-up. Creators can still book around it.</p>}
         </>}
         {err && <p className="text-red-300 text-sm">{err}</p>}
-        <button disabled={busy || (kind === 'shoot' && !emails.length)} onClick={save} className="w-full min-h-[52px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
-          {busy ? 'Saving…' : kind === 'shoot' && !emails.length ? 'Pick who\'s filming' : 'Save and confirm'}
+        <button disabled={busy || (kind === 'shoot' && !emails.length) || !house || (kind !== 'shoot' && house === 'offsite')} onClick={save} className="w-full min-h-[52px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">
+          {busy ? 'Saving…' : kind === 'shoot' && !emails.length ? 'Pick who\'s filming' : !house || (kind !== 'shoot' && house === 'offsite') ? 'Pick where it is' : 'Save and confirm'}
         </button>
       </div>
     </BottomSheet>

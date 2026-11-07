@@ -9,12 +9,21 @@ import { splitHours, splitOnGrid } from '../../functions/src/calendarText'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 
 // kind: new = not seen before; changed = moved/renamed in Google Calendar since the last import; removed = deleted there.
+// regrade / recheck: already on the schedule (the automatic check placed it), shown again to choose who or what it is.
 interface Ev { id: string; title: string; location: string; date: string; startMin: number; endMin: number; kind: 'new' | 'changed' | 'removed' | 'ignored'; why?: string; calendar?: string; feedId?: string; allDay?: boolean
-  was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; emails?: string[]; house: string; start: number; soft?: boolean } }
+  regrade?: boolean; recheck?: boolean; redo?: boolean; peopleChanged?: string
+  was?: { date: string; startMin: number; endMin: number; title: string }; guess: { action: string; email: string; emails?: string[]; house: string; start: number; soft?: boolean; houseUnsure?: boolean; bothHouses?: boolean; ambiguous?: string[] } }
 interface Row { action: 'shoot' | 'block' | 'skip' | 'remove' | 'keep'; emails: string[]; house: string; start: number; type: BlockType; soft: boolean }
-const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[] }>(functions, 'previewCalendarImport')
-const apply = httpsCallable<{ items: unknown[] }, { results: { id: string; ok: boolean; message?: string }[] }>(functions, 'applyCalendarImport')
-const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow')
+// Timeouts match the server's (audit, Nov 7: after the 70-second default the screen showed an error while the import was still
+// running, and a second tap imported everything again).
+const preview = httpsCallable<Record<string, never>, { events: Ev[]; people: { email: string; name: string }[]; calendars?: { name: string; error?: string }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
+const apply = httpsCallable<{ items: unknown[] }, { results: { id: string; ok: boolean; message?: string }[] }>(functions, 'applyCalendarImport', { timeout: 310_000 })
+const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow', { timeout: 310_000 })
+const onSchedule = (e: Ev) => !!(e.regrade || e.recheck)
+// Why the app isn't sure about its guess (same words as the Calendar tab).
+const unsureWhy = (e: Ev) => e.guess.ambiguous?.length ? `"${e.guess.ambiguous[0][0].toUpperCase()}${e.guess.ambiguous[0].slice(1)}" could be more than one person. Pick who.`
+  : e.guess.bothHouses ? 'It names both houses. Pick one; for the other house, add blocked time on the schedule.'
+  : e.guess.houseUnsure && e.guess.action !== 'skip' ? 'The event doesn\'t say which house (or offsite). Pick where.' : ''
 const field = 'w-full bg-pt-bg border border-pt-border rounded-lg px-2 py-1.5 text-pt-text text-sm'
 
 // Import from the shared Google Calendar, as often as needed (owner, Oct 19: while testing, the team keeps adding
@@ -25,6 +34,7 @@ export default function CalendarImportScreen() {
   const s = useScheduleSettings()
   const [events, setEvents] = useState<Ev[] | null>(null)
   const [people, setPeople] = useState<{ email: string; name: string }[]>([])
+  const [unread, setUnread] = useState<string[]>([])
   const [rows, setRows] = useState<Record<string, Row>>({})
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -39,7 +49,11 @@ export default function CalendarImportScreen() {
     setEvents(null)
     preview({}).then(r => {
       setEvents(r.data.events); setPeople(r.data.people)
-      setRows(Object.fromEntries(r.data.events.map(e => [e.id, { action: e.guess.action as Row['action'], soft: e.guess.soft === true, emails: e.guess.emails?.length ? e.guess.emails : e.guess.email ? [e.guess.email] : [], house: e.guess.house, start: e.guess.start, type: /clean/i.test(e.title) ? 'cleaners' : /airbnb|rental|guest/i.test(e.title) ? 'rental' : /event|party/i.test(e.title) ? 'event' : /maint|repair|plumb/i.test(e.title) ? 'maintenance' : 'other' }])))
+      setUnread((r.data.calendars ?? []).filter(c => c.error).map(c => c.name))
+      // Unsure guesses start empty so a person has to choose (audit, Nov 7): a shared first name → a shoot with nobody picked
+      // (not blocked time); no house in the words → no house picked (not offsite).
+      setRows(Object.fromEntries(r.data.events.map(e => [e.id, { action: (e.guess.ambiguous?.length ? 'shoot' : e.guess.action) as Row['action'], soft: e.guess.soft === true,
+        emails: e.guess.ambiguous?.length ? [] : e.guess.emails?.length ? e.guess.emails : e.guess.email ? [e.guess.email] : [], house: e.guess.houseUnsure && e.kind !== 'changed' ? '' : e.guess.house, start: e.guess.start, type: /clean/i.test(e.title) ? 'cleaners' : /airbnb|rental|guest/i.test(e.title) ? 'rental' : /event|party/i.test(e.title) ? 'event' : /maint|repair|plumb/i.test(e.title) ? 'maintenance' : 'other' }])))
     }).catch(e => setErr(errorText(e)))
   }, [reload])
   const set = (id: string, p: Partial<Row>) => setRows(r => ({ ...r, [id]: { ...r[id], ...p } }))
@@ -58,7 +72,7 @@ export default function CalendarImportScreen() {
         start: e.startMin, end: e.endMin, where: e.location || e.title, feedId: e.feedId, allDay: e.allDay } })   // always the real hours (owner, Oct 19)
       const res = await apply({ items })
       const next = { ...done }
-      for (const x of res.data.results) next[x.id] = x.ok ? (x.message?.startsWith('Imported · CLASH') ? x.message : 'ok') : (x.message || 'Failed')
+      for (const x of res.data.results) next[x.id] = x.ok ? (x.message?.startsWith('Imported · CLASH') || x.message?.startsWith('Stays cancelled') ? x.message : 'ok') : (x.message || 'Failed')
       setDone(next)
     } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
@@ -69,6 +83,8 @@ export default function CalendarImportScreen() {
     return (events ?? []).filter(o => o.id !== e.id && rows[o.id]?.action === 'shoot' && rows[o.id].house === r.house && o.date === e.date
       && o.startMin < e.endMin && e.startMin < o.endMin).map(o => rows[o.id].emails.map(m => people.find(p => p.email === m)?.name).filter(Boolean).join(' + ') || o.title)
   }
+  // Every shoot needs a house and someone; every block a house (the server would otherwise guess Cliff 1).
+  const missing = todo.filter(e => { const r = rows[e.id]; return r && ((r.action === 'shoot' && (!r.house || !r.emails.length)) || (r.action === 'block' && r.house !== 'cliff1' && r.house !== 'cliff2')) })
   const counts = todo.reduce((c, e) => ({ ...c, [rows[e.id]?.action ?? 'skip']: (c[rows[e.id]?.action ?? 'skip'] ?? 0) + 1 }), {} as Record<string, number>)
   return (
     <div className="min-h-full bg-pt-bg pb-32">
@@ -84,6 +100,7 @@ export default function CalendarImportScreen() {
           <button disabled={checking} onClick={runCheck} className="shrink-0 text-pt-accent text-sm tap disabled:opacity-40">{checking ? 'Checking…' : 'Check now'}</button>
         </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
+        {unread.length > 0 && <p className="text-amber-300 text-sm">Couldn't read {unread.map(n => `"${n}"`).join(', ')}. Check its ID and sharing on the Calendar &amp; email page. The other calendars still work.</p>}
         {!events && !err && <p className="text-pt-muted text-sm">Reading the calendar…</p>}
         {events && events.every(e => e.kind === 'ignored') && <p className="text-pt-muted text-sm">Nothing left to import.</p>}
         {calendars.length > 1 && (
@@ -95,8 +112,9 @@ export default function CalendarImportScreen() {
             ))}
           </div>
         )}
-        {todo.some(e => e.kind === 'new') && (
-          <button onClick={() => setRows(r => Object.fromEntries(Object.entries(r).map(([id, row]) => [id, todo.some(e => e.id === id && e.kind === 'new') ? { ...row, action: 'skip' as const } : row])))}
+        {todo.some(e => e.kind === 'new' && !onSchedule(e)) && (
+          // Never the ones already on the schedule: skipping them would cancel those shoots (audit, Nov 7).
+          <button onClick={() => setRows(r => Object.fromEntries(Object.entries(r).map(([id, row]) => [id, todo.some(e => e.id === id && e.kind === 'new' && !onSchedule(e)) ? { ...row, action: 'skip' as const } : row])))}
             className="tap text-pt-accent text-sm">Set everything showing to Skip ›</button>
         )}
         {hiddenCount > 0 && (
@@ -109,10 +127,13 @@ export default function CalendarImportScreen() {
           if (!r) return null
           return (
             <div key={e.id} className={`bg-pt-surface rounded-2xl p-3 space-y-2 ${d === 'ok' || e.kind === 'ignored' ? 'opacity-50' : ''}`}>
-              <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}{d?.startsWith('Imported · CLASH') && <span className="text-red-300 text-xs">Imported · Clash</span>}</div>
+              <div className="flex justify-between gap-2"><p className="text-pt-text font-semibold min-w-0 truncate">{e.title}</p>{d === 'ok' && <span className="text-green-300 text-xs">Imported ✓</span>}{d?.startsWith('Imported · CLASH') && <span className="text-red-300 text-xs">Imported · Clash</span>}{d?.startsWith('Stays cancelled') && <span className="text-pt-muted text-xs">Stays cancelled</span>}</div>
+              {onSchedule(e) && d !== 'ok' && <p className="text-sky-300 text-xs font-semibold">Already on the schedule · check who it's for</p>}
+              {d !== 'ok' && unsureWhy(e) && <p className="text-amber-300 text-xs">{unsureWhy(e)}</p>}
+              {d !== 'ok' && e.peopleChanged && <p className="text-amber-300 text-xs">{e.peopleChanged}</p>}
               <p className="text-pt-muted text-xs">{e.kind === 'ignored' && <span className="mr-1 font-semibold">Hidden ({e.why}) · not brought in ·</span>}{e.kind !== 'new' && e.kind !== 'ignored' && <span className={`mr-1 font-semibold ${e.kind === 'removed' ? 'text-red-300' : 'text-amber-300'}`}>{e.kind === 'removed' ? 'Deleted in Google Calendar ·' : 'Changed ·'}</span>}{e.calendar && <span className="mr-1 text-pt-text">{e.calendar} ·</span>}{formatDay(e.date)} · {e.allDay ? 'All day' : `${fmtTime(e.startMin)}–${fmtTime(e.endMin)}`}{e.location ? ` · ${e.location}` : ''}</p>
               {e.kind === 'changed' && e.was && <p className="text-pt-muted text-xs">Was {formatDay(e.was.date)} · {fmtTime(e.was.startMin)}–{fmtTime(e.was.endMin)}{e.was.title !== e.title ? ` · "${e.was.title}"` : ''}</p>}
-              {d && d !== 'ok' && <p className="text-red-300 text-xs">{d}</p>}
+              {d && d !== 'ok' && <p className={`${d.startsWith('Stays cancelled') ? 'text-pt-muted' : 'text-red-300'} text-xs`}>{d}</p>}
               {d !== 'ok' && clashOf(e).length > 0 && <p className="text-red-300 text-xs font-semibold">⚠ Clash: same house and time as {clashOf(e).join(', ')}. Both will be imported.</p>}
               {d !== 'ok' && e.kind === 'removed' && (
                 <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
@@ -123,7 +144,8 @@ export default function CalendarImportScreen() {
               )}
               {d !== 'ok' && e.kind !== 'removed' && e.kind !== 'ignored' && <>
                 <div className="flex bg-pt-bg rounded-lg p-0.5 gap-0.5">
-                  {(['shoot', 'block', 'skip'] as const).map(a => (
+                  {/* No Skip on a change or on one already placed: it would cancel a booking (audit, Nov 7). */}
+                  {(e.kind === 'changed' || onSchedule(e) ? ['shoot', 'block'] as const : ['shoot', 'block', 'skip'] as const).map(a => (
                     <button key={a} onClick={() => set(e.id, { action: a })} className={`flex-1 py-1 rounded-md text-xs ${r.action === a ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{a === 'shoot' ? 'Shoot' : a === 'block' ? 'Blocked time' : 'Skip'}</button>
                   ))}
                 </div>
@@ -145,7 +167,7 @@ export default function CalendarImportScreen() {
                         <option value="">{r.emails.length ? '+ Add another creator' : 'Who?'}</option>
                         {people.filter(p => !r.emails.includes(p.email)).map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
                       </select>
-                      <select value={r.house} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option></select>
+                      <select value={r.house} onChange={x => set(e.id, { house: x.target.value })} className={field}>{!r.house && <option value="">Where?</option>}<option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option><option value="offsite">Offsite</option></select>
                     </div>
                     {r.emails.length > 1 && (
                       <p className="text-pt-muted text-xs">One booking, {r.emails.length} creators: each gets their own turn, back to back:{' '}
@@ -163,7 +185,7 @@ export default function CalendarImportScreen() {
                 )}
                 {r.action === 'block' && (
                   <div className="grid grid-cols-2 gap-2">
-                    <select value={r.house === 'cliff2' ? 'cliff2' : 'cliff1'} onChange={x => set(e.id, { house: x.target.value })} className={field}><option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option></select>
+                    <select value={r.house === 'cliff2' || r.house === 'cliff1' ? r.house : ''} onChange={x => set(e.id, { house: x.target.value })} className={field}>{r.house !== 'cliff1' && r.house !== 'cliff2' && <option value="">Which house?</option>}<option value="cliff1">{s.houses.cliff1.name}</option><option value="cliff2">{s.houses.cliff2.name}</option></select>
                     <select value={r.type} onChange={x => set(e.id, { type: x.target.value as BlockType })} className={field}>{(Object.keys(BLOCK_TYPES) as BlockType[]).map(t => <option key={t} value={t}>{BLOCK_TYPES[t]}</option>)}</select>
                   </div>
                 )}
@@ -174,7 +196,8 @@ export default function CalendarImportScreen() {
       </div>
       {todo.length > 0 && (
         <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
-          <button disabled={busy} onClick={run} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
+          {missing.length > 0 && <p className="text-amber-300 text-sm bg-pt-bg rounded-xl px-3 py-2 mb-2">{missing.length} still need{missing.length === 1 ? 's' : ''} a house or a person picked (or set {missing.length === 1 ? 'it' : 'them'} to Skip).</p>}
+          <button disabled={busy || missing.length > 0} onClick={run} className="w-full min-h-[48px] bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
             {busy ? 'Importing…' : `Import: ${counts.shoot ?? 0} shoots, ${counts.block ?? 0} blocks${counts.remove ? `, ${counts.remove} removed` : ''}, skip ${counts.skip ?? 0}`}
           </button>
         </div>
