@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useItems } from '../hooks/useItems'
 import { useCategories } from '../hooks/useCategories'
-import { inCleanup, matchesFilter, shelfOrder, likelyDoubles, FILTER_LABELS, type CleanupFilter } from '../lib/cleanup'
+import { inCleanup, matchesFilter, shelfOrder, likelyDoubles, bestToKeep, FILTER_LABELS, type CleanupFilter } from '../lib/cleanup'
 import { saveChecked, removeProps, restoreProps, heldUnits, suggestPropNames, REMOVE_REASONS } from '../services/cleanup'
 import { mergeProps } from '../services/importer'
 import { matchesQuery } from '../lib/search'
@@ -268,15 +268,21 @@ export function DoubleSheet({ open, item, items, binInfo, onClose, onMerged }: {
   const [other, setOther] = useState<Item | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
-  useEffect(() => { if (open) { setQ(''); setOther(null); setErr(''); setBusy(false) } }, [open])
+  useEffect(() => { if (open) { setQ(''); setOther(null); setKeepCard(false); setErr(''); setBusy(false) } }, [open])
   const guesses = useMemo(() => open ? likelyDoubles(item, items) : [], [open, item, items])
   const found = q.trim().length >= 2 ? items.filter(i => i.id !== item.id && inCleanup(i) && matchesQuery(i, q, {})).slice(0, 12) : []
   const list = q.trim().length >= 2 ? found : guesses
 
+  // Which of the two stays (owner, audit Nov 7: a booked prop on the card can only be kept, never removed). Starts on
+  // the better record (checked, added by hand, real name…); "Keep this one instead" swaps.
+  const [keepCard, setKeepCard] = useState(false)
+  const pick = (o: Item) => { setOther(o); setKeepCard(bestToKeep([o, item]).id === item.id) }
+  const keep = keepCard ? item : other
+  const gone = keepCard ? other : item
   async function merge(mode: 'copies' | 'angles') {
-    if (!other) return
+    if (!other || !keep || !gone) return
     setBusy(true); setErr('')
-    try { await mergeProps({ keepId: other.id, removeId: item.id, mode }); onMerged(other) }
+    try { await mergeProps({ keepId: keep.id, removeId: gone.id, mode }); onMerged(keep) }
     catch (e) { setErr(friendlyError(e)); setBusy(false) }
   }
 
@@ -289,7 +295,7 @@ export function DoubleSheet({ open, item, items, binInfo, onClose, onMerged }: {
           <p className="text-pt-muted text-[14px] mt-3">{q.trim().length >= 2 ? `${found.length} found` : guesses.length ? 'Looks most like:' : 'Type its name to find it.'}</p>
           <div className="mt-2 space-y-2 max-h-[50vh] overflow-y-auto">
             {list.map(o => (
-              <button key={o.id} onClick={() => setOther(o)} className="w-full flex items-center gap-3 rounded-2xl bg-white/[0.05] p-2 text-left">
+              <button key={o.id} onClick={() => pick(o)} className="w-full flex items-center gap-3 rounded-2xl bg-white/[0.05] p-2 text-left">
                 <PropThumb item={o} size={64} />
                 <span className="min-w-0"><span className="block text-pt-text text-[16px] font-semibold truncate">{o.name}</span>
                   <span className="block text-pt-muted text-[14px]">{binInfo.where(o.binId)} · {o.quantity} {o.quantity === 1 ? 'unit' : 'units'}</span></span>
@@ -297,20 +303,22 @@ export function DoubleSheet({ open, item, items, binInfo, onClose, onMerged }: {
             ))}
           </div>
         </>
-      ) : (
+      ) : keep && gone && (
         <>
           <div className="flex items-center gap-3">
-            <PropThumb item={item} size={72} /><span className="text-pt-muted text-[24px]">→</span><PropThumb item={other} size={72} />
-            <span className="min-w-0 text-[16px] text-pt-text font-semibold">{other.name}</span>
+            <PropThumb item={gone} size={72} /><span className="text-pt-muted text-[24px]">→</span><PropThumb item={keep} size={72} />
+            <span className="min-w-0 text-[16px] text-pt-text font-semibold">{keep.name}</span>
           </div>
-          <p className="text-pt-muted text-[16px] mt-3">This one goes away; <b className="text-pt-text">{other.name}</b> stays and gets its photos.</p>
+          <p className="text-pt-muted text-[16px] mt-3">{keepCard ? <><b className="text-pt-text">{other.name}</b> goes away; this one stays and gets its photos.</> : <>This one goes away; <b className="text-pt-text">{other.name}</b> stays and gets its photos.</>}</p>
+          <button disabled={busy} onClick={() => setKeepCard(k => !k)} className="tap mt-1 min-h-[44px] text-pt-accent text-[16px] font-semibold">
+            {keepCard ? `Keep "${other.name}" instead` : 'Keep this one instead'}</button>
           <div className="mt-3 space-y-2">
             <button disabled={busy} onClick={() => merge('copies')} className="w-full rounded-2xl p-4 text-left bg-pt-accent text-stone-900 disabled:opacity-40">
               <b className="block text-[18px]">We have more than one</b>
-              <span className="block text-[16px]">Add up the count: {other.quantity} + {item.quantity} = {other.quantity + item.quantity}</span></button>
+              <span className="block text-[16px]">Add up the count: {keep.quantity} + {gone.quantity} = {keep.quantity + gone.quantity}</span></button>
             <button disabled={busy} onClick={() => merge('angles')} className="w-full rounded-2xl p-4 text-left bg-white/[0.08] text-pt-text disabled:opacity-40">
               <b className="block text-[18px]">It's the same one, photographed twice</b>
-              <span className="block text-[16px] text-pt-muted">Keep the count at {other.quantity}, just add the photos</span></button>
+              <span className="block text-[16px] text-pt-muted">Keeps the higher count: {Math.max(keep.quantity, gone.quantity)}, and adds the photos</span></button>
           </div>
           {err && <p className="mt-3 rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
           <button onClick={() => setOther(null)} className="mt-2 w-full rounded-2xl min-h-[52px] text-pt-muted text-[16px]">‹ Pick a different one</button>

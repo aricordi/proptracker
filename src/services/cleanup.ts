@@ -60,6 +60,24 @@ export async function bulkUpdate(ids: string[], changes: Record<string, unknown>
 
 export const markChecked = (ids: string[]) => bulkUpdate(ids, { reviewedAt: new Date().toISOString(), reviewedBy: me() })
 
+/** What these fields were before a bulk change, so Undo can put each prop back (a missing field stays missing). */
+export type FieldSnapshot = { id: string; before: Record<string, unknown> }
+export function snapshotFields(items: Item[], fields: (keyof Item)[]): FieldSnapshot[] {
+  return items.map(i => ({ id: i.id, before: Object.fromEntries(fields.map(f => [f, i[f]])) }))
+}
+/** Undo a bulk change: each prop gets its own old values back (fields that weren't there are removed again). */
+export async function restoreFields(rows: FieldSnapshot[]) {
+  const { deleteField } = await import('firebase/firestore')
+  for (let i = 0; i < rows.length; i += 400) {
+    const b = writeBatch(db)
+    rows.slice(i, i + 400).forEach(r => b.update(doc(db, 'items', r.id), {
+      ...Object.fromEntries(Object.entries(r.before).map(([k, v]) => [k, v === undefined || v === '' ? deleteField() : v])),
+      ...stamp(),
+    }))
+    await b.commit()
+  }
+}
+
 /** Take props out of the app (archived + note). Refuses props in a current booking. Returns what it couldn't remove. */
 export async function removeProps(ids: string[], note: string): Promise<{ removed: string[]; booked: string[] }> {
   const booked = await bookedOf(ids)
