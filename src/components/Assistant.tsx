@@ -38,7 +38,7 @@ import { useGearCart } from '../gearCart'
 import { isFilmGear } from '../../functions/src/filmGear'
 import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, useGearWindow } from '../activeShoot'
 import { formatDay } from '../lib/dates'
-import { ideaToProps, askApp, askChat, type IdeaResult, type AppAnswer, type ChatTurn, type ChatStateIn } from '../services/ai'
+import { ideaToProps, askApp, askChat, photoSearch, type IdeaResult, type AppAnswer, type ChatTurn, type ChatStateIn } from '../services/ai'
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
@@ -56,9 +56,10 @@ import { loadChat, saveChat, clearChat, summaryLine, earlierAsks, lastVideoNames
 import { subscribeToReservations, createReservation } from '../services/reservations'
 import { ChatCard, primaryBtn, secondaryBtn } from './ChatCard'
 import { pairOf, topPicks, planSkip, videoName } from '../lib/sayItOnce'
+import { PHOTO_TEXT, photoAnswer, speakable, speakOn, SPEAK_KEY } from '../lib/chatExtras'
 
 type Msg =
-  | { who: 'me'; text: string; mode: Helper }
+  | { who: 'me'; text: string; mode: Helper; photo?: string }   // photo: the picture they sent (a link on this phone only)
   | { who: 'bot'; text: string; result?: IdeaResult; alt?: { q: string; to: Helper }; retry?: string; search?: string; guide?: Omit<AppAnswer, 'answer'> }   // alt = "Meant a time instead?"; retry/search = ways out when it fails
   | { who: 'choose' }
   | { who: 'options'; options: TimeAskResult['options'] }
@@ -127,6 +128,8 @@ const LOCAL_FIRST: Intent[] = ['checkin', 'done', 'late', 'access', 'house', 'wh
 const propsErr = (e: unknown) => friendlyError(e, "The AI helper didn't answer. Try again.")
 // The phone's own speech recognition, when the browser has it (Safari and Chrome do).
 const Speech = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null
+// Reading answers aloud after a spoken message (owner, Nov 7), when the browser can.
+const Voice: SpeechSynthesis | null = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof (window as any).SpeechSynthesisUtterance === 'function' ? window.speechSynthesis : null
 
 // What a shoot already has: its sent props requests and gear holds that are still going (not cancelled/declined).
 interface SentProps { id: string; status: string; lines: { itemId: string; itemName: string; qty: number }[]; builds: { description: string }[] }
@@ -343,7 +346,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // The video name on the review page starts as the first idea typed while planning (they can change it).
   const planIdea = () => {
     const at = msgs.findIndex(x => x.who === 'bot' && x.text.startsWith('Step 2'))
-    const idea = msgs.slice(at + 1).find(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE)
+    const idea = msgs.slice(at + 1).find(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE && x.photo === undefined)
     return idea && idea.who === 'me' ? idea.text.slice(0, 80) : ''
   }
   function planReview() {
@@ -467,6 +470,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   async function send(t = text, more = false, force?: Helper, fresh = false) {   // fresh: a whole new time request (see runHelpers)
     if (listening) stopTalk()   // Send while talking = done talking
     const q = t.trim(); if (!q || busy) return
+    hush(); lastVoice.current = t === text && saidAloud.current; saidAloud.current = false
     setText(''); setChips([])
     helperChips.current = new Map()
     if (force || more) askedWhich.current = null   // a new search: an old "Which one?" no longer applies
@@ -725,7 +729,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // Each helper returns its follow-up chips. `offerOther` adds "Meant a time instead?" under its answer.
   // `pre`: the answer was already fetched (Say it once: both helpers ran at the same time for one message).
   async function sendProps(q: string, more: boolean, shootId: string | undefined, offerOther: boolean, pre?: Promise<IdeaResult>): Promise<string[]> {
-    const history = msgs.flatMap(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE ? [x.text] : [])
+    const history = msgs.flatMap(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE && x.photo === undefined ? [x.text] : [])
     try {
       // "More like these" repeats the last real ask as a second look.
       const idea = more ? (history[history.length - 1] ?? q) : q
@@ -838,7 +842,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     markMe('time'); setChips([])
     if (turn.reply) setMsgs(x => [...x, { who: 'bot', text: turn.reply }])
     setBusy(true); setThinking('time')
-    const history = msgs.flatMap(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE ? [x.text] : [])
+    const history = msgs.flatMap(x => x.who === 'me' && x.mode === 'props' && x.text !== MORE && x.photo === undefined ? [x.text] : [])
     const tp = askForTime({ text: pair.time }).then(r => r.data)
     const ip = ideaToProps({ idea: pair.props, history, exclude: [...new Set([...shownIds, ...sentPropIds])] }).then(r => r.data)
     const [tr, ir] = await Promise.allSettled([tp, ip])
@@ -942,6 +946,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   }
   function talk() {
     if (!Speech) return
+    hush()
     if (listening) { stopTalk(); return }
     const r = new Speech()
     r.lang = 'en-CA'; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1
@@ -950,7 +955,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     r.onresult = (e: any) => {
       if (stopped.current) return
       const said = Array.from(e.results as ArrayLike<any>).map((x: any) => x[0].transcript).join('').trimStart()
-      setHeard(said); setText((before + said).slice(0, 600))
+      setHeard(said); setText((before + said).slice(0, 600)); saidAloud.current = true
       clearTimeout(quiet.current); quiet.current = setTimeout(stopTalk, 6000)
     }
     r.onend = () => { if (rec.current === r) { rec.current = null; setListening(false) } }
@@ -962,8 +967,54 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     try { r.start() } catch { rec.current = null; setListening(false) }
     quiet.current = setTimeout(stopTalk, 8000)
   }
-  useEffect(() => () => stopTalk(), [])   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!shown && rec.current) stopTalk() }, [shown])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { stopTalk(); hush() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!shown && rec.current) stopTalk(); if (!shown) hush() }, [shown])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Read answers aloud (owner, Nov 7): when their last message was SPOKEN with the mic, the chat reads its text replies
+  // aloud (the words only, never the cards). Stops on the next mic tap, typing, a new message or leaving the chat.
+  // The speaker in the header turns it off for good on this phone.
+  const [speak, setSpeak] = useState(() => speakOn(store()))
+  const saidAloud = useRef(false)   // the words in the box came from the mic
+  const lastVoice = useRef(false)   // their last message was spoken
+  const spoken = useRef(new WeakSet<Msg>())
+  function hush() { try { Voice?.cancel() } catch { /* not supported */ } }
+  function toggleSpeak() {
+    const on = !speak; setSpeak(on)
+    if (!on) hush()
+    try { store()?.setItem(SPEAK_KEY, on ? 'on' : 'off') } catch { /* private mode */ }
+  }
+  useEffect(() => {
+    if (!Voice || !speak || !shown || !lastVoice.current) return
+    const at = msgs.map(m => m.who).lastIndexOf('me')
+    for (const m of msgs.slice(at + 1)) {
+      if (m.who !== 'bot' || !m.text || spoken.current.has(m)) continue
+      spoken.current.add(m)
+      const words = speakable(m.text); if (!words) continue
+      try { const u = new SpeechSynthesisUtterance(words); u.lang = 'en-CA'; Voice.speak(u) } catch { /* not supported */ }
+    }
+  }, [msgs, speak, shown])
+
+  // 📷 in the chat (owner, Nov 7): a photo from the phone → the photo search finds the closest props, shown like a props
+  // answer (ticks and "Add N to a shoot"; Props-only creators get "See it"). One AI use per photo.
+  const photoInput = useRef<HTMLInputElement>(null)
+  async function sendPhoto(file: File | undefined) {
+    if (!file || busy) return
+    if (listening) stopTalk()
+    hush(); lastVoice.current = false; saidAloud.current = false
+    let url = ''
+    try { url = URL.createObjectURL(file) } catch { /* no preview */ }
+    setChips([]); helperChips.current = new Map(); askedWhich.current = null
+    setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: PHOTO_TEXT, mode: 'props', photo: url }])
+    setMode('props'); setBusy(true); setThinking('props')
+    try {
+      const r = await photoSearch(file)
+      const a = photoAnswer(r.description, r.results.map(x => x.id).filter(id => itemById.has(id) && !shownIds.includes(id)))
+      setMsgs(x => [...x, { who: 'bot', ...a }])
+      setChips(a.result && !demo && !plan ? [TIME_CHIP] : [])
+    } catch (e) {
+      setMsgs(x => [...x, { who: 'bot', text: friendlyError(e, "Couldn't read that photo. Try another one, or type what you're looking for.") }])
+    } finally { setBusy(false); setThinking(null) }
+  }
 
   // Tick suggestions, then add them all to one of your shoots or a new one.
   // Keys: 'p:<prop id>', 'g:<gear id>', 'b:<thing to make or find>'.
@@ -1165,12 +1216,18 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <div className="flex items-center gap-2 py-2">
             <BrandMark className="w-7 h-7 text-white" title="" />
             <h1 className="font-display text-[28px] font-extrabold tracking-tight flex-1">Chat</h1>
+            {Voice && Speech && !helpOnly && <button onClick={toggleSpeak} aria-pressed={speak} aria-label={speak ? 'Stop reading answers aloud' : 'Read answers aloud after I talk'} title={speak ? 'Answers are read aloud after you talk' : 'Answers are not read aloud'}
+              className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${speak ? 'text-[#BF9DFF]' : 'text-pt-muted'}`}><Icon name={speak ? 'speaker' : 'speakerOff'} className="w-[22px] h-[22px]" /></button>}
             {(msgs.length > 2 || old.length > 0) && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
           </div>
         ) : <>
         <div className="flex items-center justify-between py-3">
           <button onClick={onClose} className="text-pt-accent text-[16px]">‹ Back</button>
-          {(msgs.length > 2 || old.length > 0) && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
+          <span className="flex items-center gap-2">
+            {Voice && Speech && !helpOnly && <button onClick={toggleSpeak} aria-pressed={speak} aria-label={speak ? 'Stop reading answers aloud' : 'Read answers aloud after I talk'} title={speak ? 'Answers are read aloud after you talk' : 'Answers are not read aloud'}
+              className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${speak ? 'text-[#BF9DFF]' : 'text-pt-muted'}`}><Icon name={speak ? 'speaker' : 'speakerOff'} className="w-[22px] h-[22px]" /></button>}
+            {(msgs.length > 2 || old.length > 0) && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
+          </span>
         </div>
         <h1 className="font-display text-[28px] font-extrabold tracking-tight flex items-center gap-2"><span className="text-[#BF9DFF]">✦</span>AI helper</h1>
         </>}
@@ -1202,7 +1259,12 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         )}
         {page && canBook && !demo && <ChatNow chatting={!welcome} onAsk={q => send(q, false, 'time', true)} onProps={id => propsFor(id)} />}
         {asTurns(msgs.map((m, i) => (page && i === 0 && m.who === 'bot') || (page && m.who === 'choose') ? null : m.who === 'me' ? (
-          <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-stone-900 bg-pt-accent">{m.text}</p>
+          m.photo ? (
+            <div key={i} className="rise-in ml-auto max-w-[70%] w-fit rounded-[20px] rounded-br-md overflow-hidden bg-pt-accent">
+              <img src={m.photo} alt="Your photo" className="block max-h-56 w-full object-cover" />
+              <p className="px-4 py-2 text-[14px] text-stone-900">{m.text}</p>
+            </div>
+          ) : <p key={i} className="rise-in ml-auto max-w-[86%] w-fit rounded-[20px] rounded-br-md px-4 py-3 text-[16px] text-stone-900 bg-pt-accent">{m.text}</p>
         ) : m.who === 'bot' ? (
           <div key={i} className="space-y-3">
             {m.text && <TypeOut text={m.text} animate={!isDone(m)} onDone={() => textDone(m)} onGrow={follow}
@@ -1403,9 +1465,19 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         <div className="pb-2">
           <div className="flex items-center gap-1 rounded-full bg-pt-surface pl-4 pr-1.5 focus-within:shadow-[inset_0_0_0_1px_rgba(191,157,255,0.55)]">
             <label htmlFor="aiAsk" className="sr-only">Message</label>
-            <input id="aiAsk" value={text} onChange={e => setText(e.target.value.slice(0, 600))} onKeyDown={e => { if (e.key === 'Enter') send() }}
+            <input id="aiAsk" value={text} onChange={e => { hush(); saidAloud.current = false; setText(e.target.value.slice(0, 600)) }} onKeyDown={e => { if (e.key === 'Enter') send() }}
               placeholder={listening ? 'Listening…' : helpOnly ? 'How do I…?' : demo ? 'Describe your video idea…' : plan?.step === 'time' ? 'When do you want to film?' : plan?.step === 'props' ? 'What\'s your video about?' : 'Message'}
               className="flex-1 min-w-0 bg-transparent py-3 text-base focus:outline-none focus:shadow-none" />
+            {!helpOnly && !listening && !text.trim() && (
+              <>
+                <input ref={photoInput} type="file" accept="image/*" className="hidden" aria-hidden tabIndex={-1} data-testid="chat-photo-input"
+                  onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; void sendPhoto(f) }} />
+                <button onClick={() => photoInput.current?.click()} disabled={busy} aria-label="Find props like a photo"
+                  className="w-11 h-11 rounded-full grid place-items-center shrink-0 text-[#BF9DFF] disabled:opacity-40">
+                  <Icon name="camera" className="w-[22px] h-[22px]" />
+                </button>
+              </>
+            )}
             {Speech && (listening || !text.trim()) && (
               <button onClick={talk} aria-label={listening ? 'Stop listening' : 'Talk'}
                 className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${listening ? 'bg-red-500 text-white' : 'text-[#BF9DFF]'}`}>
@@ -1500,3 +1572,4 @@ function BookedYou({ shootId }: { shootId: string }) {
     : ['Approved ✓', green]
   return <div className="flex items-center justify-between text-sm"><span>You</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>{txt}</span></div>
 }
+
