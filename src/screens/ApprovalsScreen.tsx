@@ -22,6 +22,7 @@ import DeskApprovals from '../desk/DeskApprovals'
 import { GiveSlotSheet, ClashList, useCalendarClashes, type GiveTarget } from '../components/GiveSlotSheet'
 import CalendarQueue from '../components/CalendarQueue'
 import { useCalendarQueue } from '../services/schedule'
+import { Toast } from '../components/cleanup/Parts'
 
 /** Bookings | Calendar (owner, Nov 4): Google Calendar imports wait in their own tab for the equipment team. */
 export function RequestTabs({ tab, setTab, bookings, calendar, desk }: { tab: string; setTab: (t: 'bookings' | 'calendar') => void; bookings: number; calendar: number; desk?: boolean }) {
@@ -58,6 +59,8 @@ export default function ApprovalsScreen() {
     [shoots, statuses, now.slice(0, 15)])   // eslint-disable-line react-hooks/exhaustive-deps
   const clashes = useCalendarClashes(days, s)
   const [give, setGive] = useState<GiveTarget | null>(null)
+  // The request card disappears once decided, so its confirmation shows here, at the top of the screen.
+  const [done, setDone] = useState<string | null>(null)
   const pairs = useMemo(() => collabPairs(shoots ?? []), [shoots])
   const desk = useDesk()
   const tabs = isGearStaff ? <RequestTabs tab={tab} setTab={setTab} bookings={reqs.length} calendar={queue?.length ?? 0} desk={desk.on} /> : null
@@ -90,7 +93,7 @@ export default function ApprovalsScreen() {
         </section>
 
         <section className="space-y-3">
-          {reqs.map(r => <RequestCard key={reqKey(r)} r={r} s={s} days={days} shoots={shoots ?? []} pairs={pairs} status={statuses[r.shoot.creatorEmail]} today={today} now={now}
+          {reqs.map(r => <RequestCard key={reqKey(r)} r={r} s={s} days={days} shoots={shoots ?? []} pairs={pairs} status={statuses[r.shoot.creatorEmail]} today={today} now={now} onDone={setDone}
             onDay={() => { setMonth(r.date.slice(0, 7)); setDayOpen(r.date) }} onPerson={() => navigate(`/people/${encodeURIComponent(r.shoot.creatorEmail)}`)}
             onGive={r.place !== 'offsite' && !r.move ? () => setGive({ date: r.date, house: r.place as House, start: r.start, holder: { name: r.shoot.creatorName, email: r.shoot.creatorEmail } }) : undefined} />)}
         </section>
@@ -98,6 +101,7 @@ export default function ApprovalsScreen() {
       {dayOpen && <DaySheet date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)}
         onGive={(h, st, e) => { setDayOpen(null); setGive({ date: dayOpen, house: h, start: st, holder: { name: e.name, email: e.email ?? '' } }) }} />}
       {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
+      {done && <Toast text={done} onDone={() => setDone(null)} />}
     </div>
   )
 }
@@ -105,9 +109,9 @@ export default function ApprovalsScreen() {
 export const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300', amber: 'bg-amber-400/15 text-amber-300', green: 'bg-green-400/10 text-green-300',
   gold: 'bg-pt-accent/15 text-pt-accent', muted: 'bg-pt-bg text-pt-muted' }
 
-function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onPerson, onGive }: {
+function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onPerson, onGive, onDone }: {
   r: Req; s: ScheduleSettings; days: Record<string, ScheduleDay> | null; shoots: Shoot[]; pairs: ReturnType<typeof collabPairs>; status?: UserStatus; today: string; now: string
-  onDay: () => void; onPerson: () => void; onGive?: () => void
+  onDay: () => void; onPerson: () => void; onGive?: () => void; onDone: (text: string) => void
 }) {
   const sh = r.shoot, email = sh.creatorEmail
   const [denying, setDenying] = useState(false)
@@ -121,7 +125,8 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
     setBusy(true); setMsg(null)
     try {
       await decideBooking({ id: sh.id, approve, ...(approve ? {} : { reason }) })
-      setMsg({ ok: true, text: approve ? `Approved ✓ ${sh.creatorName.split(' ')[0]} gets a notification.` : `Denied. ${sh.creatorName.split(' ')[0]} gets your reason.` })
+      const text = approve ? `Approved ✓ ${sh.creatorName.split(' ')[0]} gets a notification.` : `Denied. ${sh.creatorName.split(' ')[0]} gets your reason.`
+      setMsg({ ok: true, text }); onDone(text)
     } catch (e) { setMsg({ ok: false, text: friendlyError(e) }) } finally { setBusy(false) }
   }
   const flag = (tone: string, text: string) => <span key={text} className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TONE[tone] ?? TONE.muted}`}>{text}</span>

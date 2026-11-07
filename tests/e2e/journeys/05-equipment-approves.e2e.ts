@@ -32,10 +32,8 @@ test('equipment team approves one request, denies another with a reason, opens t
     await expect(page.getByRole('button', { name: "Jana's record" })).toHaveCount(0)
     await expect(page.getByText('1 waiting for a yes or no, soonest first.')).toBeVisible()
   })
-  // BUG (reported): the card's "Approved ✓ Jana gets a notification." / "Denied. Riley gets your reason." confirmation
-  // lives inside the request card, which disappears the moment the request is decided, so nobody ever sees it.
-  await test.step.skip('BUG: a confirmation stays on screen after Approve / Deny', async () => {
-    await expect(page.getByText('Approved ✓ Jana gets a notification.')).toBeVisible()
+  await test.step('a confirmation stays on screen after Approve', async () => {
+    await expect(page.getByRole('status').getByText('Approved ✓ Jana gets a notification.')).toBeVisible()
   })
 
   await test.step("deny Riley's with a reason", async () => {
@@ -46,6 +44,7 @@ test('equipment team approves one request, denies another with a reason, opens t
     await riley.getByPlaceholder(/Why\? Riley reads this/).fill('Robot test: please pick another time')
     await confirm.click()
     await expect(page.getByRole('button', { name: "Riley (Creator)'s record" })).toHaveCount(0)
+    await expect(page.getByRole('status').getByText('Denied. Riley gets your reason.')).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Bookings', exact: true, selected: true })).toBeVisible()
   })
 
