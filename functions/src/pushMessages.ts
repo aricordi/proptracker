@@ -4,7 +4,7 @@ import { fmtTime, addMinutes, isGearLate } from './gearBooking.js'
 import { LATE_FEE_PERCENT } from './gearStock.js'
 import { responsible } from './gearCrew.js'
 import { returnDueDay, lastDayToBook, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
-import { checkinWindow, isMissed, expectsCheckIn, explainUntil, type ScheduleSettings } from './schedule.js'
+import { checkinWindow, isMissed, expectsCheckIn, explainUntil, INVITE_HOLD_MINUTES, type ScheduleSettings } from './schedule.js'
 
 type Doc = Record<string, any> | null | undefined
 // Who: email addresses, or a whole team ('arts-team' = props, 'gear-team' = equipment + schedule).
@@ -24,8 +24,20 @@ const when = (x: { date?: string; start?: number } | Record<string, any>) => `${
 
 // ─── Things that happen (instant) ────────────────────────────────────────────
 
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 export function inviteChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Push[] {
   if (!a) return []
+  // "Notify me if it opens" (Nov 7): the waitlist held a freed slot for them. Nobody invited them, so no "X invited you",
+  // and nothing goes to the made-up 'waitlist' sender.
+  if (a.waitlist) {
+    const d = new Date(`${a.date}T12:00:00Z`)
+    const slot = `${WEEKDAYS[d.getUTCDay()]} ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} · ${fmtTime(a.start)} at ${placeName(a, s)}`
+    if (!b && a.status === 'pending') return [{ to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'A slot you wanted opened up',
+      body: `${slot} just opened. It's held for you for ${INVITE_HOLD_MINUTES} minutes: confirm in the app.` }]
+    if (b?.status === 'pending' && a.status === 'expired') return [{ to: [a.toEmail], tag: `invite-${id}`, url: '/', title: 'Slot passed on',
+      body: `You didn't confirm ${slot} in time, so it went to the next person on the list.` }]
+    return []
+  }
   if (!b && a.status === 'pending') return [{
     to: [a.toEmail], tag: `invite-${id}`, url: '/',
     title: `${first(a.fromName)} invited you to film 🎬`,

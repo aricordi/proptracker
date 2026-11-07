@@ -900,8 +900,10 @@ export const answerInvite = onCall(CALLABLE, async req => {
     const win = slotWindow(sp.date, sp.start, s.slotMinutes)
     tx.set(shootRef, {
       creatorEmail: inv.toEmail, creatorName: inv.toName, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind: 'extra',
-      status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, invitedBy: inv.fromEmail, ...(pending ? { requestedAt: at } : {}),
-      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)} · invited by ${inv.fromName}` }],
+      status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, ...(pending ? { requestedAt: at } : {}),
+      // A slot that opened from the waitlist (waitlist.ts) wasn't an invite from a person: no "invited by" (it would count as a collab).
+      ...(inv.waitlist ? { fromWaitlist: true } : { invitedBy: inv.fromEmail }),
+      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)} · ${inv.waitlist ? 'opened up from the waitlist' : `invited by ${inv.fromName}`}` }],
     })
     tx.update(ref, { status: 'accepted', answeredAt: at, shootId: shootRef.id })
     outcome = 'accepted'

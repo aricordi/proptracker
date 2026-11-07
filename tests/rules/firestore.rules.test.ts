@@ -519,6 +519,13 @@ describe('admin (a viewer who manages creators)', () => {
     for (const who of [CREATOR, ARTS, OWNER]) await assertFails(setDoc(doc(as(who), 'prop_wants', 'cop_2026-11-21_abc'), { itemId: 'cop', day: '2026-11-21', email: CREATOR }))
     await assertFails(deleteDoc(doc(as(OWNER), 'prop_wants', 'cop_2026-11-20_abc')))
   })
+  it('waitlist ("Notify me if it opens"): your own entries, plus the schedule team and admins; nobody writes from a phone', async () => {
+    await env.withSecurityRulesDisabled(async ctx => { await setDoc(doc(ctx.firestore(), 'waitlist', 'w1'), { date: '2026-11-20', house: 'cliff2', start: 900, email: CREATOR, status: 'waiting' }) })
+    for (const who of [CREATOR, OWNER, GEAR, ADMIN]) await assertSucceeds(getDoc(doc(as(who), 'waitlist', 'w1')))
+    for (const who of [ARTS, STRANGER]) await assertFails(getDoc(doc(as(who), 'waitlist', 'w1')))
+    for (const who of [CREATOR, OWNER, GEAR]) await assertFails(setDoc(doc(as(who), 'waitlist', 'w2'), { date: '2026-11-20', house: 'cliff2', start: 900, email: who, status: 'waiting' }))
+    await assertFails(updateDoc(doc(as(CREATOR), 'waitlist', 'w1'), { status: 'left' }))
+  })
 })
 
 describe('Prime Capitol Google account secrets', () => {

@@ -18,6 +18,7 @@ import { actionsFor, chatPrompt, cleanState, cleanHistory, cleanTurn } from './c
 import { plainNeeds, rankedPicks, signalsFrom, goesWith, type Pick, type PropSignals, isFilmGear } from './ideaHelpers.js'
 import { aiSkips, NOT_A_PROP } from './filmGear.js'
 import { packText, analyticsPrompt, cleanAnswer, plainAnswer } from './analyticsAsk.js'
+import { waitlistSpotFor } from './waitlistRules.js'
 
 // What creators actually request, as totals (see ideaHelpers.ts). Read at most every 10 minutes per server copy.
 let signalCache: { at: number; s: PropSignals } | null = null
@@ -419,7 +420,11 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   // `notice` = what still needs saying when the chat shows its own short reaction instead of `reply` (the asked time
   // isn't free, a friend wasn't found, one slot a day). Empty when the options speak for themselves.
   const notice = [atNote.notice, note.trim()].filter(Boolean).join(' ')
+  // The exact time they asked for on that one day is someone else's: the chat offers "Tell me if 5 PM opens" (waitlist.ts).
+  const wl = (caller.role === 'creator' || caller.role === 'owner') && ask.from === ask.to
+    ? waitlistSpotFor(days[ask.from], ask.from, ask.houses, ask.at, s, caller.email, now, options) : null
   return {
+    ...(wl ? { waitlist: wl } : {}),
     reply: options.length ? `${reply}${note}` : `${reply}${note} Nothing is free for that. Try other days, the other house, or a different time of day.`,
     ...(notice ? { notice } : {}),
     ask: { ...ask, people: friends.map(f => f.name) },

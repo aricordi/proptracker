@@ -236,6 +236,8 @@ export const pushReminders = onSchedule({ schedule: 'every 10 minutes', timeZone
   // Requests nobody decided on by their start time are dropped (owner, Nov 2); waiting ones nudge the team once after 12 hours.
   try { await (await import('./scheduling.js')).expireRequests() } catch (e) { logger.warn('Expire requests failed', String(e)) }
   try { await nudgeWaitingRequests() } catch (e) { logger.warn('Request reminder failed', String(e)) }
+  // Waitlist entries whose slot has started are over ("Notify me if it opens", Nov 7).
+  try { await (await import('./waitlist.js')).expireWaitlist() } catch (e) { logger.warn('Waitlist sweep failed', String(e)) }
   // The monthly Cliff 1 draw was RETIRED (owner, Nov 2): the equipment team puts the guaranteed slots in the Google Calendar
   // and the calendar check brings them in. draw.ts stays (its callables are unused) so a deploy doesn't have to delete functions.
 })
