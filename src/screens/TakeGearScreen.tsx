@@ -27,7 +27,11 @@ export default function TakeGearScreen() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  const picked = Object.entries(cart.lines).filter(([, q]) => q > 0)
+  // Only what's still offered: a kit or item archived since it was picked (the cart lives on the phone) would
+  // make every take fail, so it's dropped from the cart (audit, Nov 7).
+  const picked = Object.entries(cart.lines).filter(([id, q]) => q > 0 && (!offers || offers.some(o => o.id === id && !o.archived)))
+  const staleKey = offers ? Object.keys(cart.lines).filter(id => !offers.some(o => o.id === id && !o.archived)).join() : ''
+  useEffect(() => { if (staleKey) staleKey.split(',').forEach(id => cart.setQty(id, 0)) }, [staleKey])   // eslint-disable-line react-hooks/exhaustive-deps
   const lines = useMemo(() => picked.map(([offerId, qty]) => {
     const o = (offers ?? []).find(x => x.id === offerId)
     if (!o) return null
@@ -73,7 +77,9 @@ export default function TakeGearScreen() {
             {lines.map(l => (
               <div key={l.offerId} className="rounded-2xl bg-pt-surface p-3 space-y-2">
                 <div className="flex items-center gap-3"><GearArt photo={l.photo} category={l.category} className="w-11 h-11 rounded-xl shrink-0" />
-                  <b className="text-[15px] flex-1 min-w-0">{l.name}{l.kind === 'extra' && l.qty > 1 ? ` × ${l.qty}` : ''}</b></div>
+                  <b className="text-[15px] flex-1 min-w-0">{l.name}{l.kind === 'extra' && l.qty > 1 ? ` × ${l.qty}` : ''}</b>
+                  <button onClick={() => cart.setQty(l.offerId, 0)} aria-label={`Don't take ${l.name}`}
+                    className="w-11 h-11 shrink-0 rounded-full bg-pt-bg text-pt-muted text-lg flex items-center justify-center">✕</button></div>
                 <PieceChecklist lines={checks.filter(c => c.offerId === l.offerId)} ticked={ticked} missing={missing} known={known}
                   onTick={k => { setTicked(t => flip(t, k)); setMissing(m => { const n = new Set(m); n.delete(k); return n }) }}
                   onMissing={k => setMissing(m => flip(m, k))} />
