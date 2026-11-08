@@ -90,6 +90,30 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       }
       if (Array.isArray(task.skips) && task.skips.length) out.skip = await skipImports.run(asOwner({ ids: task.skips, reason: task.skipReason ?? '' }))
       await ref.update({ status: 'done', result: JSON.parse(JSON.stringify(out)), finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'setBins') {
+      // Owner, Nov 8: move props to the bin the crew's Drive shortcuts say ("Bin 25" = the app's "B: 25"). Only binId/locationId
+      // change; archived props and bins that don't exist are skipped and reported.
+      const bins = (await db.collection('bins').get()).docs.map(d => ({ id: d.id, label: String(d.get('label') ?? ''), locationId: String(d.get('locationId') ?? '') }))
+      const numOf = (label: string) => { const m = label.trim().match(/^(?:bin|bi|b)?[\s.:#-]*0*(\d+)$/i); return m ? m[1] : null }
+      const moves: { itemId: string; bin: string }[] = Array.isArray(task.moves) ? task.moves.slice(0, 500) : []
+      const done: string[] = [], skipped: string[] = []
+      const now = new Date().toISOString()
+      for (const mv of moves) {
+        const n = numOf(String(mv.bin ?? ''))
+        const matches = n ? bins.filter(b => numOf(b.label) === n) : []
+        if (matches.length !== 1) { skipped.push(`${mv.itemId}: ${matches.length ? 'more than one' : 'no'} bin ${mv.bin}`); continue }
+        const ref = db.doc(`items/${mv.itemId}`)
+        const res = await db.runTransaction(async tx => {
+          const it = await tx.get(ref)
+          if (!it.exists) return 'missing'
+          if (it.get('archived') === true) return 'archived'
+          if (it.get('binId') === matches[0].id) return 'already'
+          tx.update(ref, { binId: matches[0].id, locationId: matches[0].locationId, lostFromBin: FieldValue.delete(), updatedAt: now, updatedBy: OWNER_EMAIL })
+          return 'moved'
+        })
+        if (res === 'moved') done.push(mv.itemId); else skipped.push(`${mv.itemId}: ${res}`)
+      }
+      await ref.update({ status: 'done', result: { moved: done.length, skipped }, finishedAt: new Date().toISOString() })
     } else if (task.kind === 'binShortcuts') {
       const root = folderIdFrom(String(task.folder ?? ''))
       if (!root) throw new Error('no folder')

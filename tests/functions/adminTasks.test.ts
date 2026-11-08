@@ -59,3 +59,18 @@ describe('admin tasks: approve', () => {
     expect((await getDoc(`import_jobs/${jobId}`))!.counts.analyzed).toBe(0)
   })
 })
+
+describe('admin tasks: setBins', () => {
+  it("moves props to the crew's bin by number, skips archived and unknown bins", async () => {
+    await put('bins/b5', { label: 'B: 5', locationId: 'loc-main', qrSlug: 'b5' })
+    await put('bins/b25', { label: 'B:25', locationId: 'loc-main', qrSlug: 'b25' })
+    await put('items/p1', { name: 'Stapler', binId: 'b5', locationId: 'loc-main', collection: 'company' })
+    await put('items/p2', { name: 'Old clock', binId: 'b5', archived: true, collection: 'company' })
+    await put('admin_tasks/s1', { kind: 'setBins', createdAt: 'x', moves: [{ itemId: 'p1', bin: 'Bin 25' }, { itemId: 'p2', bin: 'Bin 25' }, { itemId: 'p1', bin: 'Bin 99' }] })
+    const t = await waitFor('admin_tasks/s1', d => d?.status === 'done' || d?.status === 'failed')
+    expect(t!.result.moved).toBe(1)
+    expect(t!.result.skipped.length).toBe(2)
+    expect((await getDoc('items/p1'))!.binId).toBe('b25')
+    expect((await getDoc('items/p2'))!.binId).toBe('b5')
+  })
+})
