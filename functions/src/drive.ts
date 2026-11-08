@@ -155,3 +155,32 @@ export async function readListText(f: DriveList): Promise<string> {
   const url = as ? `${DRIVE}/files/${f.id}/export?mimeType=${encodeURIComponent(as)}` : `${DRIVE}/files/${f.id}?alt=media&supportsAllDrives=true`
   return (await driveGet(url, tok, { [f.id]: f.resourceKey })).text()
 }
+
+// ─── Admin task helpers (owner, Nov 8: Claude runs imports + checks from GitHub) ─────
+/** Direct subfolders of a folder (id + name). */
+export async function listSubfolders(folderId: string): Promise<{ id: string; name: string }[]> {
+  const tok = await token()
+  const out: { id: string; name: string }[] = []
+  let pageToken = ''
+  do {
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false and mimeType = '${FOLDER}'`)
+    const page = await (await driveGet(`${DRIVE}/files?q=${q}&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=nextPageToken,files(id,name)${pageToken ? `&pageToken=${pageToken}` : ''}`, tok)).json() as { nextPageToken?: string; files: { id: string; name: string }[] }
+    out.push(...page.files)
+    pageToken = page.nextPageToken ?? ''
+  } while (pageToken)
+  return out
+}
+
+/** Shortcuts directly in a folder: shortcut name + the file it points at. */
+export async function listShortcuts(folderId: string): Promise<{ name: string; targetId: string }[]> {
+  const tok = await token()
+  const out: { name: string; targetId: string }[] = []
+  let pageToken = ''
+  do {
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.shortcut'`)
+    const page = await (await driveGet(`${DRIVE}/files?q=${q}&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=nextPageToken,files(name,shortcutDetails(targetId))${pageToken ? `&pageToken=${pageToken}` : ''}`, tok)).json() as { nextPageToken?: string; files: { name: string; shortcutDetails?: { targetId?: string } }[] }
+    for (const f of page.files) if (f.shortcutDetails?.targetId) out.push({ name: f.name, targetId: f.shortcutDetails.targetId })
+    pageToken = page.nextPageToken ?? ''
+  } while (pageToken)
+  return out
+}

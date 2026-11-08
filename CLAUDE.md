@@ -2439,6 +2439,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
         Props only | Full app" (owner). (5) Incident.decideFrom (explainUntil, none when explained) → needsYouItems + Schedule team
         tab count only what can be decided now. Rules: equipment may read app_settings/booking (closed days).
         LIVE Nov 8 (owner "implement… fine toothed comb… push live"): backend run 68 + website run 70 (all overnight work + these) + practice run 23 (Update).
+    - DRIVE INVENTORY CHECK + ADMIN TASKS (owner, Nov 8: "more stuff was added to the drive… afraid of duplicates… do the import
+      through here"). Read-only map of the Inventory folder (1g8Aih49UsBWD_QoZAYqiu9lGv_nj7p9-): 1,631 photos; the Oct 13 import
+      took 1,222 (1 Inventory Pictures 1,202 + Bin 1/2); 12 old photos were never queued; Bins 3–70 hold NO photos, only Drive
+      SHORTCUTS (32 bins) to photos in 1 Inventory Pictures (= the crew's bin sorting); NEW Nov 1–4: Wardrobe Room 158, Prop Room
+      40 + Prop Rack 162 + Gun Bin 19, Deep Storage Rm 11, Furnace Room 7, each with its own list doc. No copies of imported
+      photos (241 shared names = phone counter reset). "Read server logs" → `imports` tick (import_status.py: jobs, records per
+      folder, ids). NEW `functions/src/adminTasks.ts` trigger `runAdminTask` on admin_tasks/{id} (no rule = server only) runs
+      startImport/processImport/approveImports/mergeImports/skipImports AS THE OWNER via `.run()` (same code + safety nets),
+      continues in a new task before 9 min; kind binShortcuts = read only Drive shortcuts per Bin folder vs each prop's app bin.
+      Button `.github/workflows/admin-task.yml` "Admin task (imports + checks)" (input task JSON; .github/scripts/admin_task.py
+      prints log + every analysed photo). Imports only analyse; approve is a separate task. Test tests/functions/adminTasks.test.ts.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
