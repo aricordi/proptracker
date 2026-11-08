@@ -1,6 +1,8 @@
 import {
-  collection, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc,
+  collection, doc, onSnapshot, query, orderBy, getDoc, getDocs, setDoc, updateDoc, where,
 } from 'firebase/firestore'
+import { stillOpen, type OpenThings } from '../lib/stillOpen'
+import { todayInStudio } from '../../functions/src/booking'
 import { httpsCallable } from 'firebase/functions'
 import { db, auth, functions } from '../firebase'
 import type { AppUser, Role } from '../types'
@@ -33,7 +35,8 @@ function actor() {
 
 export type InviteResult = 'invited' | 'already-exists'
 
-export async function inviteUser(email: string, role: Role, name?: string): Promise<InviteResult> {
+// Owner can start a creator straight on the Full app (owner, Nov 8); admins' invites always start on Props only (rules).
+export async function inviteUser(email: string, role: Role, name?: string, access: 'props' | 'full' = 'props'): Promise<InviteResult> {
   const id = normalizeEmail(email)
   const ref = doc(col, id)
   if ((await getDoc(ref)).exists()) return 'already-exists'
@@ -43,7 +46,7 @@ export async function inviteUser(email: string, role: Role, name?: string): Prom
     role,
     active: true,
     // Test launch (owner, Oct 27): every new creator starts on Props only; the owner switches them to Full app.
-    ...(role === 'creator' ? { access: 'props' } : {}),
+    ...(role === 'creator' ? { access } : {}),
     ...(name?.trim() ? { name: name.trim() } : {}),
     invitedBy: actor(),
     invitedAt: now,
@@ -68,4 +71,15 @@ export interface EmailMovePreview {
 export async function changeUserEmail(from: string, to: string, apply: boolean) {
   const r = await httpsCallable<{ from: string; to: string; apply: boolean }, EmailMovePreview>(functions, 'changeUserEmail', { timeout: 540000 })({ from, to: normalizeEmail(to), apply })
   return r.data
+}
+
+// What a creator still has going on in the full app (owner reads all of these). See src/lib/stillOpen.ts.
+export async function openThingsFor(email: string): Promise<OpenThings> {
+  const id = normalizeEmail(email)
+  const [sh, res, gear] = await Promise.all([
+    getDocs(query(collection(db, 'shoots'), where('creatorEmail', '==', id))),
+    getDocs(query(collection(db, 'reservations'), where('creatorEmail', '==', id))),
+    getDocs(query(collection(db, 'gear_bookings'), where('creatorEmail', '==', id))),
+  ])
+  return stillOpen(sh.docs.map(d => d.data()), res.docs.map(d => d.data()), gear.docs.map(d => d.data()), todayInStudio())
 }

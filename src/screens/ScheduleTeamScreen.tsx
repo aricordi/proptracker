@@ -51,7 +51,9 @@ export default function ScheduleTeamScreen() {
     return [...m.values()].sort((a, b) => (b.missed - a.missed) || a.name.localeCompare(b.name))
   }, [all, statuses, now])
 
-  const tabs: [Tab, string][] = [['checkins', `Check-ins${missed.length ? ` (${missed.length})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
+  // The count is what can be decided now: once the creator's time to explain is over (owner, Nov 8). The list shows them all.
+  const toDecide = missed.filter(x => x.explanation || now >= explainUntil(x, s)).length
+  const tabs: [Tab, string][] = [['checkins', `Check-ins${toDecide ? ` (${toDecide})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">

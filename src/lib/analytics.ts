@@ -4,7 +4,7 @@
 // Everything becomes FACTS (one per shoot that happened), INCIDENTS (one per flag) and JOBS (one per team task), each
 // with a date, so any of them can be grouped by week or month, creator, house, flag type or staff member.
 import { pickupDay, type ClosedDays } from '../../functions/src/booking'
-import { isGearLate, nowStamp } from '../../functions/src/gearBooking'
+import { isGearLate, nowStamp, addMinutes } from '../../functions/src/gearBooking'
 import { isLate, wasReturnedLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
 import { expectsCheckIn } from '../../functions/src/schedule'
 
@@ -44,7 +44,7 @@ export const SERIOUS_KINDS: Kind[] = ['no-show', 'late-cancel', 'strike', 'props
 // ── Inputs (only the fields used) ──
 export interface AShoot { id: string; creatorEmail: string; creatorName: string; date: string; from: string; to: string; place: string; where?: string
   status: string; checkin?: { at: string } | null; wrap?: { at: string; title: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
-  toCheck?: boolean; calendarEventId?: string; importedFrom?: string; approvedAt?: string; createdAt?: string }
+  toCheck?: boolean; calendarEventId?: string; importedFrom?: string; approvedAt?: string; createdAt?: string; explanation?: { at: string } | null }
 interface Hist { at: string; by?: string; status?: string; action?: string }
 export interface AProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; startDate: string; endDate: string
   history?: Hist[]; lines?: { itemName: string; checkIn?: { result: string } }[]; returnInfo?: { at: string } | null; scheduleShootId?: string }
@@ -60,7 +60,9 @@ export interface AInvite { id: string; toEmail: string; toName: string; fromName
 export interface Fact { id: string; email: string; name: string; date: string; house: House; filmed: boolean; title?: string; to: string }
 // id = stable flag id ('<kind>:<source id>…'), used to remember what an admin did about it (flag_reviews).
 // src = where it came from (for the evidence on the flag sheet); strikeId = the strike that came with it, if any.
-export interface Incident { id: string; kind: Kind; email: string; name: string; date: string; house?: House; text: string; to?: string; open?: boolean
+// decideFrom (missed check-ins): when the creator's time to explain is over and the team can decide (owner, Nov 8: only
+// count it as "to decide" from then).
+export interface Incident { id: string; kind: Kind; email: string; name: string; date: string; house?: House; text: string; to?: string; open?: boolean; decideFrom?: string
   src: { type: 'shoot' | 'report' | 'props' | 'gear' | 'strike' | 'invite'; id: string }; shootId?: string; strikeId?: string; late?: LateInfo }
 // LATE RETURNS (owner, Oct 27): how late, and what it was worth, for the late return fee (gear only for now: 10% of the
 // value; props are logged too, with no fee). dueAt/backAt are studio times 'YYYY-MM-DDTHH:MM'; minutes = past the end
@@ -79,7 +81,8 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
   strikes: AStrike[]; invites: AInvite[]; excused?: Set<string>
   // Who can check in with the app (Full app creators + the owner). Others (Props only) can't, so for them a shoot from the
   // calendar counts as filmed unless the team marks it a no-show (audit, Nov 5).
-  checksIn?: (email: string) => boolean }) {
+  checksIn?: (email: string) => boolean
+  explainHours?: number }) {
   const { now, closed } = o
   const nowDate = new Date(now + ':00'), today = now.slice(0, 10)
   const facts: Fact[] = [], incidents: Incident[] = [], jobs: Job[] = [], upcoming: { email: string; date: string; id: string }[] = []
@@ -126,7 +129,8 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     }
     if (filmed) continue
     if (decidedNo) add({ ...sh('no-show', x.id), strikeId: strikeFor('no-show', x.id), kind: 'no-show', email: x.creatorEmail, date: x.date, house, text: 'No-show', to })
-    else add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true })
+    else add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true,
+      ...(x.explanation ? {} : { decideFrom: addMinutes(x.to, (o.explainHours ?? 12) * 60) }) })   // explained = decide now
   }
 
   for (const r of o.reports) {

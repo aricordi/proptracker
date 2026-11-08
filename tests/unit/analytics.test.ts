@@ -53,3 +53,15 @@ describe('analytics', () => {
     expect(filterAll(a, { ...f, house: 'cliff2' }).facts.map(x => x.id)).toEqual(['g'])
   })
 })
+
+describe('missed check-ins to decide (owner, Nov 8: only after the time to explain)', () => {
+  it('a missed check-in carries when it can be decided; an explained one can be decided now', async () => {
+    const { analyze } = await import('../../src/lib/analytics')
+    const base = { closed: { closedWeekdays: [], closedDates: [] }, props: [], gear: [], reports: [], strikes: [], invites: [], checksIn: () => true, explainHours: 12 }
+    const sh = (id: string, x: Record<string, unknown> = {}) => ({ id, creatorEmail: 'ana@x.com', creatorName: 'Ana', date: '2026-11-07', from: '2026-11-07T13:00', to: '2026-11-07T15:00', place: 'cliff1', status: 'booked', ...x })
+    const a = analyze({ ...base, now: '2026-11-07T20:00', shoots: [sh('m1'), sh('m2', { explanation: { at: '2026-11-07T16:00:00Z' } })] } as never)
+    const m1 = a.incidents.find(i => i.src.id === 'm1')!, m2 = a.incidents.find(i => i.src.id === 'm2')!
+    expect(m1.decideFrom).toBe('2026-11-08T03:00')
+    expect(m2.decideFrom).toBeUndefined()
+  })
+})

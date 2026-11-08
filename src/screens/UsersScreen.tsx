@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { OWNER_EMAIL, LIVE_APP_URL } from '../config'
 import { USING_EMULATORS } from '../firebase'
-import { subscribeToUsers, inviteUser, updateUser, normalizeEmail } from '../services/users'
+import { subscribeToUsers, inviteUser, updateUser, normalizeEmail, openThingsFor } from '../services/users'
+import { nothingOpen, openText } from '../lib/stillOpen'
+import { formatDay } from '../lib/dates'
 import BottomSheet from '../components/BottomSheet'
 import ChangeEmailSheet from '../components/ChangeEmailSheet'
 import { ROLE_LABELS } from './AccountScreen'
@@ -164,26 +166,28 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<Role>('creator')
+  const [access, setAccess] = useState<'props' | 'full'>('props')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [exists, setExists] = useState(false)
-  const [done, setDone] = useState<{ email: string; role: Role; name: string } | null>(null)
+  const [done, setDone] = useState<{ email: string; role: Role; name: string; access: 'props' | 'full' } | null>(null)
   const [copied, setCopied] = useState(false)
 
   const clean = normalizeEmail(email)
   const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)
 
   function reset() {
-    setEmail(''); setName(''); setRole('creator'); setMessage(null); setExists(false); setDone(null); setCopied(false)
+    setEmail(''); setName(''); setRole('creator'); setAccess('props'); setMessage(null); setExists(false); setDone(null); setCopied(false)
   }
   function close() { reset(); onClose() }
 
   async function submit() {
     setBusy(true); setMessage(null); setExists(false)
     try {
-      const result = await inviteUser(clean, role, name)
+      const start = isOwner && role === 'creator' ? access : 'props'
+      const result = await inviteUser(clean, role, name, start)
       if (result === 'already-exists') { setExists(true); setMessage('That email is already on the list.') }
-      else setDone({ email: clean, role, name })
+      else setDone({ email: clean, role, name, access: start })
     } catch {
       setMessage(isOwner
         ? "Couldn't save the invite. Check your connection and try again."
@@ -209,7 +213,10 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
           <p className="text-pt-text text-[15px]">
             <b>{done.name.trim() || done.email}</b> can now sign in as <b>{ROLE_LABELS[done.role]}</b>.
           </p>
-          {done.role === 'creator' && (
+          {done.role === 'creator' && done.access === 'full' && (
+            <p className="text-green-300 text-sm">They start on the <b>Full app</b>: they can book shoots and props straight away.</p>
+          )}
+          {done.role === 'creator' && done.access !== 'full' && (
             <p className="text-amber-200 text-sm">
               They start on <b>Props only</b> (they can look through the props, not book).{' '}
               {isOwner ? 'When they\'re ready, open them on People & access and switch them to Full app.' : 'The owner switches them to Full app when they\'re ready.'}
@@ -245,6 +252,19 @@ function InviteSheet({ open, onClose, isOwner, onOpenExisting }: {
           <p className="text-pt-muted text-xs mb-2">Access</p>
           <RolePicker value={role} onChange={setRole} isOwner={isOwner} />
         </div>
+        {isOwner && role === 'creator' && (
+          // Owner, Nov 8: invite launch creators straight onto the full app (admins' invites always start on Props only).
+          <div>
+            <p className="text-pt-muted text-xs mb-2">Start them on</p>
+            <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5 shadow-hairline">
+              {([['props', 'Props only'], ['full', 'Full app']] as const).map(([v, l]) => (
+                <button key={v} onClick={() => setAccess(v)} aria-pressed={access === v}
+                  className={`flex-1 min-h-[44px] rounded-[10px] text-sm ${access === v ? 'bg-pt-accent text-stone-900 font-semibold' : 'text-pt-muted'}`}>{l}</button>
+              ))}
+            </div>
+            <p className="text-pt-muted text-xs mt-2">{access === 'full' ? 'Full app: they can book shoots and props from day one.' : 'Props only: they can look through the props. Switch them to Full app later.'}</p>
+          </div>
+        )}
         {message && <p className="text-amber-400 text-sm">{message}</p>}
         {exists && (
           <button onClick={() => { const e = clean; close(); onOpenExisting(e) }} className="text-pt-accent text-sm font-medium tap">
@@ -266,16 +286,28 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
   const [error, setError] = useState<string | null>(null)
   const [moving, setMoving] = useState(false)
   const [confirmOff, setConfirmOff] = useState(false)
+  const [openNote, setOpenNote] = useState<string | null>(null)
   const navigate = useNavigate()
 
   useEffect(() => { if (user) { setRole(user.role); setError(null) } }, [user])
-  useEffect(() => setConfirmOff(false), [user?.email])
+  useEffect(() => { setConfirmOff(false); setOpenNote(null) }, [user?.email])
   if (user && moving) return <ChangeEmailSheet user={user} onClose={() => setMoving(false)} onDone={onClose} />
 
   if (!user) return null
 
   async function save(data: Partial<Pick<AppUser, 'role' | 'active' | 'access'>>) {
-    setBusy(true); setError(null)
+    setBusy(true); setError(null); setOpenNote(null)
+    // Owner, Nov 8 (option A): never back to Props only while they still have shoots, props or gear going on. Props-only people
+    // can't see any of it, so it would be stuck. Finish or cancel those first.
+    if (data.access === 'props' && user!.access === 'full') {
+      try {
+        const o = await openThingsFor(user!.email)
+        if (!nothingOpen(o)) {
+          setOpenNote(`${(user!.name || user!.email).split(' ')[0]} still has: ${openText(o, d => formatDay(d))}. Finish or cancel those first (Bookings & history), then switch them to Props only.`)
+          setBusy(false); return
+        }
+      } catch { setError("Couldn't check what they still have open. Try again."); setBusy(false); return }
+    }
     // Access and on/off changes keep the sheet open (the person updates live), so a mistake can be undone right here.
     try { await updateUser(user!.email, data); setConfirmOff(false); if (!('access' in data) && !('active' in data)) onClose() }
     catch { setError("Couldn't save. Check your connection and try again.") }
@@ -319,6 +351,7 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
               ? 'Full app: books shoots and props.'
               : 'Props only (demo mode): they can only search and look at the props. Nothing to book.'}
               {!isOwner && ' Only the owner can change this.'}</p>
+            {openNote && <p role="alert" className="mt-2 bg-red-500/15 text-red-200 text-sm rounded-xl px-3 py-2">{openNote}</p>}
           </div>
         )}
         {isOwner && !user.movedTo && (

@@ -525,3 +525,37 @@ describe('calendar audit fixes (Nov 7): props, groups, changes, keep', () => {
     expect((await call('previewCalendarImport', {}, OWNER)).result.events).toHaveLength(0)
   })
 })
+
+describe('old-calendar events are copied into the app calendar (owner, Nov 8)', () => {
+  it('copies a confirmed shoot and block from an OLD calendar (in colour), never one from the app calendar itself; offsite never blocks a house', async () => {
+    const APP = 'app@group.calendar.google.com', OLD = 'oldc2@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: APP, instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }],
+      calendarFeeds: [{ id: OLD, name: 'Old Cliff 2', house: 'any' }] })
+    const at = (id: string, summary: string, location: string, s: string, e: string) => ({ id, summary, location, start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put('test_calendar/events', { items: [at('fromapp', 'Ben filming', '2375 Cliff Road', '17:00', '19:00')] })
+    await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [
+      at('oldshoot', 'Ana filming', '2371 Cliff Road', '13:00', '15:00'),
+      at('oldblock', 'Cleaners', '2371 Cliff Road', '07:00', '09:00'),
+      at('offparty', 'Offsite party', 'Some park', '19:00', '21:00'),   // offsite + a block word: never a block at a house
+    ] })
+    const r = await call('checkCalendarNow', {}, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    const anaSid = day.cliff2['780'].shootId, benSid = day.cliff1['1020'].shootId
+    expect(day.blocks.filter((b: any) => b.house === 'cliff1')).toHaveLength(0)   // the offsite party blocked nothing
+    expect(day.clashes ?? []).toHaveLength(0)
+    // Nothing is copied while it waits to be checked.
+    const sentIds = async () => (await docs('calendar_sent')).length
+    expect(await sentIds()).toBe(0)
+    for (const id of ['oldshoot', 'oldblock', 'fromapp']) expect((await call('reviewCalendarImport', { id, action: 'confirm' }, MAANIK)).ok).toBe(true)
+    const hex = (x: string) => Buffer.from(x).toString('hex')
+    await waitFor(async () => !!(await getDoc(`calendar_sent/s${hex(anaSid)}`)))
+    const block = (await getDoc(`schedule_days/${FRI}`))!.blocks.find((b: any) => b.type === 'cleaners')
+    await waitFor(async () => !!(await getDoc(`calendar_sent/b${hex(`${FRI}_${block.id}`)}`)))
+    // The shoot that came from the app calendar itself is never copied (it would be in there twice).
+    await new Promise(res => setTimeout(res, 1500))
+    expect(await getDoc(`calendar_sent/s${hex(benSid)}`)).toBeFalsy()
+    // The catch-up on the next check copies nothing more (everything confirmed is already there).
+    expect((await call('checkCalendarNow', {}, MAANIK)).result.copied).toBe(0)
+  })
+})

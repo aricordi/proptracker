@@ -216,7 +216,7 @@ export default function ConnectionsScreen() {
               <input value={calId} onChange={e => { setCalId(e.target.value.trim()); setCalMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} autoCapitalize="none" aria-label="App calendar ID" />
               <button onClick={linkCalendar} disabled={!!busy || !calId || !accountOk} className={btn}>{busy === 'cal' ? 'Checking…' : 'Save & test'}</button>
               {calMsg && <p className={`text-sm ${calMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{calMsg.text}</p>}</>)}
-            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey), with the props and gear on each shoot. Share this one calendar with everyone who needs to see the schedule. Shoots brought in from the old calendars stay in those old calendars and aren't copied here (the app's own schedule always shows everything).</p>
+            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey, heads-up orange), with the props on each shoot. Share this one calendar with everyone who needs to see the schedule. Shoots and blocks from the old calendars are copied in too, in the same colours, once the team has confirmed them in Requests → Google Calendar (the old calendars' own events are never changed).</p>
 
             <div className="border-t border-pt-border pt-3 space-y-3">
               <p className="text-pt-text text-sm font-semibold">Old calendars (read only)</p>

@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import Avatar from '../Avatar'
 import { Icon } from '../Icon'
+import { nowStamp } from '../../../functions/src/gearBooking'
 import { METRICS, fmt, compare, averageOf, bucketLabel, type Metric, type Grain } from '../../lib/insights'
 
 const TONE = { good: 'text-green-300', bad: 'text-red-300', flat: 'text-pt-muted' }
@@ -168,9 +169,11 @@ export function NeedsYou({ items, tourId }: { items: { n: number; text: string; 
 export const showRateTone = (r: number | null) => r === null ? 'text-pt-muted' : r < 0.7 ? 'text-red-300' : r < 0.9 ? 'text-amber-200' : 'text-green-300'
 
 // The same "waiting on someone" list on the Dashboard and in Analytics.
-export function needsYouItems(a: { incidents: { kind: string; open?: boolean; to?: string }[]; backlog: { propsPackLate: number; propsToCheckIn: number; gearToCheckIn: number; propsOutLate: number; gearOutLate: number } },
+export function needsYouItems(a: { incidents: { kind: string; open?: boolean; to?: string; decideFrom?: string }[]; backlog: { propsPackLate: number; propsToCheckIn: number; gearToCheckIn: number; propsOutLate: number; gearOutLate: number } },
   pausedNow: string[], go: (to: string) => void, notLookedAt = 0) {
-  const open = (k: string[]) => new Set(a.incidents.filter(i => i.open && k.includes(i.kind)).map(i => i.to ?? Math.random())).size
+  // A missed check-in only needs deciding once the creator's time to explain is over (owner, Nov 8).
+  const now = nowStamp()
+  const open = (k: string[]) => new Set(a.incidents.filter(i => i.open && k.includes(i.kind) && (!i.decideFrom || now >= i.decideFrom)).map(i => i.to ?? Math.random())).size
   const b = a.backlog, decide = open(['missed-checkin']), reports = open(['ran-over', 'mess']), late = b.propsOutLate + b.gearOutLate
   return [
     { n: decide, text: `Missed check-in${decide === 1 ? '' : 's'} to decide`, onClick: () => go('/analytics?tab=flags&kind=missed-checkin&period=12m'), serious: true },

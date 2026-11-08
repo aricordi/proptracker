@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { subscribeToUsers } from '../services/users'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useShootsSince, useReportsSince, useStrikesSince, useInvitesSince, useAllStatuses, useFlagReviews } from '../services/schedule'
+import { useShootsSince, useReportsSince, useStrikesSince, useInvitesSince, useAllStatuses, useFlagReviews, useScheduleSettings } from '../services/schedule'
 import { useBookingSettings } from './useBookings'
 import { todayInStudio } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
@@ -15,6 +15,7 @@ import { OWNER_EMAIL } from '../config'
 export function useAnalyticsData(loadFrom: string) {
   const today = todayInStudio(), now = nowStamp()
   const closed = useBookingSettings()
+  const sched = useScheduleSettings()
   const shoots = useShootsSince(loadFrom, true)
   const reports = useReportsSince(loadFrom, true)
   const strikes = useStrikesSince(loadFrom, true)
@@ -35,8 +36,8 @@ export function useAnalyticsData(loadFrom: string) {
   // Who can check in with the app: the owner and creators on the Full app (Props-only creators can't yet).
   const fullApp = useMemo(() => new Set([OWNER_EMAIL, ...users.filter(u => u.role === 'creator' && u.access === 'full').map(u => u.email)]), [users])
   const raw0 = useMemo(() => analyze({ now, closed, checksIn: e => fullApp.has(e), shoots: (shoots ?? []) as unknown as AShoot[], props: props as unknown as AProps[], gear: gear as unknown as AGear[],
-    reports: reports as unknown as AReport[], strikes: strikes as unknown as AStrike[], invites: invites as unknown as AInvite[], excused }),
-  [now, closed, shoots, props, gear, reports, strikes, invites, excused, fullApp])
+    reports: reports as unknown as AReport[], strikes: strikes as unknown as AStrike[], invites: invites as unknown as AInvite[], excused, explainHours: sched.explainHours }),
+  [now, closed, shoots, props, gear, reports, strikes, invites, excused, fullApp, sched.explainHours])
   // Only creators and the owner are scored; team work (jobs, backlog) is kept as is.
   const a = useMemo(() => ({ ...raw0, facts: raw0.facts.filter(f => counted.has(f.email)),
     incidents: raw0.incidents.filter(i => counted.has(i.email)), excused: raw0.excused.filter(i => counted.has(i.email)),

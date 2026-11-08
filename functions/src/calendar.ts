@@ -10,7 +10,7 @@ import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, FieldPath } from 'firebase-admin/firestore'
 import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
@@ -129,7 +129,36 @@ async function deleteEvent(cal: string, id: string) {
 
 const when = (st: string) => ({ dateTime: `${st}:00`, timeZone: 'America/Toronto' })
 // One colour per place so the single app calendar reads like the old separate ones (Google's event colour numbers).
-export const EVENT_COLOURS: Record<'cliff1' | 'cliff2' | 'offsite' | 'block', string> = { cliff1: '5', cliff2: '7', offsite: '10', block: '8' }
+// Heads-ups (owner, Nov 4: something happening at a house, filming still allowed) get their own colour so they don't read as a block.
+export const EVENT_COLOURS: Record<'cliff1' | 'cliff2' | 'offsite' | 'block' | 'headsUp', string> = { cliff1: '5', cliff2: '7', offsite: '10', block: '8', headsUp: '6' }
+
+// Owner, Nov 8: events brought in from the OLD calendars (Cliff 2, Stromedy Talent…) are copied into the app calendar too,
+// colour-coded like everything else, so the app calendar becomes the full schedule. The copy is the app's OWN event
+// ('s…'/'b…' ids); the old calendar's event is still never touched. Events that came from the app calendar itself are never
+// copied (that would put them in twice), and nothing is copied until a person has confirmed it (toCheck).
+// Returns the calendar an imported shoot/block came from ('' = not imported).
+const sourceCache = new Map<string, string>()
+export async function importedFrom(rec: Record<string, any>, kind: 'shoot' | 'block'): Promise<string> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (kind === 'shoot' ? !(rec.importedFrom || rec.calendarEventId) : !rec.imported) return ''
+  if (rec.calendarFeed) return String(rec.calendarFeed)
+  const key = kind === 'shoot' ? `e:${rec.calendarEventId}` : `b:${rec.id}`
+  if (sourceCache.has(key)) return sourceCache.get(key)!
+  let feed = ''
+  if (kind === 'shoot' && rec.calendarEventId) feed = String((await db.doc(`calendar_imports/${rec.calendarEventId}`).get()).get('feedId') ?? '')
+  else if (kind === 'block' && rec.id) {
+    const q = await db.collection('calendar_imports').where('blockId', '==', rec.id).limit(1).get()
+    feed = String(q.docs[0]?.get('feedId') ?? '')
+  }
+  feed = feed || 'app'   // imports from before Oct 30 came from the app calendar (then the only one)
+  sourceCache.set(key, feed)
+  return feed
+}
+// True = this record may have its own event in the app calendar: made in the app, or confirmed from an OLD calendar.
+export async function copyable(rec: Record<string, any>, kind: 'shoot' | 'block', appCal: string): Promise<boolean> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (rec.toCheck) return false
+  const from = await importedFrom(rec, kind)
+  return !from || (from !== 'app' && from !== appCal)
+}
 
 // What's on a shoot (props + gear), for the event's description, so anyone looking knows the kit is out.
 async function shootNeeds(shootId: string) {
@@ -163,24 +192,28 @@ async function pushEvent(cal: string, eventId: string, ref: Pending, label: stri
   let ev: Record<string, unknown> | null = null
   if (ref.kind === 'shoot') {
     const sh = (await db.doc(`shoots/${ref.shootId}`).get()).data()
-    if (sh && (sh.importedFrom || sh.calendarEventId)) return   // an old calendar event: never touched
-    if (sh && sh.status === 'booked') {
+    const from = sh ? await importedFrom(sh, 'shoot') : ''
+    if (from === 'app' || (from && from === cal)) return   // came from the app calendar itself: that event IS the copy
+    if (sh && sh.status === 'booked' && !sh.toCheck) {
       const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
       const needs = await shootNeeds(ref.shootId)
       const list = (title: string, xs: string[]) => xs.length ? [`${title}:`, ...xs.slice(0, 25).map(x => `• ${x}`), ...(xs.length > 25 ? [`…and ${xs.length - 25} more`] : [])] : []
       ev = { summary: `${sh.creatorName} · ${house ? house.name : 'Offsite'}`, location: house ? house.address : sh.where,
         colorId: EVENT_COLOURS[house ? sh.place as 'cliff1' | 'cliff2' : 'offsite'],
         description: [`${sh.kind === 'offsite' ? `Offsite shoot · ${sh.where}` : 'House slot'}`, ...list('Gear', needs.gear), ...list('Props', needs.props),
-          'Booked in Prime Capitol (changes made here are not copied back)'].join('\n'),
+          from ? 'Copied from an older Google Calendar (changes made here are not copied back)' : 'Booked in Prime Capitol (changes made here are not copied back)'].join('\n'),
         start: when(sh.from), end: when(sh.to) }
     }
   } else {
-    const b = (((await db.doc(`schedule_days/${ref.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === ref.blockId) as (Block & { imported?: boolean }) | undefined
-    if (b?.imported) return
-    if (b) {
+    const b = (((await db.doc(`schedule_days/${ref.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === ref.blockId) as (Block & { imported?: boolean; soft?: boolean; toCheck?: boolean }) | undefined
+    const src = b ? await importedFrom(b, 'block') : ''
+    if (src === 'app' || (src && src === cal)) return
+    if (b && !b.toCheck && s.houses[b.house]) {
       const from = stamp(ref.date, b.start)
-      ev = { summary: `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
-        location: s.houses[b.house].address, colorId: EVENT_COLOURS.block, description: 'Blocked time · set in Prime Capitol', start: when(from), end: when(addMinutes(from, b.end - b.start)) }
+      ev = { summary: `${b.soft ? 'Heads-up: ' : ''}${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
+        location: s.houses[b.house].address, colorId: b.soft ? EVENT_COLOURS.headsUp : EVENT_COLOURS.block,
+        description: [b.soft ? 'Heads-up · filming can still go ahead' : 'Blocked time', src ? 'Copied from an older Google Calendar' : 'Set in Prime Capitol'].join(' · '),
+        start: when(from), end: when(addMinutes(from, b.end - b.start)) }
     }
   }
   if (!ev && !(await sentDoc(eventId).get()).exists) { await outbox(eventId).delete(); return }   // never reached the calendar
@@ -203,9 +236,14 @@ async function sendNow(eventId: string, ref: Pending, label: string, by: string)
 export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event => {
   const after = event.data?.after.data()
   const shoot = after ?? event.data?.before.data()
-  if (!shoot || shoot.importedFrom || shoot.calendarEventId) return   // old calendar event: never touched
+  if (!shoot) return
+  const cal = await calendarId()
+  if (!cal) return
+  const from = await importedFrom(shoot, 'shoot')
+  if (from === 'app' || (from && from === cal)) return   // came from the app calendar itself: never copied
   const before = event.data?.before.data()
-  const what = (x?: Record<string, any>) => x && x.status === 'booked' ? JSON.stringify([x.place, x.from, x.to, x.where, x.creatorName]) : ''
+  // Waiting to be checked (toCheck) counts as not shown, so confirming it copies it in.
+  const what = (x?: Record<string, any>) => x && x.status === 'booked' && !x.toCheck ? JSON.stringify([x.place, x.from, x.to, x.where, x.creatorName]) : ''
   if (what(before) === what(after)) return   // nothing the calendar shows has changed (e.g. a check-in)
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   await sendNow(shootEventId(event.params.id), { kind: 'shoot', shootId: event.params.id }, shootLabel(shoot, s), String(shoot.updatedBy ?? shoot.bookedBy ?? ''))
@@ -218,7 +256,9 @@ async function refreshShootFor(before?: Record<string, any>, after?: Record<stri
   const what = (x?: Record<string, any>) => x && !['cancelled', 'declined'].includes(x.status) ? JSON.stringify((x.lines ?? []).map((l: any) => [l.itemName ?? l.name, l.qty])) : ''
   if (what(before) === what(after)) return
   const sh = (await db.doc(`shoots/${shootId}`).get()).data()
-  if (!sh || sh.status !== 'booked' || sh.importedFrom || sh.calendarEventId) return
+  if (!sh || sh.status !== 'booked') return
+  const cal = await calendarId()
+  if (!cal || !(await copyable(sh, 'shoot', cal))) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   await sendNow(shootEventId(shootId), { kind: 'shoot', shootId }, shootLabel(sh, s), 'props/gear change')
 }
@@ -226,10 +266,14 @@ export const syncPropsToCalendar = onDocumentWritten('reservations/{id}', e => r
 export const syncGearToCalendar = onDocumentWritten('gear_bookings/{id}', e => refreshShootFor(e.data?.before.data(), e.data?.after.data()))
 
 export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', async event => {
-  // Blocks imported from Google Calendar (imported: true) are that calendar's own events: never touched.
-  const before = ((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
-  const after = ((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? []).filter(b => !(b as Block & { imported?: boolean }).imported)
-  const key = (b: Block) => JSON.stringify([b.id, b.house, b.start, b.end, b.type, b.note ?? ''])
+  // Blocks from the app calendar itself are that calendar's own events: never copied. Blocks confirmed from an OLD calendar
+  // are copied (owner, Nov 8); ones still waiting to be checked count as not there yet.
+  const cal = await calendarId()
+  if (!cal) return
+  const keep = async (list: Block[]) => { const out: Block[] = []; for (const b of list) if (await copyable(b as Block & Record<string, unknown>, 'block', cal)) out.push(b); return out }
+  const before = await keep((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? [])
+  const after = await keep((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? [])
+  const key = (b: Block) => JSON.stringify([b.id, b.house, b.start, b.end, b.type, b.note ?? '', !!(b as Block & { soft?: boolean }).soft])
   const changed = [...after.filter(b => !before.some(x => key(x) === key(b))), ...before.filter(b => !after.some(x => x.id === b.id))]
   if (!changed.length) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -262,6 +306,8 @@ export const applyCalendarChanges = onCall({ ...CALLABLE, timeoutSeconds: 120 },
       else if (action === 'remove') {
         if (!isEmulator()) await deleteEvent(cal, eventId)
         await sentDoc(eventId).delete(); await outbox(eventId).delete()
+        // Taken out by hand: the 15-minute catch-up must not put it back (it only comes back if the booking itself changes).
+        await db.doc(`calendar_removed/${eventId}`).set({ at: new Date().toISOString(), by: caller.email })
       } else {
         const p = (await outbox(eventId).get()).data() as (Pending & { label: string }) | undefined
         if (!p) { results.push({ eventId, ok: false, message: 'Already handled.' }); continue }
@@ -448,7 +494,9 @@ async function scanCalendar(cals: Source[]) {
     && (a.endMin === b.endMin || (a.endMin <= a.startMin && b.endMin === a.startMin + s.slotMinutes))
     && (!b.title || String(a.title ?? '').slice(0, 200) === b.title) && (!b.location || String(a.location ?? '').slice(0, 300) === b.location)
   const guessFor = (it: ScanItem, cal: Source) => {
-    const g0 = guessFor0(it, cal)
+    const g1 = guessFor0(it, cal)
+    // Blocked time is always at a house: an offsite "party"/"event" is not a block (owner, Nov 8: different places never overlap).
+    const g0 = g1.action === 'block' && g1.house !== 'cliff1' && g1.house !== 'cliff2' ? { ...g1, action: 'skip' } : g1
     const known = !!placeFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
     const soft = g0.action === 'block' && looksLikeHeadsUp(`${it.title} ${it.location}`)
     // Owner, Nov 4: a group booking came in by itself as one person. Only a plain one-person, one-slot shoot (or a clear block)
@@ -634,7 +682,9 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
           if (!u?.active && e !== OWNER_EMAIL) throw new Error(`${e} has no active account.`)
           users.push({ email: e, name: String(u?.name || (e === OWNER_EMAIL ? 'Alex' : e)) })
         }
-        const place = (['cliff1', 'cliff2', 'offsite'].includes(it.house) ? it.house : 'cliff1') as Place
+        // Never guessed onto a house (audit, Nov 8: an unknown place fell back to Cliff 1 and could clash with a shoot there).
+        if (!['cliff1', 'cliff2', 'offsite'].includes(it.house)) throw new Error('Pick where this shoot is: Cliff 1, Cliff 2 or offsite.')
+        const place = it.house as Place
         // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
         const parts = place === 'offsite' ? splitHours(start, end, users.length) : splitOnGrid(start, end, users.length, s.slots, s.slotMinutes)
@@ -659,7 +709,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
           const existing = keepFor.get(users[i].email)
           if (multi && staysCancelled(existing)) { ids.push(existing!); continue }
           const r = await importShootAsTeam({ place, date: String(it.date), start: part.start, end: part.end, where: place === 'offsite' ? String(it.where || it.title || 'Offsite').slice(0, 200) : '' },
-            users[i], caller.email, { calendarEventId: id, importedFrom: 'google-calendar', ...check, ...(multi ? { sharedBooking: { with: users.filter((_, j) => j !== i).map(u => u.name), turn: i + 1, of: users.length } } : existing ? { sharedBooking: FieldValue.delete() } : {}) },
+            users[i], caller.email, { calendarEventId: id, importedFrom: 'google-calendar', calendarFeed: snapshot.feedId, ...check, ...(multi ? { sharedBooking: { with: users.filter((_, j) => j !== i).map(u => u.name), turn: i + 1, of: users.length } } : existing ? { sharedBooking: FieldValue.delete() } : {}) },
             existing)
           ids.push(r.id)
           clash.push(...r.clashWith.filter(n => !users.some(u => u.name === n)))
@@ -672,7 +722,10 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
         }
         saved = { shootId: ids[0], shootIds: ids, email: users[0].email, emails: users.map(u => u.email), house: place, clashWith: clash }
       } else if (it.action === 'block') {
-        const house = (it.house === 'cliff2' ? 'cliff2' : 'cliff1') as House
+        // Blocked time only exists at a house. Owner, Nov 8: different places never overlap, so an offsite or unknown-place event
+        // must never block (or "clash" with) Cliff 1 by falling back to it.
+        if (it.house !== 'cliff1' && it.house !== 'cliff2') throw new Error(it.house === 'offsite' ? 'An offsite event can\'t block a house. Skip it, or make it a shoot.' : 'Pick which house this blocks.')
+        const house = it.house as House
         const type = (Object.keys(BLOCK_TYPES).includes(it.type) ? it.type : 'other') as BlockType
         const start = Math.max(0, Number(it.start) || 0), end = Math.max(start + 1, Number(it.end) || 0)
         const ref = db.doc(`schedule_days/${it.date}`)
@@ -688,7 +741,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
           hit.splice(0, hit.length, ...under.map(([, e]) => ({ name: e.name, email: e.email })))
           const clashes = [...(day.clashes ?? []).filter(c => c.blockId !== blockId),
             ...under.map(([k, e]) => ({ house, slot: k, shootId: e.shootId, name: note || BLOCK_TYPES[type], email: e.email ?? '', start, end, blockId }))]
-          tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true, ...(soft ? { soft: true } : {}), ...check }] }, { merge: true })
+          tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true, calendarFeed: snapshot.feedId, ...(soft ? { soft: true } : {}), ...check }] }, { merge: true })
         })
         if (hit.length) {
           clash = hit.map(h => h.name)
@@ -717,8 +770,8 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
 // - events changed or deleted in Google are followed the same way (to check);
 // - events it can't read (nobody named, no house) wait there unplaced for the team to say what they are.
 // Never by itself when the house is only a guess (a mixed calendar that doesn't say where) or a name fits two people.
-const placeable = (g: { action?: string; email?: string; emails?: string[]; houseUnsure?: boolean; ambiguous?: string[] }) =>
-  !g.houseUnsure && !g.ambiguous?.length && (g.action === 'block' || (g.action === 'shoot' && !!(g.emails?.length || g.email)))
+const placeable = (g: { action?: string; house?: string; email?: string; emails?: string[]; houseUnsure?: boolean; ambiguous?: string[] }) =>
+  !g.houseUnsure && !g.ambiguous?.length && ((g.action === 'block' && (g.house === 'cliff1' || g.house === 'cliff2')) || (g.action === 'shoot' && !!(g.emails?.length || g.email)))
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const asItem = (e: any, g: any = e.guess) => e.kind === 'removed'
   ? { id: e.id, action: 'remove', date: e.date }
@@ -739,6 +792,38 @@ export async function withCalendarLock<T>(by: string, fn: () => Promise<T>): Pro
   try { return await fn() } finally {
     await db.runTransaction(async tx => { if ((await tx.get(ref)).data()?.token === token) tx.delete(ref) }).catch(() => 0)
   }
+}
+
+// Owner, Nov 8: confirmed events from the OLD calendars get their own copy in the app calendar. New confirmations copy by
+// themselves (the triggers); this catches up the ones confirmed before, a few at a time on each 15-minute check.
+const COPY_PER_RUN = 40
+export async function copyConfirmedImports(): Promise<number> {
+  const cal = await calendarId()
+  if (!cal) return 0
+  const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  const today = todayInStudio()
+  let n = 0
+  const shoots = await db.collection('shoots').where('date', '>=', today).get()
+  for (const d of shoots.docs) {
+    if (n >= COPY_PER_RUN) break
+    const sh = d.data()
+    if (sh.status !== 'booked' || !(sh.importedFrom || sh.calendarEventId)) continue
+    if (!(await copyable(sh, 'shoot', cal))) continue
+    const id = shootEventId(d.id)
+    if ((await sentDoc(id).get()).exists || (await outbox(id).get()).exists || (await db.doc(`calendar_removed/${id}`).get()).exists) continue
+    await sendNow(id, { kind: 'shoot', shootId: d.id }, shootLabel(sh, s), 'calendar check'); n++
+  }
+  const days = await db.collection('schedule_days').where(FieldPath.documentId(), '>=', today).get()
+  for (const d of days.docs) {
+    for (const b of ((d.data() as ScheduleDay).blocks ?? []) as (Block & Record<string, unknown>)[]) {
+      if (n >= COPY_PER_RUN) break
+      if (!b.imported || !(await copyable(b, 'block', cal))) continue
+      const id = blockEventId(d.id, b.id)
+      if ((await sentDoc(id).get()).exists || (await outbox(id).get()).exists || (await db.doc(`calendar_removed/${id}`).get()).exists) continue
+      await sendNow(id, { kind: 'block', date: d.id, blockId: b.id }, `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house]?.name ?? ''} · ${d.id}`, 'calendar check'); n++
+    }
+  }
+  return n
 }
 
 export async function runCalendarCheck() {
@@ -793,8 +878,9 @@ async function runCalendarCheckLocked(cals: Source[]) {
       changed: auto.filter(e => e.kind === 'changed').length, removed: auto.filter(e => e.kind === 'removed').length,
       failed: results.filter(r => !r.ok).map(r => `${r.id}: ${r.message ?? ''}`).slice(0, 10),
       error: counts.filter(c => c.error).map(c => `Couldn't read "${c.name}": ${c.error}`).join(' · ').slice(0, 300), people }
-    await status.set(out)
-    return out
+    const copied = await copyConfirmedImports().catch(e => { logger.warn('copy imports', String(e)); return 0 })
+    await status.set({ ...out, copied })
+    return { ...out, copied }
   } catch (e) {
     await status.set({ at: new Date().toISOString(), error: String((e as Error).message).slice(0, 300) }, { merge: true })
     throw e
