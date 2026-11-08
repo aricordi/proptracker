@@ -120,6 +120,7 @@ async function gcal(method: 'PUT' | 'POST' | 'DELETE', cal: string, path: string
 async function upsertEvent(cal: string, id: string, ev: Record<string, unknown>) {
   let r = await gcal('PUT', cal, `/${id}`, ev)
   if (r.status === 404) r = await gcal('POST', cal, '', { id, ...ev })
+  if (r.status === 409) r = await gcal('PUT', cal, `/${id}`, ev)   // made at the same moment by another run: update it instead
   if (!r.ok) throw new Error(`Google Calendar said ${r.status}: ${(await r.text()).slice(0, 300)}`)
 }
 async function deleteEvent(cal: string, id: string) {
@@ -153,9 +154,9 @@ export async function importedFrom(rec: Record<string, any>, kind: 'shoot' | 'bl
   sourceCache.set(key, feed)
   return feed
 }
-// True = this record may have its own event in the app calendar: made in the app, or confirmed from an OLD calendar.
+// True = this record may have its own event in the app calendar: made in the app, or imported from an OLD calendar.
+// (Whether it is shown yet, i.e. confirmed, is decided in pushEvent.)
 export async function copyable(rec: Record<string, any>, kind: 'shoot' | 'block', appCal: string): Promise<boolean> {   // eslint-disable-line @typescript-eslint/no-explicit-any
-  if (rec.toCheck) return false
   const from = await importedFrom(rec, kind)
   return !from || (from !== 'app' && from !== appCal)
 }
@@ -194,7 +195,12 @@ async function pushEvent(cal: string, eventId: string, ref: Pending, label: stri
     const sh = (await db.doc(`shoots/${ref.shootId}`).get()).data()
     const from = sh ? await importedFrom(sh, 'shoot') : ''
     if (from === 'app' || (from && from === cal)) return   // came from the app calendar itself: that event IS the copy
-    if (sh && sh.status === 'booked' && !sh.toCheck) {
+    // An old-calendar shoot gets its FIRST copy only once a person confirmed it, and only for days not over yet (the automatic
+    // settle of past cards isn't a person confirming). Once copied, the copy follows changes, even while a change waits to
+    // be checked again, so the app calendar has no gaps (review, Nov 8).
+    const first = !!sh && !(await sentDoc(eventId).get()).exists
+    const hidden = !!sh && !!from && first && (!!sh.toCheck || String(sh.date) < todayInStudio())
+    if (sh && sh.status === 'booked' && !hidden) {
       const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
       const needs = await shootNeeds(ref.shootId)
       const list = (title: string, xs: string[]) => xs.length ? [`${title}:`, ...xs.slice(0, 25).map(x => `• ${x}`), ...(xs.length > 25 ? [`…and ${xs.length - 25} more`] : [])] : []
@@ -208,7 +214,8 @@ async function pushEvent(cal: string, eventId: string, ref: Pending, label: stri
     const b = (((await db.doc(`schedule_days/${ref.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === ref.blockId) as (Block & { imported?: boolean; soft?: boolean; toCheck?: boolean }) | undefined
     const src = b ? await importedFrom(b, 'block') : ''
     if (src === 'app' || (src && src === cal)) return
-    if (b && !b.toCheck && s.houses[b.house]) {
+    const hiddenB = !!b && !!src && (!!b.toCheck || ref.date < todayInStudio()) && !(await sentDoc(eventId).get()).exists
+    if (b && !hiddenB && s.houses[b.house]) {
       const from = stamp(ref.date, b.start)
       ev = { summary: `${b.soft ? 'Heads-up: ' : ''}${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
         location: s.houses[b.house].address, colorId: b.soft ? EVENT_COLOURS.headsUp : EVENT_COLOURS.block,
@@ -237,14 +244,14 @@ export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event 
   const after = event.data?.after.data()
   const shoot = after ?? event.data?.before.data()
   if (!shoot) return
+  const before = event.data?.before.data()
+  // toCheck is part of it, so confirming an imported shoot copies it in (pushEvent decides what to show).
+  const what = (x?: Record<string, any>) => x && x.status === 'booked' ? JSON.stringify([x.place, x.from, x.to, x.where, x.creatorName, !!x.toCheck]) : ''
+  if (what(before) === what(after)) return   // nothing the calendar shows has changed (e.g. a check-in): no reads at all
   const cal = await calendarId()
   if (!cal) return
   const from = await importedFrom(shoot, 'shoot')
   if (from === 'app' || (from && from === cal)) return   // came from the app calendar itself: never copied
-  const before = event.data?.before.data()
-  // Waiting to be checked (toCheck) counts as not shown, so confirming it copies it in.
-  const what = (x?: Record<string, any>) => x && x.status === 'booked' && !x.toCheck ? JSON.stringify([x.place, x.from, x.to, x.where, x.creatorName]) : ''
-  if (what(before) === what(after)) return   // nothing the calendar shows has changed (e.g. a check-in)
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   await sendNow(shootEventId(event.params.id), { kind: 'shoot', shootId: event.params.id }, shootLabel(shoot, s), String(shoot.updatedBy ?? shoot.bookedBy ?? ''))
 })
@@ -259,8 +266,11 @@ async function refreshShootFor(before?: Record<string, any>, after?: Record<stri
   if (!sh || sh.status !== 'booked') return
   const cal = await calendarId()
   if (!cal || !(await copyable(sh, 'shoot', cal))) return
+  const eid = shootEventId(shootId)
+  // Taken out of the calendar by hand: a props change doesn't put it back (only a change to the booking itself does).
+  if ((await db.doc(`calendar_removed/${eid}`).get()).exists && !(await sentDoc(eid).get()).exists) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-  await sendNow(shootEventId(shootId), { kind: 'shoot', shootId }, shootLabel(sh, s), 'props/gear change')
+  await sendNow(eid, { kind: 'shoot', shootId }, shootLabel(sh, s), 'props/gear change')
 }
 export const syncPropsToCalendar = onDocumentWritten('reservations/{id}', e => refreshShootFor(e.data?.before.data(), e.data?.after.data()))
 export const syncGearToCalendar = onDocumentWritten('gear_bookings/{id}', e => refreshShootFor(e.data?.before.data(), e.data?.after.data()))
@@ -268,13 +278,16 @@ export const syncGearToCalendar = onDocumentWritten('gear_bookings/{id}', e => r
 export const syncBlocksToCalendar = onDocumentWritten('schedule_days/{date}', async event => {
   // Blocks from the app calendar itself are that calendar's own events: never copied. Blocks confirmed from an OLD calendar
   // are copied (owner, Nov 8); ones still waiting to be checked count as not there yet.
+  // Compare the blocks first (no reads): most schedule_days writes are bookings and holds, not blocks.
+  const beforeAll = (event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? []
+  const afterAll = (event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? []
+  const key = (b: Block) => JSON.stringify([b.id, b.house, b.start, b.end, b.type, b.note ?? '', !!(b as Block & { soft?: boolean }).soft, !!(b as Block & { toCheck?: boolean }).toCheck])
+  const raw = [...afterAll.filter(b => !beforeAll.some(x => key(x) === key(b))), ...beforeAll.filter(b => !afterAll.some(x => x.id === b.id))]
+  if (!raw.length) return
   const cal = await calendarId()
   if (!cal) return
-  const keep = async (list: Block[]) => { const out: Block[] = []; for (const b of list) if (await copyable(b as Block & Record<string, unknown>, 'block', cal)) out.push(b); return out }
-  const before = await keep((event.data?.before.data() as ScheduleDay | undefined)?.blocks ?? [])
-  const after = await keep((event.data?.after.data() as ScheduleDay | undefined)?.blocks ?? [])
-  const key = (b: Block) => JSON.stringify([b.id, b.house, b.start, b.end, b.type, b.note ?? '', !!(b as Block & { soft?: boolean }).soft])
-  const changed = [...after.filter(b => !before.some(x => key(x) === key(b))), ...before.filter(b => !after.some(x => x.id === b.id))]
+  const changed: Block[] = []
+  for (const b of raw) if (await copyable(b as Block & Record<string, unknown>, 'block', cal)) changed.push(b)
   if (!changed.length) return
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const date = event.params.date
@@ -496,7 +509,8 @@ async function scanCalendar(cals: Source[]) {
   const guessFor = (it: ScanItem, cal: Source) => {
     const g1 = guessFor0(it, cal)
     // Blocked time is always at a house: an offsite "party"/"event" is not a block (owner, Nov 8: different places never overlap).
-    const g0 = g1.action === 'block' && g1.house !== 'cliff1' && g1.house !== 'cliff2' ? { ...g1, action: 'skip' } : g1
+    // (Only when the event really says offsite: a block that just doesn't say which house still waits for a person to pick one.)
+    const g0 = g1.action === 'block' && !g1.houseUnsure && g1.house !== 'cliff1' && g1.house !== 'cliff2' ? { ...g1, action: 'skip' } : g1
     const known = !!placeFromText(`${it.title} ${it.location}`) || cal.house !== 'any'
     const soft = g0.action === 'block' && looksLikeHeadsUp(`${it.title} ${it.location}`)
     // Owner, Nov 4: a group booking came in by itself as one person. Only a plain one-person, one-slot shoot (or a clear block)
@@ -800,6 +814,10 @@ const COPY_PER_RUN = 40
 export async function copyConfirmedImports(): Promise<number> {
   const cal = await calendarId()
   if (!cal) return 0
+  // Once a full pass finds nothing left to copy, stop looking (new confirmations are copied by the triggers): saves reading
+  // every future shoot and day every 15 minutes (review, Nov 8).
+  const flag = db.doc('app_settings/calendarCopy')
+  if ((await flag.get()).get('doneFor') === cal) return 0
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const today = todayInStudio()
   let n = 0
@@ -823,6 +841,7 @@ export async function copyConfirmedImports(): Promise<number> {
       await sendNow(id, { kind: 'block', date: d.id, blockId: b.id }, `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house]?.name ?? ''} · ${d.id}`, 'calendar check'); n++
     }
   }
+  if (n === 0) await flag.set({ doneFor: cal, at: new Date().toISOString() })
   return n
 }
 

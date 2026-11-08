@@ -2426,9 +2426,19 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
         read aloud after a spoken message (speechSynthesis, toggle pc.chatSpeak; iPhone untested).
       - Tests Nov 8: unit 515, functions+rules 405, robot 22 journeys + crawl 8 roles (all green). Summaries for the owner:
         scratchpad fixes2_summary.md / features2_summary.md (session only).
-      - Owner decisions open: copy old-calendar imports into the app calendar?; hand-over "Give it back" button?; switching a
-        creator back to Props only while they have things out (A refuse+explain recommended / B warn / C small return screen);
-        invite straight onto Full app toggle?; "Missed check-ins to decide" count only after the 12 h?
+      - OWNER DECISIONS (Nov 8) BUILT: (1) OLD-CALENDAR COPY: shoots/blocks imported from OLD feeds get the app's own event in
+        the app calendar (calendar.ts importedFrom/copyable: source = calendarFeed on new imports, else calendar_imports.feedId,
+        missing = app calendar → never copied); first copy only once confirmed (toCheck cleared) and not for past days, then the
+        copy follows changes even while re-checking; heads-up colour '6' (EVENT_COLOURS.headsUp); triggers diff first (no reads on
+        unrelated writes); catch-up copyConfirmedImports in the 15-min check (≤40/run, stops for good via app_settings/calendarCopy
+        {doneFor: calendarId}); "Remove" on the Google Calendar screen writes calendar_removed/{eventId} (catch-up + props changes
+        don't re-add); 409 on POST = update. Different places never overlap: blocks only at a house (offsite block guess → skip
+        unless the house is just unknown; applyImports refuses offsite/unknown-house blocks and unknown-place shoots).
+        (2) Props-only switch refused while open (src/lib/stillOpen.ts, users.ts openThingsFor incl. shared-gear crew).
+        (3) No "Give it back" (owner: would let people push responsibility to the previous holder). (4) Invite "Start them on:
+        Props only | Full app" (owner). (5) Incident.decideFrom (explainUntil, none when explained) → needsYouItems + Schedule team
+        tab count only what can be decided now. Rules: equipment may read app_settings/booking (closed days).
+        LIVE Nov 8 (owner "implement… fine toothed comb… push live"): backend + website (see runs in the next note).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

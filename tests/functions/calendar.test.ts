@@ -557,5 +557,22 @@ describe('old-calendar events are copied into the app calendar (owner, Nov 8)', 
     expect(await getDoc(`calendar_sent/s${hex(benSid)}`)).toBeFalsy()
     // The catch-up on the next check copies nothing more (everything confirmed is already there).
     expect((await call('checkCalendarNow', {}, MAANIK)).result.copied).toBe(0)
+    // Deleted in the old calendar: the shoot comes off, and so does its copy in the app calendar.
+    await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [at('oldblock', 'Cleaners', '2371 Cliff Road', '07:00', '09:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    await waitFor(async () => (await getDoc(`shoots/${anaSid}`))!.status === 'cancelled')
+    await waitFor(async () => !(await getDoc(`calendar_sent/s${hex(anaSid)}`)))
+  })
+
+  it('a block that doesn\'t say which house waits for a person (not skipped); a heads-up copy is orange', async () => {
+    const APP = 'app@group.calendar.google.com', OLD = 'mixed@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: APP, calendarFeeds: [{ id: OLD, name: 'Mixed', house: 'any' }] })
+    await put('test_calendar/events', { items: [] })
+    const at = (id: string, summary: string, location: string, s: string, e: string) => ({ id, summary, location, start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [at('nohouse', 'Cleaners', '', '07:00', '09:00')] })
+    const p = await call('previewCalendarImport', {}, OWNER)
+    const e = p.result.events.find((x: any) => x.id === 'nohouse')
+    expect(e.guess.action).toBe('block')
+    expect(e.guess.houseUnsure).toBe(true)
   })
 })

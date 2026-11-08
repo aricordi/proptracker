@@ -76,10 +76,13 @@ export async function changeUserEmail(from: string, to: string, apply: boolean) 
 // What a creator still has going on in the full app (owner reads all of these). See src/lib/stillOpen.ts.
 export async function openThingsFor(email: string): Promise<OpenThings> {
   const id = normalizeEmail(email)
-  const [sh, res, gear] = await Promise.all([
+  const [sh, res, gear, crew] = await Promise.all([
     getDocs(query(collection(db, 'shoots'), where('creatorEmail', '==', id))),
     getDocs(query(collection(db, 'reservations'), where('creatorEmail', '==', id))),
     getDocs(query(collection(db, 'gear_bookings'), where('creatorEmail', '==', id))),
+    // Shared gear they're on as a friend (they may be the one who signed for it).
+    getDocs(query(collection(db, 'gear_bookings'), where('crewEmails', 'array-contains', id))),
   ])
-  return stillOpen(sh.docs.map(d => d.data()), res.docs.map(d => d.data()), gear.docs.map(d => d.data()), todayInStudio())
+  const gearById = new Map([...gear.docs, ...crew.docs].map(d => [d.id, d.data()]))
+  return stillOpen(sh.docs.map(d => d.data()), res.docs.map(d => d.data()), [...gearById.values()], todayInStudio())
 }

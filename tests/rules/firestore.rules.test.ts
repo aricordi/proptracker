@@ -359,6 +359,9 @@ describe('everything else', () => {
     await assertSucceeds(getDoc(doc(as(CREATOR), 'app_settings', 'booking')))
     await assertSucceeds(getDoc(doc(as(CREATOR), 'app_settings', 'schedule')))
     await assertFails(getDoc(doc(as(CREATOR), 'app_settings', 'calendarCheck')))
+    // The equipment team reads the booking rules too (closed days, notice), not the owner's settings (review, Nov 8).
+    await assertSucceeds(getDoc(doc(as(GEAR), 'app_settings', 'booking')))
+    await assertFails(getDoc(doc(as(GEAR), 'app_settings', 'ai')))
   })
   it('only the owner can change app settings', async () => {
     await assertFails(setDoc(doc(as(ARTS), 'app_settings', 'general'), { leadTimeDays: 2 }))
@@ -454,9 +457,10 @@ describe('house schedule', () => {
     await assertSucceeds(getDoc(doc(as(OWNER), 'shoots', 's2')))
     await assertFails(setDoc(doc(as(CREATOR), 'shoots', 's3'), { creatorEmail: CREATOR, status: 'booked' }))
   })
-  it('the equipment team can read the schedule settings (but not other settings)', async () => {
+  it('the equipment team can read the schedule settings and booking rules (but not other settings)', async () => {
     await assertSucceeds(getDoc(doc(as(GEAR), 'app_settings', 'schedule')))
-    await assertFails(getDoc(doc(as(GEAR), 'app_settings', 'booking')))
+    await assertSucceeds(getDoc(doc(as(GEAR), 'app_settings', 'booking')))   // closed days for gear (Nov 8)
+    await assertFails(getDoc(doc(as(GEAR), 'app_settings', 'email')))
     await assertFails(setDoc(doc(as(GEAR), 'app_settings', 'schedule'), { monthlySlots: 9 }))
   })
 })
