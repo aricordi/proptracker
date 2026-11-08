@@ -2438,7 +2438,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
         (3) No "Give it back" (owner: would let people push responsibility to the previous holder). (4) Invite "Start them on:
         Props only | Full app" (owner). (5) Incident.decideFrom (explainUntil, none when explained) → needsYouItems + Schedule team
         tab count only what can be decided now. Rules: equipment may read app_settings/booking (closed days).
-        LIVE Nov 8 (owner "implement… fine toothed comb… push live"): backend + website (see runs in the next note).
+        LIVE Nov 8 (owner "implement… fine toothed comb… push live"): backend run 68 + website run 70 (all overnight work + these).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
