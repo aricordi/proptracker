@@ -15,7 +15,7 @@ import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
-import { importShootAsTeam, removeImportedShoot, releaseCancelledImport, filmingPeople } from './scheduling.js'
+import { importShootAsTeam, removeImportedShoot, releaseCancelledImport, filmingPeople, repairSharedClashes } from './scheduling.js'
 import { openLinks } from './shootLinks.js'
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
@@ -355,7 +355,7 @@ export const testCalendarLink = onCall(CALLABLE, async req => {
 // keep pointing at their original Google event (calendarEventId), so the app updates that event
 // instead of creating a second copy.
 
-export interface GEvent { id: string; summary?: string; location?: string; eventType?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string }
+export interface GEvent { id: string; htmlLink?: string; summary?: string; location?: string; eventType?: string; start?: { dateTime?: string; date?: string }; end?: { dateTime?: string; date?: string }; status?: string }
 
 const torontoStamp = (iso: string) => {
   const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso))
@@ -392,9 +392,14 @@ export const previewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 120 }
 })
 
 // One Google event as the import sees it: a timed event, or one entry per day of an all-day event.
-export interface ScanItem { id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean; eventType?: string }
+// link = the event's own page in Google Calendar (owner, Nov 8: "a button to open that clash in Google Calendar").
+export interface ScanItem { id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean; eventType?: string; link?: string }
 export function eventDays(e: GEvent): ScanItem[] {
   const title = e.summary ?? '(no title)', location = e.location ?? '', eventType = e.eventType
+  const link = typeof e.htmlLink === 'string' && e.htmlLink.startsWith('https://') ? e.htmlLink.slice(0, 500) : undefined
+  return eventDays0(e, title, location, eventType).map(it => link ? { ...it, link } : it)
+}
+function eventDays0(e: GEvent, title: string, location: string, eventType: string | undefined): ScanItem[] {
   if (e.start?.dateTime && e.end?.dateTime) {
     const from = torontoStamp(e.start.dateTime), to = torontoStamp(e.end.dateTime)
     const date = from.slice(0, 10), startMin = Number(from.slice(11, 13)) * 60 + Number(from.slice(14, 16))
@@ -603,7 +608,9 @@ async function scanCalendar(cals: Source[]) {
       calendar: cals.find(c => c.id === String(was.feedId ?? appCal))?.name ?? '', allDay: !!was.allDay,
       guess: { action: 'remove', email: was.email ?? '', house: was.house ?? 'cliff1', start: was.startMin }, wasAction: was.action })
   }
-  return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)), imports, counts, unkeep }
+  // Each event's Google Calendar page, for cards made before links were saved.
+  const links = Object.fromEntries(live.filter(it => it.link).map(it => [it.id, it.link!]))
+  return { events, people: people.sort((a, b) => a.name.localeCompare(b.name)), imports, counts, unkeep, links }
 }
 
 async function removeImportedBlock(date: string, blockId: string) {
@@ -852,8 +859,10 @@ export async function runCalendarCheck() {
 }
 async function runCalendarCheckLocked(cals: Source[]) {
   const status = db.doc('app_settings/calendarCheck')
+  // Once: old "clashes" that were only back-to-back shoots sharing a slot (owner, Nov 8) stop being clashes.
+  await repairSharedClashes('calendar check').catch(e => logger.warn('clash repair', String(e)))
   try {
-    const { events, people, unkeep, counts } = await scanCalendar(cals) as { events: any[]; people: { email: string; name: string }[]; unkeep: string[]; counts: { name: string; error?: string }[] }   // eslint-disable-line @typescript-eslint/no-explicit-any
+    const { events, people, unkeep, counts, links } = await scanCalendar(cals) as { events: any[]; people: { email: string; name: string }[]; unkeep: string[]; counts: { name: string; error?: string }[]; links: Record<string, string> }   // eslint-disable-line @typescript-eslint/no-explicit-any
     for (const id of unkeep) await db.doc(`calendar_imports/${id}`).update({ kept: FieldValue.delete() }).catch(() => 0)
     const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && !e.redo && !e.recheck && placeable(e.guess)))
     const unclear = events.filter(e => e.kind === 'new' && (e.redo || e.recheck || !placeable(e.guess)))
@@ -869,7 +878,7 @@ async function runCalendarCheckLocked(cals: Source[]) {
       // (JSON round trip: Firestore refuses undefined values, e.g. a changed event's old type.)
       await db.doc(`calendar_queue/${e.id}`).set(JSON.parse(JSON.stringify({
         title: e.title ?? '', location: e.location ?? '', date: e.date, startMin: e.startMin ?? 0, endMin: e.endMin ?? 0, allDay: !!e.allDay,
-        calendar: e.calendar ?? '', feedId: e.feedId ?? '', kind: prev?.kind === 'new' && e.kind !== 'removed' ? 'new' : e.kind, guess: e.guess ?? {}, ...(e.was ? { was: e.was } : {}),
+        calendar: e.calendar ?? '', feedId: e.feedId ?? '', link: e.link ?? links[e.id] ?? '', kind: prev?.kind === 'new' && e.kind !== 'removed' ? 'new' : e.kind, guess: e.guess ?? {}, ...(e.was ? { was: e.was } : {}),
         ...(e.wasAction ? { wasAction: e.wasAction } : {}), status: 'waiting', at: prev?.at ?? at, updatedAt: at, ...extra,
       })))
     }
@@ -888,6 +897,8 @@ async function runCalendarCheckLocked(cals: Source[]) {
     const today = todayInStudio()
     for (const [id, q] of waiting) if (q.placed && String(q.date) < today) await settleQueue(id, 'calendar check', 'confirmed', undefined, 'past').catch(e => logger.warn('settle past', String(e)))
     // Unplaced cards whose event is gone from Google (or was handled on the import screen) leave the queue.
+    // Cards that came in before links were saved get their Google Calendar link (owner, Nov 8).
+    for (const [id, q] of waiting) if (!q.link && links[id]) await db.doc(`calendar_queue/${id}`).update({ link: links[id] }).catch(() => 0)
     const stillNew = new Set(unclear.map(e => e.id))
     for (const [id, q] of waiting) if (!q.placed && !stillNew.has(id) && !auto.some(e => e.id === id)) await db.doc(`calendar_queue/${id}`).delete()
     if (fresh.length) await sendPush({ to: ['gear-team'], title: 'Google Calendar: to check', url: '/approvals?tab=calendar', tag: 'calendar-queue',

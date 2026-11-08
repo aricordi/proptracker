@@ -131,7 +131,43 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 // else can request it. `move` = the NEW spot of an approved shoot whose move is waiting for approval (the old spot stays theirs).
 export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number }; pending?: boolean; move?: boolean }
 // Old calendar events that overlap at the same house are imported anyway and listed here (owner, Oct 19: old events only).
-export interface ClashEntry { house: House; slot: string; shootId: string; name: string; email?: string; start: number; end: number; blockId?: string }
+// shared = NOT a clash (owner, Nov 8: "they're all false alarms"): two old calendar events back to back that only share a 2-hour
+// slot without overlapping (e.g. 1:15–3:15 PM and 3:15–5:15 PM both touch the 3–5 slot). The one filling more of the slot
+// shows on it; the other waits here and takes the slot if the first one goes. Never shown as a clash.
+export interface ClashEntry { house: House; slot: string; shootId: string; name: string; email?: string; start: number; end: number; blockId?: string; shared?: boolean }
+// The real hours an entry fills inside its slot: an imported off-grid shoot keeps its own, everything else fills the slot.
+export const entryHours = (e: { time?: { start: number; end: number } }, slot: number, minutes: number) => e.time ?? { start: slot, end: slot + minutes }
+export const overlapMinutes = (a: { start: number; end: number }, b: { start: number; end: number }) => Math.max(0, Math.min(a.end, b.end) - Math.max(a.start, b.start))
+export const isRealClash = (c: ClashEntry) => !c.blockId && !c.shared
+// Repair for clashes saved before the back-to-back rule (owner, Nov 8). Edits `day` in place: a listed clash that doesn't really
+// overlap the shoot holding its slot becomes shared (the one filling more of the slot holds it); a clash on an empty slot takes
+// the slot. Returns the shoots whose clash listing changed.
+export function sortSharedClashes(day: ScheduleDay, minutes: number): string[] {
+  const touched = new Set<string>()
+  for (const c of [...(day.clashes ?? [])]) {
+    if (!isRealClash(c) || !c.shootId) continue
+    const map = { ...(day[c.house] ?? {}) }
+    const there = map[c.slot]
+    const slot = { start: Number(c.slot), end: Number(c.slot) + minutes }
+    const asEntry = (x: ClashEntry): SlotEntry => ({ shootId: x.shootId, name: x.name, email: x.email ?? '', kind: 'extra',
+      ...(x.start === slot.start && x.end === slot.end ? {} : { time: { start: x.start, end: x.end } }) })
+    if (there?.shootId === c.shootId) { day.clashes = (day.clashes ?? []).filter(x => x !== c); touched.add(c.shootId); continue }
+    if (!there || !there.shootId) {
+      if (there?.hold) continue
+      map[c.slot] = asEntry(c); day[c.house] = map
+      day.clashes = (day.clashes ?? []).filter(x => x !== c); touched.add(c.shootId); continue
+    }
+    const theirs = entryHours(there, slot.start, minutes)
+    if (overlapMinutes(theirs, c) > 0) continue   // a real clash: stays
+    touched.add(c.shootId)
+    if (overlapMinutes(slot, c) > overlapMinutes(slot, theirs)) {
+      map[c.slot] = asEntry(c); day[c.house] = map
+      day.clashes = [...(day.clashes ?? []).filter(x => x !== c),
+        { house: c.house, slot: c.slot, shootId: there.shootId, name: there.name, email: there.email ?? '', start: theirs.start, end: theirs.end, shared: true }]
+    } else day.clashes = (day.clashes ?? []).map(x => x === c ? { ...c, shared: true } : x)
+  }
+  return [...touched]
+}
 export const INVITE_HOLD_MINUTES = 20
 export const holdActive = (e: SlotEntry | undefined, now: string) => !!e?.hold && e.hold.until > now
 export interface OffsiteEntry { shootId: string; name: string; start: number; end: number; where: string; email?: string; pending?: boolean; move?: boolean }

@@ -11,7 +11,7 @@ import { friendlyError } from '../lib/errors'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { splitHours, splitOnGrid, queueReady } from '../../functions/src/calendarText'
 import BottomSheet from './BottomSheet'
-import { useScheduleSettings, reviewCalendarImport, confirmAllCalendar, BLOCK_TYPES, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
+import { useScheduleSettings, reviewCalendarImport, confirmAllCalendar, BLOCK_TYPES, googleDayLink, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
 
 type Person = { email: string; name: string }
 const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow', { timeout: 310_000 })
@@ -117,6 +117,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
               {!!r.clashWith?.length && <p className="text-red-300 text-sm font-semibold mt-1">⚠ Clash with {r.clashWith.join(', ')}, same house and time.</p>}
               {q.problem && <p className="text-red-300 text-sm mt-1">{q.problem}</p>}
             </div>
+            <GoogleLinks link={q.link} date={q.date} clash={!!r.clashWith?.length} />
             {err[q.id] && <p className="text-red-300 text-sm">{err[q.id]}</p>}
             <div className="flex gap-2 pt-1">
               {q.placed && !q.problem && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'confirm')} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === q.id ? 'Saving…' : 'Looks right ✓'}</button>}
@@ -202,5 +203,16 @@ function FixSheet({ q, people, s, onClose }: { q: QueueItem; people: Person[]; s
         </button>
       </div>
     </BottomSheet>
+  )
+}
+
+// Open the event (or the whole day, to compare a clash) in Google Calendar to check it before confirming (owner, Nov 8).
+export function GoogleLinks({ link, date, clash }: { link?: string; date: string; clash?: boolean }) {
+  const cls = 'inline-flex items-center gap-1 min-h-[44px] text-[15px] font-semibold text-sky-300'
+  return (
+    <div className="flex flex-wrap gap-x-5 px-1">
+      {link && <a href={link} target="_blank" rel="noopener noreferrer" className={cls}>Open in Google Calendar ↗</a>}
+      {(clash || !link) && <a href={googleDayLink(date)} target="_blank" rel="noopener noreferrer" className={cls}>{link ? 'See the whole day ↗' : 'See this day in Google Calendar ↗'}</a>}
+    </div>
   )
 }

@@ -2439,6 +2439,24 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
         Props only | Full app" (owner). (5) Incident.decideFrom (explainUntil, none when explained) → needsYouItems + Schedule team
         tab count only what can be decided now. Rules: equipment may read app_settings/booking (closed days).
         LIVE Nov 8 (owner "implement… fine toothed comb… push live"): backend run 68 + website run 70 (all overnight work + these) + practice run 23 (Update).
+    - FALSE CALENDAR CLASHES (owner, Nov 8: "Pedro… Bryan has it in the app… they're all false alarms"; NOT deployed: backend +
+      website, ask; no rules change). CAUSE (read-only day check, server logs run 27/28): the Stromedy Talent calendar staggers shoots
+      (Nov 10 Cliff 1: Bryan 1:15–3:15, Pedro 3:30–5:30, Zech 5:45–7:45; Nov 9: Alex 3:30–5:30, Dawson 5:45–7:45). An imported shoot
+      fills EVERY 2-hour slot it touches, and the clash test was "slot already taken", so each shoot "clashed" with the one before.
+      FIX: schedule.ts entryHours / overlapMinutes / isRealClash; ClashEntry.shared = back to back, sharing a slot without overlapping
+      (never a clash): importShootAsTeam only calls it a clash when the REAL hours overlap; otherwise whoever fills more of the slot
+      holds it and the other waits as a shared entry (promoteClashes still hands it the slot if the first goes). giveSlot ignores
+      shared entries. REPAIR (once, app_settings/clashRepair {v:1}): repairSharedClashes (scheduling.ts, start of every calendar check)
+      runs sortSharedClashes on every future day, clears shoots' clash/clashWith (history note) and recomputes waiting calendar_queue
+      result.clashWith. App: useCalendarClashes also skips non-overlapping ones (works before the repair runs); red box =
+      "Double-booked in Google Calendar" with both people's real hours, "See it in Google Calendar" (googleDayLink) and "Give it to X".
+      OPEN IN GOOGLE CALENDAR (owner ask): GEvent.htmlLink → ScanItem.link → calendar_queue.link (old waiting cards backfilled by the
+      check); CalendarQueue `GoogleLinks` = "Open in Google Calendar" (+ "See the whole day" on a clash, or the day when no link).
+      Side effect kept on purpose: an off-grid shoot still holds a slot it touches by 15 min (Zech to 7:45 → 7–9 PM not bookable).
+      JUSTIN (owner: "collapse his accounts"): two creator accounts dirfigs@gmail.com + justinfigsshow@gmail.com; the Nov 5 auto-import
+      split his events into 2 turns (one per account). Advised: Fix each Justin card first (pick the account to keep), then People →
+      Justin → Change their email… to merge the other into it. DAVID / JANA (VIP creators not on the app): imported as blocked time,
+      which is what the owner wants. Tests: unit schedule (sortSharedClashes), functions calendar (back to back, repair).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

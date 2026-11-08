@@ -120,6 +120,46 @@ describe('importing the existing calendar', () => {
     expect(after.clashes).toHaveLength(0)
     expect((await getDoc(`shoots/${ana}`))!.start).toBe(870)
   })
+
+  it('back-to-back events that only share a 2-hour slot are NOT a clash (owner, Nov 8: Bryan 1:15–3:15, Pedro 3:30–5:30, Zech 5:45–7:45)', async () => {
+    const day = FRI
+    const r = await call('applyCalendarImport', { items: [
+      { id: 'b2b1', action: 'shoot', email: ANA, house: 'cliff1', date: day, start: 795, end: 915 },
+      { id: 'b2b2', action: 'shoot', email: BEN, house: 'cliff1', date: day, start: 930, end: 1050 },
+      { id: 'b2b3', action: 'shoot', email: OWNER, house: 'cliff1', date: day, start: 1065, end: 1185 },
+    ] }, OWNER)
+    expect(r.result.results.every((x: { ok: boolean; message?: string }) => x.ok && !/CLASH/.test(x.message ?? ''))).toBe(true)
+    const d = (await getDoc(`schedule_days/${day}`))!
+    // Each slot shows whoever fills most of it; the other waits underneath as "shared", never as a clash.
+    expect(d.cliff1['780'].email).toBe(ANA)
+    expect(d.cliff1['900'].email).toBe(BEN)      // Ben has 90 minutes of 3–5, Ana 15
+    expect(d.cliff1['1020'].email).toBe(OWNER)   // 105 minutes of 5–7 vs Ben's 30
+    expect(d.cliff1['1140'].email).toBe(OWNER)
+    expect(d.clashes.length).toBeGreaterThan(0)
+    expect(d.clashes.every((c: { shared?: boolean }) => c.shared)).toBe(true)
+    for (const id of [d.cliff1['780'].shootId, d.cliff1['900'].shootId, d.cliff1['1020'].shootId]) expect((await getDoc(`shoots/${id}`))!.clash).toBeUndefined()
+    // If Ben's shoot goes, Ana's (which also touches 3–5) holds that slot again: nobody can book over her real hours.
+    expect((await call('cancelShoot', { id: d.cliff1['900'].shootId }, MAANIK)).ok).toBe(true)
+    expect((await getDoc(`schedule_days/${day}`))!.cliff1['900'].email).toBe(ANA)
+  })
+
+  it('repairs false clashes saved before the rule, once, and fixes the shoot and its waiting card', async () => {
+    const day = FRI
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('shoots/old-bryan', { creatorEmail: ANA, creatorName: 'Ana', place: 'cliff1', date: day, start: 795, end: 915, status: 'booked', kind: 'extra' })
+    await put('shoots/old-pedro', { creatorEmail: BEN, creatorName: 'Ben', place: 'cliff1', date: day, start: 930, end: 1050, status: 'booked', kind: 'extra', clash: true, clashWith: ['Ana'] })
+    const ana = { shootId: 'old-bryan', name: 'Ana', email: ANA, kind: 'extra', time: { start: 795, end: 915 } }
+    await put(`schedule_days/${day}`, { date: day, cliff1: { '780': ana, '900': ana },
+      clashes: [{ house: 'cliff1', slot: '900', shootId: 'old-pedro', name: 'Ben', email: BEN, start: 930, end: 1050 }] })
+    await put('calendar_queue/old-card', { status: 'waiting', placed: true, date: day, title: 'Ben - Filming', result: { action: 'shoot', shootIds: ['old-pedro'], clashWith: ['Ana'] } })
+    expect((await call('checkCalendarNow', {}, MAANIK)).error).toBeUndefined()
+    const d = (await getDoc(`schedule_days/${day}`))!
+    expect(d.cliff1['900'].shootId).toBe('old-pedro')
+    expect(d.clashes.every((c: { shared?: boolean }) => c.shared)).toBe(true)
+    expect((await getDoc('shoots/old-pedro'))!.clash).toBeUndefined()
+    expect((await getDoc('calendar_queue/old-card'))!.result.clashWith).toEqual([])
+    expect((await getDoc('app_settings/clashRepair'))!.v).toBe(1)
+  })
 })
 
 describe('shared calendar copies', () => {
