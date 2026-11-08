@@ -130,3 +130,27 @@ describe('free cancel for late bookings (owner, Nov 6)', () => {
     expect(timeSetByTeam({})).toBe(false)
   })
 })
+
+describe('sortSharedClashes (owner, Nov 8: old "clashes" that were only back to back)', () => {
+  it('turns a clash that does not really overlap into a shared entry, and keeps real ones', async () => {
+    const { sortSharedClashes } = await import('../../functions/src/schedule')
+    const day: any = {
+      date: '2026-11-10',
+      cliff1: {
+        '780': { shootId: 'bryan', name: 'Bryan', email: 'b@x', kind: 'extra', time: { start: 795, end: 915 } },
+        '900': { shootId: 'bryan', name: 'Bryan', email: 'b@x', kind: 'extra', time: { start: 795, end: 915 } },
+        '1020': { shootId: 'pedro', name: 'Pedro', email: 'p@x', kind: 'extra', time: { start: 930, end: 1050 } },
+      },
+      clashes: [
+        { house: 'cliff1', slot: '900', shootId: 'pedro', name: 'Pedro', email: 'p@x', start: 930, end: 1050 },
+        { house: 'cliff1', slot: '1020', shootId: 'zech', name: 'Zech', email: 'z@x', start: 1040, end: 1160 },   // really overlaps Pedro by 10 min
+      ],
+    }
+    const touched = sortSharedClashes(day, 120)
+    expect(touched).toEqual(['pedro'])
+    expect(day.cliff1['900'].shootId).toBe('pedro')
+    expect(day.clashes).toContainEqual(expect.objectContaining({ slot: '900', shootId: 'bryan', shared: true }))
+    expect(day.clashes).toContainEqual(expect.objectContaining({ slot: '1020', shootId: 'zech' }))
+    expect(day.clashes.find((c: any) => c.shootId === 'zech').shared).toBeUndefined()
+  })
+})

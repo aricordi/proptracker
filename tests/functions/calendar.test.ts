@@ -120,6 +120,46 @@ describe('importing the existing calendar', () => {
     expect(after.clashes).toHaveLength(0)
     expect((await getDoc(`shoots/${ana}`))!.start).toBe(870)
   })
+
+  it('back-to-back events that only share a 2-hour slot are NOT a clash (owner, Nov 8: Bryan 1:15–3:15, Pedro 3:30–5:30, Zech 5:45–7:45)', async () => {
+    const day = FRI
+    const r = await call('applyCalendarImport', { items: [
+      { id: 'b2b1', action: 'shoot', email: ANA, house: 'cliff1', date: day, start: 795, end: 915 },
+      { id: 'b2b2', action: 'shoot', email: BEN, house: 'cliff1', date: day, start: 930, end: 1050 },
+      { id: 'b2b3', action: 'shoot', email: OWNER, house: 'cliff1', date: day, start: 1065, end: 1185 },
+    ] }, OWNER)
+    expect(r.result.results.every((x: { ok: boolean; message?: string }) => x.ok && !/CLASH/.test(x.message ?? ''))).toBe(true)
+    const d = (await getDoc(`schedule_days/${day}`))!
+    // Each slot shows whoever fills most of it; the other waits underneath as "shared", never as a clash.
+    expect(d.cliff1['780'].email).toBe(ANA)
+    expect(d.cliff1['900'].email).toBe(BEN)      // Ben has 90 minutes of 3–5, Ana 15
+    expect(d.cliff1['1020'].email).toBe(OWNER)   // 105 minutes of 5–7 vs Ben's 30
+    expect(d.cliff1['1140'].email).toBe(OWNER)
+    expect(d.clashes.length).toBeGreaterThan(0)
+    expect(d.clashes.every((c: { shared?: boolean }) => c.shared)).toBe(true)
+    for (const id of [d.cliff1['780'].shootId, d.cliff1['900'].shootId, d.cliff1['1020'].shootId]) expect((await getDoc(`shoots/${id}`))!.clash).toBeUndefined()
+    // If Ben's shoot goes, Ana's (which also touches 3–5) holds that slot again: nobody can book over her real hours.
+    expect((await call('cancelShoot', { id: d.cliff1['900'].shootId }, MAANIK)).ok).toBe(true)
+    expect((await getDoc(`schedule_days/${day}`))!.cliff1['900'].email).toBe(ANA)
+  })
+
+  it('repairs false clashes saved before the rule, once, and fixes the shoot and its waiting card', async () => {
+    const day = FRI
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com' })
+    await put('shoots/old-bryan', { creatorEmail: ANA, creatorName: 'Ana', place: 'cliff1', date: day, start: 795, end: 915, status: 'booked', kind: 'extra' })
+    await put('shoots/old-pedro', { creatorEmail: BEN, creatorName: 'Ben', place: 'cliff1', date: day, start: 930, end: 1050, status: 'booked', kind: 'extra', clash: true, clashWith: ['Ana'] })
+    const ana = { shootId: 'old-bryan', name: 'Ana', email: ANA, kind: 'extra', time: { start: 795, end: 915 } }
+    await put(`schedule_days/${day}`, { date: day, cliff1: { '780': ana, '900': ana },
+      clashes: [{ house: 'cliff1', slot: '900', shootId: 'old-pedro', name: 'Ben', email: BEN, start: 930, end: 1050 }] })
+    await put('calendar_queue/old-card', { status: 'waiting', placed: true, date: day, title: 'Ben - Filming', result: { action: 'shoot', shootIds: ['old-pedro'], clashWith: ['Ana'] } })
+    expect((await call('checkCalendarNow', {}, MAANIK)).error).toBeUndefined()
+    const d = (await getDoc(`schedule_days/${day}`))!
+    expect(d.cliff1['900'].shootId).toBe('old-pedro')
+    expect(d.clashes.every((c: { shared?: boolean }) => c.shared)).toBe(true)
+    expect((await getDoc('shoots/old-pedro'))!.clash).toBeUndefined()
+    expect((await getDoc('calendar_queue/old-card'))!.result.clashWith).toEqual([])
+    expect((await getDoc('app_settings/clashRepair'))!.v).toBe(1)
+  })
 })
 
 describe('shared calendar copies', () => {
@@ -354,6 +394,44 @@ describe('blocks the automatic check made before a creator could be matched (own
     // Once is enough: the next check changes nothing.
     await call('checkCalendarNow', {}, MAANIK)
     expect((await getDoc('calendar_imports/ana1'))!.shootId).toBe(imp.shootId)
+  })
+})
+
+describe('people who are not in the app, and accounts joined into one (owner, Nov 8)', () => {
+  it('"David & Jana - Filming" (nobody in the app) becomes blocked time; the team only picks the house', async () => {
+    const MIX = 'c_stromedy@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: MIX, name: 'Stromedy', house: 'any' }] })
+    await put('test_calendar/events', { items: [] })
+    const ev = (id: string, summary: string, location = '') => ({ id, summary, location, start: { dateTime: `${FRI}T11:00:00${TZ}` }, end: { dateTime: `${FRI}T13:00:00${TZ}` } })
+    await put(`test_calendar/${MIX.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [ev('dj1', 'David & Jana - Filming'), ev('dj2', 'David / Filming', '2371 Cliff Road, Mississauga'), ev('mtg', 'Weekly Operations Meeting')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const card = (await getDoc('calendar_queue/dj1'))!
+    expect(card.placed).toBe(false)
+    expect(card.guess.action).toBe('block')                 // Fix opens on "Blocked time", not "Pick a creator"
+    expect(card.message).toMatch(/Nobody named here uses the app/)
+    expect((await getDoc('calendar_queue/dj2'))!.result.action).toBe('block')   // the address says Cliff 2: blocked right away
+    expect((await getDoc('calendar_queue/mtg'))!.guess.action).toBe('skip')      // a meeting isn't filming: not turned into a block
+  })
+
+  it('after two accounts are joined, an event split between them goes back to one shoot', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
+    const ev = { id: 'grp1', summary: 'Ana Ben - Filming - Cliff 1', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T17:00:00${TZ}` } }
+    await put('test_calendar/events', { items: [ev] })
+    const r = await call('applyCalendarImport', { items: [{ id: 'grp1', action: 'shoot', emails: [ANA, BEN], house: 'cliff1', date: FRI, start: 780, end: 1020,
+      title: ev.summary, location: '', feedId: 'app@group.calendar.google.com' }] }, OWNER)
+    expect(r.result.results[0].ok).toBe(true)
+    const imp = (await getDoc('calendar_imports/grp1'))!
+    expect(imp.shootIds).toHaveLength(2)
+    // What "Change their email" leaves behind when Ben's account is joined into Ana's: both turns are Ana's.
+    const second = (await getDoc(`shoots/${imp.shootIds[1]}`))!
+    await put(`shoots/${imp.shootIds[1]}`, { ...second, creatorEmail: ANA, creatorName: 'Ana' })
+    await put('calendar_imports/grp1', { ...imp, emails: [ANA], email: ANA })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const after = (await getDoc('calendar_imports/grp1'))!
+    expect(after.shootIds).toHaveLength(1)
+    const one = (await getDoc(`shoots/${after.shootIds[0]}`))!
+    expect(one).toMatchObject({ creatorEmail: ANA, status: 'booked', start: 780, end: 1020 })
+    expect((await getDoc('calendar_queue/grp1'))!.placed).toBe(true)
   })
 })
 

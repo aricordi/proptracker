@@ -25,7 +25,7 @@ import type { AppUser } from '../types'
 export default function PersonHistoryScreen() {
   const { email = '' } = useParams()
   const navigate = useNavigate()
-  const { canSeeGear, canManagePeople } = useSession()
+  const { canSeeGear, canManagePeople, isOwner } = useSession()
   const [params] = useSearchParams()
   const [period, setPeriod] = useState<Period>((params.get('period') as Period) || '90')
   const today = todayInStudio(), now = nowStamp()
@@ -72,6 +72,14 @@ export default function PersonHistoryScreen() {
         <div>
           <p className="text-pt-muted text-sm break-all">{email}</p>
           {user && <p className="text-pt-accent text-sm tap">{ROLE_LABELS[user.role]}{!user.active && ' · access off'}</p>}
+          {/* Their account (owner, Nov 8: "I had to change to the phone view just to manage Justin's account"): role, Props only /
+              Full app, change their email, turn access off: the same sheet as People & access, one tap from the record. */}
+          {canManagePeople && user && email !== OWNER_EMAIL && (isOwner || user.role === 'creator') && (
+            <button onClick={() => navigate(`/users?edit=${encodeURIComponent(email)}`)}
+              className="mt-3 w-full min-h-[48px] rounded-xl bg-pt-surface shadow-hairline text-pt-text text-[15px] font-semibold inline-flex items-center justify-center gap-2">
+              Account & access <span className="text-pt-muted font-normal">· role, app access, email</span> ›
+            </button>
+          )}
         </div>
 
         {stats && (

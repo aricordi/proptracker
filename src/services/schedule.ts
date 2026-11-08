@@ -87,7 +87,10 @@ export interface QueueItem {
   was?: { date: string; startMin: number; endMin: number; title: string }
   guess: { action?: string; email?: string; emails?: string[]; house?: string; type?: BlockType; soft?: boolean; houseUnsure?: boolean; bothHouses?: boolean; ambiguous?: string[] }
   result: { action?: string; email?: string; emails?: string[]; house?: string; shootIds?: string[]; blockId?: string; type?: BlockType; soft?: boolean; clashWith?: string[] }
+  link?: string   // the event's page in Google Calendar
 }
+// Google Calendar opened on one day (owner, Nov 8: "open that clash in Google Calendar so I can see what the issue is").
+export const googleDayLink = (date: string) => `https://calendar.google.com/calendar/r/day/${date.replace(/-/g, '/')}`
 export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
   const [list, setList] = useState<QueueItem[] | null>(null)
   useEffect(() => {

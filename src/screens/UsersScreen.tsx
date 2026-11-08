@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { OWNER_EMAIL, LIVE_APP_URL } from '../config'
 import { USING_EMULATORS } from '../firebase'
@@ -30,6 +30,16 @@ export default function UsersScreen() {
 
   const [showInvite, setShowInvite] = useState(false)
   const [editing, setEditing] = useState<AppUser | null>(null)
+  // Opened from someone's record ("Account & access"): their sheet opens straight away (owner, Nov 8).
+  const [params, setParams] = useSearchParams()
+  const wantEdit = params.get('edit')
+  useEffect(() => {
+    if (!wantEdit || !users.length) return
+    const u = users.find(x => normalizeEmail(x.email) === normalizeEmail(wantEdit))
+    if (!u) return   // the list can arrive in parts: wait until they're in it
+    if (canManage(u)) setEditing(u)
+    setParams(p => { p.delete('edit'); return p }, { replace: true })
+  }, [wantEdit, users])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Owner can manage anyone; arts department can only manage creators.
   const canManage = (u: AppUser) =>

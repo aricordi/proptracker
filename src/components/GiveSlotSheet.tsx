@@ -5,15 +5,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { formatDay } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { todayInStudio } from '../../functions/src/booking'
-import { nowStamp } from '../../functions/src/gearBooking'
+import { entryHours, overlapMinutes, isRealClash } from '../../functions/src/schedule'
+import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import BottomSheet from './BottomSheet'
 import Avatar from './Avatar'
 import {
-  useScheduleSettings, useScheduleDays, giveSlot, listSchedulePeople, slotState, fmtSlot, HOUSES,
+  useScheduleSettings, useScheduleDays, giveSlot, listSchedulePeople, slotState, fmtSlot, HOUSES, googleDayLink,
   type House, type ScheduleDay, type ScheduleSettings,
 } from '../services/schedule'
 
-export interface GiveTarget { date: string; house: House; start: number; holder: { name: string; email: string }; clash?: { shootId: string; name: string; email?: string } }
+export interface GiveTarget { date: string; house: House; start: number; holder: { name: string; email: string; start?: number; end?: number }; clash?: { shootId: string; name: string; email?: string; start?: number; end?: number } }
 
 export function GiveSlotSheet({ t, onClose }: { t: GiveTarget; onClose: () => void }) {
   const s = useScheduleSettings()
@@ -94,13 +95,16 @@ export function useCalendarClashes(days: Record<string, ScheduleDay> | null, s: 
       if (date < today) continue
       const seen = new Set<string>()
       for (const c of day.clashes ?? []) {
-        if (c.blockId || !c.shootId) continue
+        if (!isRealClash(c) || !c.shootId) continue
         const holder = day[c.house]?.[c.slot]
         if (!holder?.shootId || holder.hold || holder.shootId === c.shootId) continue
+        // Back to back, only sharing a 2-hour slot (1:15–3:15 then 3:30–5:30): not a clash (owner, Nov 8: "they're all false alarms").
+        const theirs = entryHours(holder, Number(c.slot), s.slotMinutes)
+        if (overlapMinutes(theirs, c) === 0) continue
         const k = `${c.shootId}|${c.house}|${holder.shootId}`
         if (seen.has(k)) continue
         seen.add(k)
-        out.push({ date, house: c.house, start: Number(c.slot), holder: { name: holder.name, email: holder.email ?? '' }, clash: { shootId: c.shootId, name: c.name, email: c.email } })
+        out.push({ date, house: c.house, start: Number(c.slot), holder: { name: holder.name, email: holder.email ?? '', ...theirs }, clash: { shootId: c.shootId, name: c.name, email: c.email, start: c.start, end: c.end } })
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start)
@@ -111,14 +115,21 @@ export function ClashList({ items, s, onGive }: { items: GiveTarget[]; s: Schedu
   if (!items.length) return null
   return (
     <section className="rounded-2xl p-3 space-y-2 bg-red-500/[0.08] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.35)]">
-      <p className="text-red-200 font-semibold text-[15px]">Calendar events on a booked slot ({items.length})</p>
-      {items.map(t => (
-        <div key={`${t.date}${t.house}${t.start}${t.clash!.shootId}`} className="flex items-center gap-2">
-          <p className="flex-1 min-w-0 text-[13px] text-pt-text leading-snug"><b>{t.clash!.name}</b> · {formatDay(t.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {s.houses[t.house].name} · {fmtSlot(t.start, s.slotMinutes)}
-            <span className="block text-pt-muted">{t.holder.name} has it in the app</span></p>
-          <button onClick={() => onGive(t)} className="shrink-0 rounded-xl px-3 min-h-[40px] bg-pt-accent text-stone-900 text-[13px] font-bold">Book it for {t.clash!.name.split(' ')[0]}</button>
-        </div>
-      ))}
+      <p className="text-red-200 font-semibold text-[15px]">Double-booked in Google Calendar ({items.length})</p>
+      <p className="text-pt-muted text-[13px] leading-snug">Two events overlap at the same house. Check them in Google Calendar, then pick who keeps the time.</p>
+      {items.map(t => {
+        const c = t.clash!, hrs = (x: { start?: number; end?: number }) => x.start != null && x.end != null ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : fmtSlot(t.start, s.slotMinutes)
+        return (
+          <div key={`${t.date}${t.house}${t.start}${c.shootId}`} className="rounded-xl bg-pt-bg px-3 py-2.5 space-y-1.5">
+            <p className="text-[14px] text-pt-text font-semibold">{formatDay(t.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {s.houses[t.house].name}</p>
+            <p className="text-[14px] text-pt-text leading-snug"><b>{t.holder.name}</b> {hrs(t.holder)} <span className="text-red-300">overlaps</span> <b>{c.name}</b> {hrs(c)}</p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <a href={googleDayLink(t.date)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-[44px] text-[14px] font-semibold text-sky-300">See it in Google Calendar ↗</a>
+              <button onClick={() => onGive(t)} className="ml-auto rounded-xl px-3 min-h-[44px] bg-pt-accent text-stone-900 text-[14px] font-bold">Give it to {c.name.split(' ')[0]}</button>
+            </div>
+          </div>
+        )
+      })}
     </section>
   )
 }

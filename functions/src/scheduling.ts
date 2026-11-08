@@ -3,7 +3,7 @@
 // is what makes double-booking a house impossible (same idea as gear_holds for gear).
 import { isStorageLink } from './storageLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import { FieldValue, type Transaction } from 'firebase-admin/firestore'
+import { FieldValue, FieldPath, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, type Caller } from './auth.js'
 import { todayInStudio, isDay, addDays } from './booking.js'
@@ -13,7 +13,7 @@ import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline,
-  cleanScheduleSettings, checkSlot, holdActive, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
+  cleanScheduleSettings, checkSlot, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
@@ -734,12 +734,22 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
       }
       const house = spot.place as House
       const map = { ...(day[house] ?? {}) }
+      const mine: SlotEntry = { shootId: ref.id, name: who.name, email: who.email, kind: 'extra', ...(onGrid ? {} : { time: { start: spot.start, end: spot.end } }) }
       for (const k of keysFor(spot)) {
         const there = map[k]
         if (there && !(there.hold && !holdActive(there, nowStamp())) && there.shootId !== ref.id) {
-          clashWith.push(there.name)
-          day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end }]
-        } else map[k] = { shootId: ref.id, name: who.name, email: who.email, kind: 'extra', ...(onGrid ? {} : { time: { start: spot.start, end: spot.end } }) }
+          const slot = { start: Number(k), end: Number(k) + s.slotMinutes }
+          const theirs = entryHours(there, slot.start, s.slotMinutes)
+          if (overlapMinutes(theirs, spot) > 0) {
+            // A real clash: the two really overlap in time.
+            clashWith.push(there.name)
+            day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end }]
+          } else if (overlapMinutes(slot, spot) > overlapMinutes(slot, theirs)) {
+            // Back to back, only sharing the slot (owner, Nov 8): this one fills more of it, so it shows; the other waits underneath.
+            day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: there.shootId, name: there.name, email: there.email ?? '', start: theirs.start, end: theirs.end, shared: true }]
+            map[k] = mine
+          } else day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end, shared: true }]
+        } else map[k] = mine
       }
       day[house] = map
     })
@@ -759,6 +769,56 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
     })
   })
   return { id: ref.id, clashWith }
+}
+
+// One-time repair (owner, Nov 8: "they're all false alarms"): before the back-to-back rule, two old calendar events that only
+// shared a 2-hour slot (1:15–3:15 then 3:15–5:15) were saved as a clash. Every future day is re-sorted with sortSharedClashes,
+// then each shoot's clash flag and the waiting Google Calendar cards are recomputed from what's left. Runs once (app_settings/clashRepair).
+export async function repairSharedClashes(by: string) {
+  const flag = db.doc('app_settings/clashRepair')
+  if ((await flag.get()).get('v') === 1) return 0
+  const s = await loadScheduleSettings()
+  const today = todayInStudio()
+  const days = await db.collection('schedule_days').where(FieldPath.documentId(), '>=', today).get()
+  const touched = new Set<string>()
+  const left = new Map<string, string[]>()   // shoot → names it really clashes with
+  for (const d of days.docs) {
+    if (!(d.get('clashes') ?? []).length) continue
+    await db.runTransaction(async tx => {
+      const write = await editDays(tx, [d.id], ds => {
+        const day = ds[d.id]
+        for (const id of sortSharedClashes(day, s.slotMinutes)) touched.add(id)
+        for (const c of day.clashes ?? []) if (isRealClash(c)) {
+          const holder = day[c.house]?.[c.slot]?.name
+          if (holder) left.set(c.shootId, [...new Set([...(left.get(c.shootId) ?? []), holder])])
+        }
+      })
+      write()
+    })
+  }
+  const at = new Date().toISOString()
+  for (const id of touched) {
+    const ref = db.doc(`shoots/${id}`)
+    const sh = (await ref.get()).data()
+    if (!sh?.clash) continue
+    const names = left.get(id) ?? []
+    await ref.update(names.length ? { clashWith: names, updatedAt: at }
+      : { clash: FieldValue.delete(), clashWith: FieldValue.delete(), updatedAt: at,
+        history: FieldValue.arrayUnion({ at, by, action: 'note', note: 'Not a clash after all: the shoots are back to back and only share a 2-hour slot' }) })
+  }
+  // Waiting calendar cards show "Clash with …" from what was saved when they came in: recompute from the shoots now.
+  const cards = await db.collection('calendar_queue').where('status', '==', 'waiting').get()
+  for (const c of cards.docs) {
+    const r = c.get('result') ?? {}
+    if (!Array.isArray(r.clashWith) || !r.clashWith.length) continue
+    const ids: string[] = Array.isArray(r.shootIds) ? r.shootIds : r.shootId ? [r.shootId] : []
+    if (!ids.length) continue
+    const names = new Set<string>()
+    for (const id of ids) for (const n of ((await db.doc(`shoots/${id}`).get()).get('clashWith') ?? []) as string[]) names.add(n)
+    await c.ref.update({ 'result.clashWith': [...names] })
+  }
+  await flag.set({ v: 1, at, fixed: touched.size })
+  return touched.size
 }
 
 // The event was deleted in Google Calendar: take the app's copy off the schedule (the calendar itself is untouched).
@@ -985,7 +1045,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
         placeIn(day, moveSpot, { shootId: holderId, name: h.creatorName, email: h.creatorEmail, kind: h.kind, pending: h.status === 'requested' }, s)
       }
       if (c) {
-        const mine = (day.clashes ?? []).filter(x => x.shootId === clashRef!.id && x.house === a.house)
+        const mine = (day.clashes ?? []).filter(x => x.shootId === clashRef!.id && x.house === a.house && isRealClash(x))
         const map = { ...(day[a.house] ?? {}) }
         const freed = mine.filter(x => !map[x.slot])
         if (!freed.length) throw new HttpsError('failed-precondition', 'That calendar event doesn\'t clash with this slot.')
@@ -993,7 +1053,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
         for (const x of freed) map[x.slot] = { shootId: clashRef!.id, name: to.name, email: to.email, kind: 'extra', ...(onGrid ? {} : { time: { start: c.start, end: c.end } }) }
         day[a.house] = map
         day.clashes = (day.clashes ?? []).filter(x => !freed.includes(x))
-        clashLeft = day.clashes.some(x => x.shootId === clashRef!.id)
+        clashLeft = day.clashes.some(x => x.shootId === clashRef!.id && isRealClash(x))
       } else placeIn(day, spot, { shootId: newRef.id, name: to.name, email: to.email, kind: 'extra' }, s)
     })
     write()

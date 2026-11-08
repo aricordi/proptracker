@@ -2439,6 +2439,45 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
         Props only | Full app" (owner). (5) Incident.decideFrom (explainUntil, none when explained) → needsYouItems + Schedule team
         tab count only what can be decided now. Rules: equipment may read app_settings/booking (closed days).
         LIVE Nov 8 (owner "implement… fine toothed comb… push live"): backend run 68 + website run 70 (all overnight work + these) + practice run 23 (Update).
+    - FALSE CALENDAR CLASHES (owner, Nov 8: "Pedro… Bryan has it in the app… they're all false alarms"; NOT deployed: backend +
+      website, ask; no rules change). CAUSE (read-only day check, server logs run 27/28): the Stromedy Talent calendar staggers shoots
+      (Nov 10 Cliff 1: Bryan 1:15–3:15, Pedro 3:30–5:30, Zech 5:45–7:45; Nov 9: Alex 3:30–5:30, Dawson 5:45–7:45). An imported shoot
+      fills EVERY 2-hour slot it touches, and the clash test was "slot already taken", so each shoot "clashed" with the one before.
+      FIX: schedule.ts entryHours / overlapMinutes / isRealClash; ClashEntry.shared = back to back, sharing a slot without overlapping
+      (never a clash): importShootAsTeam only calls it a clash when the REAL hours overlap; otherwise whoever fills more of the slot
+      holds it and the other waits as a shared entry (promoteClashes still hands it the slot if the first goes). giveSlot ignores
+      shared entries. REPAIR (once, app_settings/clashRepair {v:1}): repairSharedClashes (scheduling.ts, start of every calendar check)
+      runs sortSharedClashes on every future day, clears shoots' clash/clashWith (history note) and recomputes waiting calendar_queue
+      result.clashWith. App: useCalendarClashes also skips non-overlapping ones (works before the repair runs); red box =
+      "Double-booked in Google Calendar" with both people's real hours, "See it in Google Calendar" (googleDayLink) and "Give it to X".
+      OPEN IN GOOGLE CALENDAR (owner ask): GEvent.htmlLink → ScanItem.link → calendar_queue.link (old waiting cards backfilled by the
+      check); CalendarQueue `GoogleLinks` = "Open in Google Calendar" (+ "See the whole day" on a clash, or the day when no link).
+      Side effect kept on purpose: an off-grid shoot still holds a slot it touches by 15 min (Zech to 7:45 → 7–9 PM not bookable).
+      JUSTIN (owner: "collapse his accounts"): two creator accounts dirfigs@gmail.com + justinfigsshow@gmail.com; the Nov 5 auto-import
+      split his events into 2 turns (one per account). Advised: Fix each Justin card first (pick the account to keep), then People →
+      Justin → Change their email… to merge the other into it. DAVID / JANA (VIP creators not on the app): imported as blocked time,
+      which is what the owner wants. Tests: unit schedule (sortSharedClashes), functions calendar (back to back, repair).
+      → OUTSIDERS + JOINED ACCOUNTS (owner, Nov 8: "David & Jana… asking me to pick a creator"; "I already collapsed Justin"):
+      person lookup runs 29–31: "David & Jana - Filming" is in the mixed Stromedy feed with no address and nobody in the app named →
+      guess was 'skip' + houseUnsure → unplaced card whose Fix opened on "A shoot / Pick a creator" (owner then chose block for Nov 10
+      + 12). calendar.ts guessImport `outsider` = nobody matched, not ambiguous, and film/shoot/record words → action 'block' (house
+      unknown → card "Nobody named here uses the app… pick the house", FixSheet opens on Blocked time; offsite outsiders still skip,
+      no house to block). JUSTIN after the merge: calendar_imports emails de-duplicated to [justinfigsshow@] but shootIds still 2
+      (turns split per old account) and the waiting cards still said "could be more than one person". scanCalendar now emits an
+      import whose shootIds > unique emails as kind 'changed' (merged) → applyImports keeps one shoot per person (keepFor) and drops
+      the extra turn; the card is rewritten placed. Owner advised to tap Fix → Justin on the 3 cards meanwhile. Tests calendar.test.ts.
+    - LAPTOP / PHONE PARITY (owner, Nov 8: "had to change to the phone view just to manage Justin's account… same functionality for
+      everybody"): robot (scratchpad parity.cjs, Playwright, emulator) opened all 73 routes at 390 and 1440 for owner, admin and
+      equipment and diffed every visible control: no feature missing on the laptop (Requests' laptop panel has Approve/Deny/Priority
+      booking/Open record under different labels; differences = layout). The real gap was FINDING account settings: desk sidebar
+      gets "People & access" (/users) for owner + admin, and the person record (/people/:email) gets "Account & access" (owner;
+      admins for creators) → /users?edit=<email> opens their EditSheet (role, Props only/Full app, Change their email, Turn off
+      access); waits until the person is in the list. Both layouts. appGuide person/users, owner guide.
+    - LIVE Nov 8 (owner "yes deploy both"): website run 71 + backend run 73 = false-clash fix + repair, Open in Google Calendar,
+      outsiders → blocked time, joined accounts → one shoot, People & access on the laptop. Backend run 70 FAILED safely: another
+      session (branch claude/gallant-noether-xoxxpj, Admin tasks) had deployed `runAdminTask` to live, so the deploy refused to delete
+      it; that branch was MERGED into this one (CLAUDE.md conflict only) and run 73 deployed both. Before a backend deploy, check other
+      claude/* branches for functions already live (deploy fails with "found in your project but do not exist in your local source").
     - DRIVE INVENTORY CHECK + ADMIN TASKS (owner, Nov 8: "more stuff was added to the drive… afraid of duplicates… do the import
       through here"). Read-only map of the Inventory folder (1g8Aih49UsBWD_QoZAYqiu9lGv_nj7p9-): 1,631 photos; the Oct 13 import
       took 1,222 (1 Inventory Pictures 1,202 + Bin 1/2); 12 old photos were never queued; Bins 3–70 hold NO photos, only Drive
