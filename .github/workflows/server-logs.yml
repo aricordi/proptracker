@@ -18,6 +18,10 @@ on:
       days:
         description: Optional, with person - days to list every calendar import for (YYYY-MM-DD,YYYY-MM-DD)
         default: ''
+      imports:
+        description: Show what the photo import has already seen (read only)
+        type: boolean
+        default: false
 
 jobs:
   logs:
@@ -215,3 +219,7 @@ jobs:
           PERSON: ${{ inputs.person }}
           DAYS: ${{ inputs.days }}
         run: T=$(gcloud auth print-access-token) python3 .github/scripts/person_dump.py
+
+      - name: What the photo import has already seen (read only)
+        if: inputs.imports
+        run: T=$(gcloud auth print-access-token) python3 .github/scripts/import_status.py
