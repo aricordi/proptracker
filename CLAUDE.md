@@ -2473,6 +2473,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       gets "People & access" (/users) for owner + admin, and the person record (/people/:email) gets "Account & access" (owner;
       admins for creators) → /users?edit=<email> opens their EditSheet (role, Props only/Full app, Change their email, Turn off
       access); waits until the person is in the list. Both layouts. appGuide person/users, owner guide.
+    - LIVE Nov 8 (owner "yes deploy both"): website run 71 + backend run 73 = false-clash fix + repair, Open in Google Calendar,
+      outsiders → blocked time, joined accounts → one shoot, People & access on the laptop. Backend run 70 FAILED safely: another
+      session (branch claude/gallant-noether-xoxxpj, Admin tasks) had deployed `runAdminTask` to live, so the deploy refused to delete
+      it; that branch was MERGED into this one (CLAUDE.md conflict only) and run 73 deployed both. Before a backend deploy, check other
+      claude/* branches for functions already live (deploy fails with "found in your project but do not exist in your local source").
     - DRIVE INVENTORY CHECK + ADMIN TASKS (owner, Nov 8: "more stuff was added to the drive… afraid of duplicates… do the import
       through here"). Read-only map of the Inventory folder (1g8Aih49UsBWD_QoZAYqiu9lGv_nj7p9-): 1,631 photos; the Oct 13 import
       took 1,222 (1 Inventory Pictures 1,202 + Bin 1/2); 12 old photos were never queued; Bins 3–70 hold NO photos, only Drive
