@@ -12,6 +12,10 @@ name: Deploy backend
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: 'Optional: deploy just these (e.g. functions:runAdminTask). Empty = everything.'
+        default: ''
 
 concurrency:
   group: deploy-backend
@@ -68,7 +72,7 @@ jobs:
       # reason of ours (especially on a new project), so try once more.
       - name: Deploy server functions, security rules and indexes
         run: |
-          deploy() { npx firebase deploy --only functions,firestore,storage --project proptracker-9732e --non-interactive; }
+          deploy() { npx firebase deploy --only "${ONLY:-functions,firestore,storage}" --project proptracker-9732e --non-interactive; }
           deploy || { echo "First attempt failed; waiting 60s and retrying once..."; sleep 60; deploy; }
 
       - uses: google-github-actions/setup-gcloud@v2
