@@ -1,0 +1,34 @@
+# Owner, Nov 8: Claude runs photo imports (and read-only checks) from here instead of the owner pressing buttons in the app.
+# Writes admin_tasks/{id}; the server function runAdminTask does the work AS THE OWNER with the same code as the Import
+# screen (one record per Drive photo, exact copies skipped, $ cap). Imports only ANALYSE photos; nothing becomes a prop
+# until an 'approve' task. Ask the owner before running an import or approve task (they cost money / create props).
+name: Admin task (imports + checks)
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Task as JSON, e.g. {"kind":"import","steps":[{"link":"<drive folder>","place":"Prop rack"}],"dryRun":true}'
+        required: true
+      wait:
+        description: Minutes to wait for it to finish
+        default: '60'
+
+jobs:
+  task:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sign in to Google Cloud as the deploy account
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run the task
+        env:
+          TASK: ${{ inputs.task }}
+          WAIT: ${{ inputs.wait }}
+        run: python3 .github/scripts/admin_task.py
