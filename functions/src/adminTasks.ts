@@ -3,7 +3,7 @@
 // code the Import screen uses (startImport / processImport / approveImports via .run), so every rule and safety net applies
 // (one record per Drive photo, exact-copy skip, $ cap). Clients can't read or write admin_tasks (no rule = denied).
 //   kind 'import'       {steps:[{link, place?}], dryRun?}  → queue + analyse each step in order (nothing becomes a prop)
-//   kind 'approve'      {approvals:[Approval], merges:[{ids, mode, keepId}]} → approve / merge analysed photos
+//   kind 'approve'      {approvals:[Approval], merges:[{ids, item: Approval}], skips:[id]} → approve / merge analysed photos
 //   kind 'binShortcuts' {folder} → read only: the crew's Drive shortcuts per "Bin N" folder vs the bin each prop has in the app
 // Long imports continue in a fresh task (continues: <id>, round n) so no run hits the 9-minute limit.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
@@ -23,7 +23,7 @@ function asOwner<T>(data: T): CallableRequest<T> {
   return { data, auth: { uid: 'admin-task', token: { email: OWNER_EMAIL, email_verified: true, name: 'Import helper' } }, rawRequest: {}, acceptsStreaming: false } as unknown as CallableRequest<T>
 }
 
-interface Step { link: string; place?: string; jobId?: string | null; note?: string; done?: boolean }
+interface Step { link: string; place?: string; useLists?: boolean; jobId?: string | null; note?: string; done?: boolean }
 
 export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', secrets: [GEMINI_API_KEY], timeoutSeconds: 540, memory: '1GiB' }, async event => {
   const ref = db.doc(`admin_tasks/${event.params.id}`)
@@ -46,7 +46,7 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       for (const st of steps) {
         if (st.done) continue
         if (st.jobId === undefined) {
-          const r = await startImport.run(asOwner({ links: [st.link], place: st.place ?? '', dryRun: task.dryRun === true })) as Record<string, unknown>
+          const r = await startImport.run(asOwner({ links: [st.link], place: st.place ?? '', dryRun: task.dryRun === true, useLists: st.useLists !== false })) as Record<string, unknown>
           st.jobId = (r.jobId as string | null) ?? null
           st.note = `found ${r.found}, already imported ${r.alreadyImported ?? (Number(r.found) - Number(r.queued))}, queued ${r.queued}, lists: ${(r.listNames as string[] ?? []).join(', ') || 'none'}`
           say(`${st.place || 'bins'} · ${st.note}`)
@@ -81,7 +81,7 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       const out: Record<string, unknown> = {}
       if (Array.isArray(task.approvals) && task.approvals.length) {
         for (let i = 0; i < task.approvals.length; i += 50) {
-          const r = await approveImports.run(asOwner({ approvals: task.approvals.slice(i, i + 50) })) as { results?: unknown[] }
+          const r = await approveImports.run(asOwner({ items: task.approvals.slice(i, i + 50) })) as { results?: unknown[] }
           out[`approve${i}`] = r
         }
       }

@@ -35,3 +35,27 @@ describe('admin tasks', () => {
     expect((t2!.steps as { jobId: unknown }[])[0].jobId).toBe(null)
   })
 })
+
+describe('admin tasks: approve', () => {
+  it('approves, merges and skips analysed photos as the owner', async () => {
+    await put('admin_tasks/i1', { kind: 'import', steps: [{ link: 'test:4', place: 'Prop rack' }], createdAt: 'x' })
+    const t = await waitFor('admin_tasks/i1', d => d?.status === 'done' || d?.status === 'failed')
+    const jobId = (t!.steps as { jobId: string }[])[0].jobId
+    const ids = ['test0001x4', 'test0002x4', 'test0003x4', 'test0004x4']
+    await put('admin_tasks/a1', { kind: 'approve', createdAt: 'x',
+      approvals: [{ id: ids[0], name: 'Fog machine', quantity: 2 }],
+      merges: [{ ids: [ids[1], ids[2]], item: { name: 'Rotary phone', quantity: 1 } }], skips: [ids[3]] })
+    const a = await waitFor('admin_tasks/a1', d => d?.status === 'done' || d?.status === 'failed')
+    expect(a!.status).toBe('done')
+    const one = await getDoc(`import_items/${ids[0]}`)
+    expect(one!.status).toBe('approved')
+    const item = await getDoc(`items/${one!.itemId}`)
+    expect(item!.name).toBe('Fog machine')
+    expect(item!.quantity).toBe(2)
+    expect(item!.collection).toBe('company')
+    const merged = await getDoc(`import_items/${ids[2]}`)
+    expect((await getDoc(`items/${merged!.itemId}`))!.photos.length).toBe(2)
+    expect((await getDoc(`import_items/${ids[3]}`))!.status).toBe('skipped')
+    expect((await getDoc(`import_jobs/${jobId}`))!.counts.analyzed).toBe(0)
+  })
+})
