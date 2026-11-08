@@ -2457,6 +2457,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       split his events into 2 turns (one per account). Advised: Fix each Justin card first (pick the account to keep), then People →
       Justin → Change their email… to merge the other into it. DAVID / JANA (VIP creators not on the app): imported as blocked time,
       which is what the owner wants. Tests: unit schedule (sortSharedClashes), functions calendar (back to back, repair).
+      → OUTSIDERS + JOINED ACCOUNTS (owner, Nov 8: "David & Jana… asking me to pick a creator"; "I already collapsed Justin"):
+      person lookup runs 29–31: "David & Jana - Filming" is in the mixed Stromedy feed with no address and nobody in the app named →
+      guess was 'skip' + houseUnsure → unplaced card whose Fix opened on "A shoot / Pick a creator" (owner then chose block for Nov 10
+      + 12). calendar.ts guessImport `outsider` = nobody matched, not ambiguous, and film/shoot/record words → action 'block' (house
+      unknown → card "Nobody named here uses the app… pick the house", FixSheet opens on Blocked time; offsite outsiders still skip,
+      no house to block). JUSTIN after the merge: calendar_imports emails de-duplicated to [justinfigsshow@] but shootIds still 2
+      (turns split per old account) and the waiting cards still said "could be more than one person". scanCalendar now emits an
+      import whose shootIds > unique emails as kind 'changed' (merged) → applyImports keeps one shoot per person (keepFor) and drops
+      the extra turn; the card is rewritten placed. Owner advised to tap Fix → Justin on the 3 cards meanwhile. Tests calendar.test.ts.
+    - LAPTOP / PHONE PARITY (owner, Nov 8: "had to change to the phone view just to manage Justin's account… same functionality for
+      everybody"): robot (scratchpad parity.cjs, Playwright, emulator) opened all 73 routes at 390 and 1440 for owner, admin and
+      equipment and diffed every visible control: no feature missing on the laptop (Requests' laptop panel has Approve/Deny/Priority
+      booking/Open record under different labels; differences = layout). The real gap was FINDING account settings: desk sidebar
+      gets "People & access" (/users) for owner + admin, and the person record (/people/:email) gets "Account & access" (owner;
+      admins for creators) → /users?edit=<email> opens their EditSheet (role, Props only/Full app, Change their email, Turn off
+      access); waits until the person is in the list. Both layouts. appGuide person/users, owner guide.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

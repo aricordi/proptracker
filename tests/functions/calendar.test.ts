@@ -397,6 +397,44 @@ describe('blocks the automatic check made before a creator could be matched (own
   })
 })
 
+describe('people who are not in the app, and accounts joined into one (owner, Nov 8)', () => {
+  it('"David & Jana - Filming" (nobody in the app) becomes blocked time; the team only picks the house', async () => {
+    const MIX = 'c_stromedy@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: MIX, name: 'Stromedy', house: 'any' }] })
+    await put('test_calendar/events', { items: [] })
+    const ev = (id: string, summary: string, location = '') => ({ id, summary, location, start: { dateTime: `${FRI}T11:00:00${TZ}` }, end: { dateTime: `${FRI}T13:00:00${TZ}` } })
+    await put(`test_calendar/${MIX.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [ev('dj1', 'David & Jana - Filming'), ev('dj2', 'David / Filming', '2371 Cliff Road, Mississauga'), ev('mtg', 'Weekly Operations Meeting')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const card = (await getDoc('calendar_queue/dj1'))!
+    expect(card.placed).toBe(false)
+    expect(card.guess.action).toBe('block')                 // Fix opens on "Blocked time", not "Pick a creator"
+    expect(card.message).toMatch(/Nobody named here uses the app/)
+    expect((await getDoc('calendar_queue/dj2'))!.result.action).toBe('block')   // the address says Cliff 2: blocked right away
+    expect((await getDoc('calendar_queue/mtg'))!.guess.action).toBe('skip')      // a meeting isn't filming: not turned into a block
+  })
+
+  it('after two accounts are joined, an event split between them goes back to one shoot', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
+    const ev = { id: 'grp1', summary: 'Ana Ben - Filming - Cliff 1', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T17:00:00${TZ}` } }
+    await put('test_calendar/events', { items: [ev] })
+    const r = await call('applyCalendarImport', { items: [{ id: 'grp1', action: 'shoot', emails: [ANA, BEN], house: 'cliff1', date: FRI, start: 780, end: 1020,
+      title: ev.summary, location: '', feedId: 'app@group.calendar.google.com' }] }, OWNER)
+    expect(r.result.results[0].ok).toBe(true)
+    const imp = (await getDoc('calendar_imports/grp1'))!
+    expect(imp.shootIds).toHaveLength(2)
+    // What "Change their email" leaves behind when Ben's account is joined into Ana's: both turns are Ana's.
+    const second = (await getDoc(`shoots/${imp.shootIds[1]}`))!
+    await put(`shoots/${imp.shootIds[1]}`, { ...second, creatorEmail: ANA, creatorName: 'Ana' })
+    await put('calendar_imports/grp1', { ...imp, emails: [ANA], email: ANA })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const after = (await getDoc('calendar_imports/grp1'))!
+    expect(after.shootIds).toHaveLength(1)
+    const one = (await getDoc(`shoots/${after.shootIds[0]}`))!
+    expect(one).toMatchObject({ creatorEmail: ANA, status: 'booked', start: 780, end: 1020 })
+    expect((await getDoc('calendar_queue/grp1'))!.placed).toBe(true)
+  })
+})
+
 describe('"Offsite" in a one-house calendar (owner, Nov 5: Val / Sam / Preslea)', () => {
   it('new events go offsite at their real hours, and one the check already put at the house moves offsite', async () => {
     const T1 = 'c_talent2@group.calendar.google.com'

@@ -377,9 +377,12 @@ export function guessImport(e: { title: string; location: string; date: string; 
   const isBlock = person
     ? /\b(clean\w*|maint\w*|repair\w*|plumb\w*|airbnb|rental|blocked|closed)\b/.test(text)
     : /\b(clean\w*|maint\w*|repair\w*|plumb\w*|events?|party|airbnb|rental|guests?|blocked|closed)\b/.test(text)
+  // Someone filming who isn't in the app (owner, Nov 8: "David & Jana - Filming" = VIP creators who don't use it): the time
+  // is blocked, not skipped. If the event doesn't say which house, the team still picks it.
+  const outsider = !person && !ambiguous.length && /\b(film\w*|shoot\w*|record\w*)\b/.test(text)
   // The 2-hour slot the event starts in (or the closest one).
   const slot = slots.reduce((best, s) => Math.abs(s - e.startMin) < Math.abs(best - e.startMin) ? s : best, slots[0])
-  return { action: isBlock ? 'block' : person ? 'shoot' : 'skip', email: person?.email ?? '', emails: named.map(p => p.email), house, start: house === 'offsite' ? e.startMin : slot,
+  return { action: isBlock || outsider ? 'block' : person ? 'shoot' : 'skip', ...(outsider ? { outsider: true } : {}), email: person?.email ?? '', emails: named.map(p => p.email), house, start: house === 'offsite' ? e.startMin : slot,
     ...(said ? {} : { houseUnsure: true }), ...(ambiguous.length ? { ambiguous } : {}) }
 }
 
@@ -571,6 +574,15 @@ async function scanCalendar(cals: Source[]) {
       events.push({ ...base, ...tag, kind: 'changed', rehouse: true, was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
         guess: { ...g, action: 'shoot', house: 'offsite', start: base.startMin, email: was.email || g.email,
           emails: Array.isArray(was.emails) && was.emails.length ? was.emails : was.email ? [was.email] : g.emails } })
+      continue
+    }
+    // Two accounts joined into one (owner, Nov 8: Justin's two accounts): an event that was split into turns for both now has
+    // two turns for the same person. Put it back as one shoot; it comes in "to check" like any change.
+    const turnsFor: string[] = Array.isArray(was.emails) ? [...new Set(was.emails.map(String))] : []
+    if (was.action === 'shoot' && !was.removed && !why && Array.isArray(was.shootIds) && turnsFor.length && was.shootIds.length > turnsFor.length) {
+      const g = guessFor(base, cal)
+      events.push({ ...base, ...tag, kind: 'changed', merged: true, was: { date: was.date, startMin: was.startMin, endMin: was.endMin, title: was.title },
+        guess: { ...g, houseUnsure: undefined, ambiguous: undefined, action: 'shoot', email: turnsFor[0], emails: turnsFor, house: was.house || g.house } })
       continue
     }
     // Already imported: only show it again if it was changed in Google Calendar since (skipped ones stay skipped).
@@ -887,9 +899,10 @@ async function runCalendarCheckLocked(cals: Source[]) {
       await put(auto[i], { placed: !!r?.ok, result: r?.saved ?? {}, message: r?.message ?? (r?.ok ? '' : 'Could not place it'), ...(r?.ok ? (auto[i].peopleChanged ? { problem: auto[i].peopleChanged } : {}) : { problem: r?.message ?? '' }) })
     }
     // Why the app didn't place it, in words for the team.
-    const whyNot = (g: { ambiguous?: string[]; houseUnsure?: boolean; bothHouses?: boolean; action?: string }, redo?: boolean) => redo ? 'You asked to redo this one. Choose what it is.'
+    const whyNot = (g: { ambiguous?: string[]; houseUnsure?: boolean; bothHouses?: boolean; action?: string; outsider?: boolean }, redo?: boolean) => redo ? 'You asked to redo this one. Choose what it is.'
       : g.bothHouses ? 'It names both houses. Tap Fix and choose one; for the other house, add blocked time on the schedule.'
       : g.ambiguous?.length ? `"${g.ambiguous[0][0].toUpperCase()}${g.ambiguous[0].slice(1)}" could be more than one person. Tap Fix and pick who.`
+      : g.outsider && g.houseUnsure ? 'Nobody named here uses the app, so it becomes blocked time. Tap Fix and pick the house.'
       : g.houseUnsure && g.action !== 'skip' ? 'The event doesn\'t say which house (or offsite). Tap Fix and choose.' : ''
     for (const e of unclear) await put(e, { placed: false, result: {}, message: whyNot(e.guess ?? {}, e.redo) })
     // Placed cards for days already over settle by themselves, without telling anyone (audit: they piled up, and confirming
