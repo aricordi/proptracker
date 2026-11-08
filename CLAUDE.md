@@ -2489,6 +2489,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       continues in a new task before 9 min; kind binShortcuts = read only Drive shortcuts per Bin folder vs each prop's app bin.
       Button `.github/workflows/admin-task.yml` "Admin task (imports + checks)" (input task JSON; .github/scripts/admin_task.py
       prints log + every analysed photo). Imports only analyse; approve is a separate task. Test tests/functions/adminTasks.test.ts.
+      RUN Nov 8 (owner: "do the import through here"): 7 imports in order (Prop rack 162, Gun bin 19, Prop room 40, Wardrobe closet
+      158, Deep storage 11, Furnace room 7, then the root link for the 12 old photos Oct 13 missed), each checked against its own list
+      doc; 1 exact copy skipped; AI ~$0.64. Reviewed by hand → APPROVED 364 props (35 combined from 79 photos where the crew's list
+      says 1 and names/sizes agree; counts from the list lines; Gun bin "painted black nerf gun" ×5, vampire teeth ×10 pairs…; gas
+      mask → B:29, gorilla mask → B:59). Unsure ones left separate for Clean up props → Combine doubles. kind setBins {moves:[{itemId,
+      bin:'Bin N'}]} = move props to the app bin with that number (B: N); BIN CHECK (binShortcuts, read only): 1,037 crew shortcuts →
+      820 props already in the crew's bin, 155 in another bin (149 in "B: 5" = Oct 13 AI default when no sign was read), 44 with no
+      bin → 187 props to move (owner OK Nov 8; 1 prop with shortcuts in Bin 51 + 54 left alone). Deploy backend has an `only` input
+      (e.g. functions:runAdminTask): full deploys hit Google's "mutation requests per minute" quota and can skip functions silently.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
