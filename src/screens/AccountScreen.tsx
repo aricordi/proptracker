@@ -16,13 +16,8 @@ import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 
-export const ROLE_LABELS: Record<string, string> = {
-  owner:   'Owner',
-  arts:    'Arts department',
-  creator: 'Creator',
-  equipment: 'Equipment team',
-  admin:   'Admin',
-}
+import { ROLE_LABELS } from '../lib/roleLabels'
+export { ROLE_LABELS }
 
 export default function AccountScreen() {
   const { user, profile, realRole, role, setViewAs, shootFlow, isGearStaff, demo, previewingDemo, creatorMode, setCreatorMode } = useSession()

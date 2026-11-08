@@ -1,6 +1,6 @@
 // Browse: which shoot you're adding to, with its cutoff. Tap to pick another shoot or just browse.
 import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import BottomSheet from './BottomSheet'
 import { useActiveShoot, useShootLabel, useCutoffs, useGearWindow } from '../activeShoot'
 import { todayInStudio } from '../../functions/src/booking'
@@ -8,18 +8,6 @@ import { formatDay } from '../lib/dates'
 import { fmtSlot } from '../services/schedule'
 import { Icon } from './Icon'
 
-export function BrowseTabs() {
-  const navigate = useNavigate()
-  const loc = useLocation()
-  const gear = loc.pathname.startsWith('/gear')
-  return (
-    <div className="flex bg-pt-surface rounded-xl p-0.5 gap-0.5">
-      {([['Props & costumes', '/browse', !gear], ['Gear', '/gear', gear]] as const).map(([label, to, on]) => (
-        <button key={to} onClick={() => !on && navigate(to + loc.search, { replace: true })} className={`flex-1 py-1.5 rounded-lg text-sm ${on ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{label}</button>
-      ))}
-    </div>
-  )
-}
 
 // Browse (owner, Oct 20: "compress the stuff"): the shoot you're adding to as one small chip in the filter row.
 export function AddingToChip({ kind }: { kind: 'props' | 'gear' }) {

@@ -42,8 +42,3 @@ export async function deleteBin(id: string) {
   return deleteDoc(doc(db, 'bins', id))
 }
 
-export async function getBinBySlug(qrSlug: string): Promise<Bin | null> {
-  const snap = await getDocs(query(col, where('qrSlug', '==', qrSlug)))
-  if (snap.empty) return null
-  return { id: snap.docs[0].id, ...snap.docs[0].data() } as Bin
-}

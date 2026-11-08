@@ -1,5 +1,5 @@
 import { useSession } from '../auth'
-import { ROLE_LABELS } from '../screens/AccountScreen'
+import { ROLE_LABELS } from '../lib/roleLabels'
 
 // Thin strip across the top while the owner previews the app as another role.
 // It's part of the page (not floating), so it never covers buttons or fields.

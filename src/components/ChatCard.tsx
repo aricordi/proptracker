@@ -9,6 +9,7 @@
 // green = done / ready.
 import type { ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
+import { primaryBtn, secondaryBtn } from './chatButtons'
 
 export type Tone = 'ask' | 'act' | 'warn' | 'bad' | 'good' | 'plain'
 const TONE: Record<Tone, { card: string; tile: string; label: string }> = {
@@ -43,8 +44,7 @@ export function ChatCard({ tone = 'plain', icon, lead, label, title, sub, side, 
 }
 
 // The big button and the quiet one.
-export const primaryBtn = 'flex-1 rounded-2xl min-h-[52px] px-4 text-[16px] font-bold text-stone-900 bg-pt-accent shadow-gold active:scale-[0.98] transition-transform disabled:opacity-40'
-export const secondaryBtn = 'rounded-2xl min-h-[52px] px-4 text-[16px] font-semibold text-pt-text bg-white/[0.08] active:scale-[0.98] transition-transform disabled:opacity-40'
+export { primaryBtn, secondaryBtn }
 
 // A shoot as a "ticket": day number big, then time and place (read in one glance, like a boarding pass).
 export function SlotTile({ tag, day, time, place, hot = false }: { tag: string; day: string; time: string; place: string; hot?: boolean }) {

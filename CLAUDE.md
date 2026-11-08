@@ -2498,6 +2498,33 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       820 props already in the crew's bin, 155 in another bin (149 in "B: 5" = Oct 13 AI default when no sign was read), 44 with no
       bin → 187 props to move (owner OK Nov 8; 1 prop with shortcuts in Bin 51 + 54 left alone). Deploy backend has an `only` input
       (e.g. functions:runAdminTask): full deploys hit Google's "mutation requests per minute" quota and can skip functions silently.
+    - SPEED + OLDER PHONES + CLEAN-UP (owner, Nov 8: "full optimization run… older devices… bad wifi… no loose ends"). MEASURED
+      (scratchpad perf.cjs: Playwright on the emulator with 1,600 props, CPU ×4/×6 + weak 4G 1.6 Mbps/150 ms or 3G 400 kbps/400 ms,
+      phone storage ON like real phones; the emulator build normally uses memory cache, so a VITE_PERF_PERSIST hack was used for
+      the measurement only and not committed). COMPATIBILITY: es-check es2020 on dist = pass (Safari 14+ / iOS 14+, older Android);
+      no lookbehind regex / .at() / toSorted etc. in app code (appGuide.ts has a lookbehind but is server-only: never import it
+      into the app). FIXES: (1) INSTANT START SCREEN in index.html (#boot: eagle + PRIME CAPITOL drawn by the page itself, "Slow
+      connection. Still loading…" after 7 s, nomodule "browser too old" message); src/lib/boot.ts hideBoot() when auth + profile are
+      known (App). The React Splash (forced ~2 s on every open) is DELETED. (2) PROPS FIRST PAGE: useItems store runs a quick
+      limit(40) listener next to the full one; `complete` flag; useItems({partial: true}) only on Browse (HomeScreen), every other
+      screen still waits for the whole closet (counts/duplicates/not-found never from half a list); useItemsStatus(); Browse shows
+      6 grey placeholder cards + "Loading the closet…" / "Loading the rest of the closet…" and never "No props yet." before complete.
+      (3) STARTUP DOWNLOAD 262 → 231 KB gz: Storage moved to src/lib/storage.ts (dynamic import at each upload / PhotoStamp), vite
+      manualChunks firebase-storage + firebase-messaging out of the startup chunk; app shell 50 → 35 KB (BugSheet.tsx split from
+      BugReport + lazy; ROLE_LABELS → src/lib/roleLabels.ts and chat button classes → src/components/chatButtons.ts so the banner /
+      activeShoot don't pull AccountScreen / ChatCard; BirthdayParty lazy). (4) OFFLINE CACHE (service worker) registers 4 s after
+      page load instead of immediately (its ~700 KB first fill no longer competes with the first load; still caches every screen for
+      bad signal on set). (5) `vite:preloadError` → reload once a minute max (a screen from an older version gone after a deploy).
+      (6) refreshPush 8 s and warmHot 3 s after start. (7) Prop page: thumbnail as background under the full photo, other photos lazy.
+      RESULT (first visit, older phone): something on screen instantly (was 2 s / 6.5 s black); first props 8.2 s → 1.1 s (weak 4G),
+      12 s → 1.6 s (bad wifi); full closet 1.9 s / 3.6 s; reopening ~1–1.7 s (unchanged, phone storage). CLEAN-UP: deleted unused
+      src/tour/Tour.tsx (old creator tour, /tour redirects to the chat), src/hooks/useHideOnScroll.ts, root dependency
+      @google/generative-ai, stray book1/book2.png, workflows remove-old-embeddings.yml (job done: 0 left) + test-gear.yml (kits added
+      Oct 20; scripts/test-gear.json still seeds the emulator), dead exports (subscribeToItems, getBinBySlug, BrowseTabs, periodLabel,
+      hasPendingAdds, channelOf). RETIRED SERVER FUNCTIONS: draw.ts + monthlyDraw.ts (+ tests) removed; deploy-backend has a step
+      "Remove retired server functions" (saveWishlist runMonthlyDraw undoMonthlyDraw, skipped with `only`); ADD A NAME THERE whenever a
+      function leaves functions/src (a normal deploy refuses to delete live functions). Rules for monthly_wishes/monthly_draws kept
+      (harmless, old data). /.perf/ gitignored.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

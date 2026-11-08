@@ -4,7 +4,6 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   connectFirestoreEmulator, memoryLocalCache,
 } from 'firebase/firestore';
-import { getStorage, connectStorageEmulator } from 'firebase/storage';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // When true, the app talks to the local Firebase emulator (a private test copy)
@@ -53,14 +52,11 @@ export const db = initializeFirestore(app, {
     : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
-export const storage = getStorage(app);
-
 // Server functions run in Montréal; must match functions/src/index.ts.
 export const functions = getFunctions(app, 'northamerica-northeast1');
 
 if (USING_EMULATORS) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
-  connectStorageEmulator(storage, '127.0.0.1', 9199);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }

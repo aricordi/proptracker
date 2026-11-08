@@ -1,8 +1,6 @@
 // Filming guideline (PDF) for a Cliff 1 Thursday or Saturday (owner, Nov 3: required unless you're in the priority group).
 // Picks a PDF from the phone, uploads it to guidelines/<your email>/, and hands back {url, name}.
 import { useState } from 'react'
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { storage } from '../firebase'
 import { useSession } from '../auth'
 import type { Guideline } from '../services/schedule'
 
@@ -16,6 +14,7 @@ export default function GuidelinePicker({ value, onChange }: { value: Guideline 
     if (f.size > 20 * 1024 * 1024) { setErr('That PDF is over 20 MB. Export a smaller one.'); return }
     setBusy(true); setErr('')
     try {
+      const { storage, ref: storageRef, uploadBytes, getDownloadURL } = await import('../lib/storage')
       const r = storageRef(storage, `guidelines/${profile.email}/${Date.now()}-${f.name.replace(/[^\w.-]+/g, '_').slice(-80)}`)
       await uploadBytes(r, f, { contentType: 'application/pdf' })
       onChange({ url: await getDownloadURL(r), name: f.name.slice(0, 120) })

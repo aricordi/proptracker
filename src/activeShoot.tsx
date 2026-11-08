@@ -11,7 +11,7 @@ import { nowStamp, GEAR_DAY_START, GEAR_DAY_END, GEAR_LEAD_TIME_DAYS, gearReserv
 import { useMyShoots, useScheduleSettings, fmtSlot, isLive, type Shoot } from './services/schedule'
 import { formatDay } from './lib/dates'
 import BottomSheet from './components/BottomSheet'
-import { primaryBtn, secondaryBtn } from './components/ChatCard'
+import { primaryBtn, secondaryBtn } from './components/chatButtons'
 
 const KEY = 'primeapp.activeShoot.v1'
 // Which shoot the props basket was filled for (owner, Nov 6: switching shoots asks before moving an unsent basket).
@@ -155,7 +155,6 @@ export function takePendingAdds(): ShootAdds | null {
     return a && Date.now() - Number(a.at) < 3_600_000 ? { props: a.props ?? [], gear: a.gear ?? [], builds: a.builds ?? [] } : null
   } catch { return null }
 }
-export const hasPendingAdds = () => { try { return !!localStorage.getItem(PENDING) } catch { return false } }
 export function peekPendingAdds(): ShootAdds | null {
   try { const a = JSON.parse(localStorage.getItem(PENDING) || 'null'); return a ? { props: a.props ?? [], gear: a.gear ?? [], builds: a.builds ?? [] } : null } catch { return null }
 }

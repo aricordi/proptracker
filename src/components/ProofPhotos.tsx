@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, getMetadata } from 'firebase/storage'
-import { storage } from '../firebase'
 import { shrinkPhoto } from '../lib/shrinkPhoto'
 import { photoTakenAt, photoAge } from '../lib/photoTakenAt'
 import { Icon } from './Icon'
@@ -40,7 +38,8 @@ export default function ProofPhotos({ folder, urls, onChange, onUploading, label
       const fresh = cameraOnly && file.lastModified && Math.abs(Date.now() - file.lastModified) < 10 * 60_000
       const takenAt = exif ?? (fresh ? new Date(file.lastModified).toISOString() : null)
       setSlots(s => s.map(x => x.key === key ? { ...x, takenAt } : x))
-      const blob = await shrinkPhoto(file)
+      const [blob, st] = await Promise.all([shrinkPhoto(file), import('../lib/storage')])
+      const { storage, ref: storageRef, uploadBytesResumable, getDownloadURL } = st
       const type = blob === file ? (file.type || 'image/jpeg') : 'image/jpeg'
       const task = uploadBytesResumable(storageRef(storage, `${folder}/${key}.jpg`), blob, {
         contentType: type,
@@ -180,7 +179,7 @@ export function PhotoStamp({ url }: { url: string }) {
   useEffect(() => {
     let on = true
     // Inside the promise: a link that isn't one of our Storage files throws, and must not crash the screen.
-    Promise.resolve().then(() => getMetadata(storageRef(storage, url))).then(m => {
+    import('../lib/storage').then(st => st.getMetadata(st.ref(st.storage, url))).then(m => {
       if (!on || m.customMetadata?.takenAt === undefined) return
       setStamp(photoAge(m.customMetadata.takenAt || null, m.timeCreated))
     }).catch(() => {})

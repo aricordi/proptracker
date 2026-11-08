@@ -231,11 +231,6 @@ export function periods(grain: Grain, today: string, n: number): string[] {
   }
   return out
 }
-export function periodLabel(p: string, grain: Grain, long = false) {
-  const d = new Date((grain === 'month' ? p + '-01' : p) + 'T12:00:00Z')
-  return grain === 'month' ? d.toLocaleDateString('en-CA', { month: long ? 'long' : 'short', ...(long ? { year: 'numeric' } : {}), timeZone: 'UTC' })
-    : `${long ? 'Week of ' : ''}${d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`
-}
 
 // ── Grouping ──
 export interface Filter { email?: string; house?: House; periods: string[]; grain: Grain }

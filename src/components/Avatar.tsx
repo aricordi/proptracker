@@ -21,4 +21,3 @@ export default function Avatar({ email, name, size = 32, ring = false }: { email
   return <span style={{ ...style, background: tone }} className={cls} aria-hidden="true">{initials(name)}</span>
 }
 
-export const channelOf = (profiles: ReturnType<typeof useProfiles>, email?: string) => (email && profiles[email]?.channel) || ''

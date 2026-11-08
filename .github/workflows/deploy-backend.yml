@@ -68,6 +68,18 @@ jobs:
         continue-on-error: true
         run: npx firebase functions:artifacts:setpolicy --location northamerica-northeast1 --days 7 --project proptracker-9732e --force --non-interactive
 
+      # Functions taken out of the code stay live until deleted (a normal deploy refuses to remove them). Retired ones are
+      # deleted here; already-gone ones are skipped. Nov 8: the monthly draw (retired Nov 2: savewishlist, runmonthlydraw,
+      # undomonthlydraw). Add a name here whenever a function is removed from functions/src.
+      - name: Remove retired server functions
+        if: inputs.only == ''
+        run: |
+          for f in saveWishlist runMonthlyDraw undoMonthlyDraw; do
+            if npx firebase functions:list --project proptracker-9732e 2>/dev/null | grep -qw "$f"; then
+              npx firebase functions:delete "$f" --region northamerica-northeast1 --project proptracker-9732e --force && echo "removed $f"
+            else echo "$f already gone"; fi
+          done
+
       # Google's build service occasionally fails a function build for no
       # reason of ours (especially on a new project), so try once more.
       - name: Deploy server functions, security rules and indexes
@@ -85,7 +97,7 @@ jobs:
           for svc in analyzepropphoto searchsimilar rebuildsearchindex createreservation cancelreservation \
                      declinereservation setlinepick setbuildstate markpacked confirmpickup startreturn checkin \
                      sendtestemail checknoticesnow \
-                     importinfo startimport processimport approveimports skipimports mergeimports deleteimportedprop undoimport findduplicates comparepropphotos mergeprops finddoubles aicheckpairs suggestpropnames propslike doublesof hotprops photosearch joinwaitlist leavewaitlist mywaitlist notewanted mergebins improvesearchwords savegearitem savegearbundle setgearbundlearchived creategearbooking cancelgearbooking declinegearbooking pickupgear returngear handovergear checkingear markgearfound makemissingthumbs bookshoot cancelshoot addscheduleblock removescheduleblock saveschedulesettings listschedulepeople moveshoot requestswap answerswap mycalendarlink testcalendarlink shootscalendar previewcalendarimport applycalendarimport checkinshoot wrapshoot explainmissedcheckin decideshoot reviewreport liftpause givestrike removestrike pausecreator reviewflag editreservation editgearbooking ideatoprops bookwithfriends answerinvite askfortime costreport cleanupphotos registerpush unregisterpush testpush testpushto listfilmingfriends calendarpending applycalendarchanges checkcalendarnow redocalendarimport reviewcalendarimport googleaccountstatus savegoogleclient googleconnectstart googleconnectdone googledisconnect changeuseremail askapp savewishlist runmonthlydraw undomonthlydraw decidebooking giveslot takegear reportproblem askchat askanalytics reportbug updatebugreport; do
+                     importinfo startimport processimport approveimports skipimports mergeimports deleteimportedprop undoimport findduplicates comparepropphotos mergeprops finddoubles aicheckpairs suggestpropnames propslike doublesof hotprops photosearch joinwaitlist leavewaitlist mywaitlist notewanted mergebins improvesearchwords savegearitem savegearbundle setgearbundlearchived creategearbooking cancelgearbooking declinegearbooking pickupgear returngear handovergear checkingear markgearfound makemissingthumbs bookshoot cancelshoot addscheduleblock removescheduleblock saveschedulesettings listschedulepeople moveshoot requestswap answerswap mycalendarlink testcalendarlink shootscalendar previewcalendarimport applycalendarimport checkinshoot wrapshoot explainmissedcheckin decideshoot reviewreport liftpause givestrike removestrike pausecreator reviewflag editreservation editgearbooking ideatoprops bookwithfriends answerinvite askfortime costreport cleanupphotos registerpush unregisterpush testpush testpushto listfilmingfriends calendarpending applycalendarchanges checkcalendarnow redocalendarimport reviewcalendarimport googleaccountstatus savegoogleclient googleconnectstart googleconnectdone googledisconnect changeuseremail askapp decidebooking giveslot takegear reportproblem askchat askanalytics reportbug updatebugreport; do
             gcloud run services add-iam-policy-binding "$svc" --region northamerica-northeast1 \
               --project proptracker-9732e --member=allUsers --role=roles/run.invoker --quiet >/dev/null
             echo "✔ $svc"

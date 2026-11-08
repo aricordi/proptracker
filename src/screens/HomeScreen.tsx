@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo, useLayoutEffect } from 'react'
-import { useItems } from '../hooks/useItems'
+import { useItems, useItemsStatus } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
 import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
@@ -55,7 +55,8 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   // the owner's personal props live on their own page, Team → Props & storage → My personal props (/personal).
   const shownCollection: PropCollection = isOwner && personal ? 'personal' : 'company'
   const scrollKey = personal ? 'pc.personalScroll' : 'pc.browseScroll', shownKey = personal ? 'pc.personalShown' : 'pc.browseShown'
-  const allItems   = useItems()
+  const allItems   = useItems({ partial: true })
+  const itemsStatus = useItemsStatus()
   const tags       = useTags()
   const locations  = useLocations()
   const bins       = useBins()
@@ -261,7 +262,8 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
   )
 
   const filtersActive = !!categoryFilter || availability !== 'all'
-  const nothingAtAll = allItems.length === 0
+  const nothingAtAll = itemsStatus.complete && allItems.length === 0
+  const stillLoading = !itemsStatus.ready
   const note = useAddingNote('props')
   const draftAdded = draft ? Object.entries(draft.lines).filter(([id, n]) => n > (draft.orig[id] ?? 0)).length : 0
 
@@ -378,7 +380,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
 
       <div className="px-4 pb-4 pt-1">
         <p className="text-xs mb-3 flex items-center gap-2">
-          <span className="text-pt-muted shrink-0 whitespace-nowrap">{matched.length} prop{matched.length !== 1 ? 's' : ''}</span>
+          <span className="text-pt-muted shrink-0 whitespace-nowrap">{!itemsStatus.complete ? (stillLoading ? 'Loading the closet…' : 'Loading the rest of the closet…') : `${matched.length} prop${matched.length !== 1 ? 's' : ''}`}</span>
           {toRequest && reqDay && <span className="text-pt-muted">· free on {formatDay(reqDay)}</span>}
           {shootFlow && !toRequest && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {note.text}</span>}
           {filtersActive && <button onClick={() => { setCategoryFilter(null); setAvailability('all') }} className="ml-auto text-pt-accent shrink-0 tap">Clear filters</button>}
@@ -414,7 +416,13 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
           </p>
         )}
 
-        {!nothingAtAll && matched.length === 0 && (
+        {stillLoading && (
+          <div className="grid grid-cols-2 gap-3" aria-hidden data-testid="props-loading">
+            {Array.from({ length: 6 }, (_, i) => <div key={i} className="rounded-[20px] bg-pt-surface shadow-card overflow-hidden"><div className="aspect-square bg-pt-border/60 animate-pulse" /><div className="h-12" /></div>)}
+          </div>
+        )}
+
+        {!nothingAtAll && !stillLoading && itemsStatus.complete && matched.length === 0 && (
           <div className="text-center mt-10 mb-6">
             <p className="text-pt-text font-medium mb-1">
               {q ? `No exact matches for "${q}"` : 'Nothing matches these filters'}

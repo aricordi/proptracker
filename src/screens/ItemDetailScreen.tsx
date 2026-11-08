@@ -1,3 +1,4 @@
+import { thumbOf } from '../services/itemShape'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getItem, updateItem, setItemArchived } from '../services/items'
@@ -154,7 +155,10 @@ export default function ItemDetailScreen() {
           >
             {item.photos.map((url, i) => (
               <button key={url} onClick={() => setLightboxIndex(i)} className="w-full h-full shrink-0 snap-center active:opacity-90">
-                <img src={url} alt={`${item.name} photo ${i + 1}`} className="w-full h-full object-cover" style={i === 0 ? { viewTransitionName: photoMorphName(item.id) } : undefined} />
+                {/* Weak signal (Nov 8): the small copy the list already loaded shows at once, the full photo draws over it. */}
+                <img src={url} alt={`${item.name} photo ${i + 1}`} className="w-full h-full object-cover bg-center bg-cover"
+                  loading={i === 0 ? 'eager' : 'lazy'} decoding="async"
+                  style={{ ...(i === 0 ? { viewTransitionName: photoMorphName(item.id) } : {}), ...(thumbOf(item, url) && thumbOf(item, url) !== url ? { backgroundImage: `url("${thumbOf(item, url)}")` } : {}) }} />
               </button>
             ))}
           </div>

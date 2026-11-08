@@ -42,7 +42,7 @@ export default function BirthdayParty() {
   const [ready, setReady] = useState(false)
   const [closed, setClosed] = useState(false)
   const [burst, setBurst] = useState(0)
-  // Wait for the splash to finish; then a couple more bursts of confetti for the birthday person.
+  // A moment after the app opens; then a couple more bursts of confetti for the birthday person.
   useEffect(() => { const t = setTimeout(() => setReady(true), 2400); return () => clearTimeout(t) }, [])
   const showMine = !!mine && !seen(seenKey(today, me))
   useEffect(() => {

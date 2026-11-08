@@ -13,6 +13,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
+          // Uploads and phone notifications are loaded only when used (Nov 8: lighter start on older phones).
+          if (/[\\/]@?firebase[\\/](storage)[\\/]/.test(id)) return 'firebase-storage'
+          if (/[\\/]@?firebase[\\/](messaging|installations)[\\/]/.test(id)) return 'firebase-messaging'
           if (id.includes('firebase') || id.includes('@firebase')) return 'firebase'
           if (/[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) return 'react'
         },

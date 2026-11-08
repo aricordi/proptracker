@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 import { deleteField } from 'firebase/firestore'
-import { auth, storage } from '../firebase'
+import { auth } from '../firebase'
 import { addItem, updateItem, getItem } from '../services/items'
 import { getOrCreateTag, incrementTagUsage, decrementTagUsage } from '../services/tags'
 import { getOrCreateCharacter, incrementCharacterUsage, decrementCharacterUsage } from '../services/characters'
@@ -195,7 +194,8 @@ export default function AddItemScreen() {
       const patch = (p: Partial<PhotoSlot>) =>
         setPhotos(prev => prev.map(x => x.key === key ? { ...x, ...p } : x))
 
-      void shrinkPhoto(file).then(blob => {
+      void Promise.all([shrinkPhoto(file), import('../lib/storage')]).then(([blob, st]) => {
+      const { storage, ref: storageRef, uploadBytesResumable, getDownloadURL } = st
       const jpeg = blob !== file
       const name = jpeg ? `${key}.jpg` : `${key}_${file.name}`
       const task = uploadBytesResumable(storageRef(storage, `items/${uid}/${name}`), blob, jpeg ? { contentType: 'image/jpeg' } : undefined)

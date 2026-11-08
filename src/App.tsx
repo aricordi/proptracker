@@ -60,6 +60,7 @@ const GearBookingScreen = lazy(() => import('./screens/GearBookingScreen'))
 import { GearCartProvider, ShootDaySync } from './gearCart'
 const SuggestionsScreen = lazy(() => import('./screens/SuggestionsScreen'))
 const AccountScreen = lazy(() => import('./screens/AccountScreen'))
+const BirthdayParty = lazy(() => import('./components/BirthdayParty'))
 const AdminScreen = lazy(() => import('./screens/AdminScreen'))
 const ReserveScreen = lazy(() => import('./screens/ReserveScreen'))
 const ReservationsScreen = lazy(() => import('./screens/ReservationsScreen'))
@@ -80,13 +81,12 @@ import { warmHot } from './services/propsLike'
 import { AssistantProvider, ChatHome, isChatFirst } from './assistant'
 import { BugReportProvider } from './components/BugReport'
 const CreatorHomeScreen = lazy(() => import('./screens/CreatorHomeScreen'))
-import Splash from './components/Splash'
+import { hideBoot } from './lib/boot'
 import { useTourDone, skipTour, tourSkipped, markTourDone } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const BugsScreen = lazy(() => import('./screens/BugsScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
-import BirthdayParty from './components/BirthdayParty'
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 import OfflineBanner from './components/OfflineBanner'
 
@@ -107,7 +107,8 @@ function usePrefetchTabs(on: boolean) {
 // Signed-in only: warm up the main tabs in the background.
 function Prefetch() {
   usePrefetchTabs(true)
-  useEffect(() => { refreshPush() }, [])   // keep this phone's notification sign-up fresh
+  // Keep this phone's notification sign-up fresh, a few seconds after the first screen is up (Nov 8: weak signal).
+  useEffect(() => { const t = setTimeout(() => { refreshPush() }, 8000); return () => clearTimeout(t) }, [])
   // A notification tapped while the app is open: switch screens in place (keeps the chat), then tell the service worker.
   const navigate = useNavigate()
   useEffect(() => {
@@ -125,7 +126,8 @@ function Prefetch() {
   // Start loading the props list in the background (the equipment team can't read props).
   const { realRole } = useSession()
   useEffect(() => realRole === 'equipment' ? undefined : warmItems(realRole === 'owner' ? 'all' : 'company'), [realRole])
-  useEffect(() => { if (realRole !== 'equipment') warmHot() }, [realRole])   // Browse's "hot" order, ready before the first visit
+  // Browse's "hot" order, ready before the first visit (Browse asks for it itself if opened sooner).
+  useEffect(() => { if (realRole === 'equipment') return; const t = setTimeout(warmHot, 3000); return () => clearTimeout(t) }, [realRole])
   return null
 }
 
@@ -338,7 +340,9 @@ export default function App() {
     return () => clearTimeout(t)
   }, [myEmail, user?.photoURL, profiles])
 
-  if (authLoading || profileLoading) return <Loading />
+  const booting = authLoading || profileLoading
+  useEffect(() => { if (!booting) hideBoot() }, [booting])
+  if (booting) return <Loading />
 
   if (!user) {
     return (
@@ -363,8 +367,7 @@ export default function App() {
     <GearCartProvider>
     <ShootDaySync />
     <ActiveShootProvider>
-    <Splash />
-    <BirthdayParty />
+    <Suspense fallback={null}><BirthdayParty /></Suspense>
     <Prefetch />
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
