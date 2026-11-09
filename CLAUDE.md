@@ -2525,6 +2525,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       "Remove retired server functions" (saveWishlist runMonthlyDraw undoMonthlyDraw, skipped with `only`); ADD A NAME THERE whenever a
       function leaves functions/src (a normal deploy refuses to delete live functions). Rules for monthly_wishes/monthly_draws kept
       (harmless, old data). /.perf/ gitignored.
+    - LIVE Nov 9 (owner "yes deploy both"): backend run 42554924215 (+ check run 42556359323: every function "No changes
+      detected" = all up to date) + website run 42556317808 = speed + older phones + clean-up. Old draw functions removed from
+      live (saveWishlist, runMonthlyDraw, undoMonthlyDraw). The removal step now just tries each delete (its list check missed one).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
