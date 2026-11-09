@@ -2533,6 +2533,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       removed). YOUR FILMING DAYS were not marked for the owner (team=true suppressed `mine`): MonthGrid `myDates` (ScheduleScreen
       passes your own shoots' dates from useMyShoots) → gold tint + edge + small gold dot, any role. Locked priority day also shows
       the other house's free count ("🔒 C2 9"). Team request count is pinned in the day's top-right corner (never grows the square).
+      LIVE Nov 9 (owner "push it all live"): website run 42655608588 + backend run 42655614158 (askApp/askChat updated with the
+      new calendar text). First website run failed SAFELY on unescaped apostrophes in appGuide.ts: ALWAYS run
+      `npm --prefix functions run build` after editing functions/src (the app's tsc does not check it).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
