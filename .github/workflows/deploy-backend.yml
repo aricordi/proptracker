@@ -75,9 +75,8 @@ jobs:
         if: inputs.only == ''
         run: |
           for f in saveWishlist runMonthlyDraw undoMonthlyDraw; do
-            if npx firebase functions:list --project proptracker-9732e 2>/dev/null | grep -qw "$f"; then
-              npx firebase functions:delete "$f" --region northamerica-northeast1 --project proptracker-9732e --force && echo "removed $f"
-            else echo "$f already gone"; fi
+            # Just try the delete: the list check missed names in a wide table.
+            npx firebase functions:delete "$f" --region northamerica-northeast1 --project proptracker-9732e --force && echo "removed $f" || echo "$f already gone"
           done
 
       # Google's build service occasionally fails a function build for no
