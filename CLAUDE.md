@@ -2528,6 +2528,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Nov 9 (owner "yes deploy both"): backend run 42554924215 (+ check run 42556359323: every function "No changes
       detected" = all up to date) + website run 42556317808 = speed + older phones + clean-up. Old draw functions removed from
       live (saveWishlist, runMonthlyDraw, undoMonthlyDraw). The removal step now just tries each delete (its list check missed one).
+    - CALENDAR READABILITY (owner, Nov 9; app only, preview until the website deploy): MonthGrid ALL view = two chips per day
+      (AllCell: C1 / C2 free counts, green/amber/grey, lock = priority; aspect 0.7 phone / 0.95 laptop; dots + shootsOn/PLACE_DOT
+      removed). YOUR FILMING DAYS were not marked for the owner (team=true suppressed `mine`): MonthGrid `myDates` (ScheduleScreen
+      passes your own shoots' dates from useMyShoots) → gold tint + edge + small gold dot, any role. Locked priority day also shows
+      the other house's free count ("🔒 C2 9"). Team request count is pinned in the day's top-right corner (never grows the square).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

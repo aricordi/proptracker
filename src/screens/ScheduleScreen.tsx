@@ -122,6 +122,7 @@ export default function ScheduleScreen() {
   useEffect(() => { const t = setInterval(() => setNow(nowStamp()), 60_000); return () => clearInterval(t) }, [])
   const days = useScheduleDays(today, addDays(today, 120))
   const mine = useMyShoots(profile.email, today)
+  const myDates = useMemo(() => new Set((mine ?? []).map(x => x.date)), [mine])
   const swaps = useMySwaps(profile.email)
   const invites = useMyInvites(profile.email)
   const ai = useAssistant()
@@ -173,7 +174,7 @@ export default function ScheduleScreen() {
               <button disabled={month >= addDays(today, 115).slice(0, 7)} onClick={() => setMonth(monthAdd(month, 1))} aria-label="Next month" className="w-11 h-11 grid place-items-center rounded-full bg-pt-surface text-pt-text text-xl disabled:opacity-30">›</button>
             </div>
             {days === null ? <p className="text-pt-muted text-sm text-center py-6">Loading…</p>
-              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} lockFree={role === 'equipment'} selected={desk ? date : null}
+              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} lockFree={role === 'equipment'} selected={desk ? date : null} myDates={myDates}
                   onPick={d => { setDate(d); if (!desk) setSheet({ kind: 'day', date: d }) }} />}
           </section>
         )}
