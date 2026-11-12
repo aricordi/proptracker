@@ -2541,6 +2541,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       → bottom gradient overlay: name (20px) for everyone + "Room › Bin" with a gold pin for canSeeStaff (owner/arts/admin;
       PlaceLine only mounts for them, so creators never load bins). Passed from the prop page, PropThumb, ZoomButton, QuickEdit,
       checker (live edited name/bin), Combine doubles, Find duplicates; gear page passes the kit name only. appGuide 'item'.
+      LIVE Nov 12 (owner "push it live"): website run 43322288773 + backend run 43322293152 (askApp/askChat guide text).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
