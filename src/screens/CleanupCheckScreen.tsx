@@ -226,7 +226,7 @@ function Card({ item, items, binInfo, onDone, onSkip, onBack }: {
         </div>
       </div>
 
-      {zoom && photos[photo] && <ImageLightbox src={photos[photo]} alt={item.name} onClose={() => setZoom(false)} />}
+      {zoom && photos[photo] && <ImageLightbox src={photos[photo]} alt={item.name} item={{ name, binId, locationId }} onClose={() => setZoom(false)} />}
       <BinSheet open={binSheet} current={binId} onClose={() => setBinSheet(false)} onPick={(b, l) => { setBinId(b); setLocationId(l) }} />
       <RemoveSheet open={removeSheet} name={item.name} onClose={() => setRemoveSheet(false)} onRemove={async reason => {
         const r = await removeProps([item.id], reason)

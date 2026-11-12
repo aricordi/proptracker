@@ -76,7 +76,7 @@ export default function QuickEdit({ item, items, onClose, onDone }: {
           </div>
         </div>
       </BottomSheet>
-      {zoom && item.photos[0] && <ImageLightbox src={item.photos[0]} alt={item.name} onClose={() => setZoom(false)} />}
+      {zoom && item.photos[0] && <ImageLightbox src={item.photos[0]} alt={item.name} item={item} onClose={() => setZoom(false)} />}
       <BinSheet open={sheet === 'bin'} current={binId} onClose={() => setSheet('')} onPick={(b, l) => { setBinId(b); setLocationId(l) }} />
       <RemoveSheet open={sheet === 'remove'} name={item.name} onClose={() => setSheet('')} onRemove={async reason => {
         const r = await removeProps([item.id], reason)

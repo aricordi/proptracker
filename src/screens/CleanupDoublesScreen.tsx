@@ -260,7 +260,7 @@ function GroupCard({ group, byId, where, left, aiResting, aiWaiting, onCombine, 
         </div>
       )}
       {err && <p className="rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
-      {zoom?.photos[0] && <ImageLightbox src={zoom.photos[0]} alt={zoom.name} onClose={() => setZoom(null)} />}
+      {zoom?.photos[0] && <ImageLightbox src={zoom.photos[0]} alt={zoom.name} item={zoom} onClose={() => setZoom(null)} />}
     </div>
   )
 }

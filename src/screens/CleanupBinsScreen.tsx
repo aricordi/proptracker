@@ -132,7 +132,7 @@ export function CleanupBinScreen() {
                 {p.reviewedAt && <span className="absolute top-2 left-2 rounded-full bg-green-600 text-white text-[12px] font-semibold px-2 py-0.5">✓</span>}
                 <span className={`block px-2 py-2 text-[14px] font-semibold leading-tight line-clamp-2 ${oddName(p.name) ? 'text-amber-300' : 'text-pt-text'}`}>{p.name}</span>
               </button>
-              {p.photos[0] && <div className="absolute inset-x-0 top-0 aspect-square pointer-events-none"><div className="pointer-events-auto"><ZoomButton src={p.photos[0]} alt={p.name} /></div></div>}
+              {p.photos[0] && <div className="absolute inset-x-0 top-0 aspect-square pointer-events-none"><div className="pointer-events-auto"><ZoomButton src={p.photos[0]} alt={p.name} item={p} /></div></div>}
             </div>
           ))}
         </div>

@@ -125,7 +125,7 @@ export function PropThumb({ item, size = 56, className = '', zoom = true }: { it
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); setOpen(true) } }}>
         {img}<ZoomBadge />
       </span>
-      {open && <ImageLightbox src={url} alt={item.name} onClose={() => setOpen(false)} />}
+      {open && <ImageLightbox src={url} alt={item.name} item={item} onClose={() => setOpen(false)} />}
     </>
   )
 }
@@ -140,13 +140,13 @@ export function ZoomBadge({ className = 'bottom-1 right-1' }: { className?: stri
 }
 
 /** A big photo tile (bin view, quick approve): tap the magnifier to open the full photo. */
-export function ZoomButton({ src, alt }: { src: string; alt: string }) {
+export function ZoomButton({ src, alt, item }: { src: string; alt: string; item?: Item }) {
   const [open, setOpen] = useState(false)
   return (
     <>
       <button type="button" onClick={e => { e.stopPropagation(); setOpen(true) }} aria-label={`See the photo of ${alt} bigger`}
         className="absolute bottom-1 right-1 w-11 h-11 grid place-items-center"><ZoomBadge className="inset-0 m-auto !w-8 !h-8" /></button>
-      {open && <ImageLightbox src={src} alt={alt} onClose={() => setOpen(false)} />}
+      {open && <ImageLightbox src={src} alt={alt} item={item} title={alt} onClose={() => setOpen(false)} />}
     </>
   )
 }

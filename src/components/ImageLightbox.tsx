@@ -1,13 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useSession } from '../auth'
+import { useBins } from '../hooks/useBins'
+import { useLocations } from '../hooks/useLocations'
+import { Icon } from './Icon'
 
 interface Props {
   src: string
   alt: string
   onClose: () => void
+  /** Owner, Nov 12: the zoomed photo keeps the prop's name along the bottom. Pass the prop (or just a title). */
+  item?: { name: string; binId?: string | null; locationId?: string | null }
+  title?: string
 }
 
-export default function ImageLightbox({ src, alt, onClose }: Props) {
+export default function ImageLightbox({ src, alt, onClose, item, title }: Props) {
+  const { canSeeStaff } = useSession()   // arts team, owner and admins see where it lives; creators only the name
+  const caption = (title ?? item?.name ?? '').trim()
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [animate, setAnimate] = useState(false)
@@ -117,11 +126,29 @@ export default function ImageLightbox({ src, alt, onClose }: Props) {
         />
       </div>
 
-      {scale === 1 && (
+      {caption ? (
+        <div className="absolute bottom-0 inset-x-0 pointer-events-none select-none bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-16 px-5"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
+          <p className="text-white text-[20px] font-semibold leading-snug line-clamp-2">{caption}</p>
+          {canSeeStaff && item && (item.binId || item.locationId) && <PlaceLine binId={item.binId} locationId={item.locationId} />}
+          {scale === 1 && <p className="mt-2 text-white/40 text-xs">Pinch or double-tap to zoom</p>}
+        </div>
+      ) : scale === 1 && (
         <p className="absolute bottom-8 inset-x-0 text-center text-white/30 text-xs pointer-events-none select-none pb-safe">
           Pinch or double-tap to zoom
         </p>
       )}
     </div>
 ), document.body)
+}
+
+/** "Prop room › Bin 12" for the arts team (only mounted for staff, so creators never load bins). */
+function PlaceLine({ binId, locationId }: { binId?: string | null; locationId?: string | null }) {
+  const bins = useBins()
+  const locations = useLocations()
+  const bin = binId ? bins.find(b => b.id === binId) : undefined
+  const room = locations.find(l => l.id === (locationId || bin?.locationId))
+  const text = [room?.name, bin?.label].filter(Boolean).join(' › ')
+  if (!text) return null
+  return <p className="mt-1 inline-flex items-center gap-1.5 text-white/80 text-[16px]"><Icon name="pin" className="w-4 h-4 text-pt-accent" />{text}</p>
 }

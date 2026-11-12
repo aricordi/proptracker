@@ -2536,6 +2536,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       LIVE Nov 9 (owner "push it all live"): website run 42655608588 + backend run 42655614158 (askApp/askChat updated with the
       new calendar text). First website run failed SAFELY on unescaped apostrophes in appGuide.ts: ALWAYS run
       `npm --prefix functions run build` after editing functions/src (the app's tsc does not check it).
+    - PHOTO ZOOM CAPTION (owner, Nov 12: "when people click on an image of a prop to zoom in… the title and the bin as an overlay
+      on the bottom"; app only, preview until the website deploy): ImageLightbox takes `item` {name, binId, locationId} (or `title`)
+      → bottom gradient overlay: name (20px) for everyone + "Room › Bin" with a gold pin for canSeeStaff (owner/arts/admin;
+      PlaceLine only mounts for them, so creators never load bins). Passed from the prop page, PropThumb, ZoomButton, QuickEdit,
+      checker (live edited name/bin), Combine doubles, Find duplicates; gear page passes the kit name only. appGuide 'item'.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

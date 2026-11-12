@@ -134,7 +134,7 @@ export default function GearOfferScreen() {
           </>
         )}
       </div>
-      {zoom && <ImageLightbox src={zoom} alt={b.name} onClose={() => setZoom(null)} />}
+      {zoom && <ImageLightbox src={zoom} alt={b.name} title={b.name} onClose={() => setZoom(null)} />}
     </div>
   )
 }

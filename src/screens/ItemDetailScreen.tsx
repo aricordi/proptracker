@@ -413,6 +413,7 @@ export default function ItemDetailScreen() {
       <ImageLightbox
         src={item.photos[lightboxIndex]}
         alt={item.name}
+        item={item}
         onClose={() => setLightboxIndex(null)}
       />
     )}

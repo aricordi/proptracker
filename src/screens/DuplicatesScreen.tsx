@@ -164,7 +164,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
   const [verdicts, setVerdicts] = useState<Record<string, PairVerdict>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [zoom, setZoom] = useState<{ src: string; alt: string } | null>(null)   // full-size photo
+  const [zoom, setZoom] = useState<{ src: string; alt: string; item?: Item } | null>(null)   // full-size photo
   const [bin, setBin] = useState<string | null>(null)
 
   const chosen = props.filter(p => selected.has(p.id))
@@ -247,14 +247,14 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
           </button>
           {on && <span className="absolute top-1 left-1 w-8 h-8 rounded-full bg-pt-accent text-stone-900 font-bold flex items-center justify-center pointer-events-none">✓</span>}
           {it.photos[0] && (
-            <button onClick={() => setZoom({ src: it.photos[0], alt: it.name })} aria-label="See the whole photo"
+            <button onClick={() => setZoom({ src: it.photos[0], alt: it.name, item: it })} aria-label="See the whole photo"
               className="absolute top-1 right-1 w-9 h-9 rounded-full bg-black/60 text-white text-base flex items-center justify-center">🔍</button>
           )}
         </div>
         {it.photos.length > 1 && (
           <div className="flex gap-1 mt-1 overflow-x-auto">
             {it.photos.slice(1).map(u => (
-              <button key={u} onClick={() => setZoom({ src: u, alt: it.name })} className="shrink-0">
+              <button key={u} onClick={() => setZoom({ src: u, alt: it.name, item: it })} className="shrink-0">
                 <img loading="lazy" decoding="async" src={u} alt="" className="w-9 h-9 object-cover rounded" />
               </button>
             ))}
@@ -345,7 +345,7 @@ function GroupCard({ mode, gatherId, ids, keys, score, props, binLabel, canMerge
             className="col-span-2 py-2 rounded-xl text-pt-muted text-sm">Unflag (back to "To check")</button>
         )}
       </div>
-      {zoom && <ImageLightbox src={zoom.src} alt={zoom.alt} onClose={() => setZoom(null)} />}
+      {zoom && <ImageLightbox src={zoom.src} alt={zoom.alt} item={zoom.item} onClose={() => setZoom(null)} />}
       {canMerge && ready && <p className="text-pt-muted text-xs">
         "Copies" adds up the quantities; "Same one" just adds the extra photos. The others are then removed (archived if they were ever booked).
       </p>}

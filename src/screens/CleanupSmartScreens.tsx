@@ -69,7 +69,7 @@ export function CleanupApproveScreen() {
                     <span className={`w-7 h-7 rounded-full grid place-items-center text-[16px] font-bold ${on ? 'bg-green-600 text-white' : 'bg-black/70 border-2 border-white/60'}`}>{on ? '✓' : ''}</span>
                   </button>
                   <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[14px] font-bold px-2 py-0.5">×{i.quantity}</span>
-                  {i.photos[0] && <div className="absolute inset-x-0 top-0 aspect-square pointer-events-none"><div className="pointer-events-auto"><ZoomButton src={i.photos[0]} alt={i.name} /></div></div>}
+                  {i.photos[0] && <div className="absolute inset-x-0 top-0 aspect-square pointer-events-none"><div className="pointer-events-auto"><ZoomButton src={i.photos[0]} alt={i.name} item={i} /></div></div>}
                   <button onClick={() => toggle(i.id)} className="block w-full text-left px-2 py-2">
                     <span className="block text-pt-text text-[14px] font-semibold leading-tight line-clamp-2">{i.name}</span>
                     <span className="block text-pt-muted text-[12px] truncate">{binInfo.label(i.binId)}</span>
