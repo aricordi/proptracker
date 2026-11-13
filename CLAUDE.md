@@ -2557,7 +2557,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Server: createReservation (with a shoot) + editReservation (additions) check the exact time; pushReminders "Last chance to
       add props" in the 6 hours before the cutoff (cutoff_<id>). App: useCutoffs returns STAMPS (props = exact time, builds/gear =
       '<day>T23:59'); every comparison uses nowStamp(); formatDay accepts stamps and shows the time ("Thu, Nov 22, 5 PM"; T23:59 =
-      day only). Help, How it works, Rules sheet, Team guide, AI rules, appGuide. Tests 925. Needs backend (rules + functions) + website.
+      day only). Help, How it works, Rules sheet, Team guide, AI rules, appGuide. Tests 925.
+      LIVE Nov 13 (owner "make it live"): backend run 43466313897 (rules + createReservation/editReservation/pushReminders/askApp/askChat/
+      ideaToProps updated; some unrelated functions hit Google's update quota and kept their unchanged version) + website run 43466320117.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
