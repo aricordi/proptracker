@@ -2560,6 +2560,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       day only). Help, How it works, Rules sheet, Team guide, AI rules, appGuide. Tests 925.
       LIVE Nov 13 (owner "make it live"): backend run 43466313897 (rules + createReservation/editReservation/pushReminders/askApp/askChat/
       ideaToProps updated; some unrelated functions hit Google's update quota and kept their unchanged version) + website run 43466320117.
+    - CALENDAR NITPICK PASS (owner, Nov 13, screenshot: things touching/overlapping, today's circle off-centre; app only, preview only,
+      live needs OK): MonthGrid date sits in a fixed-height box (h-8/lg:h-10) on every day so rows line up and today's circle (32/40 px,
+      smaller 16/19 px digits) is centred; today + your day = gold ring on the circle; the gold "you film" dot shows on wide screens only
+      (on phones it touched the date); corner dots 7 px in; request badge has a black ring; legend chips "C1 5" spaced. Schedule header:
+      flex-wrap-reverse, so when the buttons don't fit (owner: 5) they sit in a row ABOVE the title instead of cutting it to "Cal…".
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

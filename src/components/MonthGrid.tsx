@@ -102,17 +102,24 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           return (
             <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : `${x.free} free`}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
               className={`relative ${house === 'all' ? 'aspect-[0.7] lg:aspect-[0.95] pt-1 pb-1.5' : 'aspect-[0.82] pt-1.5 pb-2'} rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
-              {!past && headsUps(days?.[date]).length > 0 && <i className="absolute top-1.5 right-1.5 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-amber-300" aria-label="Heads-up that day" />}
+              {/* Nov 13 polish: corner dots sit 7px in, clear of the rounded corner and the gold edge; the heads-up dot moves left when the request badge takes the right corner. */}
+              {!past && headsUps(days?.[date]).length > 0 && <i className={`absolute top-[7px] lg:top-2.5 ${team && c.requested > 0 ? 'left-[7px] lg:left-2.5' : 'right-[7px] lg:right-2.5'} w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-amber-300`} aria-label="Heads-up that day" />}
               {/* Requests waiting sit in the corner (owner, Nov 9: nothing may make a square taller). */}
-              {!past && team && c.requested > 0 && <span className="absolute -top-1.5 -right-1.5 z-10 min-w-5 h-5 px-1 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{c.requested}</span>}
+              {!past && team && c.requested > 0 && <span className="absolute -top-1 -right-1 z-10 min-w-5 h-5 px-1 rounded-full bg-amber-400 text-stone-900 text-xs font-bold leading-none grid place-items-center ring-2 ring-pt-bg">{c.requested}</span>}
               {/* Owner, Nov 9: a small gold marker on the days you film, on top of the gold tint and edge. */}
-              {mine && <i className="absolute top-1 left-1 lg:top-2 lg:left-2 w-1.5 h-1.5 lg:w-2.5 lg:h-2.5 rounded-full bg-pt-accent" aria-hidden />}
-              <span className={`text-[18px] lg:text-[22px] font-bold leading-tight ${date === today ? `${house === 'all' ? 'w-7 h-7' : 'w-8 h-8 -mt-0.5'} lg:w-10 lg:h-10 rounded-full bg-white text-stone-900 grid place-items-center` : mine ? 'text-pt-accent' : 'text-pt-text'}`}>{n}</span>
+              {/* Gold dot only on wide screens (on a phone it touched the date; the gold tint, edge and gold number already mark your day).
+                  Today + your day: the white circle gets a gold ring instead. */}
+              {mine && date !== today && <i className="hidden lg:block absolute lg:top-2.5 lg:left-2.5 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-pt-accent" aria-hidden />}
+              {/* Nov 13 polish: the date sits in a box of the SAME height on every day, so today's circle is centred and never pushes the
+                  rest of the square down (rows stay lined up). */}
+              <span className="h-8 lg:h-10 shrink-0 flex items-center justify-center">
+                <span className={`font-bold leading-none ${date === today ? `text-[16px] lg:text-[19px] w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-white text-stone-900 flex items-center justify-center ${mine ? 'ring-2 ring-pt-accent' : ''}` : `text-[18px] lg:text-[22px] ${mine ? 'text-pt-accent' : 'text-pt-text'}`}`}>{n}</span>
+              </span>
               {house === 'all' ? <AllCell days={days?.[date]} date={date} s={s} email={email} now={now} lockFree={lockFree} past={past} /> : <>
               {!past && (
                 <span className="flex flex-col items-center leading-none gap-0.5">
                   {prio
-                    ? <span className={`inline-flex items-center ${hint > 0 ? 'gap-0.5' : 'gap-1'} text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap`}><Icon name="lock" className={hint > 0 ? 'w-3 h-3 lg:w-3.5 lg:h-3.5' : 'w-3.5 h-3.5'} />{hint > 0
+                    ? <span className={`inline-flex items-center ${hint > 0 ? 'gap-[3px]' : 'gap-1'} text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap`}><Icon name="lock" className={hint > 0 ? 'w-3 h-3 lg:w-3.5 lg:h-3.5' : 'w-3.5 h-3.5'} />{hint > 0
                         ? <span className="text-sky-300">{other === 'cliff2' ? 'C2' : 'C1'}<span className="hidden lg:inline">:</span> {hint}<span className="hidden lg:inline"> free</span></span>
                         : <span className="hidden lg:inline">Priority</span>}</span>
                     : hint > 0
@@ -134,9 +141,9 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
       <MonthKey>
       <div className="flex flex-wrap gap-3 text-xs text-pt-muted">
         {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">Each day shows the free spots per house:
-          <span className={`${CHIP} ${CHIP_TONE.lots}`}>C1 5</span><span>lots free</span>
-          <span className={`${CHIP} ${CHIP_TONE.few}`}>C2 2</span><span>a few left</span>
-          <span className={`${CHIP} ${CHIP_TONE.full}`}>C1 0</span><span>full</span></span>
+          <LegendChip tone="lots" house="C1" n="5" /><span>lots free</span>
+          <LegendChip tone="few" house="C2" n="2" /><span>a few left</span>
+          <LegendChip tone="full" house="C1" n="0" /><span>full</span></span>
         : <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(s.slots[0])} on the left to ${fmtHour(s.slots[s.slots.length - 1])} on the right` : 'morning to night'}: lit = free then at {HOUSE_NAME[house as House]}</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>}
@@ -145,7 +152,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         {(house === PRIORITY_HOUSE || house === 'all') && !lockFree && s.priorityWeekdays.length > 0 && <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5 text-pt-text/80" />Priority day: open to everyone from Sunday {fmtTime(s.releaseMinute)}</span>}
         <span><i className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team && <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>}
-        {(!team || myDates) && <span><i className="inline-block w-2 h-2 rounded-full bg-pt-accent mr-1" /><i className="inline-block w-2.5 h-2.5 rounded-sm bg-pt-accent/30 shadow-[inset_0_0_0_2px_#C9A961] mr-1 align-[-1px]" />You're filming</span>}
+        {(!team || myDates) && <span><i className="hidden lg:inline-block w-2 h-2 rounded-full bg-pt-accent mr-1" /><i className="inline-block w-2.5 h-2.5 rounded-sm bg-pt-accent/30 shadow-[inset_0_0_0_2px_#C9A961] mr-1 align-[-1px]" />You're filming</span>}
         <span><i className="inline-block w-3 h-3 rounded-full bg-white mr-1 align-[-2px]" />Today</span>
       </div>
       </MonthKey>
@@ -157,6 +164,9 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
 // the free count in the same colours as the single-house view (green lots, amber a few, grey full; lock = priority day).
 const CHIP = 'inline-flex items-center justify-center gap-[5px] lg:gap-1.5 h-[18px] lg:h-6 min-w-[38px] lg:min-w-[64px] px-1.5 rounded-full text-xs lg:text-[13px] font-bold leading-none whitespace-nowrap'
 const CHIP_TONE = { lots: 'bg-green-400/20 text-green-300', few: 'bg-amber-300/20 text-amber-200', full: 'bg-white/[0.06] text-pt-muted', lock: 'bg-white/10 text-pt-text/85' }
+function LegendChip({ tone, house, n }: { tone: keyof typeof CHIP_TONE; house: string; n: string }) {
+  return <span className={`${CHIP} ${CHIP_TONE[tone]}`}><span className="font-medium text-pt-text/55">{house}</span><span>{n}</span></span>
+}
 function AllCell({ days, date, s, email, now, lockFree, past }: {
   days: ScheduleDay | undefined; date: string; s: ScheduleSettings; email: string; now: string; lockFree: boolean; past: boolean
 }) {

@@ -145,9 +145,10 @@ export default function ScheduleScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-8">
       <div className={`sticky top-0 bg-pt-bg pt-safe z-10 pb-2 ${desk ? "px-8" : "px-4"}`}>
-        <div className="flex items-end justify-between py-2 gap-2">
-          <h1 className="font-display text-[30px] text-pt-text min-w-0 truncate">{canBook ? 'Calendar' : 'Schedule'}</h1>
-          <div className="flex gap-2 pb-0.5">
+        {/* Nov 13 polish: when the buttons don't fit next to the title (owner: 5 of them), they move to a row ABOVE it instead of cutting it to "Cal…". */}
+        <div className="flex flex-wrap-reverse items-end justify-between py-2 gap-x-2 gap-y-2">
+          <h1 className="font-display text-[30px] text-pt-text shrink-0">{canBook ? 'Calendar' : 'Schedule'}</h1>
+          <div className="flex gap-2 pb-0.5 ml-auto">
             <AiButton mode="time" />
             <MyRequestsButton />
             {teamView && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
