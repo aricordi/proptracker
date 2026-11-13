@@ -11,12 +11,13 @@
 // Firestore makes one of them retry, and the retry sees the unit is gone.
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
+import { nowStamp } from './gearBooking.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
 import { db, requireRole, CALLABLE, booksLikeCreator, type Caller } from './auth.js'
 import { collectionOf } from './collections.js'
 import {
-  checkDates, freeForRange, todayInStudio, earliestStart, addOpenDays, turnaroundFor, cleanClosedDays, isLate,
+  checkDates, freeForRange, todayInStudio, earliestStart, addOpenDays, propsStillOpen, shootStartStamp, turnaroundFor, cleanClosedDays, isLate,
   DEFAULT_BOOKING_SETTINGS, type BookingEntry, type BookingSettings, type DateProblem,
 } from './booking.js'
 
@@ -59,6 +60,7 @@ export async function loadSettings(): Promise<BookingSettings> {
   const num = (v: unknown, fallback: number) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 60 ? v as number : fallback
   return {
     leadTimeDays: num(d.leadTimeDays, DEFAULT_BOOKING_SETTINGS.leadTimeDays),
+    leadTimeHours: Number.isInteger(d.leadTimeHours) && d.leadTimeHours >= 0 && d.leadTimeHours <= 336 ? d.leadTimeHours : DEFAULT_BOOKING_SETTINGS.leadTimeHours,
     buildLeadDays: num(d.buildLeadDays, DEFAULT_BOOKING_SETTINGS.buildLeadDays),
     bufferDays:   num(d.bufferDays,   DEFAULT_BOOKING_SETTINGS.bufferDays),
     maxDays:      Math.max(1, num(d.maxDays, DEFAULT_BOOKING_SETTINGS.maxDays)),
@@ -202,11 +204,15 @@ export const createReservation = onCall(CALLABLE, async req => {
   const problem = checkDates(startDate, endDate, today, settings, caller.isStaff)
   if (problem) {
     const extra = problem === 'too-soon'
-      ? ` The earliest start date is ${earliestStart(today, settings, false)} (${settings.leadTimeDays} open days ahead).`
+      ? ` Props need ${settings.leadTimeHours} hours' notice before the shoot starts.`
       : problem === 'too-long'
         ? ` Bookings can be at most ${settings.maxDays} day${settings.maxDays === 1 ? '' : 's'}.`
         : ''
     throw new HttpsError('invalid-argument', DATE_MESSAGES[problem] + extra, { problem })
+  }
+  // Props from the closet: a strict number of clock hours before the shoot starts (owner, Nov 13).
+  if (!caller.isStaff && lines.length && shoot && !propsStillOpen(shootStartStamp(shoot.date, shoot.start), settings.leadTimeHours, nowStamp())) {
+    throw new HttpsError('invalid-argument', `Too late for props from the closet: they need ${settings.leadTimeHours} hours' notice before the shoot starts.`, { problem: 'too-soon' })
   }
   // New props (things to make or find) need more notice than props from the inventory.
   if (!caller.isStaff && builds.length && startDate < addOpenDays(today, settings.buildLeadDays, settings)) {
@@ -338,6 +344,12 @@ export const editReservation = onCall(CALLABLE, async req => {
   const cats = await db.collection('categories').get()
   const categoryTurnaround = Object.fromEntries(cats.docs.map(d => [d.id, d.get('turnaroundDays') as number | undefined]))
 
+  // The shoot this request belongs to (exact start time for the props notice).
+  const rid = typeof req.data?.id === 'string' && /^[\w-]{1,128}$/.test(req.data.id) ? req.data.id : ''
+  const pre = rid ? (await db.doc(`reservations/${rid}`).get()).data() : undefined
+  const linked = pre?.scheduleShootId ? (await db.doc(`shoots/${pre.scheduleShootId}`).get()).data() : undefined
+  const shootStart = linked?.date && Number.isFinite(linked.start) ? shootStartStamp(linked.date, linked.start) : ''
+
   await db.runTransaction(async tx => {
     const r = await loadForUpdate(tx, req.data?.id)
     if (!caller.isStaff && r.res.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not your request.')
@@ -348,8 +360,8 @@ export const editReservation = onCall(CALLABLE, async req => {
     const oldLines = (r.res.lines ?? []) as ReservationLine[]
     const before = new Map(oldLines.map(l => [l.itemId, l.qty]))
     const adding = lines.some(l => l.qty > (before.get(l.itemId) ?? 0))
-    if (!caller.isStaff && adding && start < earliestStart(today, settings, false)) {
-      throw new HttpsError('failed-precondition', `It's too late to add props for this day (they need ${settings.leadTimeDays} open days' notice). You can still lower or remove them.`, { problem: 'too-soon' })
+    if (!caller.isStaff && adding && (start < earliestStart(today, settings, false) || (shootStart && !propsStillOpen(shootStart, settings.leadTimeHours, nowStamp())))) {
+      throw new HttpsError('failed-precondition', `It's too late to add props for this shoot (they need ${settings.leadTimeHours} hours' notice before it starts). You can still lower or remove them.`, { problem: 'too-soon' })
     }
     const oldBuilds = (r.res.builds ?? []) as BuildLine[]
     const known = new Set(oldBuilds.map(b => b.description))

@@ -55,7 +55,7 @@ export default function MyShootsScreen() {
   // One prep chip: done (gold ✓ + where it is), still to add (dashed + with the cutoff), or too late.
   const chip = (key: string, label: string, state: string | null, by: string, onAdd: () => void) => {
     if (state) return <span key={key} className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs bg-pt-accent/15 text-[#EBD399]"><b>✓</b> {label}: {state}</span>
-    if (today > by) return <span key={key} className="inline-flex items-center rounded-full px-3 py-2 text-xs bg-pt-bg text-pt-muted">No {label.toLowerCase()} · too late to add</span>
+    if (nowStamp() > by) return <span key={key} className="inline-flex items-center rounded-full px-3 py-2 text-xs bg-pt-bg text-pt-muted">No {label.toLowerCase()} · too late to add</span>
     return (
       <button key={key} onClick={e => { e.stopPropagation(); onAdd() }}
         className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs text-pt-accent border border-dashed border-pt-accent/60">
@@ -93,7 +93,7 @@ export default function MyShootsScreen() {
           </span>
           <span className="text-pt-muted">›</span>
         </button>
-        {!isPast && !p.length && !g.length && today > cut.props ? (
+        {!isPast && !p.length && !g.length && nowStamp() > cut.props ? (
           <p className="px-1 text-pt-muted text-xs">No props · too late to add now</p>
         ) : !isPast && (
           <div className="flex flex-wrap gap-2 px-1">
@@ -105,7 +105,7 @@ export default function MyShootsScreen() {
         {!isPast && x.date === today && !x.checkin && win === 'open' && (
           <button onClick={() => open(x)} className="w-full rounded-xl py-3 font-semibold text-stone-900 bg-pt-accent shadow-gold">Check in</button>
         )}
-        {!isPast && x.date !== today && !p.length && ai.available && today <= cut.props && (
+        {!isPast && x.date !== today && !p.length && ai.available && nowStamp() <= cut.props && (
           <button onClick={() => ai.open('plan', x.id)} className="w-full flex items-center gap-2 rounded-full px-4 min-h-[44px] text-left text-[14px] bg-[#BF9DFF]/[0.07] text-[#CDB8FF]">
             <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Plan props with AI</span><span className="text-pt-muted">›</span>
           </button>

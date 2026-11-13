@@ -6,7 +6,8 @@
 export const STUDIO_TIME_ZONE = 'America/Toronto'
 
 export interface BookingSettings {
-  leadTimeDays: number   // creators must book props from the inventory at least this many open days ahead
+  leadTimeDays: number   // LEGACY (open days; no longer used for props since Nov 13, kept so old saved settings still read)
+  leadTimeHours: number  // props from the closet: at least this many CLOCK hours before the shoot starts (owner, Nov 13: strict 24, closed days count)
   buildLeadDays: number  // … and NEW props (things to make or find) this many (owner, Oct 16: 4)
   bufferDays: number     // days after a shoot before the same unit can go out again
   maxDays: number        // longest booking a creator can make (1 = single-day shoots only)
@@ -21,7 +22,7 @@ export const customPropNote = (days: number) =>
 export const CUSTOM_PROP_SHORT = 'No guaranteed date · talk to the arts department on Slack'
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
-  leadTimeDays: 2, buildLeadDays: 4, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
+  leadTimeDays: 2, leadTimeHours: 24, buildLeadDays: 4, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
 }
 
 // The arts department's days off. Shoots can still happen on them, but nobody is
@@ -62,6 +63,23 @@ export function addDays(day: string, n: number): string {
   d.setUTCDate(d.getUTCDate() + n)
   return d.toISOString().slice(0, 10)
 }
+
+// ─── Props notice in clock hours (owner, Nov 13: "a strict 24 hours") ────────
+// Stamps are 'YYYY-MM-DDTHH:MM' in the studio's time zone and sort in time order.
+const pad2 = (n: number) => String(n).padStart(2, '0')
+/** When a shoot starts, as a stamp. `startMin` = minutes after midnight. */
+export function shootStartStamp(day: string, startMin: number): string {
+  const m = Math.max(0, Math.round(Number(startMin) || 0))
+  return `${addDays(day, Math.floor(m / 1440))}T${pad2(Math.floor((m % 1440) / 60))}:${pad2(m % 60)}`
+}
+/** The last moment props from the closet can be asked for: `hours` before the shoot starts. */
+export function propsDeadline(shootStart: string, hours: number): string {
+  const total = Number(shootStart.slice(11, 13)) * 60 + Number(shootStart.slice(14, 16)) - Math.round(hours * 60)
+  const dayShift = Math.floor(total / 1440), m = ((total % 1440) + 1440) % 1440
+  return `${addDays(shootStart.slice(0, 10), dayShift)}T${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`
+}
+/** True while props can still be added for a shoot starting at `shootStart` (now = stamp). */
+export const propsStillOpen = (shootStart: string, hours: number, now: string) => now <= propsDeadline(shootStart, hours)
 
 export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
@@ -204,9 +222,10 @@ export function lastDayToBook(shootDay: string, lead: number, closed: ClosedDays
   return d
 }
 
-// Notice counts only days the arts department is open, since that's when packing happens.
+// Earliest shoot DAY creators can ask props for, when only the day is known (the exact check uses the shoot's start time:
+// propsStillOpen). Props notice is in clock hours since Nov 13, so a 24-hour notice = tomorrow at the earliest.
 export function earliestStart(today: string, settings: BookingSettings, skipLeadTime: boolean) {
-  return skipLeadTime ? today : addOpenDays(today, settings.leadTimeDays, settings)
+  return skipLeadTime ? today : addDays(today, Math.ceil(Math.max(0, settings.leadTimeHours) / 24))
 }
 
 // Reads closed-day settings defensively (they come from the database).

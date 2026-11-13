@@ -46,7 +46,7 @@ import {
   checkinWindow,
   type TimeAskResult, type House,
 } from '../services/schedule'
-import { freeForRange, todayInStudio, lastDayToBook } from '../../functions/src/booking'
+import { freeForRange, todayInStudio, propsStillOpen, shootStartStamp } from '../../functions/src/booking'
 import { useUsualPartners } from '../hooks/useUsualPartners'
 import { joinWaitlist } from '../hooks/useWaitlist'
 import { fmtTime, fmtHours, nowStamp } from '../../functions/src/gearBooking'
@@ -312,7 +312,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const bot = (text: string, ...extra: Msg[]) => setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'bot', text }, ...extra])
   const planShoot = upcoming.find(x => x.id === plan?.shootId)
   const planLabel = planShoot ? label(planShoot) : plan?.label ?? 'your shoot'
-  const late = (kind: 'props' | 'builds' | 'gear') => !!planShoot && today > cutoffs(planShoot)[kind]
+  const late = (kind: 'props' | 'builds' | 'gear') => !!planShoot && nowStamp() > cutoffs(planShoot)[kind]
   function startPlan() {
     setPlan({ step: 'time' }); setChips([])
     if (upcoming.length) bot(`Let's plan your shoot, step by step: time, props${gearOn ? ', gear' : ''}, then you check it all and send. Is it one you've already booked, or a new time?`, { who: 'shoots' })
@@ -327,7 +327,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const sh = upcoming.find(x => x.id === shootId)
     const name = sh ? label(sh) : where ?? 'your shoot'
     setPlan({ step: 'props', shootId, label: name }); setMode('props')
-    const tooLate = sh && today > cutoffs(sh).props
+    const tooLate = sh && nowStamp() > cutoffs(sh).props
     if (tooLate) { setChips([SKIP_PROPS]); bot(`Step 2 · Props. It's too late to add props to ${name} (the last day was ${formatDay(cutoffs(sh).props)}). ${gearOn ? "Let's look at gear." : "Let's review."}`); return }
     setChips([...STARTERS.props.slice(0, 3), SKIP_PROPS])
     bot(`Step 2 · Props for ${name}. What's the video about? I'll find what we have and check it's free that day.${sh ? ` Props by ${formatDay(cutoffs(sh).props)}.` : ''}`, { who: 'already' })
@@ -857,7 +857,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     const owner = role === 'owner' || realRole === 'owner'
     const picks = o && idea ? topPicks(idea.groups, id => freeOnDay(id, o.date)) : []
     const skip = planSkip({ hasTime: !!o, timeNote: !!t?.notice || !!t?.waitlist, needsGuideline: !!o && !team && needsGuideline(o.date, o.place, profile.email, s),
-      tooLateForProps: !!o && !owner && today > lastDayToBook(o.date, settings.leadTimeDays, settings), picks: picks.length })
+      tooLateForProps: !!o && !owner && !propsStillOpen(shootStartStamp(o.date, o.start), settings.leadTimeHours, nowStamp()), picks: picks.length })
     if (skip || !t || !idea || !o) return separate(pair, tp, ip, !!turn.reply)
     setMsgs(x => [...x, { who: 'once', id: ++onceId.current, o, picks, ticks: picks, idea: pair.props, notice: t.notice ?? '', time: t, props: idea,
       propsQuery: pair.props, timeQuery: pair.time, stage: 'ready' }])
@@ -1196,7 +1196,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const hasOut = (returns ?? []).length > 0
   // Shoot day (owner, Nov 3): "Take gear" is a starter card, not a card in the chat.
   const takeShoot = upcoming.find(x => x.status === 'booked' && gw(x).state === 'take')
-  const propsShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from)).find(x => today <= cutoffs(x).props && !x.checkin)
+  const propsShoot = [...upcoming].sort((a, b) => a.from.localeCompare(b.from)).find(x => nowStamp() <= cutoffs(x).props && !x.checkin)
   type Sugg = { icon: IconName; title: string; sub: string; ai?: boolean; go: () => void }
   const sugg: (Sugg | false)[] = helpOnly || demo ? [] : [
     !!takeShoot && { icon: 'camera', title: 'Take gear', sub: 'Pick it, tick every piece, one photo', go: () => { choose(takeShoot.id); navigate('/gear') } },
@@ -1500,7 +1500,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         <div className="space-y-2">
           {upcoming.length === 0 && <p className="text-pt-muted text-sm">No shoots booked yet. Book one and these come with you.</p>}
           {[...upcoming].sort((a, b) => (a.id === shoot?.id ? -1 : b.id === shoot?.id ? 1 : a.from.localeCompare(b.from))).map(sh => {
-            const c = cutoffs(sh), late = (d: string) => today > d
+            const c = cutoffs(sh), late = (d: string) => nowStamp() > d
             const p = picks()
             const warn = [p.props.length && late(c.props) ? 'props' : '', p.builds.length && late(c.builds) ? 'new props' : '', p.gear.length && late(c.gear) ? 'gear' : ''].filter(Boolean)
             return (

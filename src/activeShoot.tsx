@@ -6,7 +6,7 @@ import { useSession } from './auth'
 import { useCart } from './cart'
 import { useGearCart } from './gearCart'
 import { useBookingSettings } from './hooks/useBookings'
-import { todayInStudio, lastDayToBook, pickupDay, addDays } from '../functions/src/booking'
+import { todayInStudio, lastDayToBook, pickupDay, addDays, propsDeadline, propsStillOpen, shootStartStamp, earliestStart } from '../functions/src/booking'
 import { nowStamp, GEAR_DAY_START, GEAR_DAY_END, GEAR_LEAD_TIME_DAYS, gearReserveOpensAt, canTakeGear, fmtTime } from '../functions/src/gearBooking'
 import { useMyShoots, useScheduleSettings, fmtSlot, isLive, type Shoot } from './services/schedule'
 import { formatDay } from './lib/dates'
@@ -51,8 +51,7 @@ export function ActiveShootProvider({ children }: { children: ReactNode }) {
   const settings = useBookingSettings()
   useEffect(() => {
     if (!mine || id !== null) return
-    const today = todayInStudio()
-    const next = upcoming.find(x => lastDayToBook(x.date, settings.leadTimeDays, settings) >= today)
+    const next = upcoming.find(x => propsStillOpen(shootStartStamp(x.date, x.start), settings.leadTimeHours, nowStamp()))
     if (next) choose(next.id)
   }, [mine, id, upcoming, settings])   // eslint-disable-line react-hooks/exhaustive-deps
   // The shoot was cancelled or is over: back to just browsing. (A shoot booked a moment ago may not have
@@ -115,13 +114,15 @@ export function useShootLabel() {
   return (sh: Shoot) => `${sh.place === 'offsite' ? (sh.where || 'Offsite') : s.houses[sh.place].name} · ${formatDay(sh.date)} · ${fmtSlot(sh.start, sh.end - sh.start)}`
 }
 
-// Last day to add each kind of thing to a shoot (open days before; closed days don't count).
+// When each kind of thing can last be added to a shoot, as STAMPS ('YYYY-MM-DDTHH:MM'; compare with nowStamp()):
+// props from the closet = a strict number of clock hours before the shoot starts (owner, Nov 13); custom props and gear =
+// any time on their last day ('…T23:59'), counted in open days (closed days don't count).
 export function useCutoffs() {
   const settings = useBookingSettings()
   return (sh: Shoot) => ({
-    props: lastDayToBook(sh.date, settings.leadTimeDays, settings),
-    builds: lastDayToBook(sh.date, settings.buildLeadDays, settings),
-    gear: lastDayToBook(pickupDay(sh.date, settings), GEAR_LEAD_TIME_DAYS, settings),
+    props: propsDeadline(shootStartStamp(sh.date, sh.start), settings.leadTimeHours),
+    builds: `${lastDayToBook(sh.date, settings.buildLeadDays, settings)}T23:59`,
+    gear: `${lastDayToBook(pickupDay(sh.date, settings), GEAR_LEAD_TIME_DAYS, settings)}T23:59`,
   })
 }
 
@@ -164,7 +165,7 @@ export function useEarliestDayFor() {
   return (a: ShootAdds | null, from: string) => {
     if (!a) return from
     for (let k = 0, d = from; k < 60; k++, d = addDays(d, 1)) {
-      const ok = (!a.props.length || lastDayToBook(d, settings.leadTimeDays, settings) >= from)
+      const ok = (!a.props.length || d >= earliestStart(from, settings, false))
         && (!a.builds.length || lastDayToBook(d, settings.buildLeadDays, settings) >= from)
         && (!a.gear.length || lastDayToBook(pickupDay(d, settings), GEAR_LEAD_TIME_DAYS, settings) >= from)
       if (ok) return d

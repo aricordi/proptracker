@@ -75,7 +75,7 @@ describe('instant notifications', () => {
 
 describe('timed reminders', () => {
   const shoot = { status: 'booked', creatorEmail: 'c@x.com', place: 'cliff2', date: '2026-10-23', start: 780, end: 900, from: '2026-10-23T13:00', to: '2026-10-23T15:00' }
-  const keys = (now: string, extra = {}, needs = true) => shootReminders('h1', { ...shoot, ...extra }, now, s, needs, closed, 2).map(r => r.key)
+  const keys = (now: string, extra = {}, needs = true) => shootReminders('h1', { ...shoot, ...extra }, now, s, needs, closed, 24).map(r => r.key)
   it('an hour before, then when check-in opens, then a missed check-in', () => {
     expect(keys('2026-10-23T11:55')).toEqual([])
     expect(keys('2026-10-23T12:05')).toEqual(['hour_h1'])
@@ -88,17 +88,19 @@ describe('timed reminders', () => {
     expect(keys('2026-10-23T12:05', { place: 'offsite', where: 'The park' })).toEqual(['hour_h1'])
     expect(keys('2026-10-23T12:50', { place: 'offsite' })).toEqual([])
   })
-  it('last day to add props + gear: from 9 AM, only if nothing is added', () => {
-    // Fri Oct 23 shoot, 2 open days' notice → last day Wed Oct 21.
-    expect(keys('2026-10-21T08:50', {}, false)).toEqual([])
-    expect(keys('2026-10-21T09:00', {}, false)).toEqual(['cutoff_h1'])
-    expect(keys('2026-10-21T09:00', {}, true)).toEqual([])
+  it('last chance to add props: the 6 hours before the 24-hour cutoff, only if nothing is added', () => {
+    // Fri Oct 23 1 PM shoot, 24 clock hours' notice → cutoff Thu Oct 22 1 PM; reminder from 7 AM that day.
+    expect(keys('2026-10-22T06:50', {}, false)).toEqual([])
+    expect(keys('2026-10-22T07:00', {}, false)).toEqual(['cutoff_h1'])
+    expect(keys('2026-10-22T13:00', {}, false)).toEqual(['cutoff_h1'])
+    expect(keys('2026-10-22T13:10', {}, false)).toEqual([])
+    expect(keys('2026-10-22T09:00', {}, true)).toEqual([])
   })
   it('a request still waiting for approval gets the props cutoff reminder only', () => {
-    expect(keys('2026-10-21T09:00', { status: 'requested' }, false)).toEqual(['cutoff_h1'])
+    expect(keys('2026-10-22T09:00', { status: 'requested' }, false)).toEqual(['cutoff_h1'])
     expect(keys('2026-10-23T12:50', { status: 'requested' })).toEqual([])
     expect(keys('2026-10-23T12:05', { status: 'requested' })).toEqual([])
-    expect(keys('2026-10-21T09:00', { status: 'cancelled' }, false)).toEqual([])
+    expect(keys('2026-10-22T09:00', { status: 'cancelled' }, false)).toEqual([])
   })
   it('props due back by 10 AM the next open day, then late', () => {
     const r = { status: 'collected', creatorEmail: 'c@x.com', title: 'Diner', endDate: '2026-10-24' }   // Saturday; Sunday closed

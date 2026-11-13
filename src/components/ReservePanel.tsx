@@ -14,6 +14,7 @@ import AddingToBar from './AddingToBar'
 import { IconText } from './Icon'
 import { useAddWithoutShoot } from './AddWithoutShoot'
 import { noteWanted } from '../services/propWants'
+import { nowStamp } from '../../functions/src/gearBooking'
 
 // On a prop's page: when it's booked, and adding it to the reservation being built.
 export default function ReservePanel({ item, entries }: { item: Item; entries: BookingEntry[] }) {
@@ -29,7 +30,7 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
   const { shoot } = useActiveShoot()
   const cutoffs = useCutoffs()
   // Creators can't add after the cutoff (the server refuses it too); staff and the owner skip the notice.
-  const propsLate = !!shoot && !isStaff && todayInStudio() > cutoffs(shoot).props
+  const propsLate = !!shoot && !isStaff && nowStamp() > cutoffs(shoot).props
   // Creators add props to one of their booked shoots; staff can pick any day.
   const dates = cart.start && cart.end && (isStaff || shoot) ? { start: cart.start, end: cart.end } : null
   const free = dates

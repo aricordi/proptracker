@@ -112,7 +112,7 @@ export default function CreatorHomeScreen() {
     <div className="bg-black/35 rounded-2xl p-3 flex flex-col gap-1 min-w-0">
       <span className={`w-[26px] h-[26px] rounded-full grid place-items-center text-sm font-extrabold ${done ? 'bg-pt-accent text-stone-900' : 'border-2 border-dashed border-pt-accent text-pt-accent'}`}>{done ? '✓' : '+'}</span>
       <b className="text-sm">{title}</b>
-      <span className="text-xs text-pt-muted truncate">{done ? doneText : today > by ? 'Too late' : by === today ? 'By today' : `By ${formatDay(by)}`}</span>
+      <span className="text-xs text-pt-muted truncate">{done ? doneText : nowStamp() > by ? 'Too late' : `By ${formatDay(by)}`}</span>
     </div>
   )
 

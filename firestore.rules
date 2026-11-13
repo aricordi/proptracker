@@ -351,7 +351,7 @@ service cloud.firestore {
       // Booking rules: the owner and admins only (owner, Oct 20). Every other setting: the owner.
       allow write: if isOwner()
         || (role() == 'admin' && id == 'booking'
-            && request.resource.data.keys().hasOnly(['leadTimeDays', 'buildLeadDays', 'bufferDays', 'maxDays', 'closedWeekdays', 'closedDates', 'updatedAt', 'updatedBy'])
+            && request.resource.data.keys().hasOnly(['leadTimeDays', 'leadTimeHours', 'buildLeadDays', 'bufferDays', 'maxDays', 'closedWeekdays', 'closedDates', 'updatedAt', 'updatedBy'])
             && request.resource.data.get('closedWeekdays', []) is list
             && request.resource.data.get('closedWeekdays', []).size() <= 6
             && request.resource.data.get('closedDates', []) is list
@@ -360,6 +360,8 @@ service cloud.firestore {
             && request.resource.data.get('maxDays', 1) >= 1 && request.resource.data.get('maxDays', 1) <= 60
             && request.resource.data.leadTimeDays is int
             && request.resource.data.leadTimeDays >= 0 && request.resource.data.leadTimeDays <= 60
+            && request.resource.data.get('leadTimeHours', 24) is int
+            && request.resource.data.get('leadTimeHours', 24) >= 0 && request.resource.data.get('leadTimeHours', 24) <= 336
             && request.resource.data.bufferDays is int
             && request.resource.data.bufferDays >= 0 && request.resource.data.bufferDays <= 30);
     }

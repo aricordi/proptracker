@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BottomSheet from './BottomSheet'
 import { useActiveShoot, useShootLabel, useCutoffs, useAddToShoot, savePendingAdds, type ShootAdds } from '../activeShoot'
-import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
+import { nowStamp } from '../../functions/src/gearBooking'
 
 type Kind = 'props' | 'gear'
 
@@ -15,7 +15,6 @@ export function useAddWithoutShoot() {
   const { upcoming } = useActiveShoot()
   const label = useShootLabel(), cutoffs = useCutoffs(), addToShoot = useAddToShoot()
   const [ask, setAsk] = useState<{ name: string; kind: Kind; adds: ShootAdds } | null>(null)
-  const today = todayInStudio()
 
   const open = (name: string, kind: Kind, id: string) =>
     setAsk({ name, kind, adds: { props: kind === 'props' ? [id] : [], gear: kind === 'gear' ? [id] : [], builds: [] } })
@@ -26,7 +25,7 @@ export function useAddWithoutShoot() {
         <div className="space-y-2">
           {upcoming.length > 0 && <p className="text-pt-muted text-sm">Which shoot is it for?</p>}
           {upcoming.map(sh => {
-            const by = cutoffs(sh)[ask.kind], late = today > by
+            const by = cutoffs(sh)[ask.kind], late = nowStamp() > by
             return (
               <button key={sh.id} disabled={late} onClick={() => { addToShoot(sh.id, ask.adds); setAsk(null) }}
                 className="w-full text-left rounded-xl px-3 py-3 bg-pt-bg shadow-hairline disabled:opacity-50">

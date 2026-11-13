@@ -152,7 +152,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
           {listOpen && <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
             {next.map(x => {
               const c = cutoffs(x), waiting = x.status === 'requested'
-              const propsOpen = today <= c.props && !x.checkin
+              const propsOpen = nowStamp() <= c.props && !x.checkin
               const early = x.place !== 'offsite' ? houseFreeFrom(soonDays?.[x.date], x.place, x.start, s) : null
               const state = waiting ? 'Waiting for OK' : x.wrap ? 'Filmed' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved'
               return (

@@ -1,6 +1,12 @@
 // Friendly date labels for 'YYYY-MM-DD' days (always treated as local calendar days).
+// Takes a day ('YYYY-MM-DD') or a stamp ('YYYY-MM-DDTHH:MM'). A stamp with a real time (props cutoffs, Nov 13)
+// also shows it: "Thu, Nov 13, 5 PM"; '…T23:59' means "any time that day" and shows the day only.
 export function formatDay(day: string, opts: Intl.DateTimeFormatOptions = { weekday: 'short', month: 'short', day: 'numeric' }) {
-  return new Date(`${day}T12:00:00`).toLocaleDateString('en-CA', opts)
+  const out = new Date(`${day.slice(0, 10)}T12:00:00`).toLocaleDateString('en-CA', opts)
+  const t = day.length >= 16 ? day.slice(11, 16) : ''
+  if (!t || t === '23:59') return out
+  const h = Number(t.slice(0, 2)), m = t.slice(3, 5)
+  return `${out}, ${h % 12 || 12}${m === '00' ? '' : ':' + m} ${h < 12 ? 'AM' : 'PM'}`
 }
 
 export function formatRange(start: string, end: string) {

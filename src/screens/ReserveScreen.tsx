@@ -202,7 +202,7 @@ export default function ReserveScreen() {
         {/* Staff can book any day (the owner: when it isn't for one of their shoots) */}
         {!isStaff || shoot ? null : <DateRangePicker start={cart.start ?? gear.date} end={cart.end ?? gear.date} min={pickerMin} onChange={(s, e) => { cart.setDates(s, e); if (s) gear.setWhen(s, gear.start, gear.end) }}
           maxDays={1}
-          leadTimeNote={!isStaff && hasProps && settings.leadTimeDays > 0 ? `Props need ${settings.leadTimeDays} open days' notice: earliest ${formatDay(minStart)}.` : undefined} />}
+          leadTimeNote={!isStaff && hasProps && settings.leadTimeHours > 0 ? `Props need ${settings.leadTimeHours} hours' notice before the shoot starts.` : undefined} />}
         {!isStaff && shoot && hasProps && !datesOk && <p className="text-red-300 text-sm -mt-3">It's too late to add props from the inventory to this shoot.</p>}
         {buildsTooSoon && <p className="text-red-300 text-sm -mt-3">New props (things to make or find) need {settings.buildLeadDays} open days' notice, so they can't be added to this shoot.</p>}
         {tooLong && (

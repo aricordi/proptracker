@@ -5,11 +5,11 @@ import { useCart } from '../cart'
 import { useGearCart } from '../gearCart'
 import { useActiveShoot, useCutoffs } from '../activeShoot'
 import { useScheduleSettings } from '../services/schedule'
-import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import { DraftCard, primaryBtn } from './ChatCard'
 import { useItems } from '../hooks/useItems'
 import { thumbOf } from '../services/itemShape'
+import { nowStamp } from '../../functions/src/gearBooking'
 
 export default function UnsentBasket({ shootId }: { shootId?: string }) {
   const navigate = useNavigate()
@@ -24,7 +24,7 @@ export default function UnsentBasket({ shootId }: { shootId?: string }) {
   const what = [cart.count && `${cart.count} prop${cart.count !== 1 ? 's' : ''}`, gear.count && `${gear.count} gear`].filter(Boolean).join(' and ')
   const c = shoot ? cutoffs(shoot) : null
   const by = c ? (cart.count && gear.count ? (c.props < c.gear ? c.props : c.gear) : cart.count ? c.props : c.gear) : null
-  const late = !!by && todayInStudio() > by
+  const late = !!by && nowStamp() > by
   const n = cart.count + gear.count
   // The real photos of what's waiting (dashed = not finished; photos = "these are my props", no reading needed).
   const photos = Object.keys(cart.lines).map(id => { const it = items.find(i => i.id === id); return thumbOf(it, it?.photos?.[0]) })

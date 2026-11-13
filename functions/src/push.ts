@@ -11,8 +11,8 @@ import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { loadScheduleSettings } from './scheduling.js'
 import { loadSettings } from './reservations.js'
 import { openLinks } from './shootLinks.js'
-import { addDays, todayInStudio, lastDayToBook } from './booking.js'
-import { nowStamp, addMinutes, GEAR_LEAD_TIME_DAYS } from './gearBooking.js'
+import { addDays, todayInStudio, propsDeadline, shootStartStamp } from './booking.js'
+import { nowStamp, addMinutes } from './gearBooking.js'
 import {
   inviteChange, swapChange, reservationChange, gearChange, reportCreated, strikeCreated, shootChange,
   shootReminders, propsReminders, gearReminders, type Push, type Reminder,
@@ -184,7 +184,7 @@ export async function runReminders(now = nowStamp()) {
     db.collection('reservations').where('status', '==', 'collected').get(),
     db.collection('gear_bookings').where('status', '==', 'out').get(),
   ])
-  const lead = Math.max(booking.leadTimeDays, GEAR_LEAD_TIME_DAYS)
+  const lead = booking.leadTimeHours
   const list: Reminder[] = []
   // Who can check in with the app right now: the owner and creators on the Full app (cached for this run).
   const access = new Map<string, boolean>()
@@ -207,7 +207,8 @@ export async function runReminders(now = nowStamp()) {
       }
       if (!(await canCheckIn(String(sh.creatorEmail ?? '')))) continue   // Props only: no shoot notifications (they can't open shoots)
       // Only look up props/gear for shoots whose last day to add them is today, and only until that reminder went out.
-      const cutoffToday = sh.date > today && lastDayToBook(sh.date, lead, booking) === today && Number(now.slice(11, 13)) >= 9
+      const dl = propsDeadline(shootStartStamp(sh.date, sh.start), lead)
+      const cutoffToday = now <= dl && now >= addMinutes(dl, -6 * 60)
         && !(await db.doc(`push_sent/cutoff_${d.id}`).get()).exists
       const needs = cutoffToday ? await openLinks(d.id) : null
       list.push(...shootReminders(d.id, sh, now, s, needs ? needs.props.length + needs.gear.length + needs.sharedGear.length > 0 : true, booking, lead))

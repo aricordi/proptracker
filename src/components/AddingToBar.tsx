@@ -3,10 +3,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BottomSheet from './BottomSheet'
 import { useActiveShoot, useShootLabel, useCutoffs, useGearWindow } from '../activeShoot'
-import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import { fmtSlot } from '../services/schedule'
 import { Icon } from './Icon'
+import { nowStamp } from '../../functions/src/gearBooking'
 
 
 // Browse (owner, Oct 20: "compress the stuff"): the shoot you're adding to as one small chip in the filter row.
@@ -14,7 +14,7 @@ export function AddingToChip({ kind }: { kind: 'props' | 'gear' }) {
   const { shoot } = useActiveShoot()
   const cutoffs = useCutoffs()
   const [open, setOpen] = useState(false)
-  const late = !!shoot && todayInStudio() > cutoffs(shoot)[kind]
+  const late = !!shoot && nowStamp() > cutoffs(shoot)[kind]
   return (
     <>
       <button onClick={() => setOpen(true)} aria-label={shoot ? 'Change which shoot you are adding to' : 'Pick a shoot'}
@@ -42,7 +42,7 @@ export function useAddingNote(kind: 'props' | 'gear'): { text: string; late: boo
     if (g.state === 'over') return { text: 'This shoot is over', late: true }
     return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
   }
-  const by = cutoffs(shoot)[kind], late = todayInStudio() > by
+  const by = cutoffs(shoot)[kind], late = nowStamp() > by
   return { text: late ? `Too late to add ${kind} to this shoot (cutoff was ${formatDay(by)})` : `Add ${kind} by ${formatDay(by)}`, late }
 }
 
@@ -74,10 +74,9 @@ export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot'
   const { shoot } = useActiveShoot()
   const label = useShootLabel(), cutoffs = useCutoffs()
   const [open, setOpen] = useState(false)
-  const today = todayInStudio()
   const c = shoot ? cutoffs(shoot) : null
   const by = c && kind !== 'shoot' ? c[kind] : null
-  const late = !!by && today > by
+  const late = !!by && nowStamp() > by
   return (
     <>
       <button onClick={() => setOpen(true)} className={`w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm ${shoot ? 'bg-pt-accent/10 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.45)]' : 'bg-pt-surface shadow-hairline'}`}>
@@ -87,7 +86,7 @@ export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot'
             <span className="block text-pt-text truncate">{label(shoot)}</span>
             <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-text/70'}`}>
               {kind === 'shoot' ? [['Props', c!.props], ['new props', c!.builds]]
-                  .map(([what, d]) => today > d ? `${what === 'Props' ? 'Too late' : 'too late'} for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`).join(' · ')
+                  .map(([what, d]) => nowStamp() > d ? `${what === 'Props' ? 'Too late' : 'too late'} for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`).join(' · ')
                 : late ? `Too late to add ${kind} (cutoff was ${formatDay(by!)})` : `Add ${kind} by ${formatDay(by!)}`}
             </span>
           </> : <>

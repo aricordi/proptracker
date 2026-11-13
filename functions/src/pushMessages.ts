@@ -3,7 +3,7 @@
 import { fmtTime, addMinutes, isGearLate } from './gearBooking.js'
 import { LATE_FEE_PERCENT } from './gearStock.js'
 import { responsible } from './gearCrew.js'
-import { returnDueDay, lastDayToBook, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
+import { returnDueDay, propsDeadline, shootStartStamp, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
 import { checkinWindow, isMissed, expectsCheckIn, explainUntil, INVITE_HOLD_MINUTES, type ScheduleSettings } from './schedule.js'
 
 type Doc = Record<string, any> | null | undefined
@@ -241,15 +241,17 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
 // Each reminder has a key; push.ts sends a key only once (push_sent/{key}).
 export interface Reminder { key: string; push: Push }
 
-export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSettings, hasNeeds: boolean, closed: ClosedDays, propsLead: number): Reminder[] {
+export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSettings, hasNeeds: boolean, closed: ClosedDays, propsLeadHours: number): Reminder[] {
   // Not for calendar imports nobody has confirmed (maybe the wrong person) or people on Props only (audit, Nov 5).
   // A request still waiting for approval only gets the "last day to add props" reminder (audit, Nov 7: props can be
   // added to a request, and an unapproved one could pass its cutoff without a word).
   if (!sh || !(sh.status === 'booked' || sh.status === 'requested') || !sh.creatorEmail || sh.toCheck || sh.checksIn === false) return []
   const out: Reminder[] = []
   const url = `/?shoot=${id}`, to = [sh.creatorEmail], where = placeName(sh, s)
-  const cutoff = (): Reminder[] => !hasNeeds && sh.date > now.slice(0, 10) && lastDayToBook(sh.date, propsLead, closed) === now.slice(0, 10) && Number(now.slice(11, 13)) >= 9
-    ? [{ key: `cutoff_${id}`, push: { to, url, tag: `needs-${id}`, title: 'Last day to add props', body: `For your ${dayLabel(sh.date)} shoot at ${where}.` } }] : []
+  // Props notice is a strict number of clock hours (owner, Nov 13): remind in the 6 hours before the cutoff.
+  const deadline = propsDeadline(shootStartStamp(sh.date, sh.start), propsLeadHours)
+  const cutoff = (): Reminder[] => !hasNeeds && now <= deadline && now >= addMinutes(deadline, -6 * 60)
+    ? [{ key: `cutoff_${id}`, push: { to, url, tag: `needs-${id}`, title: 'Last chance to add props', body: `For your ${dayLabel(sh.date)} shoot at ${where}: ask by ${dayLabel(deadline.slice(0, 10))} ${fmtTime(Number(deadline.slice(11, 13)) * 60 + Number(deadline.slice(14, 16)))}.` } }] : []
   if (sh.status === 'requested') return cutoff()
   const house = sh.place !== 'offsite'
   const win = checkinWindow(sh as { from: string; to: string }, now, s)

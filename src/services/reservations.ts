@@ -91,6 +91,7 @@ export function subscribeToBookingSettings(cb: (s: BookingSettings) => void) {
 export function saveBookingSettings(s: BookingSettings) {
   return setDoc(doc(db, 'app_settings', 'booking'), {
     leadTimeDays: s.leadTimeDays,
+    leadTimeHours: s.leadTimeHours,
     buildLeadDays: s.buildLeadDays,
     bufferDays: s.bufferDays,
     maxDays: s.maxDays,

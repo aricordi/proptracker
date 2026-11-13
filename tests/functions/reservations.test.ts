@@ -2,6 +2,7 @@
 import { beforeAll, beforeEach, describe, it, expect } from 'vitest'
 import { put, call, getDoc, clearDatabase } from './helpers'
 import { addDays, todayInStudio } from '../../functions/src/booking'
+import { nowStamp, addMinutes } from '../../functions/src/gearBooking'
 
 const OWNER = 'alexisricordi@gmail.com', ARTS = 'res-arts@example.com'
 const ALEX = 'alex@example.com', BLAIR = 'blair@example.com', CASEY = 'casey@example.com'
@@ -95,20 +96,30 @@ describe('quantities (10 chairs)', () => {
 })
 
 describe('what can be booked', () => {
-  it('creators must book at least 3 days ahead; the owner can book same-day', async () => {
-    const tooSoon = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(2), day(2))
+  it('creators need 24 hours\' notice (no shoot: tomorrow at the earliest); the owner can book same-day', async () => {
+    const tooSoon = await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(0), day(0))
     expect(tooSoon.error).toBe('INVALID_ARGUMENT')
-    expect(tooSoon.message).toContain(day(3))
-    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(3), day(3))).ok).toBe(true)
+    expect(tooSoon.message).toContain('24 hours')
+    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(1), day(1))).ok).toBe(true)
     expect((await reserve(OWNER, [{ itemId: 'chairs', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
-  it('notice only counts open days', async () => {
-    await put('app_settings/booking', { leadTimeDays: 3, bufferDays: 1, maxDays: 7, closedWeekdays: [], closedDates: [day(2)] })
-    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(3), day(3))).message).toMatch(/earliest/i)
-    expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(4), day(4))).ok).toBe(true)
+  it('with a shoot, props close exactly 24 clock hours before it starts (closed days count)', async () => {
+    await put('app_settings/booking', { leadTimeDays: 2, leadTimeHours: 24, bufferDays: 1, maxDays: 7, closedWeekdays: [0, 1, 2, 3, 4, 5, 6] })
+    const shootAt = async (id: string, inMinutes: number) => {
+      const st = addMinutes(nowStamp(), inMinutes)
+      const date = st.slice(0, 10), start = Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16))
+      await put(`shoots/${id}`, { creatorEmail: ALEX, creatorName: 'Alex', date, start, end: start + 120, place: 'cliff1', status: 'booked', from: st, to: addMinutes(st, 120) })
+      return date
+    }
+    const d1 = await shootAt('soon', 23 * 60)
+    const late = await call('createReservation', { title: 'x', startDate: d1, endDate: d1, lines: [{ itemId: 'cop', qty: 1 }], scheduleShootId: 'soon' }, ALEX)
+    expect(late.error).toBe('INVALID_ARGUMENT')
+    expect(late.message).toContain('24 hours')
+    const d2 = await shootAt('later', 26 * 60)
+    expect((await call('createReservation', { title: 'x', startDate: d2, endDate: d2, lines: [{ itemId: 'cop', qty: 1 }], scheduleShootId: 'later' }, ALEX)).ok).toBe(true)
   })
   it('the lead time follows the admin setting', async () => {
-    await put('app_settings/booking', { leadTimeDays: 0, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
+    await put('app_settings/booking', { leadTimeDays: 0, leadTimeHours: 0, bufferDays: 1, maxDays: 7, closedWeekdays: [] })
     expect((await reserve(ALEX, [{ itemId: 'cop', qty: 1 }], day(0), day(0))).ok).toBe(true)
   })
   it('creators are held to the maximum booking length; the owner is not', async () => {

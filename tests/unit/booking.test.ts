@@ -1,4 +1,4 @@
-import { lastDayToBook } from '../../functions/src/booking'
+import { lastDayToBook, shootStartStamp, propsDeadline, propsStillOpen } from '../../functions/src/booking'
 import { describe, it, expect } from 'vitest'
 import {
   addDays, bookedOn, freeForRange, holdUntil, checkDates, todayInStudio,
@@ -88,8 +88,8 @@ describe('reservation dates', () => {
     expect(checkDates('2026-10-15', '2026-10-16', TODAY, multi, false)).toBeNull()
   })
   it('rejects requests inside the lead time for creators', () => {
-    expect(checkDates('2026-10-13', '2026-10-13', TODAY, S, false)).toBe('too-soon')
-    expect(checkDates('2026-10-14', '2026-10-14', TODAY, S, false)).toBeNull()   // 2 days' notice (owner, Oct 16)
+    expect(checkDates('2026-10-12', '2026-10-12', TODAY, S, false)).toBe('too-soon')
+    expect(checkDates('2026-10-13', '2026-10-13', TODAY, S, false)).toBeNull()   // 24 hours' notice, day level (owner, Nov 13)
   })
   it('lets the arts department skip the lead time', () => {
     expect(checkDates('2026-10-12', '2026-10-12', TODAY, S, true)).toBeNull()
@@ -129,12 +129,16 @@ describe('days the prop room is closed', () => {
     expect(returnDueDay('2026-10-18', sundays)).toBe('2026-10-19')
     expect(returnDueDay('2026-10-14', sundays)).toBe('2026-10-15')
   })
-  it('notice counts open days: booked Thursday with 3 days notice, earliest shoot is Monday', () => {
-    const s = { ...DEFAULTS, ...sundays, leadTimeDays: 3 }
-    expect(earliestStart('2026-10-15', s, false)).toBe('2026-10-19')
-    expect(checkDates('2026-10-18', '2026-10-18', '2026-10-15', s, false)).toBe('too-soon')
-    expect(checkDates('2026-10-19', '2026-10-19', '2026-10-15', s, false)).toBeNull()
+  it('props notice is clock hours (Sundays count); the exact cutoff is 24 h before the shoot starts', () => {
+    const s = { ...DEFAULTS, ...sundays }
+    expect(earliestStart('2026-10-17', s, false)).toBe('2026-10-18')   // Saturday → Sunday is fine now
     expect(earliestStart('2026-10-15', s, true)).toBe('2026-10-15')
+    expect(shootStartStamp('2026-10-23', 780)).toBe('2026-10-23T13:00')
+    expect(shootStartStamp('2026-10-23', 1380)).toBe('2026-10-23T23:00')
+    expect(propsDeadline('2026-10-23T13:00', 24)).toBe('2026-10-22T13:00')
+    expect(propsDeadline('2026-10-01T07:00', 30)).toBe('2026-09-30T01:00')
+    expect(propsStillOpen('2026-10-23T13:00', 24, '2026-10-22T13:00')).toBe(true)
+    expect(propsStillOpen('2026-10-23T13:00', 24, '2026-10-22T13:01')).toBe(false)
   })
   it('a costume back from a Saturday shoot with 2 turnaround days is free again Wednesday', () => {
     const e = [entry('2026-10-17', '2026-10-17')]

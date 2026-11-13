@@ -10,6 +10,7 @@ import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
 import { isLive, useScheduleSettings, type Shoot } from '../services/schedule'
 import UnsentBasket from './UnsentBasket'
+import { nowStamp } from '../../functions/src/gearBooking'
 
 export interface Linked { id: string; title: string; status: string; count: number; kind: 'props' | 'gear'; sharedBy?: string; sharedWith?: string }
 
@@ -95,8 +96,8 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-pt-text font-semibold text-[18px]">{title}</p>
-          <p className="text-pt-muted text-[14px]">{_kind === 'gear' ? gearLine : today > by ? `Cutoff passed (${formatDay(by)})` : `Add by ${formatDay(by)}`}</p>
-          {extra && _kind !== 'gear' && today <= by && <p className="text-pt-muted text-[14px]">{extra[0].toUpperCase() + extra.slice(1)}</p>}
+          <p className="text-pt-muted text-[14px]">{_kind === 'gear' ? gearLine : nowStamp() > by ? `Cutoff passed (${formatDay(by)})` : `Add by ${formatDay(by)}`}</p>
+          {extra && _kind !== 'gear' && nowStamp() <= by && <p className="text-pt-muted text-[14px]">{extra[0].toUpperCase() + extra.slice(1)}</p>}
         </div>
         {mine && open && today <= by && (
           <button onClick={() => add(to)} className="shrink-0 min-h-[44px] px-4 rounded-full bg-pt-accent text-stone-900 font-semibold text-[16px] shadow-gold">+ Add</button>
@@ -112,7 +113,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
     <div className="space-y-2">
       <p className="text-pt-muted text-[14px] font-semibold px-1 pt-1">For this shoot</p>
       {mine && <UnsentBasket shootId={shoot.id} />}
-      {mine && open && ai.available && today <= cut.props && (
+      {mine && open && ai.available && nowStamp() <= cut.props && (
         <button onClick={() => ai.open('plan', shoot.id)} className="w-full flex items-center gap-3 rounded-[20px] px-4 py-3.5 text-left bg-[#BF9DFF]/[0.09] shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">
           <span className="w-9 h-9 rounded-xl grid place-items-center bg-[#BF9DFF]/20 text-[#BF9DFF] shrink-0">✦</span>
           <span className="flex-1 min-w-0"><b className="block text-[16px] text-pt-text">Plan it with AI</b><span className="text-pt-text/70 text-[14px]">{gearOn ? "Props for your idea and the gear that's free, then you check it" : 'Props and costumes for your idea, then you check it'}</span></span>

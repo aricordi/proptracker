@@ -40,7 +40,7 @@ export default function MyRequestsScreen() {
     const names = [...new Set([...g.props.map(p => p.title), ...g.gear.map(x => x.title)].filter(Boolean))]
     const sh = g.shoot
     const cut = sh ? cutoffs(sh) : null
-    const canAdd = !!sh && isLive(sh) && !!cut && today <= cut.props
+    const canAdd = !!sh && isLive(sh) && !!cut && nowStamp() <= cut.props
     return (
       <div key={g.key} className="bg-pt-surface shadow-card rounded-[20px] p-3 space-y-2">
         <button onClick={() => sh && navigate(`/schedule?shoot=${sh.id}`)} disabled={!sh} className="w-full flex items-center gap-3 text-left px-1">
