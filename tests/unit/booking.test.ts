@@ -89,7 +89,8 @@ describe('reservation dates', () => {
   })
   it('rejects requests inside the lead time for creators', () => {
     expect(checkDates('2026-10-12', '2026-10-12', TODAY, S, false)).toBe('too-soon')
-    expect(checkDates('2026-10-13', '2026-10-13', TODAY, S, false)).toBeNull()   // 24 hours' notice, day level (owner, Nov 13)
+    expect(checkDates('2026-10-13', '2026-10-13', TODAY, S, false)).toBe('too-soon')
+    expect(checkDates('2026-10-14', '2026-10-14', TODAY, S, false)).toBeNull()   // 48 hours' notice, day level (owner, Nov 13)
   })
   it('lets the arts department skip the lead time', () => {
     expect(checkDates('2026-10-12', '2026-10-12', TODAY, S, true)).toBeNull()
@@ -129,9 +130,9 @@ describe('days the prop room is closed', () => {
     expect(returnDueDay('2026-10-18', sundays)).toBe('2026-10-19')
     expect(returnDueDay('2026-10-14', sundays)).toBe('2026-10-15')
   })
-  it('props notice is clock hours (Sundays count); the exact cutoff is 24 h before the shoot starts', () => {
+  it('props notice is clock hours (Sundays count); the exact cutoff is 48 h by default before the shoot starts', () => {
     const s = { ...DEFAULTS, ...sundays }
-    expect(earliestStart('2026-10-17', s, false)).toBe('2026-10-18')   // Saturday → Sunday is fine now
+    expect(earliestStart('2026-10-17', s, false)).toBe('2026-10-19')   // Saturday + 48 h → Monday (the Sunday counts)
     expect(earliestStart('2026-10-15', s, true)).toBe('2026-10-15')
     expect(shootStartStamp('2026-10-23', 780)).toBe('2026-10-23T13:00')
     expect(shootStartStamp('2026-10-23', 1380)).toBe('2026-10-23T23:00')

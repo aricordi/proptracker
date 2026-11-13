@@ -2560,6 +2560,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       day only). Help, How it works, Rules sheet, Team guide, AI rules, appGuide. Tests 925.
       LIVE Nov 13 (owner "make it live"): backend run 43466313897 (rules + createReservation/editReservation/pushReminders/askApp/askChat/
       ideaToProps updated; some unrelated functions hit Google's update quota and kept their unchanged version) + website run 43466320117.
+    - PROPS NOTICE = 48 HOURS (owner, Nov 13, after the strict-24 change: "props from the closet need to close 48 hours before"):
+      DEFAULT_BOOKING_SETTINGS.leadTimeHours 24 → 48 (live has no stored value, so the default applies); assistant rules fallback 48.
+      A number saved in Admin → Booking rules still wins.
     - CALENDAR NITPICK PASS (owner, Nov 13, screenshot: things touching/overlapping, today's circle off-centre; app only, preview only,
       live needs OK): MonthGrid date sits in a fixed-height box (h-8/lg:h-10) on every day so rows line up and today's circle (32/40 px,
       smaller 16/19 px digits) is centred; today + your day = gold ring on the circle; the gold "you film" dot shows on wide screens only

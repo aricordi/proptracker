@@ -7,7 +7,7 @@ export const STUDIO_TIME_ZONE = 'America/Toronto'
 
 export interface BookingSettings {
   leadTimeDays: number   // LEGACY (open days; no longer used for props since Nov 13, kept so old saved settings still read)
-  leadTimeHours: number  // props from the closet: at least this many CLOCK hours before the shoot starts (owner, Nov 13: strict 24, closed days count)
+  leadTimeHours: number  // props from the closet: at least this many CLOCK hours before the shoot starts (owner, Nov 13: strict 48 hours, closed days count)
   buildLeadDays: number  // … and NEW props (things to make or find) this many (owner, Oct 16: 4)
   bufferDays: number     // days after a shoot before the same unit can go out again
   maxDays: number        // longest booking a creator can make (1 = single-day shoots only)
@@ -22,7 +22,7 @@ export const customPropNote = (days: number) =>
 export const CUSTOM_PROP_SHORT = 'No guaranteed date · talk to the arts department on Slack'
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
-  leadTimeDays: 2, leadTimeHours: 24, buildLeadDays: 4, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
+  leadTimeDays: 2, leadTimeHours: 48, buildLeadDays: 4, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
 }
 
 // The arts department's days off. Shoots can still happen on them, but nobody is
