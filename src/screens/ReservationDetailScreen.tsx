@@ -11,7 +11,7 @@ import {
   ACTIVE_STATUSES, type Reservation, type ReservationLine, type BuildLine,
 } from '../services/reservations'
 import ProofPhotos, { PhotoStrip } from '../components/ProofPhotos'
-import { pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR } from '../../functions/src/booking'
+import { pickupDay, isLate, returnDueDay, RETURN_DEADLINE_HOUR, CUSTOM_PROP_SHORT } from '../../functions/src/booking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useAtRisk, RISK_WORDS } from '../hooks/useAtRisk'
 import { formatDay, formatRange, studioDayOf } from '../lib/dates'
@@ -430,6 +430,7 @@ function ContentsList({ res }: { res: Reservation }) {
               <p className={`text-xs ${b.state === 'unavailable' ? 'text-red-300' : b.state === 'done' ? 'text-green-400' : 'text-violet-300'}`}>
                 {b.state === 'unavailable' ? `Can't be made: ${b.reason}` : b.state === 'done' ? '✓ Made' : 'Being built or sourced'}
               </p>
+              {b.state === 'todo' && <p className="text-pt-muted text-xs">{CUSTOM_PROP_SHORT}</p>}
             </div>
             <span className="text-pt-text font-semibold">×{b.qty}</span>
           </div>

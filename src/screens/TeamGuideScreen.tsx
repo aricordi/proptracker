@@ -44,7 +44,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
       <P n={3} t="Act on flags"><p>Every no-show, late return or mess is a flag. Open it: see the evidence, then <B>Send a note</B>, <B>Excuse it</B>, <B>Give a strike</B> or <B>Mark as handled</B>. {s.strikeCount} strikes in {s.strikeDays} days pause props for {s.pauseDays} days.</p></P>
       <P n={4} t="Creators' records"><p><B>Creators</B> → a person: their report card, strikes (Remove with a reason), <B>Pause bookings</B> or Lift.</p></P>
       <P n={5} t="Invite creators"><p><B>Invite creators</B>: they start on <B>Props only</B>; the owner switches them to the full app.</p></P>
-      <P n={6} t="Booking rules"><p>Props notice: {b.leadTimeDays} open days (new props to make or find: {b.buildLeadDays}). Change it in <B>Booking rules</B>. Every rule is on the <B>Settings sheet</B>.</p></P>
+      <P n={6} t="Booking rules"><p>Props notice: {b.leadTimeDays} open days (custom props to make or find: at least {b.buildLeadDays}, no guaranteed date; creators message the arts department on Slack about those). Change it in <B>Booking rules</B>. Every rule is on the <B>Settings sheet</B>.</p></P>
     </>,
     arts: <>
       <P n={1} t="Start with Today"><p>The <B>Props queue</B> opens on <B>Today</B>: pickups due and props coming back. <B>To prepare</B> is everything still to pick.</p></P>

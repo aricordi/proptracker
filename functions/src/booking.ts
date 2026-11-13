@@ -14,6 +14,12 @@ export interface BookingSettings {
   closedDates: string[]     // one-off closed days, e.g. holidays ('YYYY-MM-DD')
 }
 
+// Custom props (things to make or find) have NO guaranteed date (owner, Nov 13): at least buildLeadDays
+// open days, then the creator sorts out details and timing with the arts department on Slack.
+export const customPropNote = (days: number) =>
+  `Needs at least ${days} open days' notice, and there's no guaranteed date. After you send it, message the arts department on Slack to sort out the details and when it can be ready.`
+export const CUSTOM_PROP_SHORT = 'No guaranteed date · talk to the arts department on Slack'
+
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   leadTimeDays: 2, buildLeadDays: 4, bufferDays: 1, maxDays: 1, closedWeekdays: [0], closedDates: [],
 }

@@ -27,7 +27,7 @@ import { useScheduleSettings } from '../services/schedule'
 import { useBackToBack } from '../hooks/useGearCrew'
 import { crewHours } from '../../functions/src/gearCrew'
 import AddingToBar from '../components/AddingToBar'
-import { addOpenDays } from '../../functions/src/booking'
+import { addOpenDays, customPropNote, CUSTOM_PROP_SHORT } from '../../functions/src/booking'
 import { Icon } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
 
@@ -262,6 +262,7 @@ export default function ReserveScreen() {
                 <div className="flex-1 min-w-0">
                   <p className="text-pt-text text-sm">{b.description}</p>
                   <p className="text-violet-300 text-xs">To build or source · ×{b.qty}</p>
+                  <p className="text-pt-muted text-xs">{CUSTOM_PROP_SHORT}</p>
                 </div>
                 <button onClick={() => cart.removeBuild(b.key)} aria-label="Remove" className="text-pt-muted text-2xl px-2">×</button>
               </div>
@@ -277,6 +278,7 @@ export default function ReserveScreen() {
                 <span className="text-pt-text w-6 text-center">{buildQty}</span>
                 <button onClick={() => setBuildQty(q => Math.min(1000, q + 1))} className="w-9 h-9 rounded-full bg-pt-bg shadow-hairline text-pt-text">+</button>
               </div>
+              <p className="text-violet-200/90 text-sm bg-violet-500/10 rounded-xl px-3 py-2">{customPropNote(settings.buildLeadDays)}</p>
               <ProofPhotos cameraOnly={false} folder={`request-photos/${profile.email}`} urls={buildPhotos} onChange={setBuildPhotos}
                 onUploading={setBuildUploading} max={1} label="Reference photo (optional)" hint="A photo or screenshot of what you have in mind." />
               <div className="flex gap-2">
@@ -292,6 +294,9 @@ export default function ReserveScreen() {
               className="mt-2 w-full py-3 rounded-2xl border border-dashed border-violet-500/60 text-violet-300 text-sm font-medium active:opacity-70">
               + Request something we don't have
             </button>
+          )}
+          {!showBuild && !buildsClosed && cart.builds.length === 0 && (
+            <p className="mt-1.5 text-pt-muted text-xs">Made or found for you: at least {settings.buildLeadDays} open days, no guaranteed date.</p>
           )}
         </div>
 

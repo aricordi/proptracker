@@ -28,7 +28,7 @@ export default function RulesSheetScreen() {
   const sections: { title: string; edit?: { label: string; to: string }; rows: [string, string, string, string][] }[] = [
     { title: 'Props', edit: canManagePeople ? { label: 'Change booking rules', to: '/booking-rules' } : undefined, rows: [
       ['Props we have: notice', `${b.leadTimeDays} open days`, 'How far before the shoot a creator must ask for props from the closet.', you],
-      ['New props (make or find): notice', `${b.buildLeadDays} open days`, 'How far ahead creators must ask for something the arts department has to make or buy.', you],
+      ['Custom props (make or find): notice', `at least ${b.buildLeadDays} open days`, 'The earliest a creator can ask for something the arts department has to make or buy. There is no guaranteed date: the creator sorts out details and timing with the arts department on Slack.', you],
       ['Turnaround', `${b.bufferDays} open day${b.bufferDays === 1 ? '' : 's'}`, 'Days after a shoot before the same prop can go out again (checking, cleaning).', you],
       ...cats.map(c => [`Turnaround: ${c.label}`, `${c.turnaroundDays} open days`, 'Its own turnaround (e.g. washing costumes).', you] as [string, string, string, string]),
       ['Closed days', list(b.closedWeekdays.map(d => DAYS[d])), 'The prop room is closed: props are picked up the open day before; deadlines skip these days.', you],

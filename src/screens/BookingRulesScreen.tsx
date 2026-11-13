@@ -121,10 +121,11 @@ export default function BookingRulesScreen() {
             <span className="text-pt-muted">days</span>
           </label>
           <label className="flex items-center gap-3">
-            <span className="text-pt-text text-sm w-36">New props (make or find)</span>
+            <span className="text-pt-text text-sm w-36">Custom props (make or find, minimum)</span>
             <input inputMode="numeric" value={buildLead} onChange={e => { setBuildLead(e.target.value.replace(/\D/g, '')); touch() }} className={input} />
             <span className="text-pt-muted">days</span>
           </label>
+          <p className="text-pt-muted text-xs">Custom props have no guaranteed date: creators are told to sort out the details and timing with the arts department on Slack.</p>
         </div>
 
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">

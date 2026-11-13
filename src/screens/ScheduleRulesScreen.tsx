@@ -65,7 +65,7 @@ export default function ScheduleRulesScreen() {
         <H>Props for your shoot</H>
         <ul className="list-disc pl-5 space-y-2">
           <Li><b>Book your time first.</b> Then add props and costumes to that shoot from Props (or from the shoot itself). Browsing is open any time.</Li>
-          <Li>Each team needs notice, counted in open days before the shoot{b.closedWeekdays.includes(0) ? ' (Sundays don\'t count)' : ''}: props we have <b>{b.leadTimeDays}</b>, new props to make or find <b>{b.buildLeadDays}</b>. {s.gearReserve ? <>Gear is grab-and-go: reserve it from <b>{s.gearReserveHours} hours</b> before your shoot, or take what's free on the day (from an hour before).</> : <>Gear isn't booked ahead: on your shoot day, from an hour before, take what's free (first come, first served).</>}</Li>
+          <Li>Each team needs notice, counted in open days before the shoot{b.closedWeekdays.includes(0) ? ' (Sundays don\'t count)' : ''}: props we have <b>{b.leadTimeDays}</b>, custom props to make or find at least <b>{b.buildLeadDays}</b> (no guaranteed date: sort out the timing with the arts department on Slack). {s.gearReserve ? <>Gear is grab-and-go: reserve it from <b>{s.gearReserveHours} hours</b> before your shoot, or take what's free on the day (from an hour before).</> : <>Gear isn't booked ahead: on your shoot day, from an hour before, take what's free (first come, first served).</>}</Li>
           <Li>Cancelling a shoot cancels its props requests too. A shoot with props can move to another time the same day; to change the day, cancel those first.</Li>
         </ul>
 

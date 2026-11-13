@@ -1087,7 +1087,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
             return (
               <div key={m.name} className="flex items-center gap-3 bg-pt-surface rounded-2xl p-3">
                 <span className="w-[52px] h-[52px] rounded-xl grid place-items-center text-[22px] bg-violet-500/10 shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></span>
-                <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{demo ? (m.why || 'Not in the closet yet') : m.why || 'The arts team can make or find it'}</span></span>
+                <span className="flex-1 min-w-0"><b className="block text-sm">{m.name}</b><span className="block text-xs text-[#CDB8FF]">{demo ? (m.why || 'Not in the closet yet') : m.why || 'The arts team can make or find it · no guaranteed date'}</span></span>
                 {demo ? null : asked && !sel.includes(k) ? <span className="shrink-0 text-xs font-semibold rounded-full px-3 py-2 bg-violet-500/20 text-violet-200 opacity-60">Asked ✓</span>
                   : <button onClick={() => toggle(k)} aria-pressed={sel.includes(k)} className={`shrink-0 text-xs font-semibold rounded-full px-3 min-h-[44px] ${sel.includes(k) ? 'bg-[#BF9DFF] text-[#140f22]' : 'bg-violet-500/20 text-violet-200'}`}>{sel.includes(k) ? 'Ticked ✓' : 'Ask for it'}</button>}
               </div>

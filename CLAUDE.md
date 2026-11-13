@@ -2542,6 +2542,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       PlaceLine only mounts for them, so creators never load bins). Passed from the prop page, PropThumb, ZoomButton, QuickEdit,
       checker (live edited name/bin), Combine doubles, Find duplicates; gear page passes the kit name only. appGuide 'item'.
       LIVE Nov 12 (owner "push it live"): website run 43322288773 + backend run 43322293152 (askApp/askChat guide text).
+    - 48-HOUR PROPS + CUSTOM PROPS NO GUARANTEE (owner, Nov 13, agreed with the arts team): props from the closet (the cart) =
+      leadTimeDays 2 open days (default already 2; LIVE STORED VALUE IS 3 → owner sets "Props we have" = 2 in Admin → Booking
+      rules); custom props (make or find) = at least buildLeadDays 4 (still enforced) and NO guaranteed date: creator asks in the
+      app, then sorts details + timing with the arts department on Slack. booking.ts customPropNote(days) / CUSTOM_PROP_SHORT used
+      by ReserveScreen (form note, per-line, hint under the button), ChangeRequest, ReservationDetail (todo builds), Assistant
+      "make or find" rows, ShootNeeds "custom props by … (no guaranteed date)", Help, How it works, Rules sheet, Team guide,
+      Booking rules label + hint, appGuide (reserve, shoots), AI rulesText (never promise a date). Tests 925. Preview only;
+      live needs OK (website + backend for askApp/askChat/ideaToProps text).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

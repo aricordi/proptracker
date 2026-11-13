@@ -17,6 +17,8 @@ import { editReservation, type Reservation } from '../services/reservations'
 import { Icon } from './Icon'
 import { readRequestDraft, writeRequestDraft, clearRequestDraft } from '../lib/requestDraft'
 import { friendlyError } from '../lib/errors'
+import { useBookingSettings } from '../hooks/useBookings'
+import { customPropNote, CUSTOM_PROP_SHORT } from '../../functions/src/booking'
 
 const errText = (e: unknown) => friendlyError(e)
 
@@ -28,6 +30,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
   const [lines, setLines] = useState<Record<string, number>>({})
   const [builds, setBuilds] = useState<{ description: string; qty: number; refPhoto?: string }[]>([])
   const [newBuild, setNewBuild] = useState('')
+  const buildLead = useBookingSettings().buildLeadDays
   const [query, setQuery] = useState('')
   const tags = useTags()
   const tagById = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
@@ -189,7 +192,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
       {builds.map((b, i) => (
         <div key={i} className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-violet-500/10 grid place-items-center shrink-0"><Icon name="tools" className="w-6 h-6 text-violet-300" /></div>
-          <p className="flex-1 min-w-0 text-sm text-pt-text">{b.description} <span className="text-violet-300">×{b.qty}</span></p>
+          <p className="flex-1 min-w-0 text-sm text-pt-text">{b.description} <span className="text-violet-300">×{b.qty}</span><span className="block text-pt-muted text-xs">{CUSTOM_PROP_SHORT}</span></p>
           <button onClick={() => setBuilds(builds.filter((_, j) => j !== i))} aria-label="Remove" className="text-pt-muted text-2xl w-7">×</button>
         </div>
       ))}
@@ -199,6 +202,7 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
         <button disabled={!newBuild.trim()} onClick={() => { setBuilds([...builds, { description: newBuild.trim(), qty: 1 }]); setNewBuild('') }}
           className="shrink-0 bg-pt-border text-pt-text rounded-xl px-3 text-sm disabled:opacity-40">Add</button>
       </div>
+      {newBuild.trim() && <p className="text-violet-200/90 text-xs">{customPropNote(buildLead)}</p>}
       {err && <p className="text-red-300 text-sm">{err}</p>}
       <div ref={saveRef} className="flex gap-2 scroll-mb-28">
         <button onClick={() => setEditing(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Never mind</button>

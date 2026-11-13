@@ -119,7 +119,7 @@ export default function ShootNeeds({ shoot, mine, team }: { shoot: Shoot; mine: 
           <span className="text-pt-muted">›</span>
         </button>
       )}
-      {mine && section('props', 'Props & costumes', cut.props, linked.props, '/browse', `new props by ${formatDay(cut.builds)}`)}
+      {mine && section('props', 'Props & costumes', cut.props, linked.props, '/browse', `custom props by ${formatDay(cut.builds)} (no guaranteed date)`)}
       {gearOn ? section('gear', 'Gear', cut.gear, linked.gear, '/gear')
         : linked.gear.length > 0 && <div className="bg-pt-bg rounded-xl p-3 space-y-2"><p className="text-pt-text font-semibold">Gear</p>{linked.gear.map(l => <RequestRow key={l.id} l={l} />)}</div>}
     </div>
