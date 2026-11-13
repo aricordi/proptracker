@@ -2563,8 +2563,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - PROPS NOTICE = 48 HOURS (owner, Nov 13, after the strict-24 change: "props from the closet need to close 48 hours before"):
       DEFAULT_BOOKING_SETTINGS.leadTimeHours 24 → 48 (live has no stored value, so the default applies); assistant rules fallback 48.
       A number saved in Admin → Booking rules still wins.
-    - CALENDAR NITPICK PASS (owner, Nov 13, screenshot: things touching/overlapping, today's circle off-centre; app only, preview only,
-      live needs OK): MonthGrid date sits in a fixed-height box (h-8/lg:h-10) on every day so rows line up and today's circle (32/40 px,
+      LIVE Nov 13 (owner "push live"): backend run 43474827101 + website run 43474831886, together with the CALENDAR NITPICK PASS below.
+    - CALENDAR NITPICK PASS (owner, Nov 13, screenshot: things touching/overlapping, today's circle off-centre; app only, LIVE Nov 13 website run 43474831886):
+      MonthGrid date sits in a fixed-height box (h-8/lg:h-10) on every day so rows line up and today's circle (32/40 px,
       smaller 16/19 px digits) is centred; today + your day = gold ring on the circle; the gold "you film" dot shows on wide screens only
       (on phones it touched the date); corner dots 7 px in; request badge has a black ring; legend chips "C1 5" spaced. Schedule header:
       flex-wrap-reverse, so when the buttons don't fit (owner: 5) they sit in a row ABOVE the title instead of cutting it to "Cal…".
