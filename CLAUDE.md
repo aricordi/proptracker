@@ -2570,7 +2570,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (on phones it touched the date); corner dots 7 px in; request badge has a black ring; legend chips "C1 5" spaced. Schedule header:
       flex-wrap-reverse, so when the buttons don't fit (owner: 5) they sit in a row ABOVE the title instead of cutting it to "Cal…".
     - FRIENDS DON'T CONFIRM (owner, Nov 14: "new users aren't able to book with people that are not on the app yet… put the
-      confirmation part on hold… assume the friends are going to be there"; NOT deployed: backend + website, ask; no rules change).
+      confirmation part on hold… assume the friends are going to be there"; no rules change).
       bookWithFriends (scheduling.ts) no longer holds slots / writes schedule_invites: each friend gets their OWN shoot at once,
       same state as the booker (requested or booked), with invitedBy/bookedBy/bookedByName + groupOf; the booker's shoot gets
       groupWith. `friends` = ordered list of emails or "guest:<Name>" (+ legacy `guests`), ≤4. Friends = any active creator incl.
@@ -2583,6 +2583,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Booked/Requested; chat: names the creator says that match nobody are booked as guests ("Bob isn't on the app yet, so I'll book
       their slot under their name"). answerInvite + invites remain for the WAITLIST only. Help, How it works, app guide, AI rules,
       owner guide updated. Tests 924 (invites.test.ts rewritten, dayLimit/push/demoMode updated).
+      LIVE Nov 14 (owner "put it live"): backend run 43549899429 + website run 43549901957.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
