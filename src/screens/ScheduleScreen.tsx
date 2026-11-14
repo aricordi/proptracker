@@ -484,7 +484,7 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
 }
 
 // Tap a free time on the calendar (owner, Nov 3): ask straight away whether friends are filming too. With friends, you
-// get your slot and the next one(s) at the same house are held for them to confirm (bookWithFriends).
+// get your slot and the next one(s) at the same house are booked for them at once (bookWithFriends; no confirming since Nov 14).
 function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; team: boolean; mine: Shoot[]; day?: ScheduleDay; now: string; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
   const s = useScheduleSettings()
   const profiles = useProfiles()
@@ -545,7 +545,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
       )}
       {!team && (
         <div className="mt-4">
-          <p className="text-pt-muted text-xs mb-2">Who's filming? Need more than {s.slotMinutes / 60} hours? Add who you're filming with: one slot each, back to back, and they confirm theirs.</p>
+          <p className="text-pt-muted text-xs mb-2">Who's filming? Need more than {s.slotMinutes / 60} hours? Add who you're filming with: one slot each, back to back, booked for them straight away (no need for them to confirm). Not on the app yet? Type their name.</p>
           <div className="flex bg-pt-bg rounded-full p-1 gap-1">
             {['Just me', '+ 1 friend', '+ 2 friends'].map((label, n) => (
               <button key={n} onClick={() => { setFriendCount(n); setFriends(f => f.slice(0, n)) }}
@@ -581,7 +581,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
                   <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
                   <div className="max-h-48 overflow-y-auto mt-1">
                     {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
-                    {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one called "{q.trim()}".</p>}
+                    {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
+                    <GuestRow q={q} chosen={chosen} onAdd={g => { setFriends([...chosen, g]); setQ('') }} />
                     {matches.slice(0, 6).map(p => (
                       <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
                         <Avatar email={p.email} name={p.name} size={32} />
@@ -592,7 +593,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
                   </div>
                 </div>
               )}
-              {chosen.length === friendCount && <p className="text-pt-muted text-xs">{chosen.length > 1 ? 'Their slots are' : 'Their slot is'} held for {INVITE_HOLD_MINUTES} minutes for them to confirm.</p>}
+              {chosen.length === friendCount && <p className="text-pt-muted text-xs">{chosen.length > 1 ? 'Their slots are' : 'Their slot is'} {asks ? 'requested' : 'booked'} with yours. Only book friends who will really be there.</p>}
             </div>
           )}
         </div>
@@ -615,7 +616,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
         className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>
         {done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
           : withFriends && chosen.length < friendCount ? `Pick ${friendCount - chosen.length === 1 ? 'your friend' : 'your friends'}`
-          : withFriends ? `${verb} + invite ${chosen.length > 1 ? 'them' : chosen[0].name.split(' ')[0]}` : asks ? 'Request this time' : 'Book it'}</button>
+          : withFriends ? `${verb} for ${1 + chosen.length} people` : asks ? 'Request this time' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">{asks ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
     </BottomSheet>
   )
@@ -968,7 +969,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   const minDay = pending ? earliestFor(pending, from) : from
   from = minDay > from ? minDay : from
   // Owner (Oct 19): ask WHO is filming (just me / with 1 or 2 friends), not how many hours. Each person gets
-  // one slot back to back; picked friends get their slot held for them to confirm.
+  // one slot back to back; picked friends get their slot booked at once (no confirming, Nov 14).
   const [friendCount, setFriendCount] = useState(0)
   const [friends, setFriends] = useState<Friend[]>([])
   const [people, setPeople] = useState<Friend[] | null>(null)
@@ -1040,7 +1041,8 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
               <input type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
               <div className="max-h-48 overflow-y-auto mt-1">
                 {term && people === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
-                {term && people !== null && matches.length === 0 && <p className="text-pt-muted text-sm p-2">No one called "{q.trim()}".</p>}
+                {term && people !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
+                    <GuestRow q={q} chosen={chosen} onAdd={g => { setFriends([...chosen, g]); setQ('') }} />
                 {matches.slice(0, 6).map(p => (
                   <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
                     <Avatar email={p.email} name={p.name} size={32} />
@@ -1052,8 +1054,8 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
             </div>
           )}
           <p className="text-pt-muted text-xs">{chosen.length === friendCount
-            ? `You book your slot; ${chosen.length > 1 ? 'theirs are' : 'theirs is'} held for ${INVITE_HOLD_MINUTES} minutes for them to confirm.`
-            : 'Each of you gets a 2-hour slot, back to back. Pick who, or they can book the next slot themselves.'}</p>
+            ? `You book ${chosen.length > 1 ? 'all the slots' : 'both slots'} at once, no need for them to confirm. Only book friends who will really be there.`
+            : 'Each of you gets a 2-hour slot, back to back. Pick who (or type a name if they\'re not on the app yet).'}</p>
         </div>
       )}
       <div className="mt-5 -mx-6 px-6 flex gap-2 overflow-x-auto no-scrollbar">
@@ -1104,7 +1106,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   )
 }
 
-// Book your slot and hold the next one(s) for the friends you picked (they confirm within 20 minutes).
+// Book your slot and the next one(s) for the friends you picked, all at once (owner, Nov 14: no confirming).
 function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBooked }: {
   house: House; date: string; start: number; friends: Friend[]; team: boolean; mine: Shoot[]; onClose: () => void; onBooked: (id: string) => void
 }) {
@@ -1126,7 +1128,7 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
   const [guide, setGuide] = useState<Guideline | null>(null)
   const skipG = useSkipsGuideline(team)
   const needG = !skipG && needsGuideline(date, house, profile.email, s)
-  const rows = [{ email: profile.email, name: 'You', note: asks ? 'Requested' : 'Booked' }, ...friends.map(f => ({ email: f.email, name: f.name, note: `Held ${INVITE_HOLD_MINUTES} min` }))]
+  const rows = [{ email: profile.email, name: 'You', note: asks ? 'Requested' : 'Booked' }, ...friends.map(f => ({ email: f.email, name: f.name, note: asks ? 'Requested' : 'Booked' }))]
   return (
     <BottomSheet open onClose={onClose} title="Book back to back">
       <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[house].name}</p>
@@ -1136,7 +1138,7 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
             <Avatar email={p.email} name={i === 0 ? (profile.name || 'You') : p.name} size={36} />
             <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold truncate">{p.name}</span>
               <span className="block text-pt-muted text-xs">{fmtSlot(start + i * s.slotMinutes, s.slotMinutes)}</span></span>
-            <span className={`text-xs ${i === 0 ? 'text-pt-accent' : 'text-amber-300'}`}>{p.note}</span>
+            <span className="text-xs text-pt-accent">{p.note}{p.email.startsWith('guest:') ? ' · not on the app' : ''}</span>
           </div>
         ))}
       </div>
@@ -1148,11 +1150,11 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
           </div>
         </div>
       )}
-      <p className="text-pt-muted text-xs mt-4">{friends.map(f => f.name.split(' ')[0]).join(' and ')} {friends.length > 1 ? 'get' : 'gets'} a notification to confirm. If they don't within {INVITE_HOLD_MINUTES} minutes, the slot opens to everyone.</p>
+      <p className="text-pt-muted text-xs mt-4">Every slot is booked at once: {friends.map(f => f.name.split(' ')[0]).join(' and ')} {friends.length > 1 ? "don't" : "doesn't"} need to confirm. Friends on the app get a notification. Only book friends who will really be there.</p>
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       {needG && <div className="mt-3"><GuidelinePicker value={guide} onChange={setGuide} /></div>}
-      <button disabled={busy || done || (needG && !guide)} onClick={book} className={`mt-5 ${btnGold} ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : `${asks ? 'Request' : 'Book'} + invite ${friends.length > 1 ? 'them' : friends[0].name.split(' ')[0]}`}</button>
-      {asks && <p className="text-pt-muted text-xs text-center mt-2">The equipment team approves each slot. They're held for you meanwhile.</p>}
+      <button disabled={busy || done || (needG && !guide)} onClick={book} className={`mt-5 ${btnGold} ${done ? 'booked-flash !opacity-100' : ''}`}>{done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : `${asks ? 'Request' : 'Book'} for ${1 + friends.length} people`}</button>
+      {asks && <p className="text-pt-muted text-xs text-center mt-2">The equipment team approves each slot. They're kept for you meanwhile.</p>}
     </BottomSheet>
   )
 }
@@ -1304,5 +1306,18 @@ function TakeSlot({ slot, onTaken }: { slot: TheirSlot; onTaken: (id: string) =>
       <button disabled={busy} onClick={() => sure ? take() : setSure(true)} className="w-full rounded-xl py-3 font-bold bg-amber-400/15 text-amber-300 disabled:opacity-40">
         {busy ? 'Booking…' : sure ? 'Confirm priority booking' : 'Priority booking: take this slot'}</button>
     </div>
+  )
+}
+
+// Someone not on the app yet (owner, Nov 14: rollout, not everybody has access): type their name and book their slot anyway.
+function GuestRow({ q, chosen, onAdd }: { q: string; chosen: Friend[]; onAdd: (g: Friend) => void }) {
+  const name = q.replace(/\s+/g, ' ').trim().slice(0, 60)
+  if (name.length < 2 || chosen.some(c => c.name.toLowerCase() === name.toLowerCase())) return null
+  return (
+    <button onClick={() => onAdd({ email: `guest:${name}`, name })} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
+      <span className="w-8 h-8 rounded-full bg-pt-raised grid place-items-center text-pt-accent text-lg shrink-0" aria-hidden>+</span>
+      <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">Add "{name}"</span>
+        <span className="block text-pt-muted text-xs">Not on the app yet</span></span>
+    </button>
   )
 }

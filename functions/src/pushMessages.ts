@@ -201,7 +201,12 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   // Creators' shoot news opens the chat on that shoot (chat first, Nov 2): status, check-in and wrap are right there.
   const url0 = `/?shoot=${id}`, tag0 = `shoot-${id}`
   // Requests (owner, Nov 2): the creator asks, the equipment team decides.
-  if (h.action === 'requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}: ${placeName(a, s)} · ${when(a)}.` }]
+  // A friend's slot booked in a group booking (Nov 14, no confirmation): the friend hears it was booked for them.
+  const byFriend = !b && a.invitedBy && h.by === a.invitedBy && !a.guest
+    ? [{ to: [a.creatorEmail], url: url0, tag: tag0, title: h.action === 'requested' ? `${a.bookedByName ?? 'A friend'} asked for a slot for you` : `${a.bookedByName ?? 'A friend'} booked you a slot 🎬`,
+        body: `${placeName(a, s)} · ${when(a)}, back to back with them.${h.action === 'requested' ? ' Waiting for the schedule team to approve.' : ''}` }]
+    : []
+  if (h.action === 'requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}${a.guest ? ' (not on the app)' : ''}: ${placeName(a, s)} · ${when(a)}${a.bookedByName && a.invitedBy ? ` · booked by ${a.bookedByName}` : ''}.` }, ...byFriend]
   if (h.action === 'move-requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'Move request', body: `${a.creatorName} wants to move to ${placeName(a.moveRequest ?? a, s)} · ${when(a.moveRequest ?? a)}.` }]
   if (h.action === 'approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking approved ✓', body: `${placeName(a, s)} · ${when(a)} is in the calendar.` }]
   if (h.action === 'denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking not approved', body: `${placeName(a, s)} · ${when(a)}: ${h.note ?? ''}`.trim() }]
@@ -231,6 +236,9 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (!h.by || h.by === a.creatorEmail) return []
   if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
   const url = `/?shoot=${id}`, tag = `shoot-${id}`
+  if (byFriend.length) return byFriend
+  if (a.guest) return []
+  if (h.action === 'cancelled' && a.invitedBy && h.by === a.invitedBy) return [{ to: [a.creatorEmail], url, tag, title: 'Slot cancelled', body: `${a.bookedByName ?? 'Your friend'} cancelled ${placeName(a, s)} · ${when(a)} they booked for you.` }]
   if (h.action === 'booked' && !b) return [{ to: [a.creatorEmail], url, tag, title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'moved') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot moved', body: `Now ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'cancelled') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was cancelled by the schedule team.` }]

@@ -823,7 +823,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const asked = r.status === 'requested'
       const mine = asked ? 'Requested ✓ It\'s held for you while the schedule team looks at it; you\'ll get a notification when it\'s approved.' : 'Booked ✓'
       setMsgs(x => [...x,
-        { who: 'bot', text: friends.length ? `${mine} I've invited ${o.slots.filter(y => !y.me).map(y => y.name.split(' ')[0]).join(' and ')}: ${friends.length > 1 ? 'their slots are' : 'their slot is'} held for ${INVITE_HOLD_MINUTES} minutes for them to confirm.` : mine },
+        { who: 'bot', text: friends.length ? `${mine} ${o.slots.filter(y => !y.me).map(y => y.name.split(' ')[0]).join(' and ')} ${friends.length > 1 ? 'have their slots' : 'has their slot'} right after yours, ${asked ? 'requested' : 'booked'} at the same time (no need for them to confirm).` : mine },
         { who: 'booked', inviteIds: r.inviteIds, shootId: r.shootIds[0], label: where }])
       if (plan) planProps(r.shootIds[0], where)
       else setChips([PROPS_CHIP])
@@ -1108,7 +1108,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const time = m.requested ? 'Requested ✓' : 'Booked ✓'
       return (
         <ChatCard tone="good" icon="check" label={m.sent ? `${time} · ${m.sent} prop${m.sent === 1 ? '' : 's'} sent` : time} title={when}
-          sub={[house(o.place), m.requested ? 'You\'ll get a notification when the schedule team approves it.' : '', m.invited?.length ? `${m.invited.join(' and ')}: their slot is held ${INVITE_HOLD_MINUTES} min for them to confirm.` : ''].filter(Boolean).join(' · ')}
+          sub={[house(o.place), m.requested ? 'You\'ll get a notification when the schedule team approves it.' : '', m.invited?.length ? `${m.invited.join(' and ')} ${m.invited.length > 1 ? 'are' : 'is'} on right after you.` : ''].filter(Boolean).join(' · ')}
           actions={<button onClick={() => go(`/schedule?shoot=${m.shootId}`)} className={primaryBtn}>Open the shoot</button>} />
       )
     }

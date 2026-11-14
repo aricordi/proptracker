@@ -64,8 +64,8 @@ describe('one house slot a day', () => {
     expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 1 }, ANA)).message).toMatch(/Ben already has a house slot/)
     const ok = await call('bookWithFriends', { place: 'cliff2', date: SAT, start: 780, friends: [BEN], mySlots: 1 }, ANA)
     expect(ok.ok, ok.message).toBe(true)
-    expect((await getDoc(`schedule_days/${SAT}`))!.cliff2['900'].hold).toBeTruthy()
-    // While Ben's slot is held for him, he can't book a different one that day either.
+    expect((await getDoc(`schedule_days/${SAT}`))!.cliff2['900'].email).toBe(BEN)
+    // Ben's slot is booked for him, so he can't book a different one that day either.
     expect((await book(BEN, { date: SAT, start: 1260 })).message).toMatch(/one 2-hour slot a day/)
   })
 

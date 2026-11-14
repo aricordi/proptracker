@@ -1,4 +1,4 @@
-// Filming back to back with friends: book yours, hold theirs for 20 minutes, they confirm.
+// Filming back to back with friends: your slot and theirs are booked at once (Nov 14: no confirming).
 import { beforeEach, describe, it, expect } from 'vitest'
 import { put, call, getDoc, clearDatabase } from './helpers'
 import { todayInStudio, addDays } from '../../functions/src/booking'
@@ -11,30 +11,35 @@ beforeEach(async () => {
   for (const [e, n] of [[ANA, 'Ana'], [KYLE, 'Kyle'], [JANA, 'Jana'], [BEN, 'Ben']]) await put(`users/${e}`, { email: e, role: 'creator', active: true, name: n })
 })
 
-describe('book with friends', () => {
-  it('books your slot, holds the next ones for each friend; they confirm or it opens up', async () => {
+describe('book with friends (no confirming since Nov 14)', () => {
+  it('books your slot and each friend\'s slot at once, in the same state as yours', async () => {
+    await put(`users/${JANA}`, { email: JANA, role: 'creator', active: true, name: 'Jana', access: 'props' })   // Props only is fine now
     const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE, JANA] }, ANA)
-    expect(r.ok).toBe(true)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result.inviteIds).toEqual([])
     const day = (await getDoc(`schedule_days/${DAY}`))!
     expect(day.cliff2['780'].email).toBe(ANA)
-    expect(day.cliff2['900'].hold.fromName).toBe('Ana')
+    expect(day.cliff2['900']).toMatchObject({ email: KYLE, pending: true })
+    expect(day.cliff2['900'].hold).toBeUndefined()
     expect(day.cliff2['1020'].email).toBe(JANA)
-    // Someone else can't take a held slot.
-    expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 900 }, BEN)).message).toMatch(/held for someone/)
-    // Kyle confirms: it becomes his shoot.
-    const [kyleInvite, janaInvite] = r.result.inviteIds
-    const a = await call('answerInvite', { id: kyleInvite, accept: true }, KYLE)
-    expect(a.ok).toBe(true)
-    expect((await getDoc(`shoots/${a.result.shootId}`))!).toMatchObject({ creatorEmail: KYLE, start: 900, invitedBy: ANA })
-    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2['900'].shootId).toBe(a.result.shootId)
-    // Jana declines: the slot is free again.
-    await call('answerInvite', { id: janaInvite, accept: false }, JANA)
-    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2['1020']).toBeUndefined()
-    expect((await call('answerInvite', { id: kyleInvite, accept: true }, BEN)).error).toBe('PERMISSION_DENIED')
+    const [kyleShoot, janaShoot] = r.result.friendShootIds
+    expect(await getDoc(`shoots/${kyleShoot}`)).toMatchObject({ creatorEmail: KYLE, start: 900, status: 'requested', invitedBy: ANA, bookedBy: ANA })
+    expect(await getDoc(`shoots/${janaShoot}`)).toMatchObject({ creatorEmail: JANA, start: 1020, status: 'requested' })
+    // Nobody else can take those slots.
+    expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 900 }, BEN)).ok).toBe(false)
+  })
+
+  it('a friend who is not on the app yet is booked under their name', async () => {
+    await put('app_settings/schedule', { instantBookers: [{ email: ANA, name: 'Ana' }] })
+    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: ['guest:Bob Smith', 'guest:bob smith'] }, ANA)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result.friendShootIds).toHaveLength(1)
+    expect(await getDoc(`shoots/${r.result.friendShootIds[0]}`)).toMatchObject({ creatorEmail: 'guest:bob-smith', creatorName: 'Bob Smith', guest: true, status: 'booked' })
+    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2['900'].name).toBe('Bob Smith')
   })
 
   // Cliff 2: Cliff 1 is priority-only on Thursdays and Saturdays, and DAY can land on one.
-  it("only people who film can be invited (not arts, equipment or admins)", async () => {
+  it("only people who film can get a slot (not arts, equipment or admins)", async () => {
     await put('users/sam@example.com', { email: 'sam@example.com', role: 'admin', active: true, name: 'Sam' })
     await put('users/farrell@example.com', { email: 'farrell@example.com', role: 'arts', active: true, name: 'Farrell' })
     for (const who of ['sam@example.com', 'farrell@example.com']) {
@@ -43,36 +48,17 @@ describe('book with friends', () => {
     }
   })
 
-  it('an ended hold can be booked by anyone; the late confirm is refused', async () => {
-    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
-    const id = r.result.inviteIds[0]
-    await put(`schedule_invites/${id}`, { ...(await getDoc(`schedule_invites/${id}`))!, until: '2000-01-01T00:00' })
+  it('the person who booked can cancel a friend\'s slot; the friend can too; others cannot', async () => {
+    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE, 'guest:Bob'] }, ANA)
+    const [kyleShoot, bobShoot] = r.result.friendShootIds
+    expect((await call('cancelShoot', { id: kyleShoot }, BEN)).error).toBe('PERMISSION_DENIED')
+    expect((await call('cancelShoot', { id: bobShoot }, ANA)).ok).toBe(true)
+    expect((await call('cancelShoot', { id: kyleShoot }, KYLE)).ok).toBe(true)
     const day = (await getDoc(`schedule_days/${DAY}`))!
-    day.cliff2['900'].hold.until = '2000-01-01T00:00'
-    await put(`schedule_days/${DAY}`, day)
-    expect((await call('answerInvite', { id, accept: true }, KYLE)).message).toMatch(/minutes ran out/)
-    expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 900 }, BEN)).ok).toBe(true)
-  })
-})
-
-describe('when the inviter\'s shoot goes (audit, Nov 7)', () => {
-  it('cancelling it clears the friend\'s held slot and withdraws the invite', async () => {
-    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
-    const [shootId] = r.result.shootIds, [inviteId] = r.result.inviteIds
-    expect((await call('cancelShoot', { id: shootId }, ANA)).ok).toBe(true)
-    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2?.['900']).toBeUndefined()
-    expect(await getDoc(`schedule_invites/${inviteId}`)).toMatchObject({ status: 'withdrawn', reason: 'shoot-gone' })
-    expect((await call('answerInvite', { id: inviteId, accept: true }, KYLE)).ok).toBe(false)
-  })
-
-  it('a friend can\'t confirm once the inviter\'s shoot is no longer on the schedule', async () => {
-    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [KYLE] }, ANA)
-    const [shootId] = r.result.shootIds, [inviteId] = r.result.inviteIds
-    await put(`shoots/${shootId}`, { ...(await getDoc(`shoots/${shootId}`))!, status: 'denied' })
-    const a = await call('answerInvite', { id: inviteId, accept: true }, KYLE)
-    expect(a.message).toMatch(/shoot was cancelled/)
-    expect((await getDoc(`schedule_days/${DAY}`))!.cliff2['900']).toBeUndefined()
-    expect((await getDoc(`schedule_invites/${inviteId}`))!.status).toBe('withdrawn')
+    expect(day.cliff2['900']).toBeUndefined()
+    expect(day.cliff2['1020']).toBeUndefined()
+    // Ana's own slot stays.
+    expect(day.cliff2['780'].email).toBe(ANA)
   })
 })
 

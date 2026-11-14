@@ -243,16 +243,21 @@ export const cancelShoot = onCall(CALLABLE, async req => {
   const now = nowStamp()
   let noShow = false
   let who = { email: '', name: '' }
+  let owner = ''
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
     if (!b) throw new HttpsError('not-found', 'Shoot not found.')
+    owner = String(b.creatorEmail)
     const team = isTeam(caller)
-    if (!team && b.creatorEmail !== caller.email) throw new HttpsError('permission-denied', 'Not allowed')
+    // The person who booked a friend's slot (bookWithFriends, Nov 14) may cancel it too.
+    const forFriend = !team && b.creatorEmail !== caller.email && b.bookedBy === caller.email && !!b.invitedBy
+    if (!team && b.creatorEmail !== caller.email && !forFriend) throw new HttpsError('permission-denied', 'Not allowed')
     if (b.status !== 'booked' && b.status !== 'requested') throw new HttpsError('failed-precondition', 'This shoot is already cancelled.')
     if (!team && b.from <= now) throw new HttpsError('failed-precondition', 'This shoot has already started. Ask the schedule team if something went wrong.')
     // Withdrawing a request that was never approved is always free; so is a shoot booked less than 24 h before it starts.
     noShow = !team && cancelCountsAsNoShow(b as Parameters<typeof cancelCountsAsNoShow>[0], now, s)
-    who = { email: b.creatorEmail, name: b.creatorName }
+    // A late cancel of a friend's slot counts for the person who cancelled it, not the friend.
+    who = forFriend ? { email: caller.email, name: caller.name } : { email: b.creatorEmail, name: b.creatorName }
     if (noShow && req.data?.confirmNoShow !== true) throw shortNoticeFail(s)
     const mr = b.moveRequest as Spot | undefined
     const invs = await pendingInvitesOf(tx, id)
@@ -268,11 +273,11 @@ export const cancelShoot = onCall(CALLABLE, async req => {
       status: 'cancelled', cancelledBy: caller.email, updatedAt: at, ...(noShow ? { lateCancel: true, noShow: 'late-cancel' } : {}),
       ...(mr ? { moveRequest: FieldValue.delete() } : {}),
       history: FieldValue.arrayUnion({ at, by: caller.email, action: 'cancelled',
-        ...(team && b.creatorEmail !== caller.email ? { note: 'by the schedule team' } : noShow ? { note: `less than ${s.noticeHours} h before · counts as a no-show` } : {}) }),
+        ...(team && b.creatorEmail !== caller.email ? { note: 'by the schedule team' } : forFriend ? { note: `by ${caller.name}, who booked it` } : noShow ? { note: `less than ${s.noticeHours} h before · counts as a no-show` } : {}) }),
     })
   })
   if (noShow) await addStrike(who.email, who.name, 'late-cancel', id, caller.email)
-  return { ok: true, lateCancel: noShow, ...await releaseLinks(caller, id, who.email) }
+  return { ok: true, lateCancel: noShow, ...await releaseLinks(caller, id, owner) }
 })
 
 // Props and gear for a shoot that won't happen aren't needed any more. Ones already picked up stay out until returned.
@@ -664,7 +669,7 @@ export const listSchedulePeople = onCall(CALLABLE, async req => {
 // People you can film with (Book a shoot → "+ 1 friend"): active creators and the owner, names only (admins don't film).
 export const listFilmingFriends = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
-  const people = (await filmingPeople()).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
+  const people = (await filmingPeople({ includeDemo: true })).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
   return { people }
 })
 
@@ -861,6 +866,16 @@ function placeHold(day: ScheduleDay, house: House, start: number, entry: SlotEnt
   day[house] = { ...(day[house] ?? {}), [slotKey(start)]: entry }
 }
 
+// Booking back to back with friends (owner, Nov 14: "as we're rolling it out, not everybody's going to have access… let people
+// book for multiple people without the other creators needing to confirm; if somebody books with their friends, the friends
+// are going to be there"). So NO invite or 20-minute hold any more: each friend gets their OWN shoot right away, in the same
+// state as yours (a request the team approves, or booked when you book without approval). Friends can be any active creator,
+// including people still on Props only, or the owner. GUESTS = people who aren't in the app at all: typed names, stored as
+// a shoot with creatorEmail 'guest:<name>' and guest: true (no account, no notifications, no check-in, not in analytics).
+// The person who booked can cancel the slots they booked for others. Invites (schedule_invites) are still used by the waitlist.
+export const guestKey = (name: string) => `guest:${name.toLowerCase().replace(/[^a-z0-9À-ÿ]+/g, ' ').trim().replace(/ /g, '-').slice(0, 60)}`
+export const isGuestEmail = (email: unknown) => typeof email === 'string' && email.startsWith('guest:')
+
 export const bookWithFriends = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...BOOKERS])
   const d = req.data ?? {}
@@ -870,16 +885,25 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   const house = spot.place as House
   const mySlots = Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= 3 ? d.mySlots as number : 1
   if (!isTeam(caller) && mySlots > s.slotsPerDay) throw fail('day-limit')
-  const friendEmails = [...new Set((Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).toLowerCase()).filter(Boolean))]
-    .filter(e => e !== caller.email).slice(0, 4) as string[]
-  const friends: { email: string; name: string }[] = []
-  for (const email of friendEmails) {
-    const u = email === OWNER_EMAIL ? { active: true, name: 'Owner' } : (await db.doc(`users/${email}`).get()).data()
-    if (!u || u.active !== true) throw new HttpsError('not-found', `${email} has no active account.`)
-    if (isDemoCreator((u as { role?: string }).role, (u as { access?: string }).access)) throw new HttpsError('failed-precondition', `${u.name || email} can't book yet (Props only for now).`, { problem: 'demo' })
-    // Only creators and the owner film (same rule as the friend list and hand-over; audit, Nov 7).
-    if (email !== OWNER_EMAIL && (u as { role?: string }).role !== 'creator') throw new HttpsError('failed-precondition', `${u.name || email} doesn't film, so they can't be invited to a slot.`, { problem: 'not-filming' })
-    friends.push({ email, name: u.name || email })
+  // friends = the people in slot order: an email (someone in the app) or "guest:<Name>" (not on the app yet).
+  const raw = (Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).trim()).filter(Boolean) as string[]
+  for (const g of (Array.isArray(d.guests) ? d.guests : [])) raw.push(`guest:${str(g, 60)}`)
+  const friends: { email: string; name: string; guest?: boolean }[] = []
+  for (const entry of raw) {
+    if (friends.length >= 4) break
+    if (isGuestEmail(entry)) {
+      const name = entry.slice(6).replace(/\s+/g, ' ').trim().slice(0, 60)
+      const email = guestKey(name)
+      if (name.length < 2 || email === 'guest:' || friends.some(f => f.email === email)) continue
+      friends.push({ email, name, guest: true }); continue
+    }
+    const email = entry.toLowerCase()
+    if (email === caller.email || friends.some(f => f.email === email)) continue
+    const u = email === OWNER_EMAIL ? { active: true, name: 'Alex', role: 'owner' } : (await db.doc(`users/${email}`).get()).data()
+    if (!u || u.active !== true) throw new HttpsError('not-found', `${email} has no active account. Add them by name instead.`)
+    // Only creators and the owner film (same rule as the friend list and hand-over). Props-only creators are fine now.
+    if (email !== OWNER_EMAIL && (u as { role?: string }).role !== 'creator') throw new HttpsError('failed-precondition', `${u.name || email} doesn't film, so they can't get a slot.`, { problem: 'not-filming' })
+    friends.push({ email, name: String(u.name || email) })
   }
   const now = nowStamp()
   if (!skipsLock(caller, caller.email) && priorityLocked(spot.date, house, s, caller.email, now)) throw fail('locked')
@@ -890,10 +914,10 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   const kind: ShootKind = house === MONTHLY_HOUSE && d.kind === 'monthly' ? 'monthly' : 'extra'
   if (kind === 'monthly' && await monthlyUsed(caller.email, monthOf(spot.date)) + mySlots > s.monthlySlots) throw fail('no-monthly-left')
 
-  const until = addMinutes(now, INVITE_HOLD_MINUTES), at = new Date().toISOString()
+  const at = new Date().toISOString()
   const pending = needsApproval(caller, caller.email, s)
   const shootRefs = starts.slice(0, mySlots).map(() => db.collection('shoots').doc())
-  const inviteRefs = friends.map(() => db.collection('schedule_invites').doc())
+  const friendRefs = friends.map(() => db.collection('shoots').doc())
   const withNames = friends.map(f => f.name).join(' and ')
   await db.runTransaction(async tx => {
     const write = await editDays(tx, [spot.date], days => {
@@ -902,8 +926,8 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
         friends.forEach(f => assertDayLimit(days[spot.date], f.email, 1, s, [], f.name))
       }
       shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind, pending }, s))
-      friends.forEach((f, j) => placeHold(days[spot.date], house, starts[mySlots + j],
-        { shootId: '', name: f.name, email: f.email, kind: 'extra', hold: { until, inviteId: inviteRefs[j].id, fromName: caller.name } }, s))
+      friends.forEach((f, j) => placeIn(days[spot.date], { ...spot, start: starts[mySlots + j], end: starts[mySlots + j] + s.slotMinutes },
+        { shootId: friendRefs[j].id, name: f.name, email: f.email, kind: 'extra', pending }, s))
     })
     write()
     shootRefs.forEach((ref, j) => {
@@ -912,16 +936,23 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
       tx.set(ref, {
         creatorEmail: caller.email, creatorName: caller.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind, ...(guideline ? { guideline } : {}),
         status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at, ...(pending ? { requestedAt: at } : {}),
+        ...(friends.length ? { groupWith: friendRefs.map(r => r.id) } : {}),
         history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)}${withNames ? ` · with ${withNames}` : ''}` }],
       })
     })
-    friends.forEach((f, j) => tx.set(inviteRefs[j], {
-      fromEmail: caller.email, fromName: caller.name, fromShootId: shootRefs[0].id, toEmail: f.email, toName: f.name,
-      place: house, date: spot.date, start: starts[mySlots + j], end: starts[mySlots + j] + s.slotMinutes,
-      until, status: 'pending', createdAt: at,
-    }))
+    friends.forEach((f, j) => {
+      const sp = { ...spot, start: starts[mySlots + j], end: starts[mySlots + j] + s.slotMinutes }
+      const win = slotWindow(sp.date, sp.start, s.slotMinutes)
+      tx.set(friendRefs[j], {
+        creatorEmail: f.email, creatorName: f.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind: 'extra',
+        status: pending ? 'requested' : 'booked', bookedBy: caller.email, invitedBy: caller.email, bookedByName: caller.name,
+        groupOf: shootRefs[0].id, ...(f.guest ? { guest: true } : {}),
+        createdAt: at, updatedAt: at, ...(pending ? { requestedAt: at } : {}),
+        history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(sp, s)} · booked by ${caller.name}${f.guest ? ' (not on the app yet)' : ''}` }],
+      })
+    })
   })
-  return { shootIds: shootRefs.map(r => r.id), inviteIds: inviteRefs.map(r => r.id), until, status: pending ? 'requested' : 'booked' }
+  return { shootIds: shootRefs.map(r => r.id), friendShootIds: friendRefs.map(r => r.id), inviteIds: [] as string[], until: '', status: pending ? 'requested' : 'booked' }
 })
 
 // A friend confirms (or declines) the slot held for them. The person who invited can also withdraw it.

@@ -323,7 +323,7 @@ export const askForTime = onCall({ ...CALLABLE, secrets: [GEMINI_API_KEY] }, asy
   const settle = await reserveAi(caller.email, 'times')
   const s = await loadScheduleSettings()
   const today = todayInStudio(), now = nowStamp()
-  const people = (await filmingPeople()).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
+  const people = (await filmingPeople({ includeDemo: true })).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
   // The previous search comes back from the phone: rebuild it from known fields only (never passed on as-is).
   const previous: TimeAsk | null = req.data?.previous && typeof req.data.previous === 'object'
     ? cleanAsk(req.data.previous as Record<string, unknown>, today, roughParse('', today, people)) : null
@@ -382,6 +382,12 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
       choices: u.options.map(n => `With ${n}`) }
   }
   const friends = matchPeople(ask.people, people, caller.email)
+  // Friends who aren't on the app yet (owner, Nov 14: rollout): a name the creator said that matches nobody still gets a slot,
+  // booked under their name (bookWithFriends takes "guest:<Name>"). Up to 4 friends in all.
+  const firstOf = (n: string) => n.toLowerCase().split(/\s+/)[0]
+  const guests = [...new Set(ask.people.map(n => n.replace(/\s+/g, ' ').trim()).filter(n => n.length >= 2 && firstOf(n) !== myFirst
+    && !friends.some(f => firstOf(f.name) === firstOf(n))))].slice(0, Math.max(0, 4 - friends.length))
+  for (const g of guests) friends.push({ email: `guest:${g[0].toUpperCase()}${g.slice(1)}`, name: g[0].toUpperCase() + g.slice(1) })
   // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
   ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }
   const team = caller.role === 'owner' || caller.role === 'equipment'
@@ -412,7 +418,8 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   if (!reply) reply = ask.at !== undefined
     ? `Looking at ${where} around ${atText}: ${who}. ${atNote.line}`.trim()
     : `Looking at ${where}: ${who}. Soonest first.`
-  const note = (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
+  const guestNote = guests.length ? ` ${guests.map(g => g[0].toUpperCase() + g.slice(1)).join(' and ')} ${guests.length > 1 ? "aren't" : "isn't"} on the app yet, so I'll book their slot under their name.` : ''
+  const note = guestNote + (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
     + (capped ? ` You can book one ${s.slotMinutes / 60}-hour house slot a day; ask the schedule team if you need more.` : '')
   // Nothing because they already film that day (one house slot a day): say that, not "nothing is free" (chat QA, Nov 6).
   const own = !team && ask.from === ask.to && houseSlotsOn(days[ask.from], caller.email, now) >= s.slotsPerDay
@@ -435,7 +442,7 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
 
 // The live rule numbers, in one sentence the AI can quote (the same for "how do I…" and the chat).
 function rulesText(b: Awaited<ReturnType<typeof loadSettings>>, sch: Awaited<ReturnType<typeof loadScheduleSettings>>) {
-  return `props from the closet need ${b.leadTimeHours ?? 48} hours' notice before the shoot starts (clock hours, Sundays count); custom things to make or find need at least ${b.buildLeadDays ?? 4} and have NO guaranteed date (the creator asks in the app, then sorts out details and timing with the arts department on Slack; never promise a date for them); gear is ${sch.gearReserve ? `grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo)` : "NOT booked ahead: it's checked out first come, first served on the shoot day, from an hour before (tick every piece + one photo), Sundays/closed days too with no permission needed; shoots only get props and costumes added"}; closed days don't count; house slots are ${sch.slotMinutes / 60} h and start at ${sch.slots.map(m => fmtTime(m)).join(', ')} (the last one runs to ${fmtTime((sch.slots[sch.slots.length - 1] + sch.slotMinutes) % 1440)}; late slots are normal), ${sch.slotsPerDay} house slot a day per creator; a friend's held slot waits ${INVITE_HOLD_MINUTES} minutes; moving/cancelling is free with ${sch.noticeHours} h notice (cancelling is also free for a shoot booked less than 24 h before it starts, and for a shoot the schedule team moved, which can also still be moved); check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
+  return `props from the closet need ${b.leadTimeHours ?? 48} hours' notice before the shoot starts (clock hours, Sundays count); custom things to make or find need at least ${b.buildLeadDays ?? 4} and have NO guaranteed date (the creator asks in the app, then sorts out details and timing with the arts department on Slack; never promise a date for them); gear is ${sch.gearReserve ? `grab-and-go (reserve from ${sch.gearReserveHours} h before the shoot, or take what's free on the day: tick every piece + one photo)` : "NOT booked ahead: it's checked out first come, first served on the shoot day, from an hour before (tick every piece + one photo), Sundays/closed days too with no permission needed; shoots only get props and costumes added"}; closed days don't count; house slots are ${sch.slotMinutes / 60} h and start at ${sch.slots.map(m => fmtTime(m)).join(', ')} (the last one runs to ${fmtTime((sch.slots[sch.slots.length - 1] + sch.slotMinutes) % 1440)}; late slots are normal), ${sch.slotsPerDay} house slot a day per creator; booking with friends books their slots right after yours at the same time (no confirming; friends not on the app yet are booked under their name); moving/cancelling is free with ${sch.noticeHours} h notice (cancelling is also free for a shoot booked less than 24 h before it starts, and for a shoot the schedule team moved, which can also still be moved); check-in opens ${sch.checkinBefore} min before; ${sch.explainHours} h to explain a missed check-in; ${sch.strikeCount} strikes in ${sch.strikeDays} days pause props for ${sch.pauseDays} days. Bookings by creators are requests the schedule team approves (the slot is held meanwhile). Gear is due back when a house shoot ends, or by ${fmtTime(sch.gearOffsiteBackBy)} for offsite shoots, and is late 30 minutes after; late gear has a fee of 10% of its value. Cliff 1 on priority days needs a filming guideline PDF unless you're in the priority group.`
 }
 
 // ─── How do I…? (owner, Oct 28: "people will use the AI for everything… it should help them navigate the app") ───

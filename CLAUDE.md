@@ -2569,6 +2569,20 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       smaller 16/19 px digits) is centred; today + your day = gold ring on the circle; the gold "you film" dot shows on wide screens only
       (on phones it touched the date); corner dots 7 px in; request badge has a black ring; legend chips "C1 5" spaced. Schedule header:
       flex-wrap-reverse, so when the buttons don't fit (owner: 5) they sit in a row ABOVE the title instead of cutting it to "Cal…".
+    - FRIENDS DON'T CONFIRM (owner, Nov 14: "new users aren't able to book with people that are not on the app yet… put the
+      confirmation part on hold… assume the friends are going to be there"; NOT deployed: backend + website, ask; no rules change).
+      bookWithFriends (scheduling.ts) no longer holds slots / writes schedule_invites: each friend gets their OWN shoot at once,
+      same state as the booker (requested or booked), with invitedBy/bookedBy/bookedByName + groupOf; the booker's shoot gets
+      groupWith. `friends` = ordered list of emails or "guest:<Name>" (+ legacy `guests`), ≤4. Friends = any active creator incl.
+      PROPS ONLY (listFilmingFriends + askForTime use filmingPeople({ includeDemo: true })) or the owner. GUESTS (not on the app):
+      creatorEmail `guestKey(name)` = 'guest:<slug>', guest: true (no pushes, no check-in since never stamped, not in analytics).
+      cancelShoot: the booker may cancel a friend's slot (forFriend; history "by X, who booked it"; a late-cancel strike goes to the
+      booker). Pushes: friend "X booked you a slot 🎬" / "X asked for a slot for you"; "Slot cancelled" when the booker cancels it;
+      approvers' request ping says "(not on the app)" / "booked by X". App: BookSheet + FindSheet friend search show everyone incl.
+      Props only + `GuestRow` "Add \"<name>\" · Not on the app yet"; buttons "Book/Request for N people"; GroupBookSheet rows say
+      Booked/Requested; chat: names the creator says that match nobody are booked as guests ("Bob isn't on the app yet, so I'll book
+      their slot under their name"). answerInvite + invites remain for the WAITLIST only. Help, How it works, app guide, AI rules,
+      owner guide updated. Tests 924 (invites.test.ts rewritten, dayLimit/push/demoMode updated).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

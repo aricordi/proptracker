@@ -35,9 +35,9 @@ describe('demo mode (Props only)', () => {
   it('a Full app creator books normally', async () => {
     expect((await call('bookShoot', { place: 'cliff2', date: day, start: 780 }, FULL)).result).toHaveProperty('id')
   })
-  it('demo creators are not offered as friends or bookable people, and the team cannot book for them', async () => {
+  it('demo creators CAN be friends in a group booking (Nov 14 rollout), but the team still cannot book for them', async () => {
     const friends = (await call('listFilmingFriends', {}, FULL)).result.people.map((p: { email: string }) => p.email)
-    expect(friends).not.toContain(DEMO)
+    expect(friends).toContain(DEMO)
     const people = (await call('listSchedulePeople', {}, GEAR)).result.people.map((p: { email: string }) => p.email)
     expect(people).toEqual(expect.arrayContaining([FULL, OWNER]))
     expect(people).not.toContain(DEMO)

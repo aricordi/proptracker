@@ -49,14 +49,11 @@ describe('phone notifications', () => {
     expect((await call('testPushTo', { email: ANA, send: true }, MAANIK)).ok).toBe(false)
   })
 
-  it('a friend invite pings the friend; confirming pings the inviter', async () => {
+  it('a friend booked in a group booking gets a ping; guests and the team are not pinged as the friend', async () => {
     const r = await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 1 }, ANA)
     expect(r.ok, r.message).toBe(true)
-    expect(await waitFor(async () => (await pings(/invited you to film/)).length > 0)).toBe(true)
-    expect((await pings(/invited you to film/))[0].to).toEqual([BEN])
-    expect((await call('answerInvite', { id: r.result.inviteIds[0], accept: true }, BEN)).ok).toBe(true)
-    expect(await waitFor(async () => (await pings(/Ben confirmed/)).length > 0)).toBe(true)
-    expect((await pings(/Ben confirmed/))[0].to).toEqual([ANA])
+    expect(await waitFor(async () => (await pings(/slot for you|booked you a slot/)).length > 0)).toBe(true)
+    expect((await pings(/slot for you|booked you a slot/))[0].to).toEqual([BEN])
   })
 
   it('the team booking someone a shoot pings that creator; team pings go to the team', async () => {

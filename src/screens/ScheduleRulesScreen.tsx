@@ -29,7 +29,7 @@ export default function ScheduleRulesScreen() {
           <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>: {s.slots.map(t => fmtSlot(t, s.slotMinutes)).join(', ')}.</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
           <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {BOOK_AHEAD_DAYS} days ahead. A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
-          <Li>Filming with someone? Tap a gold time on the <b>Calendar</b> and choose "+ 1 friend" or "+ 2 friends": you each get a slot back to back, and theirs is held for them to confirm.</Li>
+          <Li>Filming with someone? Tap a gold time on the <b>Calendar</b> and choose "+ 1 friend" or "+ 2 friends": you each get a slot back to back, booked at the same time (they don't need to confirm). Friend not on the app yet? Type their name and their slot is booked under it. Only book friends who will really be there.</Li>
         </ul>
 
         <H>{MONTHLY_SLOTS_ON ? `Your ${s.monthlySlots} monthly slots (${c1})` : 'How much you can book'}</H>
