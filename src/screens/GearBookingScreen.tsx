@@ -61,7 +61,7 @@ export default function GearBookingScreen() {
   // A new step starts with a clean checklist.
   useEffect(() => { setTicked(new Set()); setMissing(new Set(known)) }, [b?.status, knownKey])   // eslint-disable-line react-hooks/exhaustive-deps
   // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
-  const shootText = useShootLine(b?.scheduleShootId, b?.date, profile.email)
+  const shootText = useShootLine(b?.scheduleShootId, b?.date, profile.email, b?.creatorEmail)
 
   if (b === undefined) return <div className="p-6 pt-safe text-pt-muted">Loading…</div>
   if (b === null) return <NotFound title="This gear booking isn't here" />

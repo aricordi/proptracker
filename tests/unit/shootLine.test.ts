@@ -56,6 +56,12 @@ describe('findShootOnDay', () => {
     expect(findShootOnDay(day, 'sh4', 120)).toMatchObject({ place: 'offsite', where: 'Old Port, Montreal', start: 600, end: 870 })
     expect(findShootOnDay(day, 'sh6', 120)).toMatchObject({ place: 'cliff1', start: 780, end: 960, name: 'Val' })
   })
+  it('a request not linked to a shoot finds the creator\'s own shoot that day (arts, Nov 15)', () => {
+    expect(findShootOnDay(day, undefined, 120, 'maya@x.com')).toMatchObject({ place: 'cliff2', start: 540, end: 780 })
+    expect(findShootOnDay(day, 'gone', 120, 'devon@x.com')).toMatchObject({ place: 'offsite', start: 600 })
+    expect(findShootOnDay(day, undefined, 120, 'jana@x.com')).toBeNull()   // only a held slot, no shoot
+    expect(findShootOnDay(day, undefined, 120, 'nobody@x.com')).toBeNull()
+  })
   it('nothing for no shoot, no day, an unknown id, or a held slot', () => {
     expect(findShootOnDay(day, undefined, 120)).toBeNull()
     expect(findShootOnDay(null, 'sh1', 120)).toBeNull()

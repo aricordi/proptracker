@@ -75,7 +75,7 @@ export default function ReservationsScreen() {
   const shown = byTab[tabKey] ?? []
   const atRisk = useAtRisk(list ?? [])
   // Which shoot each request is for (house, day, hours, creator), from the schedule.
-  const shootLine = useShootLines(shown.map(r => ({ shootId: r.scheduleShootId, date: r.startDate })), profile.email)
+  const shootLine = useShootLines(shown.map(r => ({ shootId: r.scheduleShootId, date: r.startDate, email: r.creatorEmail })), profile.email)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -118,7 +118,7 @@ export default function ReservationsScreen() {
           const todayLine = tabKey === 'today' && (r.status === 'collected' ? (returnDueDay(r.endDate, settings) < today ? `Was due back ${formatDay(returnDueDay(r.endDate, settings))}` : `Due back by ${RETURN_DEADLINE_HOUR} AM`) : pickup < today ? 'Pickup was due' : 'Pickup today')
           const soon = isStaff && ['requested', 'preparing', 'packed'].includes(r.status) ? (pickup !== r.startDate ? `pickup ${whenLabel(pickup, today).toLowerCase()}` : whenLabel(r.startDate, today)) : ''
           // With a shoot, its line already has the day and the creator: the line under it keeps only what's due when.
-          const shootText = shootLine(r.scheduleShootId)
+          const shootText = shootLine({ shootId: r.scheduleShootId, date: r.startDate, email: r.creatorEmail })
           return (
             <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
               className={`w-full text-left bg-pt-surface rounded-2xl p-4 space-y-1 active:opacity-80 ${overdue || urgent ? 'ring-1 ring-red-400/60' : atRisk[r.id] ? 'ring-1 ring-amber-400/60' : ''}`}>

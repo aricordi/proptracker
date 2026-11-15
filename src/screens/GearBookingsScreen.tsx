@@ -44,7 +44,7 @@ export default function GearBookingsScreen() {
     : [['upcoming', `Upcoming (${groups.upcoming.length})`], ['past', 'Past & cancelled']]
   const shown = groups[tab]
   // Which shoot each booking is for (house, day, hours, creator), from the schedule.
-  const shootLine = useShootLines(shown.map(b => ({ shootId: b.scheduleShootId, date: b.date })), profile.email)
+  const shootLine = useShootLines(shown.map(b => ({ shootId: b.scheduleShootId, date: b.date, email: b.creatorEmail })), profile.email)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -73,7 +73,7 @@ export default function GearBookingsScreen() {
           const late = isGearLate(b, now)
           const pickupToday = b.status === 'held' && b.pickupDay === today
           // With a shoot, its line already has the day and the creator: the line under it keeps the gear's own times.
-          const shootText = shootLine(b.scheduleShootId)
+          const shootText = shootLine({ shootId: b.scheduleShootId, date: b.date, email: b.creatorEmail })
           const crewNames = (b.crew ?? []).map(c => c.name.split(' ')[0]).join(', ')
           return (
             <button key={b.id} onClick={() => navigate(`/gear/bookings/${b.id}`)}

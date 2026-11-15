@@ -27,15 +27,16 @@ function watchDay(date: string, cb: () => void) {
   }
 }
 
-export type ShootRef = { shootId?: string; date?: string }
+export type ShootRef = { shootId?: string; date?: string; email?: string }
+const refKey = (r: ShootRef) => `${r.shootId ?? ''}|${r.date ?? ''}|${r.email ?? ''}`
 
 // Give it the requests on screen; get back shootId → the line ('' when there's no shoot, or it isn't on the schedule).
 // `viewer` = the person looking: their own name is left out of the line. Lists of cards get a short offsite place
 // (so the day, hours and name always fit); a request's own page (useShootLine) shows the whole address.
-export function useShootLines(refs: ShootRef[], viewer?: string, { short = true }: { short?: boolean } = {}): (shootId: string | undefined) => string {
+export function useShootLines(refs: ShootRef[], viewer?: string, { short = true }: { short?: boolean } = {}): (ref: ShootRef) => string {
   const s = useScheduleSettings()
   const [, setVersion] = useState(0)
-  const key = [...new Set(refs.filter(r => r.shootId && r.date).map(r => r.date as string))].sort().join(',')
+  const key = [...new Set(refs.filter(r => (r.shootId || r.email) && r.date).map(r => r.date as string))].sort().join(',')
   useEffect(() => {
     if (!key) return
     const bump = () => setVersion(v => v + 1)
@@ -44,14 +45,16 @@ export function useShootLines(refs: ShootRef[], viewer?: string, { short = true 
   }, [key])
   const lines = new Map<string, string>()
   for (const r of refs) {
-    if (!r.shootId || !r.date || lines.has(r.shootId)) continue
-    const spot = findShootOnDay(stores.get(r.date)?.day, r.shootId, s.slotMinutes)
-    if (spot) lines.set(r.shootId, shootLineText(spot, s.houses, viewer, short))
+    const k = refKey(r)
+    if ((!r.shootId && !r.email) || !r.date || lines.has(k)) continue
+    const spot = findShootOnDay(stores.get(r.date)?.day, r.shootId, s.slotMinutes, r.email)
+    if (spot) lines.set(k, shootLineText(spot, s.houses, viewer, short))
   }
-  return id => (id && lines.get(id)) || ''
+  return r => lines.get(refKey(r)) || ''
 }
 
 // One request (its page header): the whole offsite address, wrapped.
-export function useShootLine(shootId: string | undefined, date: string | undefined, viewer?: string): string {
-  return useShootLines([{ shootId, date }], viewer, { short: false })(shootId)
+export function useShootLine(shootId: string | undefined, date: string | undefined, viewer?: string, email?: string): string {
+  const ref = { shootId, date, email }
+  return useShootLines([ref], viewer, { short: false })(ref)
 }

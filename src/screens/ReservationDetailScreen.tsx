@@ -23,6 +23,14 @@ import ReturnTogether from '../components/ReturnTogether'
 import { Icon, IconText } from '../components/Icon'
 import { friendlyError } from '../lib/errors'
 import { NotFound } from '../components/NotFound'
+import ZoomPhoto from '../components/ZoomPhoto'
+
+// The zoomed photo shows the prop's name, and for staff its room and bin (same as everywhere else).
+function useItemFor() {
+  const items = useItems()
+  const byId = useMemo(() => new Map(items.map(i => [i.id, i])), [items])
+  return (id: string, name: string) => { const i = byId.get(id); return { name, binId: i?.binId ?? null, locationId: i?.locationId ?? null } }
+}
 
 const errText = (e: unknown) => friendlyError(e)
 
@@ -38,7 +46,7 @@ export default function ReservationDetailScreen() {
 
   useEffect(() => id ? subscribeToReservation(id, setRes) : undefined, [id])
   // Which shoot it's for (house, day, hours, creator), from the schedule; '' when it has no shoot.
-  const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email)
+  const shootText = useShootLine(res?.scheduleShootId, res?.startDate, profile.email, res?.creatorEmail)
 
   const goBack = () => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(canSeeStaff ? '/reservations' : '/requests')
   if (res === undefined) return <Centered>Loading…</Centered>
@@ -194,6 +202,7 @@ function Journey({ res }: { res: Reservation }) {
 // ─── Arts: the picking list ──────────────────────────────────────────────────
 
 function PickAndPack({ res }: { res: Reservation }) {
+  const itemFor = useItemFor()
   const items = useItems()
   const bins = useBins()
   const locations = useLocations()
@@ -316,7 +325,7 @@ function PickAndPack({ res }: { res: Reservation }) {
                       {picked ? '✓' : gone ? '✕' : ''}
                     </button>
                     <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0">
-                      {line.photo && <img loading="lazy" decoding="async" src={line.photo} alt="" className="w-full h-full object-cover" />}
+                      {line.photo && <ZoomPhoto src={line.photo} item={itemFor(line.itemId, line.itemName)} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium truncate ${gone ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{line.itemName}</p>
@@ -382,7 +391,7 @@ function BuildRow({ b, done, onToggle, onUnavailable, extra }: {
           className={`w-11 h-11 rounded-xl border-2 shrink-0 flex items-center justify-center text-xl ${done ? 'bg-green-500 border-green-500 text-stone-900' : 'border-pt-muted'} disabled:opacity-50`}>
           {done ? '✓' : gone ? '✕' : ''}
         </button>
-        {b.refPhoto && <a href={b.refPhoto} target="_blank" rel="noreferrer" className="w-12 h-12 rounded-xl overflow-hidden shrink-0"><img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /></a>}
+        {b.refPhoto && <span className="w-12 h-12 rounded-xl overflow-hidden shrink-0"><ZoomPhoto src={b.refPhoto} title={b.description} /></span>}
         <div className="flex-1 min-w-0">
           <p className={`text-sm ${gone ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{b.description}</p>
           {gone && <p className="text-red-300 text-xs">Can't be made: {b.reason}</p>}
@@ -398,6 +407,7 @@ function BuildRow({ b, done, onToggle, onUnavailable, extra }: {
 // ─── Read-only contents (creator view, and staff after packing) ─────────────
 
 function ContentsList({ res }: { res: Reservation }) {
+  const itemFor = useItemFor()
   const navigate = useNavigate()
   const builds = res.builds ?? []
   return (
@@ -409,7 +419,7 @@ function ContentsList({ res }: { res: Reservation }) {
             <button key={l.itemId} onClick={() => navigate(`/item/${l.itemId}`)}
               className={`w-full flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 text-left active:opacity-75 ${gone ? 'border-red-500/30' : 'border-pt-border'}`}>
               <div className="w-12 h-12 rounded-xl bg-pt-border overflow-hidden shrink-0">
-                {l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}
+                {l.photo && <ZoomPhoto src={l.photo} item={itemFor(l.itemId, l.itemName)} />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium truncate ${gone ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{l.itemName}</p>
@@ -423,7 +433,7 @@ function ContentsList({ res }: { res: Reservation }) {
         {builds.map(b => (
           <div key={b.id} className={`flex items-center gap-3 bg-pt-surface border rounded-2xl p-3 ${b.state === 'unavailable' ? 'border-red-500/30' : 'border-violet-500/40'}`}>
             <div className="w-12 h-12 rounded-xl bg-violet-500/10 overflow-hidden shrink-0 flex items-center justify-center text-xl">
-              {b.refPhoto ? <img loading="lazy" decoding="async" src={b.refPhoto} alt="" className="w-full h-full object-cover" /> : <Icon name="tools" className="w-6 h-6 text-violet-300" />}
+              {b.refPhoto ? <ZoomPhoto src={b.refPhoto} title={b.description} /> : <Icon name="tools" className="w-6 h-6 text-violet-300" />}
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm ${b.state === 'unavailable' ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{b.description}</p>
@@ -571,6 +581,7 @@ function ReturnForm({ res }: { res: Reservation }) {
 type Result = 'ok' | 'damaged' | 'missing'
 
 function CheckInForm({ res }: { res: Reservation }) {
+  const itemFor = useItemFor()
   const lines = res.lines.filter(l => l.pick?.state === 'picked')
   const builds = (res.builds ?? []).filter(b => b.state === 'done')
   const [results, setResults] = useState<Record<string, { result?: Result; note: string; missingQty: number }>>(
@@ -620,7 +631,7 @@ function CheckInForm({ res }: { res: Reservation }) {
         return (
           <div key={l.itemId} className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-pt-border overflow-hidden shrink-0">{l.photo && <img loading="lazy" decoding="async" src={l.photo} alt="" className="w-full h-full object-cover" />}</div>
+              <div className="w-10 h-10 rounded-lg bg-pt-border overflow-hidden shrink-0">{l.photo && <ZoomPhoto src={l.photo} item={itemFor(l.itemId, l.itemName)} />}</div>
               <p className="flex-1 text-pt-text text-sm font-medium truncate">{l.itemName}</p>
               <span className="text-pt-text font-bold">×{l.qty}</span>
             </div>

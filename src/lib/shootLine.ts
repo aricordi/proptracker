@@ -15,8 +15,21 @@ export function compactHours(start: number, end: number): string {
 
 // Where and when the shoot is on that day: a house slot (or several slots in a row, or an imported shoot's real hours),
 // an offsite shoot, or an imported shoot listed as a clash. A move still waiting for approval isn't the shoot's spot yet.
-export function findShootOnDay(day: ScheduleDay | null | undefined, shootId: string | undefined, slotMinutes: number): ShootSpot | null {
-  if (!day || !shootId) return null
+// `email` (arts team, Nov 15: "the start and end time next to the date"): when the request isn't linked to a shoot (older
+// requests, or sent without picking one), fall back to that creator's own shoot on that day, so the hours still show.
+export function findShootOnDay(day: ScheduleDay | null | undefined, shootId: string | undefined, slotMinutes: number, email?: string): ShootSpot | null {
+  if (!day) return null
+  const byId = shootId ? findById(day, shootId, slotMinutes) : null
+  if (byId || !email) return byId
+  const theirs = new Set<string>()
+  for (const h of ['cliff1', 'cliff2'] as const) for (const e of Object.values(day[h] ?? {})) if (e.email === email && e.shootId && !e.move) theirs.add(e.shootId)
+  for (const o of day.offsite ?? []) if (o.email === email && o.shootId && !o.move) theirs.add(o.shootId)
+  for (const c of day.clashes ?? []) if (c.email === email && c.shootId && !c.blockId) theirs.add(c.shootId)
+  const spots = [...theirs].map(id => findById(day, id, slotMinutes)).filter((x): x is ShootSpot => !!x).sort((x, y) => x.start - y.start)
+  return spots[0] ?? null
+}
+
+function findById(day: ScheduleDay, shootId: string, slotMinutes: number): ShootSpot | null {
   for (const h of ['cliff1', 'cliff2'] as const) {
     const hits = Object.entries(day[h] ?? {}).filter(([, e]) => e.shootId === shootId && !e.move)
     if (!hits.length) continue

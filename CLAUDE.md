@@ -2584,6 +2584,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       their slot under their name"). answerInvite + invites remain for the WAITLIST only. Help, How it works, app guide, AI rules,
       owner guide updated. Tests 924 (invites.test.ts rewritten, dayLimit/push/demoMode updated).
       LIVE Nov 14 (owner "put it live"): backend run 43549899429 + website run 43549901957.
+    - ARTS REQUESTS (Keith, Nov 15, via owner): (1) "start and end time next to the date" on a props request + the queue cards +
+      the requests calendar: findShootOnDay(day, shootId, slotMinutes, email) now FALLS BACK to the creator's own shoot that day
+      when the request isn't linked to a shoot (or the link isn't found); useShootLines refs carry {shootId, date, email} and the
+      lookup takes the ref; callers ReservationsScreen, GearBookingsScreen, ReservationDetailScreen, GearBookingScreen,
+      RequestsCalendarScreen. (2) "pressing the photo on the request doesn't make it larger": `src/components/ZoomPhoto.tsx`
+      (span role=button, works inside a row button, opens ImageLightbox with the prop's name + room/bin for staff) on the picking
+      list, contents list, check-in form and custom-prop reference photos (replaced the open-in-new-tab link). Test in
+      tests/unit/shootLine.test.ts; appGuide propsrequest. Preview only; live needs OK (website; backend only for the guide text).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
