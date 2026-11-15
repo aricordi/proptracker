@@ -2599,8 +2599,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the creator's earliest other booked/requested shoot that day takes the props requests (scheduleShootId/shootId + history
       event 'shoot-moved', UI "Moved to another shoot: …"), gear bookings and shared-gear crew ids; called from releaseCancelledImport
       (confirming a removed card) and removeImportedShoot (non-toCheck); only when there's no such shoot are they released. Test in
-      calendar.test.ts. appGuide approvals, owner guide. NOT deployed (backend + website, ask). Val's DVD request moves to her Cliff 2
-      11–1 shoot once Maanik confirms the removed card AFTER the backend deploy (confirming before would cancel it).
+      calendar.test.ts. appGuide approvals, owner guide. LIVE Nov 15 (backend run 43746842711 + website run 43746845587). Val's DVD request moves to her Cliff 2
+      11–1 shoot when Maanik confirms the removed card.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
