@@ -117,7 +117,7 @@ export default function ReservationDetailScreen() {
         {res.notes && <Section title="Notes from the creator"><p className="text-pt-text text-sm whitespace-pre-wrap">{res.notes}</p></Section>}
 
         {/* ── Arts: picking ── */}
-        {isStaff && (s === 'requested' || s === 'preparing') && <PickAndPack res={res} />}
+        {isStaff && (s === 'requested' || s === 'preparing') && <PickAndPack res={res} shootText={shootText} />}
 
         {/* ── Everyone else before packing: what's in it ── */}
         {!(isStaff && (s === 'requested' || s === 'preparing')) && <ContentsList res={res} />}
@@ -201,7 +201,7 @@ function Journey({ res }: { res: Reservation }) {
 
 // ─── Arts: the picking list ──────────────────────────────────────────────────
 
-function PickAndPack({ res }: { res: Reservation }) {
+function PickAndPack({ res, shootText }: { res: Reservation; shootText?: string }) {
   const itemFor = useItemFor()
   const items = useItems()
   const bins = useBins()
@@ -304,6 +304,10 @@ function PickAndPack({ res }: { res: Reservation }) {
         <p className="text-pt-text font-semibold">Picking list</p>
         <span className="text-pt-muted text-sm">{resolved} of {total} done</span>
       </div>
+      {/* Arts, Nov 15: the shoot's place, day and hours right where they pick, so they don't have to scroll up or open the calendar. */}
+      {shootText
+        ? <ShootLine text={shootText} wrap className="text-pt-text text-sm -mt-2" />
+        : <p className="text-pt-muted text-sm -mt-2"><IconText name="calendar">{formatRange(res.startDate, res.endDate)} · no shoot time on the schedule</IconText></p>}
       <div className="h-1.5 bg-pt-border rounded-full overflow-hidden">
         <div className="h-full bg-pt-accent transition-all" style={{ width: `${total ? (resolved / total) * 100 : 0}%` }} />
       </div>

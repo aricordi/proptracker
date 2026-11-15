@@ -2592,6 +2592,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (span role=button, works inside a row button, opens ImageLightbox with the prop's name + room/bin for staff) on the picking
       list, contents list, check-in form and custom-prop reference photos (replaced the open-in-new-tab link). Test in
       tests/unit/shootLine.test.ts; appGuide propsrequest. Preview only; live needs OK (website; backend only for the guide text).
+      Picking list header repeats the shoot line (or "date · no shoot time on the schedule"). LIVE CAUSE (server logs run
+      43741342670): Val's request was linked to shoot UR2qNiw5 (Cliff 1 9–11, Nov 17); the event moved in Google Calendar to the
+      Cliff 2 calendar → imported as a NEW shoot rmNN45X7 (11–1) + the old one cancelled ("removed" card waiting) → the link pointed
+      at a cancelled shoot. RISK: confirming that "removed" card cancels the props linked to the old shoot (asked the owner).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
