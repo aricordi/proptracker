@@ -749,8 +749,8 @@ function History({ res }: { res: Reservation }) {
       <ul className="space-y-1">
         {res.history.map((h, i) => (
           <li key={i} className="text-pt-muted text-xs">
-            {formatDay(studioDayOf(h.at), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.event === 'reopened' ? 'Back to Requested (nothing picked yet)' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
-            {h.reason ? ` ("${h.reason}")` : ''}
+            {formatDay(studioDayOf(h.at), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.event === 'shoot-moved' ? 'Moved to another shoot' : h.event === 'reopened' ? 'Back to Requested (nothing picked yet)' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
+            {h.reason ? (h.event === 'shoot-moved' ? `: ${h.reason}` : ` ("${h.reason}")`) : ''}
           </li>
         ))}
       </ul>

@@ -548,6 +548,24 @@ describe('calendar audit fixes (Nov 7): props, groups, changes, keep', () => {
     await waitFor(async () => (await getDoc('reservations/r1'))!.status === 'cancelled')
   })
 
+  it('moved between calendars (old one deleted, a new one the same day): its props move to the new shoot, not cancelled', async () => {
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })
+    await put('test_calendar/events', { items: [at('m1', 'Ana filming', FRI, '09:00', '11:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const oldId = (await getDoc(`schedule_days/${FRI}`))!.cliff1['540'].shootId
+    await props('r9', oldId)
+    // Deleted from this calendar, back as a new event two hours later (as when it's moved to the Cliff 2 calendar).
+    await put('test_calendar/events', { items: [at('m2', 'Ana filming', FRI, '11:00', '13:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const newId = (await getDoc(`schedule_days/${FRI}`))!.cliff1['660'].shootId
+    expect(newId).not.toBe(oldId)
+    expect((await call('reviewCalendarImport', { id: 'm1', action: 'confirm' }, MAANIK)).ok).toBe(true)
+    await waitFor(async () => (await getDoc('reservations/r9'))!.scheduleShootId === newId)
+    const r = (await getDoc('reservations/r9'))!
+    expect(r.status).toBe('requested')
+    expect(r.history.at(-1)).toMatchObject({ event: 'shoot-moved' })
+  })
+
   it('a shoot moved to another day in Google while it has props is not moved; the card says why', async () => {
     const NEXT = addDays(FRI, 7)
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })

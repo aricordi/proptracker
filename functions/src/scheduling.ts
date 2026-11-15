@@ -843,14 +843,61 @@ export async function removeImportedShoot(shootId: string, by: string, toCheck =
   // Props and gear asked for this shoot aren't needed any more (audit: they were left waiting for a shoot that was gone).
   // toCheck (the automatic check): not yet. The event may have been deleted in Google by mistake and come back; they are let
   // go when the equipment team confirms the card (releaseCancelledImport, from settleQueue).
-  if (email && !toCheck) await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
+  if (email && !toCheck) {
+    const day = String((await ref.get()).get('date') ?? '')
+    if (await moveLinksToSameDay(shootId, email, day).catch(() => false)) return
+    await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
+  }
 }
 
 // A cancelled imported shoot the team just confirmed: let go of its props and gear (see removeImportedShoot).
+// Owner, Nov 15: an event moved in Google Calendar from one calendar to another (Cliff 1 → Cliff 2) arrives as one shoot
+// removed + a new one. If the same creator still has a shoot that day, its props and gear MOVE to that shoot instead of
+// being cancelled; they are only let go when the creator has no other shoot that day.
 export async function releaseCancelledImport(shootId: string) {
   const sh = (await db.doc(`shoots/${shootId}`).get()).data()
   if (!sh || sh.status !== 'cancelled' || !sh.creatorEmail) return
+  if (await moveLinksToSameDay(shootId, String(sh.creatorEmail), String(sh.date)).catch(e => { console.warn('move links of removed import', shootId, e); return false })) return
   await releaseLinks(SCHEDULE_CALLER, shootId, String(sh.creatorEmail)).catch(e => console.warn('release links of confirmed removed import', shootId, e))
+}
+
+// Moves the props requests, gear bookings and shared gear of a removed shoot to the creator's other live shoot that day
+// (earliest first). Returns true when there was such a shoot (everything still open was moved).
+export async function moveLinksToSameDay(fromId: string, email: string, date: string): Promise<boolean> {
+  const others = await db.collection('shoots').where('creatorEmail', '==', email).where('date', '==', date).get()
+  const to = others.docs.filter(d => d.id !== fromId && ['booked', 'requested'].includes(d.get('status')))
+    .sort((x, y) => Number(x.get('start') ?? 0) - Number(y.get('start') ?? 0))[0]
+  if (!to) return false
+  const links = await openLinks(fromId)
+  if (!links.props.length && !links.gear.length && !links.sharedGear.length) return true
+  const s = await loadScheduleSettings()
+  const target = to.data() as Spot
+  const label = spotLabel(target, s)
+  const at = new Date().toISOString(), by = 'schedule', note = `Moved to ${label}: the shoot changed in Google Calendar`
+  for (const p of links.props) {
+    const ref = db.doc(`reservations/${p.id}`)
+    await db.runTransaction(async tx => {
+      const r = (await tx.get(ref)).data()
+      if (!r || r.scheduleShootId !== fromId) return
+      tx.update(ref, { scheduleShootId: to.id, shootId: to.id, updatedAt: at,
+        history: [...(r.history ?? []), { status: r.status, at, by, event: 'shoot-moved', reason: note }] })
+    })
+  }
+  for (const g of links.gear) {
+    await db.doc(`gear_bookings/${g.id}`).update({ scheduleShootId: to.id, shootId: to.id, updatedAt: at,
+      history: FieldValue.arrayUnion({ at, by, action: 'shoot-moved', note }) })
+  }
+  for (const g of links.sharedGear) {
+    const ref = db.doc(`gear_bookings/${g.id}`)
+    await db.runTransaction(async tx => {
+      const b = (await tx.get(ref)).data()
+      if (!b) return
+      const swap = (ids: unknown) => (Array.isArray(ids) ? ids : []).map(x => x === fromId ? to.id : x)
+      tx.update(ref, { crewShootIds: swap(b.crewShootIds), crew: (Array.isArray(b.crew) ? b.crew : []).map((c: { shootId?: string }) => c.shootId === fromId ? { ...c, shootId: to.id } : c), updatedAt: at })
+    })
+  }
+  await db.doc(`shoots/${to.id}`).update({ updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'props-added', note: 'Props and gear moved here from the same day\'s shoot that was removed from Google Calendar' }) })
+  return true
 }
 
 // ─── Filming back to back with friends ───────────────────────────────────────
