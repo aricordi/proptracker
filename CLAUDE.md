@@ -2619,6 +2619,13 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       shoots/blocks → syncShootToCalendar / syncBlocksToCalendar copy, update and remove them right away. copyConfirmedImports marker
       now `<calendarId>|v2` so one more catch-up pass copies the cards still waiting. Removed-by-hand (calendar_removed) still
       respected. Test calendar.test.ts (copied before confirm + follows a time change). Not deployed with the props move (ask).
+      → THE GOOGLE CALENDARS ARE THE RULE (owner, Nov 16: "we need to follow the calendars without confirmation… if it's on the old
+      calendars it can be considered confirmed"): runCalendarCheckLocked, after applying, settles EVERY waiting card that is
+      queueReady (placed, no problem, no clash) and not past via settleQueue(id, 'calendar check', 'confirmed', undefined, 'auto')
+      ('auto' = like a person's confirm (toCheck cleared, creator push, removed import → releaseCancelledImport = props move/let go)
+      but does NOT write checkedBy, so auto guesses keep following renames). Only unreadable events and clashes stay in the Calendar
+      tab; the "to check" push counts only those. Status doc has autoConfirmed. Texts: CalendarQueue intro, Team guide step 7,
+      appGuide approvals + calimport, owner guide. Tests calendar.test.ts updated (7). Tests 928. NOT deployed (backend + website, ask).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

@@ -1,7 +1,7 @@
 // Requests → Calendar (owner, Nov 4: "all the imports in a queue for the equipment team, like new bookings, in a separate
 // tab so it's easy to confirm and double check"). The 15-minute check puts what it can read on the schedule straight
-// away (so nobody books over it) and every event waits here: Looks right / Fix / Skip. Creators hear about a shoot only
-// once it's confirmed here. Google Calendar itself is never changed.
+// away and is confirmed by itself (owner, Nov 16: the calendars are the rule). Only unreadable events and clashes wait here:
+// Looks right / Fix / Skip. Google Calendar itself is never changed.
 import { useEffect, useState } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
@@ -70,7 +70,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
       {items?.length === 0 && (
         <div className="bg-pt-surface rounded-2xl p-5 text-center">
           <p className="text-pt-text font-semibold text-[17px]">All checked ✓</p>
-          <p className="text-pt-muted text-sm mt-1">New, changed and deleted events from Google Calendar land here. Each one goes on the schedule right away and waits for you to say it looks right.</p>
+          <p className="text-pt-muted text-sm mt-1">The Google calendars are the rule: what the app can read goes on the schedule and is confirmed by itself. Only events it couldn't read, or that clash with another booking, wait here for you.</p>
         </div>
       )}
       {allOk.length > 1 && (

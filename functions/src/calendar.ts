@@ -912,14 +912,27 @@ async function runCalendarCheckLocked(cals: Source[]) {
     // one later told the creator "You have a new shoot" for a day that had passed).
     const today = todayInStudio()
     for (const [id, q] of waiting) if (q.placed && String(q.date) < today) await settleQueue(id, 'calendar check', 'confirmed', undefined, 'past').catch(e => logger.warn('settle past', String(e)))
+    // Owner, Nov 16: "the Google calendars are the rule; if it's on the old calendars it can be considered confirmed". Every card
+    // the app placed cleanly (no clash, no problem) is confirmed straight away: creators are told, a removed event's props move or
+    // are let go, nothing waits for the team. Only clashes and events the app couldn't read stay in the Calendar tab.
+    const nowWaiting = (await db.collection('calendar_queue').where('status', '==', 'waiting').get()).docs
+    let autoConfirmed = 0
+    const autoIds = new Set<string>()
+    for (const d of nowWaiting) {
+      const q = d.data()
+      if (String(q.date) < today || !queueReady(q)) continue
+      try { await settleQueue(d.id, 'calendar check', 'confirmed', undefined, 'auto'); autoConfirmed++; autoIds.add(d.id) }
+      catch (e) { logger.warn('auto confirm', d.id, String(e)) }
+    }
     // Unplaced cards whose event is gone from Google (or was handled on the import screen) leave the queue.
     // Cards that came in before links were saved get their Google Calendar link (owner, Nov 8).
     for (const [id, q] of waiting) if (!q.link && links[id]) await db.doc(`calendar_queue/${id}`).update({ link: links[id] }).catch(() => 0)
     const stillNew = new Set(unclear.map(e => e.id))
     for (const [id, q] of waiting) if (!q.placed && !stillNew.has(id) && !auto.some(e => e.id === id)) await db.doc(`calendar_queue/${id}`).delete()
-    if (fresh.length) await sendPush({ to: ['gear-team'], title: 'Google Calendar: to check', url: '/approvals?tab=calendar', tag: 'calendar-queue',
-      body: `${fresh.length} event${fresh.length === 1 ? '' : 's'} from Google Calendar to check. Open Requests → Calendar.` }).catch(() => 0)
-    const out = { at, newEvents: unclear.length, waiting: waiting.size + fresh.length,
+    const toLook = fresh.filter(id => !autoIds.has(id))
+    if (toLook.length) await sendPush({ to: ['gear-team'], title: 'Google Calendar: to check', url: '/approvals?tab=calendar', tag: 'calendar-queue',
+      body: `${toLook.length} event${toLook.length === 1 ? '' : 's'} from Google Calendar to check. Open Requests → Calendar.` }).catch(() => 0)
+    const out = { at, newEvents: unclear.length, waiting: Math.max(0, nowWaiting.length - autoConfirmed), autoConfirmed,
       broughtIn: auto.filter((e, i) => e.kind === 'new' && results[i]?.ok).length,
       changed: auto.filter(e => e.kind === 'changed').length, removed: auto.filter(e => e.kind === 'removed').length,
       failed: results.filter(r => !r.ok).map(r => `${r.id}: ${r.message ?? ''}`).slice(0, 10),
@@ -935,7 +948,7 @@ async function runCalendarCheckLocked(cals: Source[]) {
 
 // Finish a card in the Calendar tab: the shoots and block it made stop being "to check", and the creators are told
 // (pushMessages: 'import-confirmed'). Also used when a person imports on the import screen.
-async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>, note?: 'past') {
+async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>, note?: 'past' | 'auto') {
   const qref = db.doc(`calendar_queue/${id}`)
   const q = (await qref.get()).data()
   const imp = (await db.doc(`calendar_imports/${id}`).get()).data()
@@ -944,7 +957,7 @@ async function settleQueue(id: string, by: string, status: 'confirmed' | 'skippe
   const list = (x: unknown) => Array.isArray(x) ? x.map(String) : []
   const ids = new Set([...list(saved?.shootIds), ...list(imp?.shootIds), ...(imp?.shootId ? [String(imp.shootId)] : []), ...list(q?.result?.shootIds)])
   const at = new Date().toISOString()
-  const kind = note ?? String(q?.kind ?? 'new')
+  const kind = note === 'past' ? 'past' : String(q?.kind ?? 'new')
   for (const sid of ids) {
     const ref = db.doc(`shoots/${sid}`)
     let gone = false
