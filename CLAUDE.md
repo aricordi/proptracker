@@ -2654,6 +2654,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       events go in test_calendar/app_events (fakeAppEvent), added to the app calendar's read. App: CalendarQueue 'app-moved' card
       (Put it back), request page amber "taken off the calendar" note + history label, Team guide step 7, appGuide approvals,
       owner guide. Tests 934 (calendar.test.ts: 5 new + updated).
+    - LIVE Nov 16 (owner "go live"): backend run 43885341596 + website run 43885347277 = props follow the shoot to another day,
+      app calendar always matches the old calendars, Google calendars are the rule (auto-confirm), app-calendar drags/deletes
+      followed, newest entry wins, props kept when a shoot is deleted.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
