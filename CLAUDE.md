@@ -2626,6 +2626,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       but does NOT write checkedBy, so auto guesses keep following renames). Only unreadable events and clashes stay in the Calendar
       tab; the "to check" push counts only those. Status doc has autoConfirmed. Texts: CalendarQueue intro, Team guide step 7,
       appGuide approvals + calimport, owner guide. Tests calendar.test.ts updated (7). Tests 928. NOT deployed (backend + website, ask).
+      APP-ONLY BOOKINGS ARE SAFE (owner, Nov 16: "some bookings will be on the app calendar but not the old calendar"): the check skips
+      the app's own events (ids s/b/t+hex), 'removed' only ever applies to things it imported, and an old-calendar event landing on an
+      app booking is a clash → waits for a person; the app booking keeps its slot. Proven by a test in calendar.test.ts. Tests 929.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

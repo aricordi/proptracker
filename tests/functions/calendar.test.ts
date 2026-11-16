@@ -699,3 +699,42 @@ describe('old-calendar events are copied into the app calendar (owner, Nov 8)', 
     expect(e.guess.houseUnsure).toBe(true)
   })
 })
+
+describe('bookings made in the app live only on the app calendar (owner, Nov 16: "be careful")', () => {
+  it('the automatic check never removes, moves or re-checks them; an old-calendar event on top waits as a clash', async () => {
+    const OLD = 'talent@group.calendar.google.com'
+    const key = (id: string) => `test_calendar/${id.replace(/[^a-zA-Z0-9]/g, '_')}`
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com',
+      calendarFeeds: [{ id: OLD, name: 'Stromedy Talent', house: 'cliff1' }],
+      instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
+    const b = await call('bookShoot', { place: 'cliff1', date: FRI, start: 780 }, ANA)
+    expect(b.ok, b.message).toBe(true)
+    const sid = (await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId
+    // The app calendar holds the app's own copy (id 's' + hex), the old calendars know nothing about it.
+    const appEv = { id: 's' + Buffer.from(sid).toString('hex'), summary: 'Ana · Cliff 1', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T15:00:00${TZ}` } }
+    await put('test_calendar/events', { items: [appEv] })
+    await put(key(OLD), { items: [] })
+    for (let i = 0; i < 2; i++) expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    let sh = (await getDoc(`shoots/${sid}`))!
+    expect(sh.status).toBe('booked')
+    expect(sh.toCheck).toBeUndefined()
+    expect(sh.date).toBe(FRI)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId).toBe(sid)
+    expect(await docs('calendar_queue')).toEqual([])
+    expect(await docs('calendar_imports')).toEqual([])
+    // Someone types Ben into the old calendar on Ana's app booking: it waits for a person, Ana keeps her slot.
+    await put(key(OLD), { items: [{ id: 'ben1', summary: 'Ben - Stromedy Talent Filming', start: { dateTime: `${FRI}T13:00:00${TZ}` }, end: { dateTime: `${FRI}T15:00:00${TZ}` } }] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const card = (await getDoc('calendar_queue/ben1'))!
+    expect(card.status).toBe('waiting')
+    expect(card.result.clashWith).toContain('Ana')
+    sh = (await getDoc(`shoots/${sid}`))!
+    expect(sh.status).toBe('booked')
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId).toBe(sid)
+    // Deleted again from the old calendar: only Ben's imported copy goes, never Ana's app booking.
+    await put(key(OLD), { items: [] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    expect((await getDoc(`shoots/${sid}`))!.status).toBe('booked')
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId).toBe(sid)
+  })
+})
