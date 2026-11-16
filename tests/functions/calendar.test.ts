@@ -674,19 +674,22 @@ describe('old-calendar events are copied into the app calendar (owner, Nov 8)', 
     const anaSid = day.cliff2['780'].shootId, benSid = day.cliff1['1020'].shootId
     expect(day.blocks.filter((b: any) => b.house === 'cliff1')).toHaveLength(0)   // the offsite party blocked nothing
     expect(day.clashes ?? []).toHaveLength(0)
-    // Nothing is copied while it waits to be checked.
-    const sentIds = async () => (await docs('calendar_sent')).length
-    expect(await sentIds()).toBe(0)
-    for (const id of ['oldshoot', 'oldblock', 'fromapp']) expect((await call('reviewCalendarImport', { id, action: 'confirm' }, MAANIK)).ok).toBe(true)
+    // Owner, Nov 16: the app calendar always matches the old calendars, so it's copied right away (nobody confirmed yet).
     const hex = (x: string) => Buffer.from(x).toString('hex')
     await waitFor(async () => !!(await getDoc(`calendar_sent/s${hex(anaSid)}`)))
+    expect((await getDoc(`shoots/${anaSid}`))!.toCheck).toBe(true)
     const block = (await getDoc(`schedule_days/${FRI}`))!.blocks.find((b: any) => b.type === 'cleaners')
     await waitFor(async () => !!(await getDoc(`calendar_sent/b${hex(`${FRI}_${block.id}`)}`)))
     // The shoot that came from the app calendar itself is never copied (it would be in there twice).
     await new Promise(res => setTimeout(res, 1500))
     expect(await getDoc(`calendar_sent/s${hex(benSid)}`)).toBeFalsy()
-    // The catch-up on the next check copies nothing more (everything confirmed is already there).
+    // The catch-up on the next check copies nothing more (everything is already there).
     expect((await call('checkCalendarNow', {}, MAANIK)).result.copied).toBe(0)
+    // Changed in the old calendar (a new time): the copy follows by itself.
+    await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [
+      at('oldshoot', 'Ana filming', '2371 Cliff Road', '15:00', '17:00'), at('oldblock', 'Cleaners', '2371 Cliff Road', '07:00', '09:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    await waitFor(async () => String((await getDoc(`calendar_sent/s${hex(anaSid)}`))?.label ?? '').includes('15:00'))
     // Deleted in the old calendar: the shoot comes off, and so does its copy in the app calendar.
     await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [at('oldblock', 'Cleaners', '2371 Cliff Road', '07:00', '09:00')] })
     expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)

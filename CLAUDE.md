@@ -2613,6 +2613,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       refused), releaseCancelledImport + removeImportedShoot, team moveShoot (creators still refused: notice), decideBooking approving
       a move. refreshShootFor refreshes the old shoot's app-calendar event when a request changes shoot. Tests calendar (2 new),
       requests, shootLinks. App: history label "Moved with the shoot". appGuide approvals, owner guide.
+      → APP CALENDAR ALWAYS MATCHES THE OLD CALENDARS (owner, Nov 16: "the app calendar needs to match the other google calendars
+      always, even if a change isn't made through the app"): calendar.ts pushEvent no longer waits for toCheck to clear before the
+      FIRST copy of an old-calendar shoot/block (only past days are never first-copied); the 15-min check's applyImports writes
+      shoots/blocks → syncShootToCalendar / syncBlocksToCalendar copy, update and remove them right away. copyConfirmedImports marker
+      now `<calendarId>|v2` so one more catch-up pass copies the cards still waiting. Removed-by-hand (calendar_removed) still
+      respected. Test calendar.test.ts (copied before confirm + follows a time change). Not deployed with the props move (ask).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

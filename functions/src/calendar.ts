@@ -195,11 +195,11 @@ async function pushEvent(cal: string, eventId: string, ref: Pending, label: stri
     const sh = (await db.doc(`shoots/${ref.shootId}`).get()).data()
     const from = sh ? await importedFrom(sh, 'shoot') : ''
     if (from === 'app' || (from && from === cal)) return   // came from the app calendar itself: that event IS the copy
-    // An old-calendar shoot gets its FIRST copy only once a person confirmed it, and only for days not over yet (the automatic
-    // settle of past cards isn't a person confirming). Once copied, the copy follows changes, even while a change waits to
-    // be checked again, so the app calendar has no gaps (review, Nov 8).
+    // Owner, Nov 16: "the app calendar needs to match the other Google calendars always, even if a change isn't made
+    // through the app". An old-calendar shoot is copied as soon as the 15-minute check brings it in (no longer waiting for a
+    // person to confirm it) and follows every change or removal there. Only days already over aren't copied for the first time.
     const first = !!sh && !(await sentDoc(eventId).get()).exists
-    const hidden = !!sh && !!from && first && (!!sh.toCheck || String(sh.date) < todayInStudio())
+    const hidden = !!sh && !!from && first && String(sh.date) < todayInStudio()
     if (sh && sh.status === 'booked' && !hidden) {
       const house = sh.place === 'offsite' ? null : s.houses[sh.place as 'cliff1' | 'cliff2']
       const needs = await shootNeeds(ref.shootId)
@@ -214,7 +214,7 @@ async function pushEvent(cal: string, eventId: string, ref: Pending, label: stri
     const b = (((await db.doc(`schedule_days/${ref.date}`).get()).data() as ScheduleDay | undefined)?.blocks ?? []).find(x => x.id === ref.blockId) as (Block & { imported?: boolean; soft?: boolean; toCheck?: boolean }) | undefined
     const src = b ? await importedFrom(b, 'block') : ''
     if (src === 'app' || (src && src === cal)) return
-    const hiddenB = !!b && !!src && (!!b.toCheck || ref.date < todayInStudio()) && !(await sentDoc(eventId).get()).exists
+    const hiddenB = !!b && !!src && ref.date < todayInStudio() && !(await sentDoc(eventId).get()).exists
     if (b && !hiddenB && s.houses[b.house]) {
       const from = stamp(ref.date, b.start)
       ev = { summary: `${b.soft ? 'Heads-up: ' : ''}${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house].name}`,
@@ -837,7 +837,9 @@ export async function copyConfirmedImports(): Promise<number> {
   // Once a full pass finds nothing left to copy, stop looking (new confirmations are copied by the triggers): saves reading
   // every future shoot and day every 15 minutes (review, Nov 8).
   const flag = db.doc('app_settings/calendarCopy')
-  if ((await flag.get()).get('doneFor') === cal) return 0
+  // v2 (Nov 16): imports still waiting to be checked are copied too, so one more full pass runs.
+  const mark = `${cal}|v2`
+  if ((await flag.get()).get('doneFor') === mark) return 0
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const today = todayInStudio()
   let n = 0
@@ -861,7 +863,7 @@ export async function copyConfirmedImports(): Promise<number> {
       await sendNow(id, { kind: 'block', date: d.id, blockId: b.id }, `${BLOCK_TYPES[b.type]}${b.note && b.note !== BLOCK_TYPES[b.type] ? `: ${b.note}` : ''} · ${s.houses[b.house]?.name ?? ''} · ${d.id}`, 'calendar check'); n++
     }
   }
-  if (n === 0) await flag.set({ doneFor: cal, at: new Date().toISOString() })
+  if (n === 0) await flag.set({ doneFor: mark, at: new Date().toISOString() })
   return n
 }
 
