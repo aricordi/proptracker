@@ -3,7 +3,7 @@ import { beforeEach, describe, it, expect } from 'vitest'
 import { put, call, getDoc, clearDatabase, bookGear } from './helpers'
 import { todayInStudio, addDays, addOpenDays, DEFAULT_BOOKING_SETTINGS } from '../../functions/src/booking'
 
-const ANA = 'ana@example.com', BEN = 'ben@example.com'
+const ANA = 'ana@example.com', BEN = 'ben@example.com', OWNER = 'alexisricordi@gmail.com'
 const today = todayInStudio()
 const DAY = addDays(today, 8)      // far enough for every cutoff
 const OTHER = addDays(today, 9)
@@ -83,5 +83,14 @@ describe('cancelling or moving the shoot', () => {
     await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
     expect((await call('moveShoot', { id: 'shoot1', place: 'cliff1', date: OTHER, start: 780 }, ANA)).message).toMatch(/props or gear booked/)
     expect((await call('moveShoot', { id: 'shoot1', place: 'cliff2', date: DAY, start: 780 }, ANA)).ok).toBe(true)
+  })
+
+  it('the schedule team moving a shoot to another day takes its props along (owner, Nov 15)', async () => {
+    await shoot('shoot1', ANA, 'Ana')
+    const p = await call('createReservation', { title: 'Diner', startDate: DAY, endDate: DAY, lines: [{ itemId: 'chairs', qty: 1 }], scheduleShootId: 'shoot1' }, ANA)
+    expect(p.ok, p.message).toBe(true)
+    const m = await call('moveShoot', { id: 'shoot1', place: 'cliff1', date: OTHER, start: 780 }, OWNER)
+    expect(m.ok, m.message).toBe(true)
+    expect((await getDoc(`reservations/${p.result.id}`))).toMatchObject({ startDate: OTHER, endDate: OTHER, status: 'requested' })
   })
 })

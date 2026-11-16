@@ -15,7 +15,7 @@ import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, BLOCK_TYPES, monthOf, slotWindow, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
-import { importShootAsTeam, removeImportedShoot, releaseCancelledImport, filmingPeople, repairSharedClashes } from './scheduling.js'
+import { importShootAsTeam, removeImportedShoot, releaseCancelledImport, filmingPeople, repairSharedClashes, followShoot } from './scheduling.js'
 import { openLinks } from './shootLinks.js'
 import { stamp, addMinutes } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
@@ -260,8 +260,11 @@ export const syncShootToCalendar = onDocumentWritten('shoots/{id}', async event 
 async function refreshShootFor(before?: Record<string, any>, after?: Record<string, any>) {
   const shootId = String(after?.scheduleShootId ?? before?.scheduleShootId ?? '')
   if (!shootId) return
-  const what = (x?: Record<string, any>) => x && !['cancelled', 'declined'].includes(x.status) ? JSON.stringify((x.lines ?? []).map((l: any) => [l.itemName ?? l.name, l.qty])) : ''
-  if (what(before) === what(after)) return
+  const what = (x?: Record<string, any>) => x && !['cancelled', 'declined'].includes(x.status) ? JSON.stringify((x.lines ?? []).map((l: any) => [l.itemName ?? l.name, l.qty, l.pick?.state === 'unavailable'])) : ''
+  // Moved to another shoot (owner, Nov 15): the old shoot's event loses the props too.
+  const fromId = String(before?.scheduleShootId ?? '')
+  if (fromId && fromId !== shootId) await refreshShootFor(before, undefined)
+  if (what(before) === what(after) && fromId === shootId) return
   const sh = (await db.doc(`shoots/${shootId}`).get()).data()
   if (!sh || sh.status !== 'booked') return
   const cal = await calendarId()
@@ -693,16 +696,13 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
         await db.doc(`calendar_imports/${id}`).set({ ...(was ?? {}), removed: it.action === 'remove', kept: it.action === 'keep', at: new Date().toISOString(), by: caller.email })
         results.push({ id, ok: true, saved: { action: it.action, shootIds: oldShootIds, blockId: was?.blockId ?? '', house: was?.house ?? '', emails: was?.emails ?? (was?.email ? [was.email] : []) } }); continue
       }
-      // A shoot moving to another DAY while it has props or gear for its old day: not moved by the app (audit, Nov 7: the props
-      // stayed on the old day and were packed for the wrong date). A person sorts the props out first.
+      // A shoot moving to another DAY while it has props or gear for its old day: the props go with it (owner, Nov 15: "it
+      // moves the prop request and also the app calendar"). Was refused (audit, Nov 7) because the props stayed on the old day.
+      const follow: string[] = []
       if (it.action === 'shoot') {
-        for (const [m, sid] of keepFor) {
+        for (const [, sid] of keepFor) {
           const d = oldShoots.get(sid)
-          if (!d || d.status !== 'booked' || d.date === String(it.date)) continue
-          const l = await openLinks(sid)
-          if (l.props.length || l.gear.length || l.sharedGear.length) {
-            throw new Error(`${String(d.creatorName || m.split('@')[0])}'s shoot has props or gear booked for ${String(d.date)}, so the app didn't move it. Ask the props team to cancel or move them, then tap Fix.`)
-          }
+          if (d && d.status === 'booked' && d.date !== String(it.date)) follow.push(sid)
         }
       }
       await dropOld()
@@ -748,6 +748,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
           clash.push(...r.clashWith.filter(n => !users.some(u => u.name === n)))
         }
         } catch (e) { await undo(); throw e }
+        for (const sid of follow) if (ids.includes(sid)) await followShoot(sid).catch(e => logger.warn('props follow moved shoot', sid, String(e)))
         clash = [...new Set(clash)]
         if (clash.length && clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
           await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',

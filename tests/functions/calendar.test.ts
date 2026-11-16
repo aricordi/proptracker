@@ -566,21 +566,55 @@ describe('calendar audit fixes (Nov 7): props, groups, changes, keep', () => {
     expect(r.history.at(-1)).toMatchObject({ event: 'shoot-moved' })
   })
 
-  it('a shoot moved to another day in Google while it has props is not moved; the card says why', async () => {
+  // Owner, Nov 15: "it moves the prop request and also the app calendar".
+  const propsWithItems = async (id: string, shootId: string) => {
+    await put('items/lamp', { name: 'Lamp', quantity: 1, collection: 'company', categoryId: 'prop' })
+    await put('items/vase', { name: 'Vase', quantity: 1, collection: 'company', categoryId: 'prop' })
+    await put('item_bookings/lamp', { entries: [{ reservationId: id, start: FRI, end: FRI, qty: 1 }] })
+    await put('reservations/' + id, { shootId, scheduleShootId: shootId, status: 'requested', itemIds: ['lamp', 'vase'],
+      lines: [{ itemId: 'lamp', itemName: 'Lamp', qty: 1 }, { itemId: 'vase', itemName: 'Vase', qty: 1 }], builds: [], history: [],
+      creatorEmail: ANA, creatorName: 'Ana', title: 'Prank', startDate: FRI, endDate: FRI })
+  }
+
+  it('a shoot moved to another day in Google: the shoot moves and its props request moves with it', async () => {
     const NEXT = addDays(FRI, 7)
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })
     await put('test_calendar/events', { items: [at('p2', 'Ana filming', FRI, '13:00', '15:00')] })
     await call('applyCalendarImport', { items: [{ id: 'p2', action: 'shoot', email: ANA, house: 'cliff1', date: FRI, start: 780, end: 900, title: 'Ana filming' }] }, OWNER)
     const sid = (await getDoc('calendar_imports/p2'))!.shootId
-    await props('r2', sid)
+    await propsWithItems('r2', sid)
+    // Someone else already has the vase on the new day.
+    await put('item_bookings/vase', { entries: [{ reservationId: 'r9', start: FRI, end: FRI, qty: 1 }, { reservationId: 'other', start: NEXT, end: NEXT, qty: 1 }] })
     await put('test_calendar/events', { items: [at('p2', 'Ana filming', NEXT, '13:00', '15:00')] })
     const r = await call('checkCalendarNow', {}, MAANIK)
     expect(r.ok, r.message).toBe(true)
-    expect((await getDoc(`shoots/${sid}`))!.date).toBe(FRI)
-    expect((await getDoc('reservations/r2'))!.status).toBe('requested')
-    const card = (await getDoc('calendar_queue/p2'))!
-    expect(card.placed).toBe(false)
-    expect(card.problem).toMatch(/props or gear booked/)
+    expect((await getDoc(`shoots/${sid}`))!.date).toBe(NEXT)
+    const res = (await getDoc('reservations/r2'))!
+    expect(res.status).toBe('requested')
+    expect(res.scheduleShootId).toBe(sid)
+    expect(res.startDate).toBe(NEXT)
+    expect(res.history.at(-1)).toMatchObject({ event: 'shoot-moved' })
+    expect(res.lines.find((l: { itemId: string }) => l.itemId === 'lamp').pick).toBeUndefined()
+    expect(res.lines.find((l: { itemId: string }) => l.itemId === 'vase').pick).toMatchObject({ state: 'unavailable' })
+    expect((await getDoc('item_bookings/lamp'))!.entries).toEqual([{ reservationId: 'r2', start: NEXT, end: NEXT, qty: 1 }])
+    expect((await getDoc('item_bookings/vase'))!.entries.some((e: { reservationId: string }) => e.reservationId === 'r2')).toBe(false)
+  })
+
+  it('moved to another calendar AND another day: its props move to the new shoot once the team confirms', async () => {
+    const NEXT = addDays(FRI, 7)
+    await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }] })
+    await put('test_calendar/events', { items: [at('d1', 'Ana filming', FRI, '09:00', '11:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const oldId = (await getDoc(`schedule_days/${FRI}`))!.cliff1['540'].shootId
+    await propsWithItems('r8', oldId)
+    await put('test_calendar/events', { items: [at('d2', 'Ana filming', NEXT, '11:00', '13:00')] })
+    expect((await call('checkCalendarNow', {}, MAANIK)).ok).toBe(true)
+    const newId = (await getDoc(`schedule_days/${NEXT}`))!.cliff1['660'].shootId
+    expect((await call('reviewCalendarImport', { id: 'd1', action: 'confirm' }, MAANIK)).ok).toBe(true)
+    await waitFor(async () => (await getDoc('reservations/r8'))!.scheduleShootId === newId)
+    const r = (await getDoc('reservations/r8'))!
+    expect(r.status).toBe('requested')
+    expect(r.startDate).toBe(NEXT)
   })
 
   it('a group booking that changes keeps each creator\'s own shoot (and props)', async () => {

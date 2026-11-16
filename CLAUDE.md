@@ -2601,6 +2601,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (confirming a removed card) and removeImportedShoot (non-toCheck); only when there's no such shoot are they released. Test in
       calendar.test.ts. appGuide approvals, owner guide. LIVE Nov 15 (backend run 43746842711 + website run 43746845587). Val's DVD request moves to her Cliff 2
       11–1 shoot when Maanik confirms the removed card.
+      → PROPS FOLLOW THE SHOOT TO ANOTHER DAY (owner, Nov 16: "it moves the prop request and also the app calendar (not the old
+      ones)"; NOT deployed: backend + website, ask; no rules change). reservations.ts `moveReservationToShoot(id, toShootId, toDate,
+      note)`: relinks; while requested/preparing/packed and the day differs, re-dates startDate/endDate and moves each line's
+      item_bookings hold to the new day; lines not free that day → pick unavailable "Booked by someone else on the new shoot day"
+      (hold released); no 48-h check (the shoot moved, nothing new asked); collected or later = relink only. scheduling.ts
+      `moveLinks(from, to, target, email)` (props via the above + push "Props request moved" to arts-team and "Your props moved with
+      your shoot" to the creator; gear held for another day cancelled (grab-and-go), shared gear on another day = leaveCrew),
+      `followShoot(id)` (same shoot moved), `moveLinksAway` (removed import: same-day shoot first, else the ONE imported live future
+      shoot of that creator created within 24 h of the removal; else release). Used by: calendar applyImports (Google day change: was
+      refused), releaseCancelledImport + removeImportedShoot, team moveShoot (creators still refused: notice), decideBooking approving
+      a move. refreshShootFor refreshes the old shoot's app-calendar event when a request changes shoot. Tests calendar (2 new),
+      requests, shootLinks. App: history label "Moved with the shoot". appGuide approvals, owner guide.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

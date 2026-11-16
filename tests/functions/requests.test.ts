@@ -104,16 +104,17 @@ describe('booking requests', () => {
     expect((await getDoc(`reservations/${p.result.id}`))!.status).toBe('cancelled')
   })
 
-  it('a move to another day can\'t be approved while props are booked for the old day', async () => {
+  it('approving a move to another day takes the props request along (owner, Nov 15)', async () => {
     const r = await book(ANA)
     await decide(MAANIK, r.result.id, true)
     await call('moveShoot', { id: r.result.id, place: 'cliff1', date: MON, start: 900 }, ANA)
     // props added after the move was asked for, for the current day
-    expect((await call('createReservation', { title: 'Diner', startDate: FRI, endDate: FRI, lines: [{ itemId: 'chairs', qty: 1 }], scheduleShootId: r.result.id }, ANA)).ok).toBe(true)
-    const a = await decide(MAANIK, r.result.id, true)
-    expect(a.ok).toBe(false)
-    expect((await getDoc(`shoots/${r.result.id}`))).toMatchObject({ date: FRI, status: 'booked' })
-    expect((await decide(MAANIK, r.result.id, false, 'Keep your Friday')).ok).toBe(true)
+    const p = await call('createReservation', { title: 'Diner', startDate: FRI, endDate: FRI, lines: [{ itemId: 'chairs', qty: 1 }], scheduleShootId: r.result.id }, ANA)
+    expect(p.ok, p.message).toBe(true)
+    expect((await decide(MAANIK, r.result.id, true)).ok).toBe(true)
+    expect((await getDoc(`shoots/${r.result.id}`))).toMatchObject({ date: MON, status: 'booked' })
+    expect((await getDoc(`reservations/${p.result.id}`))).toMatchObject({ startDate: MON, scheduleShootId: r.result.id, status: 'requested' })
+    expect((await getDoc('item_bookings/chairs'))!.entries.find((e: { reservationId: string }) => e.reservationId === p.result.id)).toMatchObject({ start: MON, end: MON })
   })
 
   it('a shoot waiting for a move can\'t be swapped', async () => {

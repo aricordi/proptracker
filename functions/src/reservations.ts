@@ -324,6 +324,58 @@ async function endEarly(caller: Caller, id: unknown, to: 'cancelled' | 'declined
 // Used when the shoot these props were for is cancelled.
 export const cancelForShoot = (by: Caller, id: string) => endEarly(by, id, 'cancelled', undefined, () => {})
 
+// Owner, Nov 15: when a creator's shoot moves (changed in Google Calendar, or the team moves it), the props request goes with
+// it: linked to the new shoot and, when the DAY changed, re-dated with the props' holds moved to the new day. Props that are
+// already booked by someone else on the new day are marked "not available" (with the reason) so the arts team and the creator
+// see it; everything else stays as it was (picked ticks, packed photos). The 48-hour notice isn't applied: the creator didn't
+// ask for something new, the shoot moved. Props already picked up (collected or later) only follow the link.
+export async function moveReservationToShoot(id: string, toShootId: string, toDate: string, note: string): Promise<{ moved: boolean; notFree: string[] }> {
+  const ref = db.doc(`reservations/${id}`)
+  const settings = await loadSettings()
+  const today = todayInStudio()
+  const cats = await db.collection('categories').get()
+  const categoryTurnaround = Object.fromEntries(cats.docs.map(d => [d.id, d.get('turnaroundDays') as number | undefined]))
+  let out = { moved: false, notFree: [] as string[] }
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(ref)
+    const res = snap.data()
+    if (!res || !HOLDING.includes(res.status)) return
+    const at = new Date().toISOString()
+    const redate = ['requested', 'preparing', 'packed'].includes(res.status) && res.startDate !== toDate && /^\d{4}-\d{2}-\d{2}$/.test(toDate)
+    const lines = (res.lines ?? []) as ReservationLine[]
+    const live = redate ? lines.filter(l => l.pick?.state !== 'unavailable') : []
+    const ids = live.map(l => l.itemId)
+    const snaps = ids.length ? await tx.getAll(...ids.map(i => db.doc(`items/${i}`)), ...ids.map(bookingsRef)) : []
+    const notFree: string[] = []
+    const next = lines.map(l => ({ ...l }))
+    const writes: (() => void)[] = []
+    ids.forEach((itemId, i) => {
+      const item = snaps[i], book = snaps[ids.length + i]
+      const others = entriesOf(book).filter(e => e.reservationId !== id)
+      const line = next.find(l => l.itemId === itemId)!
+      const quantity = Number.isInteger(item.get('quantity')) && item.get('quantity') >= 1 ? item.get('quantity') as number : 1
+      const free = item.exists ? freeForRange({ quantity, missingQty: Number(item.get('missingQty') ?? 0), legacyCheckedOut: item.get('status') === 'checked-out' },
+        others, toDate, toDate, today, turnaroundFor(item.get('categoryId') ?? item.get('itemType') ?? 'prop', categoryTurnaround, settings.bufferDays), settings) : 0
+      if (free >= line.qty) {
+        writes.push(() => tx.set(bookingsRef(itemId), { entries: [...others, { reservationId: id, start: toDate, end: toDate, qty: line.qty }] }))
+      } else {
+        notFree.push(line.itemName)
+        line.pick = { state: 'unavailable', by: 'schedule', at, reason: `Booked by someone else on the new shoot day (${toDate})` }
+        writes.push(() => tx.set(bookingsRef(itemId), { entries: others }))
+      }
+    })
+    writes.forEach(w => w())
+    tx.update(ref, {
+      scheduleShootId: toShootId, shootId: toShootId, updatedAt: at,
+      ...(redate ? { startDate: toDate, endDate: toDate, lines: next } : {}),
+      history: historyWith(res, { status: res.status, at, by: 'schedule', event: 'shoot-moved', reason: notFree.length ? `${note}. Not free that day: ${notFree.join(', ')}` : note }),
+    })
+    if (redate) queueEmail(tx, 'arts-team', `Moved: "${res.title}"`, `${res.creatorName ?? 'A creator'}'s shoot moved, so their props request is now for ${toDate}.${notFree.length ? ` Not free that day: ${notFree.join(', ')}.` : ''}`, id)
+    out = { moved: true, notFree }
+  })
+  return out
+}
+
 export const cancelReservation = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'arts', 'creator'])
   return endEarly(caller, req.data?.id, 'cancelled', undefined, res => {

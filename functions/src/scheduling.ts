@@ -10,7 +10,7 @@ import { todayInStudio, isDay, addDays } from './booking.js'
 import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
-import { cancelForShoot } from './reservations.js'
+import { cancelForShoot, moveReservationToShoot } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline,
   cleanScheduleSettings, checkSlot, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
@@ -314,7 +314,9 @@ export const moveShoot = onCall(CALLABLE, async req => {
   // Offsite shoots move to other offsite hours; house shoots move between the houses.
   const spot = readSpot({ ...d, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
-  await assertNoLinksForDayChange(id, pre.date, spot.date)
+  // The team moving a shoot to another day takes its props along (owner, Nov 15); creators still sort their props first
+  // (otherwise a move could skip the props notice).
+  if (!team) await assertNoLinksForDayChange(id, pre.date, spot.date)
   if (spot.place !== 'offsite' && !skipsLock(caller, pre.creatorEmail) && priorityLocked(spot.date, spot.place, s, pre.creatorEmail, now)) throw fail('locked')
   // Moving onto a Cliff 1 Thursday/Saturday needs a guideline too (unless the shoot already has one).
   const guideline = pre.guideline && !d.guideline ? null : guidelineFor(caller, pre.creatorEmail, spot, s, d.guideline)
@@ -362,6 +364,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
       history: FieldValue.arrayUnion({ at, by: caller.email, action: 'moved', note: `from ${spotLabel(b as Spot, s)} to ${spotLabel(spot, s)}${byTeam ? ' · by the schedule team' : ''}` }),
     })
   })
+  if ((result as string) !== 'requested' && pre.date !== spot.date) await followShoot(id).catch(e => console.warn('props follow moved shoot', id, e))
   return { ok: true, kind, status: result }
 })
 
@@ -376,7 +379,8 @@ export const decideBooking = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   // Approving a move to ANOTHER DAY while props or gear are booked for the old day would strand them: same rule as moving.
   const pre = (await ref.get()).data()
-  if (approve && pre?.status === 'booked' && pre.moveRequest) await assertNoLinksForDayChange(id, pre.date, pre.moveRequest.date)
+  // Approving a move to another day: its props go along (owner, Nov 15; was refused while props were booked).
+  const follows = !!(approve && pre?.status === 'booked' && pre.moveRequest && pre.moveRequest.date !== pre.date)
   let denied = false, who = ''
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
@@ -425,6 +429,7 @@ export const decideBooking = onCall(CALLABLE, async req => {
   })
   if (who) await db.doc(`user_status/${who}`).set({ firstInLine: FieldValue.delete() }, { merge: true })
   if (denied) await releaseLinks(caller, id, who)
+  if (follows) await followShoot(id).catch(e => console.warn('props follow approved move', id, e))
   return { ok: true }
 })
 
@@ -845,59 +850,106 @@ export async function removeImportedShoot(shootId: string, by: string, toCheck =
   // go when the equipment team confirms the card (releaseCancelledImport, from settleQueue).
   if (email && !toCheck) {
     const day = String((await ref.get()).get('date') ?? '')
-    if (await moveLinksToSameDay(shootId, email, day).catch(() => false)) return
+    const gone = (await ref.get()).data()
+    if (await moveLinksAway(shootId, email, day, gone).catch(() => false)) return
     await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
   }
 }
 
 // A cancelled imported shoot the team just confirmed: let go of its props and gear (see removeImportedShoot).
 // Owner, Nov 15: an event moved in Google Calendar from one calendar to another (Cliff 1 → Cliff 2) arrives as one shoot
-// removed + a new one. If the same creator still has a shoot that day, its props and gear MOVE to that shoot instead of
-// being cancelled; they are only let go when the creator has no other shoot that day.
+// removed + a new one. Its props and gear MOVE to the creator's new shoot instead of being cancelled: another shoot that day
+// first; else (moved to another DAY) the one new shoot the calendar brought in for them around the time this one went.
+// They're only let go when no such shoot can be found.
 export async function releaseCancelledImport(shootId: string) {
   const sh = (await db.doc(`shoots/${shootId}`).get()).data()
   if (!sh || sh.status !== 'cancelled' || !sh.creatorEmail) return
-  if (await moveLinksToSameDay(shootId, String(sh.creatorEmail), String(sh.date)).catch(e => { console.warn('move links of removed import', shootId, e); return false })) return
+  if (await moveLinksAway(shootId, String(sh.creatorEmail), String(sh.date), sh).catch(e => { console.warn('move links of removed import', shootId, e); return false })) return
   await releaseLinks(SCHEDULE_CALLER, shootId, String(sh.creatorEmail)).catch(e => console.warn('release links of confirmed removed import', shootId, e))
 }
 
-// Moves the props requests, gear bookings and shared gear of a removed shoot to the creator's other live shoot that day
-// (earliest first). Returns true when there was such a shoot (everything still open was moved).
-export async function moveLinksToSameDay(fromId: string, email: string, date: string): Promise<boolean> {
-  const others = await db.collection('shoots').where('creatorEmail', '==', email).where('date', '==', date).get()
-  const to = others.docs.filter(d => d.id !== fromId && ['booked', 'requested'].includes(d.get('status')))
-    .sort((x, y) => Number(x.get('start') ?? 0) - Number(y.get('start') ?? 0))[0]
-  if (!to) return false
+// Where the props of a removed shoot go: the creator's other live shoot that day (earliest), or the single shoot imported for
+// them within a day of this one being removed (the same event, moved to another calendar AND another day). False = nowhere.
+export async function moveLinksAway(fromId: string, email: string, date: string, from?: Record<string, unknown>): Promise<boolean> {
+  const live = (await db.collection('shoots').where('creatorEmail', '==', email).get()).docs
+    .filter(d => d.id !== fromId && ['booked', 'requested'].includes(d.get('status')))
+  const sameDay = live.filter(d => d.get('date') === date).sort((x, y) => Number(x.get('start') ?? 0) - Number(y.get('start') ?? 0))[0]
+  let to = sameDay
+  if (!to) {
+    // When it was taken off (its 'cancelled' history entry; updatedAt changes again when the card is confirmed).
+    const hist = (Array.isArray(from?.history) ? from!.history : []) as { action?: string; at?: string }[]
+    const gone = [...hist].reverse().find(h => h.action === 'cancelled')?.at ?? from?.updatedAt
+    const goneAt = Date.parse(String(gone ?? '')) || Date.now()
+    const today = todayInStudio()
+    const fresh = live.filter(d => (d.get('importedFrom') || d.get('calendarEventId')) && String(d.get('date')) >= today
+      && Math.abs((Date.parse(String(d.get('createdAt') ?? '')) || 0) - goneAt) <= 24 * 3600_000)
+    if (fresh.length !== 1) return false
+    to = fresh[0]
+  }
   const links = await openLinks(fromId)
   if (!links.props.length && !links.gear.length && !links.sharedGear.length) return true
+  await moveLinks(fromId, to.id, to.data() as Spot, email, 'Moved to {label}: the shoot changed in Google Calendar')
+  await db.doc(`shoots/${to.id}`).update({ updatedAt: new Date().toISOString(), history: FieldValue.arrayUnion({ at: new Date().toISOString(), by: 'schedule', action: 'props-added', note: 'Props moved here from the shoot that was removed from Google Calendar' }) })
+  return true
+}
+
+// The props requests, gear and shared gear of shoot `fromId` now belong to shoot `toId` (may be the same shoot after it
+// moved). Props follow to the target's day (moveReservationToShoot). Gear on the same day follows the link; gear held for
+// another day is let go (gear is taken on the day) and a friend's shared gear on another day takes this person off it.
+export async function moveLinks(fromId: string, toId: string, target: Spot, email: string, noteTpl = 'Moved with the shoot to {label}') {
+  const links = await openLinks(fromId)
+  if (!links.props.length && !links.gear.length && !links.sharedGear.length) return
   const s = await loadScheduleSettings()
-  const target = to.data() as Spot
-  const label = spotLabel(target, s)
-  const at = new Date().toISOString(), by = 'schedule', note = `Moved to ${label}: the shoot changed in Google Calendar`
+  const note = noteTpl.replace('{label}', spotLabel(target, s))
+  const at = new Date().toISOString(), by = 'schedule'
   for (const p of links.props) {
-    const ref = db.doc(`reservations/${p.id}`)
-    await db.runTransaction(async tx => {
-      const r = (await tx.get(ref)).data()
-      if (!r || r.scheduleShootId !== fromId) return
-      tx.update(ref, { scheduleShootId: to.id, shootId: to.id, updatedAt: at,
-        history: [...(r.history ?? []), { status: r.status, at, by, event: 'shoot-moved', reason: note }] })
-    })
+    try {
+      const before = (await db.doc(`reservations/${p.id}`).get()).data()
+      const r = await moveReservationToShoot(p.id, toId, target.date, note)
+      // The day changed: the arts team and the creator hear about it (and about any prop not free on the new day).
+      if (r.moved && before && before.startDate !== target.date && ['requested', 'preparing', 'packed'].includes(String(before.status))) {
+        const { sendPush } = await import('./push.js')
+        const miss = r.notFree.length ? ` Not free that day: ${r.notFree.join(', ')}.` : ''
+        await sendPush({ to: ['arts-team'], title: 'Props request moved', url: `/reservations/${p.id}`,
+          body: `${String(before.creatorName ?? 'A creator')}'s shoot moved, so "${String(before.title ?? 'their request')}" is now for ${spotLabel(target, s)}.${miss}` }).catch(() => 0)
+        if (email && !email.startsWith('guest:')) await sendPush({ to: [email], title: 'Your props moved with your shoot', url: `/reservations/${p.id}`,
+          body: `"${String(before.title ?? 'Your request')}" is now for ${spotLabel(target, s)}.${miss}` }).catch(() => 0)
+      }
+    } catch (e) { console.warn('move props with shoot', fromId, p.id, e) }
   }
   for (const g of links.gear) {
-    await db.doc(`gear_bookings/${g.id}`).update({ scheduleShootId: to.id, shootId: to.id, updatedAt: at,
+    const b = (await db.doc(`gear_bookings/${g.id}`).get()).data()
+    if (!b) continue
+    if (b.date !== target.date && g.status === 'held') {
+      try { await cancelGearForShoot(by, g.id) } catch (e) { console.warn('cancel gear for moved shoot', g.id, e) }
+      continue
+    }
+    await db.doc(`gear_bookings/${g.id}`).update({ scheduleShootId: toId, shootId: toId, updatedAt: at,
       history: FieldValue.arrayUnion({ at, by, action: 'shoot-moved', note }) })
   }
   for (const g of links.sharedGear) {
     const ref = db.doc(`gear_bookings/${g.id}`)
+    const b = (await ref.get()).data()
+    if (!b) continue
+    if (b.date !== target.date && g.status === 'held') {
+      try { await leaveCrew(g.id, email, by, 'is off the shared gear (their shoot moved to another day)') } catch (e) { console.warn('leave shared gear', g.id, e) }
+      continue
+    }
+    if (fromId === toId) continue
     await db.runTransaction(async tx => {
-      const b = (await tx.get(ref)).data()
-      if (!b) return
-      const swap = (ids: unknown) => (Array.isArray(ids) ? ids : []).map(x => x === fromId ? to.id : x)
-      tx.update(ref, { crewShootIds: swap(b.crewShootIds), crew: (Array.isArray(b.crew) ? b.crew : []).map((c: { shootId?: string }) => c.shootId === fromId ? { ...c, shootId: to.id } : c), updatedAt: at })
+      const cur = (await tx.get(ref)).data()
+      if (!cur) return
+      const swap = (ids: unknown) => (Array.isArray(ids) ? ids : []).map(x => x === fromId ? toId : x)
+      tx.update(ref, { crewShootIds: swap(cur.crewShootIds), crew: (Array.isArray(cur.crew) ? cur.crew : []).map((c: { shootId?: string }) => c.shootId === fromId ? { ...c, shootId: toId } : c), updatedAt: at })
     })
   }
-  await db.doc(`shoots/${to.id}`).update({ updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'props-added', note: 'Props and gear moved here from the same day\'s shoot that was removed from Google Calendar' }) })
-  return true
+}
+
+// After a shoot itself moved to another day (same shoot id): its props and gear follow it.
+export async function followShoot(shootId: string) {
+  const sh = (await db.doc(`shoots/${shootId}`).get()).data()
+  if (!sh || !['booked', 'requested'].includes(sh.status)) return
+  await moveLinks(shootId, shootId, sh as Spot, String(sh.creatorEmail ?? ''))
 }
 
 // ─── Filming back to back with friends ───────────────────────────────────────
