@@ -83,7 +83,7 @@ export const redoCalendarImport = httpsCallable<{ shootId: string }, { removed: 
 // Requests → Calendar (owner, Nov 4): Google Calendar imports waiting for the equipment team to check.
 export interface QueueItem {
   id: string; title: string; location: string; date: string; startMin: number; endMin: number; allDay: boolean; calendar: string
-  kind: 'new' | 'changed' | 'removed'; placed: boolean; message?: string; problem?: string; at: string
+  kind: 'new' | 'changed' | 'removed' | 'app-moved'; placed: boolean; shootId?: string; message?: string; problem?: string; at: string
   was?: { date: string; startMin: number; endMin: number; title: string }
   guess: { action?: string; email?: string; emails?: string[]; house?: string; type?: BlockType; soft?: boolean; houseUnsure?: boolean; bothHouses?: boolean; ambiguous?: string[] }
   result: { action?: string; email?: string; emails?: string[]; house?: string; shootIds?: string[]; blockId?: string; type?: BlockType; soft?: boolean; clashWith?: string[] }
@@ -102,7 +102,7 @@ export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
   return list
 }
 export type QueueFix = { action: 'shoot' | 'block'; emails: string[]; house: string; type: BlockType; soft: boolean }
-export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
+export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix' | 'restore'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const confirmAllCalendar = httpsCallable<{ action: 'confirmAll'; ids: string[] }, { ok: boolean; confirmed: number; left: number }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')

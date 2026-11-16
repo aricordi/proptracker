@@ -241,6 +241,10 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'cancelled' && a.invitedBy && h.by === a.invitedBy) return [{ to: [a.creatorEmail], url, tag, title: 'Slot cancelled', body: `${a.bookedByName ?? 'Your friend'} cancelled ${placeName(a, s)} · ${when(a)} they booked for you.` }]
   if (h.action === 'booked' && !b) return [{ to: [a.creatorEmail], url, tag, title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }]
   if (h.action === 'moved') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot moved', body: `Now ${placeName(a, s)} · ${when(a)}.` }]
+  // Owner, Nov 16: the newest calendar entry for a day wins; the creator hears the old one gave way (not if they never heard of it).
+  if (h.action === 'cancelled' && h.note === 'replaced by a newer calendar entry for the same day') return b?.told === false ? []
+    : [{ to: [a.creatorEmail], url, tag, title: 'Your shoot changed', body: `Your newer booking that day replaces ${placeName(a, s)} · ${when(a)}. Props moved with it.` }]
+  if (h.action === 'cancelled' && h.note === 'deleted in Google Calendar') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the calendar by the schedule team (no strike).` }]
   if (h.action === 'cancelled') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was cancelled by the schedule team.` }]
   return []
 }

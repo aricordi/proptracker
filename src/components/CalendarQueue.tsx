@@ -42,7 +42,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
   const [err, setErr] = useState<Record<string, string>>({})
   const [fixing, setFixing] = useState<QueueItem | null>(null)
 
-  async function act(q: QueueItem, action: 'confirm' | 'skip') {
+  async function act(q: QueueItem, action: 'confirm' | 'skip' | 'restore') {
     setBusy(q.id); setErr(e => ({ ...e, [q.id]: '' }))
     try { await reviewCalendarImport({ id: q.id, action }) } catch (e) { setErr(x => ({ ...x, [q.id]: friendlyError(e) })) } finally { setBusy('') }
   }
@@ -70,7 +70,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
       {items?.length === 0 && (
         <div className="bg-pt-surface rounded-2xl p-5 text-center">
           <p className="text-pt-text font-semibold text-[17px]">All checked ✓</p>
-          <p className="text-pt-muted text-sm mt-1">The Google calendars are the rule: what the app can read goes on the schedule and is confirmed by itself. Only events it couldn't read, or that clash with another booking, wait here for you.</p>
+          <p className="text-pt-muted text-sm mt-1">The Google calendars are the rule: what the app can read goes on the schedule and is confirmed by itself. Only events it couldn't read, a clash with another booking, or a move in the app calendar onto a taken time wait here for you.</p>
         </div>
       )}
       {allOk.length > 1 && (
@@ -96,7 +96,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
       {(items ?? []).map(q => {
         const r = q.result ?? {}
         const emails = r.emails?.length ? r.emails : []
-        const pill = q.kind === 'removed' ? ['Deleted in Google', 'bg-red-400/15 text-red-300'] : q.kind === 'changed' ? ['Changed in Google', 'bg-amber-400/15 text-amber-300'] : ['New', 'bg-sky-400/15 text-sky-300']
+        const pill = q.kind === 'app-moved' ? ['Moved in the app calendar', 'bg-amber-400/15 text-amber-300'] : q.kind === 'removed' ? ['Deleted in Google', 'bg-red-400/15 text-red-300'] : q.kind === 'changed' ? ['Changed in Google', 'bg-amber-400/15 text-amber-300'] : ['New', 'bg-sky-400/15 text-sky-300']
         return (
           <div key={q.id} className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
@@ -105,6 +105,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
             </div>
             <p className="text-pt-text font-semibold text-[18px] leading-snug">{q.title || '(no title)'}</p>
             <p className="text-pt-muted text-sm">{formatDay(q.date)} · {q.allDay ? 'All day' : `${fmtTime(q.startMin)}–${fmtTime(q.endMin)}`}{q.location ? ` · ${q.location}` : ''}</p>
+            {q.kind === 'app-moved' && q.was && <p className="text-pt-muted text-sm">The app still has it at {formatDay(q.was.date)} · {fmtTime(q.was.startMin)}–{fmtTime(q.was.endMin)} (booked in the app)</p>}
             {q.kind === 'changed' && q.was && <p className="text-pt-muted text-sm">Was {formatDay(q.was.date)} · {fmtTime(q.was.startMin)}–{fmtTime(q.was.endMin)}{q.was.title && q.was.title !== q.title ? ` · "${q.was.title}"` : ''}</p>}
             {/* What the app did with it */}
             <div className="bg-pt-bg rounded-xl px-3 py-2.5 text-[15px]">
@@ -120,8 +121,9 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
             <GoogleLinks link={q.link} date={q.date} clash={!!r.clashWith?.length} />
             {err[q.id] && <p className="text-red-300 text-sm">{err[q.id]}</p>}
             <div className="flex gap-2 pt-1">
+              {q.kind === 'app-moved' && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'restore')} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === q.id ? 'Saving…' : 'Put it back in Google Calendar'}</button>}
               {q.placed && !q.problem && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'confirm')} className="flex-1 min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{busy === q.id ? 'Saving…' : 'Looks right ✓'}</button>}
-              {q.kind !== 'removed' && <button disabled={busy === q.id || busy === '*'} onClick={() => setFixing(q)} className={`${q.placed && !q.problem ? 'px-5' : 'flex-1 bg-pt-accent text-stone-900 font-semibold'} min-h-[48px] rounded-xl ${q.placed && !q.problem ? 'bg-pt-raised text-pt-text' : ''} disabled:opacity-40`}>Fix</button>}
+              {q.kind !== 'removed' && q.kind !== 'app-moved' && <button disabled={busy === q.id || busy === '*'} onClick={() => setFixing(q)} className={`${q.placed && !q.problem ? 'px-5' : 'flex-1 bg-pt-accent text-stone-900 font-semibold'} min-h-[48px] rounded-xl ${q.placed && !q.problem ? 'bg-pt-raised text-pt-text' : ''} disabled:opacity-40`}>Fix</button>}
               {/* No Skip on a change: it would cancel a booking that's already on the schedule (audit, Nov 7). */}
               {q.kind === 'new' && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'skip')} className="px-4 min-h-[48px] rounded-xl text-pt-muted disabled:opacity-40">Skip</button>}
             </div>

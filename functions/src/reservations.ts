@@ -366,7 +366,7 @@ export async function moveReservationToShoot(id: string, toShootId: string, toDa
     })
     writes.forEach(w => w())
     tx.update(ref, {
-      scheduleShootId: toShootId, shootId: toShootId, updatedAt: at,
+      scheduleShootId: toShootId, shootId: toShootId, updatedAt: at, ...(res.shootGone ? { shootGone: FieldValue.delete() } : {}),
       ...(redate ? { startDate: toDate, endDate: toDate, lines: next } : {}),
       history: historyWith(res, { status: res.status, at, by: 'schedule', event: 'shoot-moved', reason: notFree.length ? `${note}. Not free that day: ${notFree.join(', ')}` : note }),
     })
@@ -374,6 +374,24 @@ export async function moveReservationToShoot(id: string, toShootId: string, toDa
     out = { moved: true, notFree }
   })
   return out
+}
+
+// The shoot this request was for was deleted in Google Calendar (owner, Nov 16: "it should keep the prop booking… maybe
+// the person will still want the props for an offsite"). The request stays on for its day, linked to the cancelled shoot
+// and marked shootGone; a new shoot for that person that day takes it (adoptKeptProps), or the creator cancels it.
+export async function markShootGone(id: string, shootId: string, why: string): Promise<boolean> {
+  const ref = db.doc(`reservations/${id}`)
+  let done = false
+  await db.runTransaction(async tx => {
+    const res = (await tx.get(ref)).data()
+    if (!res || !['requested', 'preparing', 'packed'].includes(String(res.status)) || res.shootGone) return
+    const at = new Date().toISOString()
+    tx.update(ref, { shootGone: { at, shootId, why }, updatedAt: at,
+      history: historyWith(res, { status: res.status, at, by: 'schedule', event: 'shoot-gone', reason: `${why}. The props request stays on for its day; cancel it if it isn't needed` }) })
+    queueEmail(tx, 'arts-team', `Shoot gone, props kept: "${res.title}"`, `${res.creatorName ?? 'A creator'}'s shoot was removed from Google Calendar. Their props request stays on for ${res.startDate} unless they cancel it.`, id)
+    done = true
+  })
+  return done
 }
 
 export const cancelReservation = onCall(CALLABLE, async req => {

@@ -94,6 +94,14 @@ export default function ReservationDetailScreen() {
 
         {active || s === 'returned' ? <Journey res={res} /> : null}
 
+        {/* Owner, Nov 16: a shoot deleted in Google Calendar keeps its props request for the day. */}
+        {(res as { shootGone?: { at: string } }).shootGone && active && (
+          <div className="bg-amber-500/10 rounded-xl px-4 py-3 space-y-1">
+            <p className="font-medium text-amber-200">The shoot for these props was taken off the calendar</p>
+            <p className="text-pt-text text-[15px]">The props stay booked for {formatDay(res.startDate)}. If a new shoot is booked for that day, they join it by themselves. Not needed any more? Cancel the request below.</p>
+          </div>
+        )}
+
         {risky.length > 0 && (
           <div className="border border-amber-500/40 bg-amber-500/10 rounded-xl px-4 py-3 space-y-2">
             <p className="font-medium text-amber-200">⚠ Some props might not be ready</p>
@@ -749,8 +757,8 @@ function History({ res }: { res: Reservation }) {
       <ul className="space-y-1">
         {res.history.map((h, i) => (
           <li key={i} className="text-pt-muted text-xs">
-            {formatDay(studioDayOf(h.at), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.event === 'shoot-moved' ? 'Moved with the shoot' : h.event === 'reopened' ? 'Back to Requested (nothing picked yet)' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
-            {h.reason ? (h.event === 'shoot-moved' ? `: ${h.reason}` : ` ("${h.reason}")`) : ''}
+            {formatDay(studioDayOf(h.at), { month: 'short', day: 'numeric' })} {time(h.at)} · {h.event === 'edited' ? 'Changed' : h.event === 'shoot-moved' ? 'Moved with the shoot' : h.event === 'shoot-gone' ? 'Shoot taken off the calendar (props kept)' : h.event === 'reopened' ? 'Back to Requested (nothing picked yet)' : h.status === 'returned' ? 'Checked in' : STATUS_LABELS[h.status]} by {h.by}
+            {h.reason ? (h.event === 'shoot-moved' || h.event === 'shoot-gone' ? `: ${h.reason}` : ` ("${h.reason}")`) : ''}
           </li>
         ))}
       </ul>

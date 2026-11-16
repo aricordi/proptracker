@@ -3,6 +3,7 @@
 // is what makes double-booking a house impossible (same idea as gear_holds for gear).
 import { isStorageLink } from './storageLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { FieldValue, FieldPath, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, type Caller } from './auth.js'
@@ -10,7 +11,7 @@ import { todayInStudio, isDay, addDays } from './booking.js'
 import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
-import { cancelForShoot, moveReservationToShoot } from './reservations.js'
+import { cancelForShoot, moveReservationToShoot, markShootGone } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline,
   cleanScheduleSettings, checkSlot, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
@@ -852,7 +853,7 @@ export async function removeImportedShoot(shootId: string, by: string, toCheck =
     const day = String((await ref.get()).get('date') ?? '')
     const gone = (await ref.get()).data()
     if (await moveLinksAway(shootId, email, day, gone).catch(() => false)) return
-    await releaseLinks(SCHEDULE_CALLER, shootId, email).catch(e => console.warn('release links of removed import', shootId, e))
+    await keepLinksOfGoneShoot(shootId, email, day, 'The shoot was removed from Google Calendar').catch(e => console.warn('keep links of removed import', shootId, e))
   }
 }
 
@@ -865,16 +866,154 @@ export async function releaseCancelledImport(shootId: string) {
   const sh = (await db.doc(`shoots/${shootId}`).get()).data()
   if (!sh || sh.status !== 'cancelled' || !sh.creatorEmail) return
   if (await moveLinksAway(shootId, String(sh.creatorEmail), String(sh.date), sh).catch(e => { console.warn('move links of removed import', shootId, e); return false })) return
-  await releaseLinks(SCHEDULE_CALLER, shootId, String(sh.creatorEmail)).catch(e => console.warn('release links of confirmed removed import', shootId, e))
+  // Replaced by a newer entry for the same day: replaceOlderShoots already moved its props to the newer shoot.
+  if ((sh.history ?? []).some((h: { note?: string }) => h.note === REPLACED_NOTE)) return
+  await keepLinksOfGoneShoot(shootId, String(sh.creatorEmail), String(sh.date), 'The shoot was removed from Google Calendar').catch(e => console.warn('keep links of confirmed removed import', shootId, e))
 }
+
+// A shoot deleted in Google Calendar (owner, Nov 16): the PROPS request is kept for its day (they may still want the props, e.g.
+// for an offsite shoot, or the team re-adds the shoot); held gear is let go (gear is taken on the day) and shared gear takes this
+// person off. The creator is told. A new shoot for them that day picks the props up again (adoptKeptProps).
+export async function keepLinksOfGoneShoot(shootId: string, email: string, date: string, why: string) {
+  const links = await openLinks(shootId)
+  for (const g of links.gear.filter(x => x.status === 'held')) {
+    try { await cancelGearForShoot('schedule', g.id) } catch (e) { console.warn('cancel gear for gone shoot', shootId, g.id, e) }
+  }
+  for (const g of links.sharedGear.filter(x => x.status === 'held')) {
+    try { await leaveCrew(g.id, email, 'schedule', 'is off the shared gear (their shoot was removed from the calendar)') } catch (e) { console.warn('leave shared gear', shootId, g.id, e) }
+  }
+  let kept = 0
+  for (const p of links.props) if (await markShootGone(p.id, shootId, why).catch(() => false)) kept++
+  if (kept && email && !isGuestEmail(email)) {
+    const { sendPush } = await import('./push.js')
+    await sendPush({ to: [email], title: 'Your shoot was removed', url: '/requests',
+      body: `Your ${dayLabel(date)} shoot is off the calendar. Your props request stays on for that day: cancel it in My requests if you don't need it.` }).catch(() => 0)
+  }
+  return kept
+}
+
+// Owner, Nov 16: "whatever the latest entry into the old calendar or app calendar is is the current by default". When a person
+// gets a newer calendar entry on a day they already have a shoot, the older (not yet started) booked shoot gives way: cancelled
+// with no strike, its props and gear move to the newer one. Requests waiting for approval are left alone (the team decides them).
+export const REPLACED_NOTE = 'replaced by a newer calendar entry for the same day'
+export function startedShoot(sh: Record<string, any>, now = nowStamp()) {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  return !!sh.checkin || String(sh.from ?? '') <= now
+}
+// When this booking was last entered or moved (for "newest wins").
+export function enteredAt(sh: Record<string, any>): string {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  // From a calendar: when it was last edited in Google (the app's own clock for the import would make it look newer than it is).
+  if (sh.calendarUpdated) return String(sh.calendarUpdated)
+  const times = [sh.createdAt, sh.requestedAt, sh.approvedAt, sh.calendarUpdated,
+    ...((sh.history ?? []) as { action?: string; at?: string }[]).filter(h => ['booked', 'moved', 'move-approved', 'requested'].includes(String(h.action))).map(h => h.at)]
+  return times.filter(Boolean).map(String).sort().at(-1) ?? ''
+}
+// The same person's other booked shoots on `date` that haven't started (oldest first).
+export async function sameDayShoots(email: string, date: string, except: string[]) {
+  const q = await db.collection('shoots').where('creatorEmail', '==', email).where('date', '==', date).get()
+  return q.docs.filter(d => !except.includes(d.id) && d.get('status') === 'booked' && !startedShoot(d.data()))
+    .map(d => ({ id: d.id, ...d.data() }) as { id: string } & Record<string, any>)   // eslint-disable-line @typescript-eslint/no-explicit-any
+}
+// Retire `olderId` (cancelled, no strike, slot freed) because a newer entry replaces it. Done BEFORE the newer one is placed, so
+// the two never "clash"; handOverToNewer then moves its props and gear across. Returns the old shoot (undefined = nothing done).
+export async function retireOlderShoot(olderId: string, by: string) {
+  const ref = db.doc(`shoots/${olderId}`)
+  let sh: Record<string, any> | undefined   // eslint-disable-line @typescript-eslint/no-explicit-any
+  await db.runTransaction(async tx => {
+    const cur = (await tx.get(ref)).data()
+    sh = undefined
+    if (!cur || cur.status !== 'booked') return
+    const write = await editDays(tx, [cur.date], days => takeOut(days[cur.date], cur as Spot, olderId))
+    write()
+    const at = new Date().toISOString()
+    tx.update(ref, { status: 'cancelled', cancelledAt: at, cancelledBy: by, updatedAt: at, toCheck: FieldValue.delete(),
+      history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: REPLACED_NOTE }) })
+    sh = cur
+  })
+  // An old-calendar import: remembered as replaced, so the 15-minute check neither removes nor re-adds it until its event changes.
+  if (sh?.calendarEventId) await db.doc(`calendar_imports/${sh.calendarEventId}`).set({ replaced: true }, { merge: true }).catch(() => 0)
+  return sh
+}
+// The newer entry couldn't be placed after all: the retired shoot goes back where it was.
+export async function reviveRetired(olderId: string, older: Record<string, any>, by: string) {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  await importShootAsTeam({ place: older.place, date: older.date, start: older.start, end: older.end, where: older.where ?? '' },
+    { email: String(older.creatorEmail), name: String(older.creatorName ?? older.creatorEmail) }, by, {}, olderId).catch(e => console.warn('revive retired', olderId, e))
+  if (older.calendarEventId) await db.doc(`calendar_imports/${older.calendarEventId}`).set({ replaced: FieldValue.delete() }, { merge: true }).catch(() => 0)
+}
+export async function handOverToNewer(olderId: string, older: Record<string, any>, newerId: string) {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  await db.doc(`shoots/${olderId}`).update({ replacedBy: newerId }).catch(() => 0)
+  if (older.calendarEventId) await db.doc(`calendar_imports/${older.calendarEventId}`).set({ replacedBy: newerId }, { merge: true }).catch(() => 0)
+  const to = (await db.doc(`shoots/${newerId}`).get()).data()
+  if (to) await moveLinks(olderId, newerId, to as Spot, String(older.creatorEmail ?? ''), 'Moved to {label}: a newer calendar entry replaced the shoot').catch(e => console.warn('move links of replaced shoot', olderId, e))
+}
+
+// A shoot deleted from the APP calendar in Google (owner, Nov 16: "it should cancel automatically… keep the prop booking"):
+// cancelled as the schedule team (no strike, the creator is told); props kept, or moved to their other shoot that day.
+export async function cancelFromCalendar(shootId: string, by: string) {
+  const ref = db.doc(`shoots/${shootId}`)
+  let sh: Record<string, any> | undefined   // eslint-disable-line @typescript-eslint/no-explicit-any
+  await db.runTransaction(async tx => {
+    const cur = (await tx.get(ref)).data()
+    sh = undefined
+    if (!cur || cur.status !== 'booked') return
+    const write = await editDays(tx, [cur.date], days => takeOut(days[cur.date], cur as Spot, shootId))
+    write()
+    const at = new Date().toISOString()
+    tx.update(ref, { status: 'cancelled', cancelledAt: at, cancelledBy: by, updatedAt: at,
+      history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: 'deleted in Google Calendar' }) })
+    sh = cur
+  })
+  if (!sh) return false
+  const email = String(sh.creatorEmail ?? ''), date = String(sh.date)
+  if (!(await moveLinksAway(shootId, email, date, sh, true).catch(() => false)))
+    await keepLinksOfGoneShoot(shootId, email, date, 'The shoot was deleted in Google Calendar').catch(e => console.warn('keep links', shootId, e))
+  return true
+}
+
+// Props kept from a shoot deleted in Google Calendar (shootGone) join a new shoot for the same person: the same day always;
+// another day only when the new shoot came from the calendar within 24 hours of the old one going (moved and retyped).
+export async function adoptKeptPropsFor(shootId: string, sh: Record<string, any>) {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  const email = String(sh.creatorEmail ?? '')
+  if (!email || sh.status !== 'booked') return 0
+  const rs = (await db.collection('reservations').where('creatorEmail', '==', email).get()).docs
+    .filter(d => d.get('shootGone') && ['requested', 'preparing', 'packed'].includes(String(d.get('status'))))
+  if (!rs.length) return 0
+  const today = todayInStudio()
+  const made = Date.parse(String(sh.createdAt ?? '')) || Date.now()
+  const fromCal = !!(sh.importedFrom || sh.calendarEventId)
+  const pick = rs.filter(d => d.get('startDate') === sh.date)
+  if (!pick.length && fromCal) {
+    const recent = rs.filter(d => String(d.get('startDate')) >= today && Math.abs(made - (Date.parse(String(d.get('shootGone.at') ?? '')) || 0)) <= 24 * 3600_000)
+    // Only when it's clear: all of them came from one shoot that went.
+    if (new Set(recent.map(d => String(d.get('shootGone.shootId')))).size === 1) pick.push(...recent)
+  }
+  let n = 0
+  const byGone = new Map<string, string[]>()
+  for (const d of pick) byGone.set(String(d.get('shootGone.shootId') ?? ''), [...(byGone.get(String(d.get('shootGone.shootId') ?? '')) ?? []), d.id])
+  for (const [gone, ids] of byGone) {
+    if (!gone || gone === shootId) {
+      for (const id of ids) { await moveReservationToShoot(id, shootId, String(sh.date), 'Back on a shoot: a new shoot for the same day').catch(() => 0); n++ }
+      continue
+    }
+    await moveLinks(gone, shootId, sh as Spot, email, 'Moved to {label}: a new shoot replaced the one removed from the calendar').catch(e => console.warn('adopt kept props', gone, e))
+    n += ids.length
+  }
+  return n
+}
+export const adoptKeptProps = onDocumentWritten('shoots/{id}', async event => {
+  const a = event.data?.after.data(), b = event.data?.before.data()
+  if (!a || a.status !== 'booked') return
+  if (b && b.status === 'booked' && b.date === a.date) return
+  await adoptKeptPropsFor(event.params.id, a)
+})
 
 // Where the props of a removed shoot go: the creator's other live shoot that day (earliest), or the single shoot imported for
 // them within a day of this one being removed (the same event, moved to another calendar AND another day). False = nowhere.
-export async function moveLinksAway(fromId: string, email: string, date: string, from?: Record<string, unknown>): Promise<boolean> {
+export async function moveLinksAway(fromId: string, email: string, date: string, from?: Record<string, unknown>, sameDayOnly = false): Promise<boolean> {
   const live = (await db.collection('shoots').where('creatorEmail', '==', email).get()).docs
     .filter(d => d.id !== fromId && ['booked', 'requested'].includes(d.get('status')))
   const sameDay = live.filter(d => d.get('date') === date).sort((x, y) => Number(x.get('start') ?? 0) - Number(y.get('start') ?? 0))[0]
   let to = sameDay
+  if (!to && sameDayOnly) return false
   if (!to) {
     // When it was taken off (its 'cancelled' history entry; updatedAt changes again when the card is confirmed).
     const hist = (Array.isArray(from?.history) ? from!.history : []) as { action?: string; at?: string }[]

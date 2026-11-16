@@ -2629,6 +2629,31 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       APP-ONLY BOOKINGS ARE SAFE (owner, Nov 16: "some bookings will be on the app calendar but not the old calendar"): the check skips
       the app's own events (ids s/b/t+hex), 'removed' only ever applies to things it imported, and an old-calendar event landing on an
       app booking is a clash → waits for a person; the app booking keeps its slot. Proven by a test in calendar.test.ts. Tests 929.
+    - SLACK MOVES: APP-CALENDAR EDITS + NEWEST ENTRY WINS + PROPS KEPT (owner, Nov 16: Maanik moves people on Slack's word in the old
+      calendars or the app calendar; "combination of A and B"; deleted → "cancel automatically… keep the prop booking"; same day →
+      "whatever the latest entry… is the current by default"; NOT deployed: backend (new trigger adoptKeptProps, no new callable, no
+      rules change) + website, ask). calendar_sent now stores {cal, from, to} (what the app put in the app calendar). The scan collects
+      the app's own s-events from the app calendar (appSeen); followAppCalendar (calendar.ts, before imports, only when the app calendar
+      was read): an APP booking whose Google times differ from calendar_sent = a person moved it → moveFromAppCalendar: refused (card
+      calendar_queue/{eventId} kind 'app-moved', placed false, "Put it back" = reviewCalendarImport action 'restore' → pushEvent) when
+      someone else's real overlap / a hard block / already started; else importShootAsTeam(existingId) by 'Google Calendar' (team move,
+      push "Your shoot moved"), followShoot, calendarUpdated = Google updated. Missing from Google = deleted → cancelFromCalendar (no
+      strike, note 'deleted in Google Calendar'). Copies of OLD-calendar shoots edited/deleted in the app calendar are restored. Skipped:
+      started shoots, outbox pending, app changes not yet sent (shoot from/to ≠ snapshot); > 3 vanished and > half of the window →
+      nothing cancelled + status error. NEWEST WINS (scheduling.ts sameDayShoots / enteredAt (calendarUpdated else createdAt/requestedAt/
+      approvedAt/booked-moved history) / retireOlderShoot (note REPLACED_NOTE, import marked replaced) / handOverToNewer (props move) /
+      reviveRetired on failure): applyImports compares the event's Google `updated` (GEvent.updated → ScanItem → asItem; manual imports =
+      now) with the person's other booked not-started shoots that day: newer → they're retired first, props handed over after placing;
+      older (one person) → not placed, calendar_imports {replaced, replacedBy}, card "Not added". Replaced imports: skipped by 'removed',
+      revived when their event changes (staysCancelled ignores REPLACED_NOTE). PROPS KEPT: removeImportedShoot / releaseCancelledImport /
+      cancelFromCalendar → moveLinksAway (cancelFromCalendar same day only) else keepLinksOfGoneShoot: markShootGone (reservation
+      shootGone {at, shootId, why}, history event 'shoot-gone', arts email), held gear cancelled, shared gear left, push "Your shoot was
+      removed… props stay on"; trigger adoptKeptProps (shoots onWrite → booked): same-day kept props join it; another day only for a
+      calendar shoot made within 24 h of the removal when all come from one gone shoot. moveReservationToShoot clears shootGone.
+      Pushes: replaced → "Your shoot changed" (not if never told); deleted → "taken off the calendar… (no strike)". Emulator: the app's
+      events go in test_calendar/app_events (fakeAppEvent), added to the app calendar's read. App: CalendarQueue 'app-moved' card
+      (Put it back), request page amber "taken off the calendar" note + history label, Team guide step 7, appGuide approvals,
+      owner guide. Tests 934 (calendar.test.ts: 5 new + updated).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
