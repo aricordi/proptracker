@@ -34,8 +34,9 @@ import {
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
   monthOf, isShortNotice, withinUndo, bookedLate, cancelCountsAsNoShow, timeSetByTeam, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
-  houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive,
+  houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive, swapShootsAsTeam,
 } from '../services/schedule'
+import { GiveSlotSheet, type GiveTarget } from '../components/GiveSlotSheet'
 
 const calendarPending = httpsCallable<Record<string, never>, { pending: unknown[] }>(functions, 'calendarPending')
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
@@ -65,6 +66,8 @@ type SheetState =
   | { kind: 'group'; house: House; date: string; start: number; friends: Friend[] }
   | { kind: 'move'; shoot: Shoot }
   | { kind: 'swap'; mine?: Shoot; theirs?: TheirSlot }
+  | { kind: 'teamswap'; shoot: Shoot }
+  | { kind: 'give'; t: GiveTarget }
   | null
 
 // The house schedule: Cliff 1, Cliff 2 and offsite shoots, by day, in 2-hour slots.
@@ -244,7 +247,10 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} sent={sent} onClose={() => setSheet(null)}
         onMove={sh => setSheet(sh.place === 'offsite' ? { kind: 'offsite', date: sh.date, move: sh } : { kind: 'move', shoot: sh })}
-        onSwap={sh => setSheet({ kind: 'swap', mine: sh })} />}
+        onSwap={sh => setSheet(team && sh.creatorEmail !== profile.email ? { kind: 'teamswap', shoot: sh } : { kind: 'swap', mine: sh })}
+        onGive={sh => setSheet({ kind: 'give', t: { date: sh.date, house: sh.place as House, start: sh.start, holder: { name: sh.creatorName, email: sh.creatorEmail } } })} />}
+      {sheet?.kind === 'teamswap' && days && <TeamSwapSheet shoot={sheet.shoot} days={days} now={now} onClose={() => setSheet(null)} onDone={() => setSheet({ kind: 'shoot', id: sheet.shoot.id })} />}
+      {sheet?.kind === 'give' && <GiveSlotSheet t={sheet.t} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'taken' && (
         <BottomSheet open onClose={() => setSheet(null)} title={sheet.slot.name}>
           <div className="flex items-center gap-3">
@@ -698,7 +704,7 @@ function RedoImport({ shootId, onDone }: { shootId: string; onDone: () => void }
   )
 }
 
-function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; team: boolean; sent?: string | null; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void }) {
+function ShootSheet({ id, team, sent, onClose, onMove, onSwap, onGive }: { id: string; team: boolean; sent?: string | null; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void; onGive?: (s: Shoot) => void }) {
   const s = useScheduleSettings()
   const { profile, role } = useSession()
   const profiles = useProfiles()
@@ -712,7 +718,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
   if (shoot === undefined) return <BottomSheet open onClose={onClose}><p className="text-pt-muted text-sm">Loading…</p></BottomSheet>
   if (shoot === null) return <BottomSheet open onClose={onClose}><p className="text-pt-muted text-sm">This shoot can't be opened.</p></BottomSheet>
   const mine = shoot.creatorEmail === profile.email
-  const where = shoot.place === 'offsite' ? shoot.where : `${s.houses[shoot.place].name} · ${s.houses[shoot.place].address}`
+  const where = shoot.place === 'offsite' ? shoot.where : shoot.bothHouses ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name} (both houses)` : `${s.houses[shoot.place].name} · ${s.houses[shoot.place].address}`
   const requested = shoot.status === 'requested'
   const upcoming = isLive(shoot) && shoot.from > now
   const justBooked = withinUndo(shoot.createdAt)
@@ -722,8 +728,10 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
   // The team set this time (priority booking or a team move): the creator can still move it, and cancelling is free.
   const teamTime = timeSetByTeam(shoot)
   // Inside the notice period a creator can only swap (house slots) or cancel as a no-show; the team can always move/cancel.
-  const canMove = upcoming && (team || (mine && (!short || teamTime)))
-  const canSwap = upcoming && mine && shoot.place !== 'offsite' && !requested && !shoot.moveRequest
+  const canMove = upcoming && !shoot.bothHouses && (team || (mine && (!short || teamTime)))
+  // Creators swap their own approved shoot (asking the other person); the schedule team swaps any two bookings straight away.
+  const canSwap = upcoming && shoot.place !== 'offsite' && !shoot.moveRequest && !shoot.bothHouses && (team && !mine ? true : mine && !requested)
+  const canGive = team && !mine && upcoming && shoot.place !== 'offsite' && !shoot.bothHouses && !shoot.moveRequest && s.instantBookers.length > 0 && !!onGive
   const canCancel = isLive(shoot) && (team || (mine && upcoming))
   // Same rule as the server, so the warning and what happens always agree.
   const noShow = !team && cancelCountsAsNoShow(shoot, now, s)
@@ -738,7 +746,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
         <div className="flex items-start gap-3">
           <Avatar email={shoot.creatorEmail} name={shoot.creatorName} size={44} ring={mine} />
           <div className="min-w-0">
-            <p className="text-pt-text font-semibold">{formatDay(shoot.date, { weekday: 'long', month: 'short', day: 'numeric' })} · {fmtSlot(shoot.start, shoot.end - shoot.start)}</p>
+            <p className="text-pt-text font-semibold">{formatDay(shoot.date, { weekday: 'long', month: 'short', day: 'numeric' })} · {shoot.bothHouses && shoot.time ? fmtSlot(shoot.time.start, shoot.time.end - shoot.time.start) : fmtSlot(shoot.start, shoot.end - shoot.start)}</p>
             <p className="text-pt-muted text-sm">{where}</p>
             {!mine && profiles[shoot.creatorEmail]?.channel && <p className="text-pt-muted text-sm">{profiles[shoot.creatorEmail]!.channel}</p>}
             <div className="flex gap-2 mt-2">
@@ -769,7 +777,14 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
               : <>Less than {s.noticeHours} hours to go. You can still <b>swap</b> with someone; cancelling now counts as a no-show.</>}
           </p>
         )}
-        {(canMove || canSwap) && (
+        {team && !mine && (canMove || canSwap || canGive) ? (
+          // The schedule team's options for someone's booking (owner, Nov 17: "a list of options", not a bare menu).
+          <div className="rounded-[20px] bg-white/[0.05] divide-y divide-white/[0.06]">
+            {canMove && <TeamAction icon="calendar" title="Move to another day or time" detail="Pick any free slot. No strike; they get a notification." onClick={() => onMove(shoot)} />}
+            {canSwap && <TeamAction icon="clock" title="Swap with another booking" detail="Trade times with someone else's booking, straight away." onClick={() => onSwap(shoot)} />}
+            {canGive && <TeamAction icon="flame" title="Priority booking" detail={`Give this time to ${s.instantBookers.map(p => p.name.split(' ')[0]).join(' or ')}.`} onClick={() => onGive!(shoot)} />}
+          </div>
+        ) : (canMove || canSwap) && (
           <div className="flex gap-2">
             {canMove && <button onClick={() => onMove(shoot)} className={`flex-1 ${secondaryBtn}`}>Move</button>}
             {canSwap && <button onClick={() => onSwap(shoot)} className={`flex-1 ${secondaryBtn}`}>Swap</button>}
@@ -804,6 +819,68 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap }: { id: string; t
           </div>
         )}
       </div>
+    </BottomSheet>
+  )
+}
+
+function TeamAction({ icon, title, detail, onClick }: { icon: 'calendar' | 'clock' | 'flame'; title: string; detail: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left">
+      <span className="w-10 h-10 rounded-full bg-pt-accent/15 text-pt-accent grid place-items-center shrink-0"><Icon name={icon} className="w-5 h-5" /></span>
+      <span className="flex-1 min-w-0"><span className="block text-pt-text text-[16px] font-semibold">{title}</span><span className="block text-pt-muted text-[13px]">{detail}</span></span>
+      <span className="text-pt-muted" aria-hidden>›</span>
+    </button>
+  )
+}
+
+// Schedule team: swap this booking with any other upcoming house booking (Nov 17). Both change at once; no strike, props follow.
+function TeamSwapSheet({ shoot, days, now, onClose, onDone }: { shoot: Shoot; days: Record<string, ScheduleDay>; now: string; onClose: () => void; onDone: () => void }) {
+  const s = useScheduleSettings()
+  const [q, setQ] = useState('')
+  const [pick, setPick] = useState<null | { id: string; name: string; email: string; date: string; house: House; start: number }>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const options = useMemo(() => Object.entries(days).filter(([d]) => d >= now.slice(0, 10)).sort(([a], [b]) => a.localeCompare(b)).flatMap(([date, day]) =>
+    HOUSES.flatMap(h => Object.entries(day[h] ?? {}).map(([k, e]) => ({ id: e.shootId, name: e.name, email: e.email ?? '', date, house: h, start: Number(k), e }))
+      .filter(o => o.id && o.id !== shoot.id && !o.e.hold && !o.e.both && !o.e.move && `${date}T${String(Math.floor(o.start / 60)).padStart(2, '0')}:${String(o.start % 60).padStart(2, '0')}` > now)))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start), [days, now, shoot.id])
+  const term = q.trim().toLowerCase()
+  const shown = (term ? options.filter(o => o.name.toLowerCase().includes(term)) : options).slice(0, 40)
+  async function go() {
+    if (!pick) return
+    setBusy(true); setErr('')
+    try { await swapShootsAsTeam({ a: shoot.id, b: pick.id }); onDone() } catch (e) { setErr(errorText(e)); setBusy(false) }
+  }
+  const label = (date: string, h: House, start: number) => `${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtSlot(start, s.slotMinutes)}`
+  return (
+    <BottomSheet open onClose={onClose} title={`Swap ${shoot.creatorName.split(' ')[0]}'s booking`}>
+      <p className="text-pt-muted text-sm">Now: {label(shoot.date, shoot.place as House, shoot.start)}</p>
+      {!pick ? <>
+        <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name" className={`mt-3 ${field}`} />
+        <div className="mt-2 max-h-[50vh] overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
+          {shown.length === 0 && <p className="text-pt-muted text-sm p-3">No other upcoming house bookings{term ? ` for "${q.trim()}"` : ''}.</p>}
+          {shown.map(o => (
+            <button key={`${o.id}-${o.house}`} onClick={() => setPick(o)} className="w-full flex items-center gap-3 p-3 text-left">
+              <Avatar email={o.email} name={o.name} size={36} />
+              <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm font-semibold truncate">{o.name}{o.e.pending ? ' · asked' : ''}</span>
+                <span className="block text-pt-muted text-xs truncate">{label(o.date, o.house, o.start)}</span></span>
+            </button>
+          ))}
+        </div>
+      </> : (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl bg-pt-bg p-3 text-sm text-pt-text space-y-1">
+            <p><b>{shoot.creatorName}</b> → {label(pick.date, pick.house, pick.start)}</p>
+            <p><b>{pick.name}</b> → {label(shoot.date, shoot.place as House, shoot.start)}</p>
+          </div>
+          <p className="text-pt-muted text-xs">Both get a notification. No strikes. Props move with each shoot if the day changes.</p>
+          {err && <p className="text-red-300 text-sm">{err}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setPick(null)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Back</button>
+            <button disabled={busy} onClick={go} className="flex-1 bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Swapping…' : 'Swap them'}</button>
+          </div>
+        </div>
+      )}
     </BottomSheet>
   )
 }

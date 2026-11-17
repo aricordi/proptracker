@@ -102,6 +102,17 @@ describe('booking requests', () => {
     expect((await book(ANA, { place: 'cliff2', start: 1140 })).ok).toBe(false)   // one a day, same as any booking
   })
 
+  it('the schedule team swaps two bookings straight away; creators can\'t', async () => {
+    const a = await book(KYLE), b = await book(BEN, { place: 'cliff2', start: 900 })
+    expect((await call('swapShootsAsTeam', { a: a.result.id, b: b.result.id }, BEN)).ok).toBe(false)
+    expect((await call('swapShootsAsTeam', { a: a.result.id, b: b.result.id }, MAANIK)).ok).toBe(true)
+    expect(await getDoc(`shoots/${a.result.id}`)).toMatchObject({ place: 'cliff2', start: 900, status: 'booked' })
+    expect(await getDoc(`shoots/${b.result.id}`)).toMatchObject({ place: 'cliff1', start: 780, status: 'requested' })
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff1['780']).toMatchObject({ shootId: b.result.id, pending: true })
+    expect(day.cliff2['900'].shootId).toBe(a.result.id)
+  })
+
   it('Kyle (books without approval) and the schedule team booking for someone are approved at once', async () => {
     expect((await book(KYLE)).result.status).toBe('booked')
     expect((await call('bookShoot', { place: 'cliff2', date: FRI, start: 780, forEmail: ANA }, MAANIK)).result.status).toBe('booked')

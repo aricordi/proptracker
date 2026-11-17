@@ -606,6 +606,52 @@ export const answerSwap = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// The schedule team swaps two bookings straight away (owner, Nov 17: Maanik taps a booking → "Swap with someone else").
+// No asking either creator: like a team move, it never counts against anyone, and props follow to the new day.
+export const swapShootsAsTeam = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'equipment'])
+  const aId = str(req.data?.a, 100), bId = str(req.data?.b, 100)
+  if (!aId || !bId || aId === bId) throw new HttpsError('invalid-argument', 'Pick the two bookings to swap.')
+  const s = await loadScheduleSettings()
+  const at = new Date().toISOString()
+  const aRef = db.doc(`shoots/${aId}`), bRef = db.doc(`shoots/${bId}`)
+  let dayChanged = false
+  await db.runTransaction(async tx => {
+    const [aS, bS] = await Promise.all([tx.get(aRef), tx.get(bRef)])
+    const a = aS.data(), b = bS.data(), now = nowStamp()
+    if (!a || !b) throw new HttpsError('not-found', 'Shoot not found.')
+    const live = (x: any) => x.status === 'booked' || x.status === 'requested'
+    if (!live(a) || !live(b)) throw new HttpsError('failed-precondition', 'One of these bookings is cancelled.')
+    if (a.place === 'offsite' || b.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
+    if (a.bothHouses || b.bothHouses) throw new HttpsError('failed-precondition', 'Both-houses bookings can\'t be swapped.')
+    if (a.moveRequest || b.moveRequest) throw new HttpsError('failed-precondition', 'One of these is waiting for a move to be approved. Decide that first.')
+    if (a.from <= now || b.from <= now) throw new HttpsError('failed-precondition', 'One of these shoots has already started.')
+    dayChanged = a.date !== b.date
+    const write = await editDays(tx, [a.date, b.date], days => {
+      takeOut(days[a.date], a as Spot, aId, false); takeOut(days[b.date], b as Spot, bId, false)
+      const kindAt = (x: any, place: Place): ShootKind => place === MONTHLY_HOUSE ? x.kind : 'extra'
+      placeIn(days[b.date], b as Spot, { shootId: aId, name: a.creatorName, email: a.creatorEmail, kind: kindAt(a, b.place), pending: a.status === 'requested' }, s)
+      placeIn(days[a.date], a as Spot, { shootId: bId, name: b.creatorName, email: b.creatorEmail, kind: kindAt(b, a.place), pending: b.status === 'requested' }, s)
+    })
+    write()
+    const moveTo = (x: any, other: any, name: string) => {
+      const win = slotWindow(other.date, other.start, other.end - other.start)
+      return {
+        place: other.place, date: other.date, start: other.start, end: other.end, where: '', month: monthOf(other.date), from: win.from, to: win.to,
+        kind: other.place === MONTHLY_HOUSE ? x.kind : 'extra', updatedAt: at, teamMovedAt: at,
+        history: FieldValue.arrayUnion({ at, by: caller.email, action: 'swapped', note: `by the schedule team, with ${name}: now ${spotLabel(other, s)}` }),
+      }
+    }
+    tx.update(aRef, moveTo(a, b, b.creatorName))
+    tx.update(bRef, moveTo(b, a, a.creatorName))
+  })
+  if (dayChanged) {
+    await followShoot(aId).catch(e => console.warn('props follow swapped shoot', aId, e))
+    await followShoot(bId).catch(e => console.warn('props follow swapped shoot', bId, e))
+  }
+  return { ok: true }
+})
+
 // ─── Schedule team: blocked time and settings ────────────────────────────────
 
 export const addScheduleBlock = onCall(CALLABLE, async req => {

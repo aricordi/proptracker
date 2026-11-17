@@ -115,6 +115,8 @@ const moveShootFn = httpsCallable<{ id: string; place?: Place; date: string; sta
 export const moveShoot = (d: NonNullable<Parameters<typeof moveShootFn>[0]>) => moveShootFn(asCreatorFlag(d))
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')
 export const answerSwap = httpsCallable<{ id: string; accept: boolean }, { ok: boolean }>(functions, 'answerSwap')
+/** Schedule team: swap two bookings straight away (Nov 17). */
+export const swapShootsAsTeam = httpsCallable<{ a: string; b: string }, { ok: boolean }>(functions, 'swapShootsAsTeam')
 
 export interface SwapRequest {
   id: string

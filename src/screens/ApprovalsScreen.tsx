@@ -99,7 +99,7 @@ export default function ApprovalsScreen() {
         </section>
       </div>}
       {dayOpen && <DaySheet date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)}
-        onGive={(h, st, e) => { setDayOpen(null); setGive({ date: dayOpen, house: h, start: st, holder: { name: e.name, email: e.email ?? '' } }) }} />}
+        onOpen={id => { setDayOpen(null); navigate(`/schedule?shoot=${encodeURIComponent(id)}`) }} />}
       {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
       {done && <Toast text={done} onDone={() => setDone(null)} />}
     </div>
@@ -174,11 +174,11 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
 }
 
 // One day, both houses side by side: who has each time, requests dashed. Offsite shoots and blocks underneath.
-function DaySheet({ date, day, s, email, now, reqs, onClose, onGive }: { date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
-  onGive: (h: House, start: number, e: { name: string; email?: string }) => void }) {
+function DaySheet({ date, day, s, email, now, reqs, onClose, onOpen }: { date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
+  onOpen: (shootId: string) => void }) {
   const cell = (h: House, st: number) => {
     const x = slotState(day, date, h, st, s, email, now, true)
-    if (x.t === 'booked') return <button onClick={() => onGive(h, st, x.entry)} title="Give this slot to someone with priority" className={`block w-full text-left truncate rounded-lg px-2 py-1 text-[13px] ${x.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{x.entry.name}</button>
+    if (x.t === 'booked') return <button onClick={() => onOpen(x.entry.shootId)} title="Open this booking" className={`block w-full text-left truncate rounded-lg px-2 py-1 text-[13px] ${x.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{x.entry.name}</button>
     if (x.t === 'block') return <span className="block truncate text-pt-muted text-[13px] px-2">{x.block.note || BLOCK_TYPES[x.block.type]}</span>
     if (x.t === 'held') return <span className="block truncate text-amber-300 text-[13px] px-2">Held · {x.entry.name}</span>
     if (x.t === 'past') return <span className="block text-pt-muted text-[13px] px-2">—</span>
