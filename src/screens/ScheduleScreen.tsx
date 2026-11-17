@@ -34,7 +34,7 @@ import {
   checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
   monthOf, isShortNotice, withinUndo, bookedLate, cancelCountsAsNoShow, timeSetByTeam, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
-  houseSlotsOn, MONTHLY_SLOTS_ON, isLive,
+  houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive,
 } from '../services/schedule'
 
 const calendarPending = httpsCallable<Record<string, never>, { pending: unknown[] }>(functions, 'calendarPending')
@@ -237,7 +237,7 @@ export default function ScheduleScreen() {
         onOffsite={() => setSheet({ kind: 'offsite', date: sheet.date })} />}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []} day={days?.[sheet.date]} now={now}
-        dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= s.slotsPerDay} onClose={() => setSheet(null)} onBooked={booked} />}
+        dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= slotsPerDayFor(profile.email, s)} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={booked} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
@@ -513,9 +513,19 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   // Loads as soon as the sheet opens (shown only once they pick "+ 1 friend"), so the row is ready and doesn't push the search box down.
   const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !chosen.some(c => c.email === p.email))
   const h = house as House
+  // Long bookers (owner, Nov 17: Danny / Stromedy Studios sometimes needs 6 hours) pick how many slots in a row they need.
+  // Still the 2-hour grid; the free run from this slot caps the choice.
+  const long = !team && house !== 'offsite' && isLongBooker(profile.email, s)
+  const [mySlots, setMySlots] = useState(1)
+  const freeRun = useMemo(() => {
+    let n = 1
+    while (s.slots.includes(start + n * s.slotMinutes) && slotState(day, date, h, start + n * s.slotMinutes, s, profile.email, now, false).t === 'free') n++
+    return n
+  }, [day, date, h, start, s, profile.email, now])
   // The slot(s) right after yours must be free for your friends.
-  const nextFree = Array.from({ length: friendCount }, (_, i) => start + (i + 1) * s.slotMinutes)
+  const nextFree = Array.from({ length: friendCount }, (_, i) => start + (mySlots + i) * s.slotMinutes)
     .every(st => s.slots.includes(st) && slotState(day, date, h, st, s, profile.email, now, false).t === 'free')
+  const total = mySlots + friendCount
   const term = q.trim().toLowerCase()
   const matches = term ? (everyone ?? []).filter(p => !chosen.some(c => c.email === p.email)
     && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
@@ -523,8 +533,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   async function book() {
     setBusy(true); setErr('')
     try {
-      const id = withFriends
-        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), mySlots: 1, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
+      const id = withFriends || mySlots > 1
+        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), mySlots, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
         : (await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })).data.id
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
       setDone(true); setTimeout(() => onBooked(id), 650)
@@ -533,8 +543,8 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   }
   const verb = asks ? 'Request' : 'Book'
   return (
-    <BottomSheet open onClose={onClose} title={withFriends ? `Group booking · ${1 + friendCount} slots` : asks ? "Ask for this slot" : "Book this slot"}>
-      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes * (1 + friendCount))}{withFriends ? ` · ${(s.slotMinutes * (1 + friendCount)) / 60} hours` : ''}</p>
+    <BottomSheet open onClose={onClose} title={withFriends ? `Group booking · ${total} slots` : mySlots > 1 ? `${asks ? 'Ask for' : 'Book'} ${mySlots} slots in a row` : asks ? "Ask for this slot" : "Book this slot"}>
+      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes * total)}{total > 1 ? ` · ${(s.slotMinutes * total) / 60} hours` : ''}</p>
       <p className="text-pt-muted text-xs">{s.houses[h].address}</p>
       {team && (
         <label className="block mt-4"><span className="block text-pt-muted text-xs mb-2">Book for</span>
@@ -542,6 +552,20 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
             <option value="">Me</option>
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
+      )}
+      {long && (
+        <div className="mt-4">
+          <p className="text-pt-muted text-xs mb-2">How long do you need?</p>
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: freeRun }, (_, i) => i + 1).map(n => (
+              <button key={n} onClick={() => setMySlots(n)}
+                className={`min-h-[40px] inline-flex items-center gap-1 rounded-full px-4 text-sm ${mySlots === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'bg-pt-bg text-pt-text'}`}>
+                {(n * s.slotMinutes) / 60} h</button>
+            ))}
+          </div>
+          {freeRun === 1 && <p className="text-pt-muted text-xs mt-2">The slot after this one is taken. Pick an earlier time for a longer shoot.</p>}
+          {mySlots > 1 && <p className="text-pt-muted text-xs mt-2">Until {fmtTime((start + mySlots * s.slotMinutes) % 1440)}: {mySlots} slots back to back, one booking each.</p>}
+        </div>
       )}
       {!team && (
         <div className="mt-4">
@@ -558,7 +582,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
               <div className="flex flex-wrap gap-2">
                 {chosen.map(f => (
                   <button key={f.email} onClick={() => setFriends(x => x.filter(y => y.email !== f.email))} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                    <Avatar email={f.email} name={f.name} size={32} />{f.name.split(' ')[0]} · {fmtTime(start + (chosen.indexOf(f) + 1) * s.slotMinutes)}<span className="text-pt-muted">×</span>
+                    <Avatar email={f.email} name={f.name} size={32} />{f.name.split(' ')[0]} · {fmtTime(start + (chosen.indexOf(f) + mySlots) * s.slotMinutes)}<span className="text-pt-muted">×</span>
                   </button>
                 ))}
               </div>
@@ -984,7 +1008,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
     // The owner booking for themselves follows the priority lock (owner, Oct 27); only equipment overrides it here.
     const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team && role !== 'owner', 2000)
       // Skip days a picked friend already films at a house (they get one slot a day too).
-      .filter(r => team || chosen.every(f => houseSlotsOn(days[r.date], f.email, now) < s.slotsPerDay))
+      .filter(r => team || chosen.every(f => houseSlotsOn(days[r.date], f.email, now) < slotsPerDayFor(f.email, s)))
     const byTime = new Map<string, { date: string; start: number; houses: House[] }>()
     for (const r of found) {
       const k = `${r.date}|${r.start}`

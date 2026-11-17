@@ -3,7 +3,7 @@
 // TimeAsk; the slots themselves always come from findOptions, so a time is never invented.
 import { addDays, weekday, isDay } from './booking.js'
 import { stamp, addMinutes } from './gearBooking.js'
-import { slotState, slotKey, houseSlotsOn, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
+import { slotState, slotKey, houseSlotsOn, slotsPerDayFor, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
 
 export type TimeOfDay = 'any' | 'morning' | 'afternoon' | 'evening' | 'night' | 'late'   // night = 'tonight' (5 PM on)
 export interface TimeAsk {
@@ -110,9 +110,9 @@ export function matchPeople(names: string[], people: Person[], me: string): Pers
 // A length said together with friends is the WHOLE back-to-back block: "4 hours with Ariel" = you 2 h + Ariel 2 h,
 // not 4 h for you. Only an explicit "I need N hours (myself)" / "N hours each" changes your own share.
 // Never fewer than 1 slot for you, never more than 3.
-export function slotsFor(ask: Pick<TimeAsk, 'hours' | 'myHours' | 'mySlots'>, friendCount: number, slotMinutes: number): number {
+export function slotsFor(ask: Pick<TimeAsk, 'hours' | 'myHours' | 'mySlots'>, friendCount: number, slotMinutes: number, max = 3): number {
   const per = slotMinutes / 60
-  const clamp = (n: number) => Math.min(3, Math.max(1, Math.round(n)))
+  const clamp = (n: number) => Math.min(max, Math.max(1, Math.round(n)))
   if (ask.myHours && ask.myHours > 0) return clamp(ask.myHours / per)
   if (ask.hours && ask.hours > 0) return clamp(ask.hours / per - friendCount)
   return friendCount ? 1 : clamp(ask.mySlots || 1)
@@ -285,8 +285,8 @@ export function findOptions(
   const k = ask.mySlots + friends.length
   for (let date = ask.from; date <= ask.to && out.length < max; date = addDays(date, 1)) {
     // One house slot a day each (settings.slotsPerDay): skip days you or a friend already have theirs. The team isn't limited.
-    if (!isTeam && (houseSlotsOn(days[date], me.email, now) + ask.mySlots > s.slotsPerDay
-      || friends.some(f => houseSlotsOn(days[date], f.email, now) >= s.slotsPerDay))) continue
+    if (!isTeam && (houseSlotsOn(days[date], me.email, now) + ask.mySlots > slotsPerDayFor(me.email, s)
+      || friends.some(f => houseSlotsOn(days[date], f.email, now) >= slotsPerDayFor(f.email, s)))) continue
     let perDay = 0
     // Asked for a time ("at 5pm"): try the grid slots closest to it first (both houses), so the exact time leads.
     const order = s.slots.map((_, i) => i)

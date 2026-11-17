@@ -13,7 +13,7 @@ import { addStrike } from './strikes.js'
 import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot, moveReservationToShoot, markShootGone } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
-import { houseSlotsOn, needsGuideline,
+import { houseSlotsOn, needsGuideline, isLongBooker, slotsPerDayFor,
   cleanScheduleSettings, checkSlot, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
@@ -183,7 +183,7 @@ const withdrawInvites = (tx: Transaction, invs: HeldInvite[], at: string) =>
 // One house slot a day per creator (owner, Oct 18; settings.slotsPerDay). The schedule team is never limited, so
 // "manually allowed" = the team books the extra slot for them. Checked on the day doc inside the transaction.
 function assertDayLimit(day: ScheduleDay, email: string, adding: number, s: ScheduleSettings, except: string[] = [], who?: string) {
-  if (houseSlotsOn(day, email, nowStamp(), except) + adding <= s.slotsPerDay) return
+  if (houseSlotsOn(day, email, nowStamp(), except) + adding <= slotsPerDayFor(email, s)) return
   if (who) throw new HttpsError('failed-precondition', `${who} already has a house slot that day (one 2-hour slot a day each).`, { problem: 'day-limit' })
   throw fail('day-limit')
 }
@@ -1124,8 +1124,9 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   const spot = readSpot(d, s)
   if (spot.place === 'offsite') throw new HttpsError('invalid-argument', 'Back-to-back booking is for the houses.')
   const house = spot.place as House
-  const mySlots = Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= 3 ? d.mySlots as number : 1
-  if (!isTeam(caller) && mySlots > s.slotsPerDay) throw fail('day-limit')
+  const maxMine = isLongBooker(caller.email, s) ? s.slots.length : 3
+  const mySlots = Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= maxMine ? d.mySlots as number : 1
+  if (!isTeam(caller) && mySlots > slotsPerDayFor(caller.email, s)) throw fail('day-limit')
   // friends = the people in slot order: an email (someone in the app) or "guest:<Name>" (not on the app yet).
   const raw = (Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).trim()).filter(Boolean) as string[]
   for (const g of (Array.isArray(d.guests) ? d.guests : [])) raw.push(`guest:${str(g, 60)}`)

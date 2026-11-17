@@ -22,6 +22,9 @@ export interface ScheduleSettings {
   monthlySlots: number     // guaranteed Cliff 1 slots per creator per month
   priority: { email: string; name: string }[]   // priority group (Thursdays + Saturdays at Cliff 1)
   instantBookers: { email: string; name: string }[]   // book WITHOUT approval (owner, Nov 2: Kyle / Stromedy have priority)
+  // Book several slots in a row on one day (owner, Nov 17: Danny / Stromedy Studios sometimes needs 6 hours). Still on the
+  // 2-hour grid and still a request unless they're also in instantBookers; the one-slot-a-day limit doesn't apply to them.
+  longBookers: { email: string; name: string }[]
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
@@ -57,6 +60,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   monthlySlots: 4,
   priority: [],
   instantBookers: [],
+  longBookers: [],
   priorityWeekdays: [4, 6],
   releaseMinute: 18 * 60,
   noticeHours: 48,
@@ -106,6 +110,9 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
       : [],
     instantBookers: Array.isArray(x.instantBookers)
       ? x.instantBookers.filter((p: any) => emailOk(p?.email)).map((p: any) => ({ email: p.email.toLowerCase(), name: str(p.name, 80) || p.email })).slice(0, 20)
+      : [],
+    longBookers: Array.isArray(x.longBookers)
+      ? x.longBookers.filter((p: any) => emailOk(p?.email)).map((p: any) => ({ email: p.email.toLowerCase(), name: str(p.name, 80) || p.email })).slice(0, 20)
       : [],
     priorityWeekdays: days,
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
@@ -238,6 +245,10 @@ export function needsGuideline(date: string, house: Place, email: string, s: Sch
 
 // House slots someone has on a day (both houses, plus slots held for them by a friend's invite).
 // Offsite shoots don't count (owner, Oct 18). `except` leaves out a shoot that is being moved or swapped.
+// How many house slots this person may book on one day: everyone gets slotsPerDay, long bookers the whole grid.
+export const isLongBooker = (email: string, s: ScheduleSettings) => (s.longBookers ?? []).some(p => p.email === email.toLowerCase())
+export const slotsPerDayFor = (email: string, s: ScheduleSettings) => isLongBooker(email, s) ? s.slots.length : s.slotsPerDay
+
 export function houseSlotsOn(day: ScheduleDay | undefined, email: string, now: string, except: string[] = []) {
   const e = email.toLowerCase()
   let n = 0

@@ -9,7 +9,7 @@ import { todayInStudio, addDays, weekday, freeForRange, type BookingEntry } from
 import { nowStamp, fmtTime } from './gearBooking.js'
 import { roughParse, roughAdjust, cleanAsk, slotsFor, findOptions, matchPeople, namesIn, namedDate, atTimeNote, type TimeAsk } from './timeFinder.js'
 import { loadScheduleSettings, filmingPeople } from './scheduling.js'
-import { INVITE_HOLD_MINUTES, cleanScheduleSettings, houseSlotsOn, type ScheduleDay } from './schedule.js'
+import { INVITE_HOLD_MINUTES, cleanScheduleSettings, houseSlotsOn, isLongBooker, slotsPerDayFor, type ScheduleDay } from './schedule.js'
 import { collectionOf } from './collections.js'
 import { GEMINI_API_KEY, askJson, embedText, embedTexts, isFakeMode, safeText, safeRich, asData } from './gemini.js'
 import { loadSettings } from './reservations.js'
@@ -389,11 +389,13 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
     && !friends.some(f => firstOf(f.name) === firstOf(n))))].slice(0, Math.max(0, 4 - friends.length))
   for (const g of guests) friends.push({ email: `guest:${g[0].toUpperCase()}${g.slice(1)}`, name: g[0].toUpperCase() + g.slice(1) })
   // The slot count is always the app's own arithmetic (slotsFor), never the AI's guess.
-  ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes) }
+  // Long bookers (Danny, Nov 17) may ask for a whole day in a row; everyone else up to 3 slots.
+  ask = { ...ask, mySlots: slotsFor(ask, friends.length, s.slotMinutes, isLongBooker(caller.email, s) ? s.slots.length : 3) }
   const team = caller.role === 'owner' || caller.role === 'equipment'
-  // Creators get at most settings.slotsPerDay house slots a day (one); only the team can book more.
-  const capped = !team && ask.mySlots > s.slotsPerDay
-  if (capped) ask = { ...ask, mySlots: s.slotsPerDay }
+  // Creators get at most settings.slotsPerDay house slots a day (one); only the team (and long bookers) can book more.
+  const myLimit = slotsPerDayFor(caller.email, s)
+  const capped = !team && ask.mySlots > myLimit
+  if (capped) ask = { ...ask, mySlots: myLimit }
   const unknown = [...new Set([...ask.people.filter(n => !friends.some(f => f.name.toLowerCase().split(/\s+/)[0] === n.toLowerCase().split(/\s+/)[0])),
     ...notFound.filter(n => !friends.some(f => f.name.toLowerCase().startsWith(n.toLowerCase())))])]
   const dates: string[] = []
@@ -422,7 +424,7 @@ Any language: read French ("samedi à 17h", "demain"), Spanish… the same way. 
   const note = guestNote + (unknown.length ? ` I couldn't find ${unknown.join(', ')} in the app, so I left them out.` : '')
     + (capped ? ` You can book one ${s.slotMinutes / 60}-hour house slot a day; ask the schedule team if you need more.` : '')
   // Nothing because they already film that day (one house slot a day): say that, not "nothing is free" (chat QA, Nov 6).
-  const own = !team && ask.from === ask.to && houseSlotsOn(days[ask.from], caller.email, now) >= s.slotsPerDay
+  const own = !team && ask.from === ask.to && houseSlotsOn(days[ask.from], caller.email, now) >= myLimit
   if (!options.length && own) return { reply: `You already have a house slot on ${dayLabelOf(ask.from)} (one a day each). Pick another day, or move that shoot.`, ask: { ...ask, people: friends.map(f => f.name) }, friends, options }
   // `notice` = what still needs saying when the chat shows its own short reaction instead of `reply` (the asked time
   // isn't free, a friend wasn't found, one slot a day). Empty when the options speak for themselves.

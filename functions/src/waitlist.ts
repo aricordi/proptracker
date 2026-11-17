@@ -13,7 +13,7 @@ import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator } from './auth.js
 import { isDay } from './booking.js'
 import { nowStamp, addMinutes } from './gearBooking.js'
 import { loadScheduleSettings } from './scheduling.js'
-import { blockAt, houseSlotsOn, INVITE_HOLD_MINUTES, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
+import { blockAt, houseSlotsOn, slotsPerDayFor, INVITE_HOLD_MINUTES, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
 import { freedSlots, MAX_WAITING, nextInLine, positionOf, slotOccupant, waitId, type WaitEntry } from './waitlistRules.js'
 
 const emailKey = (email: string) => createHash('sha1').update(email.toLowerCase()).digest('hex').slice(0, 16)
@@ -39,7 +39,7 @@ export const joinWaitlist = onCall(CALLABLE, async req => {
   if (who === 'free') throw fail('free', "That time is free right now: book it instead.")
   if (who === 'mine') throw fail('mine', "That one's already yours.")
   if (who === 'blocked') throw fail('blocked', "That time is blocked by the team, so it won't open up.")
-  if (houseSlotsOn(day, caller.email, now) >= s.slotsPerDay) throw fail('day-limit', 'You already have a house slot that day (one 2-hour slot a day each).')
+  if (houseSlotsOn(day, caller.email, now) >= slotsPerDayFor(caller.email, s)) throw fail('day-limit', 'You already have a house slot that day (one 2-hour slot a day each).')
   if (priorityLocked(date, house, s, caller.email, now)) throw fail('locked', "That's a priority-day slot that hasn't opened to everyone yet.")
   // A priority-day slot at Cliff 1 needs a filming guideline (PDF), which a one-tap waitlist can't ask for.
   if (needsGuideline(date, house, caller.email, s)) throw fail('guideline', 'Thursdays and Saturdays at Cliff 1 need a filming guideline, so the waitlist doesn\'t cover them. Ask for another time.')
@@ -79,7 +79,7 @@ export const myWaitlist = onCall(CALLABLE, async req => {
 
 // Can this person still take the slot? (They might have booked something else that day, or lost access.)
 async function stillEligible(w: WaitEntry, day: ScheduleDay | undefined, s: ScheduleSettings, now: string): Promise<string> {
-  if (houseSlotsOn(day, w.email, now) >= s.slotsPerDay) return 'has-slot'
+  if (houseSlotsOn(day, w.email, now) >= slotsPerDayFor(w.email, s)) return 'has-slot'
   if (priorityLocked(w.date, w.house, s, w.email, now)) return 'locked'
   if (w.email !== OWNER_EMAIL) {
     const u = (await db.doc(`users/${w.email}`).get()).data()

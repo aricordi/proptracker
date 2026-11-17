@@ -27,6 +27,9 @@ export default function ScheduleSettingsScreen() {
   const toggle = (p: { email: string; name: string }) =>
     set({ priority: inGroup(p.email) ? s.priority.filter(x => x.email !== p.email) : [...s.priority, { email: p.email, name: p.name }] })
   const isInstant = (email: string) => s.instantBookers.some(p => p.email === email)
+  const isLong = (email: string) => (s.longBookers ?? []).some(p => p.email === email)
+  const toggleLong = (p: { email: string; name: string }) =>
+    set({ longBookers: isLong(p.email) ? s.longBookers.filter(x => x.email !== p.email) : [...(s.longBookers ?? []), { email: p.email, name: p.name }] })
   const toggleInstant = (p: { email: string; name: string }) =>
     set({ instantBookers: isInstant(p.email) ? s.instantBookers.filter(x => x.email !== p.email) : [...s.instantBookers, { email: p.email, name: p.name }] })
   const outsiders = s.priority.filter(p => !people.some(x => x.email === p.email))
@@ -152,6 +155,20 @@ export default function ScheduleSettingsScreen() {
             {[...people, ...s.instantBookers.filter(p => !people.some(x => x.email === p.email)).map(p => ({ ...p, role: '' }))].map(p => (
               <label key={p.email} className="flex items-center gap-3 px-3 py-3">
                 <input type="checkbox" checked={isInstant(p.email)} onChange={() => toggleInstant(p)} />
+                <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
+              </label>
+            ))}
+          </div>
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <h2 className="text-pt-text font-semibold">Can book several slots in a row ({(s.longBookers ?? []).length})</h2>
+          <p className="text-pt-muted text-xs">Everyone else gets {s.slotsPerDay === 1 ? 'one house slot' : `${s.slotsPerDay} house slots`} a day. People ticked here (e.g. Danny / Stromedy Studios) can book as many slots back to back as they need (2 h, 4 h, 6 h…). It's still asked for and approved, unless they're also ticked above.</p>
+          <div className="max-h-60 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
+            {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
+            {[...people, ...(s.longBookers ?? []).filter(p => !people.some(x => x.email === p.email)).map(p => ({ ...p, role: '' }))].map(p => (
+              <label key={p.email} className="flex items-center gap-3 px-3 py-3">
+                <input type="checkbox" checked={isLong(p.email)} onChange={() => toggleLong(p)} />
                 <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
               </label>
             ))}

@@ -64,6 +64,18 @@ describe('booking requests', () => {
     expect((await book(OWNER, { start: 900 })).result.status).toBe('booked')
   })
 
+  it('a long booker (Danny) can ask for several slots in a row; others still get one a day', async () => {
+    await put('app_settings/schedule', { instantBookers: [{ email: KYLE, name: 'Kyle' }], longBookers: [{ email: BEN, name: 'Ben' }] })
+    const r = await call('bookWithFriends', { place: 'cliff1', date: FRI, start: 780, mySlots: 3, friends: [] }, BEN)
+    expect(r.ok).toBe(true)
+    expect(r.result.shootIds).toHaveLength(3)
+    expect(r.result.status).toBe('requested')
+    const day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(['780', '900', '1020'].every(k => day.cliff1[k]?.email === BEN)).toBe(true)
+    expect((await book(BEN, { place: 'cliff2', start: 780 })).ok).toBe(true)   // no one-a-day limit for him
+    expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 1140, mySlots: 2, friends: [] }, ANA)).ok).toBe(false)
+  })
+
   it('Kyle (books without approval) and the schedule team booking for someone are approved at once', async () => {
     expect((await book(KYLE)).result.status).toBe('booked')
     expect((await call('bookShoot', { place: 'cliff2', date: FRI, start: 780, forEmail: ANA }, MAANIK)).result.status).toBe('booked')

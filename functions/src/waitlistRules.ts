@@ -1,6 +1,6 @@
 // "Notify me if it opens" (owner, Nov 7): the pure rules of the house-slot waitlist, shared by the server (waitlist.ts)
 // and the app. No database here, so every rule is unit-tested.
-import { blockAt, holdActive, houseSlotsOn, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
+import { blockAt, holdActive, houseSlotsOn, slotsPerDayFor, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
 
 export const MAX_WAITING = 5   // waiting entries per person at once
 export type WaitStatus = 'waiting' | 'offered' | 'done' | 'left' | 'expired'
@@ -35,7 +35,7 @@ export function slotOccupant(day: ScheduleDay | undefined, house: House, start: 
 export function waitRefusal(day: ScheduleDay | undefined, date: string, house: House, start: number, s: ScheduleSettings, email: string, now: string):
   'past' | 'day-limit' | 'locked' | 'guideline' | null {
   if (slotWindow(date, start, s.slotMinutes).from <= now) return 'past'
-  if (houseSlotsOn(day, email, now) >= s.slotsPerDay) return 'day-limit'
+  if (houseSlotsOn(day, email, now) >= slotsPerDayFor(email, s)) return 'day-limit'
   if (priorityLocked(date, house, s, email, now)) return 'locked'
   if (needsGuideline(date, house, email, s)) return 'guideline'
   return null
