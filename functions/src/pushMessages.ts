@@ -8,7 +8,8 @@ import { checkinWindow, isMissed, expectsCheckIn, explainUntil, INVITE_HOLD_MINU
 
 type Doc = Record<string, any> | null | undefined
 // Who: email addresses, or a whole team ('arts-team' = props, 'gear-team' = equipment + schedule).
-export interface Push { to: string[]; title: string; body: string; url: string; tag?: string }
+// except: people NOT to send to even if a team in `to` includes them (e.g. the person who just cancelled).
+export interface Push { to: string[]; title: string; body: string; url: string; tag?: string; except?: string[] }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -247,6 +248,23 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'cancelled' && h.note === 'deleted in Google Calendar') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the calendar by the schedule team (no strike).` }]
   if (h.action === 'cancelled') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was cancelled by the schedule team.` }]
   return []
+}
+
+// A house shoot TODAY was cancelled while its time is still ahead (owner, Nov 17: "send out a notification to everybody
+// that the house is free because somebody cancelled last minute, so anybody can go in and book it"). Everyone who films
+// (Full app creators + owner) and the schedule team hear it, except the person whose shoot it was. Not when the slot went
+// straight to someone else (priority booking) or a newer entry for that person replaced it.
+export function houseFreed(id: string, b: Doc, a: Doc, s: ScheduleSettings, now: string): Push[] {
+  if (!a || !b || b.status !== 'booked' || a.status !== 'cancelled') return []
+  if (a.place !== 'cliff1' && a.place !== 'cliff2') return []
+  if (a.bumped) return []
+  if (String(a.date) !== now.slice(0, 10) || !a.to || String(a.to) <= now) return []
+  const h = ((a.history ?? []) as { action?: string; note?: string }[]).at(-1)
+  if (!h || h.action !== 'cancelled' || h.note === 'replaced by a newer calendar entry for the same day') return []
+  const houses = a.bothHouses ? `${s.houses.cliff1?.name ?? 'Cliff 1'} and ${s.houses.cliff2?.name ?? 'Cliff 2'} are` : `${placeName(a, s)} is`
+  return [{ to: ['creators', 'gear-team'], except: [String(a.creatorEmail ?? '')], url: '/schedule', tag: `free-${id}`,
+    title: `${placeName(a, s)} is free today`,
+    body: `${houses} free from ${fmtTime(a.start)}: a shoot was just cancelled. Want it? Book it in the app before someone else does.` }]
 }
 
 // ─── Reminders (the timer runs every 10 minutes) ─────────────────────────────

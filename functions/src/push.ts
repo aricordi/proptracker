@@ -14,7 +14,7 @@ import { openLinks } from './shootLinks.js'
 import { addDays, todayInStudio, propsDeadline, shootStartStamp } from './booking.js'
 import { nowStamp, addMinutes } from './gearBooking.js'
 import {
-  inviteChange, swapChange, reservationChange, gearChange, reportCreated, strikeCreated, shootChange,
+  inviteChange, swapChange, reservationChange, gearChange, reportCreated, strikeCreated, shootChange, houseFreed,
   shootReminders, propsReminders, gearReminders, type Push, type Reminder,
 } from './pushMessages.js'
 
@@ -33,6 +33,11 @@ async function resolve(to: string[]): Promise<string[]> {
       const roles = t === 'arts-team' ? ['arts'] : t === 'gear-team' ? ['equipment'] : ['equipment', 'admin']
       const team = (await db.collection('users').where('role', 'in', roles).where('active', '==', true).get()).docs.map(d => d.id)
       ;(team.length ? team : [OWNER_EMAIL]).forEach(e => out.add(e))
+    } else if (t === 'creators') {
+      // Everyone who can book: active creators on the Full app + the owner (Props-only creators can't book yet).
+      const people = (await db.collection('users').where('role', '==', 'creator').where('active', '==', true).get()).docs
+        .filter(d => d.get('access') === 'full').map(d => d.id)
+      ;[...people, OWNER_EMAIL].forEach(e => out.add(e))
     } else if (t) out.add(t.toLowerCase())
   }
   return [...out]
@@ -49,7 +54,8 @@ export async function sendPush(p: Push): Promise<number> {
   return (await sendPushDetailed(p)).sent
 }
 export async function sendPushDetailed(p: Push): Promise<{ sent: number; phones: number; errors: string[] }> {
-  const emails = await resolve(p.to)
+  const skip = new Set((p.except ?? []).map(e => e.toLowerCase()))
+  const emails = (await resolve(p.to)).filter(e => !skip.has(e))
   if (!emails.length) return { sent: 0, phones: 0, errors: [] }
   if (isEmulator()) {
     await db.collection('push_log').add({ ...p, to: emails, at: new Date().toISOString() })
@@ -154,7 +160,9 @@ export const pushOnGearBooking = onDocumentWritten('gear_bookings/{id}', async e
   await sendAll(gearChange(e.params.id, e.data?.before.data(), e.data?.after.data()))
 })
 export const pushOnShoot = onDocumentWritten('shoots/{id}', async e => {
-  await sendAll(shootChange(e.params.id, e.data?.before.data(), e.data?.after.data(), await loadScheduleSettings()))
+  const s = await loadScheduleSettings()
+  const before = e.data?.before.data(), after = e.data?.after.data()
+  await sendAll([...shootChange(e.params.id, before, after, s), ...houseFreed(e.params.id, before, after, s, nowStamp())])
 })
 export const pushOnReport = onDocumentCreated('schedule_reports/{id}', async e => {
   await sendAll(reportCreated(e.params.id, e.data?.data()))

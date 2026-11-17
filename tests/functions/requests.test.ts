@@ -56,6 +56,14 @@ describe('booking requests', () => {
     expect((await decide(ARTS, r.result.id, true)).ok).toBe(false)
   })
 
+  it('the owner in creator mode asks like any creator; in owner mode it is approved at once', async () => {
+    const OWNER = 'alexisricordi@gmail.com'
+    const asCreator = await book(OWNER, { asCreator: true })
+    expect(asCreator.ok).toBe(true)
+    expect(asCreator.result.status).toBe('requested')
+    expect((await book(OWNER, { start: 900 })).result.status).toBe('booked')
+  })
+
   it('Kyle (books without approval) and the schedule team booking for someone are approved at once', async () => {
     expect((await book(KYLE)).result.status).toBe('booked')
     expect((await call('bookShoot', { place: 'cliff2', date: FRI, start: 780, forEmail: ANA }, MAANIK)).result.status).toBe('booked')

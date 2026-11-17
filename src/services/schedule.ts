@@ -78,7 +78,12 @@ export function useShoot(id: string | null): Shoot | null | undefined {
 }
 
 export type Guideline = { url: string; name: string }
-export const bookShoot = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
+// Owner, Nov 17: in creator mode the owner's own bookings go in as requests (the server reads `asCreator`). App.tsx keeps this in step.
+let asCreator = false
+export function setActingAsCreator(on: boolean) { asCreator = on }
+const asCreatorFlag = <T extends object>(d: T): T => (asCreator ? { ...d, asCreator: true } : d)
+const bookShootFn = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline; bothHouses?: boolean; asCreator?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
+export const bookShoot = (d: NonNullable<Parameters<typeof bookShootFn>[0]>) => bookShootFn(asCreatorFlag(d))
 export const redoCalendarImport = httpsCallable<{ shootId: string }, { removed: number; eventId: string }>(functions, 'redoCalendarImport')
 // Requests → Calendar (owner, Nov 4): Google Calendar imports waiting for the equipment team to check.
 export interface QueueItem {
@@ -105,7 +110,8 @@ export type QueueFix = { action: 'shoot' | 'block'; emails: string[]; house: str
 export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix' | 'restore'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const confirmAllCalendar = httpsCallable<{ action: 'confirmAll'; ids: string[] }, { ok: boolean; confirmed: number; left: number }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
-export const moveShoot = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
+const moveShootFn = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline; asCreator?: boolean }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
+export const moveShoot = (d: NonNullable<Parameters<typeof moveShootFn>[0]>) => moveShootFn(asCreatorFlag(d))
 export const requestSwap = httpsCallable<{ myShootId: string; theirShootId: string }, { id: string }>(functions, 'requestSwap')
 export const answerSwap = httpsCallable<{ id: string; accept: boolean }, { ok: boolean }>(functions, 'answerSwap')
 
@@ -152,7 +158,8 @@ export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgo
   }, [email])
   return { incoming, outgoing }
 }
-export const bookWithFriends = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
+const bookWithFriendsFn = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline; asCreator?: boolean }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
+export const bookWithFriends = (d: NonNullable<Parameters<typeof bookWithFriendsFn>[0]>) => bookWithFriendsFn(asCreatorFlag(d))
 export const answerInvite = httpsCallable<{ id: string; accept: boolean }, { ok: boolean; shootId: string | null }>(functions, 'answerInvite')
 export interface TimeAskResult {
   reply: string

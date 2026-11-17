@@ -49,8 +49,11 @@ const shortNoticeFail = (s: ScheduleSettings) =>
 // admin / the owner) approves or denies it. The schedule team booking for someone, the owner booking for themselves, and the
 // people on the "books without approval" list (Kyle) are approved at once.
 export const APPROVERS = ['owner', 'equipment', 'admin'] as const
-export const needsApproval = (caller: Caller, forEmail: string, s: ScheduleSettings) =>
-  !isTeam(caller) && !s.instantBookers.some(p => p.email === forEmail.toLowerCase())
+// Owner, Nov 17: the owner using the app AS A CREATOR (Me → Use the app as: Creator) sends `asCreator`; their OWN bookings
+// and moves then go in as requests like anyone else's (Maanik or an admin approves). Booking for someone else is unchanged.
+export const needsApproval = (caller: Caller, forEmail: string, s: ScheduleSettings, asCreator = false) =>
+  (asCreator === true && caller.role === 'owner' && forEmail.toLowerCase() === caller.email)
+  || (!isTeam(caller) && !s.instantBookers.some(p => p.email === forEmail.toLowerCase()))
 
 export async function loadScheduleSettings(): Promise<ScheduleSettings> {
   return cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
@@ -216,7 +219,7 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
-  const pending = needsApproval(caller, who.email, s)
+  const pending = needsApproval(caller, who.email, s, d.asCreator === true)
   await db.runTransaction(async tx => {
     const write = await editDays(tx, [spot.date], days => {
       if (spot.place !== 'offsite' && !isTeam(caller)) assertDayLimit(days[spot.date], who.email, 1, s)
@@ -335,7 +338,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
     // A request that isn't approved yet just moves (it stays a request). An approved shoot's move is a NEW request
     // (owner, Nov 2): the new spot is held as "move" and the old spot stays theirs until it's approved.
     const stillRequest = b.status === 'requested'
-    const asRequest = !stillRequest && needsApproval(caller, b.creatorEmail, s)
+    const asRequest = !stillRequest && needsApproval(caller, b.creatorEmail, s, d.asCreator === true)
     // Inside the notice period a creator can't move, unless the team set this time for them (a priority booking or a team move).
     if (!team && !stillRequest && isShortNotice(b.from, now, s) && !timeSetByTeam(b)) throw shortNoticeFail(s)
     const old = b.moveRequest as Spot | undefined
@@ -1153,7 +1156,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   if (kind === 'monthly' && await monthlyUsed(caller.email, monthOf(spot.date)) + mySlots > s.monthlySlots) throw fail('no-monthly-left')
 
   const at = new Date().toISOString()
-  const pending = needsApproval(caller, caller.email, s)
+  const pending = needsApproval(caller, caller.email, s, d.asCreator === true)
   const shootRefs = starts.slice(0, mySlots).map(() => db.collection('shoots').doc())
   const friendRefs = friends.map(() => db.collection('shoots').doc())
   const withNames = friends.map(f => f.name).join(' and ')

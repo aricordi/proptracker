@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode } from 'react'
+import { setActingAsCreator } from './services/schedule'
 import { refreshPush } from './services/push'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged, User } from 'firebase/auth'
@@ -295,6 +296,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [user, profile, viewAs, creatorMode],
   )
+  // The owner's own bookings in creator mode go in as requests (owner, Nov 17). Set during render so it's right on the first tap.
+  setActingAsCreator(!!session?.creatorMode)
   const [profileLoading, setProfileLoading] = useState(false)
 
   useEffect(() => onAuthStateChanged(auth, u => {

@@ -1,6 +1,6 @@
 // Phone notifications: who gets told what, and when the reminders go out.
 import { describe, it, expect } from 'vitest'
-import { inviteChange, swapChange, reservationChange, gearChange, shootChange, strikeCreated, reportCreated, shootReminders, propsReminders, gearReminders, dayLabel } from '../../functions/src/pushMessages'
+import { inviteChange, swapChange, reservationChange, gearChange, shootChange, strikeCreated, reportCreated, houseFreed, shootReminders, propsReminders, gearReminders, dayLabel } from '../../functions/src/pushMessages'
 import { cleanScheduleSettings } from '../../functions/src/schedule'
 
 const s = cleanScheduleSettings({})
@@ -178,5 +178,23 @@ describe('more notifications (Nov 3)', () => {
     // A request the creator takes back doesn't ping anyone (it just disappears from the list).
     const withdrawn = { ...sh, status: 'cancelled', history: [...sh.history, { by: 'c@x.com', action: 'cancelled' }] }
     expect(shootChange('x1', sh, withdrawn, s)).toEqual([])
+  })
+})
+
+describe('house freed up today', () => {
+  const sh = { creatorEmail: 'c@x.com', creatorName: 'Cam', place: 'cliff1', date: '2026-10-23', start: 900, end: 1020, to: '2026-10-23T17:00', status: 'booked', history: [] as unknown[] }
+  const gone = { ...sh, status: 'cancelled', history: [{ by: 'c@x.com', action: 'cancelled' }] }
+  it('tells everyone who films + the gear team, not the person who cancelled', () => {
+    const [p] = houseFreed('h1', sh, gone, s, '2026-10-23T11:00')
+    expect(p).toMatchObject({ to: ['creators', 'gear-team'], except: ['c@x.com'], title: 'Cliff 1 is free today', url: '/schedule' })
+    expect(p.body).toMatch(/free from 3 PM/)
+  })
+  it('stays quiet when it is not today, already over, offsite, bumped, replaced or never approved', () => {
+    expect(houseFreed('h1', sh, gone, s, '2026-10-22T11:00')).toEqual([])
+    expect(houseFreed('h1', sh, gone, s, '2026-10-23T17:30')).toEqual([])
+    expect(houseFreed('h1', { ...sh, place: 'offsite' }, { ...gone, place: 'offsite' }, s, '2026-10-23T11:00')).toEqual([])
+    expect(houseFreed('h1', sh, { ...gone, bumped: { for: 'k@x.com' } }, s, '2026-10-23T11:00')).toEqual([])
+    expect(houseFreed('h1', sh, { ...gone, history: [{ action: 'cancelled', note: 'replaced by a newer calendar entry for the same day' }] }, s, '2026-10-23T11:00')).toEqual([])
+    expect(houseFreed('h1', { ...sh, status: 'requested' }, gone, s, '2026-10-23T11:00')).toEqual([])
   })
 })
