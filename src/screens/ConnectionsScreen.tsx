@@ -10,7 +10,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { friendlyError } from '../lib/errors'
-import { useScheduleSettings, saveScheduleSettings, testCalendarLink, errorText, type CalendarFeed } from '../services/schedule'
+import { useScheduleSettings, saveScheduleSettings, testCalendarLink, errorText, oldCalendarFor, defaultTitleStyle, type CalendarFeed } from '../services/schedule'
 import { subscribeToEmailSettings, saveEmailSettings, sendTestEmail, EMPTY_EMAIL_SETTINGS, type EmailSettings } from '../services/email'
 import { cleanClientId, cleanSecret } from '../../functions/src/googleLink'
 
@@ -23,6 +23,7 @@ const googleAccountStatus = httpsCallable<Record<string, never>, Status>(functio
 const saveGoogleClient = httpsCallable<{ clientId: string; clientSecret: string }, { ok: boolean }>(functions, 'saveGoogleClient')
 const googleConnectStart = httpsCallable<{ origin: string; loginHint?: string }, { url: string }>(functions, 'googleConnectStart')
 const previewCalendarImport = httpsCallable<Record<string, never>, { events: { calendar?: string; kind: string }[]; calendars: { name: string; title: string; found: number; hidden: number; error?: string }[] }>(functions, 'previewCalendarImport', { timeout: 130_000 })
+const checkCalendarAccess = httpsCallable<Record<string, never>, { account: string; calendars: { id: string; name: string; role: string; canWrite: boolean; error?: string }[] }>(functions, 'checkCalendarAccess', { timeout: 70_000 })
 const googleDisconnect = httpsCallable<Record<string, never>, { ok: boolean }>(functions, 'googleDisconnect')
 
 const PROJECT = 'proptracker-9732e'
@@ -62,6 +63,26 @@ export default function ConnectionsScreen() {
   useEffect(() => { setFeeds(sched.calendarFeeds ?? []) }, [feedsKey])   // eslint-disable-line react-hooks/exhaustive-deps
   const feedsChanged = JSON.stringify(feeds.filter(f => f.id)) !== feedsKey
   const [feedMsg, setFeedMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // Writing app bookings into the old calendars (owner, Nov 16): who can write where, as Google says.
+  const [access, setAccess] = useState<Record<string, { canWrite: boolean; role: string; error?: string }> | null>(null)
+  const [writeMsg, setWriteMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  async function checkAccess() {
+    setBusy('access'); setWriteMsg(null)
+    try {
+      const r = (await checkCalendarAccess({})).data
+      setAccess(Object.fromEntries(r.calendars.map(x => [x.id, x])))
+      const bad = r.calendars.filter(x => !x.canWrite && x.id !== sched.googleCalendarId)
+      setWriteMsg(bad.length ? { ok: false, text: `${bad.map(x => x.name).join(', ')}: the app can only read ${bad.length === 1 ? 'it' : 'them'}. Share with ${r.account || 'the account'} as "Make changes to events", wait a minute, check again.` }
+        : { ok: true, text: 'The app can write to every old calendar ✓' })
+    } catch (e) { setWriteMsg({ ok: false, text: errorText(e) }) } finally { setBusy('') }
+  }
+  async function setWriteOld(on: boolean) {
+    setBusy('write'); setWriteMsg(null)
+    try {
+      await saveScheduleSettings({ ...sched, writeOldCalendars: on })
+      setWriteMsg({ ok: true, text: on ? 'On ✓ New and changed app bookings go into the old calendars now; bookings already on the schedule are added over the next few checks (every 15 minutes).' : 'Off. Nothing more is written to the old calendars (what is already there stays).' })
+    } catch (e) { setWriteMsg({ ok: false, text: errorText(e) }) } finally { setBusy('') }
+  }
   // Step 3 bits.
   const [mail, setMail] = useState<EmailSettings>(EMPTY_EMAIL_SETTINGS)
   const [from, setFrom] = useState(''), [name, setName] = useState('')
@@ -101,7 +122,9 @@ export default function ConnectionsScreen() {
   async function saveFeeds() {
     setBusy('feeds'); setFeedMsg(null)
     try {
-      const list = feeds.filter(f => f.id.trim()).map(f => ({ ...f, id: f.id.trim(), name: f.name.trim() || 'Old calendar' }))
+      // A title without {name} isn't kept (the server would drop it too): the default for that kind of calendar is used.
+      const list = feeds.filter(f => f.id.trim()).map(({ titleStyle, ...f }) => ({ ...f, id: f.id.trim(), name: f.name.trim() || 'Old calendar', ...(titleStyle?.includes('{name}') ? { titleStyle: titleStyle.trim() } : {}) }))
+      setFeeds(list)
       await saveScheduleSettings({ ...sched, calendarFeeds: list })
       if (!list.length) { setFeedMsg({ ok: true, text: 'Saved. No old calendars are read.' }); return }
       const r = (await previewCalendarImport({})).data
@@ -216,11 +239,13 @@ export default function ConnectionsScreen() {
               <input value={calId} onChange={e => { setCalId(e.target.value.trim()); setCalMsg(null) }} placeholder="abc123@group.calendar.google.com" className={field} autoCapitalize="none" aria-label="App calendar ID" />
               <button onClick={linkCalendar} disabled={!!busy || !calId || !accountOk} className={btn}>{busy === 'cal' ? 'Checking…' : 'Save & test'}</button>
               {calMsg && <p className={`text-sm ${calMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{calMsg.text}</p>}</>)}
-            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey, heads-up orange), with the props on each shoot. Share this one calendar with everyone who needs to see the schedule. Shoots and blocks from the old calendars are copied in too, in the same colours, once the team has confirmed them in Requests → Google Calendar (the old calendars' own events are never changed).</p>
+            <p className="text-pt-muted text-xs">Every booking, move, cancel and blocked time made in the app goes here, one colour per place (Cliff 1 yellow, Cliff 2 blue, offsite green, blocked grey, heads-up orange), with the props on each shoot. Share this one calendar with everyone who needs to see the schedule. Shoots and blocks from the old calendars are copied in too, in the same colours.</p>
 
             <div className="border-t border-pt-border pt-3 space-y-3">
-              <p className="text-pt-text text-sm font-semibold">Old calendars (read only)</p>
-              <p className="text-pt-muted text-[13px]">The calendars the team still uses until everyone is on the app. Share each with {c?.email ?? 'the account'} (<b>"See all event details"</b> is enough) and paste its ID. The app only reads them: it never adds, changes or removes anything there, and their new events wait on the import screen until you check them.</p>
+              <p className="text-pt-text text-sm font-semibold">Old calendars</p>
+              <p className="text-pt-muted text-[13px]">The calendars the team still uses until everyone is on the app. Share each with {c?.email ?? 'the account'} and paste its ID. The app reads them every 15 minutes and follows what's there. {sched.writeOldCalendars
+                ? <>It also writes approved app bookings into them (share as <b>"Make changes to events"</b>).</>
+                : <>To let it write app bookings into them too, share as <b>"Make changes to events"</b> and turn that on below.</>}</p>
               {feeds.map((f, i) => (
                 <div key={i} className="bg-pt-bg rounded-xl p-3 space-y-2">
                   <div className="flex gap-2">
@@ -231,9 +256,13 @@ export default function ConnectionsScreen() {
                   <div className="grid grid-cols-3 gap-1 text-xs">
                     {([['cliff1', `All ${sched.houses.cliff1.name}`], ['cliff2', `All ${sched.houses.cliff2.name}`], ['any', 'Mixed / not sure']] as const).map(([h, l]) => (
                       <button key={h} onClick={() => setFeeds(list => list.map((x, j) => j === i ? { ...x, house: h } : x))}
-                        className={`rounded-lg py-2 ${f.house === h ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
+                        className={`min-h-[40px] rounded-lg py-2 ${f.house === h ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
                     ))}
                   </div>
+                  <label className="block space-y-1"><span className="text-pt-muted text-xs">Title for app bookings written here ({'{name}'} = the creator)</span>
+                    <input value={f.titleStyle ?? ''} onChange={e => setFeeds(l => l.map((x, j) => j === i ? { ...x, titleStyle: e.target.value.slice(0, 80) } : x))}
+                      placeholder={defaultTitleStyle(f.house)} className={`${field} bg-pt-surface`} aria-label="Title for app bookings" /></label>
+                  {access?.[f.id] && <p className={`text-xs ${access[f.id].canWrite ? 'text-green-400' : 'text-amber-300'}`}>{access[f.id].canWrite ? 'The app can write here ✓' : access[f.id].error ?? 'Read only: share as "Make changes to events"'}</p>}
                 </div>
               ))}
               <div className="flex gap-2">
@@ -242,6 +271,26 @@ export default function ConnectionsScreen() {
               </div>
               {feedMsg && <p className={`text-sm ${feedMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{feedMsg.text}</p>}
             </div>
+            {/* Owner, Nov 16: until everyone is on the app, app bookings go into the old calendars too. */}
+            {feeds.some(f => f.id) && (
+              <div className="border-t border-pt-border pt-3 space-y-3">
+                <p className="text-pt-text text-sm font-semibold">Write app bookings into the old calendars</p>
+                <p className="text-pt-muted text-[13px]">When a booking made in the app is approved, it's also added to the old calendar for its house, titled like the events people add by hand. Changes go both ways: move or delete it in any of the calendars, or in the app, and the newest change wins everywhere. A shoot that came from an old calendar and is moved or cancelled in the app is changed there too.</p>
+                <ul className="text-[13px] text-pt-text space-y-1">
+                  {(['cliff1', 'cliff2', 'offsite'] as const).map(pl => {
+                    const t = oldCalendarFor({ calendarFeeds: feeds.filter(f => f.id), googleCalendarId: sched.googleCalendarId }, pl)
+                    return <li key={pl}>{pl === 'offsite' ? 'Offsite' : sched.houses[pl].name} → {t ? <b>{t.name || 'Old calendar'}</b> : <span className="text-pt-muted">no calendar (set one to "{pl === 'offsite' ? 'Mixed / not sure' : `All ${sched.houses[pl].name}`}")</span>}</li>
+                  })}
+                </ul>
+                <div className="flex gap-2">
+                  <button onClick={checkAccess} disabled={!!busy || !accountOk} className={`flex-1 ${quiet}`}>{busy === 'access' ? 'Checking…' : 'Can the app write there?'}</button>
+                  <button onClick={() => setWriteOld(!sched.writeOldCalendars)} disabled={!!busy || !accountOk || feedsChanged} className={`flex-1 ${sched.writeOldCalendars ? quiet : btn}`}>
+                    {busy === 'write' ? 'Saving…' : sched.writeOldCalendars ? 'Turn off' : 'Turn on'}</button>
+                </div>
+                <p className="text-xs text-pt-muted">{sched.writeOldCalendars ? 'On.' : 'Off.'}{feedsChanged ? ' Save the calendars above first.' : ''}</p>
+                {writeMsg && <p className={`text-sm ${writeMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{writeMsg.text}</p>}
+              </div>
+            )}
             <div className="flex gap-2 border-t border-pt-border pt-3">
               <button onClick={() => navigate('/schedule/import')} className={`flex-1 ${quiet}`}>Check old events ›</button>
               <button onClick={() => navigate('/schedule/calendar')} className={`flex-1 ${quiet}`}>What the app added ›</button>

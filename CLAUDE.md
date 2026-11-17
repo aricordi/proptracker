@@ -2657,6 +2657,28 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Nov 16 (owner "go live"): backend run 43885341596 + website run 43885347277 = props follow the shoot to another day,
       app calendar always matches the old calendars, Google calendars are the rule (auto-confirm), app-calendar drags/deletes
       followed, newest entry wins, props kept when a shoot is deleted.
+    - WRITE TO THE OLD CALENDARS (owner, Nov 16/17: "things done through the app should be propagated throughout all the calendars…
+      whatever the latest update is, that's the truth", until everyone is onboarded; owner picked: BY HOUSE (Cliff 1 → the cliff1 feed,
+      Cliff 2 → the cliff2 feed, offsite → the first mixed feed), EDIT ORIGINALS (newest wins), THEIR TITLE STYLE; NOT deployed: backend
+      (new callable checkcalendaraccess in deploy/log lists, no rules change) + website, ask). Settings: `writeOldCalendars` (default
+      FALSE, Calendar & email → "Write app bookings into the old calendars" Turn on/off) and per feed `titleStyle` ({name}; defaults
+      defaultTitleStyle: "{name} - Stromedy Talent Filming" / "{name} - Cliff 2 Filming" / "{name} - Offsite Filming"); schedule.ts
+      oldCalendarFor / oldTitle / defaultTitleStyle (pure). calendar.ts: pushEvent → `mirrorOld` = the app's own event ('s…'/'b…', so
+      the import never reads it back) in that old calendar for APP-MADE approved shoots + app blocks, no colour, "Added by the Prime
+      Capitol app"; `calendar_mirror/{eventId}` {cal, name, from, to} (server only); moving house moves it to that calendar; cancel =
+      removed; switch off = copies stay. `editOriginal` (from pushEvent and, for app-calendar imports, syncShootToCalendar): an IMPORTED
+      shoot moved/cancelled in the app → PATCH (times; location when the house changed) / DELETE its original event, house change =
+      Google `move` to that house's feed (calendar_imports.feedId + shoot.calendarFeed updated); reads the event first and only writes
+      when Google differs (import-driven changes don't echo); then the import snapshot = what Google has (editedByApp), cancel →
+      calendar_imports removed:true removedBy 'app'. Skipped: group events (shootIds > 1), multi-day all-day ids (_YYYYMMDD),
+      cancellations that came from Google ('removed from Google Calendar' / 'deleted in Google Calendar' notes; redo uses the first).
+      FOLLOWING: scanCalendar collects s-events in feeds (`oldSeen`); followAppCalendar treats a mirror whose times/calendar differ as a
+      person's move (place = that feed's house) and a missing mirror (calendar read OK) as a delete → cancel (no strike, props kept);
+      moved in both = newer Google `updated` wins; same mass-delete guard. Catch-up `mirrorExisting` (≤40 per 15-min check, status
+      `mirrored`). `checkCalendarAccess` (owner + equipment): Google's accessRole per calendar (calendarList GET, else POST to add it)
+      → "Can the app write there?" on Calendar & email. Emulator: app copies in test_calendar/<feed key>_app; originals edited in
+      test_calendar/<feed key> (fakeOriginal, readOneEvent). Tests tests/functions/oldCalendars.test.ts (12). appGuide approvals +
+      connections + calimport, Team guide step 7, owner guide v96.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

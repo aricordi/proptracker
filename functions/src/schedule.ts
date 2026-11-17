@@ -13,7 +13,8 @@ export type Place = House | 'offsite'
 export const HOUSES: House[] = ['cliff1', 'cliff2']
 export type ShootKind = 'monthly' | 'extra' | 'offsite'
 
-export interface CalendarFeed { id: string; name: string; house: House | 'any' }
+// titleStyle (owner, Nov 16): how app bookings are titled when the app writes them into this old calendar ({name} = the creator).
+export interface CalendarFeed { id: string; name: string; house: House | 'any'; titleStyle?: string }
 export interface ScheduleSettings {
   houses: Record<House, { name: string; address: string }>
   slots: number[]          // start of each 2-hour slot, minutes after midnight, in order
@@ -29,6 +30,10 @@ export interface ScheduleSettings {
   // Old calendars the team still uses (owner, Oct 30: Cliff 2, Stromedy Talent, Stromedy Studios, Stromedy…): READ ONLY,
   // their events wait on the import screen for a person. `house` = what that calendar is usually for ('any' = guess).
   calendarFeeds: CalendarFeed[]
+  // Owner, Nov 16: until everyone is on the app, approved app bookings (and app blocks) are ALSO written into the old calendar
+  // for that house, and a shoot that came from an old calendar is changed there too when it's moved or cancelled in the app.
+  // Newest change anywhere wins. OFF until the owner turns it on (each old calendar must be shared "Make changes to events").
+  writeOldCalendars: boolean
   checkinBefore: number    // check-in opens this many minutes before the start
   explainHours: number     // a missed check-in can be explained for this many hours after the end
   strikeCount: number      // this many strikes…
@@ -58,6 +63,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   slotsPerDay: 1,          // owner, Oct 18: one 2-hour house slot a day; more only when the team books it
   googleCalendarId: '',
   calendarFeeds: [],
+  writeOldCalendars: false,
   checkinBefore: 15,
   explainHours: 12,
   strikeCount: 2,
@@ -107,9 +113,11 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
     slotsPerDay: int(x.slotsPerDay, 1, 9, D.slotsPerDay),
     googleCalendarId: str(x.googleCalendarId, 200),
     calendarFeeds: Array.isArray(x.calendarFeeds)
-      ? x.calendarFeeds.map((f: any) => ({ id: str(f?.id, 200), name: str(f?.name, 40), house: f?.house === 'cliff1' || f?.house === 'cliff2' ? f.house : 'any' }))
+      ? x.calendarFeeds.map((f: any) => ({ id: str(f?.id, 200), name: str(f?.name, 40), house: f?.house === 'cliff1' || f?.house === 'cliff2' ? f.house : 'any',
+        ...(str(f?.titleStyle, 80).includes('{name}') ? { titleStyle: str(f?.titleStyle, 80) } : {}) }))
         .filter((f: CalendarFeed, i: number, all: CalendarFeed[]) => f.id && all.findIndex(o => o.id === f.id) === i).slice(0, 6)
       : [],
+    writeOldCalendars: x.writeOldCalendars === true,
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     gearReserveHours: int(x.gearReserveHours, 1, 336, D.gearReserveHours),
     gearReserve: x.gearReserve === true,
@@ -372,3 +380,18 @@ export function checkinWindow(sh: { from: string; to: string }, now: string, s: 
 export const isMissed = (sh: AttendanceShoot, now: string, canCheckIn?: (email: string) => boolean) =>
   sh.status === 'booked' && !sh.checkin && !sh.outcome && now >= sh.to && expectsCheckIn(sh, canCheckIn)
 export const explainUntil = (sh: { to: string }, s: ScheduleSettings) => addMinutes(sh.to, s.explainHours * 60)
+
+// ---- Writing app bookings into the OLD calendars (owner, Nov 16) ----
+// Which old calendar gets an app booking for this place: the first calendar for that house; offsite → the first mixed one.
+export function oldCalendarFor(s: Pick<ScheduleSettings, 'calendarFeeds' | 'googleCalendarId'>, place: string): CalendarFeed | null {
+  const feeds = s.calendarFeeds.filter(f => f.id && f.id !== s.googleCalendarId)
+  if (place === 'cliff1' || place === 'cliff2') return feeds.find(f => f.house === place) ?? null
+  return feeds.find(f => f.house === 'any') ?? null
+}
+// Their own style, so app bookings look like the events people add by hand (owner's pick). Editable per calendar.
+export function defaultTitleStyle(house: House | 'any'): string {
+  return house === 'cliff1' ? '{name} - Stromedy Talent Filming' : house === 'cliff2' ? '{name} - Cliff 2 Filming' : '{name} - Offsite Filming'
+}
+export function oldTitle(feed: CalendarFeed, name: string): string {
+  return (feed.titleStyle && feed.titleStyle.includes('{name}') ? feed.titleStyle : defaultTitleStyle(feed.house)).split('{name}').join(name).slice(0, 200)
+}
