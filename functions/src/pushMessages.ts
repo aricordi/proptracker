@@ -235,6 +235,9 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   // A creator cancelled an APPROVED shoot (Nov 3): the schedule team knows the slot is free again.
   if (h.action === 'cancelled' && h.by === a.creatorEmail && b?.status === 'booked')
     return [{ to: ['gear-team'], url: '/approvals', tag: `shoot-${id}`, title: 'Shoot cancelled', body: `${a.creatorName} cancelled ${placeName(a, s)} · ${when(a)}. The slot is free again.` }]
+  // Someone who books without approval (e.g. Kyle) just took a slot (owner, Nov 17: Maanik should hear about bookings).
+  if (h.action === 'booked' && !b && h.by === a.creatorEmail && a.status === 'booked')
+    return [{ to: ['gear-team'], url: `/schedule?shoot=${id}`, tag: `shoot-${id}`, title: 'New booking', body: `${a.creatorName} booked ${placeName(a, s)} · ${when(a)}.` }]
   if (!h.by || h.by === a.creatorEmail) return []
   if (h.by === 'monthly draw') return []   // the draw sends one summary per person instead of one per shoot
   const url = `/?shoot=${id}`, tag = `shoot-${id}`

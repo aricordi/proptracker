@@ -2690,6 +2690,29 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       `driveAudit` {folder, words} (adminTasks.ts, read only): every Drive photo vs import_items → state (in the app / prop removed
       in clean-up / combined→kept / archived / deleted / skipped / analysed waiting / never seen) + props matching the words with their
       bin; admin_task.py prints COUNT / AUDIT / MATCH lines. Test in adminTasks.test.ts.
+    - BOOKING FIXES FROM MAANIK + DANNY (owner, Nov 17; NOT deployed: backend (new callable swapshootsasteam in deploy/log
+      lists, no rules change) + website, ask; deploy together with WRITE TO THE OLD CALENDARS + HOT ORDER/DRIVE AUDIT).
+      (1) OWNER IN CREATOR MODE = REQUESTS: app sends `asCreator: true` (src/services/schedule.ts setActingAsCreator, set in
+      App from session.creatorMode) on bookShoot / moveShoot / bookWithFriends; needsApproval(caller, email, s, asCreator) makes
+      the owner's own booking a request. (2) SAME-DAY CANCEL: pushMessages `houseFreed` (booked → cancelled, house, date today,
+      slot not over, not bumped/replaced) → new resolve target 'creators' (active Full-app creators + owner) + gear-team,
+      Push.except = the person whose shoot it was; from pushOnShoot. (3) LONG BOOKERS (Danny / Stromedy Studios): setting
+      `longBookers` [{email,name}] (Schedule settings "Can book several slots in a row"); schedule.ts isLongBooker /
+      slotsPerDayFor (= whole grid) used by assertDayLimit, bookWithFriends (mySlots up to the grid), askForTime + findOptions
+      (slotsFor max param), waitlist. BookSheet "How long do you need?" chips (free run from that slot) → bookWithFriends
+      mySlots. Still a request unless also an instant booker. (4) BOTH HOUSES: bookShoot {bothHouses: true, half: 0|1} = one
+      real hour inside a grid slot, placed in cliff1 AND cliff2 (entries both:true + time), shoot place 'cliff1' + bothHouses +
+      time, from/to = the hour; ALWAYS a request unless the team books it for someone; houseSlotsOn counts a shootId once;
+      takeOut sweeps both houses; move/swap refused. BookSheet quiet link "Need both houses at once? (1 hour)". Labels
+      "Cliff 1 + Cliff 2" (pushes placeName, request cards reqHours, shoot sheet, day cells "1–2 PM · both houses").
+      (5) TEAM BOOKING CARD: ShootSheet for owner/equipment on someone's booking = action list (TeamAction): Move to another
+      day or time (MoveSheet), Swap with another booking (TeamSwapSheet → callable `swapShootsAsTeam` {a, b}: owner/equipment,
+      booked or requested, house only, instant, teamMovedAt, followShoot when the day changes, push "The schedule team swapped
+      your time"), Priority booking (GiveSlotSheet), Cancel (no strike), History. Requests day view: tapping a name opens
+      /schedule?shoot=<id> (was GiveSlotSheet). (6) NOTIFICATIONS: Maanik's phone was signed up and sends reached Google; he
+      just got few pushes. Added: instant bookings (Kyle) → gear-team "New booking"; same-day cancels. Advise: turn on
+      notifications on his LAPTOP too + PushCheck test from his People page. Help, Rules sheet, Team guide step 3, appGuide
+      (approvals/book/schedulesettings), owner guide v97. Tests 955 (requests.test.ts +6, pushMessages unit +2).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

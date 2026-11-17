@@ -198,3 +198,10 @@ describe('house freed up today', () => {
     expect(houseFreed('h1', { ...sh, status: 'requested' }, gone, s, '2026-10-23T11:00')).toEqual([])
   })
 })
+
+describe('instant bookings reach the schedule team', () => {
+  it('someone who books without approval → the gear team hears', () => {
+    const sh = { creatorEmail: 'k@x.com', creatorName: 'Kyle', place: 'cliff1', date: '2026-10-23', start: 780, status: 'booked', history: [{ by: 'k@x.com', action: 'booked' }] }
+    expect(shootChange('k1', null, sh, s)[0]).toMatchObject({ to: ['gear-team'], title: 'New booking' })
+  })
+})
