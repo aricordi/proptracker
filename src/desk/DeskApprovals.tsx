@@ -16,7 +16,7 @@ import {
   useScheduleSettings, decideBooking, fmtSlot, slotKey, blockAt, holdActive, slotWindow, BLOCK_TYPES, HOUSES,
   type House, type Shoot, type ScheduleDay, type UserStatus,
 } from '../services/schedule'
-import { factsFor, reqKey, placeName, ago, hoursWaiting, REASONS, type Req } from './requestFacts'
+import { factsFor, reqKey, placeName, reqHours, ago, hoursWaiting, REASONS, type Req } from './requestFacts'
 import type { Pair } from '../lib/collabs'
 import { useKeys } from './desk'
 import { GiveSlotSheet, ClashList, type GiveTarget } from '../components/GiveSlotSheet'
@@ -164,7 +164,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
                 <Avatar email={r.shoot.creatorEmail} name={r.shoot.creatorName} size={28} />
                 <span className="min-w-0">
                   <span className="block text-pt-text text-[13px] font-semibold truncate">{r.shoot.creatorName}{flagged(r.shoot.creatorEmail) && <span className="text-red-400"> ●</span>}</span>
-                  <span className={`block text-xs truncate ${on ? 'text-pt-text/75' : 'text-pt-muted'}`}>{r.move ? 'Move → ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</span>
+                  <span className={`block text-xs truncate ${on ? 'text-pt-text/75' : 'text-pt-muted'}`}>{r.move ? 'Move → ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s, !!r.shoot.bothHouses)} · {reqHours(r)}</span>
                 </span>
                 <span className={`text-xs tabular-nums ${hoursWaiting(r.since) > 12 ? 'text-red-300' : on ? 'text-pt-text/75' : 'text-pt-muted'}`}>{ago(r.since).replace(' ago', '')}</span>
               </div>
@@ -284,7 +284,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
       </div>
       <div className="bg-pt-surface rounded-xl px-3 py-2.5">
         {r.move && <p className="text-pt-muted text-xs">Wants to move from {formatDay(sh.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(sh.place, sh.where ?? '', s)} · {fmtSlot(sh.start, sh.end - sh.start)}</p>}
-        <p className="text-pt-text text-[15px] font-bold">{r.move ? 'to ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</p>
+        <p className="text-pt-text text-[15px] font-bold">{r.move ? 'to ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s, !!r.shoot.bothHouses)} · {reqHours(r)}</p>
         <p className="text-pt-muted text-xs">Asked {ago(r.since)}{r.place === 'cliff1' && s.priorityWeekdays.includes(weekday(r.date)) ? ' · priority day' : ''}{weekday(r.date) === 0 ? ' · Sunday, no crew' : ''}</p>
       </div>
       {sh.guideline && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block bg-pt-surface rounded-xl px-3 py-2 text-[13px] text-pt-accent font-semibold hover:underline">Filming guideline: {sh.guideline.name} ›</a>}

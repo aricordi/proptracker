@@ -15,7 +15,7 @@ import {
   useScheduleSettings, useScheduleDays, useShootsSince, useAllStatuses, decideBooking, fmtSlot, slotState,
   BLOCK_TYPES, type House, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus,
 } from '../services/schedule'
-import { waitingRequests, sortReqs, factsFor, reqKey, placeName, ago, partnerLine, REASONS, type Req } from '../desk/requestFacts'
+import { waitingRequests, sortReqs, factsFor, reqKey, placeName, reqHours, ago, partnerLine, REASONS, type Req } from '../desk/requestFacts'
 import { collabPairs } from '../lib/collabs'
 import { useDesk } from '../desk/desk'
 import DeskApprovals from '../desk/DeskApprovals'
@@ -138,7 +138,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
         <div className="min-w-0 flex-1">
           <p className="text-pt-text font-semibold">{sh.creatorName}{r.move && <span className="text-amber-300 font-normal"> · wants to move</span>}</p>
           <button onClick={onDay} className="tap text-left text-pt-text text-[15px] underline decoration-pt-border underline-offset-4">
-            {formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s)} · {fmtSlot(r.start, r.end - r.start)}</button>
+            {formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s, !!r.shoot.bothHouses)} · {reqHours(r)}</button>
           {r.move && <p className="text-pt-muted text-xs">Now: {formatDay(sh.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(sh.place, sh.where ?? '', s)} · {fmtSlot(sh.start, sh.end - sh.start)}</p>}
           <p className="text-pt-muted text-xs">Asked {ago(r.since)}</p>
         </div>

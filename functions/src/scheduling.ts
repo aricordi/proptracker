@@ -126,12 +126,14 @@ const keepOnlyMove = (day: ScheduleDay, id: string) => eachEntry(day, id, e => e
 function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootId: string, promote = true) {
   if (spot.place === 'offsite') { day.offsite = (day.offsite ?? []).filter(o => o.shootId !== shootId); return }
   // Every slot this shoot fills (an imported off-grid shoot can fill two), and any clash listing.
-  const house = spot.place
-  const slots = day[house] ?? {}
-  const freed = Object.entries(slots).filter(([, e]) => e.shootId === shootId).map(([k]) => k)
-  if (freed.length) day[house] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
+  // Both houses are swept: a both-houses booking (Nov 17) sits in Cliff 1 AND Cliff 2.
+  for (const house of [spot.place, spot.place === 'cliff1' ? 'cliff2' : 'cliff1'] as House[]) {
+    const slots = day[house] ?? {}
+    const freed = Object.entries(slots).filter(([, e]) => e.shootId === shootId).map(([k]) => k)
+    if (freed.length) day[house] = Object.fromEntries(Object.entries(slots).filter(([, e]) => e.shootId !== shootId))
+    if (promote) promoteClashes(day, house, freed, shootId)
+  }
   if (day.clashes?.some(c => c.shootId === shootId)) day.clashes = day.clashes.filter(c => c.shootId !== shootId)
-  if (promote) promoteClashes(day, house, freed, shootId)
 }
 // A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
 // (audit: the slot showed Free and could be booked twice, and the clash never cleared). Only into slots that are empty now.
@@ -199,14 +201,21 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   const spot = readSpot(d, s)
   const who = await shootFor(caller, d.forEmail)
-  if (spot.place !== 'offsite' && !skipsLock(caller, who.email) && priorityLocked(spot.date, spot.place, s, who.email, nowStamp())) throw fail('locked')
+  // BOTH HOUSES (owner, Nov 17: rare, late evening / early morning): one hour in Cliff 1 AND Cliff 2 at once, inside one
+  // 2-hour slot (half 0 = its first hour, 1 = its second). Takes that slot in both houses. Always a request the team approves
+  // (even for people who book without approval), unless the team books it for someone. Counts as one booking for the day.
+  const both = d.bothHouses === true && spot.place !== 'offsite'
+  const half = d.half === 1 ? 1 : 0
+  const time = both ? { start: spot.start + half * 60, end: spot.start + half * 60 + 60 } : null
+  if (spot.place !== 'offsite' && !skipsLock(caller, who.email)
+    && (both ? (['cliff1', 'cliff2'] as const) : [spot.place]).some(h => priorityLocked(spot.date, h, s, who.email, nowStamp()))) throw fail('locked')
 
   // Monthly (guaranteed) slots count only at Cliff 1; everything else is an extra slot.
   const kind: ShootKind = spot.place === 'offsite' ? 'offsite' : spot.place === MONTHLY_HOUSE && d.kind === 'monthly' ? 'monthly' : 'extra'
   if (kind === 'monthly' && await monthlyUsed(who.email, monthOf(spot.date)) >= s.monthlySlots) throw fail('no-monthly-left')
 
   // Top priority (Kyle) taking a slot someone else has: the holder is moved out (cancelled, neutral notice, their next request first in line).
-  if (d.take === true && spot.place !== 'offsite') {
+  if (d.take === true && spot.place !== 'offsite' && !both) {
     if (!s.instantBookers.some(p => p.email === who.email) || who.email !== caller.email) throw new HttpsError('permission-denied', 'Only people with top priority can take a slot that is already booked.')
     const holder = ((await dayRefOf(spot.date).get()).data() as ScheduleDay | undefined)?.[spot.place]?.[slotKey(spot.start)]
     if (holder?.shootId && !holder.hold) {
@@ -215,22 +224,28 @@ export const bookShoot = onCall(CALLABLE, async req => {
       return { id: r.shootId, kind: 'extra', status: 'booked', bumped: r.holderName }
     }
   }
-  const guideline = guidelineFor(caller, who.email, spot, s, d.guideline)
-  const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
+  const guideline = guidelineFor(caller, who.email, both ? { ...spot, place: 'cliff1' } : spot, s, d.guideline)
+  const win = time ? slotWindow(spot.date, time.start, 60) : slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
-  const pending = needsApproval(caller, who.email, s, d.asCreator === true)
+  const pending = needsApproval(caller, who.email, s, d.asCreator === true) || (both && (!isTeam(caller) || d.asCreator === true))
+  const label = time ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name} · ${dayLabel(spot.date)} · ${fmtTime(time.start)}–${fmtTime(time.end)}` : spotLabel(spot, s)
   await db.runTransaction(async tx => {
     const write = await editDays(tx, [spot.date], days => {
       if (spot.place !== 'offsite' && !isTeam(caller)) assertDayLimit(days[spot.date], who.email, 1, s)
-      placeIn(days[spot.date], spot, { shootId: ref.id, name: who.name, email: who.email, kind, pending }, s)
+      const entry = { shootId: ref.id, name: who.name, email: who.email, kind, pending }
+      if (!both) { placeIn(days[spot.date], spot, entry, s); return }
+      for (const h of ['cliff1', 'cliff2'] as const) {
+        placeIn(days[spot.date], { ...spot, place: h }, entry, s)
+        days[spot.date][h]![slotKey(spot.start)] = { ...days[spot.date][h]![slotKey(spot.start)], time: time!, both: true }
+      }
     })
     write()
     tx.set(ref, {
-      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date),
+      creatorEmail: who.email, creatorName: who.name, ...spot, ...(both ? { place: 'cliff1', bothHouses: true, time } : {}), month: monthOf(spot.date),
       from: win.from, to: win.to, kind, status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
       ...(pending ? { requestedAt: at } : {}), ...(guideline ? { guideline } : {}),
-      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${spotLabel(spot, s)}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
+      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${label}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
     })
   })
   return { id: ref.id, kind, status: pending ? 'requested' : 'booked' }
@@ -315,6 +330,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
   const team = isTeam(caller)
   const pre = (await ref.get()).data()
   if (!pre) throw new HttpsError('not-found', 'Shoot not found.')
+  if (pre.bothHouses) throw new HttpsError('failed-precondition', 'A both-houses booking can\'t be moved. Cancel it and ask for the new time.')
   // Offsite shoots move to other offsite hours; house shoots move between the houses.
   const spot = readSpot({ ...d, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
@@ -512,6 +528,7 @@ export const requestSwap = onCall(CALLABLE, async req => {
   if (mine.status !== 'booked' || theirs.status !== 'booked') throw new HttpsError('failed-precondition', 'One of these shoots is cancelled.')
   if (mine.moveRequest || theirs.moveRequest) throw new HttpsError('failed-precondition', 'One of these shoots is waiting for a move to be approved. Wait for the answer first.')
   if (mine.place === 'offsite' || theirs.place === 'offsite') throw new HttpsError('failed-precondition', 'Only house slots can be swapped.')
+  if (mine.bothHouses || theirs.bothHouses) throw new HttpsError('failed-precondition', 'Both-houses bookings can\'t be swapped.')
   if (mine.from <= now || theirs.from <= now) throw new HttpsError('failed-precondition', 'One of these shoots has already started.')
   await assertNoLinksForDayChange(mineId, mine.date, theirs.date)
   assertSwapRules(mine, theirs, await loadScheduleSettings(), now)

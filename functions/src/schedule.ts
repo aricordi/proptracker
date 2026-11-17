@@ -144,7 +144,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 // it then fills every slot it touches.
 // `pending` = a creator's REQUEST waiting for the equipment team (owner, Nov 2: no instant bookings): it holds the slot so nobody
 // else can request it. `move` = the NEW spot of an approved shoot whose move is waiting for approval (the old spot stays theirs).
-export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number }; pending?: boolean; move?: boolean }
+export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number }; both?: boolean; pending?: boolean; move?: boolean }
 // Old calendar events that overlap at the same house are imported anyway and listed here (owner, Oct 19: old events only).
 // shared = NOT a clash (owner, Nov 8: "they're all false alarms"): two old calendar events back to back that only share a 2-hour
 // slot without overlapping (e.g. 1:15–3:15 PM and 3:15–5:15 PM both touch the 3–5 slot). The one filling more of the slot
@@ -252,10 +252,12 @@ export const slotsPerDayFor = (email: string, s: ScheduleSettings) => isLongBook
 export function houseSlotsOn(day: ScheduleDay | undefined, email: string, now: string, except: string[] = []) {
   const e = email.toLowerCase()
   let n = 0
+  const seen = new Set<string>()   // a both-houses booking sits in both houses but counts once
   for (const house of ['cliff1', 'cliff2'] as const) {
     for (const entry of Object.values(day?.[house] ?? {})) {
       if (entry.email?.toLowerCase() !== e) continue
-      if (entry.hold ? holdActive(entry, now) : entry.shootId && !except.includes(entry.shootId)) n++
+      if (entry.hold) { if (holdActive(entry, now)) n++; continue }
+      if (entry.shootId && !except.includes(entry.shootId) && !seen.has(entry.shootId)) { seen.add(entry.shootId); n++ }
     }
   }
   return n

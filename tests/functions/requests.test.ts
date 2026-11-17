@@ -76,6 +76,32 @@ describe('booking requests', () => {
     expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 1140, mySlots: 2, friends: [] }, ANA)).ok).toBe(false)
   })
 
+  it('both houses for one hour: always a request, sits in both houses, counts as one booking, cancels from both', async () => {
+    const r = await book(KYLE, { bothHouses: true, half: 1 })   // even Kyle (no approval normally) asks for this
+    expect(r.ok).toBe(true)
+    expect(r.result.status).toBe('requested')
+    const sh = (await getDoc(`shoots/${r.result.id}`))!
+    expect(sh).toMatchObject({ bothHouses: true, place: 'cliff1', time: { start: 840, end: 900 } })
+    let day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff1['780']).toMatchObject({ shootId: r.result.id, both: true, pending: true })
+    expect(day.cliff2['780']).toMatchObject({ shootId: r.result.id, both: true, pending: true })
+    expect((await book(ANA, { place: 'cliff2' })).ok).toBe(false)
+    expect((await decide(MAANIK, r.result.id, true)).ok).toBe(true)
+    day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff2['780'].pending).toBeUndefined()
+    expect((await call('moveShoot', { id: r.result.id, place: 'cliff1', date: FRI, start: 1140 }, MAANIK)).ok).toBe(false)
+    expect((await call('cancelShoot', { id: r.result.id }, MAANIK)).ok).toBe(true)
+    day = (await getDoc(`schedule_days/${FRI}`))!
+    expect(day.cliff1?.['780']).toBeUndefined()
+    expect(day.cliff2?.['780']).toBeUndefined()
+  })
+
+  it('a both-houses booking counts as one booking for the day limit', async () => {
+    const r = await book(ANA, { bothHouses: true })
+    expect(r.ok).toBe(true)
+    expect((await book(ANA, { place: 'cliff2', start: 1140 })).ok).toBe(false)   // one a day, same as any booking
+  })
+
   it('Kyle (books without approval) and the schedule team booking for someone are approved at once', async () => {
     expect((await book(KYLE)).result.status).toBe('booked')
     expect((await call('bookShoot', { place: 'cliff2', date: FRI, start: 780, forEmail: ANA }, MAANIK)).result.status).toBe('booked')

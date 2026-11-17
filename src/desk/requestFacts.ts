@@ -23,7 +23,9 @@ export function sortReqs(reqs: Req[], statuses: Record<string, UserStatus>) {
   return [...reqs].sort((a, b) => first(a) - first(b) || a.date.localeCompare(b.date) || a.start - b.start)
 }
 export const reqKey = (r: Req) => `${r.shoot.id}${r.move ? '-m' : ''}`
-export const placeName = (p: Place, where: string, s: ScheduleSettings) => p === 'offsite' ? (where || 'Offsite') : s.houses[p].name
+export const placeName = (p: Place, where: string, s: ScheduleSettings, both = false) => both ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name}` : p === 'offsite' ? (where || 'Offsite') : s.houses[p].name
+/** The hours a request is for: a both-houses booking (Nov 17) is one real hour inside its slot. */
+export const reqHours = (r: Req) => r.shoot.bothHouses && r.shoot.time ? fmtSlot(r.shoot.time.start, r.shoot.time.end - r.shoot.time.start) : fmtSlot(r.start, r.end - r.start)
 export const ago = (iso: string) => {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
   return m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`

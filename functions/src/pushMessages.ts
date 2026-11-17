@@ -19,9 +19,10 @@ export function dayLabel(date: string) {
 }
 const stampTime = (s: string) => fmtTime(Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16)))
 const first = (name: string | undefined) => (name || 'Someone').split(' ')[0]
-export const placeName = (x: { place?: string; where?: string }, s: ScheduleSettings) =>
-  x.place === 'cliff1' || x.place === 'cliff2' ? s.houses[x.place].name : (x.where || 'Offsite')
-const when = (x: { date?: string; start?: number } | Record<string, any>) => `${dayLabel(x.date)} · ${fmtTime(x.start)}`
+export const placeName = (x: { place?: string; where?: string; bothHouses?: boolean }, s: ScheduleSettings) =>
+  x.bothHouses ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name}`
+  : x.place === 'cliff1' || x.place === 'cliff2' ? s.houses[x.place].name : (x.where || 'Offsite')
+const when = (x: { date?: string; start?: number; time?: { start: number } } | Record<string, any>) => `${dayLabel(x.date)} · ${fmtTime(x.time?.start ?? x.start)}`
 
 // ─── Things that happen (instant) ────────────────────────────────────────────
 
@@ -261,10 +262,10 @@ export function houseFreed(id: string, b: Doc, a: Doc, s: ScheduleSettings, now:
   if (String(a.date) !== now.slice(0, 10) || !a.to || String(a.to) <= now) return []
   const h = ((a.history ?? []) as { action?: string; note?: string }[]).at(-1)
   if (!h || h.action !== 'cancelled' || h.note === 'replaced by a newer calendar entry for the same day') return []
-  const houses = a.bothHouses ? `${s.houses.cliff1?.name ?? 'Cliff 1'} and ${s.houses.cliff2?.name ?? 'Cliff 2'} are` : `${placeName(a, s)} is`
+  const houses = a.bothHouses ? `${s.houses.cliff1.name} and ${s.houses.cliff2.name} are` : `${placeName(a, s)} is`
   return [{ to: ['creators', 'gear-team'], except: [String(a.creatorEmail ?? '')], url: '/schedule', tag: `free-${id}`,
-    title: `${placeName(a, s)} is free today`,
-    body: `${houses} free from ${fmtTime(a.start)}: a shoot was just cancelled. Want it? Book it in the app before someone else does.` }]
+    title: `${placeName(a, s)} ${a.bothHouses ? 'are' : 'is'} free today`,
+    body: `${houses} free from ${fmtTime(a.time?.start ?? a.start)}: a shoot was just cancelled. Want it? Book it in the app before someone else does.` }]
 }
 
 // ─── Reminders (the timer runs every 10 minutes) ─────────────────────────────

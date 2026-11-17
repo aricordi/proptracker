@@ -345,6 +345,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       const me = st.entry.email === email
       label = me ? 'You' : st.entry.name
       cls = st.entry.pending ? 'bg-amber-400/[0.07] text-amber-200 border border-dashed border-amber-400/50' : me ? 'bg-pt-accent/10 text-pt-text font-semibold' : 'bg-pt-surface text-pt-text'
+      if (st.entry.both && st.entry.time) label = <>{label}<span className="block text-xs font-normal text-pt-muted">{fmtTime(st.entry.time.start)}–{fmtTime(st.entry.time.end)} · both houses</span></>
       if (st.entry.pending) label = <>{label}<span className="block text-xs text-amber-300/80">{st.entry.move ? 'move asked' : 'asked'}</span></>
     }
     else if (st.t === 'block') { label = <>{st.block.note || 'Blocked'}{st.block.end % 120 !== 0 || st.block.end - st.block.start < s.slotMinutes ? <span className="block text-xs">until {fmtTime(st.block.end)}</span> : null}</>; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted' }
@@ -526,6 +527,11 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   const nextFree = Array.from({ length: friendCount }, (_, i) => start + (mySlots + i) * s.slotMinutes)
     .every(st => s.slots.includes(st) && slotState(day, date, h, st, s, profile.email, now, false).t === 'free')
   const total = mySlots + friendCount
+  // Both houses for one hour (owner, Nov 17: rare, e.g. late evening). A small link, never the default; always a request.
+  const [both, setBoth] = useState<null | 0 | 1>(null)
+  const other: House = h === 'cliff1' ? 'cliff2' : 'cliff1'
+  const otherFree = house !== 'offsite' && slotState(day, date, other, start, s, profile.email, now, false).t === 'free'
+  const canBoth = house !== 'offsite' && !forEmail && otherFree
   const term = q.trim().toLowerCase()
   const matches = term ? (everyone ?? []).filter(p => !chosen.some(c => c.email === p.email)
     && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
@@ -533,7 +539,9 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   async function book() {
     setBusy(true); setErr('')
     try {
-      const id = withFriends || mySlots > 1
+      const id = both !== null
+        ? (await bookShoot({ place: house, date, start, kind: 'extra', bothHouses: true, half: both, ...(guide ? { guideline: guide } : {}) })).data.id
+        : withFriends || mySlots > 1
         ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), mySlots, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
         : (await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })).data.id
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
@@ -553,7 +561,21 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
       )}
-      {long && (
+      {both !== null && (
+        <div className="mt-4 rounded-xl bg-pt-bg p-3 space-y-2">
+          <p className="text-pt-text text-sm font-semibold">Both houses · 1 hour</p>
+          <div className="flex gap-2">
+            {[0, 1].map(n => (
+              <button key={n} onClick={() => setBoth(n as 0 | 1)}
+                className={`flex-1 min-h-[40px] rounded-full text-sm ${both === n ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-text'}`}>
+                {fmtTime(start + n * 60)}–{fmtTime(start + n * 60 + 60)}</button>
+            ))}
+          </div>
+          <p className="text-pt-muted text-xs">{s.houses.cliff1.name} and {s.houses.cliff2.name} together for one hour. It takes this {s.slotMinutes / 60}-hour time in both houses and the equipment team approves it.</p>
+          <button onClick={() => setBoth(null)} className="tap text-pt-muted text-xs underline">Just {s.houses[h].name}</button>
+        </div>
+      )}
+      {long && both === null && (
         <div className="mt-4">
           <p className="text-pt-muted text-xs mb-2">How long do you need?</p>
           <div className="flex flex-wrap gap-2">
@@ -567,7 +589,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
           {mySlots > 1 && <p className="text-pt-muted text-xs mt-2">Until {fmtTime((start + mySlots * s.slotMinutes) % 1440)}: {mySlots} slots back to back, one booking each.</p>}
         </div>
       )}
-      {!team && (
+      {!team && both === null && (
         <div className="mt-4">
           <p className="text-pt-muted text-xs mb-2">Who's filming? Need more than {s.slotMinutes / 60} hours? Add who you're filming with: one slot each, back to back, booked for them straight away (no need for them to confirm). Not on the app yet? Type their name.</p>
           <div className="flex bg-pt-bg rounded-full p-1 gap-1">
@@ -638,10 +660,15 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
         You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
       <button disabled={busy || done || dayFull || (needG && !guide) || (withFriends && (!nextFree || chosen.length < friendCount))} onClick={book}
         className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>
-        {done ? (asks ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
+        {done ? (asks || both !== null ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
+          : both !== null ? 'Ask for both houses'
+          : mySlots > 1 && !withFriends ? `${verb} ${(mySlots * s.slotMinutes) / 60} hours`
           : withFriends && chosen.length < friendCount ? `Pick ${friendCount - chosen.length === 1 ? 'your friend' : 'your friends'}`
           : withFriends ? `${verb} for ${1 + chosen.length} people` : asks ? 'Request this time' : 'Book it'}</button>
-      <p className="text-pt-muted text-xs text-center mt-2">{asks ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
+      <p className="text-pt-muted text-xs text-center mt-2">{asks || both !== null ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
+      {both === null && canBoth && !withFriends && mySlots === 1 && (
+        <button onClick={() => setBoth(0)} className="tap block mx-auto mt-3 text-pt-muted text-xs underline underline-offset-2">Need both houses at once? (1 hour)</button>
+      )}
     </BottomSheet>
   )
 }

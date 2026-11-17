@@ -17,6 +17,7 @@ export interface Shoot {
   id: string
   creatorEmail: string; creatorName: string
   place: Place; where?: string
+  bothHouses?: boolean; time?: { start: number; end: number }   // one hour in both houses at once (Nov 17)
   date: string; month: string; start: number; end: number; from: string; to: string
   kind: ShootKind
   status: 'booked' | 'cancelled' | 'requested' | 'denied' | 'expired'
@@ -82,7 +83,7 @@ export type Guideline = { url: string; name: string }
 let asCreator = false
 export function setActingAsCreator(on: boolean) { asCreator = on }
 const asCreatorFlag = <T extends object>(d: T): T => (asCreator ? { ...d, asCreator: true } : d)
-const bookShootFn = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline; bothHouses?: boolean; asCreator?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
+const bookShootFn = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline; bothHouses?: boolean; half?: 0 | 1; asCreator?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
 export const bookShoot = (d: NonNullable<Parameters<typeof bookShootFn>[0]>) => bookShootFn(asCreatorFlag(d))
 export const redoCalendarImport = httpsCallable<{ shootId: string }, { removed: number; eventId: string }>(functions, 'redoCalendarImport')
 // Requests → Calendar (owner, Nov 4): Google Calendar imports waiting for the equipment team to check.
