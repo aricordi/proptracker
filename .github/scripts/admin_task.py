@@ -54,7 +54,16 @@ while time.time() < end:
         if st == 'continued': cur = d['next']; continue
         res = d.get('result')
         if res is not None:
-            if isinstance(res, dict) and 'rows' in res:
+            if isinstance(res, dict) and 'counts' in res and 'total' in res:   # driveAudit
+                print('TOTAL photos in Drive', res.get('total'))
+                for k, v in (res.get('counts') or {}).items(): print('COUNT', k, v, sep='\t')
+                print('AUDIT\tstate\tfolder\tfile\tfileId\taiName\titemName\tremovedNote\terror\tduplicateOf')
+                for r in res.get('rows') or []:
+                    print('AUDIT', r.get('state'), r.get('folder'), r.get('file'), r.get('fileId'), r.get('aiName'), r.get('itemName'), r.get('removedNote'), r.get('error'), r.get('duplicateOf'), sep='\t')
+                print('MATCH\tname\twords\tbin\tqty\tarchived\tremoved\tfrom\tid')
+                for m in res.get('matches') or []:
+                    print('MATCH', m.get('name'), m.get('words'), m.get('bin'), m.get('qty'), m.get('archived'), m.get('removed'), m.get('from'), m.get('id'), sep='\t')
+            elif isinstance(res, dict) and 'rows' in res:
                 print('ROWS\tdriveBin\tfile\tstatus\titemName\tappBin\tarchived\titemId')
                 for r in res['rows']:
                     print('ROW', r.get('driveBin'), r.get('file'), r.get('status'), r.get('itemName'), r.get('appBin'), r.get('archived'), r.get('itemId'), sep='\t')

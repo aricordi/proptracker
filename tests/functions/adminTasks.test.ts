@@ -74,3 +74,24 @@ describe('admin tasks: setBins', () => {
     expect((await getDoc('items/p2'))!.binId).toBe('b5')
   })
 })
+
+describe('admin tasks: driveAudit (owner, Nov 17: "swords and hammers weren\'t imported")', () => {
+  it('compares every Drive photo with the app: in the app, removed, waiting, never seen; finds props by words', async () => {
+    // test:4 = four fake Drive photos test0001x4…test0004x4
+    await put('items/p1', { name: 'Foam sword', collection: 'company', binId: 'b1', quantity: 2, photos: [] })
+    await put('items/p2', { name: 'Claw hammer', collection: 'company', archived: true, removedAt: 'x', removedNote: 'Same prop twice', photos: [] })
+    await put('import_items/test0001x4', { status: 'approved', itemId: 'p1', folder: 'Test folder' })
+    await put('import_items/test0002x4', { status: 'approved', itemId: 'p2', folder: 'Test folder' })
+    await put('import_items/test0003x4', { status: 'analyzed', folder: 'Test folder', suggestion: { name: 'Battle axe' } })
+    await put('admin_tasks/a1', { kind: 'driveAudit', folder: 'test:4', words: ['sword', 'hammer'], createdAt: 'x' })
+    const t = await waitFor('admin_tasks/a1', d => d?.status === 'done' || d?.status === 'failed')
+    expect(t!.status, String(t!.error)).toBe('done')
+    const res = t!.result as { total: number; counts: Record<string, number>; rows: { state: string; aiName: string | null }[]; matches: { name: string; bin: string | null; removed: string | null }[] }
+    expect(res.total).toBe(4)
+    expect(res.counts).toMatchObject({ 'in the app': 1, 'prop removed in clean-up': 1, 'analysed, waiting for someone to approve': 1, 'NEVER SEEN BY THE APP': 1 })
+    expect(res.rows.find(r => r.state.startsWith('analysed'))!.aiName).toBe('Battle axe')
+    expect(res.matches.map(m => m.name).sort()).toEqual(['Claw hammer', 'Foam sword'])
+    expect(res.matches.find(m => m.name === 'Foam sword')!.bin).toBe('A1')
+    expect(res.matches.find(m => m.name === 'Claw hammer')!.removed).toBe('Same prop twice')
+  })
+})

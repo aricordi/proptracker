@@ -2679,6 +2679,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       → "Can the app write there?" on Calendar & email. Emulator: app copies in test_calendar/<feed key>_app; originals edited in
       test_calendar/<feed key> (fakeOriginal, readOneEvent). Tests tests/functions/oldCalendars.test.ts (12). appGuide approvals +
       connections + calimport, Team guide step 7, owner guide v96.
+    - HOT ORDER EVERYWHERE + DRIVE AUDIT (owner, Nov 17: "sorting by most popular isn't working, especially when adding props to a
+      booking"; "swords and hammers in the weapons bins weren't found… Keith is convinced the image was in Drive"; NOT deployed:
+      backend (hotProps, runAdminTask) + website, ask). ChangeRequest's "Search the closet to add a prop" was A–Z → hotOrder (same as
+      Browse). hotProps: props combined in the clean-up (mergedInto) hand their score to the kept prop; archived props dropped.
+      NOTE: live has very few requests, so most props have score 0 and fall back to "new in 14 days" then the daily shuffle.
+      READ-ONLY CHECK (server logs run 44169191595 + Drive search, Nov 17): every one of the 1,631 Drive photos has an import record
+      (1,614 approved, 17 skipped = exact copies), none failed or queued; NO photo in the Inventory folder is newer than the Nov 8
+      import → the swords/hammers became props and were renamed by the AI, combined, or removed in the clean-up. NEW admin task kind
+      `driveAudit` {folder, words} (adminTasks.ts, read only): every Drive photo vs import_items → state (in the app / prop removed
+      in clean-up / combined→kept / archived / deleted / skipped / analysed waiting / never seen) + props matching the words with their
+      bin; admin_task.py prints COUNT / AUDIT / MATCH lines. Test in adminTasks.test.ts.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

@@ -5,6 +5,10 @@
 //   kind 'import'       {steps:[{link, place?}], dryRun?}  → queue + analyse each step in order (nothing becomes a prop)
 //   kind 'approve'      {approvals:[Approval], merges:[{ids, item: Approval}], skips:[id]} → approve / merge analysed photos
 //   kind 'binShortcuts' {folder} → read only: the crew's Drive shortcuts per "Bin N" folder vs the bin each prop has in the app
+//   kind 'driveAudit'   {folder, words?} → read only (owner, Nov 17: "swords and hammers weren't imported"): EVERY photo under the
+//                       folder (all sub-folders) vs the app's photo records → never seen / failed / skipped / waiting for review /
+//                       became a prop (and whether that prop still exists, was combined, or was removed), plus props whose
+//                       name, tags or description match the words (e.g. sword, hammer) with their bin
 // Long imports continue in a fresh task (continues: <id>, round n) so no run hits the 9-minute limit.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
@@ -13,7 +17,7 @@ import type { CallableRequest } from 'firebase-functions/v2/https'
 import { db, OWNER_EMAIL } from './auth.js'
 import { GEMINI_API_KEY } from './gemini.js'
 import { startImport, processImport, approveImports, mergeImports, skipImports } from './importer.js'
-import { folderIdFrom, listSubfolders, listShortcuts } from './drive.js'
+import { folderIdFrom, listSubfolders, listShortcuts, listImages } from './drive.js'
 
 const BUDGET_MS = 470_000
 const MAX_ROUNDS = 40
@@ -133,6 +137,44 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
         }
       }
       await ref.update({ status: 'done', result: { rows, bins: subs.length }, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'driveAudit') {
+      const root = folderIdFrom(String(task.folder ?? ''))
+      if (!root) throw new Error('no folder')
+      const { images } = await listImages(root, 10000)
+      say(`Drive has ${images.length} photos under this folder`)
+      const bins = new Map((await db.collection('bins').get()).docs.map(d => [d.id, String(d.get('label') ?? '')]))
+      const recs = new Map((await db.collection('import_items').get()).docs.map(d => [d.id, d.data()]))
+      const itemsSnap = await db.collection('items').get()
+      const items = new Map(itemsSnap.docs.map(d => [d.id, d.data()]))
+      const rows: Record<string, unknown>[] = []
+      const counts: Record<string, number> = {}
+      for (const img of images) {
+        const r = recs.get(img.id)
+        let state = 'NEVER SEEN BY THE APP'
+        let itemId = r?.itemId as string | undefined
+        let item = itemId ? items.get(itemId) : undefined
+        for (let hops = 0; item?.mergedInto && hops < 5; hops++) { itemId = String(item.mergedInto); item = items.get(itemId) }
+        if (r) {
+          const st = String(r.status ?? '?')
+          if (st === 'approved' || itemId) state = !item ? 'prop deleted' : item.removedAt ? 'prop removed in clean-up' : item.archived ? 'prop archived' : 'in the app'
+          else state = st === 'skipped' ? (r.duplicateOf ? 'skipped (exact copy)' : 'skipped by a person') : st === 'failed' ? 'failed' : st === 'analyzed' ? 'analysed, waiting for someone to approve' : st === 'pending' || st === 'working' ? 'queued, never analysed' : st
+        }
+        counts[state] = (counts[state] ?? 0) + 1
+        if (state !== 'in the app') rows.push({ state, folder: img.folder, file: img.name, fileId: img.id, aiName: r?.suggestion?.name ?? null,
+          error: r?.error ?? r?.lastError ?? null, duplicateOf: r?.duplicateOf ?? null, job: r?.jobId ?? null,
+          itemId: itemId ?? null, itemName: item?.name ?? null, removedNote: item?.removedNote ?? null })
+      }
+      // Props that match the words, wherever they came from.
+      const words = (Array.isArray(task.words) ? task.words : []).map((w: unknown) => String(w).toLowerCase()).filter(Boolean).slice(0, 20)
+      const matches: Record<string, unknown>[] = []
+      if (words.length) for (const [id, it] of items) {
+        const text = [it.name, it.description, ...(Array.isArray(it.searchWords) ? it.searchWords : [String(it.searchWords ?? '')])].join(' ').toLowerCase()
+        const hit = words.filter((w: string) => text.includes(w))
+        if (hit.length) matches.push({ id, name: it.name, words: hit.join(','), bin: it.binId ? bins.get(it.binId) ?? it.binId : null, qty: it.quantity ?? null,
+          archived: it.archived === true, removed: it.removedNote ?? null, collection: it.collection ?? 'personal', from: it.importedFrom?.folder ?? null })
+      }
+      say(`summary: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(' · ')}`)
+      await ref.update({ status: 'done', result: { total: images.length, counts, rows: rows.slice(0, 1500), matches: matches.slice(0, 400) }, log, finishedAt: new Date().toISOString() })
     } else {
       throw new Error(`unknown kind ${task.kind}`)
     }

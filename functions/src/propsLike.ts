@@ -118,10 +118,21 @@ export const hotProps = onCall({ ...CALLABLE, timeoutSeconds: 30 }, async req =>
   if (!hotCache || Date.now() - hotCache.at > 30 * 60_000) {
     const since = new Date(Date.now() - HOT_WINDOW_DAYS * 86_400_000).toISOString()
     const snap = await db.collection('reservations').where('createdAt', '>=', since).select('itemIds', 'status', 'createdAt').get()
-    const all = hotScores(snap.docs.map(d => ({ itemIds: ((d.get('itemIds') ?? []) as unknown[]).filter((x): x is string => typeof x === 'string'), createdAt: String(d.get('createdAt') ?? ''), status: d.get('status') })))
+    const all: Record<string, number> = hotScores(snap.docs.map(d => ({ itemIds: ((d.get('itemIds') ?? []) as unknown[]).filter((x): x is string => typeof x === 'string'), createdAt: String(d.get('createdAt') ?? ''), status: d.get('status') })))
+    // Props combined in the clean-up (mergedInto) hand their score to the prop that was kept, so it doesn't lose its popularity.
+    for (let round = 0; round < 3; round++) {
+      const ids = Object.keys(all)
+      const snaps = ids.length ? await db.getAll(...ids.map(id => db.doc(`items/${id}`))) : []
+      let moved = false
+      for (const sn of snaps) {
+        const to = sn.exists ? sn.get('mergedInto') : undefined
+        if (typeof to === 'string' && to && to !== sn.id) { all[to] = Math.round(((all[to] ?? 0) + all[sn.id]) * 1000) / 1000; delete all[sn.id]; moved = true }
+      }
+      if (!moved) break
+    }
     const ids = Object.keys(all)
     const items = ids.length ? await db.getAll(...ids.map(id => db.doc(`items/${id}`))) : []
-    const company = Object.fromEntries(items.filter(s => s.exists && collectionOf(s.data()) === 'company').map(s => [s.id, all[s.id]]))
+    const company = Object.fromEntries(items.filter(s => s.exists && !s.get('archived') && collectionOf(s.data()) === 'company').map(s => [s.id, all[s.id]]))
     hotCache = { at: Date.now(), company, all }
   }
   return { scores: caller.role === 'owner' ? hotCache.all : hotCache.company }

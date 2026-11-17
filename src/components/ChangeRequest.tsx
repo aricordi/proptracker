@@ -10,7 +10,10 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useCart } from '../cart'
 import { useItems } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
-import { matchesQuery, byName } from '../lib/search'
+import { matchesQuery } from '../lib/search'
+import { useHotScores } from '../services/propsLike'
+import { hotOrder } from '../../functions/src/hot'
+import { todayInStudio } from '../../functions/src/booking'
 import { thumbOf } from '../services/itemShape'
 import { useActiveShoot } from '../activeShoot'
 import { editReservation, type Reservation } from '../services/reservations'
@@ -35,11 +38,13 @@ export default function ChangeRequest({ res }: { res: Reservation }) {
   const tags = useTags()
   const tagById = useMemo(() => Object.fromEntries(tags.map(t => [t.id, t])), [tags])
   // Props you can still add: not archived, not damaged, not already in the request. The server re-checks they're free.
+  // Most asked-for first (owner, Nov 17: "sorting by most popular isn't working when adding props to a booking"), like Browse.
+  const hotScores = useHotScores()
   const found = useMemo(() => {
     const q = query.trim()
     if (q.length < 2) return []
-    return items.filter(i => !i.archived && i.condition !== 'damaged' && !(lines[i.id] > 0) && matchesQuery(i, q, tagById)).sort(byName).slice(0, 6)
-  }, [items, query, lines, tagById])
+    return hotOrder(items.filter(i => !i.archived && i.condition !== 'damaged' && !(lines[i.id] > 0) && matchesQuery(i, q, tagById)), hotScores, todayInStudio()).slice(0, 6)
+  }, [items, query, lines, tagById, hotScores])
   // Matches that are already in the request, so "nothing matches" doesn't mislead.
   const alreadyIn = useMemo(() => found.length || query.trim().length < 2 ? 0
     : items.filter(i => lines[i.id] > 0 && matchesQuery(i, query.trim(), tagById)).length, [found, items, query, lines, tagById])
