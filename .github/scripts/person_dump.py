@@ -42,6 +42,12 @@ same_first = [u for u in users if u.get('active') is not False and u.get('role')
               and match and str(u.get('name', '')).lower().split(' ')[0] == str(match[0].get('name', '')).lower().split(' ')[0]]
 if len(same_first) > 1: print('  ! more than one active creator with that first name:', [u['_id'] for u in same_first])
 emails = [u['_id'] for u in match] or [WHO]
+try:
+    sch = doc(req(f'{BASE}/app_settings/schedule'))
+    for e in emails:
+        print(f"  {e}: can book several slots in a row = {any(p.get('email') == e for p in sch.get('longBookers') or [])}"
+              f", books without approval = {any(p.get('email') == e for p in sch.get('instantBookers') or [])}")
+except Exception as ex: print('  (schedule settings not saved yet)', ex)
 first = (str(match[0].get('name', '')) if match else WHO).lower().split(' ')[0]
 
 for e in emails:
