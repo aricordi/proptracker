@@ -2713,6 +2713,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       just got few pushes. Added: instant bookings (Kyle) → gear-team "New booking"; same-day cancels. Advise: turn on
       notifications on his LAPTOP too + PushCheck test from his People page. Help, Rules sheet, Team guide step 3, appGuide
       (approvals/book/schedulesettings), owner guide v97. Tests 955 (requests.test.ts +6, pushMessages unit +2).
+    - LIVE Nov 17 (owner "deploy and make sure Danny can book several slots"): backend run 44195715490 (all 134 functions updated,
+      incl. swapShootsAsTeam new) + website run 44195719969 = old-calendar write-back (switch still OFF), hot order + driveAudit, all
+      Maanik booking fixes, long bookers. Danny = danny@primecapitol.ca, creator, Full app (person lookup run 44195775903, which now
+      also prints 'can book several slots in a row' / 'books without approval'); owner still has to tick him in Schedule settings.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
