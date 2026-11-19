@@ -318,5 +318,3 @@ export function findOptions(
   }
   return out
 }
-
-export const slotTaken = (day: ScheduleDay | undefined, house: House, start: number) => !!day?.[house]?.[slotKey(start)]

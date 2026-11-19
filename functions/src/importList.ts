@@ -6,7 +6,6 @@
 
 export const PLACE_MAX = 40
 export const LIST_MAX_CHARS = 30_000
-export const DEFAULT_PLACE = 'Wardrobe closet'
 
 /** The spot name the owner typed, tidied; '' = photos have bin signs (the normal import). */
 export function cleanPlace(v: unknown): string {

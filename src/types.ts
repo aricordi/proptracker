@@ -113,13 +113,6 @@ export interface Bin {
   checkedBy?: string;
 }
 
-export interface ActiveCheckout {
-  id: string;
-  label: string;
-  startedAt: string;
-  itemIds: string[];
-}
-
 export interface AiUsageRecord {
   id: string;
   month: string;            // "YYYY-MM"

@@ -8,10 +8,6 @@ import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings } from './schedule.js'
 
 export type StrikeReason = 'late-cancel' | 'no-show' | 'report' | 'manual'
-export const STRIKE_LABELS: Record<StrikeReason, string> = {
-  'late-cancel': 'Cancelled inside the notice period', 'no-show': 'No-show', report: 'Report upheld (ran over or left a mess)',
-  manual: 'Given by an admin',
-}
 
 // Strikes that still count: in the window, after the last lift, and not removed.
 async function countStrikes(email: string, settings: ReturnType<typeof cleanScheduleSettings>, liftedAt?: string) {
