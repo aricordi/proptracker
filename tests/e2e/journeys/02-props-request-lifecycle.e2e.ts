@@ -91,7 +91,7 @@ test('3. arts: open the request from the props queue, tick everything, pack phot
     expect(await line.evaluate(el => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1)).toBe(true)
     await card.click()
     await expect(page.getByRole('heading', { level: 1, name: TITLE })).toBeVisible()
-    await expect(page.getByText(shootLine)).toBeVisible()   // …and so does the top of the request page
+    await expect(page.getByText(shootLine).first()).toBeVisible()   // …and so does the top of the request page
     await expect(page.getByText('Picking list')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Mark packed & ready for pickup' })).toBeDisabled()
   })
