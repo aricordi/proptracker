@@ -20,6 +20,7 @@ import { factsFor, reqKey, placeName, reqHours, ago, hoursWaiting, REASONS, type
 import type { Pair } from '../lib/collabs'
 import { useKeys } from './desk'
 import { GiveSlotSheet, ClashList, type GiveTarget } from '../components/GiveSlotSheet'
+import { isOwnFileLink } from '../lib/safeLink'
 
 const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300', amber: 'bg-amber-400/15 text-amber-200', green: 'bg-green-400/10 text-green-300',
   gold: 'bg-pt-accent/15 text-pt-accent', muted: 'bg-pt-raised text-pt-muted' }
@@ -287,7 +288,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
         <p className="text-pt-text text-[15px] font-bold">{r.move ? 'to ' : ''}{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s, !!r.shoot.bothHouses)} · {reqHours(r)}</p>
         <p className="text-pt-muted text-xs">Asked {ago(r.since)}{r.place === 'cliff1' && s.priorityWeekdays.includes(weekday(r.date)) ? ' · priority day' : ''}{weekday(r.date) === 0 ? ' · Sunday, no crew' : ''}</p>
       </div>
-      {sh.guideline && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block bg-pt-surface rounded-xl px-3 py-2 text-[13px] text-pt-accent font-semibold hover:underline">Filming guideline: {sh.guideline.name} ›</a>}
+      {sh.guideline && isOwnFileLink(sh.guideline.url) && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block bg-pt-surface rounded-xl px-3 py-2 text-[13px] text-pt-accent font-semibold hover:underline">Filming guideline: {sh.guideline.name} ›</a>}
       {f.flags.length > 0 && <div className="flex flex-wrap gap-1.5">{f.flags.map(x => <span key={x.text} className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TONE[x.tone]}`}>{x.text}</span>)}</div>}
       <div className="grid grid-cols-3 gap-1.5">
         <Stat n={`${f.filmed} of ${f.past30}`} l="filmed · 30 days" />

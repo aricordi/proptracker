@@ -38,7 +38,7 @@ def http(method, url, body=None, headers=None, follow=True):
     opener = urllib.request.build_opener() if follow else urllib.request.build_opener(NoRedirect)
     try:
         r = opener.open(req, timeout=30)
-        return r.status, dict(r.headers), r.read()[:20000]
+        return r.status, dict(r.headers), r.read()[:2_000_000]
     except urllib.error.HTTPError as e:
         return e.code, dict(e.headers), e.read()[:20000]
     except Exception as e:  # network problems
@@ -132,8 +132,9 @@ for site in ['https://proptracker.arbcreative.co', f'https://{PID}.web.app']:
         say('PASS' if k in hl else 'WARN', f'  {k}: {hl.get(k, "missing")[:90]}')
     js = re.findall(rb'/assets/[\w.-]+\.js', body)
     if js:
-        c2, _, _ = http('GET', site + js[0].decode() + '.map')
-        say('WARN' if c2 == 200 and site.endswith('arbcreative.co') else 'PASS', f'  source map {js[0].decode()}.map: {c2} (200 = the readable source code is public)')
+        c2, _, b2 = http('GET', site + js[0].decode() + '.map')
+        is_map = c2 == 200 and b2[:1] == b'{' and b'"mappings"' in b2
+        say('WARN' if is_map else 'PASS', f'  source map {js[0].decode()}.map: {"PUBLIC (readable source)" if is_map else "not served"}')
         _, _, jsb = http('GET', site + js[0].decode())
         leaks = re.findall(rb'(GOCSPX-[\w-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY|sk_live_\w+|AQ\.[\w-]{30,})', jsb)
         say('FAIL' if leaks else 'PASS', f'  secrets in the main script: {len(leaks)}')

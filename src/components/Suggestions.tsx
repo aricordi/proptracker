@@ -10,6 +10,7 @@ import {
 import { CONDITION_LABELS } from './ItemCard'
 import { formatDay, studioDayOf } from '../lib/dates'
 import type { Condition, Item } from '../types'
+import { isOwnFileLink } from '../lib/safeLink'
 
 const FIELD: Record<keyof ProposedChanges, string> = { name: 'Name', quantity: 'How many', condition: 'Condition', description: 'Description' }
 
@@ -52,8 +53,8 @@ export function SuggestionCard({ s, item, showProp }: { s: Suggestion; item?: It
       </div>
       <p className="text-pt-text text-sm whitespace-pre-wrap">“{s.message}”</p>
       <ChangesList s={s} item={item} />
-      {!!s.photos?.length && (
-        <div className="flex gap-2">{s.photos.map(u => <a key={u} href={u} target="_blank" rel="noreferrer"><img loading="lazy" decoding="async" src={u} alt="" className="w-16 h-16 rounded-lg object-cover" /></a>)}</div>
+      {!!s.photos?.filter(isOwnFileLink).length && (
+        <div className="flex gap-2">{s.photos.filter(isOwnFileLink).map(u => <a key={u} href={u} target="_blank" rel="noreferrer"><img loading="lazy" decoding="async" src={u} alt="" className="w-16 h-16 rounded-lg object-cover" /></a>)}</div>
       )}
       {s.reply && <p className="text-pt-muted text-xs">Reply: {s.reply}</p>}
       {error && <p className="text-red-300 text-xs">{error}</p>}

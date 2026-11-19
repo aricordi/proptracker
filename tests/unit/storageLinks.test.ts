@@ -11,6 +11,12 @@ describe('storage links', () => {
     expect(isStorageLink('https://firebasestorage.googleapis.com.evil.example/x')).toBe(false)
     expect(isStorageLink(42)).toBe(false)
   })
+  it('another Firebase project\'s storage does not count, and folders must start right after /o/ (Nov 19)', () => {
+    expect(isStorageLink('https://firebasestorage.googleapis.com/v0/b/evil-project.appspot.com/o/guidelines%2Fana%40example.com%2Fx.pdf')).toBe(false)
+    expect(isStorageLink('https://firebasestorage.googleapis.com/v0/b/proptracker-9732e.firebasestorage.app/o/items%2Fa.jpg')).toBe(true)
+    expect(isStorageLink('https://firebasestorage.googleapis.com/v0/b/proptracker-9732e.appspot.com/o/x%2F/o/guidelines%2Fana%40example.com%2Fx.pdf', 'guidelines/ana@example.com/')).toBe(false)
+    expect(isStorageLink('https://firebasestorage.googleapis.com/v0/b/proptracker-9732e.appspot.com.evil/o/a.jpg')).toBe(false)
+  })
   it('a folder must match exactly (encoded email)', () => {
     expect(isStorageLink(OWN, 'guidelines/ana@example.com/')).toBe(true)
     expect(isStorageLink(OWN, 'guidelines/jana@example.com/')).toBe(false)

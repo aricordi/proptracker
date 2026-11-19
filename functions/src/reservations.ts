@@ -9,6 +9,7 @@
 // listing its active holds. Creating a reservation reads and rewrites those
 // records inside a transaction, so if two people race for the last unit,
 // Firestore makes one of them retry, and the retry sees the unit is gone.
+import { isStorageLink } from './storageLinks.js'
 import { assertNotPaused } from './strikes.js'
 import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { nowStamp } from './gearBooking.js'
@@ -83,8 +84,7 @@ function text(v: unknown, max: number) {
 // Photos must be files uploaded to this project's storage.
 function cleanPhotos(raw: unknown, { min, max }: { min: number; max: number }): string[] {
   const list = Array.isArray(raw) ? raw : []
-  const ok = list.filter((u): u is string => typeof u === 'string' && u.length < 2000 && (
-    u.startsWith('https://firebasestorage.googleapis.com/') || u.startsWith('http://127.0.0.1:9199/')))
+  const ok = list.filter((u): u is string => isStorageLink(u))   // our own bucket only (security check, Nov 19)
   if (ok.length !== list.length) throw new HttpsError('invalid-argument', 'A photo link is not valid.')
   if (ok.length < min) throw new HttpsError('invalid-argument', min === 1 ? 'Take at least one photo.' : `Take at least ${min} photos.`)
   return ok.slice(0, max)

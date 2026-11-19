@@ -23,6 +23,7 @@ import { GiveSlotSheet, ClashList, useCalendarClashes, type GiveTarget } from '.
 import CalendarQueue from '../components/CalendarQueue'
 import { useCalendarQueue } from '../services/schedule'
 import { Toast } from '../components/cleanup/Parts'
+import { isOwnFileLink } from '../lib/safeLink'
 
 /** Bookings | Calendar (owner, Nov 4): Google Calendar imports wait in their own tab for the equipment team. */
 export function RequestTabs({ tab, setTab, bookings, calendar, desk }: { tab: string; setTab: (t: 'bookings' | 'calendar') => void; bookings: number; calendar: number; desk?: boolean }) {
@@ -148,7 +149,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
         {flag('muted', `${f.filmed} of ${f.past30} filmed (30 days)`)}
         {flag('muted', `${f.upcoming} coming up`)}
       </div>
-      {sh.guideline && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block text-[14px] text-pt-accent font-semibold">Guideline: {sh.guideline.name} ›</a>}
+      {sh.guideline && isOwnFileLink(sh.guideline.url) && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block text-[14px] text-pt-accent font-semibold">Guideline: {sh.guideline.name} ›</a>}
       {f.partners.length > 0 && <p className="text-pt-muted text-[13px]">Usually films with: <span className="text-pt-text">{partnerLine(f.partners)}</span></p>}
       {around.length > 0 && <p className="text-pt-muted text-[13px] leading-snug">{around.join(' · ')}</p>}
       {msg ? <p className={`text-sm font-semibold ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>
