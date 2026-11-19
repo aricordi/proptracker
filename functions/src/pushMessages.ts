@@ -19,10 +19,12 @@ export function dayLabel(date: string) {
 }
 const stampTime = (s: string) => fmtTime(Number(s.slice(11, 13)) * 60 + Number(s.slice(14, 16)))
 const first = (name: string | undefined) => (name || 'Someone').split(' ')[0]
-export const placeName = (x: { place?: string; where?: string; bothHouses?: boolean }, s: ScheduleSettings) =>
-  x.bothHouses ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name}`
-  : x.place === 'cliff1' || x.place === 'cliff2' ? s.houses[x.place].name : (x.where || 'Offsite')
-const when = (x: { date?: string; start?: number; time?: { start: number } } | Record<string, any>) => `${dayLabel(x.date)} · ${fmtTime(x.time?.start ?? x.start)}`
+// Null-safe (Nov 19 test run: a swap record missing its slot details crashed the notification function).
+export const placeName = (x: { place?: string; where?: string; bothHouses?: boolean } | undefined | null, s: ScheduleSettings) =>
+  x?.bothHouses ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name}`
+  : x?.place === 'cliff1' || x?.place === 'cliff2' ? s.houses[x.place].name : (x?.where || 'Offsite')
+const when = (x: { date?: string; start?: number; time?: { start: number } } | Record<string, any> | undefined | null) =>
+  x?.date ? `${dayLabel(x.date)} · ${fmtTime(x.time?.start ?? x.start)}` : 'the same slot'
 
 // ─── Things that happen (instant) ────────────────────────────────────────────
 

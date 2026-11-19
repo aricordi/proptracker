@@ -205,3 +205,10 @@ describe('instant bookings reach the schedule team', () => {
     expect(shootChange('k1', null, sh, s)[0]).toMatchObject({ to: ['gear-team'], title: 'New booking' })
   })
 })
+
+describe('broken records never crash a notification', () => {
+  it('a swap request missing its slot details still makes a message', () => {
+    const [p] = swapChange('s9', null, { fromName: 'Ana', toEmail: 'b@x.com', status: 'pending' }, s)
+    expect(p.to).toEqual(['b@x.com'])
+  })
+})
