@@ -9,6 +9,9 @@
 //                       folder (all sub-folders) vs the app's photo records → never seen / failed / skipped / waiting for review /
 //                       became a prop (and whether that prop still exists, was combined, or was removed), plus props whose
 //                       name, tags or description match the words (e.g. sword, hammer) with their bin
+//   kind 'scheduleLists' {instantBookers?: [email|name], longBookers?: [email|name]} → owner, Nov 19: ADDS people (active users;
+//                       a name must match exactly one person) to Schedule settings "Books without approval" / "Can book several
+//                       slots in a row". Never removes anyone; only those two fields (+ updatedAt/By) are written.
 // Long imports continue in a fresh task (continues: <id>, round n) so no run hits the 9-minute limit.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
@@ -118,6 +121,38 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
         if (res === 'moved') done.push(mv.itemId); else skipped.push(`${mv.itemId}: ${res}`)
       }
       await ref.update({ status: 'done', result: { moved: done.length, skipped }, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'scheduleLists') {
+      const users = (await db.collection('users').get()).docs
+        .filter(d => d.get('active') !== false)
+        .map(d => ({ email: d.id.toLowerCase(), name: String(d.get('name') ?? '') }))
+      const find = (q: string) => {
+        const k = q.trim().toLowerCase()
+        if (k.includes('@')) return users.filter(u => u.email === k)
+        return users.filter(u => u.name.toLowerCase() === k || u.name.toLowerCase().split(/\s+/)[0] === k)
+      }
+      const sref = db.doc('app_settings/schedule')
+      const result = await db.runTransaction(async tx => {
+        const cur = (await tx.get(sref)).data() ?? {}
+        const out: Record<string, unknown> = {}
+        const notes: string[] = []
+        for (const field of ['instantBookers', 'longBookers'] as const) {
+          const asks: string[] = Array.isArray(task[field]) ? task[field].map(String).slice(0, 20) : []
+          if (!asks.length) continue
+          const list: { email: string; name: string }[] = Array.isArray(cur[field]) ? [...cur[field]] : []
+          for (const q of asks) {
+            const m = find(q)
+            if (m.length !== 1) { notes.push(`${field}: "${q}" matches ${m.length} people, skipped`); continue }
+            if (list.some(p => String(p.email).toLowerCase() === m[0].email)) { notes.push(`${field}: ${m[0].email} already there`); continue }
+            list.push({ email: m[0].email, name: m[0].name || m[0].email })
+            notes.push(`${field}: added ${m[0].name} (${m[0].email})`)
+          }
+          out[field] = list.slice(0, 20)
+        }
+        if (Object.keys(out).length) tx.set(sref, { ...out, updatedAt: new Date().toISOString(), updatedBy: OWNER_EMAIL }, { merge: true })
+        return notes
+      })
+      result.forEach(say)
+      await ref.update({ status: 'done', result: { notes: result }, log, finishedAt: new Date().toISOString() })
     } else if (task.kind === 'binShortcuts') {
       const root = folderIdFrom(String(task.folder ?? ''))
       if (!root) throw new Error('no folder')

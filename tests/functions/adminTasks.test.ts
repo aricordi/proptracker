@@ -95,3 +95,21 @@ describe('admin tasks: driveAudit (owner, Nov 17: "swords and hammers weren\'t i
     expect(res.matches.find(m => m.name === 'Claw hammer')!.removed).toBe('Same prop twice')
   })
 })
+
+describe('admin tasks: schedule lists', () => {
+  it('adds people by email or unique name, keeps existing ones and other settings, skips unclear names', async () => {
+    await put('users/danny@example.com', { email: 'danny@example.com', name: 'Danny Lee', role: 'creator', active: true })
+    await put('users/kyle@example.com', { email: 'kyle@example.com', name: 'Kyle', role: 'creator', active: true })
+    await put('users/justin1@example.com', { email: 'justin1@example.com', name: 'Justin', role: 'creator', active: true })
+    await put('users/justin2@example.com', { email: 'justin2@example.com', name: 'Justin F', role: 'creator', active: true })
+    await put('app_settings/schedule', { noticeHours: 36, instantBookers: [{ email: 'jana@example.com', name: 'Jana' }] })
+    await put('admin_tasks/l1', { kind: 'scheduleLists', instantBookers: ['Kyle', 'Justin'], longBookers: ['danny@example.com'], createdAt: 'x' })
+    const t = await waitFor('admin_tasks/l1', d => d?.status === 'done' || d?.status === 'failed')
+    expect(t!.status).toBe('done')
+    const s = await getDoc('app_settings/schedule')
+    expect(s!.noticeHours).toBe(36)
+    expect((s!.instantBookers as { email: string }[]).map(p => p.email)).toEqual(['jana@example.com', 'kyle@example.com'])
+    expect(s!.longBookers).toEqual([{ email: 'danny@example.com', name: 'Danny Lee' }])
+    expect(String((t!.result as { notes: string[] }).notes)).toContain('"Justin" matches 2 people')
+  })
+})
