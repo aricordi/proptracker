@@ -2744,6 +2744,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (was 14 days, every 10 min); firebase.json Cache-Control: /assets/** 1 year immutable, /icons/** 1 week, sw.js/push-sw.js/
       index.html/manifest no-cache. App bundle already lean (start-up ~238 KB gz: firebase 133, react 54, shell 37, css 14). Left alone
       on purpose: calendar check reads all calendar_imports + calendar_sent every 15 min (~pennies; most delicate live code).
+      LIVE Nov 19 (owner "yes deploy"): backend run 44611470479 + website run 44611477137 (security + efficiency pass).
+      Admin task kind `scheduleLists` {instantBookers?, longBookers?: [email | unique name]} ADDS people to those Schedule
+      settings lists (never removes; only those fields). Run 44615351584 (owner OK): Kyle → Books without approval,
+      danny@primecapitol.ca → Can book several slots in a row.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
