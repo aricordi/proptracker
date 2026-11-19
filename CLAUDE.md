@@ -2717,6 +2717,33 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       incl. swapShootsAsTeam new) + website run 44195719969 = old-calendar write-back (switch still OFF), hot order + driveAudit, all
       Maanik booking fixes, long bookers. Danny = danny@primecapitol.ca, creator, Full app (person lookup run 44195775903, which now
       also prints 'can book several slots in a row' / 'books without approval'); owner still has to tick him in Schedule settings.
+    - SECURITY + EFFICIENCY PASS (owner, Nov 19: "live for all creators… most robust tests… without messing with anything", then "full
+      performance and efficiency pass… no visual/usability change"; NOT deployed: backend (storageLinks, reservations, pushMessages,
+      push, thumbs/drive/email lazy loads, scheduling/strikes/timeFinder dead code) + FIRESTORE RULES (suggestion photos) + website
+      (safeLink, firebase.json headers), ask). TESTS: tests/rules/attackMatrix.test.ts (10 kinds of person x 54 collections x read/
+      list/create/update/delete + privilege-escalation + suggestion-photo checks) and tests/functions/callableAttack.test.ts (every
+      onCall found from functions/src: signed out / never invited / turned off / unverified owner email / Props-only (except DEMO_OK)
+      refused; OWNER_ONLY tools refuse creator/arts/equipment/admin). LIVE PROBE button `.github/workflows/security-probe.yml` +
+      `.github/scripts/security_probe.py` (READ ONLY: no-credential reads of every collection + storage folder, every callable with no
+      / fake token, calendar feed + Google sign-in return with bad tokens, website headers + leaked files, sign-in providers, API key
+      restrictions, live rules = repo rules). RUN 1 (Nov 19): every data/storage/function check PASSED (anonymous + email sign-up off);
+      WARNs = missing website safety headers (now in firebase.json: nosniff, X-Frame-Options SAMEORIGIN, CSP frame-ancestors 'self',
+      Referrer-Policy, Permissions-Policy camera/mic self) and a false "source map public" (the catch-all rewrite answers .map with the
+      app page; no maps are built). Independent code review (subagent): no high findings; FIXED (1) suggestion photos = any string →
+      rules okPhotos (request-photos uploads only) + app `src/lib/safeLink.ts` isOwnFileLink on suggestion photos and guideline links;
+      (2) storageLinks accepted ANY Firebase project's bucket + folder as a substring → pinned to our buckets (live names + FIREBASE_CONFIG)
+      and folder right after /o/ (emulator host any bucket); reservations cleanPhotos uses it. NOT fixed (owner to decide): Props-only
+      creators can read schedule_days/profiles/app_settings/schedule directly (rules isMember ignores access; low); any creator can book a
+      slot naming another creator as friend (owner decision Nov 14); practice site lets any practice user switch into the owner.
+      BUG FOUND by the full run: pushMessages placeName/when crashed on a swap record without slot details (killed pushOnSwap) → null-safe.
+      TEST MACHINE LESSON: 130 orphaned functionsEmulatorRuntime workers from earlier runs held 13 GB and caused "Killed"/OOM failures;
+      `pkill -f functionsEmulatorRuntime` before/after emulator test runs. Full results: unit 518 + functions/rules 47 files all green.
+      EFFICIENCY: no orphaned files; no unused packages; removed dead code from retired features (placeShootAsTeam, cancelShootAsTeam,
+      STRIKE_LABELS, slotTaken, DEFAULT_PLACE, TAB_ICONS + homeIcon, ActiveCheckout type); sharp + nodemailer loaded only when used
+      (every function's cold start 350 → 305 ms locally); pushReminders reads shoots only ceil((leadTimeHours+6)/24)+1 days ahead
+      (was 14 days, every 10 min); firebase.json Cache-Control: /assets/** 1 year immutable, /icons/** 1 week, sw.js/push-sw.js/
+      index.html/manifest no-cache. App bundle already lean (start-up ~238 KB gz: firebase 133, react 54, shell 37, css 14). Left alone
+      on purpose: calendar check reads all calendar_imports + calendar_sent every 15 min (~pennies; most delicate live code).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

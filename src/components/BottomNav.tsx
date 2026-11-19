@@ -66,12 +66,6 @@ const staffNav = [
   { to: '/admin',    label: 'Admin',    icon: adminIcon, also: ['/cleanup', '/duplicates', '/bins', '/health', '/suggestions', '/activity', '/insights'] },
 ]
 
-const homeIcon = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-    <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />
-  </svg>
-)
-
 // Creators: everything revolves around the shoot (Home → Book a time → Browse props + gear → Me).
 const requestsIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M9 15l2 2 4-4" /></svg>

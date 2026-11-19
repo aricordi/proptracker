@@ -3,7 +3,7 @@
 // TimeAsk; the slots themselves always come from findOptions, so a time is never invented.
 import { addDays, weekday, isDay } from './booking.js'
 import { stamp, addMinutes } from './gearBooking.js'
-import { slotState, slotKey, houseSlotsOn, slotsPerDayFor, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
+import { slotState, houseSlotsOn, slotsPerDayFor, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
 
 export type TimeOfDay = 'any' | 'morning' | 'afternoon' | 'evening' | 'night' | 'late'   // night = 'tonight' (5 PM on)
 export interface TimeAsk {

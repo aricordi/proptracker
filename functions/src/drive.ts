@@ -2,7 +2,9 @@
 // The server signs in to Drive as the app's own Google account (its "service
 // account"); the owner shares the photo folders with that account's email.
 import { GoogleAuth } from 'google-auth-library'
-import sharp from 'sharp'
+// Loaded only when a photo is actually processed (efficiency pass, Nov 19): every server function shares this code,
+// and the image library added ~60 ms to each cold start.
+const loadSharp = async () => (await import('sharp')).default
 import { LIST_TYPES, isListType, WORD_TYPES } from './importList.js'
 
 const DRIVE = 'https://www.googleapis.com/drive/v3'
@@ -92,6 +94,7 @@ export async function fetchPhoto(img: DriveImage): Promise<Buffer> {
   if (img.id.startsWith('test')) {
     // A plain coloured square, different for each pretend photo.
     const n = Number(img.id.slice(4, 8))
+    const sharp = await loadSharp()
     original = await sharp({ create: { width: 64 + n, height: 64, channels: 3, background: { r: (n * 40) % 255, g: 120, b: 200 } } }).png().toBuffer()
   } else {
     const tok = await token()
@@ -106,7 +109,8 @@ export async function fetchPhoto(img: DriveImage): Promise<Buffer> {
   return shrink(original)
 }
 
-function shrink(buf: Buffer): Promise<Buffer> {
+async function shrink(buf: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp()
   return sharp(buf).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer()
 }
 

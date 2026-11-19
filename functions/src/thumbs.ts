@@ -8,7 +8,9 @@ import { onCall } from 'firebase-functions/v2/https'
 import { getStorage } from 'firebase-admin/storage'
 import type { DocumentData } from 'firebase-admin/firestore'
 import { createHash, randomUUID } from 'node:crypto'
-import sharp from 'sharp'
+// Loaded only when a photo is actually processed (efficiency pass, Nov 19): every server function shares this code,
+// and the image library added ~60 ms to each cold start.
+const loadSharp = async () => (await import('sharp')).default
 import { db, requireRole, CALLABLE } from './auth.js'
 
 const THUMB_PX = 480
@@ -34,6 +36,7 @@ export function missingThumbs(item: DocumentData): string[] {
 async function makeThumb(url: string): Promise<string> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`photo download failed (${res.status})`)
+  const sharp = await loadSharp()
   const jpeg = await sharp(Buffer.from(await res.arrayBuffer())).rotate()
     .resize({ width: THUMB_PX, height: THUMB_PX, fit: 'inside', withoutEnlargement: true })
     .jpeg({ quality: 72, mozjpeg: true }).toBuffer()

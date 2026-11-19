@@ -186,13 +186,16 @@ async function sendOnce(list: Reminder[]) {
 
 export async function runReminders(now = nowStamp()) {
   const today = todayInStudio()
-  const [s, booking, shoots, props, gear] = await Promise.all([
+  const [s, booking, props, gear] = await Promise.all([
     loadScheduleSettings(), loadSettings(),
-    db.collection('shoots').where('date', '>=', addDays(today, -1)).where('date', '<=', addDays(today, 14)).get(),
     db.collection('reservations').where('status', '==', 'collected').get(),
     db.collection('gear_bookings').where('status', '==', 'out').get(),
   ])
   const lead = booking.leadTimeHours
+  // Only as far ahead as the props "last chance" reminder needs (notice + its 6-hour window, + a day of margin): this job
+  // runs every 10 minutes, and reading two weeks of shoots each time cost ~4x the reads (efficiency pass, Nov 19).
+  const ahead = Math.min(15, Math.max(2, Math.ceil((lead + 6) / 24) + 1))
+  const shoots = await db.collection('shoots').where('date', '>=', addDays(today, -1)).where('date', '<=', addDays(today, ahead)).get()
   const list: Reminder[] = []
   // Who can check in with the app right now: the owner and creators on the Full app (cached for this run).
   const access = new Map<string, boolean>()
