@@ -1,0 +1,27 @@
+# "Security probe" button: tries to get into the LIVE app like an outsider (no sign-in) and checks a few
+# security settings. READ ONLY: it never creates, changes or deletes anything. GitHub → Actions → Security probe.
+name: Security probe (read only)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sign in to Google Cloud as the deploy account (only for the read-only settings checks)
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Probe the live app
+        env:
+          BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+        run: python3 -I .github/scripts/security_probe.py
