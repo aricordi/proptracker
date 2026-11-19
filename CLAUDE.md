@@ -2749,7 +2749,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       settings lists (never removes; only those fields). First try run 44615351584 FAILED safely ("unknown kind": the big
       deploy had silently skipped runAdminTask, Google's update quota) → redeployed with only=functions:runAdminTask (run
       44615797871) → run 44618171321 DONE: Kyle (kyle@primecapitol.ca) → Books without approval, Danny (danny@primecapitol.ca)
-      → Can book several slots in a row. Full re-deploy run 44615836234 started to catch any other skipped function.
+      → Can book several slots in a row. Full re-deploy run 44615836234 green: deploy step 28 s = nothing left to update (only runAdminTask had been skipped).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
