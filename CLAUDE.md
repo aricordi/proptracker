@@ -2746,8 +2746,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       on purpose: calendar check reads all calendar_imports + calendar_sent every 15 min (~pennies; most delicate live code).
       LIVE Nov 19 (owner "yes deploy"): backend run 44611470479 + website run 44611477137 (security + efficiency pass).
       Admin task kind `scheduleLists` {instantBookers?, longBookers?: [email | unique name]} ADDS people to those Schedule
-      settings lists (never removes; only those fields). Run 44615351584 (owner OK): Kyle → Books without approval,
-      danny@primecapitol.ca → Can book several slots in a row.
+      settings lists (never removes; only those fields). First try run 44615351584 FAILED safely ("unknown kind": the big
+      deploy had silently skipped runAdminTask, Google's update quota) → redeployed with only=functions:runAdminTask (run
+      44615797871) → run 44618171321 DONE: Kyle (kyle@primecapitol.ca) → Books without approval, Danny (danny@primecapitol.ca)
+      → Can book several slots in a row. Full re-deploy run 44615836234 started to catch any other skipped function.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
