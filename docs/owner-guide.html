@@ -547,6 +547,8 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
     <li><b>Getting the newest version on your phone:</b> close the app fully and reopen it, twice.</li>
     <li><b>Old AI data removed (Nov 2):</b> older props carried a block of numbers from a retired AI model that nothing used. A check on Nov 2 found <b>none left</b> on the 1,245 live props, so nothing needed removing.</li>
     <li><b>Speed (Nov 2):</b> the props list now loads once when the app opens and stays ready, and Browse draws 40 photos at a time as you scroll (it used to draw all ~1,200 at once). On a mid-range phone, opening Browse went from about 3 seconds frozen to about a tenth of a second.</li>
+    <li><b>Security check (Nov 19):</b> before every creator got the app, Claude tried to break in from the outside (read only, nothing changed): no data, photos or server functions could be reached without signing in, and fake or turned-off accounts were refused everywhere. Two small holes were closed (photo links in "Suggest an edit" and in requests now must be the app's own photos) and the website got extra safety settings. Button for a re-check any time: <span class="path">GitHub → Actions → Security probe (read only)</span>.</li>
+    <li><b>Tidy-up (Nov 19):</b> leftover code from retired features was removed, the server loads its photo and email tools only when needed (a little faster to wake up), the 10-minute reminder job reads far less data, and phones keep the app's files cached longer. Nothing looks or works differently.</li>
     <li><b>Undo a bad website update:</b> Firebase console → Hosting → Release history → Roll back. Or just ask Claude.</li>
     <li><b>Something looks wrong?</b> Ask Claude to "read the server logs"; there's a safe, read-only button for that.</li>
   </ul>
@@ -555,6 +557,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 <section id="todo">
   <h2>Your to-do list</h2>
   <ul class="todo">
+    <li>Tick <b>Danny</b> in <span class="path">Schedule settings → Can book several slots in a row</span>.</li>
     <li>Tick <b>Kyle</b> in <span class="path">Schedule settings → Books without approval</span> so his bookings are approved at once.</li>
     <li><b>Test launch:</b> when the app is ready for phase 2, switch your first 3–5 creators to <b>Full app</b> on People &amp; access.</li>
     <li>Ask IT for the company account (e.g. bookings@primecapitol.ca) and to share the shooting calendar with it. Then do the three steps on <span class="path">Team → Calendar &amp; email</span> and run the first import.</li>
