@@ -159,7 +159,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
         <section className="rise-in">
           <button onClick={toggleList} aria-expanded={listOpen} className="w-full min-h-[40px] flex items-center gap-2 px-1 mb-1 text-left">
             <span className="text-pt-muted text-[14px] font-semibold">{nextItems.length !== next.length ? 'Coming up' : next.length === 1 ? 'Your next shoot' : `Your next ${next.length} shoots`}</span>
-            <span className="text-pt-muted/70 text-[14px]">{ahead.length > next.length ? `· of ${ahead.length} booked` : ''}{!listOpen ? ` · ${formatDay((nextItems[0].k === 'shoot' ? nextItems[0].x.date : nextItems[0].v.date), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
+            <span className="text-pt-muted/70 text-[14px]">{nextItems.length !== next.length ? `· ${ahead.length} ${ahead.length === 1 ? 'shoot' : 'shoots'}, ${videoYes.length} ${videoYes.length === 1 ? 'video' : 'videos'} you're in` : ahead.length > next.length ? `· of ${ahead.length} booked` : ''}{!listOpen ? ` · ${formatDay((nextItems[0].k === 'shoot' ? nextItems[0].x.date : nextItems[0].v.date), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
             <span className={`ml-auto text-pt-muted text-[16px] transition-transform ${listOpen ? 'rotate-90' : ''}`} aria-hidden>›</span>
           </button>
           {listOpen && <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">

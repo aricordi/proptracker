@@ -2766,6 +2766,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       too), ChatNow (invite cards + accepted videos in Coming up), MonthGrid `castDates` (sky edge + legend), DayPickSheet banner,
       My shoots strip, Me row, Props-only Browse nudge. Help (2 Qs), appGuide 'videos' + shootsheet/book, owner guide #nov21.
       Tests tests/unit/cast.test.ts, tests/functions/cast.test.ts, rules attack matrix.
+      → POLISH + INTEGRATION (owner, Nov 21: "super polished… integrated where it needs to be, not siloed"): cast.ts videoNoteFor
+      (your shoot: "In Ariel's video at 1 PM first" / amber "Clashes with…" / "Then X's video at…") + inviteNote (invite: your own
+      shoot or another video that day) shown via CastParts VideoNote on chat Coming up rows, My shoots cards, the shoot sheet
+      (ShootCast note), invite cards and video rows; useMyCast (host side, one listener) → CastFaces (faded = not answered) on your
+      own shoot rows in the chat + My shoots; videos sit INLINE among your shoots in My shoots (VideosStrip no longer used there);
+      useMyVideos = one shared listener per person (store in services/cast.ts). castFollow pushes "…'s video is confirmed ✓" when a
+      requested video gets approved. CHAT: detectIntent 'videos' (INVITE_TO_VIDEO / VIDEOS_IN, checked before check-in) → local
+      answer (invite → "Invite people" button to /schedule?shoot=<id>&cast=1, which opens the invite list; else a 'videos' card with
+      invite cards + rows); status card lists the videos you're in; booked card "Invite who's in this video"; AI: ChatState.inVideos
+      (cleanState, prompt line incl. Props only), CHAT_ACTIONS 'videos' (demo too). InviteSheet renders through a portal (a sheet
+      inside the shoot sheet was trapped). Seed: Kyle in Riley's sh9 (accepted), Jana invites Riley to sh1 (pending). Tests 531 unit
+      + 459 server/rules (run in batches of 6 files: one full emulator run OOMs this machine) + robot journeys.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

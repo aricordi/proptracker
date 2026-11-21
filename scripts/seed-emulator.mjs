@@ -220,4 +220,14 @@ const t1 = dayOf(1)
 await put('swap_requests/sw1', { fromShootId: 'sh3', toShootId: 'sh2', fromEmail: 'kyle@example.com', fromName: 'Kyle', toEmail: 'creator@example.com', toName: 'Riley (Creator)',
   from: { place: 'cliff1', date: t1, start: 900, end: 1020 }, to: { place: 'cliff1', date: t1, start: 780, end: 900 }, status: 'pending', createdAt: now })
 
+// Who's in this video (Nov 21): Kyle is in Riley's next-week video (said yes; Kyle films right after, so he sees
+// "In Riley's video at 3 PM first"), and Jana invites Riley into her video tomorrow (waiting for Riley's answer).
+const castOf = (id, x, to, toName, status) => ({ shootId: id, hostEmail: x.email, hostName: x.name, toEmail: to, toName,
+  place: x.place, where: '', bothHouses: false, placeName: x.place === 'cliff2' ? 'Cliff 2' : 'Cliff 1', date: dayOf(x.d), start: x.start, end: x.start + 120,
+  from: `${dayOf(x.d)}T${String(Math.floor(x.start / 60)).padStart(2, '0')}:00`, to: `${dayOf(x.d)}T${String(Math.floor((x.start + 120) / 60)).padStart(2, '0')}:00`,
+  shootStatus: 'booked', status, invitedBy: x.email, invitedAt: now, updatedAt: now, ...(status === 'accepted' ? { answeredAt: now } : {}) })
+const byId = Object.fromEntries(shoots.map(x => [x.id, x]))
+await put('cast_invites/sh9_kyle@example.com', castOf('sh9', byId.sh9, 'kyle@example.com', 'Kyle', 'accepted'))
+await put('cast_invites/sh1_creator@example.com', castOf('sh1', byId.sh1, 'creator@example.com', 'Riley (Creator)', 'pending'))
+
 console.log(`Seeded ${users.length} users, ${items.length} props, ${bins.length} bins into the local emulator.`)
