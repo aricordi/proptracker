@@ -67,11 +67,15 @@ export function castFollow(inv: CastInvite, after: Record<string, any> | undefin
   const moved = timeChanged(inv, snap)
   const update: Partial<CastInvite> = { ...snap }
   if (!moved && snap.shootStatus === inv.shootStatus && snap.placeName === inv.placeName) return { update: null, push: null }
+  // Their time was a request and the schedule team just approved it: tell the people who said yes it's really on.
+  const approved = !moved && inv.shootStatus === 'requested' && snap.shootStatus === 'booked'
   return {
     update,
     push: moved && inv.status === 'accepted'
       ? { to, url, tag: `cast-${id}`, title: `${host}'s video moved`, body: `Now ${castWhen({ ...inv, ...snap })}. Be there at ${fmtTime(snap.start)}.` }
-      : null,
+      : approved && inv.status === 'accepted'
+        ? { to, url, tag: `cast-${id}`, title: `${host}'s video is confirmed ✓`, body: `${castWhen(inv)}. Be there at ${fmtTime(inv.start)}.` }
+        : null,
   }
 }
 
@@ -97,3 +101,34 @@ export function answeredPush(id: string, inv: Pick<CastInvite, 'hostEmail' | 'to
 }
 export const removedPush = (id: string, inv: Pick<CastInvite, 'toEmail' | 'hostName' | 'date' | 'start' | 'end' | 'placeName'>): Push =>
   ({ to: [inv.toEmail], url: '/videos', tag: `cast-${id}`, title: `You're no longer in ${first(inv.hostName)}'s video`, body: `${castWhen(inv)}. Nothing for you to do.` })
+
+// ── Same-day smarts (owner, Nov 21: "mine starts after his so I show up to my slot and miss his") ──────────────────────
+// A shoot of your own, as far as these helpers care: its day and real hours.
+export interface MyTime { id?: string; date: string; start: number; end: number; label?: string }
+const overlaps = (a: { start: number; end: number }, b: { start: number; end: number }) => a.start < b.end && b.start < a.end
+
+/** One line for YOUR shoot when you're also in someone's video that day: "In Ariel's video at 1 PM first" (or a clash). */
+export function videoNoteFor(mine: MyTime, videos: Pick<CastInvite, 'date' | 'start' | 'end' | 'hostName' | 'status'>[]): { text: string; clash: boolean } | null {
+  const same = videos.filter(v => v.status === 'accepted' && v.date === mine.date).sort((a, b) => a.start - b.start)
+  const clash = same.find(v => overlaps(v, mine))
+  if (clash) return { text: `Clashes with ${first(clash.hostName)}'s video (${fmtTime(clash.start)}–${fmtTime(clash.end)})`, clash: true }
+  const before = same.filter(v => v.start < mine.start)
+  if (before.length) return { text: `In ${before.map(v => `${first(v.hostName)}'s video at ${fmtTime(v.start)}`).join(', ')} first`, clash: false }
+  const after = same.find(v => v.start >= mine.end)
+  return after ? { text: `Then ${first(after.hostName)}'s video at ${fmtTime(after.start)}`, clash: false } : null
+}
+
+/** On an invite: what else you have that day (your own shoots and videos you said yes to), so you answer knowing it. */
+export function inviteNote(inv: Pick<CastInvite, 'date' | 'start' | 'end'>, mine: MyTime[], videos: (Pick<CastInvite, 'date' | 'start' | 'end' | 'hostName' | 'status'> & { id?: string })[], selfId?: string): { text: string; clash: boolean } | null {
+  const own = mine.filter(m => m.date === inv.date).sort((a, b) => a.start - b.start)
+  const vids = videos.filter(v => v.id !== selfId && v.status === 'accepted' && v.date === inv.date)
+  const ownClash = own.find(m => overlaps(m, inv))
+  if (ownClash) return { text: `Clashes with your own shoot ${fmtTime(ownClash.start)}–${fmtTime(ownClash.end)}${ownClash.label ? ` · ${ownClash.label}` : ''}`, clash: true }
+  const vidClash = vids.find(v => overlaps(v, inv))
+  if (vidClash) return { text: `Clashes with ${first(vidClash.hostName)}'s video (${fmtTime(vidClash.start)}–${fmtTime(vidClash.end)})`, clash: true }
+  if (own.length) {
+    const o = own[0]
+    return { text: o.start > inv.start ? `Before your own shoot at ${fmtTime(o.start)}${o.label ? ` · ${o.label}` : ''}` : `After your own shoot (${fmtTime(o.start)}–${fmtTime(o.end)})`, clash: false }
+  }
+  return null
+}

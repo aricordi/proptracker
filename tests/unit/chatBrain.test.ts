@@ -10,7 +10,7 @@ describe('what each person can get from the chat', () => {
   it('creators and the owner get every action; Props-only gets ideas + how-to; staff only how-to', () => {
     expect(ALL).toEqual(Object.keys(CHAT_ACTIONS))
     expect(actionsFor('owner', true)).toContain('cancel')
-    expect(actionsFor('demo', false)).toEqual(['reply', 'props', 'help'])
+    expect(actionsFor('demo', false)).toEqual(['reply', 'props', 'help', 'videos'])
     expect(actionsFor('equipment', false)).toEqual(['reply', 'help'])
     expect(actionsFor('admin', false)).not.toContain('times')
   })
@@ -170,5 +170,14 @@ describe('the chat remembers you (Nov 7)', () => {
     expect(p.user).toMatch(/FROM AN EARLIER VISIT[\s\S]*<creator_text>[\s\S]*CONVERSATION SO FAR:\n<creator_text>hi<\/creator_text>\nNEWEST MESSAGE:/)
     expect(p.user.match(/<\/creator_text>/g)).toHaveLength(3)
     expect(p.system).toContain('"Diner prank"')
+  })
+})
+
+describe('videos they appear in (Nov 21)', () => {
+  it('keeps short clean lines and shows them to the AI, Props only too', () => {
+    const st = cleanState({ shoots: [], out: { props: 0, gear: [] }, inVideos: ["Ariel's video, Tue Nov 25 1 PM–3 PM at Cliff 1 (said yes; be there at 1 PM)", 42, ''] })
+    expect(st.inVideos).toEqual(["Ariel's video, Tue Nov 25 1 PM–3 PM at Cliff 1 (said yes; be there at 1 PM)"])
+    expect(actionsFor('demo', false)).toContain('videos')
+    expect(actionsFor('arts', false)).not.toContain('videos')
   })
 })

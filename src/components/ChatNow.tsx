@@ -17,8 +17,8 @@ import { subscribeToReservations, confirmPickup, type Reservation } from '../ser
 import { reportProblem } from '../services/problems'
 import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
-import { VideoInviteCard } from './CastParts'
-import { useMyVideos, isUpcoming, firstName, type CastRow } from '../services/cast'
+import { VideoInviteCard, VideoNote, CastFaces } from './CastParts'
+import { useMyVideos, useMyCast, isUpcoming, firstName, videoNoteFor, inviteNote, type CastRow } from '../services/cast'
 import { ChatCard, HeroCard, AlertCard, ReadyCard, NoticeRow, CountdownRing, LiveDot, primaryBtn, secondaryBtn, alertBtn, noticeLink } from './ChatCard'
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
@@ -89,6 +89,8 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
     ...ahead.map(x => ({ k: 'shoot' as const, x, at: x.from })), ...videoYes.map(v => ({ k: 'video' as const, v, at: v.from || v.date })),
   ].sort((a, b) => a.at.localeCompare(b.at))
   const nextItems = items.slice(0, 3)
+  const myCast = useMyCast(email)
+  const myTimes = upcoming.map(x => ({ id: x.id, date: x.date, start: x.start, end: x.end, label: x.place === 'offsite' ? (x.where || 'Offsite') : s.houses[x.place].name }))
   const next = nextItems.flatMap(i => i.k === 'shoot' ? [i.x] : [])
   const backCount = (returns ?? []).reduce((n, g) => n + returnCount(g), 0)
   const paused = !!status?.pausedUntil && status.pausedUntil > today
@@ -111,7 +113,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       {paused && <NoticeRow tone="bad" icon="pause" title={`Prop requests paused until ${formatDay(status!.pausedUntil!)}`} sub="You can still book filming time." />}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} urgent />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
-      {videoInvites.map(v => <VideoInviteCard key={v.id} row={v} />)}
+      {videoInvites.map(v => <VideoInviteCard key={v.id} row={v} note={inviteNote(v, myTimes, videoYes, v.id)} />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}
       {missed.map(x => {
         const until = explainUntil(x, s), left = minutesBetween(now, until), total = s.explainHours * 60
@@ -176,6 +178,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
                         <span className="w-1.5 h-1.5 rounded-full bg-sky-400" aria-hidden />
                         Be there {fmtTime(v.start)} · {v.placeName} · {whenLabel(v.date, today)}
                       </span>
+                      {(() => { const n = inviteNote(v, myTimes, videoYes, v.id); return n && <VideoNote note={n} /> })()}
                     </span>
                   </button>
                 )
@@ -199,6 +202,8 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
                         {state} · {whenLabel(x.date, today)}
                       </span>
                       {early && <span className="block text-[12px] text-sky-300">House free from {fmtTime(early.at)}</span>}
+                      {(() => { const n = videoNoteFor(x, videoYes); return n && <VideoNote note={n} /> })()}
+                      {myCast[x.id]?.length ? <span className="block mt-1"><CastFaces rows={myCast[x.id]} /></span> : null}
                     </span>
                   </button>
                   {propsOpen && <button onClick={() => onProps(x.id)} aria-label={`Props for this shoot, by ${formatDay(c.props)}`}

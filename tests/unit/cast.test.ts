@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { castFollow, castReminders, castWhen, type CastInvite } from '../../functions/src/cast'
+import { castFollow, castReminders, castWhen, videoNoteFor, inviteNote, type CastInvite } from '../../functions/src/cast'
 
 const inv = (over: Partial<CastInvite> = {}): CastInvite => ({
   shootId: 's1', hostEmail: 'ariel@x.com', hostName: 'Ariel Cohen', toEmail: 'alex@x.com', toName: 'Alex',
@@ -41,4 +41,25 @@ describe('cast follows the shoot', () => {
     expect(castFollow(inv({ status: 'declined' }), { status: 'cancelled' }, 'Cliff 1', 'i')).toEqual({ update: null, push: null })
   })
   it('reads well', () => { expect(castWhen(inv())).toBe('Wed Nov 25 · 1 PM–3 PM · Cliff 1') })
+})
+
+describe('same-day smarts', () => {
+  const v = inv()  // Ariel's video Nov 25 1–3 PM, accepted
+  it('my later shoot reminds me of the earlier video; overlap is a clash', () => {
+    expect(videoNoteFor({ date: '2026-11-25', start: 900, end: 1020 }, [v])).toEqual({ text: "In Ariel's video at 1 PM first", clash: false })
+    expect(videoNoteFor({ date: '2026-11-25', start: 840, end: 960 }, [v])?.clash).toBe(true)
+    expect(videoNoteFor({ date: '2026-11-25', start: 600, end: 720 }, [v])?.text).toBe("Then Ariel's video at 1 PM")
+    expect(videoNoteFor({ date: '2026-11-26', start: 900, end: 1020 }, [v])).toBeNull()
+    expect(videoNoteFor({ date: '2026-11-25', start: 900, end: 1020 }, [inv({ status: 'pending' })])).toBeNull()
+  })
+  it('invite says what else I have that day', () => {
+    expect(inviteNote(v, [{ date: '2026-11-25', start: 900, end: 1020, label: 'Cliff 2' }], [])?.text).toBe('Before your own shoot at 3 PM · Cliff 2')
+    expect(inviteNote(v, [{ date: '2026-11-25', start: 840, end: 960 }], [])?.clash).toBe(true)
+    expect(inviteNote(v, [], [{ ...inv({ hostName: 'Kyle' }), id: 'k' }], 'self')?.text).toBe("Clashes with Kyle's video (1 PM–3 PM)")
+    expect(inviteNote(v, [], [])).toBeNull()
+  })
+  it('approval of a requested time tells people who said yes', () => {
+    const r = castFollow(inv({ shootStatus: 'requested' }), { status: 'booked', place: 'cliff1', date: '2026-11-25', start: 780, end: 900, from: '2026-11-25T13:00', to: '2026-11-25T15:00' }, 'Cliff 1', 'i')
+    expect(r.push?.title).toBe("Ariel's video is confirmed ✓")
+  })
 })

@@ -20,7 +20,9 @@ import { db } from '../firebase'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import type { AssistantMode } from '../assistant'
-import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, pickOption, isJustWhen, type Helper, type Route, type Intent } from '../lib/aiRoute'
+import { routeMessage, cancelIntent, isStatusQuestion, detectIntent, findShoot, namesADay, isAppBug, pickOption, isJustWhen, INVITE_TO_VIDEO, type Helper, type Route, type Intent } from '../lib/aiRoute'
+import { useMyVideos, isUpcoming as videoUpcoming, firstName as castFirst, videoNoteFor, inviteNote } from '../services/cast'
+import { VideoInviteCard, VideoRow, VideoNote, useLeaveVideo } from './CastParts'
 import { useBugReport } from './BugReport'
 import { ReturnCard, ReportCard, PickupList, ShootNow } from './ChatNow'
 import GuidelinePicker from './GuidelinePicker'
@@ -70,6 +72,7 @@ type Msg =
   | { who: 'already' }  // plan: what this shoot already has (sent requests), live
   | { who: 'cancel'; shootId?: string }   // chat: "cancel my thursday shoot" → confirm (or pick which)
   | { who: 'status' }   // chat: "is my shoot approved?" → your shoots with their status
+  | { who: 'videos' }   // chat: "am I in any videos?" → invites to answer + the videos you said yes to (Nov 21)
   | { who: 'actions'; items: { label: string; to?: string; shootId?: string; ask?: string }[] }   // buttons that open the right screen
   | { who: 'return' } | { who: 'report'; text: string } | { who: 'pickup' }   // done right in the chat (Nov 3)
   | { who: 'now'; shootId: string }   // "im here" / "we're done": the check-in or wrap card, right in the chat (chat QA, Nov 6)
@@ -169,6 +172,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const recent = useMyShoots(profile.email, addDaysLocal(todayInStudio(), -1))
   const returns = useReturnGroups(profile.email)
   const myStatus = useMyStatus(profile.email)
+  const castVideos = useMyVideos(profile.email)
+  const videosLive = (castVideos ?? []).filter(v => videoUpcoming(v))
+  const videosYes = videosLive.filter(v => v.status === 'accepted')
+  const leaveVideo = useLeaveVideo()
+  const myTimes = () => upcoming.map(x => ({ id: x.id, date: x.date, start: x.start, end: x.end, label: x.place === 'offsite' ? (x.where || 'Offsite') : s.houses[x.place].name }))
   const gw = useGearWindow()
   // Usual partners (owner, Nov 7): one "With Kyle?" chip after a time search that names nobody, and a hint for the chat's AI.
   const partners = useUsualPartners(profile.email, s.slotMinutes, !demo && !helpOnly)
@@ -377,6 +385,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       ...(plan ? { plan: { step: plan.step, ...(shoot?.id ? { shoot: shoot.id } : {}) } } : {}),
       ...(partners.length ? { usualPartners: partners.map(p => p.label) } : {}),
       ...(videos.length ? { recentVideos: videos } : {}),
+      ...(videosLive.length ? { inVideos: videosLive.slice(0, 6).map(v => `${castFirst(v.hostName)}'s video, ${formatDay(v.date, { weekday: 'short', month: 'short', day: 'numeric' })} ${fmtTime(v.start)}–${fmtTime(v.end)} at ${v.placeName} (${v.status === 'pending' ? 'invited, not answered yet' : `said yes; be there at ${fmtTime(v.start)}`})`) } : {}),
     }
   }
   // The newest "me" line takes the helper it ended up going to (the prop finder reads earlier prop messages).
@@ -586,7 +595,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (demo && !helpOnly && !ai) {
       // Shoots, check-in, gear, returns… aren't open for them yet (chat QA, Nov 6: "im here" got prop ideas).
       const i0 = detectIntent(q)
-      if ((i0 && !['greeting', 'thanks', 'ack', 'whoami', 'capabilities', 'upset', 'access', 'house'].includes(i0)) || cancelIntent(q, []) || isStatusQuestion(q)) {
+      if ((i0 && !['greeting', 'thanks', 'ack', 'whoami', 'capabilities', 'upset', 'access', 'house', 'videos'].includes(i0)) || cancelIntent(q, []) || isStatusQuestion(q)) {
         setMsgs(x => [...x, { who: 'bot', text: 'Booking and shoots aren\'t open for you yet, so I can\'t help with that one. Tell me about a video and I\'ll find props for it, or ask me how the app works.' }]); setChips(STARTERS.props.slice(0, 3)); return true
       }
       const r = routeMessage(q, { last: 'props', shoots: [] })
@@ -650,6 +659,18 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const wrongDay = !pick && !hit && namesADay(q) && sorted.length > 0
       const named = pick ?? sorted.find(x => x.id === hit) ?? (wrongDay ? undefined : sorted[0])
       const out = (returns ?? []).length > 0
+      if (intent === 'videos') {
+        // "invite Kyle to my Saturday shoot" / "who's in my video" → open that shoot's "Who's in this video?"
+        if (INVITE_TO_VIDEO.test(q) || (ai && ai.shootId)) {
+          if (demo || !canBook) { say('Inviting people into your video opens once you can book shoots. Someone can still invite you into theirs: it shows here to say yes or no.', [], [], true); return true }
+          if (!named) { say(wrongDay ? `I don't see a shoot of yours that day. Your next ones: ${sorted.slice(0, 3).map(label).join('; ')}.` : 'Book your shoot first, then invite who\'s in it.', [], wrongDay ? [] : mixed().slice(0, 2), true); return true }
+          say(`Open **${label(named)}** and tap **Invite** under **Who's in this video?**. They get a notification to say yes or no; once they're in, it shows in their app with reminders before ${fmtTime(named.start)}.`,
+            [{ who: 'actions', items: [{ label: 'Invite people', to: `/schedule?shoot=${named.id}&cast=1` }] }]); return true
+        }
+        if (!videosLive.length) { say('You\'re not in anyone\'s video right now. When someone invites you, it shows here to say yes or no.', [], [], true); return true }
+        const waiting = videosLive.filter(v => v.status === 'pending').length
+        say(waiting ? `${waiting === 1 ? 'One invite needs' : `${waiting} invites need`} your answer.${videosYes.length ? ' Below that, the videos you\'re in.' : ''}` : `You're in ${videosYes.length === 1 ? 'one video' : `${videosYes.length} videos`} coming up. Be there at each one's start time.`, [{ who: 'videos' }], [], true); return true
+      }
       if (intent === 'return') {
         if (!out) { say('Nothing to bring back right now: everything on your name is already returned.', [], [], true); return true }
         say('Let\'s do it. A few taps and one photo.', [{ who: 'return' }]); return true
@@ -1214,6 +1235,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   return (
     <div className={page ? 'h-full bg-pt-bg flex flex-col' : `fixed inset-0 z-50 bg-pt-bg flex flex-col ${shown ? '' : 'hidden'}`} role={page ? 'main' : 'dialog'} aria-label={page ? 'Chat' : 'AI helper'}>
+      {leaveVideo.sheet}
       <div className="pt-safe px-5 shrink-0">
         {page ? (
           <div className="flex items-center gap-2 py-2">
@@ -1401,12 +1423,29 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           (() => { const sh = (recent ?? []).find(x => x.id === m.shootId); return sh ? <ShootNow key={i} shoot={sh} /> : null })()
         ) : m.who === 'cancel' ? (
           <CancelCard key={i} shootId={m.shootId} shoots={[...upcoming].sort((a, b) => a.from.localeCompare(b.from))} label={label} />
+        ) : m.who === 'videos' ? (
+          <div key={i} className="rise-in space-y-2" data-testid="chat-videos">
+            {videosLive.filter(v => v.status === 'pending').map(v => <VideoInviteCard key={v.id} row={v} note={inviteNote(v, myTimes(), videosYes, v.id)} />)}
+            {videosYes.length > 0 && <div className="rounded-[18px] bg-pt-surface px-4 divide-y divide-white/[0.06]">
+              {videosYes.slice(0, 5).map(v => <VideoRow key={v.id} row={v} onLeave={() => leaveVideo.leave(v)} note={inviteNote(v, myTimes(), videosYes, v.id)} />)}
+            </div>}
+            {videosLive.length > 5 && <button onClick={() => go('/videos')} className="tap text-pt-accent text-[14px] font-semibold">All videos you're in ›</button>}
+          </div>
         ) : m.who === 'status' ? (
           <div key={i} className="rise-in space-y-2">
-            {[...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 5).map(sh => (
-              <button key={sh.id} onClick={() => go(`/schedule?shoot=${sh.id}`)} className="w-full flex items-center gap-3 text-left rounded-[18px] bg-pt-surface px-4 py-3">
-                <b className="flex-1 min-w-0 text-[16px]">{label(sh)}</b>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${sh.status === 'requested' ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{sh.status === 'requested' ? 'Waiting for OK' : sh.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
+            {[...upcoming].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 5).map(sh => {
+              const n = videoNoteFor(sh, videosYes)
+              return (
+                <button key={sh.id} onClick={() => go(`/schedule?shoot=${sh.id}`)} className="w-full flex items-center gap-3 text-left rounded-[18px] bg-pt-surface px-4 py-3">
+                  <span className="flex-1 min-w-0"><b className="block text-[16px]">{label(sh)}</b>{n && <VideoNote note={n} />}</span>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${sh.status === 'requested' ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{sh.status === 'requested' ? 'Waiting for OK' : sh.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
+                </button>
+              )
+            })}
+            {videosYes.slice(0, 3).map(v => (
+              <button key={v.id} onClick={() => go('/videos')} className="w-full flex items-center gap-3 text-left rounded-[18px] bg-sky-400/[0.08] px-4 py-3">
+                <b className="flex-1 min-w-0 text-[16px]">In {castFirst(v.hostName)}'s video · {formatDay(v.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtTime(v.start)}</b>
+                <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold bg-sky-400/15 text-sky-200">Be there {fmtTime(v.start)}</span>
               </button>
             ))}
           </div>
@@ -1427,6 +1466,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               ? <button onClick={() => addTo(m.shootId, m.label)} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold">Add the {sel.length} ticked to this shoot</button>
               : <button onClick={() => propsFor(m.shootId)} className="w-full rounded-xl py-3 font-semibold text-[#CDB8FF] bg-[#BF9DFF]/15">✦ Find props for this shoot</button>)}
             {!plan && <button onClick={() => { choose(m.shootId); go('/browse') }} className="w-full rounded-xl py-3 font-semibold bg-pt-border">Browse props</button>}
+            {!plan && <button onClick={() => go(`/schedule?shoot=${m.shootId}&cast=1`)} className="w-full rounded-xl py-3 font-semibold text-sky-200 bg-sky-400/10" data-testid="booked-invite">Invite who's in this video</button>}
           </div>
         ) : null))}
         {busy && <div role="status" aria-label="Thinking" className="rise-in flex items-center gap-3">

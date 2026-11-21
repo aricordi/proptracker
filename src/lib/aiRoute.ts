@@ -122,7 +122,7 @@ export const isStatusQuestion = (text: string) => STATUS.test(text) && !CANCEL.t
 // enough to understand nuance and guide people in the right direction"). Plain word rules, no AI, unit-tested.
 // Order matters: the first match wins. Anything that isn't one of these goes to the AI helpers (props / time / help).
 export type Intent = 'greeting' | 'thanks' | 'ack' | 'confirm' | 'return' | 'take-gear' | 'report' | 'pickup' | 'move' | 'swap' | 'offsite' | 'strikes' | 'requests'
-  | 'checkin' | 'done' | 'late' | 'access' | 'house' | 'upset' | 'whoami' | 'capabilities'
+  | 'checkin' | 'done' | 'late' | 'access' | 'house' | 'upset' | 'whoami' | 'capabilities' | 'videos'
 const GEAR_WORD = /\b(gear|camera|cam|fx3|fx ?30|a7s?|sony|kit|case|lens|lights?|mic|microphone|tripod|drone|batter(y|ies)|charger|stand|gimbal|rig)\b/i
 const PROP_WORD = /\b(props?|costumes?|wardrobe|bin|stuff|things|everything|it all)\b/i
 const RETURN = /\b(return(ing|ed)?|bring(ing)? (it |them |everything |the \w+ )?back|brought (it |them |everything |the \w+ |all )?back|drop(ping|ped)? (it |them |everything |the \w+ )?off|done with (the |my )?(gear|camera|props|kit|case|stuff|everything)|giving (it |them )?back|put (it |them )?back)\b/i
@@ -133,6 +133,10 @@ const MOVE = /\b(move|reschedule|change (the |my )?(time|day|date|slot)|push (it
 const SWAP = /\bswap|trade (slots?|shoots?|with)\b/i
 const OFFSITE = /\b(offsite|off-site|off site|on location|outside the house|somewhere else|at (the |a )?(park|beach|mall|school|studio|downtown|office|restaurant|street|gym)|not at (the )?(house|cliff))\b/i
 const STRIKES = /\b(strikes?|am i paused|paused\??$|penalt(y|ies)|blocked from|why can'?t i (book|request) props)\b/i
+// Who's in a video (owner, Nov 21): inviting people into yours, or the videos you're in ("am I in any videos", "when do I
+// need to be at Ariel's", "invite Kyle to my Saturday shoot", "who's in my video").
+export const INVITE_TO_VIDEO = /\b(invite|add|put|bring|cast)\s+(\w+\s+){1,3}(to|into|in|on)\s+(my|the|this|our)\s+(\w+\s+)?(video|shoot|vid)\b|\bwho'?s in (my|the|this) (video|shoot|vid)\b|\b(invite|add) (people|someone|friends?|actors?|collabs?|collaborators?)\b/i
+const VIDEOS_IN = /\b(videos? (i'?m|i am|im) in|am i in (any|a|an|someone'?s|\w+'?s) (video|shoot|vid)s?|(in|be in|for) \w+'s (video|shoot|vid)|when (do|should) i (need to )?be (at|there for) \w+'?s|video invites?|invited (me )?(to|into) (a|their|his|her|\w+'s) (video|shoot))\b/i
 const REQUESTS = /\b(my requests?|what did i (ask|request)|where('?s| is| are) my (gear|request)|status of my (props|gear|request))\b/i
 // "yo what's up", "hey how's it going" (owner, Nov 4) count too.
 const GREETING = /^\s*((hi+|hey+y*|hello+|helo|yo+|sup|hiya|heya|wassup|whats? ?up|what's up|howdy|gm|good (morning|afternoon|evening))\b[\s,!.?]*)+((what'?s ?up|wassup|how'?s it going|how are (you|u)|how r u|how you doing|man|bro|dude|guys|there|anyone there|you there)\b[\s,!.?]*)*$/i
@@ -172,6 +176,7 @@ export function detectIntent(text: string): Intent | null {
   if (CAPABILITIES.test(t)) return 'capabilities'
   if (/^\s*how\b/i.test(t)) return null   // "how do I return gear?" = a help question
   // On the day (chat QA, Nov 6): "im here", "running late", "we're done", "what's the door code".
+  if (VIDEOS_IN.test(t) && !/\bprops? for\b/i.test(t)) return 'videos'   // before check-in: "i'm in Ariel's video Friday"
   if (CHECKIN.test(t) && words(t) <= 8) return 'checkin'
   if (DONE.test(t) && words(t) <= 10 && !RETURN.test(t)) return 'done'
   if (LATE.test(t) && !/\b(props?|gear|return)\b/i.test(t)) return 'late'
@@ -180,6 +185,7 @@ export function detectIntent(text: string): Intent | null {
   if (HOUSE.test(t) && !GEAR_WORD.test(t) && !idea) return 'house'
   if (UPSET.test(t) && words(t) <= 12 && !idea) return 'upset'
   if (PICKUP.test(t)) return 'pickup'
+  if ((INVITE_TO_VIDEO.test(t) || VIDEOS_IN.test(t)) && !/\bprops? for\b/i.test(t)) return 'videos'
   // Something they have that broke ("i broke the lamp", "the chair broke"), short, and not a video idea.
   if (REPORT.test(t) && (GEAR_WORD.test(t) || PROP_WORD.test(t) || /\b(it|piece|thing|the|my|a)\b/i.test(t)) && words(t) <= 12 && !/\b(something for|props for|idea|video|skit|scene|prank)\b/i.test(t)) return 'report'
   if (RETURN.test(t) && !/\bprops? for\b/i.test(t)) return 'return'

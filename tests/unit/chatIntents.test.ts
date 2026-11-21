@@ -54,3 +54,15 @@ describe('app problems go to "Report a problem" (owner, Nov 5)', () => {
       expect(isAppBug(t), t).toBe(false)
   })
 })
+
+describe('video invites in the chat (Nov 21)', () => {
+  it('understands being in videos and inviting people', () => {
+    for (const q of ['invite kyle to my saturday shoot', "who's in my video", 'am i in any videos', "when do i need to be at ariel's", 'add Ariel to my video', "i'm in ariel's video friday", 'invite people'])
+      expect(detectIntent(q), q).toBe('videos')
+  })
+  it('leaves props, check-in and booking alone', () => {
+    expect(detectIntent('props for my video')).not.toBe('videos')
+    expect(detectIntent("i'm in")).toBe('checkin')
+    expect(detectIntent('book cliff 1 friday 5pm')).not.toBe('videos')
+  })
+})

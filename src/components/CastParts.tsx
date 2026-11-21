@@ -1,6 +1,7 @@
 // "Who's in this video?" (owner, Nov 21): the pieces used on the chat, the shoot page, My shoots, the calendar and
 // the "Videos you're in" screen. Everyone shows up at the shoot's start time (owner choice).
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import Avatar from './Avatar'
 import BottomSheet from './BottomSheet'
@@ -16,8 +17,36 @@ import { useShootCast, inviteToVideo, answerVideoInvite, removeFromVideo, isUpco
 const day = (d: string) => formatDay(d, { weekday: 'short', month: 'short', day: 'numeric' })
 const slot = (c: Pick<CastRow, 'start' | 'end'>) => `${fmtTime(c.start)}–${fmtTime(c.end)}`
 
+export type DayNote = { text: string; clash: boolean }
+/** One quiet line about the rest of your day: sky = good to know, amber = clash. */
+export function VideoNote({ note, className = '' }: { note: DayNote; className?: string }) {
+  return (
+    <span className={`flex items-center gap-1.5 text-[13px] leading-snug ${note.clash ? 'text-amber-200' : 'text-sky-300'} ${className}`} data-testid="video-note">
+      <Icon name={note.clash ? 'alert' : 'video'} className="w-3.5 h-3.5 shrink-0" /><span className="min-w-0">{note.text}</span>
+    </span>
+  )
+}
+
+/** Tiny avatar stack of who's in a video (said yes = solid, waiting = faded), for your own shoot rows. */
+export function CastFaces({ rows, max = 3 }: { rows: CastRow[]; max?: number }) {
+  if (!rows.length) return null
+  const sorted = [...rows].sort((a, b) => (a.status === 'accepted' ? 0 : 1) - (b.status === 'accepted' ? 0 : 1))
+  const yes = rows.filter(r => r.status === 'accepted').length, waiting = rows.length - yes
+  const label = `${yes ? `${yes} in your video` : ''}${yes && waiting ? ', ' : ''}${waiting ? `${waiting} waiting to answer` : ''}`
+  return (
+    <span className="inline-flex items-center gap-1.5" aria-label={label} title={rows.map(r => `${r.toName}${r.status === 'pending' ? ' (waiting)' : ''}`).join(', ')} data-testid="cast-faces">
+      <span className="flex -space-x-2">
+        {sorted.slice(0, max).map(r => (
+          <span key={r.id} className={`rounded-full ring-2 ring-pt-surface ${r.status === 'pending' ? 'opacity-45' : ''}`}><Avatar email={r.toEmail} name={r.toName} size={22} /></span>
+        ))}
+      </span>
+      <span className="text-[12px] text-pt-muted">{rows.length > max ? `+${rows.length - max} · ` : ''}{waiting && !yes ? 'invited' : `with ${sorted.filter(r => r.status === 'accepted').slice(0, 2).map(r => firstName(r.toName)).join(', ')}${yes > 2 ? '…' : ''}`}</span>
+    </span>
+  )
+}
+
 /** Someone wants you in their video: say yes or no. */
-export function VideoInviteCard({ row }: { row: CastRow }) {
+export function VideoInviteCard({ row, note }: { row: CastRow; note?: DayNote | null }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   async function answer(accept: boolean) {
@@ -33,13 +62,14 @@ export function VideoInviteCard({ row }: { row: CastRow }) {
         <button disabled={busy} onClick={() => answer(true)} className={primaryBtn}>I'm in</button>
       </>}>
       <SlotTile tag={`Be there at ${fmtTime(row.start)}`} hot day={day(row.date)} time={slot(row)} place={row.placeName} />
+      {note && <VideoNote note={note} className="mt-2" />}
       {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
     </ChatCard>
   )
 }
 
 /** A video you said yes to: one row with who, when and where to be. */
-export function VideoRow({ row, onLeave }: { row: CastRow; onLeave?: () => void }) {
+export function VideoRow({ row, onLeave, note }: { row: CastRow; onLeave?: () => void; note?: DayNote | null }) {
   return (
     <div className="flex items-center gap-3 py-3" data-testid="video-row">
       <div className="w-12 shrink-0 rounded-xl bg-sky-400/15 text-sky-200 text-center py-1.5">
@@ -50,6 +80,7 @@ export function VideoRow({ row, onLeave }: { row: CastRow; onLeave?: () => void 
       <div className="min-w-0 flex-1">
         <p className="text-pt-text text-[16px] font-semibold truncate">In {firstName(row.hostName)}'s video</p>
         <p className="text-pt-muted text-[14px] truncate">Be there {fmtTime(row.start)} · {row.placeName}{row.shootStatus === 'requested' ? ' · waiting for OK' : ''}</p>
+        {note && <VideoNote note={note} />}
       </div>
       {onLeave && <button onClick={onLeave} className="tap text-pt-muted text-[14px] underline shrink-0">Can't go</button>}
     </div>
@@ -85,11 +116,12 @@ const STATUS: Record<string, { text: string; cls: string }> = {
 }
 
 /** On your shoot's page: who's in the video, + invite people, × take someone out. */
-export function ShootCast({ shoot, team }: { shoot: Shoot; team: boolean }) {
+export function ShootCast({ shoot, team, note, autoInvite }: { shoot: Shoot; team: boolean; note?: DayNote | null; autoInvite?: boolean }) {
   const rows = useShootCast(shoot.id, shoot.creatorEmail, team).filter(r => r.status in STATUS)
     .sort((a, b) => (a.status === 'accepted' ? 0 : a.status === 'pending' ? 1 : 2) - (b.status === 'accepted' ? 0 : b.status === 'pending' ? 1 : 2))
   const [adding, setAdding] = useState(false)
   const [err, setErr] = useState('')
+  useEffect(() => { if (autoInvite) setAdding(true) }, [autoInvite])
   const started = !!shoot.from && nowStamp() >= shoot.from
   const live = rows.filter(r => r.status === 'pending' || r.status === 'accepted')
   return (
@@ -102,6 +134,7 @@ export function ShootCast({ shoot, team }: { shoot: Shoot; team: boolean }) {
             <Icon name="plus" className="w-4 h-4" />Invite</button>
         )}
       </div>
+      {note && <VideoNote note={note} className="mt-1 mb-1" />}
       {rows.length === 0
         ? <p className="text-pt-muted text-sm mt-1">Invite the people who'll be on camera. Once they say yes, your shoot shows in their app with reminders, so they know to be there at {fmtTime(shoot.start)}.</p>
         : (
@@ -120,7 +153,8 @@ export function ShootCast({ shoot, team }: { shoot: Shoot; team: boolean }) {
           </ul>
         )}
       {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
-      {adding && <InviteSheet shoot={shoot} already={live.map(r => r.toEmail)} onClose={() => setAdding(false)} />}
+      {/* Portal: the shoot page is itself a sheet, and a sheet inside it would be trapped behind its slide-up transform. */}
+      {adding && createPortal(<InviteSheet shoot={shoot} already={live.map(r => r.toEmail)} onClose={() => setAdding(false)} />, document.body)}
     </section>
   )
 }

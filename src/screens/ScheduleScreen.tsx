@@ -17,7 +17,7 @@ import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
 import ShootNeeds from '../components/ShootNeeds'
 import { ShootCast, CastTicks } from '../components/CastParts'
-import { useMyVideos, isUpcoming } from '../services/cast'
+import { useMyVideos, isUpcoming, videoNoteFor } from '../services/cast'
 import { useDesk } from '../desk/desk'
 import AiButton from '../components/AiButton'
 import { useAssistant } from '../assistant'
@@ -109,10 +109,12 @@ export default function ScheduleScreen() {
   // ?sent=props|gear|both: just sent from "Your shoot", say so on the shoot.
   const [params, setParams] = useSearchParams()
   const [sent, setSent] = useState<string | null>(null)
+  // ?cast=1 (chat "Invite who's in this video"): open the shoot with its invite list already up.
+  const [castAsk, setCastAsk] = useState(false)
   useEffect(() => {
     const id = params.get('shoot'), book = params.get('book'), offsite = params.get('offsite')
     if (params.get('sent')) { setSent(params.get('sent')); const n = new URLSearchParams(params); n.delete('sent'); setParams(n, { replace: true }); return }
-    if (id) { if (!(sheet?.kind === 'shoot' && sheet.id === id)) setSheet({ kind: 'shoot', id }) }
+    if (id) { if (params.get('cast')) setCastAsk(true); if (!(sheet?.kind === 'shoot' && sheet.id === id)) setSheet({ kind: 'shoot', id }) }
     // ?book=1 = just the month (it is the booking screen); picks from ✦ Prop ideas still get "soonest times".
     else if (book) { if (peekPendingAdds()) setSheet({ kind: 'find', fromToday: true }); setParams({}, { replace: true }) }
     else if (offsite && /^\d{4}-\d{2}-\d{2}$/.test(offsite)) { setSheet({ kind: 'offsite', date: offsite }); setParams({}, { replace: true }) }
@@ -249,7 +251,7 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={booked} />}
       {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
-      {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} sent={sent} onClose={() => setSheet(null)}
+      {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} sent={sent} castAsk={castAsk} onClose={() => { setSheet(null); setCastAsk(false) }}
         onMove={sh => setSheet(sh.place === 'offsite' ? { kind: 'offsite', date: sh.date, move: sh } : { kind: 'move', shoot: sh })}
         onSwap={sh => setSheet(team && sh.creatorEmail !== profile.email ? { kind: 'teamswap', shoot: sh } : { kind: 'swap', mine: sh })}
         onGive={sh => setSheet({ kind: 'give', t: { date: sh.date, house: sh.place as House, start: sh.start, holder: { name: sh.creatorName, email: sh.creatorEmail } } })} />}
@@ -723,11 +725,12 @@ function RedoImport({ shootId, onDone }: { shootId: string; onDone: () => void }
   )
 }
 
-function ShootSheet({ id, team, sent, onClose, onMove, onSwap, onGive }: { id: string; team: boolean; sent?: string | null; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void; onGive?: (s: Shoot) => void }) {
+function ShootSheet({ id, team, sent, castAsk, onClose, onMove, onSwap, onGive }: { id: string; team: boolean; sent?: string | null; castAsk?: boolean; onClose: () => void; onMove: (s: Shoot) => void; onSwap: (s: Shoot) => void; onGive?: (s: Shoot) => void }) {
   const s = useScheduleSettings()
   const { profile, role } = useSession()
   const profiles = useProfiles()
   const shoot = useShoot(id)
+  const myVideos = useMyVideos(profile.email)
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -789,7 +792,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap, onGive }: { id: s
           Move requested to <b>{shoot.moveRequest.place === 'offsite' ? shoot.moveRequest.where : s.houses[shoot.moveRequest.place].name} · {formatDay(shoot.moveRequest.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtSlot(shoot.moveRequest.start, shoot.moveRequest.end - shoot.moveRequest.start)}</b>. This time stays yours until it's approved.</p>}
         {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
         {isLive(shoot) && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
-        {isLive(shoot) && !shoot.creatorEmail.startsWith('guest:') && (mine || team) && <ShootCast shoot={shoot} team={team && !mine} />}
+        {isLive(shoot) && !shoot.creatorEmail.startsWith('guest:') && (mine || team) && <ShootCast shoot={shoot} team={team && !mine} autoInvite={castAsk} note={mine ? videoNoteFor(shoot, (myVideos ?? []).filter(v => isUpcoming(v))) : null} />}
         {mine && upcoming && short && !team && (
           <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
             {teamTime ? <>The schedule team set this time for you, so you can still <b>move</b> it, and <b>cancelling is free</b>.</>

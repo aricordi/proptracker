@@ -12,8 +12,8 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import { formatDay, whenLabel } from '../lib/dates'
 import { PROP_WORDS, GEAR_WORDS } from '../components/ShootNeeds'
-import { VideosStrip } from '../components/CastParts'
-import { useMyVideos } from '../services/cast'
+import { VideoRow, VideoNote, CastFaces, useLeaveVideo } from '../components/CastParts'
+import { useMyVideos, useMyCast, isUpcoming, videoNoteFor, inviteNote, type CastRow } from '../services/cast'
 
 const WEEKDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const GONE = ['cancelled', 'declined']
@@ -35,18 +35,26 @@ export default function MyShootsScreen() {
   useEffect(() => subscribeToGearBookings(profile.email, setGear), [profile.email])
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
   const videos = useMyVideos(profile.email)
+  const myCast = useMyCast(profile.email)
+  const { leave, sheet: leaveSheet } = useLeaveVideo()
 
   const upcoming = useMemo(() => (shoots ?? []).filter(x => x.to > now), [shoots, now])
   const past = useMemo(() => (shoots ?? []).filter(x => x.to <= now).reverse(), [shoots, now])
   // Upcoming in three groups so the next few days stand out.
+  // Videos you said yes to sit among your own shoots at their time (owner, Nov 21: "his starts before mine").
+  const videoYes = useMemo(() => (videos ?? []).filter(v => v.status === 'accepted' && isUpcoming(v, now)), [videos, now])
+  const myTimes = useMemo(() => upcoming.map(x => ({ id: x.id, date: x.date, start: x.start, end: x.end, label: x.place === 'offsite' ? (x.where || 'Offsite') : s.houses[x.place].name })), [upcoming, s])
+  type Item = { k: 'shoot'; x: Shoot; at: string; date: string } | { k: 'video'; v: CastRow; at: string; date: string }
   const groups = useMemo(() => {
     const week = addDays(today, 7)
+    const all: Item[] = [...upcoming.map(x => ({ k: 'shoot' as const, x, at: x.from, date: x.date })), ...videoYes.map(v => ({ k: 'video' as const, v, at: v.from || v.date, date: v.date }))]
+      .sort((a, b) => a.at.localeCompare(b.at))
     return [
-      { title: 'Today', list: upcoming.filter(x => x.date <= today) },
-      { title: 'This week', list: upcoming.filter(x => x.date > today && x.date < week) },
-      { title: 'Later', list: upcoming.filter(x => x.date >= week) },
+      { title: 'Today', list: all.filter(i => i.date <= today) },
+      { title: 'This week', list: all.filter(i => i.date > today && i.date < week) },
+      { title: 'Later', list: all.filter(i => i.date >= week) },
     ].filter(g => g.list.length)
-  }, [upcoming, today])
+  }, [upcoming, videoYes, today])
 
   // What's on each shoot: its props request(s) and gear (yours, or shared with you by a friend).
   const propsFor = (x: Shoot) => (props ?? []).filter(r => !GONE.includes(r.status) && (r.scheduleShootId === x.id || r.shootId === x.id))
@@ -96,6 +104,10 @@ export default function MyShootsScreen() {
           </span>
           <span className="text-pt-muted">›</span>
         </button>
+        {!isPast && (() => {
+          const n = videoNoteFor(x, videoYes), cast = myCast[x.id] ?? []
+          return (n || cast.length) ? <div className="px-1 space-y-1.5">{n && <VideoNote note={n} />}{cast.length > 0 && <button onClick={() => open(x)} className="block"><CastFaces rows={cast} max={4} /></button>}</div> : null
+        })()}
         {!isPast && !p.length && !g.length && nowStamp() > cut.props ? (
           <p className="px-1 text-pt-muted text-xs">No props · too late to add now</p>
         ) : !isPast && (
@@ -134,8 +146,7 @@ export default function MyShootsScreen() {
       </div>
       <div className="px-4 space-y-6">
         {loading && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
-        {tab === 'upcoming' && videos && <VideosStrip rows={videos} max={5} />}
-        {!loading && tab === 'upcoming' && (upcoming.length === 0 ? (
+        {!loading && tab === 'upcoming' && (upcoming.length === 0 && videoYes.length === 0 ? (
           <div className="text-center mt-12 space-y-3">
             <p className="text-pt-muted text-sm">No shoots coming up.</p>
             <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Book a shoot</button>
@@ -145,7 +156,11 @@ export default function MyShootsScreen() {
             {groups.map(gr => (
               <section key={gr.title} className="space-y-2">
                 <h2 className="text-pt-text text-lg font-semibold">{gr.title}</h2>
-                {gr.list.map(x => card(x, false))}
+                {gr.list.map(i => i.k === 'shoot' ? card(i.x, false) : (
+                  <div key={i.v.id} className="bg-pt-surface shadow-card rounded-[20px] px-3" data-testid="myshoots-video">
+                    <VideoRow row={i.v} onLeave={() => leave(i.v)} note={inviteNote(i.v, myTimes, videoYes, i.v.id)} />
+                  </div>
+                ))}
               </section>
             ))}
             <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-semibold bg-pt-surface text-pt-text">Book another shoot</button>
@@ -155,6 +170,7 @@ export default function MyShootsScreen() {
           ? <p className="text-pt-muted text-sm text-center mt-12">No past shoots in the last 4 months.</p>
           : <section className="space-y-2">{past.map(x => card(x, true))}</section>)}
       </div>
+      {leaveSheet}
     </div>
   )
 }

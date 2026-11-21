@@ -33,12 +33,13 @@ export const CHAT_ACTIONS = {
   take_gear: 'They want gear (camera, lights, kit…) for a shoot. Gear is never booked ahead: it is taken on the shoot day, from an hour before.',
   strikes: 'They ask about their strikes or a pause.',
   requests: 'They want to see what they asked for (their props requests), or change / remove a prop they asked for.',
+  videos: 'Being IN someone else\'s video, or inviting people into theirs: "am I in any videos", "when do I need to be at Ariel\'s", "invite Kyle to my Saturday shoot", "who\'s in my video". Set "shoot" only when they want to invite people into one of THEIR shoots.',
 } as const
 export type ChatAction = keyof typeof CHAT_ACTIONS
 
 /** What each kind of person may get from the chat. Anything else becomes a plain reply. */
 export function actionsFor(role: GuideRole, canBook: boolean): ChatAction[] {
-  if (role === 'demo') return ['reply', 'props', 'help']
+  if (role === 'demo') return ['reply', 'props', 'help', 'videos']
   if (!canBook) return ['reply', 'help']
   return Object.keys(CHAT_ACTIONS) as ChatAction[]
 }
@@ -54,6 +55,8 @@ export interface ChatState {
   usualPartners?: string[]
   // Their own last 3 video names (owner, Nov 7: "the chat remembers you"), from their props requests on the phone.
   recentVideos?: string[]
+  // Other creators' videos they appear in (owner, Nov 21), as short lines: whose, when, where, answered or not.
+  inVideos?: string[]
 }
 const STATUSES = ['requested', 'booked', 'checked-in', 'filmed']
 /** The phone's summary of the person's own things, cleaned (it only ever shapes their own reply). */
@@ -68,6 +71,7 @@ export function cleanState(v: unknown): ChatState {
   const out = (o.out && typeof o.out === 'object' ? o.out : {}) as Record<string, unknown>
   const partners = (Array.isArray(o.usualPartners) ? o.usualPartners : []).slice(0, 3)
     .map(n => safeText(n, 30)).filter(n => /^[\p{L}][\p{L}\p{M}' .-]*$/u.test(n))
+  const inVideos = (Array.isArray(o.inVideos) ? o.inVideos : []).slice(0, 6).map(t => safeText(t, 120)).filter(Boolean)
   const videos = [...new Set((Array.isArray(o.recentVideos) ? o.recentVideos : []).slice(0, 3).map(t => safeText(t, 60)).filter(Boolean))]
   return {
     shoots,
@@ -78,6 +82,7 @@ export function cleanState(v: unknown): ChatState {
       ? { plan: { step: String((o.plan as Record<string, unknown>).step) as 'time', ...(shoots.some(x => x.id === (o.plan as Record<string, unknown>).shoot) ? { shoot: String((o.plan as Record<string, unknown>).shoot) } : {}) } } : {}),
     ...(partners.length ? { usualPartners: partners } : {}),
     ...(videos.length ? { recentVideos: videos } : {}),
+    ...(inVideos.length ? { inVideos } : {}),
   }
 }
 
@@ -117,12 +122,13 @@ export function chatPrompt(p: {
     `Out on their name: ${st.out.props ? `${st.out.props} props request(s)` : 'no props'}; ${st.out.gear.length ? `gear: ${st.out.gear.join(', ')}` : 'no gear'}.`,
     st.paused ? `Prop requests PAUSED until ${st.paused}.` : st.strikes ? `${st.strikes} strike(s) recently, not paused.` : 'No strikes, not paused.',
     ...(st.recentVideos?.length ? [`Their own recent video names (only to get their style and pick up where they left off; don't list them back): ${st.recentVideos.map(t => JSON.stringify(t)).join(', ')}.`] : []),
+    ...(st.inVideos?.length ? [`Other creators' videos they APPEAR in (they must be there at that video's start time, even if their own shoot is later the same day; remind them when it fits): ${st.inVideos.join('; ')}.`] : []),
     ...(st.usualPartners?.length ? [`They usually film back to back with: ${st.usualPartners.join(', ')}. When they ask for a time and name nobody, you may ask once "Filming with ${st.usualPartners[0]} again?" or offer it as a chip ("With ${st.usualPartners[0]}"); never assume it, never add anyone to a "times" query unless they said so.`] : []),
     ...(st.plan ? [`They are planning a shoot step by step (the app keeps track of the steps; the person just chats). Current step: ${
       st.plan.step === 'time' ? 'finding a time to film' : st.plan.step === 'props' ? `finding props${st.plan.shoot ? ` for shoot ${st.plan.shoot}` : ''}` : st.plan.step === 'gear' ? 'gear' : 'reviewing what they picked'}.
 If their message gives what this step needs, in any words (a day or time → "times"; what the video is about, a vibe, a scene, an item → "props"${st.plan.shoot ? ' with that shoot' : ''}), pick that action.
 If they say something else (a question, a change of plan, small talk), answer it with the right action; never refuse or tell them to follow the steps, and gently bring them back to the step in your reply.`] : []),
-  ].join('\n') : 'Not a booker: no shoots.'
+  ].join('\n') : `Not a booker: no shoots.${st.inVideos?.length ? ` Videos of other creators they appear in: ${st.inVideos.join('; ')}.` : ''}`
   const system = `You are the AI assistant built into "Prime Capitol", the studio app of a YouTube/comedy production company in Canada.
 Creators book 2-hour filming slots at two houses (Cliff 1 and Cliff 2) or film somewhere else; the schedule team approves bookings;
 props and costumes come from the arts department; camera, light and sound gear is taken from the gear room on the shoot day.
