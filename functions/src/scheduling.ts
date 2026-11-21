@@ -3,6 +3,7 @@
 // is what makes double-booking a house impossible (same idea as gear_holds for gear).
 import { isStorageLink } from './storageLinks.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { logger } from 'firebase-functions'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { FieldValue, FieldPath, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
@@ -1221,6 +1222,17 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
       })
     })
   })
+  // "In each other's videos" (owner, Nov 21: a tick per friend, on by default in the app): the friend is invited into your
+  // video(s) (they say yes or no), and you're put in theirs (you chose it, so already a yes). Guests have no account: skipped.
+  const castWith = new Set((Array.isArray(d.castWith) ? d.castWith : []).map((e: unknown) => str(e, 200).trim().toLowerCase()))
+  const cast = friends.map((f, j) => ({ f, j })).filter(({ f }) => !f.guest && castWith.has(f.email))
+  if (cast.length) {
+    try {
+      const { addCast } = await import('./castInvites.js')
+      await addCast(shootRefs[0].id, cast.map(({ f }) => ({ email: f.email, name: f.name })), caller.email)
+      for (const { j } of cast) await addCast(friendRefs[j].id, [{ email: caller.email, name: caller.name, accepted: true }], caller.email)
+    } catch (e) { logger.warn('group booking: video invites', String(e)) }
+  }
   return { shootIds: shootRefs.map(r => r.id), friendShootIds: friendRefs.map(r => r.id), inviteIds: [] as string[], until: '', status: pending ? 'requested' : 'booked' }
 })
 

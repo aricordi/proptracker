@@ -86,6 +86,16 @@ export const shootsCalendar = onRequest({ invoker: 'public' }, async (req, res) 
       const where = house ? `${house.name} · ${house.address}` : x.where
       return { uid: x.id, from: x.from, to: x.to, title: t.all ? `${x.creatorName} · ${house ? house.name : 'Offsite'}` : `Shoot · ${house ? house.name : x.where}`, where, stampedAt: now }
     })
+  // Videos you're in (owner, Nov 21): the shoots you said yes to appear in, at the shoot's start time. The team's feed already
+  // has every shoot, so only people with their own feed get these.
+  if (!t.all) {
+    const cast = await db.collection('cast_invites').where('toEmail', '==', email).where('date', '>=', from).get()
+    for (const d of cast.docs) {
+      const c = d.data()
+      if (c.status !== 'accepted' || !['booked', 'requested'].includes(c.shootStatus) || c.date > to || !c.from) continue
+      events.push({ uid: `v${d.id}`, from: c.from, to: c.to, title: `In ${String(c.hostName || 'a').split(' ')[0]}'s video · ${c.placeName}`, where: c.placeName, stampedAt: now })
+    }
+  }
   res.set('Content-Type', 'text/calendar; charset=utf-8').set('Cache-Control', 'private, max-age=900')
   res.send(buildIcs(t.all ? 'Prime Capitol · All shoots' : 'Prime Capitol · My shoots', events))
 })

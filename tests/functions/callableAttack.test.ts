@@ -11,7 +11,7 @@ const OWNER = 'alexisricordi@gmail.com'
 
 // Functions that Props-only creators may use (searching props, the AI helpers, push, problem reports).
 const DEMO_OK = new Set(['searchSimilar', 'photoSearch', 'propsLike', 'hotProps', 'ideaToProps', 'askApp', 'askChat', 'reportBug',
-  'registerPush', 'unregisterPush', 'testPush'])
+  'registerPush', 'unregisterPush', 'testPush', 'answerVideoInvite'])
 // Owner-only maintenance and money: everyone else must be refused.
 const OWNER_ONLY = ['changeUserEmail', 'saveScheduleSettings', 'saveGoogleClient', 'googleConnectStart', 'googleDisconnect',
   'googleAccountStatus', 'cleanUpPhotos', 'costReport', 'undoImport', 'startImport', 'processImport', 'rebuildSearchIndex',

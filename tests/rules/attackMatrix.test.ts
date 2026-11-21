@@ -39,7 +39,7 @@ const SEED: Record<string, Record<string, unknown>> = {
   categories: { label: 'Prop', order: 0, active: true }, tags: { label: 'red' }, bins: { label: 'B1' }, locations: { label: 'Room' },
   characters: { label: 'Cop' }, checkouts: {}, item_private: { notes: 'secret' }, health: {}, gear_items: { value: 5000 },
   gear_bundles: {}, gear_holds: { entries: [] }, schedule_days: {}, shoots: { ...mine, status: 'booked' }, swap_requests: mine,
-  schedule_invites: mine, waitlist: mine, monthly_wishes: mine, monthly_draws: {}, profiles: { channel: 'x' },
+  schedule_invites: mine, cast_invites: { ...mine, hostEmail: P.other }, waitlist: mine, monthly_wishes: mine, monthly_draws: {}, profiles: { channel: 'x' },
   schedule_reports: mine, strikes: mine, flag_reviews: mine, user_status: { strikes: 1 }, gear_bookings: mine,
   item_vectors: { v: [1] }, prop_wants: {}, ai_usage: { spentUsd: 3 }, cleanup_runs: {}, outbox: { to: P.other },
   calendar_queue: {}, reservations: mine, item_bookings: { entries: [] }, video_checklists: {},
@@ -52,7 +52,7 @@ const SEED: Record<string, Record<string, unknown>> = {
 const docPath = (col: string) => col === 'personalitem' ? ['items', 'personal1']
   : col === 'profiles' || col === 'user_status' ? [col, P.other] : [col, 'd1']
 const SERVER_ONLY = ['bug_reports', 'import_jobs', 'import_items', 'activity_personal', 'activity', 'checkouts', 'gear_items',
-  'gear_bundles', 'gear_holds', 'schedule_days', 'shoots', 'swap_requests', 'schedule_invites', 'waitlist', 'monthly_wishes',
+  'gear_bundles', 'gear_holds', 'schedule_days', 'shoots', 'swap_requests', 'schedule_invites', 'cast_invites', 'waitlist', 'monthly_wishes',
   'monthly_draws', 'schedule_reports', 'strikes', 'flag_reviews', 'user_status', 'gear_bookings', 'item_vectors', 'prop_wants',
   'ai_usage', 'cleanup_runs', 'outbox', 'calendar_queue', 'reservations', 'item_bookings', 'private_google',
   'private_google_states', 'push_tokens', 'calendar_tokens', 'push_log', 'calendar_sent', 'calendar_mirror', 'dup_verdicts',
@@ -63,7 +63,7 @@ const OWNER_ONLY = ['bug_reports', 'import_jobs', 'import_items', 'activity_pers
 const NOBODY = ['item_vectors', 'private_google', 'private_google_states', 'push_tokens', 'calendar_tokens', 'push_log',
   'calendar_sent', 'calendar_mirror', 'dup_verdicts', 'import_lists', 'admin_tasks', 'email_moves', 'push_sent', 'import_hashes']
 // Another creator's own records: a creator (or demo creator) must not read them.
-const OTHERS_PRIVATE = ['shoots', 'swap_requests', 'schedule_invites', 'waitlist', 'monthly_wishes', 'schedule_reports', 'strikes',
+const OTHERS_PRIVATE = ['shoots', 'swap_requests', 'schedule_invites', 'cast_invites', 'waitlist', 'monthly_wishes', 'schedule_reports', 'strikes',
   'flag_reviews', 'user_status', 'gear_bookings', 'reservations', 'suggestions', 'outbox', 'bug_reports']
 
 beforeAll(async () => {

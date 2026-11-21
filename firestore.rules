@@ -252,6 +252,11 @@ service cloud.firestore {
       allow read: if canSeeGear() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));
       allow write: if false;
     }
+    // "Who's in this video?" invites (Nov 21): the person invited, the host and the schedule team read them; server-only writes.
+    match /cast_invites/{id} {
+      allow read: if canSeeGear() || (signedIn() && (resource.data.toEmail == myEmail() || resource.data.hostEmail == myEmail()));
+      allow write: if false;
+    }
     // Invites to film back to back (a held slot for a friend): the two people + the schedule team; server-only writes.
     match /schedule_invites/{id} {
       allow read: if canSeeGear() || (signedIn() && (resource.data.fromEmail == myEmail() || resource.data.toEmail == myEmail()));

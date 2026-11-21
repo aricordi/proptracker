@@ -17,6 +17,7 @@ import {
   inviteChange, swapChange, reservationChange, gearChange, reportCreated, strikeCreated, shootChange, houseFreed,
   shootReminders, propsReminders, gearReminders, type Push, type Reminder,
 } from './pushMessages.js'
+import { castReminders, type CastInvite } from './cast.js'
 
 export const APP_URL = 'https://proptracker.arbcreative.co'
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
@@ -232,6 +233,10 @@ export async function runReminders(now = nowStamp()) {
     const { recountStrikes } = await import('./strikes.js')
     for (const d of (await db.collection('user_status').where('strikes', '>', 0).get()).docs) await recountStrikes(d.id).catch(e => logger.warn('recount', d.id, String(e)))
   }
+  // Videos you're in (owner, Nov 21): the night before and an hour before, for people who said yes.
+  const tomorrow = addDays(today, 1)
+  const cast = await db.collection('cast_invites').where('status', '==', 'accepted').where('date', '>=', today).where('date', '<=', tomorrow).get()
+  cast.docs.forEach(d => { try { list.push(...castReminders(d.id, d.data() as CastInvite, now, today, tomorrow)) } catch (e) { logger.warn('cast reminder', d.id, String(e)) } })
   props.docs.forEach(d => list.push(...propsReminders(d.id, d.data(), now, booking)))
   gear.docs.forEach(d => list.push(...gearReminders(d.id, d.data(), now)))
   return sendOnce(list)
