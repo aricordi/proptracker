@@ -2778,6 +2778,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (cleanState, prompt line incl. Props only), CHAT_ACTIONS 'videos' (demo too). InviteSheet renders through a portal (a sheet
       inside the shoot sheet was trapped). Seed: Kyle in Riley's sh9 (accepted), Jana invites Riley to sh1 (pending). Tests 531 unit
       + 459 server/rules (run in batches of 6 files: one full emulator run OOMs this machine) + robot journeys.
+      LIVE Nov 21 (owner "okay go ahead"): backend run 44913604754 (8 functions hit Google's update quota and kept their old
+      version: shootsCalendar, setLinePick, skipImports, swapShootsAsTeam, syncBlocks/Gear/PropsToCalendar, updateBugReport →
+      redeployed with `only` in run 44915192205, green) + website run 44915117410.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
