@@ -1,3 +1,4 @@
+import { useMyVideos, isUpcoming } from '../services/cast'
 import { useRef, useState, useEffect, useMemo, useLayoutEffect } from 'react'
 import { useItems, useItemsStatus } from '../hooks/useItems'
 import { useTags } from '../hooks/useTags'
@@ -5,7 +6,7 @@ import { useLocations } from '../hooks/useLocations'
 import { useBins } from '../hooks/useBins'
 import { useCategories } from '../hooks/useCategories'
 import { useSession } from '../auth'
-import { useNavigate, useSearchParams, useNavigationType } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams, useNavigationType } from 'react-router-dom'
 import ItemCard, { type Badge } from '../components/ItemCard'
 import DateRangePicker from '../components/DateRangePicker'
 import LateBanner from '../components/LateBanner'
@@ -324,6 +325,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
             <span className="text-[#BF9DFF]">✦</span><span className="flex-1">Got a video idea? Ask AI which props fit</span><span aria-hidden>›</span>
           </button>
         )}
+        {demo && <DemoVideoNudge />}
         {/* No Gear tab (owner, Nov 3): gear isn't booked ahead; it's taken on the shoot day from the chat. */}
       </div>
 
@@ -499,5 +501,18 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
       )}
       {noShoot.sheet}
     </div>
+  )
+}
+
+// Props-only creators have no chat, so an invite into someone's video shows here too (owner, Nov 21).
+function DemoVideoNudge() {
+  const { profile } = useSession()
+  const waiting = (useMyVideos(profile.email) ?? []).filter(v => v.status === 'pending' && isUpcoming(v))
+  if (!waiting.length) return null
+  const v = waiting[0]
+  return (
+    <Link to="/videos" className="mt-3 w-full min-h-[44px] flex items-center gap-2 rounded-full px-4 py-2.5 text-[14px] font-semibold text-sky-100 bg-sky-400/15" data-testid="demo-video-nudge">
+      <span className="flex-1">{waiting.length === 1 ? `${v.hostName.split(' ')[0]} wants you in their video` : `${waiting.length} people want you in their videos`} · say yes or no</span><span aria-hidden>›</span>
+    </Link>
   )
 }

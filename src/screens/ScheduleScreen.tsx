@@ -16,6 +16,8 @@ import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import Avatar from '../components/Avatar'
 import ShootNeeds from '../components/ShootNeeds'
+import { ShootCast, CastTicks } from '../components/CastParts'
+import { useMyVideos, isUpcoming } from '../services/cast'
 import { useDesk } from '../desk/desk'
 import AiButton from '../components/AiButton'
 import { useAssistant } from '../assistant'
@@ -126,6 +128,8 @@ export default function ScheduleScreen() {
   const days = useScheduleDays(today, addDays(today, 120))
   const mine = useMyShoots(profile.email, today)
   const myDates = useMemo(() => new Set((mine ?? []).map(x => x.date)), [mine])
+  const videos = useMyVideos(profile.email)
+  const castDates = useMemo(() => new Set((videos ?? []).filter(v => v.status === 'accepted' && isUpcoming(v)).map(v => v.date)), [videos])
   const swaps = useMySwaps(profile.email)
   const invites = useMyInvites(profile.email)
   const ai = useAssistant()
@@ -178,7 +182,7 @@ export default function ScheduleScreen() {
               <button disabled={month >= addDays(today, 115).slice(0, 7)} onClick={() => setMonth(monthAdd(month, 1))} aria-label="Next month" className="w-11 h-11 grid place-items-center rounded-full bg-pt-surface text-pt-text text-xl disabled:opacity-30">›</button>
             </div>
             {days === null ? <p className="text-pt-muted text-sm text-center py-6">Loading…</p>
-              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} lockFree={role === 'equipment'} selected={desk ? date : null} myDates={myDates}
+              : <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team={team} lockFree={role === 'equipment'} selected={desk ? date : null} myDates={myDates} castDates={castDates}
                   onPick={d => { setDate(d); if (!desk) setSheet({ kind: 'day', date: d }) }} />}
           </section>
         )}
@@ -389,7 +393,20 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const title = `${formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}${isNoCrewDay(date) ? ' · no crew' : ''}`
   // Heads-ups (owner, Nov 4): things happening at a house that don't stop filming (e.g. chargers being installed).
   const notes = headsUps(day).slice().sort((a, b) => a.start - b.start)
+  const { profile: me } = useSession()
+  const videosHere = (useMyVideos(me.email) ?? []).filter(v => v.date === date && v.status === 'accepted' && isUpcoming(v))
   const body = (<>
+      {videosHere.length > 0 && (
+        <div className="mb-3 space-y-1.5" data-testid="day-videos">
+          {videosHere.map(v => (
+            <div key={v.id} className="flex items-start gap-2.5 p-3 rounded-xl bg-sky-400/[0.10]">
+              <Icon name="video" className="w-4 h-4 mt-0.5 shrink-0 text-sky-300" />
+              <span className="min-w-0"><span className="block text-pt-text text-sm font-semibold">You're in {v.hostName.split(' ')[0]}'s video · be there {fmtTime(v.start)}</span>
+                <span className="block text-pt-muted text-xs">{v.placeName} · {fmtTime(v.start)}–{fmtTime(v.end)}</span></span>
+            </div>
+          ))}
+        </div>
+      )}
       {notes.length > 0 && (
         <div className="mb-3 space-y-1.5">
           {notes.map(b => (
@@ -516,6 +533,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   const [q, setQ] = useState('')
   useEffect(() => { if (friendCount && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [friendCount, everyone])
   const chosen = friends.slice(0, friendCount)
+  const [castOff, setCastOff] = useState<string[]>([])   // friends NOT in each other's videos (on by default, owner Nov 21)
   // "Usually films with" (owner, Nov 7): one-tap shortcut to the people they film back to back with most; never auto-added.
   // Loads as soon as the sheet opens (shown only once they pick "+ 1 friend"), so the row is ready and doesn't push the search box down.
   const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !chosen.some(c => c.email === p.email))
@@ -548,7 +566,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
       const id = both !== null
         ? (await bookShoot({ place: house, date, start, kind: 'extra', bothHouses: true, half: both, ...(guide ? { guideline: guide } : {}) })).data.id
         : withFriends || mySlots > 1
-        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), mySlots, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
+        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), castWith: chosen.map(f => f.email).filter(e => !castOff.includes(e)), mySlots, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
         : (await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })).data.id
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
       setDone(true); setTimeout(() => onBooked(id), 650)
@@ -645,6 +663,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
                   </div>
                 </div>
               )}
+              <CastTicks friends={chosen} off={castOff} setOff={setCastOff} />
               {chosen.length === friendCount && <p className="text-pt-muted text-xs">{chosen.length > 1 ? 'Their slots are' : 'Their slot is'} {asks ? 'requested' : 'booked'} with yours. Only book friends who will really be there.</p>}
             </div>
           )}
@@ -770,6 +789,7 @@ function ShootSheet({ id, team, sent, onClose, onMove, onSwap, onGive }: { id: s
           Move requested to <b>{shoot.moveRequest.place === 'offsite' ? shoot.moveRequest.where : s.houses[shoot.moveRequest.place].name} · {formatDay(shoot.moveRequest.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtSlot(shoot.moveRequest.start, shoot.moveRequest.end - shoot.moveRequest.start)}</b>. This time stays yours until it's approved.</p>}
         {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
         {isLive(shoot) && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
+        {isLive(shoot) && !shoot.creatorEmail.startsWith('guest:') && (mine || team) && <ShootCast shoot={shoot} team={team && !mine} />}
         {mine && upcoming && short && !team && (
           <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
             {teamTime ? <>The schedule team set this time for you, so you can still <b>move</b> it, and <b>cancelling is free</b>.</>
@@ -1244,10 +1264,11 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
+  const [castOff, setCastOff] = useState<string[]>([])
   async function book() {
     setBusy(true); setErr('')
     try {
-      const r = await bookWithFriends({ place: house, date, start, friends: friends.map(f => f.email), mySlots: 1, kind, ...(guide ? { guideline: guide } : {}) })
+      const r = await bookWithFriends({ place: house, date, start, friends: friends.map(f => f.email), castWith: friends.map(f => f.email).filter(e => !castOff.includes(e)), mySlots: 1, kind, ...(guide ? { guideline: guide } : {}) })
       setDone(true); setTimeout(() => onBooked(r.data.shootIds[0]), 650)
     } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
@@ -1270,6 +1291,7 @@ function GroupBookSheet({ house, date, start, friends, team, mine, onClose, onBo
           </div>
         ))}
       </div>
+      <div className="mt-3"><CastTicks friends={friends} off={castOff} setOff={setCastOff} /></div>
       {MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (
         <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Your slot counts as</span>
           <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5">

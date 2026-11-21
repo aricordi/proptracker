@@ -59,11 +59,13 @@ export function HouseSwitch({ value, onChange }: { value: MonthHouse; onChange: 
 const fmtHour = (m: number) => { const h = Math.floor(m / 60) % 24; return `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}` }
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-export default function MonthGrid({ month, days, s, email, now, today, team = false, lockFree = team, selected, myDates, onPick }: {
+export default function MonthGrid({ month, days, s, email, now, today, team = false, lockFree = team, selected, myDates, castDates, onPick }: {
   month: string; days: Record<string, ScheduleDay> | null; s: ScheduleSettings; email: string; now: string; today: string
   // myDates: days you film, from your own shoots (owner, Nov 9: the owner's own days weren't marked because the owner counts as
   // the team; shared back-to-back imports can also sit outside the slot map). Marks the square whatever the role.
   myDates?: Set<string>
+  // castDates (owner, Nov 21): days you're in someone else's video → sky edge, so you remember to show up for theirs too.
+  castDates?: Set<string>
   // lockFree: priority days count as free (the equipment team books for anyone). The owner booking for themselves follows the lock.
   team?: boolean; lockFree?: boolean; selected?: string | null; onPick: (date: string) => void
 }) {
@@ -98,9 +100,10 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const bar = level === 'few' ? 'bg-amber-300' : 'bg-green-400'
           // Owner, Nov 4: your filming days stand out (gold tint + gold edge), and today is a white circle on the date.
           const mine = !!myDates?.has(date) || (c.mine && !team)
-          const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : ''
+          const inVideo = !!castDates?.has(date) && !past
+          const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : inVideo ? 'shadow-[inset_0_0_0_2px_#7DD3FC]' : ''
           return (
-            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : `${x.free} free`}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
+            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}${inVideo ? ", you're in someone's video" : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : `${x.free} free`}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
               className={`relative ${house === 'all' ? 'aspect-[0.7] lg:aspect-[0.95] pt-1 pb-1.5' : 'aspect-[0.82] pt-1.5 pb-2'} rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               {/* Nov 13 polish: corner dots sit 7px in, clear of the rounded corner and the gold edge; the heads-up dot moves left when the request badge takes the right corner. */}
               {!past && headsUps(days?.[date]).length > 0 && <i className={`absolute top-[7px] lg:top-2.5 ${team && c.requested > 0 ? 'left-[7px] lg:left-2.5' : 'right-[7px] lg:right-2.5'} w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-amber-300`} aria-label="Heads-up that day" />}
@@ -109,6 +112,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
               {/* Owner, Nov 9: a small gold marker on the days you film, on top of the gold tint and edge. */}
               {/* Gold dot only on wide screens (on a phone it touched the date; the gold tint, edge and gold number already mark your day).
                   Today + your day: the white circle gets a gold ring instead. */}
+              {inVideo && <i className="hidden lg:block absolute lg:bottom-2.5 lg:left-2.5 w-2 h-2 rounded-full bg-sky-300" aria-hidden />}
               {mine && date !== today && <i className="hidden lg:block absolute lg:top-2.5 lg:left-2.5 w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-pt-accent" aria-hidden />}
               {/* Nov 13 polish: the date sits in a box of the SAME height on every day, so today's circle is centred and never pushes the
                   rest of the square down (rows stay lined up). */}
@@ -153,6 +157,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         <span><i className="inline-block w-1.5 h-1.5 rounded-full bg-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team && <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>}
         {(!team || myDates) && <span><i className="hidden lg:inline-block w-2 h-2 rounded-full bg-pt-accent mr-1" /><i className="inline-block w-2.5 h-2.5 rounded-sm bg-pt-accent/30 shadow-[inset_0_0_0_2px_#C9A961] mr-1 align-[-1px]" />You're filming</span>}
+        {castDates && castDates.size > 0 && <span><i className="inline-block w-2.5 h-2.5 rounded-sm shadow-[inset_0_0_0_2px_#7DD3FC] mr-1 align-[-1px]" />In someone's video</span>}
         <span><i className="inline-block w-3 h-3 rounded-full bg-white mr-1 align-[-2px]" />Today</span>
       </div>
       </MonthKey>

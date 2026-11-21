@@ -18,6 +18,7 @@ import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 const HomeScreen = lazy(() => import('./screens/HomeScreen'))
 const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
 const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
+const VideosScreen = lazy(() => import('./screens/VideosScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
 const TeamGuideScreen = lazy(() => import('./screens/TeamGuideScreen'))
@@ -388,6 +389,7 @@ export default function App() {
           <Route path="/browse" element={<HomeScreen />} />
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/help" element={<HelpScreen />} />
+          <Route path="/videos" element={<VideosScreen />} />
         </Route>
         <Route path="*" element={<Navigate to="/browse" replace />} />
       </Routes>
@@ -419,6 +421,7 @@ export default function App() {
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/requests" element={<MyRequestsScreen />} />
           <Route path="/shoots" element={<MyShootsScreen />} />
+          <Route path="/videos" element={<VideosScreen />} />
           <Route path="/return" element={<ReturnAllScreen />} />
           <Route path="/schedule" element={<NotArts to="/calendar"><ScheduleScreen /></NotArts>} />
           <Route path="/calendar" element={<SeeStaff><RequestsCalendarScreen /></SeeStaff>} />

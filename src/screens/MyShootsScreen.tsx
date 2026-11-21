@@ -12,6 +12,8 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import { formatDay, whenLabel } from '../lib/dates'
 import { PROP_WORDS, GEAR_WORDS } from '../components/ShootNeeds'
+import { VideosStrip } from '../components/CastParts'
+import { useMyVideos } from '../services/cast'
 
 const WEEKDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const GONE = ['cancelled', 'declined']
@@ -32,6 +34,7 @@ export default function MyShootsScreen() {
   useEffect(() => subscribeToReservations({ email: profile.email, all: false }, setProps), [profile.email])
   useEffect(() => subscribeToGearBookings(profile.email, setGear), [profile.email])
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
+  const videos = useMyVideos(profile.email)
 
   const upcoming = useMemo(() => (shoots ?? []).filter(x => x.to > now), [shoots, now])
   const past = useMemo(() => (shoots ?? []).filter(x => x.to <= now).reverse(), [shoots, now])
@@ -131,6 +134,7 @@ export default function MyShootsScreen() {
       </div>
       <div className="px-4 space-y-6">
         {loading && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
+        {tab === 'upcoming' && videos && <VideosStrip rows={videos} max={5} />}
         {!loading && tab === 'upcoming' && (upcoming.length === 0 ? (
           <div className="text-center mt-12 space-y-3">
             <p className="text-pt-muted text-sm">No shoots coming up.</p>

@@ -2750,6 +2750,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       deploy had silently skipped runAdminTask, Google's update quota) → redeployed with only=functions:runAdminTask (run
       44615797871) → run 44618171321 DONE: Kyle (kyle@primecapitol.ca) → Books without approval, Danny (danny@primecapitol.ca)
       → Can book several slots in a row. Full re-deploy run 44615836234 green: deploy step 28 s = nothing left to update (only runAdminTask had been skipped).
+    - VIDEO INVITES "WHO'S IN THIS VIDEO?" (owner, Nov 21: "invite friends/collaborators to your shoot… accept or reject… shows
+      on their calendar and in their app… I show up to my slot and miss his"; owner answers: anyone on the app incl. Props only;
+      group booking asks each time (per-friend tick, on by default); reminders when invited + night before (7 PM) + 1 h before;
+      call time = the shoot's start. NOT deployed: backend (new callables invitetovideo answervideoinvite removefromvideo in
+      deploy/log lists, trigger syncCastFromShoot) + FIRESTORE RULES (cast_invites: host, invitee or canSeeGear read; no client
+      writes) + 3 indexes + website, ask). `functions/src/cast.ts` (pure, shared: castFollow, castReminders, invited/answered/
+      removed pushes; Push type kept local so the app never compiles pushMessages.ts) + `functions/src/castInvites.ts`
+      (cast_invites/{shootId}_{email} = a SNAPSHOT of the shoot so invitees never read shoots; status pending|accepted|declined|
+      left|removed|cancelled; host or team invite/remove, ≤12, not guests, not started; answer = owner/creator demoOk; trigger keeps
+      snapshots in step: moved → push to accepted, cancelled → 'cancelled' + push). bookWithFriends `castWith` [emails] = mutual
+      (friend invited to the booker's video, booker added as accepted to the friend's). pushReminders: castnight_/cast1h_. iCal feed
+      adds accepted videos ("In X's video"). App: src/services/cast.ts, src/components/CastParts.tsx (ShootCast "Who's in this
+      video?" on the shoot sheet, VideoInviteCard, VideoRow, CastTicks, VideosStrip, VideosMeRow), /videos VideosScreen (demo
+      too), ChatNow (invite cards + accepted videos in Coming up), MonthGrid `castDates` (sky edge + legend), DayPickSheet banner,
+      My shoots strip, Me row, Props-only Browse nudge. Help (2 Qs), appGuide 'videos' + shootsheet/book, owner guide #nov21.
+      Tests tests/unit/cast.test.ts, tests/functions/cast.test.ts, rules attack matrix.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

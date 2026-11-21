@@ -161,7 +161,7 @@ export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgo
   }, [email])
   return { incoming, outgoing }
 }
-const bookWithFriendsFn = httpsCallable<{ place: House; date: string; start: number; friends: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline; asCreator?: boolean }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
+const bookWithFriendsFn = httpsCallable<{ place: House; date: string; start: number; friends: string[]; castWith?: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline; asCreator?: boolean }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
 export const bookWithFriends = (d: NonNullable<Parameters<typeof bookWithFriendsFn>[0]>) => bookWithFriendsFn(asCreatorFlag(d))
 export const answerInvite = httpsCallable<{ id: string; accept: boolean }, { ok: boolean; shootId: string | null }>(functions, 'answerInvite')
 export interface TimeAskResult {

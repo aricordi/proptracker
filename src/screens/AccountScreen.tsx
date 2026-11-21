@@ -1,3 +1,5 @@
+import { VideosMeRow } from '../components/CastParts'
+import { useMyVideos } from '../services/cast'
 import { ReportProblemRow } from '../components/BugReport'
 import AiButton from '../components/AiButton'
 import { MONTHS, daysIn, isBirthday, makeBirthday } from '../lib/birthdays'
@@ -21,6 +23,7 @@ export { ROLE_LABELS }
 
 export default function AccountScreen() {
   const { user, profile, realRole, role, setViewAs, shootFlow, isGearStaff, demo, previewingDemo, creatorMode, setCreatorMode } = useSession()
+  const videos = useMyVideos(shootFlow || demo ? profile.email : undefined)
   const navigate = useNavigate()
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -57,6 +60,7 @@ export default function AccountScreen() {
             <p className="text-pt-muted text-sm">Something wrong with a prop? Open it and tap <b className="text-pt-text">Suggest an edit</b>.</p>
           </div>
         )}
+        {(shootFlow || demo) && <VideosMeRow rows={videos} />}
         <NotificationsCard />
         <LaptopLayoutCard />
         <ReportProblemRow />

@@ -17,6 +17,8 @@ import { subscribeToReservations, confirmPickup, type Reservation } from '../ser
 import { reportProblem } from '../services/problems'
 import type { ReturnGroup } from '../hooks/useReturnables'
 import { SwapAsk, InviteAsk } from './ScheduleAsks'
+import { VideoInviteCard } from './CastParts'
+import { useMyVideos, isUpcoming, firstName, type CastRow } from '../services/cast'
 import { ChatCard, HeroCard, AlertCard, ReadyCard, NoticeRow, CountdownRing, LiveDot, primaryBtn, secondaryBtn, alertBtn, noticeLink } from './ChatCard'
 import { formatDay, whenLabel } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
@@ -79,7 +81,15 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const missed = live.filter(x => isMissed(x, now) && !x.explanation && now < explainUntil(x, s))
   const ahead = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from))
   // Only the next 3 here (owner, Nov 5: say so, so nobody thinks it's everything they're booked for); the rest on My shoots.
-  const next = ahead.slice(0, 3)
+  // Videos you're in (owner, Nov 21): mixed into Coming up at their time, so "Ariel's video at 1" sits above your own 3 PM shoot.
+  const videos = useMyVideos(email)
+  const videoInvites = (videos ?? []).filter(v => v.status === 'pending' && isUpcoming(v, now))
+  const videoYes = (videos ?? []).filter(v => v.status === 'accepted' && isUpcoming(v, now))
+  const items: ({ k: 'shoot'; x: Shoot; at: string } | { k: 'video'; v: CastRow; at: string })[] = [
+    ...ahead.map(x => ({ k: 'shoot' as const, x, at: x.from })), ...videoYes.map(v => ({ k: 'video' as const, v, at: v.from || v.date })),
+  ].sort((a, b) => a.at.localeCompare(b.at))
+  const nextItems = items.slice(0, 3)
+  const next = nextItems.flatMap(i => i.k === 'shoot' ? [i.x] : [])
   const backCount = (returns ?? []).reduce((n, g) => n + returnCount(g), 0)
   const paused = !!status?.pausedUntil && status.pausedUntil > today
 
@@ -101,6 +111,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
       {paused && <NoticeRow tone="bad" icon="pause" title={`Prop requests paused until ${formatDay(status!.pausedUntil!)}`} sub="You can still book filming time." />}
       {invites.incoming.filter(i => i.status === 'pending' && i.until > now).map(i => <InviteAsk key={i.id} inv={i} now={now} urgent />)}
       {swaps.incoming.map(r => <SwapAsk key={r.id} r={r} incoming urgent />)}
+      {videoInvites.map(v => <VideoInviteCard key={v.id} row={v} />)}
       {onNow.map(x => <ShootNow key={x.id} shoot={x} label={label(x)} />)}
       {missed.map(x => {
         const until = explainUntil(x, s), left = minutesBetween(now, until), total = s.explainHours * 60
@@ -142,15 +153,34 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
           actions={<button onClick={() => navigate('/schedule')} className={primaryBtn}>See free times</button>} />
       )}
       {/* Coming up (owner, Nov 3: "too busy"): one quiet list, one row per shoot, instead of a card each. */}
-      {next.length > 0 && (
+      {nextItems.length > 0 && (
         <section className="rise-in">
           <button onClick={toggleList} aria-expanded={listOpen} className="w-full min-h-[40px] flex items-center gap-2 px-1 mb-1 text-left">
-            <span className="text-pt-muted text-[14px] font-semibold">{next.length === 1 ? 'Your next shoot' : `Your next ${next.length} shoots`}</span>
-            <span className="text-pt-muted/70 text-[14px]">{ahead.length > next.length ? `· of ${ahead.length} booked` : ''}{!listOpen ? ` · ${formatDay(next[0].date, { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
+            <span className="text-pt-muted text-[14px] font-semibold">{nextItems.length !== next.length ? 'Coming up' : next.length === 1 ? 'Your next shoot' : `Your next ${next.length} shoots`}</span>
+            <span className="text-pt-muted/70 text-[14px]">{ahead.length > next.length ? `· of ${ahead.length} booked` : ''}{!listOpen ? ` · ${formatDay((nextItems[0].k === 'shoot' ? nextItems[0].x.date : nextItems[0].v.date), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}</span>
             <span className={`ml-auto text-pt-muted text-[16px] transition-transform ${listOpen ? 'rotate-90' : ''}`} aria-hidden>›</span>
           </button>
           {listOpen && <div className="rounded-[20px] bg-pt-surface overflow-hidden divide-y divide-white/[0.06]">
-            {next.map(x => {
+            {nextItems.map(it => {
+              if (it.k === 'video') {
+                const v = it.v
+                return (
+                  <button key={v.id} onClick={() => navigate('/videos')} className="w-full flex items-center gap-3 pl-4 pr-3 py-3.5 min-h-[60px] text-left" data-testid="coming-video">
+                    <span className="w-11 shrink-0 text-center">
+                      <span className="block text-[12px] font-semibold text-sky-300">{formatDay(v.date, { weekday: 'short' })}</span>
+                      <span className="block font-display text-[22px] leading-none font-extrabold text-sky-200">{Number(v.date.slice(8))}</span>
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[16px] font-semibold truncate">In {firstName(v.hostName)}'s video · {fmtTime(v.start)}</span>
+                      <span className="flex items-center gap-1.5 text-[14px] text-pt-muted">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400" aria-hidden />
+                        Be there {fmtTime(v.start)} · {v.placeName} · {whenLabel(v.date, today)}
+                      </span>
+                    </span>
+                  </button>
+                )
+              }
+              const x = it.x
               const c = cutoffs(x), waiting = x.status === 'requested'
               const propsOpen = nowStamp() <= c.props && !x.checkin
               const early = x.place !== 'offsite' ? houseFreeFrom(soonDays?.[x.date], x.place, x.start, s) : null

@@ -5,7 +5,9 @@
 // hour before. Being in someone's video is information only: no check-in, no strikes, no props or gear responsibility.
 // Pure (no Firebase imports): shared by the server functions, the app and the tests.
 import { fmtTime, addMinutes } from './gearBooking.js'
-import type { Push, Reminder } from './pushMessages.js'
+// Same shapes as pushMessages.ts (kept local so the app doesn't pull the server's message file into its build).
+export interface Push { to: string[]; title: string; body: string; url: string; tag?: string; except?: string[] }
+export interface Reminder { key: string; push: Push }
 
 export type CastStatus = 'pending' | 'accepted' | 'declined' | 'left' | 'removed' | 'cancelled'
 export const CAST_LIVE: CastStatus[] = ['pending', 'accepted']
