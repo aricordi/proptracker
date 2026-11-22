@@ -946,7 +946,7 @@ export async function sameDayShoots(email: string, date: string, except: string[
 }
 // Retire `olderId` (cancelled, no strike, slot freed) because a newer entry replaces it. Done BEFORE the newer one is placed, so
 // the two never "clash"; handOverToNewer then moves its props and gear across. Returns the old shoot (undefined = nothing done).
-export async function retireOlderShoot(olderId: string, by: string) {
+export async function retireOlderShoot(olderId: string, by: string, quiet = false) {
   const ref = db.doc(`shoots/${olderId}`)
   let sh: Record<string, any> | undefined   // eslint-disable-line @typescript-eslint/no-explicit-any
   await db.runTransaction(async tx => {
@@ -957,7 +957,7 @@ export async function retireOlderShoot(olderId: string, by: string) {
     write()
     const at = new Date().toISOString()
     tx.update(ref, { status: 'cancelled', cancelledAt: at, cancelledBy: by, updatedAt: at, toCheck: FieldValue.delete(),
-      history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: REPLACED_NOTE }) })
+      history: FieldValue.arrayUnion({ at, by, action: 'cancelled', note: REPLACED_NOTE, ...(quiet ? { quiet: true } : {}) }) })
     sh = cur
   })
   // An old-calendar import: remembered as replaced, so the 15-minute check neither removes nor re-adds it until its event changes.

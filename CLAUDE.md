@@ -2781,6 +2781,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       LIVE Nov 21 (owner "okay go ahead"): backend run 44913604754 (8 functions hit Google's update quota and kept their old
       version: shootsCalendar, setLinePick, skipImports, swapShootsAsTeam, syncBlocks/Gear/PropsToCalendar, updateBugReport →
       redeployed with `only` in run 44915192205, green) + website run 44915117410.
+    - NOTIFICATION FLOOD (Nov 22, owner: "spammed with over 100 notifications"): at ~23:23 UTC someone shifted the weekly
+      recurring "<Name> - Stromedy Talent Filming" series in the Cliff 1 calendar by 2 h ("this and following" = Google makes
+      new instances and deletes the old ones). The 15-minute check (ran >14 min) imported each new instance, retired the old
+      same-day shoot (newest wins) and, mid-way, saw the new times overlap shoots not yet moved → one "Calendar clash" push
+      per event to owner + Maanik (~50) + one "Your shoot changed" per creator per week. FIX (NOT deployed, backend, ask):
+      the automatic check collects clash alerts into ONE summary push ("N calendar clashes", tag calendar-clash); shoots it
+      retires or auto-confirms for a creator with > BULK_TELL (2) cards in one check are marked history `quiet: true`
+      (shootChange skips them) and that creator gets one "Your schedule was updated · N of your shoots…" push. Manual imports
+      still push one by one. Many of the ~49 clashes in the data check are intermediate (two series moved at once).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

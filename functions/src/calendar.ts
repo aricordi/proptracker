@@ -819,9 +819,15 @@ export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // opts.toCheck (the automatic check): everything it puts on the schedule is marked "to check" and waits in the equipment
 // team's Calendar tab; creators aren't told until it's confirmed there (owner, Nov 4).
+// A shoot retired quietly by the automatic check: its creator is counted for one summary push (not if never told about it).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function tally(out: Map<string, number> | undefined, sh: Record<string, any>) {
+  if (!out || sh.told === false || !sh.creatorEmail || sh.guest) return
+  out.set(String(sh.creatorEmail), (out.get(String(sh.creatorEmail)) ?? 0) + 1)
+}
 // opts.clashOut: the automatic check collects clash alerts here and sends ONE summary (Nov 22: a batch of recurring events
 // sent ~50 separate "Calendar clash" pushes to the owner and the equipment team in a few seconds).
-async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; clashOut?: string[] } = {}) {
+async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; clashOut?: string[]; toldOut?: Map<string, number> } = {}) {
   const caller = { email: by }
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const check = opts.toCheck ? { toCheck: true } : {}
@@ -912,13 +918,13 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; 
         if (!multi) {
           const newer = (others.get(users[0].email) ?? []).find(o => enteredAt(o) > entered)
           if (newer) {
-            for (const sid of oldShootIds) { const r = await retireOlderShoot(sid, caller.email); if (r) await handOverToNewer(sid, r, newer.id) }
+            for (const sid of oldShootIds) { const r = await retireOlderShoot(sid, caller.email, !!opts.toldOut); if (r) { await handOverToNewer(sid, r, newer.id); tally(opts.toldOut, r) } }
             await db.doc(`calendar_imports/${id}`).set({ action: 'shoot', ...snapshot, shootIds: [], email: users[0].email, emails: [users[0].email], house: place, replaced: true, replacedBy: newer.id, at: new Date().toISOString(), by: caller.email,
               ...(was?.checkedBy ? { checkedBy: was.checkedBy, checkedAt: was.checkedAt ?? '' } : {}) })
             results.push({ id, ok: true, message: `Not added: ${users[0].name} has a newer booking that day`, saved: { action: 'shoot', shootIds: [], emails: [users[0].email], house: place, replacedBy: newer.id } }); continue
           }
         }
-        for (const [, list] of others) for (const o of list) if (enteredAt(o) <= entered) { const r = await retireOlderShoot(o.id, caller.email); if (r) retired.push([o.id, r]) }
+        for (const [, list] of others) for (const o of list) if (enteredAt(o) <= entered) { const r = await retireOlderShoot(o.id, caller.email, !!opts.toldOut); if (r) { retired.push([o.id, r]); tally(opts.toldOut, r) } }
         const ids: string[] = []
         // If one turn of a group can't be placed, the turns already made come off again (audit: half-made groups were left
         // behind and made again every 15 minutes).
@@ -1241,7 +1247,8 @@ async function runCalendarCheckLocked(cals: Source[]) {
     const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && !e.redo && !e.recheck && placeable(e.guess)))
     const unclear = events.filter(e => e.kind === 'new' && (e.redo || e.recheck || !placeable(e.guess)))
     const clashOut: string[] = []
-    const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true, clashOut }) : []
+    const toldOut = new Map<string, number>()
+    const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true, clashOut, toldOut }) : []
     if (clashOut.length) await sendPush({ to: ['gear-team', OWNER_EMAIL], title: clashOut.length === 1 ? 'Calendar clash' : `${clashOut.length} calendar clashes`,
       url: '/approvals', tag: 'calendar-clash', body: clashOut.length === 1 ? `${clashOut[0]}. Open Requests to sort it out.`
         : `${clashOut.slice(0, 2).join(' · ')}${clashOut.length > 2 ? ` · and ${clashOut.length - 2} more` : ''}. Open Requests to sort them out.` }).catch(() => 0)
@@ -1287,7 +1294,7 @@ async function runCalendarCheckLocked(cals: Source[]) {
     const perPerson = new Map<string, number>()
     for (const d of ready) for (const e of whoOf(d.data())) perPerson.set(e, (perPerson.get(e) ?? 0) + 1)
     const many = new Set([...perPerson].filter(([, n]) => n > BULK_TELL).map(([e]) => e))
-    const quietTold = new Map<string, number>()
+    const quietTold = new Map<string, number>(toldOut)
     for (const d of ready) {
       const who = whoOf(d.data())
       const quiet = who.some(e => many.has(e))

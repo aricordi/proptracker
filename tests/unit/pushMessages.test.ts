@@ -211,4 +211,12 @@ describe('broken records never crash a notification', () => {
     const [p] = swapChange('s9', null, { fromName: 'Ana', toEmail: 'b@x.com', status: 'pending' }, s)
     expect(p.to).toEqual(['b@x.com'])
   })
+  it('calendar batches: shoots changed quietly by the automatic check send nothing one by one (Nov 22 flood)', () => {
+    const sh = { creatorEmail: 'c@x.com', creatorName: 'Cam', place: 'cliff1', date: '2026-12-15', start: 780, end: 900, status: 'booked', toCheck: true, history: [{ by: 'x' }] }
+    const done = (h: Record<string, unknown>, extra = {}) => shootChange('q1', sh, { ...sh, ...extra, history: [...sh.history, h] }, s)
+    expect(done({ by: 'calendar check', action: 'import-confirmed', note: 'new' }, { toCheck: false })).toHaveLength(1)
+    expect(done({ by: 'calendar check', action: 'import-confirmed', note: 'new', quiet: true }, { toCheck: false })).toEqual([])
+    expect(done({ by: 'calendar check', action: 'cancelled', note: 'replaced by a newer calendar entry for the same day' }, { status: 'cancelled', toCheck: false })).toHaveLength(1)
+    expect(done({ by: 'calendar check', action: 'cancelled', note: 'replaced by a newer calendar entry for the same day', quiet: true }, { status: 'cancelled', toCheck: false })).toEqual([])
+  })
 })
