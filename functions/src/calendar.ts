@@ -819,7 +819,9 @@ export const applyCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 // opts.toCheck (the automatic check): everything it puts on the schedule is marked "to check" and waits in the equipment
 // team's Calendar tab; creators aren't told until it's confirmed there (owner, Nov 4).
-async function applyImports(list: any[], by: string, opts: { toCheck?: boolean } = {}) {
+// opts.clashOut: the automatic check collects clash alerts here and sends ONE summary (Nov 22: a batch of recurring events
+// sent ~50 separate "Calendar clash" pushes to the owner and the equipment team in a few seconds).
+async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; clashOut?: string[] } = {}) {
   const caller = { email: by }
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
   const check = opts.toCheck ? { toCheck: true } : {}
@@ -941,8 +943,10 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
         }
         clash = [...new Set(clash)]
         if (clash.length && clash.some(n => !((was?.clashWith ?? []) as string[]).includes(n))) {
-          await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
-            body: `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}. Open Requests to give the slot to ${users.map(u => u.name).join(' + ')} or sort it out.` }).catch(() => 0)
+          const line = `"${String(it.title ?? '').slice(0, 80)}" (${s.houses[place === 'offsite' ? 'cliff1' : place].name}, ${it.date}) overlaps ${clash.join(', ')}`
+          if (opts.clashOut) opts.clashOut.push(line)
+          else await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
+            body: `${line}. Open Requests to give the slot to ${users.map(u => u.name).join(' + ')} or sort it out.` }).catch(() => 0)
         }
         saved = { shootId: ids[0], shootIds: ids, email: users[0].email, emails: users.map(u => u.email), house: place, clashWith: clash }
       } else if (it.action === 'block') {
@@ -971,8 +975,10 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean }
           clash = hit.map(h => h.name)
           const known = (was?.clashWith ?? []) as string[]
           if (clash.some(n => !known.includes(n))) {
-            await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/schedule',
-              body: `"${note || BLOCK_TYPES[type]}" (${s.houses[house].name}, ${it.date}) is on top of ${clash.join(', ')}'s shoot. Sort it out with them.` }).catch(() => 0)
+            const line = `"${note || BLOCK_TYPES[type]}" (${s.houses[house].name}, ${it.date}) is on top of ${clash.join(', ')}'s shoot`
+            if (opts.clashOut) opts.clashOut.push(line)
+            else await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/schedule',
+              body: `${line}. Sort it out with them.` }).catch(() => 0)
           }
         }
         saved = { blockId, house, type, soft, clashWith: clash }
@@ -1234,7 +1240,11 @@ async function runCalendarCheckLocked(cals: Source[]) {
     for (const id of unkeep) await db.doc(`calendar_imports/${id}`).update({ kept: FieldValue.delete() }).catch(() => 0)
     const auto = events.filter(e => e.kind === 'changed' || e.kind === 'removed' || (e.kind === 'new' && !e.redo && !e.recheck && placeable(e.guess)))
     const unclear = events.filter(e => e.kind === 'new' && (e.redo || e.recheck || !placeable(e.guess)))
-    const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true }) : []
+    const clashOut: string[] = []
+    const results = auto.length ? await applyImports(auto.map(e => asItem(e)), 'calendar check', { toCheck: true, clashOut }) : []
+    if (clashOut.length) await sendPush({ to: ['gear-team', OWNER_EMAIL], title: clashOut.length === 1 ? 'Calendar clash' : `${clashOut.length} calendar clashes`,
+      url: '/approvals', tag: 'calendar-clash', body: clashOut.length === 1 ? `${clashOut[0]}. Open Requests to sort it out.`
+        : `${clashOut.slice(0, 2).join(' · ')}${clashOut.length > 2 ? ` · and ${clashOut.length - 2} more` : ''}. Open Requests to sort them out.` }).catch(() => 0)
     // The queue (calendar_queue/{eventId}): one card per event, until the team confirms, fixes or skips it.
     const waiting = new Map((await db.collection('calendar_queue').where('status', '==', 'waiting').get()).docs.map(d => [d.id, d.data()]))
     const at = new Date().toISOString()
@@ -1271,12 +1281,23 @@ async function runCalendarCheckLocked(cals: Source[]) {
     const nowWaiting = (await db.collection('calendar_queue').where('status', '==', 'waiting').get()).docs
     let autoConfirmed = 0
     const autoIds = new Set<string>()
-    for (const d of nowWaiting) {
-      const q = d.data()
-      if (String(q.date) < today || !queueReady(q)) continue
-      try { await settleQueue(d.id, 'calendar check', 'confirmed', undefined, 'auto'); autoConfirmed++; autoIds.add(d.id) }
-      catch (e) { logger.warn('auto confirm', d.id, String(e)) }
+    // Nov 22: a creator with many cards in one check (e.g. a recurring series added in Google) gets ONE summary, not one per shoot.
+    const ready = nowWaiting.filter(d => String(d.data().date) >= today && queueReady(d.data()))
+    const whoOf = (q: Record<string, any>) => [...new Set([...(Array.isArray(q.result?.emails) ? q.result.emails : []), ...(q.result?.email ? [q.result.email] : [])].map(String))]   // eslint-disable-line @typescript-eslint/no-explicit-any
+    const perPerson = new Map<string, number>()
+    for (const d of ready) for (const e of whoOf(d.data())) perPerson.set(e, (perPerson.get(e) ?? 0) + 1)
+    const many = new Set([...perPerson].filter(([, n]) => n > BULK_TELL).map(([e]) => e))
+    const quietTold = new Map<string, number>()
+    for (const d of ready) {
+      const who = whoOf(d.data())
+      const quiet = who.some(e => many.has(e))
+      try {
+        await settleQueue(d.id, 'calendar check', 'confirmed', undefined, 'auto', quiet); autoConfirmed++; autoIds.add(d.id)
+        if (quiet) for (const e of who) if (many.has(e)) quietTold.set(e, (quietTold.get(e) ?? 0) + 1)
+      } catch (e) { logger.warn('auto confirm', d.id, String(e)) }
     }
+    for (const [email, n] of quietTold) await sendPush({ to: [email], url: '/shoots', tag: 'calendar-bulk', title: 'Your schedule was updated',
+      body: `${n} of your shoots were added or changed from the shooting calendar. Tap to see them.` }).catch(() => 0)
     // Unplaced cards whose event is gone from Google (or was handled on the import screen) leave the queue.
     // Cards that came in before links were saved get their Google Calendar link (owner, Nov 8).
     for (const [id, q] of waiting) if (!q.link && links[id]) await db.doc(`calendar_queue/${id}`).update({ link: links[id] }).catch(() => 0)
@@ -1303,7 +1324,9 @@ async function runCalendarCheckLocked(cals: Source[]) {
 
 // Finish a card in the Calendar tab: the shoots and block it made stop being "to check", and the creators are told
 // (pushMessages: 'import-confirmed'). Also used when a person imports on the import screen.
-async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>, note?: 'past' | 'auto') {
+// More cards than this for one person in one automatic check → they get one summary push instead of one per shoot.
+const BULK_TELL = 2
+async function settleQueue(id: string, by: string, status: 'confirmed' | 'skipped', saved?: Record<string, unknown>, note?: 'past' | 'auto', quiet = false) {
   const qref = db.doc(`calendar_queue/${id}`)
   const q = (await qref.get()).data()
   const imp = (await db.doc(`calendar_imports/${id}`).get()).data()
@@ -1321,7 +1344,7 @@ async function settleQueue(id: string, by: string, status: 'confirmed' | 'skippe
       gone = false
       if (!sh?.toCheck) return
       gone = sh.status === 'cancelled'
-      tx.update(ref, { toCheck: FieldValue.delete(), told: true, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'import-confirmed', note: kind }) })
+      tx.update(ref, { toCheck: FieldValue.delete(), told: true, updatedAt: at, history: FieldValue.arrayUnion({ at, by, action: 'import-confirmed', note: kind, ...(quiet ? { quiet: true } : {}) }) })
     })
     // Taken off by the automatic check and now confirmed by a person: its props and gear are let go only now (audit, Nov 7:
     // they were cancelled before anyone looked, and stayed cancelled when the event came back in Google).
