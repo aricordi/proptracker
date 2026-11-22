@@ -97,7 +97,7 @@ export const invitedPush = (id: string, inv: Pick<CastInvite, 'toEmail' | 'hostN
 export function answeredPush(id: string, inv: Pick<CastInvite, 'hostEmail' | 'toName' | 'date' | 'start' | 'end' | 'placeName'>, what: 'accepted' | 'declined' | 'left'): Push {
   const who = first(inv.toName)
   const title = what === 'accepted' ? `${who} is in your video ✓` : what === 'left' ? `${who} can't be in your video any more` : `${who} can't make your video`
-  return { to: [inv.hostEmail], url: '/schedule', tag: `castans-${id}`, title, body: castWhen(inv) }
+  return { to: [inv.hostEmail], url: `/schedule?shoot=${id.split('_')[0]}`, tag: `castans-${id}`, title, body: castWhen(inv) }
 }
 export const removedPush = (id: string, inv: Pick<CastInvite, 'toEmail' | 'hostName' | 'date' | 'start' | 'end' | 'placeName'>): Push =>
   ({ to: [inv.toEmail], url: '/videos', tag: `cast-${id}`, title: `You're no longer in ${first(inv.hostName)}'s video`, body: `${castWhen(inv)}. Nothing for you to do.` })

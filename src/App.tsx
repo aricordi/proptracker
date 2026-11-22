@@ -107,6 +107,21 @@ function usePrefetchTabs(on: boolean) {
 }
 
 // Signed-in only: warm up the main tabs in the background.
+// The page of the last tapped notification (saved by public/push-sw.js), if tapped in the last 2 minutes; read once.
+async function takePendingOpen(): Promise<string | null> {
+  try {
+    if (!('caches' in window)) return null
+    const c = await caches.open('pc-open')
+    const r = await c.match('/__pc-open')
+    if (!r) return null
+    await c.delete('/__pc-open')
+    const { url, at } = await r.json() as { url?: string; at?: number }
+    if (!url || !at || Date.now() - at > 120_000) return null
+    const u = new URL(url, location.origin)
+    return u.origin === location.origin ? u.pathname + u.search + u.hash : null
+  } catch { return null }
+}
+
 function Prefetch() {
   usePrefetchTabs(true)
   // Keep this phone's notification sign-up fresh, a few seconds after the first screen is up (Nov 8: weak signal).
@@ -121,9 +136,15 @@ function Prefetch() {
       if (u.origin !== location.origin) return
       navigate(u.pathname + u.search + u.hash)
       e.ports[0]?.postMessage('ok')
+      void takePendingOpen()   // handled: the saved copy isn't needed
     }
     navigator.serviceWorker.addEventListener('message', onMsg)
-    return () => navigator.serviceWorker.removeEventListener('message', onMsg)
+    // A notification tapped while the app was closed or asleep: open its page once the app is up (and again whenever it wakes).
+    const fromPending = () => { setTimeout(() => { void takePendingOpen().then(to => { if (to && to !== location.pathname + location.search) navigate(to) }) }, 400) }
+    fromPending()
+    const onVis = () => { if (document.visibilityState === 'visible') fromPending() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { navigator.serviceWorker.removeEventListener('message', onMsg); document.removeEventListener('visibilitychange', onVis) }
   }, [navigate])
   // Start loading the props list in the background (the equipment team can't read props).
   const { realRole } = useSession()

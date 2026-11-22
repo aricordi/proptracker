@@ -25,10 +25,17 @@ function askAppToOpen(win, url) {
   })
 }
 
+// The tapped screen is also left in a small cache, so the app opens it itself once it's awake and signed in (Nov 22: on
+// iPhone a sleeping or closed app often came up on its home screen instead of the notification's page).
+async function savePending(url) {
+  try { const c = await caches.open('pc-open'); await c.put('/__pc-open', new Response(JSON.stringify({ url, at: Date.now() }))) } catch (e) { /* no cache: the steps below still try */ }
+}
+
 self.addEventListener('notificationclick', event => {
   event.notification.close()
   const url = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href
   event.waitUntil((async () => {
+    await savePending(url)
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const w of wins) {
       if (new URL(w.url).origin === self.location.origin) {

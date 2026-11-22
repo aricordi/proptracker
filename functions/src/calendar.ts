@@ -983,7 +983,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; 
           if (clash.some(n => !known.includes(n))) {
             const line = `"${note || BLOCK_TYPES[type]}" (${s.houses[house].name}, ${it.date}) is on top of ${clash.join(', ')}'s shoot`
             if (opts.clashOut) opts.clashOut.push(line)
-            else await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/schedule',
+            else await sendPush({ to: ['gear-team', OWNER_EMAIL], title: 'Calendar clash', url: '/approvals',
               body: `${line}. Sort it out with them.` }).catch(() => 0)
           }
         }

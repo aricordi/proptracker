@@ -65,8 +65,8 @@ export function swapChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pus
     title: `${first(a.fromName)} wants to swap slots`,
     body: `You'd get ${placeName(a.from, s)} · ${when(a.from)}; they'd get your ${placeName(a.to, s)} · ${when(a.to)}.`,
   }]
-  if (b?.status === 'pending' && a.status === 'accepted') return [{ to: [a.fromEmail], tag: `swap-${id}`, url: '/schedule', title: 'Swap done ✓', body: `${first(a.toName)} said yes. You're now on ${placeName(a.to, s)} · ${when(a.to)}.` }]
-  if (b?.status === 'pending' && a.status === 'declined') return [{ to: [a.fromEmail], tag: `swap-${id}`, url: '/schedule', title: `${first(a.toName)} said no to the swap`, body: 'Your shoot stays as it was.' }]
+  if (b?.status === 'pending' && a.status === 'accepted') return [{ to: [a.fromEmail], tag: `swap-${id}`, url: a.fromShootId ? `/schedule?shoot=${a.fromShootId}` : '/schedule', title: 'Swap done ✓', body: `${first(a.toName)} said yes. You're now on ${placeName(a.to, s)} · ${when(a.to)}.` }]
+  if (b?.status === 'pending' && a.status === 'declined') return [{ to: [a.fromEmail], tag: `swap-${id}`, url: a.fromShootId ? `/schedule?shoot=${a.fromShootId}` : '/schedule', title: `${first(a.toName)} said no to the swap`, body: 'Your shoot stays as it was.' }]
   if (b?.status === 'pending' && a.status === 'withdrawn') return [{ to: [a.toEmail], tag: `swap-${id}`, url: '/', title: 'Swap withdrawn', body: `${first(a.fromName)} took back the swap. Your shoot stays as it was.` }]
   if (b?.status === 'pending' && a.status === 'expired') return [{ to: [a.fromEmail, a.toEmail], tag: `swap-${id}`, url: '/', title: 'Swap no longer possible', body: 'One of the shoots changed, so the swap was called off. Both shoots stay as they are.' }]
   return []

@@ -2790,6 +2790,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       retires or auto-confirms for a creator with > BULK_TELL (2) cards in one check are marked history `quiet: true`
       (shootChange skips them) and that creator gets one "Your schedule was updated · N of your shoots…" push. Manual imports
       still push one by one. Many of the ~49 clashes in the data check are intermediate (two series moved at once).
+    - NOTIFICATION TAP OPENS ITS PAGE (owner, Nov 22: "should take you to the relevant page not just the app"): push-sw.js
+      notificationclick saves {url, at} in Cache Storage 'pc-open' (/__pc-open) before focusing/opening; App.tsx Prefetch
+      (mounted once signed in) reads it on start and every time the app becomes visible (≤ 2 min old, read once) and navigates;
+      the in-place message path clears it. (iPhone often woke/cold-started the home-screen app on '/' and dropped the link.)
+      Links made more specific: cast answers → /schedule?shoot=<id>, swap accepted/declined → that shoot, block clash → /approvals.
+      Needs website deploy (+ backend for the link changes).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
