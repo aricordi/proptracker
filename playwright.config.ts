@@ -48,5 +48,7 @@ export default defineConfig({
     // The crawl only looks around (every route, every role), so roles run side by side, after fresh test data.
     { name: 'fresh-data', testDir: 'tests/e2e/setup', testMatch: '**/*.setup.ts' },
     { name: 'crawl', testDir: 'tests/e2e/crawl', dependencies: ['fresh-data'] },
+    // Screenshots of the real screens for the training manuals (docs/manuals/img). Not a test: run with --only shots.
+    { name: 'shots', testDir: 'tests/e2e/shots', workers: 1 },
   ],
 })

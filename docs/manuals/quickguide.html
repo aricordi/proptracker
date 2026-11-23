@@ -1,0 +1,88 @@
+<title>Prime Capitol Quick Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Layout: three printable letter pages, each one job (Book / Props & gear / Shoot day). Big pictures, numbered steps, almost no words. Single light look on purpose: it prints on paper. */
+:root{--paper:#fff;--desk:#ece8df;--ink:#141210;--muted:#5b574e;--gold:#a8862f;--goldbg:#f6efdc;--line:#e4dece;--red:#c0392b;--green:#2e8b57;
+--display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--desk);color:var(--ink);font:17px/1.45 var(--body)}
+.pages{display:grid;gap:28px;justify-items:center;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.page{background:var(--paper);width:100%;max-width:8.5in;min-height:11in;padding:.5in .55in;display:flex;flex-direction:column;gap:14px;box-shadow:0 2px 18px rgba(0,0,0,.08);border-radius:6px}
+.top{display:flex;align-items:center;gap:14px}
+.num{width:58px;height:58px;border-radius:50%;background:var(--ink);color:#fff;font:700 30px/58px var(--display);text-align:center;flex:none}
+.kicker{font-size:14px;font-weight:600;color:var(--gold);letter-spacing:.06em;text-transform:uppercase}
+h1{font:700 40px/1.05 var(--display);margin:0;letter-spacing:-.02em;text-wrap:balance}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.step{display:flex;flex-direction:column;gap:8px;min-width:0}
+.step img{width:100%;border-radius:18px;border:5px solid #1c1c1e;aspect-ratio:780/1180;object-fit:cover;object-position:top}
+.step>b{font:700 19px/1.2 var(--display);display:flex;gap:8px;align-items:flex-start}
+.step>b span{flex:none;width:26px;height:26px;border-radius:50%;background:var(--gold);color:#fff;font-size:15px;line-height:26px;text-align:center}
+.step p{margin:0;color:var(--muted);font-size:15px}
+.ui{font-weight:700;color:var(--ink);background:var(--goldbg);padding:0 6px;border-radius:5px;white-space:nowrap}
+.box{border-radius:14px;padding:14px 16px;background:var(--goldbg);display:flex;gap:12px;align-items:flex-start}
+.box svg{flex:none;margin-top:2px}
+.box p{margin:0}
+.box.chat{background:#efeafc}
+.box.chat q{font-style:normal;font-weight:600;quotes:"“" "”"}
+.rules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:auto}
+.rule{border:2px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:center}
+.rule .big{font:700 28px/1 var(--display);color:var(--gold);flex:none;min-width:64px}
+.rule.red .big{color:var(--red)}
+.rule p{margin:0;font-size:15px}
+.foot{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+@media (max-width:640px){.steps{grid-template-columns:minmax(0,1fr)}.step img{max-width:280px}.rules{grid-template-columns:minmax(0,1fr)}.page{padding:24px 18px;min-height:0}h1{font-size:32px}}
+@page{size:letter;margin:0}
+@media print{body{background:#fff}.pages{padding:0;gap:0}.page{box-shadow:none;border-radius:0;break-after:page;height:11in;min-height:0;max-width:none;overflow:hidden}.page:last-child{break-after:auto}}
+</style>
+
+<div class="pages">
+
+<section class="page">
+  <div class="top"><div class="num">1</div><div><div class="kicker">Prime Capitol app · Quick guide</div><h1>Book your filming time</h1></div></div>
+  <div class="box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/></svg><p>Open <b>proptracker.arbcreative.co</b> in Safari or Chrome, then <b>Share → Add to Home Screen</b>. Open it from that icon from now on.</p></div>
+  <div class="steps">
+    <div class="step"><img style="object-position:bottom" src="img/c-calendar.png" alt="Calendar tab with free slots per day"><b><span>1</span>Tap Calendar</b><p>Green numbers = free slots that day. Pick <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">All</span>.</p></div>
+    <div class="step"><img src="img/c-day-sheet.png" alt="A day with each slot marked Free"><b><span>2</span>Tap a day, then a gold time</b><p>Each slot is 2 hours. Shooting somewhere else? Tap <span class="ui">Book Offsite</span>.</p></div>
+    <div class="step"><img src="img/c-book-3slots.png" alt="Choosing 6 hours and who films in each slot"><b><span>3</span>Pick hours and who's filming</b><p>Need longer? Pick <span class="ui">4 h</span> or <span class="ui">6 h</span> and put a name in each slot. Then tap <span class="ui">Request</span>.</p></div>
+  </div>
+  <div class="box"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><p><b>Wait for “Approved”.</b> Your time is held for you while the team checks it. You get a notification when it's approved.</p></div>
+  <div class="box chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H8l-4 4z"/></svg><p><b>Faster:</b> type it in the <b>Chat</b> tab. <q>Thursday at Cliff 1 at 5pm with Kyle</q></p></div>
+  <div class="foot"><span>Prime Capitol</span><span>1 / 3</span></div>
+</section>
+
+<section class="page">
+  <div class="top"><div class="num">2</div><div><div class="kicker">Prime Capitol app · Quick guide</div><h1>Get your props and gear</h1></div></div>
+  <div class="steps">
+    <div class="step"><img src="img/c-props.png" alt="Props tab with search and photos"><b><span>1</span>Tap Props, search</b><p>Type what you need, like “cop” or “candles”. Tap <span class="ui">+</span> on a photo to add it to your shoot.</p></div>
+    <div class="step"><img src="img/c-reserve.png" alt="Your shoot review screen with a video name box"><b><span>2</span>Review and send</b><p>Type your video name, then tap <span class="ui">Send the props</span>. The arts team packs it.</p></div>
+    <div class="step"><img src="img/c-take-gear.png" alt="Gear list with kits to take on the day"><b><span>3</span>Gear: take it on the day</b><p>Gear isn't booked ahead. On your shoot day, tap <span class="ui">Take gear</span> in the chat, tick every piece, take a photo.</p></div>
+  </div>
+  <div class="rules">
+    <div class="rule"><div class="big">48 h</div><p>Ask for props <b>at least 48 hours</b> before your shoot starts.</p></div>
+    <div class="rule"><div class="big">4 days</div><p>Something we <b>don't have</b>? Ask 4 open days ahead, then talk to the arts team on Slack. No guaranteed date.</p></div>
+    <div class="rule"><div class="big">+</div><p>Forgot something? Open the request and tap <span class="ui">Change</span> while it says Requested.</p></div>
+    <div class="rule red"><div class="big">10%</div><p>Gear back <b>late</b>? A late fee of 10% of its value can apply. Bring it back when your shoot ends.</p></div>
+  </div>
+  <div class="box chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H8l-4 4z"/></svg><p><b>No idea what to use?</b> Tell the chat your video idea. <q>a haunted séance video</q> It suggests props from our closet.</p></div>
+  <div class="foot"><span>Prime Capitol</span><span>2 / 3</span></div>
+</section>
+
+<section class="page">
+  <div class="top"><div class="num">3</div><div><div class="kicker">Prime Capitol app · Quick guide</div><h1>On shoot day</h1></div></div>
+  <div class="steps">
+    <div class="step"><img src="img/c-my-shoots.png" alt="My shoots with a gold Check in button"><b><span>1</span>Check in with a selfie</b><p>It opens <b>15 minutes</b> before your time. Tap <span class="ui">Check in</span>, take a selfie. Left a mess or ran late? Tell us there.</p></div>
+    <div class="step"><img src="img/c-shoot-sheet.png" alt="Your shoot page with props and who's in the video"><b><span>2</span>Film, then wrap</b><p>When you're done, type what you filmed. That's your proof you showed up.</p></div>
+    <div class="step"><img src="img/c-my-requests.png" alt="My requests list"><b><span>3</span>Bring it all back</b><p>Tap <span class="ui">Return everything</span>, tick what's back, take <b>one photo</b>, send. Broken? Say so there.</p></div>
+  </div>
+  <div class="rules">
+    <div class="rule"><div class="big">48 h</div><p>Moving or cancelling is free with 48 hours notice.</p></div>
+    <div class="rule red"><div class="big">!</div><p>Cancel later or don't show up = a <b>strike</b>. 2 strikes in 30 days pauses prop requests for 14 days.</p></div>
+    <div class="rule"><div class="big">12 h</div><p>Missed your check-in? You have 12 hours to explain in the app.</p></div>
+    <div class="rule"><div class="big">Thu Sat</div><p>Cliff 1 on Thursday and Saturday is for priority creators. Others need a filming guideline.</p></div>
+  </div>
+  <div class="box chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H8l-4 4z"/></svg><p><b>Stuck? Ask the chat.</b> <q>how do I cancel?</q> <q>is my shoot approved?</q> <q>I broke the tripod</q></p></div>
+  <div class="foot"><span>Turn on notifications: More → Notifications → Turn on</span><span>3 / 3</span></div>
+</section>
+
+</div>
