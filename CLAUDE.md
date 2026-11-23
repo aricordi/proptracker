@@ -2843,6 +2843,7 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       settings list, prop calendar closed days, chat starters reset, gear picker date row + no past default, approval cards, flags list
       dots, Locations screen titled "Rooms", Add a prop / Save prop, /team-guide staff only, creators' /reservations → /requests.
       Robot journeys 23/23 + crawl green, unit 537, rules 142. Manuals re-shot, PDFs + PPTX rebuilt, live pages + deck republished.
+    - LIVE Nov 23 (owner "yes put it live"): backend run 45119502236 + website run 45119505232 = version 1.0.0 (update bar, version per person + rules), manual-check fixes, polish pass.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
