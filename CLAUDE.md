@@ -2868,6 +2868,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       records, equipment Schedule). Admin task kind moveShoots {moves:[{shootId,start,place?,date?}]} (team move as owner) for
       Val's 6 Mondays 11 → 13 once the owner OKs. Tests tests/functions/teamLog.test.ts (5); all 46 server/rules files + 537 unit green.
       Manuals (equipment + admin cards, version 1.1.0 chips), CHANGELOG 1.1.0, owner guide #teamlog, appGuide teamlog + users.
+    - LIVE Nov 23 (owner "do all 6 and go live"): backend run 45250984605 + website run 45250992588 = version 1.1.0. Admin task
+      moveShoots run 45253984153: Val's 6 Monday Cliff 2 shoots 11 → 1 PM (all ok). Admin task offAppPeople run 45254209366: Moe =
+      users/guest:moe. The 20:00 calendar check turned Moe's Cliff 2 series into 16 shoots under his name (Dec 7 – Mar 22, no clashes,
+      auto-confirmed). Manuals + owner guide republished. Old-calendar writing still OFF (owner turns it on in Calendar & email).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
