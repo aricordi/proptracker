@@ -2826,6 +2826,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       https://claude.ai/artifact/Ew2cNGpebq4WNKa34dfe6P, admin https://claude.ai/artifact/1AEMoCYuvkhAMpSQFqQLBH, quick guide
       https://claude.ai/artifact/CTiQfEtr8tfAyrnGQVWKXu, creator training deck (Slides type, 19 slides, speaker notes)
       https://claude.ai/artifact/2wAfFFyxxYw6RV1JRpvwLt. When a flow changes, update the matching manual card (and re-run the shots) like appGuide.
+      FILES, NOT CLAUDE LINKS (owner, Nov 23: "shareable without a link… actual documents"): docs/manuals/Prime-Capitol-{Creator,Arts,
+      Equipment,Admin}-Manual.pdf (print layout in each HTML's @media print: no search box, 3-column contents, cards never split; rebuilt
+      with Playwright, light colours, page numbers), Prime-Capitol-Quick-Guide.pdf, Prime-Capitol-Creator-Training.pptx (python-pptx script
+      kept in the session scratchpad only; same 19 slides + speaker notes, Arial). Owner to REVIEW them later (reminder set).
       Stale app text found while writing (not fixed yet): Help says "Me tab" (tab is More); Requests day-sheet hint "Tap a name to make a priority
       booking" (now opens the booking); appGuide approvals tells admins they can Move/Swap/Cancel (code: owner + equipment only); equipment Team guide
       points to the Settings sheet and the laptop inspector has "Open record" (both blocked for equipment).

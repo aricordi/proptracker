@@ -58,6 +58,22 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .faq details p{margin-top:8px;color:var(--muted)}
 .hide{display:none!important}
 @media (max-width:720px){.task{grid-template-columns:minmax(0,1fr);padding:18px}.shot{max-width:260px;margin:0 auto}}
+@page{size:letter;margin:.55in .5in}
+@media print{
+  body{font-size:12pt;background:#fff;color:#17150f}
+  .wrap{max-width:none;padding:0}
+  .search,.count{display:none!important}
+  h2{break-before:page;margin-top:0;border-top:none}
+  .toc{break-after:page}
+  .toc{display:block;columns:3;column-gap:18px}
+  .toc div{break-inside:avoid;padding:8px 0;background:none;border-radius:0}
+  .toc a{font-size:9.5pt;padding:1px 0}
+  .task,.faq details,.tip,.warn{break-inside:avoid}
+  .task{border:1px solid #e2ddd0;grid-template-columns:minmax(0,1fr) 170px;padding:16px;margin-top:12px;border-radius:12px}
+  .shot img{border-width:4px;border-radius:16px}
+  .faq details{border:1px solid #e2ddd0}
+  a{color:inherit;text-decoration:none}
+}
 </style>
 
 <div class="wrap">
