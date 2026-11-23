@@ -2815,6 +2815,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       this" → NotFilmingSheet (suggestPhrase) + IgnoreList (bottom of the Calendar tab); ClashList text points there. Tests: unit
       calendarText, functions calendar (+ "Meeting" fixtures renamed "Hold"). appGuide book/approvals, Help, How it works, Team guide,
       owner guide #nov23.
+    - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
+      presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
+      _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
+      letter pages, light look) + Prime-Capitol-Quick-Guide.pdf (rendered with Playwright). Screenshots in docs/manuals/img are REAL screens from
+      the emulator: `npm run e2e -- --only shots` (tests/e2e/shots/manual-shots.e2e.ts; c-/a-/e-/d- = creator/arts/equipment/admin). Published
+      (private): creator https://claude.ai/artifact/BsaovUmtxWMH8qaU8vZU8K, arts https://claude.ai/artifact/2BYvUyQRMaeFvCiGfk8Yd6, equipment
+      https://claude.ai/artifact/Ew2cNGpebq4WNKa34dfe6P, admin https://claude.ai/artifact/1AEMoCYuvkhAMpSQFqQLBH, quick guide
+      https://claude.ai/artifact/CTiQfEtr8tfAyrnGQVWKXu, creator training deck (Slides type, 19 slides, speaker notes)
+      https://claude.ai/artifact/2wAfFFyxxYw6RV1JRpvwLt. When a flow changes, update the matching manual card (and re-run the shots) like appGuide.
+      Stale app text found while writing (not fixed yet): Help says "Me tab" (tab is More); Requests day-sheet hint "Tap a name to make a priority
+      booking" (now opens the booking); appGuide approvals tells admins they can Move/Swap/Cancel (code: owner + equipment only); equipment Team guide
+      points to the Settings sheet and the laptop inspector has "Open record" (both blocked for equipment).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
