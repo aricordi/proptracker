@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { PageHeader } from '../components/PageHeader'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import Avatar from '../components/Avatar'
@@ -57,15 +58,11 @@ export default function ScheduleTeamScreen() {
   const tabs: [Tab, string][] = [['checkins', `Check-ins${toDecide ? ` (${toDecide})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-end gap-2 py-2">
-          <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-          <h1 className="font-display text-[34px] text-pt-text">Schedule team</h1>
+      <PageHeader title="Schedule team" onBack={() => navigate('/schedule')}>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+          {tabs.map(([v, l]) => <button key={v} onClick={() => setTab(v)} className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>)}
         </div>
-        <div className="flex gap-2">
-          {tabs.map(([v, l]) => <button key={v} onClick={() => setTab(v)} className={`px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>)}
-        </div>
-      </div>
+      </PageHeader>
       <div className="p-4 space-y-2">
         {err && <p className="text-red-300 text-sm">{err}</p>}
         {shoots === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
