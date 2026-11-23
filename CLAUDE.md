@@ -2799,6 +2799,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Nov 23 (owner "yeah okay"): backend run 45090771385 (green; quota retries all succeeded) + website run 45090773966 =
       notification flood fix + tap opens its page. Safety redeploy with `only` of calendarCheck/checkCalendarNow/push triggers
       (the deploy log can't be downloaded here to check every function).
+    - SLOTS FIRST + NOT FILMING (owner, Nov 23; NOT deployed: backend (bookWithFriends lineup, calendar meetings, new callable
+      ignorecalendarevents in deploy/log lists, no rules change) + website, ask). (1) BOOKING: BookSheet (ScheduleScreen) = "How long do
+      you need?" chips 1..min(free run, 5; long bookers whole grid) slots → one row per slot (time, person or dashed "+ Add who's
+      filming"; tap = picker: Me / "Move me to this slot", usual partners, search, GuestRow); button names what's missing; one
+      bookWithFriends call with `lineup` ['me' | email | 'guest:Name'] in slot order (server: must include 'me', friends ≤4, no
+      repeats, me-count ≤ maxMine/slotsPerDayFor; myAt/friendAt positions). FindSheet "How long?" 2/4/6 h → BookSheet with `slots`.
+      Old "Just me / + 1 / + 2 friends" gone (GroupBookSheet left for old paths). e2e journey 01 + invites.test.ts lineup test.
+      (2) MEETINGS: calendarText.ts MEETING_WORDS (meeting, mtg, stand-up, huddle, all hands, 1:1, team call, interview, onboarding,
+      payroll…) → ignoreReason 'Team meeting' BEFORE the house check, unless FILMING_WORDS; schedule setting `calendarIgnore`
+      (cleanIgnoreList, ≤60 lowercase phrases) → 'Not filming ("…")' first of all. scanCalendar: an import that is NOW ignored →
+      kind 'removed' + notFilming (blocks always; shoots only by 'calendar check' without checkedBy) → auto-applied, settled quietly.
+      Callable `ignoreCalendarEvents({phrase, remove?})` (owner + equipment): updates the list, removes future imported blocks whose
+      title has it + skips matching waiting cards (not placed shoots). App: CalendarQueue card link "Not filming? Ignore events like
+      this" → NotFilmingSheet (suggestPhrase) + IgnoreList (bottom of the Calendar tab); ClashList text points there. Tests: unit
+      calendarText, functions calendar (+ "Meeting" fixtures renamed "Hold"). appGuide book/approvals, Help, How it works, Team guide,
+      owner guide #nov23.
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)

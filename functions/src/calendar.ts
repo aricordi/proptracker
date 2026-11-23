@@ -14,14 +14,14 @@ import { FieldValue, FieldPath } from 'firebase-admin/firestore'
 import { randomBytes } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
-import { cleanScheduleSettings, oldCalendarFor, oldTitle, BLOCK_TYPES, monthOf, slotWindow, entryHours, overlapMinutes, holdActive, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
+import { cleanScheduleSettings, cleanIgnoreList, oldCalendarFor, oldTitle, BLOCK_TYPES, monthOf, slotWindow, entryHours, overlapMinutes, holdActive, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
 import { importShootAsTeam, removeImportedShoot, releaseCancelledImport, filmingPeople, repairSharedClashes, followShoot,
   cancelFromCalendar, retireOlderShoot, handOverToNewer, reviveRetired, sameDayShoots, enteredAt, startedShoot, REPLACED_NOTE } from './scheduling.js'
 import { openLinks } from './shootLinks.js'
 import { stamp, addMinutes, nowStamp } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
-import { houseFromText, placeFromText, saysOffsite, ignoreReason, blockTypeOf, isClearEvent, namedPeople, namedPeopleInfo, splitHours, splitOnGrid, looksLikeHeadsUp, queueReady, nightBefore, namesBothHouses } from './calendarText.js'
+import { houseFromText, placeFromText, saysOffsite, ignoreReason, onIgnoreList, blockTypeOf, isClearEvent, namedPeople, namedPeopleInfo, splitHours, splitOnGrid, looksLikeHeadsUp, queueReady, nightBefore, namesBothHouses } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
 const TEAM = ['owner', 'equipment']
@@ -638,7 +638,7 @@ async function scanCalendar(cals: Source[]) {
   const live: (ScanItem & { cal: Source })[] = []
   const seen = new Set<string>()
   const today = todayInStudio()
-  const whyIgnored = (it: ScanItem) => { const n = namedPeopleInfo(`${it.title} ${it.location}`, people); return ignoreReason(it, n.people.length > 0 || n.ambiguous.length > 0) }
+  const whyIgnored = (it: ScanItem) => { const n = namedPeopleInfo(`${it.title} ${it.location}`, people); return ignoreReason(it, n.people.length > 0 || n.ambiguous.length > 0, s.calendarIgnore) }
   const counts: { name: string; house: string; title: string; found: number; hidden: number; error?: string }[] = []
   // Calendars that could be read this time. One that can't be read (a wrong ID, unshared, retired) is skipped and reported,
   // and nothing of it looks deleted; the others are still followed (audit, Nov 7: one bad calendar stopped every check).
@@ -722,6 +722,11 @@ async function scanCalendar(cals: Source[]) {
     // Time off and birthdays: not shoots or blocks. Listed as 'ignored' (hidden on the screen unless asked for).
     if (fresh && why) { events.push({ ...base, ...tag, kind: 'ignored', why, guess: { ...guessFor(base, cal), action: 'skip' } }); continue }
     if (fresh) { events.push({ ...base, ...tag, kind: 'new', ...(was?.redo ? { redo: true } : {}), guess: guessFor(base, cal) }); continue }
+    // Now on the "not filming" list (or a meeting, e.g. "Admin meeting - Alex, Maanik" brought in as Alex's shoot): what the app
+    // made from it comes off quietly. Blocked time always; a shoot only if the automatic check made it and nobody checked it.
+    if (why && !was.removed && !was.kept && (was.action === 'block' || (was.action === 'shoot' && was.by === 'calendar check' && !was.checkedBy))) {
+      events.push({ ...base, ...tag, kind: 'removed', notFilming: why, guess: { action: 'remove', email: was.email ?? '', house: was.house ?? 'cliff1', start: was.startMin }, wasAction: was.action }); continue
+    }
     // Owner, Nov 5 (Ariel's shoots missing): on Nov 2 the automatic check brought "<Name> - Stromedy Talent Filming" in as
     // BLOCKED TIME because creators on Props only couldn't be matched yet. A block the check made by itself (no person ever
     // chose or confirmed it) whose title now names someone is brought in again as that person's shoot (the block goes).
@@ -1269,7 +1274,7 @@ async function runCalendarCheckLocked(cals: Source[]) {
     }
     for (let i = 0; i < auto.length; i++) {
       const r = results[i]
-      await put(auto[i], { placed: !!r?.ok, result: r?.saved ?? {}, message: r?.message ?? (r?.ok ? '' : 'Could not place it'), ...(r?.ok ? (auto[i].peopleChanged ? { problem: auto[i].peopleChanged } : {}) : { problem: r?.message ?? '' }) })
+      await put(auto[i], { ...(auto[i].notFilming ? { notFilming: auto[i].notFilming } : {}), placed: !!r?.ok, result: r?.saved ?? {}, message: r?.message ?? (r?.ok ? '' : 'Could not place it'), ...(r?.ok ? (auto[i].peopleChanged ? { problem: auto[i].peopleChanged } : {}) : { problem: r?.message ?? '' }) })
     }
     // Why the app didn't place it, in words for the team.
     const whyNot = (g: { ambiguous?: string[]; houseUnsure?: boolean; bothHouses?: boolean; action?: string; outsider?: boolean }, redo?: boolean) => redo ? 'You asked to redo this one. Choose what it is.'
@@ -1297,10 +1302,10 @@ async function runCalendarCheckLocked(cals: Source[]) {
     const quietTold = new Map<string, number>(toldOut)
     for (const d of ready) {
       const who = whoOf(d.data())
-      const quiet = who.some(e => many.has(e))
+      const quiet = who.some(e => many.has(e)) || !!d.data().notFilming   // "not filming" removals: nobody needs telling
       try {
         await settleQueue(d.id, 'calendar check', 'confirmed', undefined, 'auto', quiet); autoConfirmed++; autoIds.add(d.id)
-        if (quiet) for (const e of who) if (many.has(e)) quietTold.set(e, (quietTold.get(e) ?? 0) + 1)
+        if (quiet && !d.data().notFilming) for (const e of who) if (many.has(e)) quietTold.set(e, (quietTold.get(e) ?? 0) + 1)
       } catch (e) { logger.warn('auto confirm', d.id, String(e)) }
     }
     for (const [email, n] of quietTold) await sendPush({ to: [email], url: '/shoots', tag: 'calendar-bulk', title: 'Your schedule was updated',
@@ -1370,6 +1375,44 @@ async function settleQueue(id: string, by: string, status: 'confirmed' | 'skippe
 }
 
 // The equipment team's answer to one card: confirm (looks right), fix (what it really is), or skip (not for the app).
+// "Not filming" (owner, Nov 23: team/admin meetings in the old calendars kept showing as clashes, and the team won't split the
+// calendars). Owner + equipment add or remove a phrase; events containing it are never imported, and blocked time already made
+// from them comes off right away (their waiting cards too). Shoots made from them stay: a person decides those.
+export const ignoreCalendarEvents = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'equipment'])
+  const phrase = String(req.data?.phrase ?? '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)
+  const remove = req.data?.remove === true
+  if (phrase.length < 3) throw new HttpsError('invalid-argument', 'Type at least 3 letters, e.g. "team meeting".')
+  const ref = db.doc('app_settings/schedule')
+  let list: string[] = []
+  await db.runTransaction(async tx => {
+    const cur = cleanIgnoreList((await tx.get(ref)).data()?.calendarIgnore)
+    list = remove ? cur.filter(p => p !== phrase) : cleanIgnoreList([...cur, phrase])
+    tx.set(ref, { calendarIgnore: list, updatedAt: new Date().toISOString(), updatedBy: caller.email }, { merge: true })
+  })
+  let cleared = 0
+  if (!remove) {
+    const today = todayInStudio()
+    const imports = await db.collection('calendar_imports').where('action', '==', 'block').get()
+    for (const d of imports.docs) {
+      const w = d.data()
+      if (w.removed || !w.date || String(w.date) < today || !onIgnoreList(`${w.title ?? ''} ${w.location ?? ''}`, [phrase])) continue
+      if (w.blockId) await removeImportedBlock(String(w.date), String(w.blockId)).catch(() => 0)
+      await d.ref.set({ removed: true, notFilming: phrase, at: new Date().toISOString(), by: caller.email }, { merge: true })
+      cleared++
+    }
+    const waiting = await db.collection('calendar_queue').where('status', '==', 'waiting').get()
+    for (const d of waiting.docs) {
+      const q = d.data()
+      if (!onIgnoreList(`${q.title ?? ''} ${q.location ?? ''}`, [phrase])) continue
+      if (q.result?.action === 'shoot' && q.placed) continue   // a shoot: still for a person to look at
+      await d.ref.update({ status: 'skipped', doneBy: caller.email, doneAt: new Date().toISOString(), note: 'not filming' })
+      cleared++
+    }
+  }
+  return { list, cleared }
+})
+
 export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'])
   const id = String(req.data?.id ?? '').slice(0, 200)

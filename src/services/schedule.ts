@@ -109,6 +109,7 @@ export function useCalendarQueue(enabled: boolean): QueueItem[] | null {
 }
 export type QueueFix = { action: 'shoot' | 'block'; emails: string[]; house: string; type: BlockType; soft: boolean }
 export const reviewCalendarImport = httpsCallable<{ id: string; action: 'confirm' | 'skip' | 'fix' | 'restore'; fix?: QueueFix }, { ok: boolean; message?: string }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
+export const ignoreCalendarEvents = httpsCallable<{ phrase: string; remove?: boolean }, { list: string[]; cleared: number }>(functions, 'ignoreCalendarEvents')
 export const confirmAllCalendar = httpsCallable<{ action: 'confirmAll'; ids: string[] }, { ok: boolean; confirmed: number; left: number }>(functions, 'reviewCalendarImport', { timeout: 310_000 })
 export const cancelShoot = httpsCallable<{ id: string; confirmNoShow?: boolean }, { ok: boolean; lateCancel: boolean }>(functions, 'cancelShoot')
 const moveShootFn = httpsCallable<{ id: string; place?: Place; date: string; start: number; end?: number; where?: string; guideline?: Guideline; asCreator?: boolean }, { ok: boolean; kind: ShootKind; status: 'moved' | 'requested' }>(functions, 'moveShoot')
@@ -161,7 +162,7 @@ export function useMyInvites(email: string): { incoming: ScheduleInvite[]; outgo
   }, [email])
   return { incoming, outgoing }
 }
-const bookWithFriendsFn = httpsCallable<{ place: House; date: string; start: number; friends: string[]; castWith?: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline; asCreator?: boolean }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
+const bookWithFriendsFn = httpsCallable<{ place: House; date: string; start: number; friends: string[]; lineup?: string[]; castWith?: string[]; mySlots?: number; kind?: ShootKind; guideline?: Guideline; asCreator?: boolean }, { shootIds: string[]; inviteIds: string[]; until: string; status: 'booked' | 'requested' }>(functions, 'bookWithFriends')
 export const bookWithFriends = (d: NonNullable<Parameters<typeof bookWithFriendsFn>[0]>) => bookWithFriendsFn(asCreatorFlag(d))
 export const answerInvite = httpsCallable<{ id: string; accept: boolean }, { ok: boolean; shootId: string | null }>(functions, 'answerInvite')
 export interface TimeAskResult {

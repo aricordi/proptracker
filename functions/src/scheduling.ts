@@ -1153,14 +1153,23 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   if (spot.place === 'offsite') throw new HttpsError('invalid-argument', 'Back-to-back booking is for the houses.')
   const house = spot.place as House
   const maxMine = isLongBooker(caller.email, s) ? s.slots.length : 3
-  const mySlots = Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= maxMine ? d.mySlots as number : 1
+  // LINEUP (owner, Nov 23: "decide how many slots, then for each slot assign somebody"): one entry per back-to-back slot, in
+  // order: 'me' (the person booking; at least once) or a friend (email / "guest:<Name>"). Without it: your slot(s) first, then
+  // the friends (older apps).
+  const lineup = Array.isArray(d.lineup) ? (d.lineup as unknown[]).map(e => str(e, 200).trim()).filter(Boolean).slice(0, s.slots.length) : null
+  if (lineup && !lineup.some(e => e === 'me')) throw new HttpsError('invalid-argument', 'Put yourself in one of the slots.')
+  const mySlots = lineup ? lineup.filter(e => e === 'me').length
+    : Number.isInteger(d.mySlots) && d.mySlots >= 1 && d.mySlots <= maxMine ? d.mySlots as number : 1
+  if (mySlots > maxMine) throw fail('day-limit')
   if (!isTeam(caller) && mySlots > slotsPerDayFor(caller.email, s)) throw fail('day-limit')
   // friends = the people in slot order: an email (someone in the app) or "guest:<Name>" (not on the app yet).
-  const raw = (Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).trim()).filter(Boolean) as string[]
-  for (const g of (Array.isArray(d.guests) ? d.guests : [])) raw.push(`guest:${str(g, 60)}`)
+  const raw = lineup ? lineup.filter(e => e !== 'me') : (Array.isArray(d.friends) ? d.friends : []).map((e: unknown) => str(e, 200).trim()).filter(Boolean) as string[]
+  if (!lineup) for (const g of (Array.isArray(d.guests) ? d.guests : [])) raw.push(`guest:${str(g, 60)}`)
   const friends: { email: string; name: string; guest?: boolean }[] = []
   for (const entry of raw) {
-    if (friends.length >= 4) break
+    if (friends.length >= 4) { if (lineup) throw new HttpsError('invalid-argument', 'Up to 4 friends in one booking.'); break }
+    if (lineup && (entry.toLowerCase() === caller.email || friends.some(f => f.email === (isGuestEmail(entry) ? guestKey(entry.slice(6)) : entry.toLowerCase()))))
+      throw new HttpsError('invalid-argument', 'Each friend gets one slot. Pick a different person for each slot.')
     if (isGuestEmail(entry)) {
       const name = entry.slice(6).replace(/\s+/g, ' ').trim().slice(0, 60)
       const email = guestKey(name)
@@ -1180,13 +1189,17 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   const guideline = guidelineFor(caller, caller.email, spot, s, d.guideline)
   const total = mySlots + friends.length
   const starts = Array.from({ length: total }, (_, j) => spot.start + j * s.slotMinutes)
+  // Which slot each person gets: from the lineup, else yours first.
+  const myAt: number[] = [], friendAt: number[] = []
+  if (lineup) lineup.forEach((e, k) => (e === 'me' ? myAt : friendAt).push(k))
+  else { for (let k = 0; k < mySlots; k++) myAt.push(k); friends.forEach((_, j) => friendAt.push(mySlots + j)) }
   if (starts.some(st => !s.slots.includes(st))) throw new HttpsError('failed-precondition', 'There aren\'t enough back-to-back slots left that day. Start earlier.')
   const kind: ShootKind = house === MONTHLY_HOUSE && d.kind === 'monthly' ? 'monthly' : 'extra'
   if (kind === 'monthly' && await monthlyUsed(caller.email, monthOf(spot.date)) + mySlots > s.monthlySlots) throw fail('no-monthly-left')
 
   const at = new Date().toISOString()
   const pending = needsApproval(caller, caller.email, s, d.asCreator === true)
-  const shootRefs = starts.slice(0, mySlots).map(() => db.collection('shoots').doc())
+  const shootRefs = myAt.map(() => db.collection('shoots').doc())
   const friendRefs = friends.map(() => db.collection('shoots').doc())
   const withNames = friends.map(f => f.name).join(' and ')
   await db.runTransaction(async tx => {
@@ -1195,13 +1208,13 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
         assertDayLimit(days[spot.date], caller.email, mySlots, s)
         friends.forEach(f => assertDayLimit(days[spot.date], f.email, 1, s, [], f.name))
       }
-      shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind, pending }, s))
-      friends.forEach((f, j) => placeIn(days[spot.date], { ...spot, start: starts[mySlots + j], end: starts[mySlots + j] + s.slotMinutes },
+      shootRefs.forEach((ref, j) => placeIn(days[spot.date], { ...spot, start: starts[myAt[j]], end: starts[myAt[j]] + s.slotMinutes }, { shootId: ref.id, name: caller.name, email: caller.email, kind, pending }, s))
+      friends.forEach((f, j) => placeIn(days[spot.date], { ...spot, start: starts[friendAt[j]], end: starts[friendAt[j]] + s.slotMinutes },
         { shootId: friendRefs[j].id, name: f.name, email: f.email, kind: 'extra', pending }, s))
     })
     write()
     shootRefs.forEach((ref, j) => {
-      const sp = { ...spot, start: starts[j], end: starts[j] + s.slotMinutes }
+      const sp = { ...spot, start: starts[myAt[j]], end: starts[myAt[j]] + s.slotMinutes }
       const win = slotWindow(sp.date, sp.start, s.slotMinutes)
       tx.set(ref, {
         creatorEmail: caller.email, creatorName: caller.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind, ...(guideline ? { guideline } : {}),
@@ -1211,7 +1224,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
       })
     })
     friends.forEach((f, j) => {
-      const sp = { ...spot, start: starts[mySlots + j], end: starts[mySlots + j] + s.slotMinutes }
+      const sp = { ...spot, start: starts[friendAt[j]], end: starts[friendAt[j]] + s.slotMinutes }
       const win = slotWindow(sp.date, sp.start, s.slotMinutes)
       tx.set(friendRefs[j], {
         creatorEmail: f.email, creatorName: f.name, ...sp, month: monthOf(sp.date), from: win.from, to: win.to, kind: 'extra',

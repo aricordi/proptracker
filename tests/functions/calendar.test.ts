@@ -246,7 +246,7 @@ describe('automatic calendar check', () => {
     await put(`test_calendar/${OLD.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [
       at('clear1', 'Ana filming', '2375 Cliff Road', '13:00', '15:00'),
       at('clear2', 'Cleaners', '2371 Cliff Road', '07:00', '09:00'),
-      at('unsure', 'Meeting', '', '17:00', '19:00'),
+      at('unsure', 'Hold', '', '17:00', '19:00'),
     ] })
     const r = await call('checkCalendarNow', {}, OWNER)
     expect(r.ok, r.message).toBe(true)
@@ -261,8 +261,8 @@ describe('automatic calendar check', () => {
 describe('Requests → Google Calendar tab (owner, Nov 4: every import waits for the equipment team)', () => {
   it('confirms what it can read by itself (owner, Nov 16: the calendars are the rule); only unreadable events wait; fix and skip work', async () => {
     await put('app_settings/schedule', { googleCalendarId: 'test@group.calendar.google.com', instantBookers: [{ email: ANA, name: 'Ana' }, { email: BEN, name: 'Ben' }] })
-    const at = (id: string, summary: string, s: string, e: string) => ({ id, summary, location: summary === 'Meeting' ? '' : '2375 Cliff Road', start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
-    await put('test_calendar/events', { items: [at('q1', 'Ana filming', '13:00', '15:00'), at('q2', 'Ben filming', '15:00', '19:00'), at('q3', 'Meeting', '19:00', '21:00')] })
+    const at = (id: string, summary: string, s: string, e: string) => ({ id, summary, location: summary === 'Hold' ? '' : '2375 Cliff Road', start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put('test_calendar/events', { items: [at('q1', 'Ana filming', '13:00', '15:00'), at('q2', 'Ben filming', '15:00', '19:00'), at('q3', 'Hold', '19:00', '21:00')] })
     const r = await call('checkCalendarNow', {}, MAANIK)
     expect(r.ok, r.message).toBe(true)
     const q = await docs('calendar_queue')
@@ -405,7 +405,7 @@ describe('people who are not in the app, and accounts joined into one (owner, No
     expect(card.guess.action).toBe('block')                 // Fix opens on "Blocked time", not "Pick a creator"
     expect(card.message).toMatch(/Nobody named here uses the app/)
     expect((await getDoc('calendar_queue/dj2'))!.result.action).toBe('block')   // the address says Cliff 2: blocked right away
-    expect((await getDoc('calendar_queue/mtg'))!.guess.action).toBe('skip')      // a meeting isn't filming: not turned into a block
+    expect(await getDoc('calendar_queue/mtg')).toBeNull()      // a meeting isn't filming (Nov 23): ignored, no card at all
   })
 
   it('after two accounts are joined, an event split between them goes back to one shoot', async () => {
@@ -866,5 +866,30 @@ describe('Maanik edits app bookings in the app calendar (owner, Nov 16)', () => 
     // The replaced app booking's event leaves the app calendar.
     await waitFor(async () => !((await getDoc(APP))!.items as any[]).some(e => e.id === a.eid))
     expect(((await getDoc(APP))!.items as any[]).some(e => e.id === a.eid)).toBe(false)
+  })
+})
+
+describe('not filming (owner, Nov 23: team meetings showed as clashes)', () => {
+  it('meetings never come in; a phrase added later takes blocked time made from it off; creators cannot', async () => {
+    const C1 = 'cliff1cal@group.calendar.google.com'
+    await put('app_settings/schedule', { googleCalendarId: 'app@group.calendar.google.com', calendarFeeds: [{ id: C1, name: 'Stromedy Talent', house: 'cliff1' }] })
+    await put('test_calendar/events', { items: [] })
+    const at = (id: string, summary: string, s: string, e: string) => ({ id, summary, start: { dateTime: `${FRI}T${s}:00${TZ}` }, end: { dateTime: `${FRI}T${e}:00${TZ}` } })
+    await put(`test_calendar/${C1.replace(/[^a-zA-Z0-9]/g, '_')}`, { items: [at('m1', 'Team meeting', '13:00', '15:00'), at('o1', 'Ops review', '15:00', '17:00')] })
+    expect((await call('checkCalendarNow', {}, OWNER)).ok).toBe(true)
+    let d = (await getDoc(`schedule_days/${FRI}`)) ?? {}
+    // The meeting is ignored; "Ops review" names nobody in a one-house calendar → blocked time.
+    expect((d.blocks ?? []).map((b: any) => b.note)).toEqual(['Ops review'])
+    expect((await call('ignoreCalendarEvents', { phrase: 'ops review' }, ANA)).error).toBe('PERMISSION_DENIED')
+    const r = await call('ignoreCalendarEvents', { phrase: 'Ops Review' }, MAANIK)
+    expect(r.ok, r.message).toBe(true)
+    expect(r.result).toMatchObject({ list: ['ops review'], cleared: 1 })
+    d = (await getDoc(`schedule_days/${FRI}`))!
+    expect(d.blocks ?? []).toEqual([])
+    // The next check doesn't bring it back.
+    expect((await call('checkCalendarNow', {}, OWNER)).ok).toBe(true)
+    expect((await getDoc(`schedule_days/${FRI}`))!.blocks ?? []).toEqual([])
+    // Removing the phrase again.
+    expect((await call('ignoreCalendarEvents', { phrase: 'ops review', remove: true }, OWNER)).result.list).toEqual([])
   })
 })

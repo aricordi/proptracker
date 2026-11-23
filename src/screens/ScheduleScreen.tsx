@@ -58,7 +58,7 @@ const swappable = (x: Shoot, now: string) => x.place !== 'offsite' && x.from > n
 type SheetState =
   | { kind: 'calendar' }
   | { kind: 'day'; date: string }
-  | { kind: 'book'; house: Place; date: string; start: number }
+  | { kind: 'book'; house: Place; date: string; start: number; slots?: number }
   | { kind: 'offsite'; date: string; move?: Shoot }
   | { kind: 'shoot'; id: string }
   | { kind: 'taken'; slot: TheirSlot }
@@ -282,8 +282,8 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'find' && days && (
         <FindSheet days={days} from={sheet.fromToday || date < today ? today : date} house={sheet.house} team={team} email={profile.email} now={now}
           onOffsite={() => setSheet({ kind: 'offsite', date: sheet.fromToday ? today : date })}
-          onClose={() => setSheet(null)} onPick={(d, h, st, friends) => { setDate(d)
-            setSheet(friends.length ? { kind: 'group', house: h, date: d, start: st, friends } : team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st }) }} />
+          onClose={() => setSheet(null)} onPick={(d, h, st, slots) => { setDate(d)
+            setSheet(team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st, slots }) }} />
       )}
       {sheet?.kind === 'move' && days && (
         <MoveSheet shoot={sheet.shoot} days={days} team={team} now={now} onClose={() => setSheet(null)} onMoved={sh => { setDate(sh.date); setSheet({ kind: 'shoot', id: sh.id }) }} />
@@ -511,7 +511,7 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
 
 // Tap a free time on the calendar (owner, Nov 3): ask straight away whether friends are filming too. With friends, you
 // get your slot and the next one(s) at the same house are booked for them at once (bookWithFriends; no confirming since Nov 14).
-function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; team: boolean; mine: Shoot[]; day?: ScheduleDay; now: string; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
+function BookSheet({ house, date, start, slots, team, mine, day, now, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; slots?: number; team: boolean; mine: Shoot[]; day?: ScheduleDay; now: string; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
   const s = useScheduleSettings()
   const profiles = useProfiles()
   const usedThatMonth = mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length
@@ -528,31 +528,37 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   const skipG = useSkipsGuideline(team)
   const needG = !skipG && house !== 'offsite' && needsGuideline(date, house, profile.email, s)
   useEffect(() => { if (team) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team])
-  // Friends (creators only): how many, then search by name or channel.
-  const [friendCount, setFriendCount] = useState(0)
-  const [friends, setFriends] = useState<Friend[]>([])
+  // SLOTS FIRST (owner, Nov 23: "decide how many slots, then for each slot assign somebody"): pick 1, 2, 3… back-to-back
+  // slots, then say who films in each one. You're in one of them (long bookers like Danny can take several themselves);
+  // every other slot needs a friend (in the app, or just a typed name). The whole block is one request for the team.
+  type Seat = Friend | 'me' | null
+  const long = !team && house !== 'offsite' && isLongBooker(profile.email, s)
+  const [seats, setSeats] = useState<Seat[]>(() => ['me', ...Array.from({ length: Math.max(0, (slots ?? 1) - 1) }, () => (long ? 'me' : null) as Seat)])
+  const [editing, setEditing] = useState<number | null>(null)
   const [everyone, setEveryone] = useState<Friend[] | null>(null)
   const [q, setQ] = useState('')
-  useEffect(() => { if (friendCount && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [friendCount, everyone])
-  const chosen = friends.slice(0, friendCount)
+  const count = seats.length
+  const chosen = seats.filter((x): x is Friend => !!x && x !== 'me')
+  useEffect(() => { if ((count > 1 || editing !== null) && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [count, editing, everyone])
   const [castOff, setCastOff] = useState<string[]>([])   // friends NOT in each other's videos (on by default, owner Nov 21)
   // "Usually films with" (owner, Nov 7): one-tap shortcut to the people they film back to back with most; never auto-added.
-  // Loads as soon as the sheet opens (shown only once they pick "+ 1 friend"), so the row is ready and doesn't push the search box down.
   const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !chosen.some(c => c.email === p.email))
   const h = house as House
-  // Long bookers (owner, Nov 17: Danny / Stromedy Studios sometimes needs 6 hours) pick how many slots in a row they need.
-  // Still the 2-hour grid; the free run from this slot caps the choice.
-  const long = !team && house !== 'offsite' && isLongBooker(profile.email, s)
-  const [mySlots, setMySlots] = useState(1)
   const freeRun = useMemo(() => {
     let n = 1
     while (s.slots.includes(start + n * s.slotMinutes) && slotState(day, date, h, start + n * s.slotMinutes, s, profile.email, now, false).t === 'free') n++
     return n
   }, [day, date, h, start, s, profile.email, now])
-  // The slot(s) right after yours must be free for your friends.
-  const nextFree = Array.from({ length: friendCount }, (_, i) => start + (mySlots + i) * s.slotMinutes)
-    .every(st => s.slots.includes(st) && slotState(day, date, h, st, s, profile.email, now, false).t === 'free')
-  const total = mySlots + friendCount
+  const maxCount = Math.min(freeRun, long ? s.slots.length : 5)
+  const meCount = seats.filter(x => x === 'me').length
+  const setCount = (n: number) => {
+    setSeats(x => n <= x.length ? (x.slice(0, n).includes('me') ? x.slice(0, n) : ['me' as Seat, ...x.slice(1, n)]) : [...x, ...Array.from({ length: n - x.length }, () => (long ? 'me' : null) as Seat)])
+    setEditing(null)
+  }
+  const put = (i: number, who: Seat) => { setSeats(x => x.map((y, k) => k === i ? who : y)); setEditing(null); setQ('') }
+  const filled = seats.every(Boolean) && meCount >= 1
+  const total = count
+  const withFriends = chosen.length > 0
   // Both houses for one hour (owner, Nov 17: rare, e.g. late evening). A small link, never the default; always a request.
   const [both, setBoth] = useState<null | 0 | 1>(null)
   const other: House = h === 'cliff1' ? 'cliff2' : 'cliff1'
@@ -561,14 +567,13 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   const term = q.trim().toLowerCase()
   const matches = term ? (everyone ?? []).filter(p => !chosen.some(c => c.email === p.email)
     && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
-  const withFriends = friendCount > 0
   async function book() {
     setBusy(true); setErr('')
     try {
       const id = both !== null
         ? (await bookShoot({ place: house, date, start, kind: 'extra', bothHouses: true, half: both, ...(guide ? { guideline: guide } : {}) })).data.id
-        : withFriends || mySlots > 1
-        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), castWith: chosen.map(f => f.email).filter(e => !castOff.includes(e)), mySlots, kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
+        : count > 1
+        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), lineup: seats.map(x => x === 'me' ? 'me' : (x as Friend).email), castWith: chosen.map(f => f.email).filter(e => !castOff.includes(e)), kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
         : (await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })).data.id
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
       setDone(true); setTimeout(() => onBooked(id), 650)
@@ -577,7 +582,7 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
   }
   const verb = asks ? 'Request' : 'Book'
   return (
-    <BottomSheet open onClose={onClose} title={withFriends ? `Group booking · ${total} slots` : mySlots > 1 ? `${asks ? 'Ask for' : 'Book'} ${mySlots} slots in a row` : asks ? "Ask for this slot" : "Book this slot"}>
+    <BottomSheet open onClose={onClose} title={total > 1 ? `${asks ? 'Ask for' : 'Book'} ${total} slots in a row` : asks ? "Ask for this slot" : "Book this slot"}>
       <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes * total)}{total > 1 ? ` · ${(s.slotMinutes * total) / 60} hours` : ''}</p>
       <p className="text-pt-muted text-xs">{s.houses[h].address}</p>
       {team && (
@@ -601,72 +606,70 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
           <button onClick={() => setBoth(null)} className="tap text-pt-muted text-xs underline">Just {s.houses[h].name}</button>
         </div>
       )}
-      {long && both === null && (
-        <div className="mt-4">
+      {!team && both === null && (
+        <div className="mt-4" data-testid="slot-lineup">
           <p className="text-pt-muted text-xs mb-2">How long do you need?</p>
           <div className="flex flex-wrap gap-2">
-            {Array.from({ length: freeRun }, (_, i) => i + 1).map(n => (
-              <button key={n} onClick={() => setMySlots(n)}
-                className={`min-h-[40px] inline-flex items-center gap-1 rounded-full px-4 text-sm ${mySlots === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'bg-pt-bg text-pt-text'}`}>
-                {(n * s.slotMinutes) / 60} h</button>
+            {Array.from({ length: maxCount }, (_, i) => i + 1).map(n => (
+              <button key={n} onClick={() => setCount(n)} aria-pressed={count === n}
+                className={`min-h-[40px] inline-flex items-center gap-1 rounded-full px-4 text-sm ${count === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'bg-pt-bg text-pt-text'}`}>
+                {(n * s.slotMinutes) / 60} h<span className={count === n ? 'text-stone-900/70' : 'text-pt-muted'}> · {n} {n === 1 ? 'slot' : 'slots'}</span></button>
             ))}
           </div>
-          {freeRun === 1 && <p className="text-pt-muted text-xs mt-2">The slot after this one is taken. Pick an earlier time for a longer shoot.</p>}
-          {mySlots > 1 && <p className="text-pt-muted text-xs mt-2">Until {fmtTime((start + mySlots * s.slotMinutes) % 1440)}: {mySlots} slots back to back, one booking each.</p>}
-        </div>
-      )}
-      {!team && both === null && (
-        <div className="mt-4">
-          <p className="text-pt-muted text-xs mb-2">Who's filming? Need more than {s.slotMinutes / 60} hours? Add who you're filming with: one slot each, back to back, booked for them straight away (no need for them to confirm). Not on the app yet? Type their name.</p>
-          <div className="flex bg-pt-bg rounded-full p-1 gap-1">
-            {['Just me', '+ 1 friend', '+ 2 friends'].map((label, n) => (
-              <button key={n} onClick={() => { setFriendCount(n); setFriends(f => f.slice(0, n)) }}
-                className={`flex-1 rounded-full min-h-[40px] text-sm ${friendCount === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{label}</button>
-            ))}
-          </div>
-          {withFriends && (
-            <div className="mt-3 space-y-2">
-              {!nextFree && <p className="rounded-xl px-3 py-2 text-sm bg-amber-400/10 text-pt-text">The {friendCount === 1 ? 'slot' : 'slots'} right after this one {friendCount === 1 ? "isn't" : "aren't"} free. Pick an earlier time, or fewer friends.</p>}
-              <div className="flex flex-wrap gap-2">
-                {chosen.map(f => (
-                  <button key={f.email} onClick={() => setFriends(x => x.filter(y => y.email !== f.email))} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                    <Avatar email={f.email} name={f.name} size={32} />{f.name.split(' ')[0]} · {fmtTime(start + (chosen.indexOf(f) + mySlots) * s.slotMinutes)}<span className="text-pt-muted">×</span>
-                  </button>
-                ))}
-              </div>
-              {chosen.length < friendCount && (
-                <div className="bg-pt-bg rounded-xl p-2">
-                  {usualOnes.length > 0 && (
-                    <div className="px-1 pb-2" data-testid="usual-partners">
-                      <p className="text-pt-muted text-xs mb-2">Usually films with</p>
-                      <div className="flex flex-wrap gap-2">
-                        {usualOnes.map(p => (
-                          <button key={p.email} onClick={() => { setFriends([...chosen, { email: p.email, name: p.name }]); setQ('') }}
-                            aria-label={`Film with ${p.name}`}
-                            className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                            <Avatar email={p.email} name={p.name} size={32} />{p.label}<span className="text-pt-accent">+</span>
-                          </button>
-                        ))}
+          {maxCount === 1 && <p className="text-pt-muted text-xs mt-2">The slot after this one is taken. Pick an earlier time for a longer shoot.</p>}
+          {count > 1 && (
+            <div className="mt-4 space-y-2">
+              <p className="text-pt-muted text-xs">Who's filming in each slot? {long ? 'Keep yourself in as many as you need, or add' : 'You take one; add'} the people you're filming with. Not on the app yet? Type their name.</p>
+              {seats.map((who, i) => {
+                const st = start + i * s.slotMinutes
+                const open = editing === i
+                return (
+                  <div key={i} className={`rounded-2xl ${open ? 'bg-pt-bg p-2' : ''}`}>
+                    <button onClick={() => setEditing(open ? null : i)} aria-expanded={open}
+                      className={`w-full flex items-center gap-3 rounded-xl px-3 min-h-[56px] text-left ${who ? 'bg-pt-raised shadow-hairline' : 'border border-dashed border-pt-accent/60'}`}>
+                      <span className="w-20 shrink-0 text-pt-muted text-sm tabular-nums">{fmtTime(st % 1440)}</span>
+                      {who === 'me' ? <><Avatar email={profile.email} name={profile.name ?? ''} size={32} /><span className="flex-1 text-pt-text text-sm font-semibold">You</span></>
+                        : who ? <><Avatar email={who.email} name={who.name} size={32} /><span className="flex-1 min-w-0 text-pt-text text-sm truncate">{who.name}{who.email.startsWith('guest:') && <span className="text-pt-muted"> · not on the app</span>}</span></>
+                        : <span className="flex-1 text-pt-accent text-sm font-semibold">+ Add who's filming</span>}
+                      {who && <span className="text-pt-muted text-xs">Change</span>}
+                    </button>
+                    {open && (
+                      <div className="pt-2">
+                        <div className="flex flex-wrap gap-2 px-1 pb-2">
+                          {who !== 'me' && (long || meCount === 0) && (
+                            <button onClick={() => put(i, 'me')} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                              <Avatar email={profile.email} name={profile.name ?? ''} size={32} />Me</button>
+                          )}
+                          {who !== 'me' && !long && meCount === 1 && (
+                            <button onClick={() => { setSeats(x => x.map((y, k) => k === i ? 'me' : y === 'me' ? who : y)); setEditing(null) }} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                              <Avatar email={profile.email} name={profile.name ?? ''} size={32} />Move me to this slot</button>
+                          )}
+                          {usualOnes.map(p => (
+                            <button key={p.email} onClick={() => put(i, { email: p.email, name: p.name })} aria-label={`Film with ${p.name}`}
+                              className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                              <Avatar email={p.email} name={p.name} size={32} />{p.label}<span className="text-pt-accent">+</span></button>
+                          ))}
+                        </div>
+                        <input type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or channel" className={field} />
+                        <div className="max-h-48 overflow-y-auto mt-1">
+                          {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
+                          {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
+                          <GuestRow q={q} chosen={chosen} onAdd={g => put(i, g)} />
+                          {matches.slice(0, 6).map(p => (
+                            <button key={p.email} onClick={() => put(i, p)} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
+                              <Avatar email={p.email} name={p.name} size={32} />
+                              <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
+                                {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
-                  <div className="max-h-48 overflow-y-auto mt-1">
-                    {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
-                    {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
-                    <GuestRow q={q} chosen={chosen} onAdd={g => { setFriends([...chosen, g]); setQ('') }} />
-                    {matches.slice(0, 6).map(p => (
-                      <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
-                        <Avatar email={p.email} name={p.name} size={32} />
-                        <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
-                          {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
-                      </button>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
+                )
+              })}
               <CastTicks friends={chosen} off={castOff} setOff={setCastOff} />
-              {chosen.length === friendCount && <p className="text-pt-muted text-xs">{chosen.length > 1 ? 'Their slots are' : 'Their slot is'} {asks ? 'requested' : 'booked'} with yours. Only book friends who will really be there.</p>}
+              {filled && withFriends && <p className="text-pt-muted text-xs">Everyone's slot is {asks ? 'requested' : 'booked'} together and they're told. Only add people who will really be there.</p>}
             </div>
           )}
         </div>
@@ -685,15 +688,14 @@ function BookSheet({ house, date, start, team, mine, day, now, dayFull, onClose,
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       {dayFull && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
         You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
-      <button disabled={busy || done || dayFull || (needG && !guide) || (withFriends && (!nextFree || chosen.length < friendCount))} onClick={book}
+      <button disabled={busy || done || dayFull || (needG && !guide) || (count > 1 && !filled)} onClick={book}
         className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>
         {done ? (asks || both !== null ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
           : both !== null ? 'Ask for both houses'
-          : mySlots > 1 && !withFriends ? `${verb} ${(mySlots * s.slotMinutes) / 60} hours`
-          : withFriends && chosen.length < friendCount ? `Pick ${friendCount - chosen.length === 1 ? 'your friend' : 'your friends'}`
-          : withFriends ? `${verb} for ${1 + chosen.length} people` : asks ? 'Request this time' : 'Book it'}</button>
+          : count > 1 && !filled ? (meCount === 0 ? 'Put yourself in one slot' : `Add who's filming in ${seats.filter(x => !x).length === 1 ? 'the empty slot' : `the ${seats.filter(x => !x).length} empty slots`}`)
+          : count > 1 ? `${verb} ${(count * s.slotMinutes) / 60} hours${withFriends ? ` · ${1 + chosen.length} people` : ''}` : asks ? 'Request this time' : 'Book it'}</button>
       <p className="text-pt-muted text-xs text-center mt-2">{asks || both !== null ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
-      {both === null && canBoth && !withFriends && mySlots === 1 && (
+      {both === null && canBoth && count === 1 && (
         <button onClick={() => setBoth(0)} className="tap block mx-auto mt-3 text-pt-muted text-xs underline underline-offset-2">Need both houses at once? (1 hour)</button>
       )}
     </BottomSheet>
@@ -1109,25 +1111,18 @@ function UnblockSheet({ date, block, onClose }: { date: string; block: Block; on
 
 function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOffsite }: {
   days: Record<string, ScheduleDay>; from: string; house?: House; team: boolean; email: string; now: string
-  onClose: () => void; onPick: (date: string, house: House, start: number, friends: Friend[]) => void; onOffsite: () => void
+  onClose: () => void; onPick: (date: string, house: House, start: number, slots: number) => void; onOffsite: () => void
 }) {
   const { role } = useSession()
   const s = useScheduleSettings()
-  const profiles = useProfiles()
   // Picks from ✦ Prop ideas waiting for this new shoot: start on the first day they can still be added.
   const pending = useMemo(() => peekPendingAdds(), [])
   const earliestFor = useEarliestDayFor()
   const minDay = pending ? earliestFor(pending, from) : from
   from = minDay > from ? minDay : from
-  // Owner (Oct 19): ask WHO is filming (just me / with 1 or 2 friends), not how many hours. Each person gets
-  // one slot back to back; picked friends get their slot booked at once (no confirming, Nov 14).
-  const [friendCount, setFriendCount] = useState(0)
-  const [friends, setFriends] = useState<Friend[]>([])
-  const [people, setPeople] = useState<Friend[] | null>(null)
-  const [q, setQ] = useState('')
-  useEffect(() => { if (friendCount && !people) listFilmingFriends({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [friendCount, people])
-  const chosen = friends.slice(0, friendCount)
-  const count = 1 + friendCount
+  // How long (owner, Nov 23: slots first, who films in each one is picked on the next screen).
+  const [count, setCount] = useState(1)
+  const chosen: Friend[] = []
   const [where, setWhere] = useState<House | 'any'>(house ?? 'any')
   // Times first, soonest first. One row per time with a button for each house that's free then,
   // so people pick the house themselves (no default).
@@ -1158,12 +1153,6 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
     if (last && last[0] === r.date) last[1].push(r); else if (dayGroups.length < 6) dayGroups.push([r.date, [r]])
   }
   const pickedEmpty = pick && !freeDays.has(pick)
-  const needPick = friendCount > 0 && chosen.length < friendCount
-  // Owner (Oct 19): a search, not a list of usual partners (who you film with changes). Name or channel.
-  const term = q.trim().toLowerCase()
-  const matches = term ? (people ?? []).filter(p => !chosen.some(c => c.email === p.email)
-    && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
-  const who = ['Just me', '+ 1 friend', '+ 2 friends']
   return (
     <BottomSheet open onClose={onClose} title="Book a shoot">
       {pending && <p className="mb-4 rounded-xl px-3 py-3 text-sm bg-[#BF9DFF]/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(191,157,255,0.35)]">✦ The props you picked go into this shoot once it's booked{minDay > todayInStudio() ? `. Times start ${formatDay(minDay, { weekday: 'long', month: 'short', day: 'numeric' })}, the first day there's still time to get them ready` : ''}.</p>}
@@ -1172,43 +1161,12 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
         <span className="flex-1 rounded-full min-h-[36px] grid place-items-center bg-pt-border text-pt-text font-semibold">At the houses</span>
         <button onClick={onOffsite} className="flex-1 rounded-full min-h-[36px] text-pt-muted">Somewhere else ›</button>
       </div>
-      <p className="text-pt-muted text-xs mb-2">Who's filming?</p>
+      <p className="text-pt-muted text-xs mb-2">How long? Filming with friends? Add a slot for each of them; you'll say who's in each slot next.</p>
       <div className="flex bg-pt-bg rounded-full p-1 gap-1">
-        {who.map((label, n) => (
-          <button key={n} onClick={() => { setFriendCount(n); setFriends(f => f.slice(0, n)) }} className={`flex-1 rounded-full min-h-[40px] text-sm ${friendCount === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{label}</button>
+        {[1, 2, 3].map(n => (
+          <button key={n} onClick={() => setCount(n)} aria-pressed={count === n} className={`flex-1 rounded-full min-h-[40px] text-sm ${count === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{(n * s.slotMinutes) / 60} h</button>
         ))}
       </div>
-      {friendCount > 0 && (
-        <div className="mt-3 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {chosen.map(f => (
-              <button key={f.email} onClick={() => setFriends(x => x.filter(y => y.email !== f.email))} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                <Avatar email={f.email} name={f.name} size={32} />{f.name.split(' ')[0]}<span className="text-pt-muted">×</span>
-              </button>
-            ))}
-          </div>
-          {needPick && (
-            <div className="bg-pt-bg rounded-xl p-2">
-              <input type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={chosen.length ? 'Search for your second friend' : 'Search by name or channel'} className={field} />
-              <div className="max-h-48 overflow-y-auto mt-1">
-                {term && people === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
-                {term && people !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
-                    <GuestRow q={q} chosen={chosen} onAdd={g => { setFriends([...chosen, g]); setQ('') }} />
-                {matches.slice(0, 6).map(p => (
-                  <button key={p.email} onClick={() => { setFriends([...chosen, p]); setQ('') }} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
-                    <Avatar email={p.email} name={p.name} size={32} />
-                    <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
-                      {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <p className="text-pt-muted text-xs">{chosen.length === friendCount
-            ? `You book ${chosen.length > 1 ? 'all the slots' : 'both slots'} at once, no need for them to confirm. Only book friends who will really be there.`
-            : 'Each of you gets a 2-hour slot, back to back. Pick who (or type a name if they\'re not on the app yet).'}</p>
-        </div>
-      )}
       <div className="mt-5 -mx-6 px-6 flex gap-2 overflow-x-auto no-scrollbar">
         <button onClick={() => setPick(null)} className={`shrink-0 rounded-2xl px-4 min-h-[56px] text-sm font-semibold ${pick === null ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-bg text-pt-text'}`}>Soonest</button>
         {strip.map(d => {
@@ -1223,8 +1181,8 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
         })}
       </div>
       <div className="mt-5 space-y-6">
-        {pickedEmpty && <p className="text-pt-muted text-sm">Nothing free on {formatDay(pick!, { weekday: 'long', month: 'short', day: 'numeric' })}{friendCount ? ' for all of you' : ''}. The next free days are below.</p>}
-        {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try {friendCount ? 'fewer friends' : 'another house'}.</p>}
+        {pickedEmpty && <p className="text-pt-muted text-sm">Nothing free on {formatDay(pick!, { weekday: 'long', month: 'short', day: 'numeric' })}{count > 1 ? ` for ${(count * s.slotMinutes) / 60} hours in a row` : ''}. The next free days are below.</p>}
+        {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try {count > 1 ? 'a shorter time' : 'another house'}.</p>}
         {dayGroups.map(([d, list]) => (
           <div key={d}>
             <p className="text-pt-text text-[20px] font-semibold tracking-heading mb-3">{d === todayInStudio() ? 'Today' : formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })}{isNoCrewDay(d) && <span className="text-pt-muted text-sm font-normal"> · no crew</span>}</p>
@@ -1233,10 +1191,9 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
                 <div key={`${r.date}${r.start}`} className="flex items-center gap-2 bg-pt-bg rounded-xl p-3">
                   <span className="flex-1 min-w-0">
                     <span className="block text-pt-text font-semibold">{fmtSlot(r.start, count * s.slotMinutes)}</span>
-                    {friendCount > 0 && <span className="block text-pt-muted text-xs truncate">You {fmtSlot(r.start, s.slotMinutes)}{chosen.length ? ` · then ${chosen.map(f => f.name.split(' ')[0]).join(', ')}` : ''}</span>}
                   </span>
                   {r.houses.map(h => (
-                    <button key={h} onClick={() => onPick(r.date, h, r.start, chosen.length === friendCount ? chosen : [])} aria-label={`${team ? 'Open' : 'Book'} ${s.houses[h].name}`}
+                    <button key={h} onClick={() => onPick(r.date, h, r.start, count)} aria-label={`${team ? 'Open' : 'Book'} ${s.houses[h].name}`}
                       className="bg-pt-accent text-stone-900 font-semibold rounded-full px-4 min-h-[40px] text-sm shadow-gold shrink-0">{s.houses[h].name}</button>
                   ))}
                 </div>

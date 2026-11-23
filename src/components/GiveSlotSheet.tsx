@@ -116,7 +116,7 @@ export function ClashList({ items, s, onGive }: { items: GiveTarget[]; s: Schedu
   return (
     <section className="rounded-2xl p-3 space-y-2 bg-red-500/[0.08] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.35)]">
       <p className="text-red-200 font-semibold text-[15px]">Double-booked in Google Calendar ({items.length})</p>
-      <p className="text-pt-muted text-[13px] leading-snug">Two events overlap at the same house. Check them in Google Calendar, then pick who keeps the time.</p>
+      <p className="text-pt-muted text-[13px] leading-snug">Two events overlap at the same house. Check them in Google Calendar, then pick who keeps the time. A meeting, not filming? Open the <a href="/approvals?tab=calendar" className="text-sky-300 underline">Google Calendar tab</a> and tap "Not filming" on it.</p>
       {items.map(t => {
         const c = t.clash!, hrs = (x: { start?: number; end?: number }) => x.start != null && x.end != null ? `${fmtTime(x.start)}–${fmtTime(x.end)}` : fmtSlot(t.start, s.slotMinutes)
         return (

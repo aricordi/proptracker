@@ -11,7 +11,7 @@ import { friendlyError } from '../lib/errors'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { splitHours, splitOnGrid, queueReady } from '../../functions/src/calendarText'
 import BottomSheet from './BottomSheet'
-import { useScheduleSettings, reviewCalendarImport, confirmAllCalendar, BLOCK_TYPES, googleDayLink, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
+import { useScheduleSettings, reviewCalendarImport, ignoreCalendarEvents, confirmAllCalendar, BLOCK_TYPES, googleDayLink, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
 
 type Person = { email: string; name: string }
 const checkNow = httpsCallable<Record<string, never>, unknown>(functions, 'checkCalendarNow', { timeout: 310_000 })
@@ -41,6 +41,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState<Record<string, string>>({})
   const [fixing, setFixing] = useState<QueueItem | null>(null)
+  const [notFilming, setNotFilming] = useState<QueueItem | null>(null)
 
   async function act(q: QueueItem, action: 'confirm' | 'skip' | 'restore') {
     setBusy(q.id); setErr(e => ({ ...e, [q.id]: '' }))
@@ -127,10 +128,15 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
               {/* No Skip on a change: it would cancel a booking that's already on the schedule (audit, Nov 7). */}
               {q.kind === 'new' && <button disabled={busy === q.id || busy === '*'} onClick={() => act(q, 'skip')} className="px-4 min-h-[48px] rounded-xl text-pt-muted disabled:opacity-40">Skip</button>}
             </div>
+            {q.kind !== 'removed' && q.kind !== 'app-moved' && (
+              <button onClick={() => setNotFilming(q)} className="tap inline-flex items-center gap-1 text-pt-muted text-sm underline underline-offset-2">Not filming? Ignore events like this</button>
+            )}
           </div>
         )
       })}
       {fixing && <FixSheet q={fixing} people={people} s={s} onClose={() => setFixing(null)} />}
+      {notFilming && <NotFilmingSheet title={notFilming.title} onClose={() => setNotFilming(null)} />}
+      <IgnoreList list={s.calendarIgnore} />
     </div>
   )
 }
@@ -216,5 +222,77 @@ export function GoogleLinks({ link, date, clash }: { link?: string; date: string
       {link && <a href={link} target="_blank" rel="noopener noreferrer" className={cls}>Open in Google Calendar ↗</a>}
       {(clash || !link) && <a href={googleDayLink(date)} target="_blank" rel="noopener noreferrer" className={cls}>{link ? 'See the whole day ↗' : 'See this day in Google Calendar ↗'}</a>}
     </div>
+  )
+}
+
+// A short phrase from the event title to ignore: a meeting word if there is one ("team meeting"), else the whole title.
+export function suggestPhrase(title: string) {
+  const t = title.toLowerCase().replace(/\s+/g, ' ').trim()
+  const m = t.match(/\b((?:[a-z]+ )?(?:meeting|mtg|stand-?up|huddle|all[- ]hands|sync|call|check-?in|training|interview|onboarding))\b/)
+  return (m ? m[1] : t).slice(0, 60)
+}
+
+// "Not filming" (owner, Nov 23): team/admin meetings in the old calendars kept showing as clashes. One tap: events whose title
+// contains this phrase are never brought in, and what the app made from them comes off.
+export function NotFilmingSheet({ title, onClose }: { title: string; onClose: () => void }) {
+  const [phrase, setPhrase] = useState(() => suggestPhrase(title))
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  async function save() {
+    setBusy(true); setMsg('')
+    try {
+      const r = (await ignoreCalendarEvents({ phrase })).data
+      setMsg(`Done ✓ Events with "${phrase.trim().toLowerCase()}" are ignored from now on${r.cleared ? ` · ${r.cleared} taken off now` : ''}.`)
+    } catch (e) { setMsg(friendlyError(e)) } finally { setBusy(false) }
+  }
+  return (
+    <BottomSheet open onClose={onClose} title="Not filming">
+      <p className="text-pt-muted text-sm">"{title || '(no title)'}"</p>
+      <label className="block mt-4"><span className="block text-pt-muted text-xs mb-2">Ignore every event whose title has</span>
+        <input value={phrase} onChange={e => setPhrase(e.target.value)} className="w-full bg-pt-bg rounded-xl px-3 py-3 text-pt-text shadow-hairline" /></label>
+      <p className="text-pt-muted text-xs mt-2">Keep it short, like "team meeting" or "admin". Meetings, stand-ups and interviews are already ignored by themselves. A shoot that mentions it ("… filming") still comes in. Nothing is changed in Google Calendar.</p>
+      {msg && <p className="text-pt-text text-sm mt-3">{msg}</p>}
+      {msg.startsWith('Done')
+        ? <button onClick={onClose} className="mt-5 w-full min-h-[48px] rounded-[14px] bg-pt-raised text-pt-text font-semibold">Close</button>
+        : <button disabled={busy || phrase.trim().length < 3} onClick={save} className="mt-5 w-full min-h-[48px] rounded-[14px] bg-pt-accent text-stone-900 font-semibold shadow-gold disabled:opacity-40">{busy ? 'Saving…' : 'Ignore events like this'}</button>}
+    </BottomSheet>
+  )
+}
+
+// The list of "not filming" phrases, at the bottom of the Calendar tab: see them, remove one, add one.
+function IgnoreList({ list }: { list: string[] }) {
+  const [open, setOpen] = useState(false)
+  const [add, setAdd] = useState('')
+  const [busy, setBusy] = useState('')
+  const [err, setErr] = useState('')
+  async function run(phrase: string, remove = false) {
+    setBusy(phrase); setErr('')
+    try { await ignoreCalendarEvents({ phrase, remove }); if (!remove) setAdd('') } catch (e) { setErr(friendlyError(e)) } finally { setBusy('') }
+  }
+  return (
+    <section className="bg-pt-surface rounded-2xl p-4">
+      <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="w-full flex items-center justify-between min-h-[44px] text-left">
+        <span><span className="block text-pt-text font-semibold">Not filming</span>
+          <span className="block text-pt-muted text-sm">Meetings, stand-ups and interviews are ignored{list.length ? `, plus ${list.length} of your own` : ''}.</span></span>
+        <span className="text-pt-muted">{open ? '−' : '+'}</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {list.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {list.map(p => (
+                <button key={p} disabled={!!busy} onClick={() => run(p, true)} aria-label={`Stop ignoring ${p}`}
+                  className="inline-flex items-center gap-2 bg-pt-raised rounded-full px-3 min-h-[40px] text-sm text-pt-text shadow-hairline disabled:opacity-40">{p}<span className="text-pt-muted">×</span></button>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input value={add} onChange={e => setAdd(e.target.value)} placeholder='e.g. "admin meeting"' className="flex-1 bg-pt-bg rounded-xl px-3 min-h-[44px] text-pt-text shadow-hairline" />
+            <button disabled={!!busy || add.trim().length < 3} onClick={() => run(add)} className="px-4 min-h-[44px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">Add</button>
+          </div>
+          {err && <p className="text-red-300 text-sm">{err}</p>}
+        </div>
+      )}
+    </section>
   )
 }

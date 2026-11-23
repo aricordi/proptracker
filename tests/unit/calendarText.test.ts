@@ -124,3 +124,18 @@ describe('calendar audit fixes (Nov 7)', () => {
     expect(queueReady({ placed: true, problem: 'Google now says Eddy', result: { action: 'shoot' } })).toBe(false)
   })
 })
+
+describe('not filming (Nov 23: team meetings in the old calendars)', () => {
+  it('meetings are ignored even at a house, unless they say filming', () => {
+    expect(ignoreReason({ title: 'Team meeting', location: '' })).toBe('Team meeting')
+    expect(ignoreReason({ title: 'Administrative meeting - Cliff 1', location: '2375 Cliff Road' })).toBe('Team meeting')
+    expect(ignoreReason({ title: 'Stand-up', location: '' })).toBe('Team meeting')
+    expect(ignoreReason({ title: 'Ariel - meeting scene filming', location: '' })).toBe('')
+    expect(ignoreReason({ title: 'Ariel - Stromedy Talent Filming', location: '' })).toBe('')
+  })
+  it('the team\'s own phrases are ignored', () => {
+    expect(ignoreReason({ title: 'Weekly ops review', location: '' }, false, ['ops review'])).toBe('Not filming ("ops review")')
+    expect(ignoreReason({ title: 'Ops Review w/ Alex', location: 'Cliff 2' }, true, ['ops review'])).toMatch(/Not filming/)
+    expect(ignoreReason({ title: 'Kyle filming', location: '' }, true, ['ops review'])).toBe('')
+  })
+})

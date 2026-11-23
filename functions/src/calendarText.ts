@@ -33,15 +33,27 @@ export function placeFromText(text: string): House | 'offsite' | null {
 
 // Events that aren't about filming (owner, Oct 30: "Valentyna away Nov 14 all day… useless"; birthdays are tracked in
 // the app, not on the schedule). Hidden from the import unless they name a house. Returns why, or ''.
-export function ignoreReason(e: { title: string; location: string; eventType?: string }, named = false) {
+// Meetings and office things (owner, Nov 23: "team meeting", "administrative meeting" in the old calendars showed as clashes):
+// never a booking, even when they name a house. A real shoot that mentions one ("Meeting scene - Filming") is still a shoot.
+export const MEETING_WORDS = /\b(meeting|meetings|mtg|stand-?up|huddle|all[- ]hands|1:1|1-on-1|one[- ]on[- ]one|team call|staff call|zoom call|google meet|admin(istrative)? (day|time|work|block)|office hours|interview|onboarding|payroll)\b/i
+const FILMING_WORDS = /\b(film|films|filming|filmed|shoot|shoots|shooting|recording)\b/i
+// The team's own "not filming" phrases (Requests → Google Calendar → "Not filming"): any event whose title or place contains one.
+export function onIgnoreList(text: string, list: readonly string[] = []) {
+  const t = text.toLowerCase().replace(/\s+/g, ' ')
+  return list.find(p => p && t.includes(p)) ?? ''
+}
+export function ignoreReason(e: { title: string; location: string; eventType?: string }, named = false, list: readonly string[] = []) {
   const text = `${e.title} ${e.location}`
+  const hit = onIgnoreList(text, list)
+  if (hit) return `Not filming ("${hit}")`
+  if (MEETING_WORDS.test(text) && !FILMING_WORDS.test(text)) return 'Team meeting'
   if (houseFromText(text) || namesBothHouses(text)) return ''
   if (e.eventType === 'birthday') return 'Birthday'
   if (e.eventType === 'outOfOffice') return 'Someone away'
   if (e.eventType === 'workingLocation' || e.eventType === 'focusTime') return 'Not a booking'
   // A filming event that happens to use one of these words ("Ariel - Holiday Special - Stromedy Talent Filming") is a shoot
   // (audit, Nov 5): words only hide events that aren't about filming.
-  if (/\b(film|films|filming|filmed|shoot|shoots|shooting|recording)\b/i.test(text)) return ''
+  if (FILMING_WORDS.test(text)) return ''
   if (/\b(birthday|bday|b-day)\b|🎂/i.test(text)) return 'Birthday'
   if (/\b(away|ooo|out of (the )?office|vacation|vacay|day off|days off|off work|pto)\b/i.test(text)) return 'Someone away'
   // Looser words ("Jana - Sick prank") only when nobody the app knows is named.

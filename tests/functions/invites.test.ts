@@ -29,6 +29,20 @@ describe('book with friends (no confirming since Nov 14)', () => {
     expect((await call('bookShoot', { place: 'cliff2', date: DAY, start: 900 }, BEN)).ok).toBe(false)
   })
 
+  it('lineup: slots first, a person per slot, the booker can be in any slot (Nov 23)', async () => {
+    const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: [], lineup: [KYLE, 'me', 'guest:Bob'] }, ANA)
+    expect(r.ok, r.message).toBe(true)
+    const day = (await getDoc(`schedule_days/${DAY}`))!
+    expect(day.cliff2['780'].email).toBe(KYLE)
+    expect(day.cliff2['900'].email).toBe(ANA)
+    expect(day.cliff2['1020'].name).toBe('Bob')
+    expect(await getDoc(`shoots/${r.result.shootIds[0]}`)).toMatchObject({ creatorEmail: ANA, start: 900 })
+    // Must include yourself; one slot per friend; a normal creator can't take two slots.
+    expect((await call('bookWithFriends', { place: 'cliff1', date: DAY, start: 540, friends: [], lineup: [KYLE, JANA] }, ANA)).message).toMatch(/yourself/)
+    expect((await call('bookWithFriends', { place: 'cliff1', date: DAY, start: 540, friends: [], lineup: ['me', JANA, JANA] }, BEN)).message).toMatch(/one slot/)
+    expect((await call('bookWithFriends', { place: 'cliff1', date: DAY, start: 540, friends: [], lineup: ['me', 'me'] }, BEN)).ok).toBe(false)
+  })
+
   it('a friend who is not on the app yet is booked under their name', async () => {
     await put('app_settings/schedule', { instantBookers: [{ email: ANA, name: 'Ana' }] })
     const r = await call('bookWithFriends', { place: 'cliff2', date: DAY, start: 780, friends: ['guest:Bob Smith', 'guest:bob smith'] }, ANA)

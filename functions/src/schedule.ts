@@ -37,6 +37,8 @@ export interface ScheduleSettings {
   // for that house, and a shoot that came from an old calendar is changed there too when it's moved or cancelled in the app.
   // Newest change anywhere wins. OFF until the owner turns it on (each old calendar must be shared "Make changes to events").
   writeOldCalendars: boolean
+  // Words/phrases the team marked "not filming" (owner, Nov 23: team meetings in the old calendars showed as clashes).
+  calendarIgnore: string[]
   checkinBefore: number    // check-in opens this many minutes before the start
   explainHours: number     // a missed check-in can be explained for this many hours after the end
   strikeCount: number      // this many strikes…
@@ -68,6 +70,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   googleCalendarId: '',
   calendarFeeds: [],
   writeOldCalendars: false,
+  calendarIgnore: [],
   checkinBefore: 15,
   explainHours: 12,
   strikeCount: 2,
@@ -125,6 +128,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
         .filter((f: CalendarFeed, i: number, all: CalendarFeed[]) => f.id && all.findIndex(o => o.id === f.id) === i).slice(0, 6)
       : [],
     writeOldCalendars: x.writeOldCalendars === true,
+    calendarIgnore: cleanIgnoreList(x.calendarIgnore),
     checkinBefore: int(x.checkinBefore, 0, 240, D.checkinBefore),
     gearReserveHours: int(x.gearReserveHours, 1, 336, D.gearReserveHours),
     gearReserve: x.gearReserve === true,
@@ -407,4 +411,15 @@ export function defaultTitleStyle(house: House | 'any'): string {
 }
 export function oldTitle(feed: CalendarFeed, name: string): string {
   return (feed.titleStyle && feed.titleStyle.includes('{name}') ? feed.titleStyle : defaultTitleStyle(feed.house)).split('{name}').join(name).slice(0, 200)
+}
+
+// The "not filming" list: short phrases, lowercase, no repeats, at most 60.
+export function cleanIgnoreList(v: unknown): string[] {
+  const out: string[] = []
+  for (const x of Array.isArray(v) ? v : []) {
+    const p = String(x ?? '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)
+    if (p.length >= 3 && !out.includes(p)) out.push(p)
+    if (out.length >= 60) break
+  }
+  return out
 }
