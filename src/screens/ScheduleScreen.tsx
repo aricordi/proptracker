@@ -840,11 +840,11 @@ function ShootSheet({ id, team, sent, castAsk, onClose, onMove, onSwap, onGive }
             {team && !mine ? 'Cancel their shoot (no strike)' : noShow ? 'Cancel (counts as a no-show)' : 'Cancel this shoot'}</button>
         )}
         {canCancel && confirm && (
-          <div className="space-y-2">
+          <div className="space-y-2 pb-2" ref={el => el?.scrollIntoView({ block: 'end', behavior: 'smooth' })}>
             <p className="text-pt-text text-sm">{noShow ? `It's less than ${s.noticeHours} hours before your shoot, so cancelling counts as a no-show. Swapping with someone doesn't.` : 'The slot opens to everyone right away.'} Props and gear requested for this shoot are cancelled too.</p>
             <div className="flex gap-2">
-              <button onClick={() => setConfirm(false)} className="flex-1 bg-pt-border text-pt-text rounded-xl py-3">Keep it</button>
-              <button disabled={busy} onClick={cancel} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-3 disabled:opacity-40">{busy ? 'Cancelling…' : 'Yes, cancel'}</button>
+              <button onClick={() => setConfirm(false)} className="flex-1 min-h-[52px] bg-pt-border text-pt-text font-semibold rounded-2xl">Keep it</button>
+              <button disabled={busy} onClick={cancel} className="flex-1 min-h-[52px] bg-red-500/80 text-white font-semibold rounded-2xl disabled:opacity-40">{busy ? 'Cancelling…' : 'Yes, cancel'}</button>
             </div>
           </div>
         )}
@@ -1083,7 +1083,9 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
           {(Object.keys(BLOCK_TYPES) as BlockType[]).map(t => <option key={t} value={t}>{BLOCK_TYPES[t]}</option>)}
         </select>
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional), e.g. Deep clean" className={field} />
-        <label className="flex items-center gap-2 text-pt-text text-sm"><input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} /> The whole day at {s.houses[house].name}</label>
+        <label className="flex items-center justify-between gap-3 min-h-[48px] rounded-xl bg-pt-bg px-4 text-pt-text text-[15px] cursor-pointer">The whole day at {s.houses[house].name}
+          <input type="checkbox" checked={allDay} onChange={e => setAllDay(e.target.checked)} className="sr-only peer" />
+          <span aria-hidden className="relative w-11 h-6 rounded-full bg-pt-border peer-checked:bg-pt-accent transition-colors after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:rounded-full after:bg-white after:transition-transform peer-checked:after:translate-x-5" /></label>
         {!allDay && (
           <div className="grid grid-cols-2 gap-2">
             <label className="text-pt-muted text-xs">From<select value={from} onChange={e => { const v = Number(e.target.value); setFrom(v); if (until <= v) setUntil(v + 30) }} className={field}>{halfHours.map(m => <option key={m} value={m}>{fmtTime(m)}</option>)}</select></label>
