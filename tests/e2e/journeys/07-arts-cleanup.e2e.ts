@@ -94,7 +94,7 @@ test('7c. remove a prop from its ⋯ menu, then Undo', async ({ page }) => {
     await expect.poll(async () => (await getDoc<{ archived?: boolean }>('items/imp-fan'))?.archived).toBe(false)
     await page.goto('/cleanup/removed')
     await expect(page.getByRole('heading', { level: 1, name: 'Removed props' })).toBeVisible()
-    await expect(page.getByText('Nothing removed yet.')).toBeVisible()
+    await expect(page.getByText('Nothing removed yet')).toBeVisible()
     await expect(page.getByText('Paper hand fan')).toHaveCount(0)
   })
 })

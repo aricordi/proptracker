@@ -6,9 +6,9 @@ test.describe.configure({ mode: 'serial' })
 test.beforeAll(() => reseed())
 
 // One request card on the Requests screen (seed: Jana and Riley each asked for an evening slot in 3 days):
-// the smallest box holding both the person's picture button and their "N of M filmed (30 days)" line.
+// the smallest box holding both the person's name and their "N of M filmed (30 days)" line.
 const card = (page: Page, who: string) => page.locator('div')
-  .filter({ has: page.getByRole('button', { name: `${who}'s record` }) })
+  .filter({ has: page.getByText(who, { exact: true }) })
   .filter({ has: page.getByText(/filmed \(30 days\)/) }).last()
 
 test('equipment team approves one request, denies another with a reason, opens the Gear log and Google Calendar', async ({ page }) => {
@@ -29,7 +29,7 @@ test('equipment team approves one request, denies another with a reason, opens t
 
   await test.step("approve Jana's", async () => {
     await card(page, 'Jana').getByRole('button', { name: 'Approve' }).click()
-    await expect(page.getByRole('button', { name: "Jana's record" })).toHaveCount(0)
+    await expect(page.getByText(/filmed \(30 days\)/)).toHaveCount(1)
     await expect(page.getByText('1 waiting for a yes or no, soonest first.')).toBeVisible()
   })
   await test.step('a confirmation stays on screen after Approve', async () => {

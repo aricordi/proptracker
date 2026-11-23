@@ -83,7 +83,7 @@ test('3. arts: open the request from the props queue, tick everything, pack phot
   await test.step('find it under To prepare: the card says which shoot it is for', async () => {
     const dayLabel = await labelOf(page, shootDay)
     const shootLine = `Cliff 1 · ${dayLabel} · 3–5 PM · Riley (Creator)`
-    await page.getByRole('button', { name: /^To prepare \(\d+\)/ }).click()
+    await page.getByRole('button', { name: /^To prepare\s*\d+/ }).click()
     const card = page.getByRole('button', { name: new RegExp(TITLE) })
     await expect(card.getByText(shootLine)).toBeVisible()
     // …and none of it is cut off on a phone-width card (it may take two lines; toBeVisible alone passes on cut text)
@@ -115,8 +115,9 @@ test('3. arts: open the request from the props queue, tick everything, pack phot
 
   await test.step('mark it packed', async () => {
     await page.getByRole('button', { name: 'Mark packed & ready for pickup' }).click()
-    await expect(page.getByText('Packed & ready').first()).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Mark packed & ready for pickup' })).toHaveCount(0, { timeout: 30_000 })
+    // "Packed & ready" is also a step name on the progress line, so wait for the banner only a packed request shows.
+    await expect(page.getByText('Waiting for pickup')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('button', { name: 'Mark packed & ready for pickup' })).toHaveCount(0)
   })
 })
 
@@ -163,7 +164,7 @@ test('4b. arts: checks the return in with one prop damaged, and the prop shows D
   await signIn(page, 'arts')
 
   await test.step('find it under Returns', async () => {
-    await page.getByRole('button', { name: /^Returns \(1\)/ }).click()
+    await page.getByRole('button', { name: /^Returns\s*1/ }).click()
     await page.getByRole('button', { name: new RegExp(TITLE) }).click()
     await expect(page.getByRole('heading', { level: 1, name: TITLE })).toBeVisible()
     await expect(page.getByText('Check in', { exact: true })).toBeVisible()
