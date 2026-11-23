@@ -180,3 +180,12 @@ input[type="date"], input[type="time"], input[type="datetime-local"] {
 input[type="date"]::-webkit-date-and-time-value,
 input[type="time"]::-webkit-date-and-time-value,
 input[type="datetime-local"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+
+/* Disabled gold buttons (design pass, Nov 23): faded gold looked muddy and broken. Every gold button that is disabled
+   becomes a quiet grey pill instead. */
+button.bg-pt-accent:disabled, a.bg-pt-accent[aria-disabled="true"] {
+  background-color: rgb(255 255 255 / 0.08) !important;
+  color: #8E8E93 !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
