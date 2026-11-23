@@ -2815,6 +2815,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       this" → NotFilmingSheet (suggestPhrase) + IgnoreList (bottom of the Calendar tab); ClashList text points there. Tests: unit
       calendarText, functions calendar (+ "Meeting" fixtures renamed "Hold"). appGuide book/approvals, Help, How it works, Team guide,
       owner guide #nov23.
+    - LIVE Nov 23 (owner "put everything from today live"): backend run 45097597654 (118 updated; aiCheckPairs + analyzePropPhoto
+      redeployed with `only` after quota retries) + website run 45097600016 = slots-first booking, Not filming list, offsite date box.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
