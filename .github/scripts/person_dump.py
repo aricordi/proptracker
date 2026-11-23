@@ -57,6 +57,10 @@ for e in emails:
         if s.get('date', '') < today: continue
         print(f"  {s.get('date')} {hm(s.get('start'))}-{hm(s.get('end'))} {s.get('place')} status={s.get('status')} kind={s.get('kind')}"
               f" toCheck={s.get('toCheck')} imported={bool(s.get('calendarEventId') or s.get('importedFrom'))} clash={s.get('clash')} id={s['_id']}")
+        if not (s.get('calendarEventId') or s.get('importedFrom')):
+            h = (s.get('history') or [{}])[0]
+            print(f"      made in the app: bookedBy={s.get('bookedBy')} bookedByName={s.get('bookedByName')} groupOf={s.get('groupOf')} groupWith={s.get('groupWith')}"
+                  f" createdAt={s.get('createdAt')} first history={ {k: h.get(k) for k in ('event', 'by', 'note', 'at')} }")
     print(f'  ({sum(1 for s in rows if s.get("date", "") >= today)} from today, {len(rows)} in all)')
 
 print('\n== Calendar check (every 15 minutes)')
