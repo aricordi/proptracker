@@ -81,7 +81,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div class="eyebrow">Prime Capitol app · Equipment team manual</div>
     <h1>Running the schedule and the gear</h1>
     <p class="lede">For the equipment team: approve bookings, keep the calendars straight, block time, and look after the gear. Find what you want to do and follow the steps. Every card works on its own.</p>
-    <div class="meta"><span class="chip">For app version 1.0.0</span><span class="chip">Updated Nov 23, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
+    <div class="meta"><span class="chip">For app version 1.1.0</span><span class="chip">Updated Nov 23, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
   </header>
 
   <div class="search"><input id="q" type="search" placeholder="What do you want to do? Try “approve”, “clash”, “missing”…" aria-label="Search this manual"><div class="count" id="count"></div></div>
@@ -271,6 +271,19 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     </div>
   </section>
 
+  <section class="task noshot" id="team-log" data-words="log history undo mistake approved by accident check who did what double check">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check or undo something I (or the team) did</h3>
+      <p class="why">The Team log lists every approval, denial, move, swap, cancel, priority booking, blocked time and Google Calendar card the team sorted, newest first, with who did it and when. Approved the wrong one? Undo it here.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">Team log</span> (in the Schedule group).</li>
+        <li>Use the chips to show only <span class="ui">Approvals</span>, <span class="ui">Moves &amp; changes</span>, <span class="ui">Google Calendar</span> or <span class="ui">Check-ins &amp; reports</span>, or one person.</li>
+        <li>Tap <span class="ui">Open</span> to see the shoot, or <span class="ui">Undo</span>. The app says what Undo will do; tap <span class="ui">Yes, undo it</span>.</li>
+      </ol>
+      <div class="tip"><b>What Undo does:</b> an approval goes back to "waiting for approval"; a denied or cancelled booking is booked again for them; a move goes back; a swap swaps back; blocked time is removed or put back; a confirmed calendar card goes back to the Calendar tab. It only works if the time is still free. Undone lines stay in the log, crossed out.</div>
+    </div>
+  </section>
   <h2 id="g-priority">Priority bookings (Kyle)</h2>
   <p class="group-intro">Stromedy (Kyle) has priority. His bookings are approved at once, and when he needs a slot someone else has, you give it to him.</p>
   <section class="task noshot" id="priority-request" data-words="kyle priority give slot bump take slot stromedy needs">

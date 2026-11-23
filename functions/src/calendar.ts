@@ -11,7 +11,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
 import { FieldValue, FieldPath } from 'firebase-admin/firestore'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, createHash } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
 import { cleanScheduleSettings, cleanIgnoreList, oldCalendarFor, oldTitle, BLOCK_TYPES, monthOf, slotWindow, entryHours, overlapMinutes, holdActive, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
@@ -21,6 +21,7 @@ import { openLinks } from './shootLinks.js'
 import { stamp, addMinutes, nowStamp } from './gearBooking.js'
 import { calendarAccess, calendarAccount } from './googleAccount.js'
 import { sendPush } from './push.js'
+import { teamLog } from './teamLog.js'
 import { houseFromText, placeFromText, saysOffsite, ignoreReason, onIgnoreList, blockTypeOf, isClearEvent, namedPeople, namedPeopleInfo, splitHours, splitOnGrid, looksLikeHeadsUp, queueReady, nightBefore, namesBothHouses } from './calendarText.js'
 export { houseFromText, ignoreReason }
 
@@ -631,7 +632,7 @@ export const wrongPlace = (was: Record<string, unknown> | undefined, e: { title:
 // Read every calendar (never writes) and compare with what was imported before.
 async function scanCalendar(cals: Source[]) {
   const s = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
-  const people = (await filmingPeople({ includeDemo: true })).map(p => ({ email: p.email, name: p.name }))
+  const people = (await filmingPeople({ includeDemo: true, offApp: true })).map(p => ({ email: p.email, name: p.name }))
   // What was imported before, with a snapshot of the event then (owner, Oct 19: the team keeps adding events straight
   // in Google Calendar while testing, so the import is re-run: new events, changed ones and deleted ones show up).
   const imports = new Map((await db.collection('calendar_imports').get()).docs.map(d => [d.id, d.data()]))
@@ -891,7 +892,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; 
         const users: { email: string; name: string }[] = []
         for (const e of who) {
           const u = (await db.doc(`users/${e}`).get()).data()
-          if (!u?.active && e !== OWNER_EMAIL) throw new Error(`${e} has no active account.`)
+          if (!u?.active && e !== OWNER_EMAIL && !(u?.offApp === true && e.startsWith('guest:'))) throw new Error(`${e} has no active account.`)
           users.push({ email: e, name: String(u?.name || (e === OWNER_EMAIL ? 'Alex' : e)) })
         }
         // Never guessed onto a house (audit, Nov 8: an unknown place fell back to Cliff 1 and could clash with a shoot there).
@@ -968,7 +969,7 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; 
         const type = (Object.keys(BLOCK_TYPES).includes(it.type) ? it.type : 'other') as BlockType
         const start = Math.max(0, Number(it.start) || 0), end = Math.max(start + 1, Number(it.end) || 0)
         const ref = db.doc(`schedule_days/${it.date}`)
-        const blockId = `g${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`
+        const blockId = importBlockId(id)
         const note = String(it.title ?? '').slice(0, 200)
         const soft = it.soft === true   // heads-up only (owner, Nov 4): shows on the calendar, never blocks or clashes
         // Owner (Oct 30): an old-calendar block landing on a shoot already booked in the app = a CLASH. The shoot stays,
@@ -1235,6 +1236,33 @@ export const checkCalendarAccess = onCall({ ...CALLABLE, timeoutSeconds: 60 }, a
   return { account, calendars: out }
 })
 
+// Blocked time made from a Google event (Nov 23 fix): the id comes from a hash of the WHOLE event id. It used to be the first 24
+// letters, which is only the series part for a repeating event, so two weeks of a series (or the old and the new time when a
+// series is shifted) got the SAME block id. On Nov 22 the "Moe" series moved 9–11 → 11–13: removing the old instance deleted
+// the new block too, the slots looked free and got booked again.
+export const importBlockId = (eventId: string) => `g${createHash('sha1').update(eventId).digest('hex').slice(0, 24)}`
+
+// Once: imported blocks that the bug above deleted. Their import record still says "block", but the day has no such block.
+// Marking the record as changed (startMin -1) makes this check read the event again and put it back (or, when it now names
+// someone the app knows, make it their shoot). Never touches anything a person removed.
+export async function repairLostBlocks() {
+  const flag = db.doc('app_settings/blockRepair')
+  if ((await flag.get()).get('v') === 1) return 0
+  const today = todayInStudio()
+  const imps = await db.collection('calendar_imports').where('action', '==', 'block').get()
+  const days = new Map<string, ScheduleDay>()
+  let n = 0
+  for (const d of imps.docs) {
+    const x = d.data()
+    if (x.removed || x.replaced || !x.blockId || String(x.date ?? '') < today) continue
+    if (!days.has(x.date)) days.set(x.date, ((await db.doc(`schedule_days/${x.date}`).get()).data() ?? {}) as ScheduleDay)
+    if ((days.get(x.date)!.blocks ?? []).some(b => b.id === x.blockId)) continue
+    await d.ref.update({ startMin: -1, lostBlock: true }); n++
+  }
+  await flag.set({ v: 1, at: new Date().toISOString(), marked: n })
+  return n
+}
+
 export async function runCalendarCheck() {
   const cals = await sources()
   if (!cals.length) return null
@@ -1244,6 +1272,7 @@ async function runCalendarCheckLocked(cals: Source[]) {
   const status = db.doc('app_settings/calendarCheck')
   // Once: old "clashes" that were only back-to-back shoots sharing a slot (owner, Nov 8) stop being clashes.
   await repairSharedClashes('calendar check').catch(e => logger.warn('clash repair', String(e)))
+  await repairLostBlocks().catch(e => logger.warn('lost block repair', String(e)))
   try {
     const { events, people, unkeep, counts, links, appSeen, oldSeen, readOk, appRead } = await scanCalendar(cals) as { events: any[]; people: { email: string; name: string }[]; unkeep: string[]; counts: { name: string; error?: string }[]; links: Record<string, string>; appSeen: Map<string, AppEvent>; oldSeen: Map<string, AppEvent & { cal: string }>; readOk: Set<string>; appRead: boolean }   // eslint-disable-line @typescript-eslint/no-explicit-any
     // First what a person did to the app's own bookings in the app calendar, then the imports (newest entry wins).
@@ -1378,6 +1407,22 @@ async function settleQueue(id: string, by: string, status: 'confirmed' | 'skippe
 // "Not filming" (owner, Nov 23: team/admin meetings in the old calendars kept showing as clashes, and the team won't split the
 // calendars). Owner + equipment add or remove a phrase; events containing it are never imported, and blocked time already made
 // from them comes off right away (their waiting cards too). Shoots made from them stay: a person decides those.
+const cardLabel = (q: Record<string, any>) => `"${String(q.title ?? '').slice(0, 80)}" · ${q.date ?? ''}${q.calendar ? ` · ${q.calendar}` : ''}`
+
+// Undo a confirmed Google Calendar card (team log): back in the Calendar tab, its shoots "to check" again.
+export async function reopenQueueCard(id: string) {
+  const ref = db.doc(`calendar_queue/${id}`)
+  const q = (await ref.get()).data()
+  if (!q || q.status !== 'confirmed') throw new HttpsError('failed-precondition', q?.status === 'waiting' ? 'It is already waiting in the Calendar tab.' : 'This card can\'t be put back.')
+  const ids: string[] = Array.isArray(q.result?.shootIds) ? q.result.shootIds.map(String) : q.result?.shootId ? [String(q.result.shootId)] : []
+  for (const sid of ids) {
+    const sh = db.doc(`shoots/${sid}`)
+    if ((await sh.get()).get('status') === 'booked') await sh.update({ toCheck: true, updatedAt: new Date().toISOString() })
+  }
+  await db.doc(`calendar_imports/${id}`).set({ checkedBy: FieldValue.delete(), checkedAt: FieldValue.delete() }, { merge: true }).catch(() => 0)
+  await ref.update({ status: 'waiting', doneBy: FieldValue.delete(), doneAt: FieldValue.delete() })
+}
+
 export const ignoreCalendarEvents = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'equipment'])
   const phrase = String(req.data?.phrase ?? '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 60)
@@ -1410,6 +1455,8 @@ export const ignoreCalendarEvents = onCall(CALLABLE, async req => {
       cleared++
     }
   }
+  await teamLog(caller, remove ? { action: 'calendar-ignored', label: `Stopped ignoring Google Calendar events with "${phrase}"` }
+    : { action: 'calendar-ignored', label: `Ignored Google Calendar events with "${phrase}" (not filming)${cleared ? ` · ${cleared} taken off` : ''}`, undo: { kind: 'unignore', phrase } })
   return { list, cleared }
 })
 
@@ -1426,7 +1473,10 @@ export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 },
       const c = (await db.doc(`calendar_queue/${qid}`).get()).data()
       if (!c || c.status !== 'waiting') continue
       if (!queueReady(c)) { left++; continue }
-      try { await settleQueue(qid, caller.email, 'confirmed'); confirmed++ } catch (e) { left++; logger.warn('confirm all', qid, String(e)) }
+      try {
+        await settleQueue(qid, caller.email, 'confirmed'); confirmed++
+        await teamLog(caller, { action: 'calendar-confirmed', label: `Confirmed (all) ${cardLabel(c)}`, date: c.date, shootIds: c.result?.shootIds ?? [], undo: { kind: 'reopenCard', id: qid } })
+      } catch (e) { left++; logger.warn('confirm all', qid, String(e)) }
     }
     return { ok: true, confirmed, left }
   }
@@ -1442,11 +1492,13 @@ export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 },
       await pushEvent(await calendarId(), id, { kind: 'shoot', shootId: String(q.shootId) }, shootLabel(sh, s), caller.email)
     }
     await db.doc(`calendar_queue/${id}`).update({ status: 'skipped', doneBy: caller.email, doneAt: new Date().toISOString() })
+    await teamLog(caller, { action: 'calendar-fixed', label: `Put back in Google Calendar ${cardLabel(q)}`, date: q.date, shootIds: q.shootId ? [String(q.shootId)] : [] })
     return { ok: true }
   }
   if (action === 'confirm') {
     if (!q.placed) throw new HttpsError('failed-precondition', 'The app could not tell what this is. Tap Fix and choose.')
     await settleQueue(id, caller.email, 'confirmed')
+    await teamLog(caller, { action: 'calendar-confirmed', label: `Confirmed ${cardLabel(q)}`, date: q.date, shootIds: q.result?.shootIds ?? [], undo: { kind: 'reopenCard', id } })
     return { ok: true }
   }
   const base = { id, title: q.title, location: q.location, date: q.date, start: q.startMin, end: q.endMin, where: q.location || q.title, feedId: q.feedId, allDay: q.allDay }
@@ -1457,6 +1509,7 @@ export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 },
     const [r] = await withCalendarLock(caller.email, () => applyImports([{ ...base, action: 'skip' }], caller.email, { toCheck: true }))
     if (!r?.ok) throw new HttpsError('failed-precondition', r?.message ?? 'Could not skip it.')
     await settleQueue(id, caller.email, 'skipped')
+    await teamLog(caller, { action: 'calendar-skipped', label: `Skipped ${cardLabel(q)}`, date: q.date })
     return { ok: true }
   }
   if (action === 'fix') {
@@ -1466,6 +1519,7 @@ export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 },
     const [r] = await withCalendarLock(caller.email, () => applyImports([{ ...base, action: f.action, emails, email: emails[0] ?? '', house: f.house, type: f.type, soft: f.soft === true }], caller.email, { toCheck: true }))
     if (!r?.ok) throw new HttpsError('failed-precondition', r?.message ?? 'Could not import it.')
     await settleQueue(id, caller.email, 'confirmed', r.saved)
+    await teamLog(caller, { action: 'calendar-fixed', label: `Fixed ${cardLabel(q)} → ${f.action === 'block' ? (f.soft ? 'heads-up' : 'blocked time') : `shoot for ${emails.join(', ') || '?'}`}`, date: q.date })
     return { ok: true, message: r.message ?? '' }
   }
   throw new HttpsError('invalid-argument', 'Unknown action.')
@@ -1491,6 +1545,7 @@ export const redoCalendarImport = onCall(CALLABLE, async req => {
   // A marker, not a delete: the 15-minute check would otherwise place it again with the same guess before anyone looks.
   await db.doc(`calendar_imports/${eventId}`).set({ redo: true, at: new Date().toISOString(), by: caller.email })
   await db.doc(`calendar_queue/${eventId}`).delete()
+  await teamLog(caller, { action: 'calendar-redo', label: `Redid the import of "${String(imp?.title ?? sh?.creatorName ?? eventId).slice(0, 80)}" · ${imp?.date ?? sh?.date ?? ''}`, date: imp?.date ?? sh?.date, shootIds: [...ids] })
   return { removed: ids.size, eventId }
 })
 

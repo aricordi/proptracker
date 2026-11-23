@@ -308,6 +308,12 @@ service cloud.firestore {
       allow write: if false;
     }
     // What an admin did about a flag (excused / warned / strike / handled). Owner + admins read; server-only writes.
+    // Team log (owner, Nov 23): every schedule-team decision, with Undo. Owner, equipment team and admins read; server writes only.
+    match /team_log/{id} {
+      allow read: if canSeeGear();
+      allow write: if false;
+    }
+
     match /flag_reviews/{id} {
       allow read: if role() in ['owner', 'admin'];
       allow write: if false;

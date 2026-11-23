@@ -87,6 +87,7 @@ import { hideBoot } from './lib/boot'
 import { useTourDone, skipTour, tourSkipped, markTourDone } from './tour/tourState'
 const AiSettingsScreen = lazy(() => import('./screens/AiSettingsScreen'))
 const BugsScreen = lazy(() => import('./screens/BugsScreen'))
+const TeamLogScreen = lazy(() => import('./screens/TeamLogScreen'))
 const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
@@ -499,6 +500,7 @@ export default function App() {
           <Route path="/google" element={<OwnerOnly><ConnectionsScreen /></OwnerOnly>} />
           <Route path="/ai" element={<OwnerOnly><AiSettingsScreen /></OwnerOnly>} />
           <Route path="/bugs" element={<OwnerOnly><BugsScreen /></OwnerOnly>} />
+          <Route path="/team-log" element={<SeeGear><TeamLogScreen /></SeeGear>} />
           <Route path="/costs" element={<OwnerOnly><CostsScreen /></OwnerOnly>} />
           <Route path="/help" element={<HelpScreen />} />
           <Route path="/activity" element={<SeeStaff><ActivityScreen /></SeeStaff>} />

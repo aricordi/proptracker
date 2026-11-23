@@ -10,6 +10,14 @@ You can see which version you're on in **More** (bottom of the page) and at the 
 the app shows a "Version X is ready · Update" bar. The team can see who still needs to update on **People & access**.
 Each manual says which version it was written for.
 
+## 1.1.0 — November 23, 2026
+- **Team log** (Team / Admin menu): every approval, denial, move, swap, cancel, priority booking, blocked time and Google
+  Calendar card the team sorted, with who did it and when. **Undo** puts it back if the time is still free.
+- **People not on the app yet** (People & access → Not on the app yet → + Add someone): a name only, no access. Their Google
+  Calendar shoots show under their own name (e.g. Moe), and the team can book for them. When they join, Change their email.
+- Fixed: when a repeating event in the old Google calendars was moved to a new time, the app could lose its blocked time
+  (the old and new times shared one block), so the slot looked free and got booked again. Lost blocks are put back.
+
 ## 1.0.0 — November 23, 2026
 The first numbered version. Everything that was live on Nov 23, plus:
 - Version number in the app (More, Help, problem reports), an Update bar when a newer version is live, and each person's

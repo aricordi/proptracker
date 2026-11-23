@@ -12,6 +12,9 @@
 //   kind 'scheduleLists' {instantBookers?: [email|name], longBookers?: [email|name]} → owner, Nov 19: ADDS people (active users;
 //                       a name must match exactly one person) to Schedule settings "Books without approval" / "Can book several
 //                       slots in a row". Never removes anyone; only those two fields (+ updatedAt/By) are written.
+//   kind 'moveShoots' {moves: [{shootId, start, place?, date?}]} → owner, Nov 23: moves shoots as the schedule team (same checks
+//                       as Move in the app; the creator is told; logged in the team log). Each move reported, one failing doesn't stop the rest.
+//   kind 'offAppPeople' {names: [string]} → owner, Nov 23: adds people who aren't on the app yet (no access), like People → Add.
 // Long imports continue in a fresh task (continues: <id>, round n) so no run hits the 9-minute limit.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
@@ -21,6 +24,7 @@ import { db, OWNER_EMAIL } from './auth.js'
 import { GEMINI_API_KEY } from './gemini.js'
 import { startImport, processImport, approveImports, mergeImports, skipImports } from './importer.js'
 import { folderIdFrom, listSubfolders, listShortcuts, listImages } from './drive.js'
+import { moveShoot, addOffAppPerson } from './scheduling.js'
 
 const BUDGET_MS = 470_000
 const MAX_ROUNDS = 40
@@ -153,6 +157,25 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       })
       result.forEach(say)
       await ref.update({ status: 'done', result: { notes: result }, log, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'moveShoots') {
+      const out: Record<string, unknown>[] = []
+      for (const m of (Array.isArray(task.moves) ? task.moves : []).slice(0, 60)) {
+        const sh = (await db.doc(`shoots/${String(m.shootId)}`).get()).data()
+        if (!sh) { out.push({ shootId: m.shootId, ok: false, error: 'not found' }); continue }
+        try {
+          await moveShoot.run(asOwner({ id: String(m.shootId), place: m.place ?? sh.place, date: m.date ?? sh.date, start: Number(m.start), where: sh.where ?? '' }))
+          out.push({ shootId: m.shootId, ok: true, who: sh.creatorName, from: `${sh.date} ${sh.place} ${sh.start}`, to: `${m.date ?? sh.date} ${m.place ?? sh.place} ${m.start}` })
+        } catch (e) { out.push({ shootId: m.shootId, ok: false, who: sh.creatorName, error: String((e as Error).message ?? e) }) }
+      }
+      out.forEach(o => say(JSON.stringify(o)))
+      await ref.update({ status: 'done', result: { moves: out }, log, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'offAppPeople') {
+      const out: Record<string, unknown>[] = []
+      for (const name of (Array.isArray(task.names) ? task.names : []).slice(0, 20)) {
+        try { out.push({ name, ...(await addOffAppPerson.run(asOwner({ name: String(name) })) as object) }) } catch (e) { out.push({ name, ok: false, error: String((e as Error).message ?? e) }) }
+      }
+      out.forEach(o => say(JSON.stringify(o)))
+      await ref.update({ status: 'done', result: { people: out }, log, finishedAt: new Date().toISOString() })
     } else if (task.kind === 'binShortcuts') {
       const root = folderIdFrom(String(task.folder ?? ''))
       if (!root) throw new Error('no folder')

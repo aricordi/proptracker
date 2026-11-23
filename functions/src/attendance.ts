@@ -3,6 +3,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue } from 'firebase-admin/firestore'
 import { OWNER_EMAIL, db, requireRole, CALLABLE } from './auth.js'
+import { teamLog } from './teamLog.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
 import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, slotKey, type ScheduleDay, type House } from './schedule.js'
 import { addStrike, removeStrikeById } from './strikes.js'
@@ -119,6 +120,7 @@ export const decideShoot = onCall(CALLABLE, async req => {
     return cur
   })
   const strike = outcome === 'noshow' ? await addStrike(sh.creatorEmail, sh.creatorName, 'no-show', ref.id, caller.email) : null
+  await teamLog(caller, { action: 'decided', label: `${outcome === 'noshow' ? 'No-show (strike)' : 'They filmed'}: ${sh.creatorName} · ${sh.date}`, shootIds: [ref.id], date: sh.date, who: sh.creatorEmail, whoName: sh.creatorName })
   return { ok: true, strike }
 })
 
@@ -135,6 +137,7 @@ export const reviewReport = onCall(CALLABLE, async req => {
     return cur
   })
   const strike = uphold && r.onEmail ? await addStrike(r.onEmail, r.onName, 'report', r.onShootId, caller.email) : null
+  await teamLog(caller, { action: 'report', label: `${uphold ? 'Upheld (strike)' : 'Dismissed'} a report on ${r.onName ?? 'someone'}${r.date ? ` · ${r.date}` : ''}`, shootIds: [r.onShootId].filter(Boolean), who: r.onEmail, whoName: r.onName })
   return { ok: true, strike }
 })
 

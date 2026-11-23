@@ -81,6 +81,7 @@ export interface AppUser {
   updatedBy?: string;
   movedTo?: string;         // this email was moved to a new one (changeUserEmail); switched off
   movedFrom?: string[];     // the old email(s) this person used before
+  offApp?: boolean;         // owner, Nov 23: someone who films but isn't on the app yet (key 'guest:<name>', no access)
 }
 
 export interface Tag {

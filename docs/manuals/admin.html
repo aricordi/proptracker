@@ -81,7 +81,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div class="eyebrow">Prime Capitol app · Admin manual</div>
     <h1>Keeping creators on track</h1>
     <p class="lede">You are the person who keeps an eye on the creators: who is filming, who needs a nudge, which bookings to approve. Find what you want to do and follow the steps. Every section works on its own.</p>
-    <div class="meta"><span class="chip">For app version 1.0.0</span><span class="chip">Updated Nov 23, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
+    <div class="meta"><span class="chip">For app version 1.1.0</span><span class="chip">Updated Nov 23, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
   </header>
 
   <div class="search"><input id="q" type="search" placeholder="What do you want to do? Try “strike”, “approve”, “late”…" aria-label="Search this manual"><div class="count" id="count"></div></div>
@@ -393,6 +393,19 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   </section>
 
   <!-- ============ GROUP 4 ============ -->
+  <section class="task noshot" id="team-log" data-words="log history undo mistake approved by accident check who did what double check">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check or undo something the team did</h3>
+      <p class="why">The Team log lists every approval, denial, move, swap, cancel, priority booking, blocked time and Google Calendar card the team sorted, newest first, with who did it and when. Approved the wrong one? Undo it here.</p>
+      <ol>
+        <li>Open <span class="ui">Dashboard</span> → <span class="ui">Team log</span> (Help &amp; records; on a laptop, the Admin tools under the dashboard).</li>
+        <li>Use the chips to show only <span class="ui">Approvals</span>, <span class="ui">Moves &amp; changes</span>, <span class="ui">Google Calendar</span> or <span class="ui">Check-ins &amp; reports</span>, or one person.</li>
+        <li>Tap <span class="ui">Open</span> to see the shoot, or <span class="ui">Undo</span>. The app says what Undo will do; tap <span class="ui">Yes, undo it</span>.</li>
+      </ol>
+      <div class="tip"><b>What Undo does:</b> an approval goes back to "waiting for approval"; a denied or cancelled booking is booked again for them; a move goes back; a swap swaps back; blocked time is removed or put back; a confirmed calendar card goes back to the Calendar tab. It only works if the time is still free. Undone lines stay in the log, crossed out.</div>
+    </div>
+  </section>
   <h2 id="g-analytics">Dig into the numbers</h2>
   <p class="group-intro">Analytics goes deeper than the Dashboard. Every number and every row can be tapped; your phone's Back button zooms back out one step.</p>
 
@@ -788,6 +801,19 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   </section>
 
   <!-- ============ GROUP 9 ============ -->
+  <section class="task noshot" id="not-on-app" data-words="not on the app guest moe no access name only calendar shoots under their name">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Add someone who films but isn't on the app yet</h3>
+      <p class="why">Someone without an account (for example Moe) still films at the houses. Add their name so their Google Calendar shoots show under their own name, not under whoever booked for them. They get no access: no sign-in, no notifications, no check-in.</p>
+      <ol>
+        <li>Open <span class="ui">People &amp; access</span> and scroll to <span class="ui">Not on the app yet</span>.</li>
+        <li>Tap <span class="ui">+ Add someone</span>, type their name the way it's written in the Google Calendar, tap <span class="ui">Add them</span>.</li>
+        <li>Within 15 minutes their calendar events become their shoots. The schedule team can also book for them.</li>
+      </ol>
+      <div class="tip"><b>When they join:</b> invite their real email as usual. Then the owner taps their name under Not on the app yet → <span class="ui">Change their email</span>, so their shoots move to the new account.</div>
+    </div>
+  </section>
   <h2 id="g-rules">Rules and settings</h2>
   <p class="group-intro">You can change the Booking rules (props notice, closed days, turnaround). Everything else is on the Settings sheet to read.</p>
 

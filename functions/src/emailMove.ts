@@ -7,6 +7,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions/v2'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
+import { FieldValue } from 'firebase-admin/firestore'
 import { recountStrikes } from './strikes.js'
 
 // Collections that never hold a person's email (props, photos, settings internals) or that are handled separately.
@@ -63,8 +64,10 @@ export function changedFields(data: Record<string, unknown>, from: string, to: s
 // Full app if either was on it, always active.
 export function mergeUser(oldU: Record<string, any>, newU: Record<string, any> | undefined, to: string, by: string, at: string) {
   const access = oldU.access === 'full' || newU?.access === 'full' ? 'full' : (newU?.access ?? oldU.access)
+  // Someone who wasn't on the app yet (offApp, 'guest:<name>') now has a real account: drop the "not on the app" mark.
+  const { offApp: _off, ...old } = oldU   // eslint-disable-line @typescript-eslint/no-unused-vars
   return {
-    ...oldU, ...(newU ?? {}), email: to, role: newU?.role ?? oldU.role, name: newU?.name || oldU.name || '',
+    ...old, ...(newU ?? {}), email: to, role: newU?.role ?? oldU.role, name: newU?.name || oldU.name || '',
     ...(access ? { access } : {}), active: true, movedFrom: [...new Set([...(newU?.movedFrom ?? []), ...(oldU.movedFrom ?? []), oldU.email])],
     updatedAt: at, updatedBy: by,
   }
@@ -146,6 +149,11 @@ export const changeUserEmail = onCall({ ...CALLABLE, timeoutSeconds: 540, memory
   }
   await w.close()
   await recountStrikes(to)
+  // Shoots of someone who wasn't on the app were marked guest (no notifications, no check-in): now they have an account.
+  if (from.startsWith('guest:')) {
+    for (const d of (await db.collection('shoots').where('creatorEmail', '==', to).where('guest', '==', true).get()).docs)
+      await d.ref.update({ guest: FieldValue.delete() })
+  }
   await db.collection('email_moves').add({ from, to, merging, by: caller.email, at, summary })
   logger.info('Email moved', { from, to, merging, records: hits.length })
   return { ...preview, applied: true }

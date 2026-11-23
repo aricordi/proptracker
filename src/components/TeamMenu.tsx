@@ -59,6 +59,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'more', title: 'Help & records', icon: 'help', items: [
       I('bugs', '/bugs', 'Problem reports', 'What people reported, with screenshots', 'alert'),
+      I('teamlog', '/team-log', 'Team log', 'Every approval and schedule change, with Undo', 'note'),
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
       help, report,
       I('teamguide', '/team-guide', 'Team guide', 'One page per team: what they do each day', 'help'),
@@ -85,6 +86,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'more', title: 'Help & records', icon: 'help', items: [
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
+      I('teamlog', '/team-log', 'Team log', 'Every approval and schedule change, with Undo', 'note'),
       I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),
       I('admintour', '/tour/admin', 'Admin tour', 'Short hands-on tour (5 min)', 'flask'),
       help, report, account,
@@ -100,6 +102,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
       I('scheduleteam', '/schedule/team', 'Schedule team', 'Check-ins, reports, creators, pauses', 'clock'),
       I('calimport', '/schedule/import', 'Google Calendar imports', 'Sort events from the old calendars', 'calendar'),
       I('calsync', '/schedule/calendar', 'What the app put in Google Calendar', 'Retry, remove or check what was sent', 'calendar'),
+      I('teamlog', '/team-log', 'Team log', 'Everything you approved or changed, with Undo', 'note'),
     ] },
     { key: 'more', title: 'Help & account', icon: 'help', items: [
       I('teamguide', '/team-guide', 'Team guide', 'Your job on one page', 'help'),

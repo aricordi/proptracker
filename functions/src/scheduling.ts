@@ -8,6 +8,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { FieldValue, FieldPath, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, type Caller } from './auth.js'
+import { teamLog } from './teamLog.js'
 import { todayInStudio, isDay, addDays } from './booking.js'
 import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
 import { addStrike } from './strikes.js'
@@ -16,7 +17,7 @@ import { cancelForShoot, moveReservationToShoot, markShootGone } from './reserva
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline, isLongBooker, slotsPerDayFor,
   cleanScheduleSettings, checkSlot, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
-  SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
+  SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type Block, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
 
@@ -67,6 +68,8 @@ async function shootFor(caller: Caller, forEmail: unknown): Promise<{ email: str
   if (!isTeam(caller)) throw new HttpsError('permission-denied', 'Only the schedule team can book for someone else.')
   if (email === OWNER_EMAIL) return { email, name: 'Owner' }
   const u = (await db.doc(`users/${email}`).get()).data()
+  // Someone not on the app yet (owner, Nov 23: Moe): the team may book for them; no account, so no notifications or check-in.
+  if (u?.offApp === true && isGuestEmail(email)) return { email, name: u.name || email.slice(6) }
   if (!u || u.active !== true) throw new HttpsError('not-found', 'That person has no active account.')
   if (isDemoCreator(u.role, u.access)) throw new HttpsError('failed-precondition', `${u.name || email} is still on Props only (demo mode), so they can't have shoots yet.`, { problem: 'demo' })
   return { email, name: u.name || email }
@@ -243,12 +246,13 @@ export const bookShoot = onCall(CALLABLE, async req => {
     })
     write()
     tx.set(ref, {
-      creatorEmail: who.email, creatorName: who.name, ...spot, ...(both ? { place: 'cliff1', bothHouses: true, time } : {}), month: monthOf(spot.date),
+      creatorEmail: who.email, creatorName: who.name, ...(isGuestEmail(who.email) ? { guest: true } : {}), ...spot, ...(both ? { place: 'cliff1', bothHouses: true, time } : {}), month: monthOf(spot.date),
       from: win.from, to: win.to, kind, status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
       ...(pending ? { requestedAt: at } : {}), ...(guideline ? { guideline } : {}),
       history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${label}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
     })
   })
+  if (who.email !== caller.email && isTeam(caller)) await teamLog(caller, { action: 'booked', label: `Booked ${who.name} · ${spotLabel(spot, s)}`, shootIds: [ref.id], date: spot.date, who: who.email, whoName: who.name })
   return { id: ref.id, kind, status: pending ? 'requested' : 'booked' }
 })
 
@@ -264,10 +268,11 @@ export const cancelShoot = onCall(CALLABLE, async req => {
   let noShow = false
   let who = { email: '', name: '' }
   let owner = ''
+  let gone: Record<string, any> | null = null
   await db.runTransaction(async tx => {
     const b = (await tx.get(ref)).data()
     if (!b) throw new HttpsError('not-found', 'Shoot not found.')
-    owner = String(b.creatorEmail)
+    owner = String(b.creatorEmail); gone = b
     const team = isTeam(caller)
     // The person who booked a friend's slot (bookWithFriends, Nov 14) may cancel it too.
     const forFriend = !team && b.creatorEmail !== caller.email && b.bookedBy === caller.email && !!b.invitedBy
@@ -297,6 +302,12 @@ export const cancelShoot = onCall(CALLABLE, async req => {
     })
   })
   if (noShow) await addStrike(who.email, who.name, 'late-cancel', id, caller.email)
+  const g = gone as Record<string, any> | null
+  if (g && isTeam(caller) && g.creatorEmail !== caller.email) await teamLog(caller, {
+    action: 'cancelled', label: `Cancelled ${g.creatorName}'s ${g.status === 'requested' ? 'request' : 'shoot'} · ${spotLabel(g as Spot, s)}`,
+    shootIds: [id], date: g.date, who: g.creatorEmail, whoName: g.creatorName,
+    undo: g.bothHouses ? null : { kind: 'rebook', shootId: id, forEmail: g.creatorEmail, place: g.place, date: g.date, start: g.start, end: g.end, where: g.where ?? '' },
+  })
   return { ok: true, lateCancel: noShow, ...await releaseLinks(caller, id, owner) }
 })
 
@@ -386,6 +397,11 @@ export const moveShoot = onCall(CALLABLE, async req => {
     })
   })
   if ((result as string) !== 'requested' && pre.date !== spot.date) await followShoot(id).catch(e => console.warn('props follow moved shoot', id, e))
+  if (team && pre.creatorEmail !== caller.email && (result as string) !== 'requested') await teamLog(caller, {
+    action: 'moved', label: `Moved ${pre.creatorName} from ${spotLabel(pre as Spot, s)} to ${spotLabel(spot, s)}`, shootIds: [id], date: spot.date,
+    who: pre.creatorEmail, whoName: pre.creatorName,
+    undo: { kind: 'move', shootId: id, place: pre.place, date: pre.date, start: pre.start, end: pre.end, where: pre.where ?? '' },
+  })
   return { ok: true, kind, status: result }
 })
 
@@ -451,6 +467,17 @@ export const decideBooking = onCall(CALLABLE, async req => {
   if (who) await db.doc(`user_status/${who}`).set({ firstInLine: FieldValue.delete() }, { merge: true })
   if (denied) await releaseLinks(caller, id, who)
   if (follows) await followShoot(id).catch(e => console.warn('props follow approved move', id, e))
+  if (pre) {
+    const isMove = pre.status === 'booked' && !!pre.moveRequest
+    const where = isMove ? `from ${spotLabel(pre as Spot, s)} to ${spotLabel(pre.moveRequest as Spot, s)}` : spotLabel(pre as Spot, s)
+    await teamLog(caller, {
+      action: isMove ? (approve ? 'move-approved' : 'move-denied') : approve ? 'approved' : 'denied',
+      label: `${approve ? 'Approved' : 'Denied'} ${pre.creatorName}${isMove ? "'s move" : ''} · ${where}${approve ? '' : ` · "${reason}"`}`,
+      shootIds: [id], date: isMove ? pre.moveRequest.date : pre.date, who: pre.creatorEmail, whoName: pre.creatorName,
+      undo: isMove ? null : approve ? { kind: 'unapprove', shootId: id }
+        : pre.bothHouses ? null : { kind: 'rebook', shootId: id, forEmail: pre.creatorEmail, place: pre.place, date: pre.date, start: pre.start, end: pre.end, where: pre.where ?? '' },
+    })
+  }
   return { ok: true }
 })
 
@@ -650,6 +677,9 @@ export const swapShootsAsTeam = onCall(CALLABLE, async req => {
     await followShoot(aId).catch(e => console.warn('props follow swapped shoot', aId, e))
     await followShoot(bId).catch(e => console.warn('props follow swapped shoot', bId, e))
   }
+  const [aNow, bNow] = await Promise.all([aRef.get(), bRef.get()])
+  await teamLog(caller, { action: 'swapped', label: `Swapped ${aNow.get('creatorName')} (now ${spotLabel(aNow.data() as Spot, s)}) with ${bNow.get('creatorName')} (now ${spotLabel(bNow.data() as Spot, s)})`,
+    shootIds: [aId, bId], date: aNow.get('date'), undo: { kind: 'swap', a: aId, b: bId } })
   return { ok: true }
 })
 
@@ -673,6 +703,7 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
   const weeks = Number.isInteger(d.repeatWeeks) ? Math.max(1, Math.min(26, d.repeatWeeks)) : 1
   const series = weeks > 1 ? randomUUID().slice(0, 8) : undefined
   const placed: string[] = [], skipped: { date: string; names: string[] }[] = []
+  const made: { date: string; id: string }[] = []
   let firstId = ''
   for (let w = 0; w < weeks; w++) {
     const date = addDays(d.date, 7 * w)
@@ -690,25 +721,37 @@ export const addScheduleBlock = onCall(CALLABLE, async req => {
         skipped.push({ date, names: clash }); return
       }
       tx.set(dayRef, { date, blocks: [...(day.blocks ?? []), block] }, { merge: true })
-      placed.push(date); if (!firstId) firstId = block.id
+      placed.push(date); made.push({ date, id: block.id }); if (!firstId) firstId = block.id
     })
   }
+  if (made.length) await teamLog(caller, {
+    action: 'blocked', label: `${d.soft === true ? 'Heads-up' : 'Blocked'} ${s.houses[d.house as House].name} · ${made[0].date}${made.length > 1 ? ` (+${made.length - 1} more weeks)` : ''} · ${fmtTime(start)}–${fmtTime(end)} · ${BLOCK_TYPES[type]}${d.note ? `: ${str(d.note, 80)}` : ''}`,
+    date: made[0].date, undo: { kind: 'removeBlocks', blocks: made },
+  })
   return { id: firstId, placed, skipped }
 })
 
 export const removeScheduleBlock = onCall(CALLABLE, async req => {
-  await requireRole(req, ['owner', 'equipment'])
+  const caller = await requireRole(req, ['owner', 'equipment'])
   // Blocks from Google Calendar have longer ids ('g' + the event id), so read the whole id (audit: cut at 20, nothing matched
   // and the app said it worked). Clash listings that point at the block go with it.
   const date = req.data?.date, id = str(req.data?.id, 100)
   if (!isDay(date)) throw fail('bad-date')
   if (!id) throw new HttpsError('invalid-argument', 'Which block?')
   const dayRef = dayRefOf(date)
+  let gone: Block | undefined
   await db.runTransaction(async tx => {
     const day = ((await tx.get(dayRef)).data() ?? {}) as ScheduleDay
-    if (!(day.blocks ?? []).some(b => b.id === id)) throw new HttpsError('not-found', 'That block was already removed.')
+    gone = (day.blocks ?? []).find(b => b.id === id)
+    if (!gone) throw new HttpsError('not-found', 'That block was already removed.')
     tx.set(dayRef, { blocks: (day.blocks ?? []).filter(b => b.id !== id), clashes: (day.clashes ?? []).filter(c => c.blockId !== id) }, { merge: true })
   })
+  const b = gone as (Block & { soft?: boolean; imported?: boolean }) | undefined
+  if (b) {
+    const s = await loadScheduleSettings()
+    await teamLog(caller, { action: 'unblocked', label: `Removed ${b.soft ? 'heads-up' : 'blocked time'} · ${s.houses[b.house as House]?.name ?? b.house} · ${date} · ${fmtTime(b.start)}–${fmtTime(b.end)}${b.note ? ` · ${b.note.slice(0, 80)}` : ''}`,
+      date, undo: b.imported ? null : { kind: 'addBlock', date, house: b.house, start: b.start, end: b.end, type: b.type, note: b.note ?? '', soft: b.soft === true } })
+  }
   return { ok: true }
 })
 
@@ -721,14 +764,18 @@ export const saveScheduleSettings = onCall(CALLABLE, async req => {
 })
 
 // People who film (owner, Oct 27): active creators + the owner (who isn't in users). Arts, equipment and admins never.
-export async function filmingPeople(opts: { includeDemo?: boolean } = {}) {
+export async function filmingPeople(opts: { includeDemo?: boolean; offApp?: boolean } = {}) {
   const snap = await db.collection('users').where('active', '==', true).get()
+  // People not on the app yet (owner, Nov 23): a name only, no access. The calendar import and the team's "Book for" know them.
+  const off = opts.offApp ? (await db.collection('users').where('offApp', '==', true).get()).docs
+    .filter(u => isGuestEmail(u.id)).map(u => ({ email: u.id, name: String(u.get('name') || u.id.slice(6)), role: 'creator' })) : []
   // Demo-mode creators (Props only) can't book, so they're left out until the owner switches them to Full app.
   // includeDemo (owner, Nov 4: "fix the calendar before giving people access"): the calendar import may still put
   // their existing shoots on the schedule, so they show up there.
   const people = snap.docs.filter(u => (u.get('role') === 'creator' && (opts.includeDemo || !isDemoCreator('creator', u.get('access')))) || u.id === OWNER_EMAIL)
     .map(u => ({ email: u.id, name: String(u.get('name') || u.id), role: u.id === OWNER_EMAIL ? 'owner' : 'creator' }))
   if (!people.some(p => p.email === OWNER_EMAIL)) people.push({ email: OWNER_EMAIL, name: 'Alex', role: 'owner' })
+  people.push(...off)
   return people.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))
 }
 
@@ -736,13 +783,13 @@ export async function filmingPeople(opts: { includeDemo?: boolean } = {}) {
 // The schedule team, and admins (they approve requests and can make a priority booking for someone).
 export const listSchedulePeople = onCall(CALLABLE, async req => {
   await requireRole(req, [...APPROVERS])
-  return { people: await filmingPeople() }
+  return { people: await filmingPeople({ offApp: true }) }
 })
 
 // People you can film with (Book a shoot → "+ 1 friend"): active creators and the owner, names only (admins don't film).
 export const listFilmingFriends = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
-  const people = (await filmingPeople({ includeDemo: true })).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name }))
+  const people = (await filmingPeople({ includeDemo: true, offApp: true })).filter(p => p.email !== caller.email).map(p => ({ email: p.email, name: p.name, ...(isGuestEmail(p.email) ? { offApp: true } : {}) }))
   return { people }
 })
 
@@ -805,7 +852,7 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
       history: FieldValue.arrayUnion({ at, by, action: 'moved', note: `changed in Google Calendar · now ${note}` }),
     })
     else tx.set(ref, {
-      creatorEmail: who.email, creatorName: who.name, ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked',
+      creatorEmail: who.email, creatorName: who.name, ...(isGuestEmail(who.email) ? { guest: true } : {}), ...spot, month: monthOf(spot.date), from: win.from, to: win.to, kind, status: 'booked',
       bookedBy: by, createdAt: at, updatedAt: at, ...extra, ...(extra.toCheck ? { told: false } : {}), ...(clashWith.length ? { clash: true, clashWith } : {}),
       history: [{ at, by, action: 'booked', note: `${note} · imported from Google Calendar` }],
     })
@@ -1171,8 +1218,10 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
     if (lineup && (entry.toLowerCase() === caller.email || friends.some(f => f.email === (isGuestEmail(entry) ? guestKey(entry.slice(6)) : entry.toLowerCase()))))
       throw new HttpsError('invalid-argument', 'Each friend gets one slot. Pick a different person for each slot.')
     if (isGuestEmail(entry)) {
-      const name = entry.slice(6).replace(/\s+/g, ' ').trim().slice(0, 60)
-      const email = guestKey(name)
+      // Someone added as "not on the app yet" (People): their saved name, the same key (owner, Nov 23).
+      const known = (await db.doc(`users/${entry.toLowerCase()}`).get()).data()
+      const name = known?.offApp === true ? String(known.name) : entry.slice(6).replace(/\s+/g, ' ').trim().slice(0, 60)
+      const email = known?.offApp === true ? entry.toLowerCase() : guestKey(name)
       if (name.length < 2 || email === 'guest:' || friends.some(f => f.email === email)) continue
       friends.push({ email, name, guest: true }); continue
     }
@@ -1345,7 +1394,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       if (!email) throw new HttpsError('invalid-argument', 'Who gets the slot?')
       const inst = s.instantBookers.find(p => p.email === email)
       const u = email === OWNER_EMAIL ? { name: 'Owner', active: true, role: 'owner' } : (await tx.get(db.doc(`users/${email}`))).data()
-      if (!u || u.active !== true) throw new HttpsError('not-found', 'That person has no active account.')
+      if (!u || (u.active !== true && !(u.offApp === true && isGuestEmail(email)))) throw new HttpsError('not-found', 'That person has no active account.')
       to = { email, name: inst?.name || u.name || email }
     }
     if (to.email === h.creatorEmail) throw new HttpsError('failed-precondition', `${h.creatorName} already has this slot.`)
@@ -1415,5 +1464,42 @@ export const giveSlot = onCall(CALLABLE, async req => {
   const d = req.data ?? {}
   const s = await loadScheduleSettings()
   const moveTo = d.moveTo && typeof d.moveTo === 'object' ? { house: d.moveTo.house as House, start: Number(d.moveTo.start) } : null
-  return giveSlotTo(caller, { date: str(d.date, 10), house: d.house, start: Number(d.start), toEmail: d.toEmail, clashShootId: str(d.clashShootId, 100) || undefined, moveTo, note: d.note }, s)
+  const r = await giveSlotTo(caller, { date: str(d.date, 10), house: d.house, start: Number(d.start), toEmail: d.toEmail, clashShootId: str(d.clashShootId, 100) || undefined, moveTo, note: d.note }, s)
+  await teamLog(caller, { action: 'priority', label: `Priority booking · ${s.houses[d.house as House]?.name ?? ''} · ${str(d.date, 10)} · ${fmtTime(Number(d.start))}: given to ${r.toName}; ${r.holderName} ${r.moved ? 'moved' : 'cancelled'}`,
+    shootIds: [r.shootId, r.holderId].filter(Boolean) as string[], date: str(d.date, 10), who: r.holderEmail, whoName: r.holderName })
+  return r
 })
+
+// Someone who films but isn't on the app yet (owner, Nov 23: "reflect Moe as a user with no access"). A record with a name only:
+// key 'guest:<name>', no sign-in, no notifications, no check-in. The calendar import matches their name, the team can book for
+// them, creators can add them to a slot. When they join, People → Change their email moves everything to their real email.
+export const addOffAppPerson = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'admin'])
+  const name = str(req.data?.name, 60).replace(/\s+/g, ' ').trim()
+  if (name.length < 2) throw new HttpsError('invalid-argument', 'Type their name.')
+  const key = guestKey(name)
+  if (key === 'guest:') throw new HttpsError('invalid-argument', 'Type their name.')
+  const ref = db.doc(`users/${key}`)
+  if ((await ref.get()).exists) throw new HttpsError('already-exists', `${name} is already on the list.`)
+  const at = new Date().toISOString()
+  await ref.set({ email: key, name, role: 'creator', active: false, access: 'props', offApp: true, invitedBy: caller.email, invitedAt: at })
+  return { ok: true, email: key, name }
+})
+
+// Undo an approval (team log, owner Nov 23): the shoot goes back to "waiting for approval" exactly as before (slot still held,
+// marked as asked). Only before it starts and when no move is waiting.
+export async function unapproveShoot(caller: Caller, id: string) {
+  const ref = db.doc(`shoots/${id}`)
+  await db.runTransaction(async tx => {
+    const b = (await tx.get(ref)).data()
+    if (!b) throw new HttpsError('not-found', 'Shoot not found.')
+    if (b.status !== 'booked' || !b.approvedBy) throw new HttpsError('failed-precondition', b.status === 'requested' ? 'It is already waiting for approval.' : 'This shoot is no longer an approved request.')
+    if (b.moveRequest) throw new HttpsError('failed-precondition', 'A move is waiting on this shoot. Decide that first.')
+    if (b.from <= nowStamp()) throw new HttpsError('failed-precondition', 'This shoot has already started.')
+    const write = await editDays(tx, [b.date], days => eachEntry(days[b.date], id, e => ({ ...e, pending: true })))
+    write()
+    const at = new Date().toISOString()
+    tx.update(ref, { status: 'requested', approvedBy: FieldValue.delete(), approvedAt: FieldValue.delete(), requestedAt: b.requestedAt ?? at, updatedAt: at,
+      history: FieldValue.arrayUnion({ at, by: caller.email, action: 'note', note: `Approval undone by ${caller.name}: waiting for approval again` }) })
+  })
+}

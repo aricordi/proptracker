@@ -2844,6 +2844,30 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       dots, Locations screen titled "Rooms", Add a prop / Save prop, /team-guide staff only, creators' /reservations → /requests.
       Robot journeys 23/23 + crawl green, unit 537, rules 142. Manuals re-shot, PDFs + PPTX rebuilt, live pages + deck republished.
     - LIVE Nov 23 (owner "yes put it live"): backend run 45119502236 + website run 45119505232 = version 1.0.0 (update bar, version per person + rules), manual-check fixes, polish pass.
+    - MOE / VAL + OLD CALENDARS + TEAM LOG (owner, Nov 23; version 1.1.0; NOT deployed: backend (new callables addoffappperson +
+      undoteamaction in deploy/log lists) + FIRESTORE RULES (team_log: canSeeGear read, no client writes) + website, ask).
+      CAUSE of "Moe booked, app shows Val": person lookup runs 45236825150/45237600421/45238540000-ish: Moe's weekly Cliff 2 series
+      was shifted 9–11 → 11–13 on Nov 22; imported BLOCK ids were `g` + the first 24 letters of the event id = only the SERIES part,
+      so the new 11–13 instance and the removed 9–11 one shared one block id on the same day → removing the old deleted the new →
+      Monday Cliff 2 11–1 looked free → Val booked 18 slots herself in the app on Nov 23 9:22–9:30 AM (6 of them = Moe's Mondays
+      Dec 7/21/28, Jan 4/18/25, same time as Anton at Cliff 1). FIX: calendar.ts importBlockId = 'g' + sha1(full event id)[0:24];
+      repairLostBlocks() once (app_settings/blockRepair v1, start of each calendar check): imported blocks missing from their day
+      get startMin -1 → read again as changed (or regraded into a shoot when the name is now known). OLD CALENDARS NOT UPDATED:
+      writeOldCalendars has been OFF since Nov 17 (never turned on); person_dump.py now prints it + who made each in-app booking.
+      PEOPLE NOT ON THE APP: users/guest:<slug> {name, role creator, active false, access props, offApp true}, callable
+      addOffAppPerson (owner+admin), admin task kind offAppPeople {names}; filmingPeople({offApp}) for the calendar import, team
+      "Book for" (listSchedulePeople) and friend picker; shootFor/bookWithFriends/giveSlot/import accept them; their shoots get
+      guest:true (no pushes/check-in). People screen section "Not on the app yet" + Add sheet; owner taps → ChangeEmailSheet when
+      they join (mergeUser drops offApp; shoots lose guest). TEAM LOG: functions/src/teamLog.ts teamLog() → team_log/{id} {action,
+      label, shootIds, date, who, by, byName, at, undo}; written by bookShoot (team for someone), cancelShoot/moveShoot (team on
+      someone's), decideBooking, swapShootsAsTeam, add/removeScheduleBlock, giveSlot, reviewCalendarImport (confirm/confirmAll/fix/
+      skip/restore), ignoreCalendarEvents, redoCalendarImport, decideShoot, reviewReport. functions/src/teamUndo.ts undoTeamAction
+      (owner/equipment/admin) runs the reverse callable AS THE CALLER (.run with their auth): unapprove (scheduling unapproveShoot),
+      rebook (bookShoot forEmail), move, swap, removeBlocks, addBlock, reopenCard (calendar reopenQueueCard), unignore. App
+      /team-log TeamLogScreen (SeeGear; chips by kind + person, Open, Undo confirm), menus (owner Help & records, admin Help &
+      records, equipment Schedule). Admin task kind moveShoots {moves:[{shootId,start,place?,date?}]} (team move as owner) for
+      Val's 6 Mondays 11 → 13 once the owner OKs. Tests tests/functions/teamLog.test.ts (5); all 46 server/rules files + 537 unit green.
+      Manuals (equipment + admin cards, version 1.1.0 chips), CHANGELOG 1.1.0, owner guide #teamlog, appGuide teamlog + users.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

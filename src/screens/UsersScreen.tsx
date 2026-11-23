@@ -13,6 +13,8 @@ import ChangeEmailSheet from '../components/ChangeEmailSheet'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser, Role } from '../types'
 import { PageHeader, HeaderAction } from '../components/PageHeader'
+import { addOffAppPerson } from '../services/teamLog'
+import { friendlyError } from '../lib/errors'
 
 const ROLE_ORDER: Role[] = ['owner', 'admin', 'arts', 'equipment', 'creator']
 
@@ -34,6 +36,8 @@ export default function UsersScreen() {
   useEffect(() => subscribeToUsers(setUsers), [])
 
   const [showInvite, setShowInvite] = useState(false)
+  const [showOffApp, setShowOffApp] = useState(false)
+  const [movingOff, setMovingOff] = useState<AppUser | null>(null)
   const [editing, setEditing] = useState<AppUser | null>(null)
   // Opened from someone's record ("Account & access"): their sheet opens straight away (owner, Nov 8).
   const [params, setParams] = useSearchParams()
@@ -51,13 +55,14 @@ export default function UsersScreen() {
     normalizeEmail(u.email) !== OWNER_EMAIL && (isOwner || u.role === 'creator')
 
   const grouped = useMemo(() => {
-    const list = users.filter(u => normalizeEmail(u.email) !== OWNER_EMAIL)
+    const list = users.filter(u => normalizeEmail(u.email) !== OWNER_EMAIL && !u.offApp)
     return ROLE_ORDER.map(role => ({
       role,
       people: list.filter(u => u.role === role)
         .sort((a, b) => Number(b.active) - Number(a.active) || a.email.localeCompare(b.email)),
     }))
   }, [users])
+  const offApp = useMemo(() => users.filter(u => u.offApp).sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')), [users])
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
@@ -94,7 +99,27 @@ export default function UsersScreen() {
             ))}
           </Section>
         ))}
+
+        {/* Owner, Nov 23 (Moe): people who film but aren't on the app yet. A name only, no access. Their Google Calendar events
+            become their shoots and the team can book for them. When they join: invite them, then "Change their email". */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-pt-muted text-xs">Not on the app yet · no access</p>
+            {(isOwner || realRole === 'admin') && <button onClick={() => setShowOffApp(true)} className="tap text-pt-accent text-[13px] font-medium">+ Add someone</button>}
+          </div>
+          <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06] overflow-hidden">
+            {offApp.length === 0 ? <p className="px-4 py-3 text-pt-muted text-sm">Nobody. Add someone who films but doesn't use the app yet, so their shoots show under their own name.</p>
+              : offApp.map(u => (
+                <Row key={u.email} email={u.email} name={u.name} subtitle="Shoots show under their name · no sign-in, no notifications"
+                  badge={<span className="text-xs bg-white/10 text-pt-muted px-2 py-0.5 rounded-full shrink-0">Not on the app</span>}
+                  onTap={isOwner ? () => setMovingOff(u) : undefined} />
+              ))}
+          </div>
+          {isOwner && offApp.length > 0 && <p className="text-pt-muted text-xs mt-2">When they join: invite them with their real email, then tap their name here → Change their email, so their shoots move to the new account.</p>}
+        </div>
       </div>
+      <OffAppSheet open={showOffApp} onClose={() => setShowOffApp(false)} />
+      {movingOff && <ChangeEmailSheet user={movingOff} onClose={() => setMovingOff(null)} onDone={() => setMovingOff(null)} />}
 
       <InviteSheet open={showInvite} onClose={() => setShowInvite(false)} isOwner={isOwner}
         onOpenExisting={e => { const u = users.find(x => normalizeEmail(x.email) === e); if (u && canManage(u)) setEditing(u) }} />
@@ -410,4 +435,28 @@ function VersionLine({ email }: { email: string }) {
   // Only when it matters: "App 1.0.0" under every person was noise.
   if (!p?.appVersion || !isBehind(p.appVersion, live)) return null
   return <p className="text-xs text-amber-400">Older app version · ask them to update</p>
+}
+
+function OffAppSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  useEffect(() => { if (open) { setName(''); setMsg(null) } }, [open])
+  async function add() {
+    setBusy(true); setMsg(null)
+    try { const r = await addOffAppPerson({ name: name.trim() }); setMsg({ ok: true, text: `${r.data.name} added. Their Google Calendar events will show under their name within 15 minutes.` }); setName('') }
+    catch (e) { setMsg({ ok: false, text: friendlyError(e) }) }
+    finally { setBusy(false) }
+  }
+  return (
+    <BottomSheet open={open} onClose={onClose} title="Someone not on the app yet">
+      <div className="space-y-3">
+        <p className="text-pt-muted text-[14px]">Just their name, the way it's written in the Google Calendar (e.g. "Moe"). They get no access: no sign-in, no notifications. The calendar puts their shoots under their name, and the team can book for them.</p>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="Their name" autoFocus
+          className="w-full min-h-[44px] rounded-xl bg-pt-raised px-3 text-pt-text text-[16px] shadow-hairline" />
+        <button disabled={busy || name.trim().length < 2} onClick={add} className="w-full min-h-[52px] rounded-full bg-pt-accent text-stone-900 font-semibold">{busy ? 'Adding…' : 'Add them'}</button>
+        {msg && <p className={`text-sm ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>}
+      </div>
+    </BottomSheet>
+  )
 }
