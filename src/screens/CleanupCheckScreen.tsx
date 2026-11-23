@@ -14,6 +14,7 @@ import BottomSheet from '../components/BottomSheet'
 import ImageLightbox from '../components/ImageLightbox'
 import { friendlyError } from '../lib/errors'
 import type { Item } from '../types'
+import { Icon } from '../components/Icon'
 
 const FILTERS: CleanupFilter[] = ['todo', 'nobin', 'names', 'nophoto', 'many', 'costumes', 'imported', 'all']
 
@@ -161,9 +162,10 @@ function Card({ item, items, binInfo, onDone, onSkip, onBack }: {
         </div>
         {/* Photo: tap to zoom, arrows for the others. */}
         <div className={`relative rounded-[20px] overflow-hidden bg-black mx-auto w-full ${photos.length ? 'h-[34vh] min-h-[200px]' : 'h-20'}`}>
-          {photos.length ? <button onClick={() => setZoom(true)} className="w-full h-full" aria-label="Zoom in on the photo">
-            <img src={photos[photo]} alt={item.name} className="w-full h-full object-contain" /><ZoomBadge className="bottom-2 right-2 !w-8 !h-8" /></button>
-            : <div className="w-full h-full grid place-items-center text-pt-muted text-[16px]">No photo</div>}
+          {/* The badge sits on the photo's own corner (a box sized to the image), not out in the black letterbox. */}
+          {photos.length ? <button onClick={() => setZoom(true)} className="w-full h-full grid place-items-center" aria-label="Zoom in on the photo">
+            <span className="relative inline-block"><img src={photos[photo]} alt={item.name} className="block w-auto h-auto max-w-full max-h-[max(34vh,200px)]" /><ZoomBadge className="bottom-2 right-2 !w-8 !h-8" /></span></button>
+            : <div className="w-full h-full flex items-center justify-center gap-2 text-pt-muted text-[16px]"><Icon name="camera" className="w-5 h-5" />No photo</div>}
           {photos.length > 1 && <>
             <button onClick={() => setPhoto(p => (p - 1 + photos.length) % photos.length)} aria-label="Previous photo" className="absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 text-white text-[24px]">‹</button>
             <button onClick={() => setPhoto(p => (p + 1) % photos.length)} aria-label="Next photo" className="absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/60 text-white text-[24px]">›</button>
@@ -215,14 +217,17 @@ function Card({ item, items, binInfo, onDone, onSkip, onBack }: {
         {err && <p className="rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
       </div>
 
-      {/* Actions stay at the bottom, right above the tab bar: one row, the gold one is the usual answer. */}
-      <div className="sticky bottom-0 z-10 bg-pt-bg px-4 pt-2 pb-3 shadow-[0_-12px_16px_-8px_rgba(0,0,0,0.9)]">
-        <div className="max-w-[560px] mx-auto flex gap-2">
-          <button disabled={busy} onClick={() => setRemoveSheet(true)} className="flex-1 rounded-2xl min-h-[56px] bg-red-500/15 text-red-200 text-[16px] font-semibold">Remove</button>
-          <button disabled={busy} onClick={() => setDoubleSheet(true)} className="flex-1 rounded-2xl min-h-[56px] bg-white/[0.08] text-pt-text text-[16px] font-semibold leading-tight">It's a double</button>
+      {/* Actions stay at the bottom, right above the tab bar. The gold one (the usual answer) gets its own full row; three in
+          one row were crammed on phones. */}
+      <div className="sticky bottom-0 z-10 bg-pt-bg px-4 pt-3 pb-3 border-t border-white/[0.06]">
+        <div className="max-w-[560px] mx-auto space-y-2">
           <button disabled={busy} onClick={async () => { if (await save(true)) onDone(dirty ? 'Saved and checked ✓' : 'Checked ✓') }}
-            className="flex-[1.6] rounded-2xl min-h-[56px] bg-pt-accent text-stone-900 text-[17px] font-bold shadow-gold disabled:opacity-40 leading-tight">
+            className="w-full rounded-2xl min-h-[52px] bg-pt-accent text-stone-900 text-[17px] font-bold shadow-gold disabled:opacity-40">
             {busy ? 'Saving…' : dirty ? 'Save ✓' : 'Looks right ✓'}</button>
+          <div className="flex gap-2">
+            <button disabled={busy} onClick={() => setRemoveSheet(true)} className="flex-1 rounded-2xl min-h-[52px] bg-red-500/15 text-red-200 text-[16px] font-semibold">Remove</button>
+            <button disabled={busy} onClick={() => setDoubleSheet(true)} className="flex-1 rounded-2xl min-h-[52px] bg-white/[0.08] text-pt-text text-[16px] font-semibold">It's a double</button>
+          </div>
         </div>
       </div>
 

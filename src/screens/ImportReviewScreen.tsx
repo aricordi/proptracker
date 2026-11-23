@@ -11,6 +11,7 @@ import BottomSheet from '../components/BottomSheet'
 import type { Bin, Category, Item } from '../types'
 import { thumbOf } from '../services/itemShape'
 import { friendlyError } from '../lib/errors'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
 const PAGE = 20
 const TABS: { key: ImportStatus; label: string }[] = [
@@ -121,17 +122,13 @@ export default function ImportReviewScreen() {
   const shown = items ?? []
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-center gap-3 py-2">
-          <button onClick={() => navigate('/import')} className="text-pt-text py-1">‹</button>
-          <h1 className="font-display text-xl text-pt-text">Review import</h1>
-        </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <PageHeader title="Review import" onBack={() => navigate('/import')}>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
           {TABS.map(t => {
             const n = job?.counts?.[t.key as keyof ImportJob['counts']] ?? 0
             return (
               <button key={t.key} onClick={() => { setTab(t.key); setMax(PAGE) }}
-                className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
+                className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${tab === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
                 {t.label} ({n})
               </button>
             )
@@ -145,13 +142,13 @@ export default function ImportReviewScreen() {
             <button onClick={() => setSelected(new Set())} aria-label="Clear selection" className="text-pt-muted px-1">✕</button>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       <div className="p-4 space-y-3">
         {job === null && <p className="text-pt-muted text-sm">Import not found.</p>}
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
         {items === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {items?.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing here.</p>}
+        {items?.length === 0 && <EmptyState icon="check" title="Nothing in this tab" line="Photos move between tabs as you approve, skip or merge them." />}
 
         {tab === 'analyzed' && shown.length > 1 && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2">

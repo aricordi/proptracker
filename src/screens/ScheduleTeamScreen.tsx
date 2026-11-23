@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import Avatar from '../components/Avatar'
+import { Icon } from '../components/Icon'
 import { Pill } from '../components/GearUi'
 import { PhotoStrip } from '../components/ProofPhotos'
 import { formatDay } from '../lib/dates'
@@ -79,13 +80,14 @@ export default function ScheduleTeamScreen() {
                 <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold truncate">{x.creatorName}</p><p className="text-pt-muted text-xs">{formatDay(x.date)} · {where(x)} · {fmtSlot(x.start, x.end - x.start)}</p></div>
                 <Pill tone="taken">No check-in</Pill></div>
               {x.explanation ? <p className="text-pt-text text-sm">“{x.explanation.text}”</p> : <p className="text-pt-muted text-xs">No explanation yet.</p>}
-              {canDecide ? <div className="flex gap-2">
-                <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'filmed' }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">They filmed</button>
+              {canDecide ? (!x.explanation && now < explainUntil(x, s) ? <div className="space-y-1.5">
+                <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'filmed' }))} className="w-full min-h-[44px] bg-pt-border text-pt-text rounded-xl text-[15px] font-semibold disabled:opacity-40">They filmed</button>
                 {/* The creator gets explainHours to explain before a no-show can be given (owner, Oct 16). */}
-                {!x.explanation && now < explainUntil(x, s)
-                  ? <p className="flex-1 bg-pt-bg rounded-xl px-2 py-2 text-pt-muted text-xs text-center">No-show possible after {stampLabel(explainUntil(x, s))}, unless they explain</p>
-                  : <button disabled={!!busy} onClick={() => { if (window.confirm(`Mark ${x.creatorName} as a no-show? It gives them a strike.`)) void run(x.id, () => decideShoot({ id: x.id, outcome: 'noshow' })) }} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>}
-              </div> : <p className="text-pt-muted text-xs">Waiting for the schedule team to decide.</p>}
+                <p className="flex items-center justify-center gap-1.5 text-pt-muted text-[13px]"><Icon name="clock" className="w-4 h-4" />No-show possible after {stampLabel(explainUntil(x, s))}, unless they explain</p>
+              </div> : <div className="flex gap-2">
+                <button disabled={!!busy} onClick={() => run(x.id, () => decideShoot({ id: x.id, outcome: 'filmed' }))} className="flex-1 min-h-[44px] bg-pt-border text-pt-text rounded-xl text-[15px] font-semibold disabled:opacity-40">They filmed</button>
+                <button disabled={!!busy} onClick={() => { if (window.confirm(`Mark ${x.creatorName} as a no-show? It gives them a strike.`)) void run(x.id, () => decideShoot({ id: x.id, outcome: 'noshow' })) }} className="flex-1 min-h-[44px] bg-red-500/80 text-white font-semibold rounded-xl text-[15px] disabled:opacity-40">No-show · strike</button>
+              </div>) : <p className="text-pt-muted text-xs">Waiting for the schedule team to decide.</p>}
             </div>
           ))}
           <h2 className="text-pt-text font-semibold pt-3">Yesterday and today</h2>

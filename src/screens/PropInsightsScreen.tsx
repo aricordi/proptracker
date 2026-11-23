@@ -2,6 +2,7 @@
 // right now, what runs out or was wanted while booked out (buy another?), what they ask for that we don't have, what could live on a grab-and-go shelf,
 // who damages or loses props, and what's never asked for. Owner, arts and admins; view only. Numbers: src/lib/propInsights.ts.
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { PageHeader } from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useItems } from '../hooks/useItems'
 import { useCategories } from '../hooks/useCategories'
@@ -46,19 +47,15 @@ export default function PropInsightsScreen() {
   const inLabel = period === 'all' ? 'so far' : `in the last ${label}`
 
   return (
-    <div className="min-h-screen bg-pt-bg pb-16">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-20 px-4 pb-3">
-        <div className="flex items-center gap-2 min-h-[52px]">
-          <button onClick={() => navigate(-1)} aria-label="Back" className="w-11 h-11 -ml-2 grid place-items-center text-pt-text text-[28px] leading-none">‹</button>
-          <h1 className="font-display text-[28px] text-pt-text flex-1 truncate">Prop insights</h1>
-        </div>
-        <div className="flex gap-1.5 overflow-x-auto no-scrollbar" role="tablist" aria-label="Period">
+    <div className={`min-h-full bg-pt-bg pb-16 ${desk ? 'px-4' : ''}`}>
+      <PageHeader title="Prop insights" noBackOnDesk>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 scroll-px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible" role="tablist" aria-label="Period">
           {PERIODS.map(p => (
             <button key={p.id} role="tab" aria-selected={period === p.id} onClick={() => setParams(p.id === '30d' ? {} : { p: p.id }, { replace: true })}
-              className={`min-h-[40px] inline-flex items-center gap-1 rounded-full px-3.5 text-[15px] shrink-0 ${period === p.id ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-white/[0.08] text-pt-text'}`}>{p.label}</button>
+              className={`shrink-0 whitespace-nowrap min-h-[40px] inline-flex items-center gap-1 rounded-full px-4 text-[15px] ${period === p.id ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{p.label}</button>
           ))}
         </div>
-      </div>
+      </PageHeader>
 
       {!data || !t ? <p className="px-4 pt-6 text-pt-muted">Loading the requests…</p> : (
         <div className="px-4 space-y-4">

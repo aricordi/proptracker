@@ -12,6 +12,7 @@ import { APP_VERSION, isBehind, liveVersion } from '../lib/version'
 import ChangeEmailSheet from '../components/ChangeEmailSheet'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser, Role } from '../types'
+import { PageHeader, HeaderAction } from '../components/PageHeader'
 
 const ROLE_ORDER: Role[] = ['owner', 'admin', 'arts', 'equipment', 'creator']
 
@@ -24,8 +25,10 @@ const ROLE_HELP: Record<Role, string> = {
   owner: 'Full control of everything, including people and settings. Only give this to a partner.',
 }
 
+// Section headings read as groups ("Creators", not "Creator").
+const SECTION_LABELS: Record<Role, string> = { owner: 'Owner', admin: 'Admins', arts: 'Arts department', equipment: 'Equipment team', creator: 'Creators' }
+
 export default function UsersScreen() {
-  const navigate = useNavigate()
   const { isOwner, profile: me, realRole, viewingAs, setViewAs } = useSession()
   const [users, setUsers] = useState<AppUser[]>([])
   useEffect(() => subscribeToUsers(setUsers), [])
@@ -58,20 +61,10 @@ export default function UsersScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-        <h1 className="font-display text-xl text-pt-text">People</h1>
-        <button onClick={() => setShowInvite(true)} className="text-pt-accent text-sm font-medium active:opacity-70 py-1 tap">
-          Invite
-        </button>
-      </div>
+      {/* A laptop sidebar destination: Back hides there. */}
+      <PageHeader title="People" noBackOnDesk action={<HeaderAction onClick={() => setShowInvite(true)}>+ Invite</HeaderAction>} />
 
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-2 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">
           Only people listed here can sign in. They sign in with Google using the exact email you invite.
           {!isOwner && !viewingAs && ' You can invite and turn off creators; ask the owner for anyone else.'}
@@ -92,8 +85,8 @@ export default function UsersScreen() {
         </Section>
 
         {grouped.slice(1).map(({ role, people }) => (
-          <Section key={role} title={role === 'creator' ? `${ROLE_LABELS[role]} · ${people.filter(u => u.active && u.access === 'full').length} on Full app, ${people.filter(u => u.active && u.access !== 'full').length} on Props only`
-            : ROLE_LABELS[role]} empty={people.length === 0 ? 'Nobody yet' : undefined}>
+          <Section key={role} title={role === 'creator' ? `${SECTION_LABELS[role]} · ${people.filter(u => u.active && u.access === 'full').length} on Full app, ${people.filter(u => u.active && u.access !== 'full').length} on Props only`
+            : SECTION_LABELS[role]} empty={people.length === 0 ? 'Nobody yet' : undefined}>
             {people.map(u => (
               <Row key={u.email} email={u.email} name={u.name} inactive={!u.active} subtitle={u.movedTo ? `Moved to ${u.movedTo}` : undefined}
                 badge={u.role === 'creator' ? <AccessPill full={u.access === 'full'} /> : undefined}
@@ -414,7 +407,7 @@ function useLive() {
 function VersionLine({ email }: { email: string }) {
   const p = useProfiles()[normalizeEmail(email)]
   const live = useLive()
-  if (!p?.appVersion) return null
-  const behind = isBehind(p.appVersion, live)
-  return <p className={`text-xs ${behind ? 'text-amber-400' : 'text-pt-muted'}`}>App {p.appVersion}{behind ? ` · older version (latest ${live})` : ''}</p>
+  // Only when it matters: "App 1.0.0" under every person was noise.
+  if (!p?.appVersion || !isBehind(p.appVersion, live)) return null
+  return <p className="text-xs text-amber-400">Older app version · ask them to update</p>
 }

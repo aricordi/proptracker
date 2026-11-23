@@ -19,9 +19,16 @@ import { formatDay } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser } from '../types'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
 // One person's record. Owner + admins (owner, Oct 20): how much they film and EVERY flag (no-shows, missed
 // check-ins, late cancels, late starts, running over, mess, late props + gear, strikes). Arts: their props history.
+// One flag per row: say it in the singular ("No-shows" under a single no-show read oddly).
+const ONE_FLAG: Partial<Record<string, string>> = {
+  'no-show': 'No-show', 'missed-checkin': 'Missed check-in', 'late-cancel': 'Late cancel', 'late-start': 'Started late',
+  'ran-over': 'Ran over', mess: 'Left a mess', 'late-props': 'Late props return', 'late-gear': 'Late gear return', strike: 'Strike',
+}
+
 export default function PersonHistoryScreen() {
   const { email = '' } = useParams()
   const navigate = useNavigate()
@@ -63,14 +70,12 @@ export default function PersonHistoryScreen() {
   const tile = 'bg-pt-surface border border-pt-border rounded-2xl p-3'
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-        <h1 className="font-display text-xl text-pt-text truncate">{user?.name || email}</h1>
-      </div>
+      <PageHeader title={<span className="break-words">{user?.name || email}</span>} sticky={false} />
 
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-1 pb-8 space-y-6">
         <div>
-          <p className="text-pt-muted text-sm break-all">{email}</p>
+          {/* The email only once the name is known: while loading the title already IS the email. */}
+          {user?.name && <p className="text-pt-muted text-sm break-all">{email}</p>}
           {user && <p className="text-pt-accent text-sm tap">{ROLE_LABELS[user.role]}{!user.active && ' · access off'}</p>}
           {/* Their account (owner, Nov 8: "I had to change to the phone view just to manage Justin's account"): role, Props only /
               Full app, change their email, turn access off: the same sheet as People & access, one tap from the record. */}
@@ -84,8 +89,8 @@ export default function PersonHistoryScreen() {
 
         {stats && (
           <section className="space-y-3">
-            <div className="flex gap-2 overflow-x-auto no-scrollbar">
-              {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+              {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
             </div>
             {paused && <div className="bg-red-500/10 border border-red-500/40 rounded-xl px-4 py-3 text-sm text-pt-text"><b className="text-red-300">Props paused until {formatDay(status!.pausedUntil!)}</b> · {status!.strikes ?? 0} strike{status!.strikes === 1 ? '' : 's'}{status!.pauseNote ? ` · "${status!.pauseNote}"` : ''}</div>}
             {canManagePeople && manage.buttons}
@@ -95,7 +100,7 @@ export default function PersonHistoryScreen() {
               <div className={tile}><p className="text-2xl text-pt-text font-semibold">{stats.booked}</p><p className="text-pt-muted text-xs">booked</p></div>
               <div className={tile}><p className="text-2xl text-pt-text font-semibold">{stats.upcoming}</p><p className="text-pt-muted text-xs">coming up</p></div>
             </div>
-            <FlagPills c={stats} max={9} />
+            <div className="mt-3"><FlagPills c={stats} max={9} /></div>
             {stats.flags.length > 0 && (
               <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
                 {stats.flags.map((f, n) => (
@@ -103,7 +108,7 @@ export default function PersonHistoryScreen() {
                     <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${SERIOUS.includes(f.kind) ? 'bg-red-400' : 'bg-amber-300'}`} />
                     <span className="flex-1 min-w-0">
                       <span className="block text-pt-text text-sm">{f.text}</span>
-                      <span className="block text-pt-muted text-xs">{FLAG_LABEL[f.kind]} · {formatDay(f.date)}{f.open ? ' · still open' : ''}{f.strikeId && f.kind !== 'strike' ? ' · came with a strike' : ''}</span>
+                      <span className="block text-pt-muted text-xs">{ONE_FLAG[f.kind] ?? FLAG_LABEL[f.kind]} · {formatDay(f.date)}{f.open ? ' · still open' : ''}{f.strikeId && f.kind !== 'strike' ? ' · came with a strike' : ''}</span>
                     </span>
                     {canManagePeople && f.strikeId ? <span role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) } }} onClick={e => { e.stopPropagation(); manage.removeStrikeAsk(f.strikeId!, f.text) }} className="shrink-0 text-pt-accent text-xs tap">Remove</span>
                       : f.to && <span className="text-pt-muted">›</span>}
@@ -157,7 +162,7 @@ export default function PersonHistoryScreen() {
 
             <div className="space-y-2">
               <p className="text-pt-muted text-xs">Bookings</p>
-              {newestFirst.length === 0 && <p className="text-pt-muted text-sm">No bookings yet.</p>}
+              {newestFirst.length === 0 && <EmptyState icon="basket" title="No prop bookings yet" line="Their props requests show up here." />}
               {newestFirst.map(r => (
                 <button key={r.id} onClick={() => navigate(`/reservations/${r.id}`)}
                   className="w-full text-left bg-pt-surface shadow-hairline rounded-xl px-3 py-2 active:opacity-75">

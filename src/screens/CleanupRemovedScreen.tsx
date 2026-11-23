@@ -6,6 +6,7 @@ import { isRemoved } from '../lib/cleanup'
 import { restoreProps } from '../services/cleanup'
 import { CleanupHeader, PropThumb, Toast } from '../components/cleanup/Parts'
 import { friendlyError } from '../lib/errors'
+import { EmptyState } from '../components/PageHeader'
 
 export default function CleanupRemovedScreen() {
   const items = useItems()
@@ -33,12 +34,14 @@ export default function CleanupRemovedScreen() {
               <PropThumb item={i} size={56} />
               <div className="flex-1 min-w-0">
                 <p className="text-pt-text text-[16px] font-semibold truncate">{i.name}</p>
-                <p className="text-pt-muted text-[14px] truncate">{i.removedNote || 'Removed'} · {(i.removedBy ?? '').split('@')[0]} · {new Date(i.removedAt!).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}</p>
+                <p className="text-pt-muted text-[14px] truncate">{i.removedNote || 'Removed'} · {(i.removedBy ?? '').split('@')[0]} · {new Date(i.removedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
               </div>
               <button disabled={busy === i.id} onClick={() => putBack(i.id, i.name)} className="shrink-0 rounded-full min-h-[44px] px-4 bg-white/[0.08] text-pt-accent text-[16px] font-semibold disabled:opacity-40">{busy === i.id ? '…' : 'Put it back'}</button>
             </li>
           ))}
-          {!shown.length && <li className="px-4 py-8 text-center text-pt-muted text-[16px]">{list.length ? 'No match.' : 'Nothing removed yet.'}</li>}
+          {!shown.length && (list.length
+            ? <li className="px-4 py-8 text-center text-pt-muted text-[16px]">No match.</li>
+            : <li><EmptyState icon="archive" title="Nothing removed yet" line="Props removed in the clean-up wait here, and you can put any of them back." /></li>)}
         </ul>
       </div>
       {toast && <Toast text={toast} onDone={() => setToast('')} />}

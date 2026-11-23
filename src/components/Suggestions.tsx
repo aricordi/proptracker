@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import BottomSheet from './BottomSheet'
+import { Icon } from './Icon'
 import ProofPhotos from './ProofPhotos'
 import {
   addSuggestion, applySuggestion, resolveSuggestion, subscribeToItemSuggestions, hasChanges,
@@ -105,8 +106,8 @@ export default function PropSuggestions({ item }: { item: Item }) {
           </p>
         </div>
       ))}
-      <button onClick={() => setOpen(true)} className="w-full py-3 rounded-xl shadow-hairline text-pt-muted text-sm active:opacity-70">
-        Something wrong? Suggest an edit
+      <button onClick={() => setOpen(true)} className="w-full min-h-[48px] px-4 rounded-2xl bg-pt-surface shadow-hairline text-pt-text text-[15px] font-medium inline-flex items-center justify-center gap-2 active:opacity-70">
+        <Icon name="pencil" className="w-[18px] h-[18px] text-pt-accent" />Something wrong? Suggest an edit
       </button>
       {open && <SuggestSheet item={item} onClose={() => setOpen(false)} />}
     </div>

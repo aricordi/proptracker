@@ -100,7 +100,9 @@ export default function ReservePanel({ item, entries }: { item: Item; entries: B
         </p>
       ) : !isStaff && !dates ? (
         <div className="space-y-2">
-          <AddingToBar kind="props" />
+          {/* The button below already asks which shoot (or offers to book one), so the Adding-to card only shows for
+              people who can't add (Nov 23: two competing actions stacked on top of each other). */}
+          {!canBook && <AddingToBar kind="props" />}
           {canBook && <button onClick={() => noShoot.open(item.name, 'props', item.id)}
             className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Add to a shoot</button>}
           {noShoot.sheet}

@@ -4,6 +4,7 @@ import { fmtTime } from '../../functions/src/gearBooking'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
+import { PageHeader } from '../components/PageHeader'
 
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -41,13 +42,9 @@ export default function ScheduleSettingsScreen() {
   }
 
   return (
-    <div className="min-h-full bg-pt-bg pb-28">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate('/schedule')} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-[34px] text-pt-text">Schedule settings</h1>
-      </div>
-      <div className="px-4 pt-4 pb-8 space-y-6">
-        <p className="text-pt-muted text-sm">These rules apply to everyone right away, and the How it works page updates to match.</p>
+    <div className="min-h-full bg-pt-bg pb-40">
+      <PageHeader title="Schedule settings" sub="These rules apply to everyone right away, and the How it works page updates to match." onBack={() => navigate('/schedule')} />
+      <div className="px-4 pt-2 pb-8 space-y-6">
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Houses</h2>
@@ -135,8 +132,10 @@ export default function ScheduleSettingsScreen() {
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Gear (first come, first served)</h2>
           {/* Owner, Nov 3: no booking gear ahead in this first version. Kept as a switch so it can come back later. */}
-          <label className="flex items-center gap-3 text-sm"><span className="flex-1 text-pt-text">Creators can reserve gear ahead</span>
-            <input type="checkbox" checked={s.gearReserve} onChange={e => set({ gearReserve: e.target.checked })} className="w-6 h-6 accent-[#C9A961]" /></label>
+          <button type="button" role="switch" aria-checked={s.gearReserve} onClick={() => set({ gearReserve: !s.gearReserve })} className="w-full flex items-center gap-3 text-left min-h-[44px]">
+            <span className="flex-1 text-pt-text text-sm">Creators can reserve gear ahead</span>
+            <span className={`shrink-0 w-12 h-7 rounded-full p-0.5 transition-colors ${s.gearReserve ? 'bg-pt-accent' : 'bg-pt-border'}`}><span className={`block w-6 h-6 rounded-full bg-white transition-transform ${s.gearReserve ? 'translate-x-5' : ''}`} /></span>
+          </button>
           {s.gearReserve ? (
             <HoursPicker value={s.gearReserveHours} min={1} max={336} onChange={v => set({ gearReserveHours: v })} label="hours before a shoot creators can reserve gear" />
           ) : <p className="text-pt-muted text-xs">Off: gear isn't booked ahead. On the shoot day (from an hour before) creators take what's free, tick every piece and take one photo.</p>}
@@ -153,10 +152,7 @@ export default function ScheduleSettingsScreen() {
           <div className="max-h-60 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
             {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
             {[...people, ...s.instantBookers.filter(p => !people.some(x => x.email === p.email)).map(p => ({ ...p, role: '' }))].map(p => (
-              <label key={p.email} className="flex items-center gap-3 px-3 py-3">
-                <input type="checkbox" checked={isInstant(p.email)} onChange={() => toggleInstant(p)} />
-                <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
-              </label>
+              <PickRow key={p.email} name={p.name} email={p.email} on={isInstant(p.email)} onToggle={() => toggleInstant(p)} />
             ))}
           </div>
         </section>
@@ -167,10 +163,7 @@ export default function ScheduleSettingsScreen() {
           <div className="max-h-60 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
             {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
             {[...people, ...(s.longBookers ?? []).filter(p => !people.some(x => x.email === p.email)).map(p => ({ ...p, role: '' }))].map(p => (
-              <label key={p.email} className="flex items-center gap-3 px-3 py-3">
-                <input type="checkbox" checked={isLong(p.email)} onChange={() => toggleLong(p)} />
-                <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
-              </label>
+              <PickRow key={p.email} name={p.name} email={p.email} on={isLong(p.email)} onToggle={() => toggleLong(p)} />
             ))}
           </div>
         </section>
@@ -191,21 +184,29 @@ export default function ScheduleSettingsScreen() {
           <div className="max-h-72 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
             {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
             {[...people, ...outsiders.map(p => ({ ...p, role: '' }))].map(p => (
-              <label key={p.email} className="flex items-center gap-3 px-3 py-3">
-                <input type="checkbox" checked={inGroup(p.email)} onChange={() => toggle(p)} />
-                <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span><span className="block text-pt-muted text-xs truncate">{p.email}</span></span>
-              </label>
+              <PickRow key={p.email} name={p.name} email={p.email} on={inGroup(p.email)} onToggle={() => toggle(p)} />
             ))}
           </div>
         </section>
       </div>
 
-      <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
-        <button disabled={busy} onClick={save} className="w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
+      {/* A solid bar, not a floating pill: the last card used to show through around the button. */}
+      <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pt-3 pb-3 z-20 bg-pt-bg border-t border-white/[0.06]">
+        <button disabled={busy} onClick={save} className="w-full min-h-[52px] bg-pt-accent text-stone-900 font-semibold rounded-2xl py-3 disabled:opacity-40 shadow-gold">
           {busy ? 'Saving…' : msg || 'Save settings'}
         </button>
       </div>
     </div>
+  )
+}
+
+// A person in a pick list: a round gold tick instead of a tiny native checkbox.
+function PickRow({ name, email, on, onToggle }: { name: string; email: string; on: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" role="checkbox" aria-checked={on} onClick={onToggle} className="w-full flex items-center gap-3 px-3 min-h-[56px] py-2 text-left">
+      <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px] truncate">{name}</span><span className="block text-pt-muted text-xs truncate">{email}</span></span>
+      <span aria-hidden className={`shrink-0 w-7 h-7 rounded-full grid place-items-center text-[15px] font-bold ${on ? 'bg-pt-accent text-stone-900' : 'shadow-[inset_0_0_0_2px_rgba(255,255,255,0.18)]'}`}>{on ? '✓' : ''}</span>
+    </button>
   )
 }
 

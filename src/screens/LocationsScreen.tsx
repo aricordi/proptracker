@@ -1,14 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useLocations } from '../hooks/useLocations'
 import { addLocation, updateLocation, deleteLocation, canDeleteLocation } from '../services/locations'
 import BottomSheet from '../components/BottomSheet'
 import type { Location } from '../types'
+import { PageHeader, HeaderAction, EmptyState } from '../components/PageHeader'
 
 type SheetMode = { mode: 'add' } | { mode: 'edit'; loc: Location }
 
 export default function LocationsScreen() {
-  const navigate  = useNavigate()
   const locations = useLocations()
 
   const [sheet, setSheet] = useState<SheetMode | null>(null)
@@ -85,30 +84,11 @@ export default function LocationsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3 flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-2"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-        <h1 className="font-display text-[34px] text-pt-text py-2">Locations</h1>
-        <button
-          onClick={openAdd}
-          className="bg-pt-accent text-stone-900 px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80"
-        >
-          + Add
-        </button>
-      </div>
-      <div className="p-4">
+      <PageHeader title="Rooms" sub="The storage areas that hold your bins" action={<HeaderAction onClick={openAdd}>+ Add</HeaderAction>} />
+      <div className="px-4 pb-4">
 
       {locations.length === 0 ? (
-        <p className="text-pt-muted text-sm text-center mt-16 leading-relaxed">
-          No locations yet.<br />Add places like "Shed", "Office", or "Camera Bag".
-        </p>
+        <EmptyState icon="home" title="No rooms yet" line={'Add places like "Prop room", "Wardrobe" or "Deep storage".'} action="+ Add a room" onAction={openAdd} />
       ) : (
         <div className="space-y-2">
           {locations.map(loc => (

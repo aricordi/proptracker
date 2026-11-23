@@ -12,7 +12,7 @@ import PracticeBar, { IS_PRACTICE } from './components/PracticeBar'
 import { subscribeToUser, normalizeEmail } from './services/users'
 import { ensureDefaultCategories } from './services/categories'
 
-import ShellLayout from './components/ShellLayout'
+import ShellLayout, { DetailLayout } from './components/ShellLayout'
 import LoginScreen from './screens/LoginScreen'
 import NotAuthorizedScreen from './screens/NotAuthorizedScreen'
 const HomeScreen = lazy(() => import('./screens/HomeScreen'))
@@ -291,6 +291,16 @@ function StaffOnly({ children }: { children: ReactNode }) {
   const { isStaff } = useSession()
   return isStaff ? <>{children}</> : <Navigate to="/" replace />
 }
+// The team guide is staff content (owner, arts, equipment, admins); creators get Help instead.
+function TeamStaff({ children }: { children: ReactNode }) {
+  const { role, realRole } = useSession()
+  return realRole === 'owner' || ['arts', 'equipment', 'admin'].includes(role) ? <>{children}</> : <Navigate to="/help" replace />
+}
+// Creators' own requests live on My requests (/requests); the old "My bookings" list is the props queue for the team.
+function NotCreator({ children, to }: { children: ReactNode; to: string }) {
+  const { role, realRole } = useSession()
+  return role === 'creator' && realRole !== 'owner' ? <Navigate to={to} replace /> : <>{children}</>
+}
 // The Admin menu: the arts department and the equipment team each get their own list.
 function TeamOnly({ children }: { children: ReactNode }) {
   const { canSeeStaff, canSeeGear } = useSession()
@@ -416,7 +426,9 @@ export default function App() {
       {session.demo ? (
       // TEST LAUNCH (owner, Oct 27): demo mode = the props list only (search, prop pages, Me, Help). Everything else → Browse.
       <Routes>
-        <Route path="/item/:id" element={<ItemDetailScreen />} />
+        <Route element={<DetailLayout />}>
+          <Route path="/item/:id" element={<ItemDetailScreen />} />
+        </Route>
         <Route element={<ShellLayout />}>
           <Route path="/browse" element={<HomeScreen />} />
           <Route path="/account" element={<AccountScreen />} />
@@ -428,20 +440,23 @@ export default function App() {
       ) : (
       <Routes>
         {/* Full-screen routes outside the shell */}
-        <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
-        <Route path="/item/:id" element={<NotGearTeam><ItemDetailScreen /></NotGearTeam>} />
-        <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
-        <Route path="/reserve" element={<Bookers><ReserveScreen /></Bookers>} />
-        <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
         <Route path="/tour" element={<TourReplay />} />
-        <Route path="/team-guide" element={<TeamGuideScreen />} />
         <Route path="/tour/gear" element={<GearTourReplay />} />
         <Route path="/tour/admin" element={<AdminTourReplay />} />
-        <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
-        <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
-        <Route path="/gear/take" element={<GearBookers><TakeGearScreen /></GearBookers>} />
         <Route path="/gear/review" element={<Navigate to="/reserve" replace />} />
-        <Route path="/gear/bookings/:id" element={<GearBookingScreen />} />
+        {/* Detail pages: no tab bar on phones, the sidebar on the laptop */}
+        <Route element={<DetailLayout />}>
+          <Route path="/bin/:qrSlug" element={<StaffOnly><BinQrScreen /></StaffOnly>} />
+          <Route path="/item/:id" element={<NotGearTeam><ItemDetailScreen /></NotGearTeam>} />
+          <Route path="/item/:id/edit" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
+          <Route path="/reserve" element={<Bookers><ReserveScreen /></Bookers>} />
+          <Route path="/reservations/:id" element={<ReservationDetailScreen />} />
+          <Route path="/team-guide" element={<TeamStaff><TeamGuideScreen /></TeamStaff>} />
+          <Route path="/gear/bundles/:id" element={<GearOnly><GearBundleEditScreen /></GearOnly>} />
+          <Route path="/gear/b/:id" element={<GearBookers><GearOfferScreen /></GearBookers>} />
+          <Route path="/gear/take" element={<GearBookers><TakeGearScreen /></GearBookers>} />
+          <Route path="/gear/bookings/:id" element={<GearBookingScreen />} />
+        </Route>
 
         <Route element={<ShellLayout />}>
           <Route path="/" element={<Home />} />
@@ -463,7 +478,7 @@ export default function App() {
           <Route path="/schedule/calendar" element={<CalendarTeamOnly><CalendarSyncScreen /></CalendarTeamOnly>} />
           <Route path="/schedule/team" element={<SeeGear><ScheduleTeamScreen /></SeeGear>} />
           <Route path="/approvals" element={<SeeGear><ApprovalsScreen /></SeeGear>} />
-          <Route path="/reservations" element={<ReservationsScreen />} />
+          <Route path="/reservations" element={<NotCreator to="/requests"><ReservationsScreen /></NotCreator>} />
           <Route path="/booking-rules" element={<PeopleOnly><BookingRulesScreen /></PeopleOnly>} />
           <Route path="/add" element={<StaffOnly><AddItemScreen /></StaffOnly>} />
           <Route path="/bins" element={<StaffOnly><BinsScreen /></StaffOnly>} />

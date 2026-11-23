@@ -1,10 +1,10 @@
 // Shared bits for the gear screens: the day + hours picker, bundle artwork,
 // the day timeline and status pills. Same look everywhere gear appears.
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useSession } from '../auth'
 import { useGearCart } from '../gearCart'
 import { useBookingSettings } from '../hooks/useBookings'
-import { todayInStudio, isOpen } from '../../functions/src/booking'
+import { todayInStudio, isOpen, addDays } from '../../functions/src/booking'
 import {
   checkGearTimes, earliestGearDay, holdWindow, fmtTime, fmtHours, GEAR_DAY_START, GEAR_DAY_END, GEAR_STEP,
   GEAR_TIME_MESSAGES, type GearHold, type GearCategory,
@@ -57,12 +57,21 @@ export function GearShootHours() {
 export function GearWhenPicker({ hoursOnly = false }: { hoursOnly?: boolean } = {}) {
   const cart = useGearCart()
   const w = useGearWhen()
-  const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-2.5 py-2 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
+  // Never open on "That time has already passed.": a start already gone today moves to the next half hour (or to
+  // tomorrow when today's hours are over), keeping the same length.
+  useEffect(() => {
+    if (hoursOnly || w.problem !== 'in-past' || w.date !== todayInStudio()) return
+    const next = Math.ceil((nowMinutes() + 1) / GEAR_STEP) * GEAR_STEP
+    const len = Math.max(GEAR_STEP, cart.end - cart.start)
+    if (next + GEAR_STEP > GEAR_DAY_END) cart.setWhen(addDays(w.date, 1), cart.start, cart.end)
+    else cart.setWhen(w.date, Math.max(next, GEAR_DAY_START), Math.min(GEAR_DAY_END, Math.max(next, GEAR_DAY_START) + len))
+  }, [w.problem, w.date])   // eslint-disable-line react-hooks/exhaustive-deps
+  const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
   return (
     <div className="bg-pt-surface rounded-2xl p-3 space-y-2">
-      <div className={`grid gap-2 ${hoursOnly ? 'grid-cols-2' : 'grid-cols-[1.35fr_1fr_1fr]'}`}>
-        {!hoursOnly && <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">Shoot day</span>
-          <input type="date" value={w.date} min={w.earliest} onChange={e => e.target.value && cart.setWhen(e.target.value, cart.start, cart.end)} className={field} /></label>}
+      {!hoursOnly && <label className="block space-y-1"><span className="block text-pt-muted text-xs">Shoot day</span>
+        <input type="date" value={w.date} min={w.earliest} onChange={e => e.target.value && cart.setWhen(e.target.value, cart.start, cart.end)} className={field} /></label>}
+      <div className="grid gap-2 grid-cols-2">
         <label className="space-y-1 min-w-0"><span className="block text-pt-muted text-xs">{hoursOnly ? 'Gear from' : 'From'}</span>
           <select value={cart.start} onChange={e => { const s = Number(e.target.value); cart.setWhen(w.date, s, Math.max(cart.end, s + GEAR_STEP)) }} className={field}>
             {TIMES.slice(0, -1).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
@@ -72,7 +81,7 @@ export function GearWhenPicker({ hoursOnly = false }: { hoursOnly?: boolean } = 
             {TIMES.filter(t => t > cart.start).map(t => <option key={t} value={t}>{t === GEAR_DAY_END ? 'Midnight' : fmtTime(t)}</option>)}
           </select></label>
       </div>
-      {!hoursOnly && w.message && <p className="text-red-300 text-sm">{w.message}</p>}
+      {!hoursOnly && w.message && (w.problem !== 'in-past' || w.date !== todayInStudio()) && <p className="text-red-300 text-sm">{w.message}</p>}
       {!hoursOnly && !w.message && w.closed && (
         <p className="text-amber-200 text-sm">We're closed that day, so you pick the gear up {formatDay(w.win.pickup)} at {fmtTime(w.start)} and bring it back {formatDay(w.win.to.slice(0, 10))} by 10 AM.</p>
       )}
@@ -93,11 +102,12 @@ const ART: Record<string, string> = {
 }
 
 // A bundle's photo, or a calm placeholder with its type's icon.
-export function GearArt({ photo, category, className = '' }: { photo?: string | null; category?: GearCategory | string; className?: string }) {
+// `tile`: a small list icon (no photo) on a grey surface row: a visible gold-tinted tile with a bigger icon, like the kits.
+export function GearArt({ photo, category, className = '', tile }: { photo?: string | null; category?: GearCategory | string; className?: string; tile?: boolean }) {
   if (photo) return <img src={photo} alt="" className={`object-cover ${className}`} />
   return (
-    <div className={`flex items-center justify-center bg-gradient-to-br from-[#2a2a2d] to-[#141416] text-pt-accent/80 ${className}`}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" className="w-1/3 h-1/3">
+    <div className={`flex items-center justify-center ${tile ? 'bg-pt-accent/15 text-pt-accent' : 'bg-gradient-to-br from-[#2a2a2d] to-[#141416] text-pt-accent/80'} ${className}`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={tile ? 1.8 : 1.4} strokeLinecap="round" strokeLinejoin="round" className={tile ? 'w-1/2 h-1/2' : 'w-1/3 h-1/3'}>
         <path d={ART[category ?? 'Other'] ?? ART.Other} />
       </svg>
     </div>

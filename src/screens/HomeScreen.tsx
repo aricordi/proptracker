@@ -307,14 +307,14 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
     if (box && top) box.scrollTop = top
   }, [allItems.length, navType])
 
-  const chip = (on: boolean) => `shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`
+  const chip = (on: boolean) => `shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`
   return (
     <div ref={rootRef} className="min-h-full bg-pt-bg">
       {/* Title and tabs scroll away with the page (owner, Oct 20: the old fold-away header was choppy). */}
       <div className="pt-safe px-4">
         {personal && <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>}
         {personal ? <h1 className="font-display text-[30px] leading-tight text-pt-text">My personal props</h1> : <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5">
-          <BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{toRequest ? 'Add to your request' : shootFlow ? 'Browse' : 'Props'}</span>
+          <BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{toRequest ? 'Add to your request' : 'Props'}</span>
           {shootFlow && !toRequest && <><AiButton mode="props" /><MyRequestsButton /></>}
           {demo && <AiButton mode="props" />}
         </h1>}
@@ -339,10 +339,10 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
             ref={searchRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search props, costumes, set dressing…"
+            placeholder="Search props and costumes"
             enterKeyHint="search"
             aria-label="Search props"
-            className={`w-full bg-pt-surface border border-pt-border rounded-xl pl-10 ${personal ? 'pr-10' : 'pr-[84px]'} py-2.5 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base`}
+            className={`w-full bg-pt-surface border border-pt-border rounded-xl pl-10 ${personal ? 'pr-10' : query ? 'pr-[92px]' : 'pr-12'} py-2.5 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent text-base`}
           />
           {query && (
             <button onClick={() => setQuery('')} aria-label="Clear search" className={`absolute ${personal ? 'right-1' : 'right-11'} top-1/2 -translate-y-1/2 w-10 h-10 text-pt-muted text-xl leading-none`}>×</button>
@@ -357,7 +357,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
               onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; onPhoto(f) }} />
           </>}
         </div>
-        <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+        <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar -mx-4 px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible">
           {shootFlow && !toRequest && <AddingToChip kind="props" />}
           {isStaff && !active.shoot && !toRequest && (
             <button onClick={() => setShowDates(v => !v)} className={chip(!!dates)}>
@@ -381,7 +381,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
       </div>
 
       <div className="px-4 pb-4 pt-1">
-        <p className="text-xs mb-3 flex items-center gap-2">
+        <p className="text-xs mb-3 flex items-center gap-1">
           <span className="text-pt-muted shrink-0 whitespace-nowrap">{!itemsStatus.complete ? (stillLoading ? 'Loading the closet…' : 'Loading the rest of the closet…') : `${matched.length} prop${matched.length !== 1 ? 's' : ''}`}</span>
           {toRequest && reqDay && <span className="text-pt-muted">· free on {formatDay(reqDay)}</span>}
           {shootFlow && !toRequest && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {note.text}</span>}
@@ -407,7 +407,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
             {'description' in photo && photo.description && !photoMatches.length && (
               <button onClick={() => { setQuery(photo.description.replace(/^(an?|the)\s+/i, '')); clearPhoto() }} className="text-pt-accent text-sm font-medium tap">Search for “{photo.description.replace(/^(an?|the)\s+/i, '')}” instead</button>
             )}
-            {photoMatches.length > 0 && <div className="grid grid-cols-2 gap-3">{photoMatches.map(card)}</div>}
+            {photoMatches.length > 0 && <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-3">{photoMatches.map(card)}</div>}
             <div className="h-px bg-white/[0.06] mt-5" />
           </section>
         )}
@@ -419,7 +419,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
         )}
 
         {stillLoading && (
-          <div className="grid grid-cols-2 gap-3" aria-hidden data-testid="props-loading">
+          <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-3" aria-hidden data-testid="props-loading">
             {Array.from({ length: 6 }, (_, i) => <div key={i} className="rounded-[20px] bg-pt-surface shadow-card overflow-hidden"><div className="aspect-square bg-pt-border/60 animate-pulse" /><div className="h-12" /></div>)}
           </div>
         )}
@@ -441,7 +441,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-3">
           {matched.slice(0, shown).map(card)}
         </div>
         {hasMore && <div ref={moreRef} className="h-10" aria-hidden />}
@@ -453,7 +453,7 @@ export default function HomeScreen({ personal = false }: { personal?: boolean })
               <span className="text-pt-muted text-xs whitespace-nowrap">Similar, might work too</span>
               <div className="flex-1 h-px bg-pt-border" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-3">
               {similar.map(card)}
             </div>
           </>

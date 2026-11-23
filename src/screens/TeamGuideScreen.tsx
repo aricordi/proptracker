@@ -2,7 +2,7 @@
 // with the live numbers from the settings. New team members see it once (instead of a practice tour); it stays in the
 // team menu ("Team guide"). When a team rule or screen changes, change it here too.
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { PageHeader } from '../components/PageHeader'
 import { useSession } from '../auth'
 import { useScheduleSettings } from '../services/schedule'
 import { useBookingSettings } from '../hooks/useBookings'
@@ -13,7 +13,6 @@ type Who = 'equipment' | 'admin' | 'arts'
 const NAMES: Record<Who, string> = { equipment: 'Equipment team', admin: 'Admins', arts: 'Arts department' }
 
 export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
-  const navigate = useNavigate()
   const { realRole } = useSession()
   const s = useScheduleSettings()
   const b = useBookingSettings()
@@ -61,15 +60,12 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
 
   return (
     <div className="min-h-full bg-pt-bg pb-32">
-      <div className="pt-safe px-4 pb-3">
-        {!onDone && <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] min-h-[44px]">‹ Back</button>}
-        <h1 className="font-display text-[30px] leading-tight text-pt-text">Team guide</h1>
-        <p className="text-pt-muted text-sm">Everything you need, on one page. About 2 minutes.</p>
+      <PageHeader title="Team guide" back={!onDone} sub="Everything you need, on one page. About 2 minutes.">
         {realRole === 'owner' && (
-          <div className="flex gap-2 mt-3">{(Object.keys(NAMES) as Who[]).map(w => (
-            <button key={w} onClick={() => setWho(w)} className={`px-3 min-h-[36px] rounded-full text-[13px] ${who === w ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{NAMES[w]}</button>))}</div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">{(Object.keys(NAMES) as Who[]).map(w => (
+            <button key={w} onClick={() => setWho(w)} className={`shrink-0 whitespace-nowrap min-h-[40px] inline-flex items-center gap-1 rounded-full px-4 text-[14px] ${who === w ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{NAMES[w]}</button>))}</div>
         )}
-      </div>
+      </PageHeader>
       <div className="px-4 space-y-5">
         {pages[who]}
         <p className="text-pt-muted text-[13px]">Stuck? Tap <b className="text-pt-text">✦ AI</b> and ask "how do I…". {who === 'admin' ? 'Every rule is on the Settings sheet.' : who === 'equipment' ? 'Every rule is in Help (the ? on the Schedule) → All the house rules.' : 'Every rule is in Help.'}</p>

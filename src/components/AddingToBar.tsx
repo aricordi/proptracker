@@ -35,12 +35,12 @@ export function useAddingNote(kind: 'props' | 'gear'): { text: string; late: boo
   // Gear is first come, first served on the shoot day (owner, Nov 3); no booking ahead.
   if (kind === 'gear') {
     const g = gw(shoot)
-    if (g.state === 'early') return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
+    if (g.state === 'early') return { text: "Take what's free on your shoot day, from an hour before", late: false, early: true, opens: g.opens }
     if (g.state === 'take') return { text: 'Your shoot is on: take what you need now', late: false, take: true }
     // Only when the owner turns on "Creators can reserve gear ahead" in Schedule settings.
     if (g.state === 'reserve') return { text: 'Reserve gear for your shoot', late: false }
     if (g.state === 'over') return { text: 'This shoot is over', late: true }
-    return { text: "Take what's free on your shoot day, from an hour before", late: true, early: true, opens: g.opens }
+    return { text: "Take what's free on your shoot day, from an hour before", late: false, early: true, opens: g.opens }
   }
   const by = cutoffs(shoot)[kind], late = nowStamp() > by
   return { text: late ? `Too late to add ${kind} to this shoot (cutoff was ${formatDay(by)})` : `Add ${kind} by ${formatDay(by)}`, late }
@@ -71,12 +71,24 @@ function ShootPicker({ open, onClose }: { open: boolean; onClose: () => void }) 
 }
 
 export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot' }) {
-  const { shoot } = useActiveShoot()
+  const navigate = useNavigate()
+  const { shoot, upcoming } = useActiveShoot()
   const label = useShootLabel(), cutoffs = useCutoffs()
   const [open, setOpen] = useState(false)
   const c = shoot ? cutoffs(shoot) : null
   const by = c && kind !== 'shoot' ? c[kind] : null
   const late = !!by && nowStamp() > by
+  // Brand-new creators (nothing booked yet): don't ask them to "pick one of your shoots" they don't have.
+  if (!shoot && upcoming.length === 0) return (
+    <button onClick={() => navigate('/schedule')} className="w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm bg-pt-surface shadow-hairline">
+      <span className="w-9 h-9 rounded-xl bg-pt-accent/15 text-pt-accent grid place-items-center shrink-0"><Icon name="calendar" className="w-5 h-5" /></span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-pt-text text-[15px] font-semibold">No shoot yet</span>
+        <span className="block text-pt-muted text-xs">Book a time first, then add {kind === 'gear' ? 'gear' : 'props'} to it.</span>
+      </span>
+      <span className="text-pt-accent text-sm font-semibold shrink-0">Book a shoot ›</span>
+    </button>
+  )
   return (
     <>
       <button onClick={() => setOpen(true)} className={`w-full min-h-[52px] flex items-center gap-3 py-3 px-4 rounded-2xl text-left text-sm ${shoot ? 'bg-pt-accent/10 shadow-[inset_0_0_0_0.5px_rgba(201,169,97,0.45)]' : 'bg-pt-surface shadow-hairline'}`}>
@@ -84,11 +96,12 @@ export default function AddingToBar({ kind }: { kind: 'props' | 'gear' | 'shoot'
           {shoot ? <>
             <span className="block text-pt-text/70 text-xs">Adding to</span>
             <span className="block text-pt-text truncate">{label(shoot)}</span>
-            <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-text/70'}`}>
-              {kind === 'shoot' ? [['Props', c!.props], ['new props', c!.builds]]
-                  .map(([what, d]) => nowStamp() > d ? `${what === 'Props' ? 'Too late' : 'too late'} for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`).join(' · ')
-                : late ? `Too late to add ${kind} (cutoff was ${formatDay(by!)})` : `Add ${kind} by ${formatDay(by!)}`}
-            </span>
+            {kind === 'shoot'
+              ? ([['Props', c!.props], ['New props', c!.builds]] as const).map(([what, d]) => {
+                  const over = nowStamp() > d
+                  return <span key={what} className={`block text-xs ${over ? 'text-red-300' : 'text-pt-text/70'}`}>{over ? `Too late for ${what.toLowerCase()}` : `${what} by ${formatDay(d)}`}</span>
+                })
+              : <span className={`block text-xs ${late ? 'text-red-300' : 'text-pt-text/70'}`}>{late ? `Too late to add ${kind} (cutoff was ${formatDay(by!)})` : `Add ${kind} by ${formatDay(by!)}`}</span>}
           </> : <>
             <span className="block text-pt-text">Just browsing</span>
             <span className="block text-pt-muted text-xs">Pick one of your shoots to see what's free and add {kind === 'shoot' ? 'props' : kind}.</span>

@@ -2,10 +2,10 @@
 // right away. This screen lists what the app has put there (each can be taken back out) and anything Google refused
 // (retry or drop). Old imported events never appear here: the app can't touch them.
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import { errorText } from '../services/schedule'
+import { PageHeader } from '../components/PageHeader'
 
 interface PendingRow { eventId: string; label: string; error?: string; at: string }
 interface SentRow { eventId: string; label: string; at: string }
@@ -14,7 +14,6 @@ const applyCall = httpsCallable<{ ids: string[]; action: 'send' | 'discard' | 'r
 
 
 export default function CalendarSyncScreen() {
-  const navigate = useNavigate()
   const [data, setData] = useState<{ pending: PendingRow[]; sent: SentRow[] } | null>(null)
   const [sel, setSel] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
@@ -37,11 +36,8 @@ export default function CalendarSyncScreen() {
   const all = data?.pending ?? []
 
   return (
-    <div className="min-h-full bg-pt-bg pb-32">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-[34px] text-pt-text">Google Calendar</h1>
-      </div>
+    <div className="min-h-full bg-pt-bg pb-40">
+      <PageHeader title="Google Calendar" />
       <div className="px-4 space-y-6">
         <p className="text-pt-muted text-sm">Bookings, moves, cancels and blocked time made in the app go to the shared calendar right away. The app never moves anything by itself, and old events you imported are never changed.</p>
         {msg && <p className="text-pt-accent text-sm">{msg}</p>}
@@ -77,7 +73,8 @@ export default function CalendarSyncScreen() {
       </div>
 
       {sel.length > 0 && (
-        <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20 flex gap-2">
+        // A solid bar, not floating buttons: the list used to show through around them.
+        <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pt-3 pb-3 z-20 flex gap-2 bg-pt-bg border-t border-white/[0.06]">
           <button disabled={busy} onClick={() => run('discard', sel)} className="flex-1 bg-pt-raised text-pt-text font-semibold rounded-2xl py-4 shadow-hairline disabled:opacity-40">Drop</button>
           <button disabled={busy} onClick={() => run('send', sel)} className="flex-[2] bg-pt-accent text-stone-900 font-semibold rounded-2xl py-4 shadow-gold disabled:opacity-40">{busy ? 'Sending…' : `Try ${sel.length} again`}</button>
         </div>

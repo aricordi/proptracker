@@ -11,13 +11,14 @@ import ImageLightbox from '../ImageLightbox'
 export function CleanupHeader({ title, sub, right, back = '/cleanup' }: { title: string; sub?: ReactNode; right?: ReactNode; back?: string | -1 }) {
   const navigate = useNavigate()
   return (
+    // Compact cousin of PageHeader: the same gold "‹ Back", a 26px title, and the subtitle lined up under the title.
     <div className="sticky top-0 bg-pt-bg pt-safe z-20 px-4 pb-2">
-      <div className="flex items-center gap-2 min-h-[52px]">
-        <button onClick={() => back === -1 ? navigate(-1) : navigate(back)} aria-label="Back" className="w-11 h-11 -ml-2 grid place-items-center text-pt-text text-[28px] leading-none">‹</button>
-        <h1 className="font-display text-[24px] text-pt-text flex-1 truncate">{title}</h1>
+      <button onClick={() => back === -1 ? navigate(-1) : navigate(back)} className="text-pt-accent text-[17px] min-h-[44px] pr-3 -ml-0.5 inline-flex items-center gap-1"><span aria-hidden className="text-[22px] leading-none -mt-0.5">‹</span>Back</button>
+      <div className="flex items-center gap-2">
+        <h1 className="font-display text-[26px] leading-tight text-pt-text flex-1 min-w-0 truncate">{title}</h1>
         {right}
       </div>
-      {sub && <div className="pb-1">{sub}</div>}
+      {sub && <div className="pt-1">{sub}</div>}
     </div>
   )
 }

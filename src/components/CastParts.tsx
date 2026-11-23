@@ -247,17 +247,18 @@ export function VideosStrip({ rows, max = 3 }: { rows: CastRow[]; max?: number }
 }
 
 /** Me / More: one row to the videos you're in, with how many wait for an answer. */
-export function VideosMeRow({ rows }: { rows: CastRow[] | null }) {
+export function VideosMeRow({ rows, bare }: { rows: CastRow[] | null; bare?: boolean }) {
   const live = (rows ?? []).filter(r => isUpcoming(r))
   const waiting = live.filter(r => r.status === 'pending').length
   const yes = live.filter(r => r.status === 'accepted')
-  const sub = waiting ? `${waiting} waiting for your answer` : yes.length ? `Next: ${firstName(yes[0].hostName)}'s, ${day(yes[0].date)} at ${fmtTime(yes[0].start)}` : 'When someone invites you into their video'
+  const sub = rows === null ? 'Checking…' : waiting ? `${waiting} waiting for your answer` : yes.length ? `Next: ${firstName(yes[0].hostName)}'s, ${day(yes[0].date)} at ${fmtTime(yes[0].start)}` : 'When someone invites you into their video'
+  // iOS-settings row (More, Nov 23): 36px icon tile · 16px title · muted line · chevron. `bare` = inside a grouped list.
   return (
-    <Link to="/videos" className="w-full flex items-center gap-3 px-4 py-3 text-left bg-pt-surface shadow-hairline rounded-2xl" data-testid="videos-me-row">
-      <Icon name="video" className="w-5 h-5 text-sky-300 shrink-0" />
-      <span className="flex-1 min-w-0"><span className="block text-pt-text">Videos you're in</span><span className={`block text-xs ${waiting ? 'text-amber-200' : 'text-pt-muted'}`}>{sub}</span></span>
+    <Link to="/videos" className={`w-full flex items-center gap-3 px-4 py-3 min-h-[60px] text-left ${bare ? '' : 'bg-pt-surface shadow-hairline rounded-2xl'}`} data-testid="videos-me-row">
+      <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-sky-400/15 text-sky-300"><Icon name="video" className="w-5 h-5" /></span>
+      <span className="flex-1 min-w-0"><span className="block text-pt-text text-[16px] font-semibold">Videos you're in</span><span className={`block text-[14px] ${waiting ? 'text-amber-200' : 'text-pt-muted'}`}>{sub}</span></span>
       {waiting > 0 && <span className="min-w-6 h-6 px-1.5 rounded-full bg-amber-400 text-stone-900 text-xs font-bold grid place-items-center">{waiting}</span>}
-      <span className="text-pt-muted">›</span>
+      <span className="text-pt-muted" aria-hidden>›</span>
     </Link>
   )
 }

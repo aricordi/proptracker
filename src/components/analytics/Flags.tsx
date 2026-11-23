@@ -28,6 +28,10 @@ export type FlagFilter = 'todo' | 'handled' | 'excused' | 'all'
 
 export const STATE_STYLE: Record<FlagState, string> = {
   decide: 'bg-amber-500/15 text-amber-200', todo: 'bg-pt-accent/15 text-pt-accent', handled: 'bg-green-500/15 text-green-300', excused: 'bg-pt-border text-pt-muted' }
+// The list rows show where a flag stands as a coloured dot + word (a long pill used to squeeze the title).
+const DOT: Record<FlagState, string> = { decide: 'bg-amber-300', todo: 'bg-pt-accent', handled: 'bg-green-400', excused: 'bg-pt-muted' }
+const DOT_TEXT: Record<FlagState, string> = { decide: 'text-amber-200', todo: 'text-pt-accent', handled: 'text-green-300', excused: 'text-pt-muted' }
+const sameWords = (a: string, b: string) => { const x = a.trim().toLowerCase(), y = b.trim().toLowerCase(); return x === y || y.startsWith(x) }
 const mins = (stamp: string) => Number(stamp.slice(11, 13)) * 60 + Number(stamp.slice(14, 16))
 const hoursOf = (x: { from: string; to: string }) => fmtHours(mins(x.from), mins(x.to))
 const when = (iso: string) => new Date(iso).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })
@@ -52,7 +56,7 @@ export function FlagFilters({ xs, f, onF, tourId, serious }: { xs: { s: FlagStat
   const n = countStates(xs)
   const chips: [FlagFilter, string, number][] = [['todo', 'To do', n.todo], ['handled', 'Handled', n.handled], ['excused', 'Excused', n.excused], ['all', 'All', n.all]]
   return (
-    <div data-tour={tourId} className="flex gap-2 overflow-x-auto no-scrollbar">
+    <div data-tour={tourId} className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible">
       {chips.map(([v, l, k]) => <button key={v} onClick={() => onF(v)} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm whitespace-nowrap ${f === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l} · {k}</button>)}
       {serious && <button onClick={serious.toggle} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm whitespace-nowrap ${serious.on ? 'bg-red-500/20 text-red-300 font-medium' : 'bg-pt-surface text-pt-muted'}`}>Serious only{serious.on ? ' ×' : ''}</button>}
     </div>
@@ -73,12 +77,13 @@ export function FlagList({ xs, f, ctx, showWho, limit, tourId }: { xs: { i: Inci
           {showWho && <Avatar email={i.email} name={i.name} size={32} />}
           <span className="flex-1 min-w-0">
             <span className="block text-pt-text text-[15px] truncate">{showWho ? `${i.name} · ` : ''}{KIND[i.kind].label}</span>
-            <span className="block text-pt-muted text-xs truncate">{formatDay(i.date)} · {i.late ? `${lateFor(i.late.minutes)} late${i.kind === 'late-gear' && i.late.value ? ` · ${fmtMoney(i.late.value)}` : ''} · ` : ''}{i.text}</span>
+            <span className="block text-pt-muted text-xs truncate">{[formatDay(i.date), i.late && `${lateFor(i.late.minutes)} late${i.kind === 'late-gear' && i.late.value ? ` · ${fmtMoney(i.late.value)}` : ''}`, !sameWords(i.text, KIND[i.kind].label) && i.text].filter(Boolean).join(' · ')}</span>
+            <span className="mt-1 flex items-center gap-3 text-xs">
+              <span className={`inline-flex items-center gap-1.5 ${DOT_TEXT[s]}`}><i aria-hidden className={`w-2 h-2 rounded-full ${DOT[s]}`} />{STATE_LABEL[s]}</span>
+              {stillOut(i) && <span className="inline-flex items-center gap-1.5 text-red-300"><i aria-hidden className="w-2 h-2 rounded-full bg-red-400" />Still out</span>}
+            </span>
           </span>
-          <span className="flex flex-col items-end gap-1 shrink-0">
-            <span className={`text-xs rounded-full px-2 py-1 ${STATE_STYLE[s]}`}>{STATE_LABEL[s]}</span>
-            {stillOut(i) && <span className="text-xs rounded-full px-2 py-0.5 bg-red-500/15 text-red-300">Still out</span>}
-          </span>
+          <span aria-hidden className="text-pt-muted shrink-0">›</span>
         </button>
       ))}
     </div>

@@ -125,15 +125,11 @@ export default function ItemDetailScreen() {
     <div ref={topRef} className="min-h-screen bg-pt-bg pb-10">
       {toast && <Toast text={toast.text} onUndo={toast.undo} onDone={() => setToast(null)} />}
       {/* Header */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
-          </svg>
-          Back
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-1 flex items-center justify-between">
+        {/* Same Back as every inner page (PageHeader): gold "‹ Back", 44px tap area. */}
+        <button onClick={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/browse'))}
+          className="text-pt-accent text-[17px] min-h-[44px] pr-3 -ml-0.5 inline-flex items-center gap-1">
+          <span aria-hidden className="text-[22px] leading-none -mt-0.5">‹</span>Back
         </button>
         {isStaff && (
           <div className="flex items-center gap-1">

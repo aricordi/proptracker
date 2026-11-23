@@ -18,7 +18,7 @@ const PLATFORM: Record<string, string> = {
 const when = (iso: string) => {
   if (!iso) return 'never'
   const d = new Date(iso), days = Math.floor((Date.now() - d.getTime()) / 86_400_000)
-  const t = d.toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })
+  const t = d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Toronto' })
   return days >= 1 ? `${t} (${days} day${days === 1 ? '' : 's'} ago)` : t
 }
 
@@ -48,7 +48,7 @@ export function PushCheck({ email, name, role, demo = false }: { email: string; 
     <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-2 text-pt-text font-medium"><Icon name="bell" />Notifications</div>
       {info === null ? <p className="text-pt-muted text-sm">Checking…</p>
-        : info.devices.length === 0 ? <p className="text-pt-muted text-sm">No phone signed up yet.</p>
+        : info.devices.length === 0 ? <p className="text-pt-muted text-sm">No phone signed up yet. Ask {first} to turn on notifications in the app ({where}).</p>
         : (
           <ul className="space-y-1">
             {info.devices.map((d, i) => (
@@ -57,9 +57,12 @@ export function PushCheck({ email, name, role, demo = false }: { email: string; 
             ))}
           </ul>
         )}
-      <button onClick={send} disabled={busy} className="w-full min-h-[44px] rounded-xl bg-pt-raised shadow-hairline text-pt-accent font-medium disabled:opacity-50">
-        {busy ? 'Sending…' : `Send ${first} a test notification`}
-      </button>
+      {/* No phone = nothing to test: hide the button instead of letting it fail. Short label: the name made it wrap. */}
+      {info !== null && info.devices.length > 0 && (
+        <button onClick={send} disabled={busy} className="w-full min-h-[44px] rounded-xl bg-pt-raised shadow-hairline text-pt-accent font-medium disabled:opacity-50">
+          {busy ? 'Sending…' : 'Send a test notification'}
+        </button>
+      )}
       {msg && <p className={`text-sm ${msg.ok ? 'text-emerald-300' : 'text-amber-300'}`}>{msg.text}</p>}
       <p className="text-pt-muted text-xs">"Last opened" updates each time they open the app with notifications on. If it's days old, they may be using Safari instead of the Home Screen icon.</p>
     </section>

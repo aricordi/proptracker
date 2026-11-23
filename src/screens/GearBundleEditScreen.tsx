@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { PageHeader } from '../components/PageHeader'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import ProofPhotos from '../components/ProofPhotos'
 import {
@@ -79,12 +80,9 @@ export default function GearBundleEditScreen() {
   const itemName = new Map(stock.map(i => [i.id, i.name]))
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-pt-text py-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-xl text-pt-text">{isNew ? (isExtra ? 'Offer an add-on extra' : 'Build a bundle') : (isExtra ? 'Edit add-on extra' : 'Edit bundle')}</h1>
-      </div>
+      <PageHeader title={isNew ? (isExtra ? 'Offer an add-on extra' : 'Build a bundle') : (isExtra ? 'Edit add-on extra' : 'Edit bundle')} />
       {!loaded ? <p className="text-pt-muted text-sm text-center p-6">Loading…</p> : (
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-1 pb-8 space-y-6">
         {/* Owner, Oct 21: single pieces are offered from All gear ("Creators can book"), so new add-on extras are no longer offered here. */}
         {isNew && isExtra && (
           <div className="grid grid-cols-2 gap-1 p-1 bg-pt-surface shadow-hairline rounded-xl">

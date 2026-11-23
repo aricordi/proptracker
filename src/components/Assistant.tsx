@@ -1239,8 +1239,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       <div className="pt-safe px-5 shrink-0">
         {page ? (
           <div className="flex items-center gap-2 py-2">
-            <BrandMark className="w-7 h-7 text-white" title="" />
-            <h1 className="font-display text-[28px] font-extrabold tracking-tight flex-1">Chat</h1>
+            <BrandMark className="w-8 text-pt-text" title="" />
+            <h1 className="font-display text-[30px] leading-tight text-pt-text flex-1">Chat</h1>
             {Voice && Speech && !helpOnly && <button onClick={toggleSpeak} aria-pressed={speak} aria-label={speak ? 'Stop reading answers aloud' : 'Read answers aloud after I talk'} title={speak ? 'Answers are read aloud after you talk' : 'Answers are not read aloud'}
               className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${speak ? 'text-[#BF9DFF]' : 'text-pt-muted'}`}><Icon name={speak ? 'speaker' : 'speakerOff'} className="w-[22px] h-[22px]" /></button>}
             {(msgs.length > 2 || old.length > 0) && !busy && <button onClick={askRestart} className="tap text-pt-muted text-sm">New chat</button>}
@@ -1486,9 +1486,11 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           <button onClick={() => go('/reserve')} className="w-full mb-3 rounded-2xl py-3 font-semibold text-pt-accent bg-pt-accent/10">Review your shoot · {cart.count + (gearOn ? gearCart.count : 0)}</button>
         ) : null}
         {welcome && suggestions.length > 0 && (
-          <div className="-mx-4 px-4 scroll-px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory" aria-label="Suggestions">
+          // Keyed by the titles: a new list (e.g. "Take gear" appearing) remounts the row at its start instead of
+          // opening already scrolled with a sliver of a card at the left. Laptop: a 3-column grid, nothing to swipe.
+          <div key={suggestions.map(x => x.title).join('|')} className="-mx-4 px-4 scroll-px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:grid min-[1100px]:grid-cols-3 min-[1100px]:overflow-visible" aria-label="Suggestions">
             {suggestions.map(x => (
-              <button key={x.title} onClick={x.go} className="snap-start shrink-0 w-[172px] rounded-2xl bg-pt-surface px-3.5 py-3 text-left">
+              <button key={x.title} onClick={x.go} className="snap-start shrink-0 w-[172px] min-[1100px]:w-auto rounded-2xl bg-pt-surface px-3.5 py-3 text-left">
                 <span className={`flex items-center gap-1.5 text-[14px] font-semibold ${x.ai ? 'text-[#CDB8FF]' : 'text-pt-text'}`}>
                   <Icon name={x.icon} className={`w-4 h-4 shrink-0 ${x.ai ? 'text-[#BF9DFF]' : 'text-pt-accent'}`} /><span className="truncate">{x.title}</span></span>
                 <span className="block mt-0.5 text-[14px] leading-snug text-pt-muted line-clamp-2">{x.sub}</span>

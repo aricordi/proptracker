@@ -9,6 +9,7 @@ import { useTags } from '../hooks/useTags'
 import { formatDay, studioDayOf } from '../lib/dates'
 import type { AppUser } from '../types'
 import { Icon, type IconName } from './Icon'
+import { EmptyState } from './PageHeader'
 
 const FIELD_NAMES: Record<string, string> = {
   name: 'Name', quantity: 'Quantity', condition: 'Condition', replacementCost: 'Replacement cost',
@@ -27,7 +28,7 @@ const ICONS: Record<string, IconName> = {
   collected: 'handshake', return_pending: 'restore', returned: 'check', declined: 'stop', cancelled: 'x', unavailable: 'stop',
 }
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })
+const time = (iso: string) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
 // The activity log as a list. Used by the Activity screen and the history pages.
 export default function ActivityList({ itemId, creatorEmail, kind, personal, pageSize = 50 }: {
@@ -64,7 +65,7 @@ export default function ActivityList({ itemId, creatorEmail, kind, personal, pag
 
   const shown = rows ?? []
   if (rows === null) return <p className="text-pt-muted text-sm text-center py-6">Loading…</p>
-  if (shown.length === 0) return <p className="text-pt-muted text-sm text-center py-6">Nothing recorded yet.</p>
+  if (shown.length === 0) return <EmptyState icon="list" title="Nothing recorded yet" line="Bookings and prop changes show up here as they happen." />
 
   let lastDay = ''
   return (

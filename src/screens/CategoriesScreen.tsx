@@ -1,15 +1,14 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
 import { useItems } from '../hooks/useItems'
 import { addCategory, updateCategory } from '../services/categories'
 import BottomSheet from '../components/BottomSheet'
 import type { Category } from '../types'
+import { PageHeader, HeaderAction } from '../components/PageHeader'
 
 const inputClass = 'w-full bg-pt-bg border border-pt-border rounded-xl px-4 py-3 text-pt-text placeholder-pt-muted focus:outline-none focus:border-pt-accent'
 
 export default function CategoriesScreen() {
-  const navigate = useNavigate()
   const categories = useCategories()
   const items = useItems()
   const [editing, setEditing] = useState<Category | 'new' | null>(null)
@@ -50,18 +49,9 @@ export default function CategoriesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-        <h1 className="font-display text-xl text-pt-text">Categories</h1>
-        <button onClick={() => open('new')} className="text-pt-accent text-sm font-medium active:opacity-70 py-1 tap">Add</button>
-      </div>
+      <PageHeader title="Categories" action={<HeaderAction onClick={() => open('new')}>+ Add</HeaderAction>} />
 
-      <div className="p-4 space-y-3">
+      <div className="px-4 pb-4 space-y-3">
         <p className="text-pt-muted text-sm">
           Every prop belongs to one category. Hidden categories stay on existing props but can't be picked for new ones.
         </p>
@@ -69,12 +59,12 @@ export default function CategoriesScreen() {
           {categories.map((c, i) => (
             <div key={c.id} className="flex items-center gap-2 px-3 py-3">
               <div className="flex flex-col">
-                <button aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)} className="text-pt-muted disabled:opacity-20 px-1 leading-none">▲</button>
-                <button aria-label="Move down" disabled={i === categories.length - 1} onClick={() => move(i, 1)} className="text-pt-muted disabled:opacity-20 px-1 leading-none">▼</button>
+                <button aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)} className="text-pt-muted disabled:opacity-20 w-9 h-6 leading-none">▲</button>
+                <button aria-label="Move down" disabled={i === categories.length - 1} onClick={() => move(i, 1)} className="text-pt-muted disabled:opacity-20 w-9 h-6 leading-none">▼</button>
               </div>
               <button onClick={() => open(c)} className="flex-1 flex items-center gap-2 text-left min-w-0 py-1">
-                <span className={`text-sm truncate ${c.active ? 'text-pt-text' : 'text-pt-muted line-through'}`}>{c.label}</span>
-                <span className="text-pt-muted text-xs">{counts[c.id] ?? 0}</span>
+                <span className={`text-[16px] truncate ${c.active ? 'text-pt-text' : 'text-pt-muted line-through'}`}>{c.label}</span>
+                <span className="text-pt-muted text-[14px]">{counts[c.id] ?? 0}</span>
                 {!c.active && <span className="text-xs bg-pt-border text-pt-muted px-2 py-0.5 rounded-full">Hidden</span>}
               </button>
             </div>

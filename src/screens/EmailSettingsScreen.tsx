@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
 import {
@@ -7,6 +7,7 @@ import {
   EMPTY_EMAIL_SETTINGS, type EmailSettings, type OutboxEmail,
 } from '../services/email'
 import { formatDay, studioDayOf } from '../lib/dates'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
 // Ready-made settings for the services we've talked about. Switching later
 // (e.g. Gmail → Resend) = pick the service, change the login, update the secret.
@@ -18,6 +19,9 @@ const SERVICES = [
   { key: 'brevo',  label: 'Brevo',             host: 'smtp-relay.brevo.com', port: 587, user: '',       hint: 'Login + password = your Brevo SMTP login and key. Needs a verified domain.' },
 ]
 
+// The login box's example follows the chosen service (was always "you@icloud.com").
+const LOGIN_HINT: Record<string, string> = { gmail: 'you@gmail.com', icloud: 'you@icloud.com', yahoo: 'you@yahoo.com', resend: 'resend', brevo: 'your Brevo SMTP login' }
+
 const googleAccountStatus = httpsCallable<Record<string, never>, { connected: { email: string; gmail: boolean; broken: string } | null }>(functions, 'googleAccountStatus')
 
 const STATUS_STYLE: Record<string, string> = {
@@ -25,7 +29,6 @@ const STATUS_STYLE: Record<string, string> = {
 }
 
 export default function EmailSettingsScreen() {
-  const navigate = useNavigate()
   const [saved, setSaved] = useState<EmailSettings>(EMPTY_EMAIL_SETTINGS)
   const [form, setForm] = useState<EmailSettings>(EMPTY_EMAIL_SETTINGS)
   const [outbox, setOutbox] = useState<OutboxEmail[]>([])
@@ -69,21 +72,18 @@ export default function EmailSettingsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
-        <h1 className="font-display text-xl text-pt-text">Email</h1>
-      </div>
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <PageHeader title="Email" />
+      <div className="px-4 pt-2 pb-8 space-y-6">
         <Link to="/connections" className="block bg-pt-accent/10 text-pt-accent text-sm rounded-2xl px-4 py-3">The simple way: turn emails on in <b>Calendar &amp; email</b> ›. This page is for the recent-emails list and other email services.</Link>
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
-          <label className="flex items-center justify-between gap-3">
-            <span>
+          <button type="button" role="switch" aria-checked={form.enabled} onClick={() => set({ enabled: !form.enabled })}
+            disabled={!ready && !form.enabled} className="w-full flex items-center gap-3 text-left disabled:opacity-50">
+            <span className="flex-1">
               <span className="block text-pt-text font-medium">Send emails</span>
               <span className="block text-pt-muted text-sm">Booking updates, late notices and at-risk warnings. While off, nothing is sent.</span>
             </span>
-            <input type="checkbox" checked={form.enabled} onChange={e => set({ enabled: e.target.checked })}
-              disabled={!ready && !form.enabled} className="w-6 h-6 accent-amber-500 shrink-0" />
-          </label>
+            <span className={`shrink-0 w-12 h-7 rounded-full p-0.5 transition-colors ${form.enabled ? 'bg-pt-accent' : 'bg-pt-border'}`}><span className={`block w-6 h-6 rounded-full bg-white transition-transform ${form.enabled ? 'translate-x-5' : ''}`} /></span>
+          </button>
         </div>
 
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
@@ -115,7 +115,7 @@ export default function EmailSettingsScreen() {
           {service && <p className="text-pt-muted text-xs">{service.hint}</p>}
           <label className="block space-y-1">
             <span className={label}>Login</span>
-            <input value={form.user} onChange={e => set({ user: e.target.value.trim() })} placeholder="you@icloud.com" className={input} autoCapitalize="none" />
+            <input value={form.user} onChange={e => set({ user: e.target.value.trim() })} placeholder={LOGIN_HINT[service?.key ?? ''] ?? 'you@example.com'} className={input} autoCapitalize="none" />
           </label>
           <label className="block space-y-1">
             <span className={label}>Send from (address people see)</span>
@@ -156,7 +156,7 @@ export default function EmailSettingsScreen() {
 
         <div className="space-y-2">
           <p className={label}>Recent emails</p>
-          {outbox.length === 0 && <p className="text-pt-muted text-sm">None yet.</p>}
+          {outbox.length === 0 && <EmptyState icon="note" title="No emails yet" line="Emails the app sends (or skips) show up here." />}
           {outbox.map(m => (
             <div key={m.id} className="bg-pt-surface shadow-hairline rounded-xl px-3 py-2">
               <div className="flex items-start justify-between gap-2">

@@ -10,6 +10,7 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { useScheduleSettings, fmtSlot, INVITE_HOLD_MINUTES, UNDO_MINUTES, MONTHLY_SLOTS_ON } from '../services/schedule'
 import { GEAR_LATE_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { IconText, type IconName } from '../components/Icon'
+import { PageHeader } from '../components/PageHeader'
 
 interface Q { q: string; a: ReactNode; words?: string; go?: [string, string] }
 interface Topic { title: string; icon: IconName; items: Q[] }
@@ -119,16 +120,11 @@ export default function HelpScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-end gap-2 py-2">
-          <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-          <h1 className="font-display text-[34px] text-pt-text">Help</h1>
-          <span className="ml-auto text-pt-muted text-xs pb-2">Version {APP_VERSION}</span>
-        </div>
+      <PageHeader title="Help" action={<span className="text-pt-muted text-xs">Version {APP_VERSION}</span>}>
         <label htmlFor="helpSearch" className="sr-only">Search help</label>
         <input id="helpSearch" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search: cancel, props, check in…"
           className="w-full bg-pt-surface border border-pt-border rounded-xl px-4 py-3 text-pt-text text-base focus:outline-none focus:border-pt-accent" />
-      </div>
+      </PageHeader>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <ReportProblemRow />
         {shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">Nothing found. Try another word, or see "Still stuck?" below.</p>}

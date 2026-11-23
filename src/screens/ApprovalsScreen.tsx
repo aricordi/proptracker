@@ -9,6 +9,7 @@ import { formatDay } from '../lib/dates'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import Avatar from '../components/Avatar'
+import { Icon } from '../components/Icon'
 import BottomSheet from '../components/BottomSheet'
 import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
 import {
@@ -66,9 +67,9 @@ export default function ApprovalsScreen() {
   const desk = useDesk()
   const tabs = isGearStaff ? <RequestTabs tab={tab} setTab={setTab} bookings={reqs.length} calendar={queue?.length ?? 0} desk={desk.on} /> : null
   if (desk.on && tab === 'calendar') return (
-    <div className="h-full overflow-auto bg-[#0B0B0C]">
-      <div className="max-w-[820px] mx-auto px-6 pt-5 pb-12 space-y-4">
-        <div className="flex items-center gap-4 flex-wrap"><h1 className="text-pt-text text-[22px] font-bold tracking-tight">Requests</h1>{tabs}</div>
+    <div className="h-full overflow-auto bg-pt-bg">
+      <div className="px-6 pt-5 pb-3 flex items-center gap-4 min-w-0"><h1 className="text-pt-text text-[28px] font-bold tracking-tight font-display">Requests</h1>{tabs}</div>
+      <div className="max-w-[820px] px-6 pb-12 space-y-4">
         <CalendarQueue items={queue} />
       </div>
     </div>
@@ -120,7 +121,6 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const f = factsFor(r, shoots, status, days, s, today, now, pairs)
-  const around = f.around.map(x => `${x.label}: ${x.value}`)
 
   async function decide(approve: boolean) {
     setBusy(true); setMsg(null)
@@ -138,8 +138,10 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
         {onPerson ? <button onClick={onPerson} aria-label={`${sh.creatorName}'s record`}><Avatar email={email} name={sh.creatorName} size={40} /></button> : <Avatar email={email} name={sh.creatorName} size={40} />}
         <div className="min-w-0 flex-1">
           <p className="text-pt-text font-semibold">{sh.creatorName}{r.move && <span className="text-amber-300 font-normal"> · wants to move</span>}</p>
-          <button onClick={onDay} className="tap text-left text-pt-text text-[15px] underline decoration-pt-border underline-offset-4">
-            {formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s, !!r.shoot.bothHouses)} · {reqHours(r)}</button>
+          <button onClick={onDay} aria-label="Open this day" className="tap text-left text-pt-text text-[15px] inline-flex items-center gap-1.5">
+            <Icon name="calendar" className="w-4 h-4 text-pt-accent shrink-0" />
+            <span>{formatDay(r.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(r.place, r.where, s, !!r.shoot.bothHouses)} · {reqHours(r)}</span>
+            <span aria-hidden className="text-pt-muted">›</span></button>
           {r.move && <p className="text-pt-muted text-xs">Now: {formatDay(sh.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {placeName(sh.place, sh.where ?? '', s)} · {fmtSlot(sh.start, sh.end - sh.start)}</p>}
           <p className="text-pt-muted text-xs">Asked {ago(r.since)}</p>
         </div>
@@ -151,13 +153,28 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
       </div>
       {sh.guideline && isOwnFileLink(sh.guideline.url) && <a href={sh.guideline.url} target="_blank" rel="noreferrer" className="block text-[14px] text-pt-accent font-semibold">Guideline: {sh.guideline.name} ›</a>}
       {f.partners.length > 0 && <p className="text-pt-muted text-[13px]">Usually films with: <span className="text-pt-text">{partnerLine(f.partners)}</span></p>}
-      {around.length > 0 && <p className="text-pt-muted text-[13px] leading-snug">{around.join(' · ')}</p>}
+      {f.around.length > 0 && (
+        <div className="rounded-xl bg-pt-bg/60 px-3 py-1.5 divide-y divide-white/[0.05]">
+          {f.around.map(x => {
+            const free = x.value === 'Free', warn = x.label.startsWith('⚠') || x.label.startsWith('Blocked')
+            return (
+              <div key={x.label} className="flex items-center gap-2 py-1.5 text-[13px]">
+                <i aria-hidden className={`w-2 h-2 rounded-full shrink-0 ${free ? 'bg-green-400' : warn ? 'bg-red-400' : x.label.startsWith('Heads-up') ? 'bg-amber-300' : 'bg-pt-muted'}`} />
+                <span className="text-pt-muted shrink-0">{x.label.replace(/^⚠\s*/, '')}</span>
+                <span className={`flex-1 min-w-0 text-right truncate ${free ? 'text-green-300' : 'text-pt-text'}`}>{x.value}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
       {msg ? <p className={`text-sm font-semibold ${msg.ok ? 'text-green-400' : 'text-amber-300'}`}>{msg.text}</p>
         : !denying ? (
-          <div className="flex gap-2">
-            <button disabled={busy} onClick={() => decide(true)} className="flex-1 min-h-[44px] rounded-xl bg-green-500/15 text-green-400 font-semibold disabled:opacity-40">Approve</button>
-            <button disabled={busy} onClick={() => setDenying(true)} className="flex-1 min-h-[44px] rounded-xl bg-red-500/10 text-red-300 font-semibold disabled:opacity-40">Deny</button>
-            {onGive && s.instantBookers.length > 0 && <button disabled={busy} onClick={onGive} className="shrink-0 px-3 min-h-[44px] rounded-xl bg-pt-bg text-pt-accent text-[13px] font-semibold">Priority booking…</button>}
+          <div className="space-y-1">
+            <div className="flex gap-2">
+              <button disabled={busy} onClick={() => decide(true)} className="flex-1 min-h-[44px] rounded-xl bg-green-500/15 text-green-400 font-semibold disabled:opacity-40">Approve</button>
+              <button disabled={busy} onClick={() => setDenying(true)} className="flex-1 min-h-[44px] rounded-xl bg-red-500/10 text-red-300 font-semibold disabled:opacity-40">Deny</button>
+            </div>
+            {onGive && s.instantBookers.length > 0 && <button disabled={busy} onClick={onGive} className="w-full min-h-[44px] rounded-xl text-pt-accent text-[15px] font-semibold inline-flex items-center justify-center gap-1 disabled:opacity-40">Priority booking<span aria-hidden className="text-pt-muted">›</span></button>}
           </div>
         ) : (
           <div className="space-y-2">

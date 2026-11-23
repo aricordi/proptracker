@@ -113,24 +113,28 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
   ]
 
   return (
-    <div className="h-full flex bg-[#0B0B0C]">
+    <div className="h-full flex bg-pt-bg">
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center gap-3 px-6 pt-5 pb-3 flex-wrap">
-          <h1 className="text-pt-text text-[22px] font-bold tracking-tight mr-2">Requests</h1>
-          {tabs}
-          <div className="flex bg-pt-surface rounded-[10px] p-0.5">
-            {(['week', 'month'] as const).map(v => <button key={v} onClick={() => setView(v)} title={v === 'week' ? 'W' : 'M'}
-              className={`px-3.5 py-1.5 rounded-lg text-[13px] ${view === v ? 'bg-pt-raised text-pt-text font-semibold' : 'text-pt-muted'}`}>{v === 'week' ? 'Week' : 'Month'}</button>)}
+        <div className="px-6 pt-5 pb-3 space-y-3">
+          <div className="flex items-center gap-4 min-w-0">
+            <h1 className="text-pt-text text-[28px] font-bold tracking-tight font-display">Requests</h1>
+            {tabs}
+            <span className="ml-auto text-pt-muted text-xs hidden 2xl:block whitespace-nowrap">Keys: <Kbd>A</Kbd> approve <Kbd>D</Kbd> deny <Kbd>J</Kbd>/<Kbd>K</Kbd> next <Kbd>W</Kbd>/<Kbd>M</Kbd> view <Kbd>←</Kbd><Kbd>→</Kbd> week</span>
           </div>
-          <button aria-label="Previous" onClick={() => view === 'week' ? setWeek(addDays(week, -7)) : setMonth(monthAdd(month, -1))} className="w-8 h-8 rounded-lg bg-pt-surface text-pt-text">‹</button>
-          <span className="text-pt-text font-semibold min-w-[170px] text-center tabular-nums">{view === 'week'
-            ? `${formatDay(week, { month: 'short', day: 'numeric' })} – ${formatDay(addDays(week, 6), { month: 'short', day: 'numeric' })}` : monthTitle(month)}</span>
-          <button aria-label="Next" onClick={() => view === 'week' ? setWeek(addDays(week, 7)) : setMonth(monthAdd(month, 1))} className="w-8 h-8 rounded-lg bg-pt-surface text-pt-text">›</button>
-          <button onClick={() => { setWeek(mondayOf(today)); setMonth(today.slice(0, 7)) }} className="px-3 h-8 rounded-lg bg-pt-surface text-pt-muted text-[13px] hover:text-pt-text">Today</button>
-          <span className="ml-auto text-pt-muted text-xs hidden 2xl:block">Keys: <Kbd>A</Kbd> approve <Kbd>D</Kbd> deny <Kbd>J</Kbd>/<Kbd>K</Kbd> next <Kbd>W</Kbd>/<Kbd>M</Kbd> view <Kbd>←</Kbd><Kbd>→</Kbd> week</span>
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <div className="flex bg-pt-surface rounded-[10px] p-0.5 mr-2">
+              {(['week', 'month'] as const).map(v => <button key={v} onClick={() => setView(v)} title={v === 'week' ? 'W' : 'M'}
+                className={`px-3.5 py-1.5 rounded-lg text-[13px] ${view === v ? 'bg-pt-raised text-pt-text font-semibold' : 'text-pt-muted'}`}>{v === 'week' ? 'Week' : 'Month'}</button>)}
+            </div>
+            <button aria-label="Previous" onClick={() => view === 'week' ? setWeek(addDays(week, -7)) : setMonth(monthAdd(month, -1))} className="w-8 h-8 rounded-lg bg-pt-surface text-pt-text">‹</button>
+            <button aria-label="Next" onClick={() => view === 'week' ? setWeek(addDays(week, 7)) : setMonth(monthAdd(month, 1))} className="w-8 h-8 rounded-lg bg-pt-surface text-pt-text">›</button>
+            <button onClick={() => { setWeek(mondayOf(today)); setMonth(today.slice(0, 7)) }} className="px-3 h-8 rounded-lg bg-pt-surface text-pt-muted text-[13px] hover:text-pt-text">Today</button>
+            <span className="text-pt-text font-semibold tabular-nums ml-2">{view === 'week'
+              ? `${formatDay(week, { month: 'short', day: 'numeric' })} – ${formatDay(addDays(week, 6), { month: 'short', day: 'numeric' })}` : monthTitle(month)}</span>
+          </div>
         </div>
         <div className="grid grid-cols-6 gap-px bg-white/[0.06] border-y border-white/[0.06]">
-          {kpis.map(k => <div key={k.label} className="bg-[#0B0B0C] px-4 py-2.5 min-w-0"><b className={`block text-[22px] font-bold tracking-tight tabular-nums ${k.tone || 'text-pt-text'}`}>{k.n}</b><span className="block text-pt-muted text-xs leading-tight">{k.label}</span></div>)}
+          {kpis.map(k => <div key={k.label} className="bg-pt-bg px-4 py-2.5 min-w-0"><b className={`block text-[22px] font-bold tracking-tight tabular-nums ${k.tone || 'text-pt-text'}`}>{k.n}</b><span className="block text-pt-muted text-xs leading-tight">{k.label}</span></div>)}
         </div>
         <div className="flex-1 min-h-0 overflow-auto px-4 py-4">
           {days === null ? <p className="text-pt-muted text-sm">Loading…</p> : view === 'month' ? (
@@ -208,7 +212,7 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
       who = first; dot = !!e.email && flagged(e.email); title = e.name
       if (e.pending && e.move) { cls = 'bg-sky-400/[0.08] shadow-[inset_0_0_0_1px_rgba(124,196,250,0.6)] text-sky-200'; sub = 'wants to move here'; if (r) click = () => onReq(r) }
       else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'waiting'; if (r) click = () => onReq(r) }
-      else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; sub = 'priority'; click = () => onShoot(e.shootId) }
+      else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; title = `${e.name} (priority)`; click = () => onShoot(e.shootId) }
       else { cls = 'bg-pt-surface text-pt-text'; sub = sh?.moveRequest ? 'moving…' : sh?.checkin ? 'checked in' : ''; click = () => onShoot(e.shootId) }
       if (sh?.moveRequest && !e.pending) cls += ' opacity-60'
     } else if (block) { cls = 'bg-[repeating-linear-gradient(135deg,#161618_0_7px,#1F1F22_7px_14px)] text-pt-muted'; who = block.note || BLOCK_TYPES[block.type]; sub = 'blocked'; title = who }

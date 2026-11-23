@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import { PageHeader } from '../components/PageHeader'
 import { useDesk } from '../desk/desk'
 import { subscribeToUsers } from '../services/users'
 import { OWNER_EMAIL } from '../config'
@@ -20,13 +21,30 @@ export type Period = '30' | 'month' | '90'
 export const PERIODS: [Period, string][] = [['30', 'Last 30 days'], ['month', 'This month'], ['90', 'Last 90 days']]
 export const periodStart = (p: Period, today: string) => p === 'month' ? `${today.slice(0, 8)}01` : addDays(today, p === '30' ? -30 : -90)
 
+// "1 no-show", "2 late prop returns", "Ran over 2×" (design pass, Nov 23: was "1 late props" / "1 no check-in").
+const pl = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+export function flagWords(k: FlagKind, n: number): string {
+  switch (k) {
+    case 'no-show': return pl(n, 'no-show', 'no-shows')
+    case 'missed-checkin': return pl(n, 'missed check-in', 'missed check-ins')
+    case 'late-cancel': return pl(n, 'late cancel', 'late cancels')
+    case 'late-start': return pl(n, 'late start', 'late starts')
+    case 'ran-over': return n === 1 ? 'Ran over' : `Ran over ${n}×`
+    case 'mess': return n === 1 ? 'Left a mess' : `Left a mess ${n}×`
+    case 'late-props': return pl(n, 'late prop return', 'late prop returns')
+    case 'late-gear': return pl(n, 'late gear return', 'late gear returns')
+    case 'strike': return pl(n, 'strike', 'strikes')
+    default: return `${n} ${FLAG_LABEL[k as FlagKind] ?? k}`
+  }
+}
+
 export function FlagPills({ c, max = 4 }: { c: CreatorStats; max?: number }) {
   const kinds = (Object.keys(c.counts) as FlagKind[]).sort((a, b) => Number(SERIOUS.includes(b)) - Number(SERIOUS.includes(a)) || (c.counts[b]! - c.counts[a]!))
-  if (!kinds.length) return <span className="text-xs rounded-full px-2 py-1 bg-green-500/15 text-green-300">No flags ✓</span>
+  if (!kinds.length) return <span className="justify-self-start inline-flex w-fit text-xs rounded-full px-2 py-1 bg-green-500/15 text-green-300">No flags ✓</span>
   return (
     <span className="flex flex-wrap gap-1">
       {kinds.slice(0, max).map(k => (
-        <span key={k} className={`text-xs rounded-full px-2 py-1 ${SERIOUS.includes(k) ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-200'}`}>{c.counts[k]} {FLAG_LABEL[k].toLowerCase()}</span>
+        <span key={k} className={`text-xs rounded-full px-2 py-1 ${SERIOUS.includes(k) ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-200'}`}>{flagWords(k, c.counts[k]!)}</span>
       ))}
       {kinds.length > max && <span className="text-xs text-pt-muted px-1 py-1">+{kinds.length - max} more</span>}
     </span>
@@ -76,10 +94,9 @@ export default function CreatorsScreen() {
     <div className="min-h-full bg-pt-bg pb-10 px-8">
       <div className="sticky top-0 bg-pt-bg z-10 pt-6 pb-4 space-y-4">
         <div className="flex items-center gap-4">
-          <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[15px]">‹ Back</button>
           <h1 className="font-display text-[34px] text-pt-text flex-1">Creators</h1>
-          <div className="flex bg-pt-surface rounded-full p-0.5 text-sm">
-            {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`px-3.5 py-1.5 rounded-full ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'text-pt-muted'}`}>{l}</button>)}
+          <div className="flex gap-2">
+            {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`whitespace-nowrap px-4 min-h-[40px] inline-flex items-center rounded-full text-[15px] ${period === v ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>)}
           </div>
         </div>
         <div className="grid grid-cols-4 gap-3">
@@ -127,13 +144,11 @@ export default function CreatorsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-        <h1 className="font-display text-[34px] text-pt-text py-1">Creators</h1>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
-          {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${period === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
+      <PageHeader title="Creators" onBack={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/admin')}>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 scroll-px-4">
+          {PERIODS.map(([v, l]) => <button key={v} onClick={() => setPeriod(v)} className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${period === v ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{l}</button>)}
         </div>
-      </div>
+      </PageHeader>
       <div className="px-4 space-y-4">
         <div className="grid grid-cols-2 gap-2">
           {tiles.map(([t, n, cls]) => (
@@ -143,14 +158,12 @@ export default function CreatorsScreen() {
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-between">
-          <p className="text-pt-muted text-xs">{stats.length} {stats.length === 1 ? 'creator' : 'creators'} · tap one for every flag</p>
-          <div className="flex bg-pt-surface rounded-full p-0.5 text-xs">
-            {([['filming', 'Most filming'], ['flags', 'Most flags']] as const).map(([v, l]) => (
-              <button key={v} onClick={() => setSort(v)} className={`px-3 py-1 rounded-full ${sort === v ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{l}</button>
-            ))}
-          </div>
+        <div className="flex gap-2" role="tablist" aria-label="Sort">
+          {([['filming', 'Most filming'], ['flags', 'Most flags']] as const).map(([v, l]) => (
+            <button key={v} role="tab" aria-selected={sort === v} onClick={() => setSort(v)} className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${sort === v ? 'bg-pt-raised text-pt-text font-semibold shadow-hairline' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
+          ))}
         </div>
+        <p className="text-pt-muted text-[13px]">{stats.length} {stats.length === 1 ? 'creator' : 'creators'} · tap one for every flag</p>
         {shoots === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
         <div className="space-y-2">
           {stats.map(c => {

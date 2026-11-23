@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { GearArt } from '../components/GearUi'
+import { PageHeader, HeaderAction, EmptyState } from '../components/PageHeader'
 import { subscribeToGearItems, subscribeToGearBundles, setGearBundleArchived, markGearFound, pieceTotal, type GearItem, type GearBundle } from '../services/gear'
 import { friendlyError } from '../lib/errors'
 
@@ -32,28 +33,27 @@ export default function GearBundlesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <h1 className="font-display text-[34px] text-pt-text flex-1">Bundles</h1>
-        <button onClick={() => navigate('/gear/items')} className="text-pt-muted text-sm px-3 py-2 rounded-xl shadow-hairline">All gear</button>
-      </div>
-      <div className="p-4 space-y-3">
+      <PageHeader title="Bundles" noBackOnDesk action={<HeaderAction onClick={() => navigate('/gear/items')}>All gear</HeaderAction>} />
+      <div className="px-4 pb-4 space-y-3">
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={() => navigate('/gear/bundles/new')} className="py-3 rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">+ Bundle</button>
-          <button onClick={() => navigate('/gear/items')} className="py-3 rounded-xl border border-pt-accent text-pt-accent font-semibold">Single items</button>
+          <button onClick={() => navigate('/gear/bundles/new')} className="min-h-[48px] rounded-xl bg-pt-accent text-stone-900 font-semibold shadow-gold">+ Bundle</button>
+          <button onClick={() => navigate('/gear/items')} className="min-h-[48px] rounded-xl bg-pt-surface shadow-hairline text-pt-accent font-semibold">Single items</button>
         </div>
         <p className="text-pt-muted text-sm">Creators see the bundles here, plus any piece you set to <b className="text-pt-text">Creators can book</b> in All gear. Pieces set to Internal only never show.</p>
         {error && <p className="text-red-300 text-sm bg-red-500/10 rounded-xl px-4 py-3">{error}</p>}
         {bundles === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {bundles && shown.length === 0 && <p className="text-pt-muted text-sm text-center py-6">{showArchived ? 'Nothing archived.' : 'Nothing offered to creators yet.'}</p>}
+        {bundles && shown.length === 0 && (showArchived
+          ? <EmptyState icon="archive" title="Nothing archived" />
+          : <EmptyState icon="box" title="No kits yet" line="Build a grab-and-go kit from the pieces in All gear." action="+ Bundle" onAction={() => navigate('/gear/bundles/new')} />)}
         {sections.filter(s => s.list.length).map(s => (
           <div key={s.title} className="space-y-2">
-            <p className="text-pt-muted text-xs">{s.title} <span className="normal-case tracking-normal">· {s.note}</span></p>
+            <p className="text-pt-muted text-[13px]"><span className="text-pt-text font-semibold">{s.title}</span> · {s.note}</p>
         {s.list.map(b => (
           <div key={b.id} className="bg-pt-surface shadow-hairline rounded-2xl p-3 flex gap-3">
             <button onClick={() => !b.archived && navigate(b.kind === 'item' ? '/gear/items' : `/gear/bundles/${b.id}`)} className="flex gap-3 flex-1 min-w-0 text-left">
-              <GearArt photo={b.photos?.[0]} category={b.category} className="w-16 h-16 rounded-xl shrink-0" />
+              <GearArt photo={b.photos?.[0]} category={b.category} tile className="w-16 h-16 rounded-xl shrink-0 overflow-hidden" />
               <div className="min-w-0">
-                <p className="text-pt-text font-medium truncate">{b.name}</p>
+                <p className="text-pt-text text-[15px] font-medium truncate">{b.name}</p>
                 {b.kind === 'extra' || b.kind === 'item'
                   ? <p className="text-pt-muted text-xs">{b.category} · {pieceTotal(b.pieces)} {b.kind === 'item' ? 'can be booked' : 'offered'}</p>
                   : <>

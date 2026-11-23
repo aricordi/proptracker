@@ -13,6 +13,7 @@ import { friendlyError } from '../lib/errors'
 import { useScheduleSettings, saveScheduleSettings, testCalendarLink, errorText, oldCalendarFor, defaultTitleStyle, type CalendarFeed } from '../services/schedule'
 import { subscribeToEmailSettings, saveEmailSettings, sendTestEmail, EMPTY_EMAIL_SETTINGS, type EmailSettings } from '../services/email'
 import { cleanClientId, cleanSecret } from '../../functions/src/googleLink'
+import { PageHeader } from '../components/PageHeader'
 
 interface Status {
   redirectUri: string; clientId: string; secret: string; server: string
@@ -156,9 +157,11 @@ export default function ConnectionsScreen() {
   const btn = 'bg-pt-accent text-stone-900 font-semibold rounded-xl px-4 min-h-[44px] text-sm disabled:opacity-40'
   const quiet = 'bg-pt-bg rounded-xl px-4 min-h-[44px] text-pt-text text-sm font-medium disabled:opacity-40'
   const copyBox = (text: string) => (
-    <button onClick={() => copy(text)} className="w-full text-left bg-pt-bg rounded-xl px-3 py-2 text-[13px] text-pt-text break-all">
-      {text} <span className="text-pt-accent font-semibold">{copied === text ? ' Copied ✓' : ' Copy'}</span>
-    </button>
+    // The link and its Copy pill side by side: Copy used to run on straight after the text.
+    <div className="flex items-center gap-2 bg-pt-bg rounded-xl pl-3 pr-1.5 py-1.5">
+      <span className="flex-1 min-w-0 text-[13px] text-pt-text break-all">{text}</span>
+      <button onClick={() => copy(text)} className="shrink-0 min-h-[40px] px-4 rounded-full bg-pt-surface shadow-hairline text-pt-accent text-[14px] font-semibold">{copied === text ? 'Copied ✓' : 'Copy'}</button>
+    </div>
   )
   const head = (n: number, done: boolean, title: string, sub: string) => (
     <div className="flex items-start gap-3">
@@ -170,16 +173,16 @@ export default function ConnectionsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-8">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-[34px] text-pt-text">Calendar &amp; email</h1>
-      </div>
+      <PageHeader title="Calendar & email" />
       <div className="px-4 pt-2 space-y-5">
         <p className="text-pt-muted text-sm">The app uses <b className="text-pt-text">one Prime Capitol Google account</b> (like bookings@primecapitol.ca) for two jobs: putting shoots in your shared Google Calendar, and sending emails. Do these three steps once, top to bottom.</p>
 
-        <div className="grid grid-cols-3 gap-2 text-center text-xs">
-          {([['Account', accountOk], ['Calendar', calendarOk], ['Emails', mailOk]] as const).map(([l, ok]) => (
-            <span key={l} className={`rounded-xl py-2 font-semibold ${ok ? 'bg-green-500/15 text-green-400' : 'bg-pt-surface text-pt-muted'}`}>{ok ? '✓ ' : ''}{l}</span>
+        {/* Each step shows its state: a green tick when done, its number in a hollow circle when not. */}
+        <div className="grid grid-cols-3 gap-2 text-[14px]">
+          {([['Account', accountOk], ['Calendar', calendarOk], ['Emails', mailOk]] as const).map(([l, ok], i) => (
+            <span key={l} className={`rounded-xl min-h-[44px] px-2 inline-flex items-center justify-center gap-2 font-semibold ${ok ? 'bg-green-500/15 text-green-400' : 'bg-pt-surface text-pt-muted'}`}>
+              <span aria-hidden className={`w-5 h-5 rounded-full grid place-items-center text-[12px] font-bold ${ok ? 'bg-green-500 text-stone-900' : 'shadow-[inset_0_0_0_1.5px_currentColor]'}`}>{ok ? '✓' : i + 1}</span>{l}
+            </span>
           ))}
         </div>
 
@@ -266,8 +269,8 @@ export default function ConnectionsScreen() {
                 </div>
               ))}
               <div className="flex gap-2">
-                {feeds.length < 6 && <button onClick={() => setFeeds(l => [...l, { id: '', name: '', house: 'any' }])} className={`flex-1 ${quiet}`}>+ Add an old calendar</button>}
-                <button onClick={saveFeeds} disabled={!!busy || !accountOk || (!feedsChanged && !feeds.length)} className={`flex-1 ${btn}`}>{busy === 'feeds' ? 'Checking…' : 'Save & check'}</button>
+                {feeds.length < 6 && <button onClick={() => setFeeds(l => [...l, { id: '', name: '', house: 'any' }])} className={`flex-1 whitespace-nowrap ${quiet}`}>+ Add calendar</button>}
+                <button onClick={saveFeeds} disabled={!!busy || !accountOk || (!feedsChanged && !feeds.length)} className={`flex-1 whitespace-nowrap ${btn}`}>{busy === 'feeds' ? 'Checking…' : 'Save & check'}</button>
               </div>
               {feedMsg && <p className={`text-sm ${feedMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{feedMsg.text}</p>}
             </div>
@@ -283,7 +286,7 @@ export default function ConnectionsScreen() {
                   })}
                 </ul>
                 <div className="flex gap-2">
-                  <button onClick={checkAccess} disabled={!!busy || !accountOk} className={`flex-1 ${quiet}`}>{busy === 'access' ? 'Checking…' : 'Can the app write there?'}</button>
+                  <button onClick={checkAccess} disabled={!!busy || !accountOk} className={`flex-1 ${quiet}`}>{busy === 'access' ? 'Checking…' : 'Check access'}</button>
                   <button onClick={() => setWriteOld(!sched.writeOldCalendars)} disabled={!!busy || !accountOk || feedsChanged} className={`flex-1 ${sched.writeOldCalendars ? quiet : btn}`}>
                     {busy === 'write' ? 'Saving…' : sched.writeOldCalendars ? 'Turn off' : 'Turn on'}</button>
                 </div>
@@ -291,9 +294,10 @@ export default function ConnectionsScreen() {
                 {writeMsg && <p className={`text-sm ${writeMsg.ok ? 'text-green-400' : 'text-amber-300'}`}>{writeMsg.text}</p>}
               </div>
             )}
-            <div className="flex gap-2 border-t border-pt-border pt-3">
-              <button onClick={() => navigate('/schedule/import')} className={`flex-1 ${quiet}`}>Check old events ›</button>
-              <button onClick={() => navigate('/schedule/calendar')} className={`flex-1 ${quiet}`}>What the app added ›</button>
+            {/* Stacked: side by side they wrapped onto two lines inside 44px buttons. */}
+            <div className="space-y-2 border-t border-pt-border pt-3">
+              <button onClick={() => navigate('/schedule/import')} className={`w-full text-left flex items-center justify-between ${quiet}`}>Check old events <span className="text-pt-muted">›</span></button>
+              <button onClick={() => navigate('/schedule/calendar')} className={`w-full text-left flex items-center justify-between ${quiet}`}>What the app added <span className="text-pt-muted">›</span></button>
             </div>
           </section>
 

@@ -64,7 +64,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 bg-pt-surface rounded-2xl px-4 py-3">
-        <span className="flex-1 min-w-0 text-pt-muted text-sm">Google Calendar is checked every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
+        <span className="flex-1 min-w-0 text-pt-muted text-sm">Google Calendar is checked every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
         <button disabled={checking} onClick={runCheck} className="shrink-0 min-h-[40px] px-2 text-pt-accent text-sm font-semibold disabled:opacity-40">{checking ? 'Checking…' : 'Check now'}</button>
       </div>
       {items === null && <p className="text-pt-muted text-sm px-1">Loading…</p>}

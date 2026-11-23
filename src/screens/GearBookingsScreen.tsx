@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Icon } from '../components/Icon'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
 import { subscribeToGearBookings, fmtHours, fmtTime, nowStamp, isGearLate, type GearBooking } from '../services/gear'
@@ -7,6 +7,9 @@ import { Pill, STATUS_LABEL, dueBackLabel } from '../components/GearUi'
 import { formatDay } from '../lib/dates'
 import ShootLine from '../components/ShootLine'
 import { useShootLines } from '../hooks/useShootLines'
+
+// Tab counts only when there's something (design pass, Nov 23: "Today (0)" read like an error).
+const n = (x: number) => x > 0 ? ` ${x}` : ''
 
 type Tab = 'today' | 'out' | 'checkin' | 'upcoming' | 'past'
 
@@ -33,41 +36,33 @@ export default function GearBookingsScreen() {
     past: all.filter(b => ['checked_in', 'cancelled', 'declined'].includes(b.status) || (!isGearStaff && b.status === 'returned')),
   }
   const EMPTY: Partial<Record<Tab, [string, string]>> = isGearStaff ? {
-    today: ['Nothing today', 'Gear creators take on a shoot day shows up here.'],
+    today: ['Nothing today', 'Gear taken out today shows up here.'],
     out: ['Nothing out', 'When a creator takes gear, it shows here until it comes back.'],
     checkin: ['Nothing to check in', 'Returned gear waits here for you to tick every piece.'],
     upcoming: ['Nothing coming up', 'Gear held for a shoot ahead shows up here.'],
     past: ['No history yet', 'Checked-in and cancelled gear lands here.'],
   } : { upcoming: ['No gear yet', 'Take gear on the day of your shoot from the chat.'], past: ['Nothing yet', 'Gear you returned shows up here.'] }
   const tabs: [Tab, string][] = isGearStaff
-    ? [['today', `Today (${groups.today.length})`], ['out', `Out (${groups.out.length})`], ['checkin', `To check in (${groups.checkin.length})`], ['upcoming', 'Upcoming'], ['past', 'Past']]
-    : [['upcoming', `Upcoming (${groups.upcoming.length})`], ['past', 'Past & cancelled']]
+    ? [['today', `Today${n(groups.today.length)}`], ['out', `Out${n(groups.out.length)}`], ['checkin', `To check in${n(groups.checkin.length)}`], ['upcoming', 'Upcoming'], ['past', 'Past']]
+    : [['upcoming', `Upcoming${n(groups.upcoming.length)}`], ['past', 'Past & cancelled']]
   const shown = groups[tab]
   // Which shoot each booking is for (house, day, hours, creator), from the schedule.
   const shootLine = useShootLines(shown.map(b => ({ shootId: b.scheduleShootId, date: b.date, email: b.creatorEmail })), profile.email)
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-end justify-between py-2">
-          {role !== 'equipment' && <button onClick={() => navigate('/gear')} className="text-pt-accent text-[17px] pb-1 mr-2">‹</button>}
-          <h1 className="font-display text-[34px] text-pt-text flex-1">{isGearStaff ? 'Gear log' : 'My gear'}</h1>
-        </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <PageHeader title={isGearStaff ? 'Gear log' : 'My gear'} back={role !== 'equipment'} noBackOnDesk={isGearStaff}>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 scroll-px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible">
           {tabs.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
-              className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === v ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
+              className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${tab === v ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>{l}</button>
           ))}
         </div>
-      </div>
+      </PageHeader>
       <div className="p-4 space-y-2">
         {list === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
         {list && shown.length === 0 && (
-          <div className="text-center py-12 px-6">
-            <span className="mx-auto mb-3 w-12 h-12 rounded-2xl bg-pt-surface grid place-items-center text-pt-muted"><Icon name="check" className="w-6 h-6" /></span>
-            <p className="text-pt-text font-semibold">{EMPTY[tab]?.[0] ?? 'All clear'}</p>
-            <p className="text-pt-muted text-sm mt-1">{EMPTY[tab]?.[1] ?? ''}</p>
-          </div>
+          <EmptyState icon={tab === 'checkin' ? 'check' : isGearStaff ? 'box' : 'camera'} title={EMPTY[tab]?.[0] ?? 'All clear'} line={EMPTY[tab]?.[1]} />
         )}
         {shown.map(b => {
           const late = isGearLate(b, now)

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
 import { functions, db } from '../firebase'
 import { doc, onSnapshot } from 'firebase/firestore'
@@ -7,6 +6,7 @@ import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { splitHours, splitOnGrid } from '../../functions/src/calendarText'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
+import { PageHeader } from '../components/PageHeader'
 
 // kind: new = not seen before; changed = moved/renamed in Google Calendar since the last import; removed = deleted there.
 // regrade / recheck: already on the schedule (the automatic check placed it), shown again to choose who or what it is.
@@ -30,7 +30,6 @@ const field = 'w-full bg-pt-bg border border-pt-border rounded-lg px-2 py-1.5 te
 // events straight in Google Calendar). Each run shows new events, ones changed there since, and ones deleted there.
 // The app never changes anything in Google Calendar here; it only updates its own schedule.
 export default function CalendarImportScreen() {
-  const navigate = useNavigate()
   const s = useScheduleSettings()
   const [events, setEvents] = useState<Ev[] | null>(null)
   const [people, setPeople] = useState<{ email: string; name: string }[]>([])
@@ -87,16 +86,13 @@ export default function CalendarImportScreen() {
   const missing = todo.filter(e => { const r = rows[e.id]; return r && ((r.action === 'shoot' && (!r.house || !r.emails.length)) || (r.action === 'block' && r.house !== 'cliff1' && r.house !== 'cliff2')) })
   const counts = todo.reduce((c, e) => ({ ...c, [rows[e.id]?.action ?? 'skip']: (c[rows[e.id]?.action ?? 'skip'] ?? 0) + 1 }), {} as Record<string, number>)
   return (
-    <div className="min-h-full bg-pt-bg pb-32">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-[34px] text-pt-text">Import calendar</h1>
-      </div>
-      <div className="p-4 space-y-3">
+    <div className="min-h-full bg-pt-bg pb-40">
+      <PageHeader title="Import calendar" />
+      <div className="px-4 pb-4 space-y-3">
         <p className="text-pt-muted text-sm">This reads every calendar on the <b>Calendar &amp; email</b> page. Run it whenever someone adds or changes events straight in Google Calendar. It shows <b>new</b> events, ones <b>changed</b> there since the last import, and ones <b>deleted</b> there. For each, choose a shoot (who and which house), blocked time, or skip. Our guesses are filled in.</p>
         <p className="text-pt-muted text-sm">Nothing in Google Calendar is ever changed. Every event keeps its <b>real hours</b> (2:30–5 PM stays 2:30–5 PM and holds the slots it touches). Old events that overlap at the same house are still imported, marked <span className="text-red-300 font-semibold">Clash</span>.</p>
         <div className="flex items-center gap-3 bg-pt-surface rounded-2xl px-4 py-3">
-          <span className="flex-1 min-w-0 text-pt-muted text-xs">Checked automatically every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.broughtIn ? ` · brought in ${last.broughtIn} clear new event${last.broughtIn === 1 ? '' : 's'}` : ''}{last?.changed || last?.removed ? ` · followed ${last.changed ?? 0} change${last.changed === 1 ? '' : 's'}, ${last.removed ?? 0} deletion${last.removed === 1 ? '' : 's'}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
+          <span className="flex-1 min-w-0 text-pt-muted text-xs">Checked automatically every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.broughtIn ? ` · brought in ${last.broughtIn} clear new event${last.broughtIn === 1 ? '' : 's'}` : ''}{last?.changed || last?.removed ? ` · followed ${last.changed ?? 0} change${last.changed === 1 ? '' : 's'}, ${last.removed ?? 0} deletion${last.removed === 1 ? '' : 's'}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
           <button disabled={checking} onClick={runCheck} className="shrink-0 text-pt-accent text-sm tap disabled:opacity-40">{checking ? 'Checking…' : 'Check now'}</button>
         </div>
         {err && <p className="text-red-300 text-sm">{err}</p>}
@@ -195,9 +191,10 @@ export default function CalendarImportScreen() {
         })}
       </div>
       {todo.length > 0 && (
-        <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pb-3 z-20">
-          {missing.length > 0 && <p className="text-amber-300 text-sm bg-pt-bg rounded-xl px-3 py-2 mb-2">{missing.length} still need{missing.length === 1 ? 's' : ''} a house or a person picked (or set {missing.length === 1 ? 'it' : 'them'} to Skip).</p>}
-          <button disabled={busy || missing.length > 0} onClick={run} className="w-full min-h-[48px] bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-lg disabled:opacity-40 shadow-gold">
+        // A solid bar so the last event doesn't show through around the button.
+        <div className="fixed left-0 right-0 bottom-[calc(58px+max(calc(env(safe-area-inset-bottom)-18px),6px))] px-4 pt-3 pb-3 z-20 bg-pt-bg border-t border-white/[0.06]">
+          {missing.length > 0 && <p className="text-amber-300 text-sm px-1 pb-2">{missing.length} still need{missing.length === 1 ? 's' : ''} a house or a person picked (or set {missing.length === 1 ? 'it' : 'them'} to Skip).</p>}
+          <button disabled={busy || missing.length > 0} onClick={run} className="w-full min-h-[48px] bg-pt-accent text-stone-900 font-semibold rounded-2xl py-3 disabled:opacity-40 shadow-gold">
             {busy ? 'Importing…' : `Import: ${counts.shoot ?? 0} shoots, ${counts.block ?? 0} blocks${counts.remove ? `, ${counts.remove} removed` : ''}, skip ${counts.skip ?? 0}`}
           </button>
         </div>

@@ -48,10 +48,9 @@ export default function GearOfferScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       {/* Same header and photo as a prop page (owner, Oct 19: gear and props should feel like one app). */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-pt-text text-base font-medium active:text-pt-muted py-1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" /></svg>
-          Back
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-1 flex items-center justify-between">
+        <button onClick={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'))} className="text-pt-accent text-[17px] min-h-[44px] pr-3 -ml-0.5 inline-flex items-center gap-1">
+          <span aria-hidden className="text-[22px] leading-none -mt-0.5">‹</span>Back
         </button>
       </div>
       <button onClick={() => b.photos?.[0] && setZoom(b.photos[0])} className="block w-full h-72 bg-pt-surface">
@@ -60,7 +59,7 @@ export default function GearOfferScreen() {
       <div className="px-4 pt-4 space-y-6">
         <div>
           <h1 className="font-display text-[28px] text-pt-text leading-tight">{b.name}</h1>
-          <p className="text-pt-muted text-sm mt-0.5">{b.category} bundle · comes as a whole</p>
+          <p className="text-pt-muted text-sm mt-0.5">{b.category} kit · everything in the case goes together</p>
           {b.description && <p className="text-pt-text text-[15px] mt-2 leading-relaxed">{b.description}</p>}
         </div>
         {b.missing?.length ? (
@@ -119,7 +118,10 @@ export default function GearOfferScreen() {
         )}
 
         {creator && !canPick ? (
-          <p className="rounded-2xl bg-pt-surface px-4 py-3 text-pt-muted text-[14px]">Gear isn't booked ahead. On your shoot day, from an hour before, take what's free: tap <b className="text-pt-text">Take gear</b> in the chat.</p>
+          <div className="rounded-2xl bg-pt-surface shadow-hairline px-4 py-3 flex items-start gap-3">
+            <span className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-pt-accent/15 text-pt-accent"><Icon name="clock" className="w-5 h-5" /></span>
+            <p className="text-pt-muted text-[14px]"><b className="block text-pt-text text-[15px]">Taken on your shoot day</b>Gear isn't booked ahead. From an hour before your shoot, take what's free: tap <b className="text-pt-text">Take gear</b> in the chat.</p>
+          </div>
         ) : !showFree ? null : inCart ? (
           <div className="space-y-2">
             <button onClick={() => navigate(creator && note.take ? '/gear/take' : '/reserve')} className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">{creator && note.take ? 'Picked ✓ · Take it' : 'In your shoot ✓ · Review'}</button>

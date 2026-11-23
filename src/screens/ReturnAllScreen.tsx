@@ -5,6 +5,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../auth'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 import ReturnFlow, { returnParts } from '../components/ReturnFlow'
 import { useShootLabel } from '../activeShoot'
 import { formatDay } from '../lib/dates'
@@ -25,16 +26,10 @@ export default function ReturnAllScreen() {
   const [done, setDone] = useState<number | null>(null)
   const nothing = groups !== null && returnParts(group ?? undefined).length === 0
 
-  const header = (
-    <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
-      <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-    </div>
-  )
-
   if (done !== null) return (
     <div className="min-h-full bg-pt-bg">
-      {header}
-      <div className="px-4 pt-10 text-center space-y-4">
+      <PageHeader title="" />
+      <div className="px-4 pt-6 text-center space-y-4">
         <span className="mx-auto w-16 h-16 rounded-full bg-green-600 text-white grid place-items-center text-3xl">✓</span>
         <h1 className="font-display text-[28px] text-pt-text">All returned</h1>
         <p className="text-pt-muted text-[15px]">Thanks! {done > 1 ? 'Each team' : 'The team'} will check everything in. You'll see it on My requests.</p>
@@ -45,19 +40,13 @@ export default function ReturnAllScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      {header}
+      <PageHeader title={one ? 'Bring it back' : 'Return everything'}
+        sub={group ? (group.shoot ? label(group.shoot) : `${formatDay(group.date)} shoot`) : undefined} />
       <div className="px-4 space-y-6">
-        <div>
-          <h1 className="font-display text-[34px] text-pt-text">{one ? 'Bring it back' : 'Return everything'}</h1>
-          {group && <p className="text-pt-muted text-[15px]">{group.shoot ? label(group.shoot) : `${formatDay(group.date)} shoot`}</p>}
-        </div>
 
         {groups === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
         {nothing && (
-          <div className="text-center space-y-3 pt-6">
-            <p className="text-pt-muted text-[15px]">Nothing to bring back here. It may already be returned.</p>
-            <button onClick={() => navigate('/requests')} className="text-pt-accent text-sm font-medium tap">My requests</button>
-          </div>
+          <EmptyState icon="check" title="Nothing to bring back" line="It may already be returned. You can see where everything is on My requests." action="My requests" onAction={() => navigate('/requests')} />
         )}
         {group && !nothing && <div className="bg-pt-surface rounded-2xl p-4"><ReturnFlow group={group} only={one ? ref : undefined} onDone={n => setDone(n)} /></div>}
       </div>

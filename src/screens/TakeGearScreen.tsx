@@ -3,6 +3,7 @@
 // it's theirs until the shoot ends. Return is the usual one (Return everything / the gear page).
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 import { useActiveShoot, useGearWindow, useShootLabel, stampLabel } from '../activeShoot'
 import { useGearCart } from '../gearCart'
 import { friendlyError } from '../lib/errors'
@@ -59,22 +60,23 @@ export default function TakeGearScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-32">
-      <div className="pt-safe px-4 pb-2">
-        <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] min-h-[44px]">‹ Back</button>
-        <h1 className="font-display text-[30px] leading-tight text-pt-text">Take gear now</h1>
-        {shoot && <p className="text-pt-muted text-sm">For your shoot: {label(shoot)}. It's yours until the shoot ends.</p>}
-      </div>
+      {(() => {
+        const blocked = !shoot || state !== 'take'
+        const title = !blocked ? 'Take gear now' : !shoot ? 'Pick your shoot first' : state === 'over' ? 'This shoot is over' : shoot.status === 'requested' ? 'Waiting for approval' : 'Gear opens on your shoot day'
+        return <PageHeader title={title} sub={shoot && !blocked ? `For your shoot: ${label(shoot)}. It's yours until the shoot ends.` : undefined} />
+      })()}
       <div className="px-4 space-y-5">
         {!shoot || state !== 'take' ? (
-          // Say the real reason (audit, Nov 7: it pointed to a Gear tab creators don't have).
-          <p className="rounded-2xl bg-amber-400/10 text-amber-200 p-4 text-[15px]">{!shoot ? 'Pick your shoot first: gear is taken for a shoot.'
-            : state === 'over' ? 'This shoot is over, so gear can\'t be taken for it any more.'
-            : shoot.status === 'requested' ? 'Your shoot is waiting for approval. Once it\'s approved you can take gear from an hour before it starts.'
-            : state === 'reserve' ? `You can take gear from ${stampLabel(addMinutes(shoot.from, -GEAR_TAKE_BEFORE_MINUTES))} (an hour before your shoot). Until then you can reserve a kit ahead.`
-            : `You can take gear from ${stampLabel(addMinutes(shoot.from, -GEAR_TAKE_BEFORE_MINUTES))} (an hour before your shoot) until it ends.`}</p>
+          // Say the real reason (audit, Nov 7: it pointed to a Gear tab creators don't have) and give a way out.
+          <EmptyState icon={!shoot ? 'calendar' : state === 'over' ? 'check' : 'clock'} title={!shoot ? 'Gear is taken for a shoot' : shoot ? label(shoot) : ''}
+            line={!shoot ? 'Book a shoot (or pick one of yours), then take what\'s free on the day.'
+              : state === 'over' ? 'Gear can\'t be taken for it any more.'
+              : shoot.status === 'requested' ? 'Once it\'s approved you can take gear from an hour before it starts.'
+              : state === 'reserve' ? `You can take gear from ${stampLabel(addMinutes(shoot.from, -GEAR_TAKE_BEFORE_MINUTES))} (an hour before your shoot). Until then you can reserve a kit ahead.`
+              : `You can take gear from ${stampLabel(addMinutes(shoot.from, -GEAR_TAKE_BEFORE_MINUTES))} (an hour before your shoot) until it ends.`}
+            action={!shoot ? 'See my shoots' : 'Back to the chat'} onAction={() => navigate(!shoot ? '/shoots' : '/')} />
         ) : !picked.length ? (
-          <div className="rounded-2xl bg-pt-surface p-4 space-y-3"><p className="text-[15px]">Nothing picked yet.</p>
-            <button onClick={() => navigate('/gear')} className="w-full rounded-xl py-3 font-bold bg-pt-accent text-stone-900">Pick gear</button></div>
+          <EmptyState icon="camera" title="Nothing picked yet" line="Pick the kit or pieces you're taking, then tick every piece here." action="Pick gear" onAction={() => navigate('/gear')} />
         ) : <>
           <section className="space-y-2">
             <h2 className="text-pt-text text-lg font-semibold">1. Check every piece</h2>

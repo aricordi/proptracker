@@ -10,6 +10,7 @@ import { addBin, updateBin, deleteBin, canDeleteBin } from '../services/bins'
 import BottomSheet from '../components/BottomSheet'
 import LookAlikeBins from '../components/LookAlikeBins'
 import type { Bin, Location } from '../types'
+import { PageHeader, HeaderAction, EmptyState } from '../components/PageHeader'
 
 type SheetMode = { mode: 'add' } | { mode: 'edit'; bin: Bin }
 
@@ -227,44 +228,19 @@ export default function BinsScreen() {
   ]
 
   return (
-    <div className="p-4 pt-safe">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="font-display text-2xl text-pt-text">Bins</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/locations')}
-            className="text-pt-muted text-sm px-3 py-2 rounded-xl shadow-hairline active:opacity-70"
-          >
-            Locations
-          </button>
-          <button
-            onClick={openAdd}
-            disabled={locations.length === 0}
-            className="bg-pt-accent text-stone-900 px-4 py-2 rounded-xl font-semibold text-sm active:opacity-80 disabled:opacity-40"
-          >
-            + Add
-          </button>
-        </div>
-      </div>
+    <div className="min-h-full bg-pt-bg pb-4">
+      <PageHeader title="Bins" action={<span className="flex gap-2">
+        <HeaderAction onClick={() => navigate('/locations')}>Rooms</HeaderAction>
+        {locations.length > 0 && <HeaderAction onClick={openAdd}>+ Add</HeaderAction>}
+      </span>} />
+      <div className="px-4">
 
       {locations.length === 0 && (
-        <div className="text-center mt-16 space-y-3">
-          <p className="text-pt-muted text-sm leading-relaxed">
-            You need at least one location before you can add bins.
-          </p>
-          <button
-            onClick={() => navigate('/locations')}
-            className="bg-pt-accent text-stone-900 px-5 py-3 rounded-xl font-semibold text-sm active:opacity-80 shadow-gold"
-          >
-            Add a Location
-          </button>
-        </div>
+        <EmptyState icon="home" title="Add a room first" line="Every bin lives in a room (a storage area)." action="Add a room" onAction={() => navigate('/locations')} />
       )}
 
       {locations.length > 0 && bins.length === 0 && (
-        <p className="text-pt-muted text-sm text-center mt-16 leading-relaxed">
-          No bins yet. Tap "+ Add" to create your first bin.
-        </p>
+        <EmptyState icon="box" title="No bins yet" line="Make your first bin, then print its QR sticker." action="+ Add a bin" onAction={openAdd} />
       )}
 
       {bins.length > 0 && (
@@ -340,6 +316,8 @@ export default function BinsScreen() {
             </div>
           </div>
         ))}
+      </div>
+
       </div>
 
       {/* Edit / Add sheet */}

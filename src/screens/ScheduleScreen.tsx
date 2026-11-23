@@ -6,6 +6,7 @@ import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
 import { SwapAsk, InviteAsk, DayLineup } from '../components/ScheduleAsks'
 import { useEffect, useMemo, useState } from 'react'
 import RoundIcon from '../components/RoundIcon'
+import BrandMark from '../components/BrandMark'
 import MyRequestsButton from '../components/MyRequestsButton'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { httpsCallable } from 'firebase/functions'
@@ -157,9 +158,9 @@ export default function ScheduleScreen() {
     <div className="min-h-full bg-pt-bg pb-8">
       <div className={`sticky top-0 bg-pt-bg pt-safe z-10 pb-2 ${desk ? "px-8" : "px-4"}`}>
         {/* Nov 13 polish: when the buttons don't fit next to the title (owner: 5 of them), they move to a row ABOVE it instead of cutting it to "Cal…". */}
-        <div className="flex flex-wrap-reverse items-end justify-between py-2 gap-x-2 gap-y-2">
-          <h1 className="font-display text-[30px] text-pt-text shrink-0">{canBook ? 'Calendar' : 'Schedule'}</h1>
-          <div className="flex gap-2 pb-0.5 ml-auto">
+        <div className="flex flex-wrap-reverse items-center justify-between py-2 gap-x-2 gap-y-2">
+          <h1 className="font-display text-[30px] leading-tight text-pt-text shrink-0 flex items-center gap-2.5"><BrandMark className="w-8 text-pt-text" title="" />{canBook ? 'Calendar' : 'Schedule'}</h1>
+          <div className="flex items-center gap-2 ml-auto">
             <AiButton mode="time" />
             <MyRequestsButton />
             {teamView && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
@@ -1394,12 +1395,17 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
           )}
           {mine && !shoot.explanation && now >= explainUntil(shoot, s) && <p className="text-pt-muted text-sm">The schedule team will decide.</p>}
           {team && (
-            <div className="flex gap-2">
-              <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'filmed' }))} className="flex-1 bg-pt-border text-pt-text rounded-xl py-2 text-sm disabled:opacity-40">They filmed</button>
-              {!shoot.explanation && now < explainUntil(shoot, s)
-                ? <p className="flex-1 bg-pt-bg rounded-xl px-2 py-2 text-pt-muted text-xs text-center">No-show possible after {stampLabel(explainUntil(shoot, s))}, unless they explain</p>
-                : <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'noshow' }))} className="flex-1 bg-red-500/80 text-white font-semibold rounded-xl py-2 text-sm disabled:opacity-40">No-show · strike</button>}
-            </div>
+            !shoot.explanation && now < explainUntil(shoot, s) ? (
+              <div className="space-y-2">
+                <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'filmed' }))} className="w-full min-h-[48px] bg-pt-surface shadow-hairline text-pt-text font-semibold rounded-xl text-[15px] disabled:opacity-40">They filmed</button>
+                <p className="flex items-start gap-1.5 text-pt-muted text-[13px]"><Icon name="clock" className="w-4 h-4 shrink-0 mt-px" />No-show possible after {stampLabel(explainUntil(shoot, s))}, unless they explain.</p>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'filmed' }))} className="flex-1 min-h-[48px] bg-pt-surface shadow-hairline text-pt-text font-semibold rounded-xl text-[15px] disabled:opacity-40">They filmed</button>
+                <button disabled={busy} onClick={() => run(() => decideShoot({ id: shoot.id, outcome: 'noshow' }))} className="flex-1 min-h-[48px] bg-red-500/80 text-white font-semibold rounded-xl text-[15px] disabled:opacity-40">No-show · strike</button>
+              </div>
+            )
           )}
         </div>
       )}

@@ -23,8 +23,17 @@ function watch(email: string, cb: (r: CastRow[] | null) => void) {
   e.subs.add(cb)
   if (!e.stop) {
     const from = addDays(studioDayOf(new Date().toISOString()), -1)
-    e.stop = onSnapshot(query(collection(db, 'cast_invites'), where('toEmail', '==', email), where('date', '>=', from), orderBy('date')),
-      snap => { e.rows = snap.docs.map(d => ({ id: d.id, ...d.data() } as CastRow)).sort((a, b) => (a.from || a.date).localeCompare(b.from || b.date)); e.subs.forEach(f => f(e.rows)) },
+    // includeMetadataChanges + skipping an EMPTY answer from the phone's cache before the first server answer: otherwise the
+    // Videos screen flashed "Nothing yet" while the More row (already loaded) said "1 waiting for your answer".
+    e.stop = onSnapshot(query(collection(db, 'cast_invites'), where('toEmail', '==', email), where('date', '>=', from), orderBy('date')), { includeMetadataChanges: true },
+      snap => {
+        if (snap.metadata.fromCache && snap.empty && e.rows === null) {
+          // No signal: after a few seconds, trust the (empty) phone copy so the screen doesn't say "Loading…" forever.
+          setTimeout(() => { if (e.rows === null && e.stop) { e.rows = []; e.subs.forEach(f => f(e.rows)) } }, 6000)
+          return
+        }
+        if (e.rows && !snap.docChanges().length) return   // only the metadata changed (cache → server): nothing new to show
+        e.rows = snap.docs.map(d => ({ id: d.id, ...d.data() } as CastRow)).sort((a, b) => (a.from || a.date).localeCompare(b.from || b.date)); e.subs.forEach(f => f(e.rows)) },
       () => { e.rows = []; e.subs.forEach(f => f(e.rows)) })
   }
   return () => {

@@ -60,15 +60,15 @@ export default function ReservationDetailScreen() {
   const pickup = pickupDay(res.startDate, settings)
 
   return (
-    <div className="min-h-screen bg-pt-bg pb-12">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button onClick={goBack} className="text-pt-text text-base font-medium min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
+    <div className="min-h-full bg-pt-bg pb-12">
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-1 flex items-center justify-between">
+        <button onClick={goBack} className="text-pt-accent text-[17px] min-h-[44px] pr-3 -ml-0.5 inline-flex items-center gap-1"><span aria-hidden className="text-[22px] leading-none -mt-0.5">‹</span>Back</button>
         <span className={`text-xs px-3 py-1 rounded-full ${overdue ? 'bg-red-500/20 text-red-300' : STATUS_STYLES[s]}`}>
           {overdue ? 'Late' : statusLabel(res)}
         </span>
       </div>
 
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-2 pb-8 space-y-6">
         {params.get('new') && s === 'requested' && (
           <Banner tone="green" title="You're booked ✓">
             These props are held for your dates. You'll see the status change here as the arts department gets them ready.
@@ -76,7 +76,7 @@ export default function ReservationDetailScreen() {
         )}
 
         <div>
-          <h1 className="font-display text-2xl text-pt-text leading-tight">{res.title}</h1>
+          <h1 className="font-display text-[34px] text-pt-text leading-tight text-balance">{res.title}</h1>
           {shootText
             ? <ShootLine text={shootText} wrap className="text-pt-text mt-1" />
             : <p className="text-pt-text mt-1"><IconText name="calendar">{formatRange(res.startDate, res.endDate)}</IconText></p>}

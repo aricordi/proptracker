@@ -23,6 +23,7 @@ import type { Item, Condition } from '../types'
 import { useSession } from '../auth'
 import { COLLECTION_LABELS, type PropCollection } from '../../functions/src/collections'
 import { shrinkPhoto } from '../lib/shrinkPhoto'
+import { PageHeader } from '../components/PageHeader'
 
 export default function AddItemScreen() {
   const navigate = useNavigate()
@@ -326,20 +327,9 @@ export default function AddItemScreen() {
     <>
     <div className="flex flex-col min-h-full bg-pt-bg">
       {/* Header */}
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="text-pt-text text-base font-medium active:text-pt-muted py-1"
-        >
-          Cancel
-        </button>
-        <h1 className="font-display text-xl text-pt-text">
-          {isEditMode ? 'Edit Item' : 'Add Item'}
-        </h1>
-        <div className="w-14" />
-      </div>
+      <PageHeader title={isEditMode ? 'Edit prop' : 'Add a prop'} />
 
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-2 pb-8 space-y-6">
         {/* Photo */}
         <PhotoPicker
           photos={photos}

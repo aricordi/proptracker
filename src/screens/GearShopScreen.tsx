@@ -12,6 +12,7 @@ import { useScheduleSettings } from '../services/schedule'
 import { AddingToChip, useAddingNote } from '../components/AddingToBar'
 import MyRequestsButton from '../components/MyRequestsButton'
 import AiButton from '../components/AiButton'
+import { EmptyState } from '../components/PageHeader'
 
 // Creators: pick the shoot day + hours, see which kits (bundles) and single items are free, add them.
 // Owner, Oct 21: kits are what most people grab; single items are the pieces the team marked "Creators can book".
@@ -60,7 +61,7 @@ export default function GearShopScreen() {
     <div className="min-h-full bg-pt-bg pb-28">
       {/* Same as Browse → Props: title and tabs scroll away; search, chips and the hours stay pinned. */}
       <div className="pt-safe px-4">
-        <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5"><BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">{creator ? 'Browse' : 'Gear'}</span>{creator && <><AiButton mode="props" /><MyRequestsButton /></>}</h1>
+        <h1 className="font-display text-[30px] leading-tight text-pt-text flex items-center gap-2.5"><BrandMark className="w-8 text-pt-text" title="" /><span className="flex-1">Gear</span>{creator && <><AiButton mode="props" /><MyRequestsButton /></>}</h1>
       </div>
       <div className="sticky z-10 bg-pt-bg px-4 pt-2.5 pb-2" style={{ top: 'env(safe-area-inset-top)' }}>
         <div className="relative">
@@ -72,11 +73,11 @@ export default function GearShopScreen() {
           {query && <button onClick={() => setQuery('')} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-pt-muted text-xl leading-none">×</button>}
         </div>
         {(creator || cats.length > 1) && (
-          <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+          <div className="flex gap-2 mt-2 overflow-x-auto no-scrollbar -mx-4 px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible">
             {creator && <AddingToChip kind="gear" />}
             {cats.length > 1 && [null, ...cats].map(c => (
               <button key={c ?? 'all'} onClick={() => setCat(c)}
-                className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm transition-colors ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c ?? 'All'}</button>
+                className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm transition-colors ${cat === c ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>{c ?? 'All'}</button>
             ))}
           </div>
         )}
@@ -84,8 +85,8 @@ export default function GearShopScreen() {
       </div>
 
       <div className="px-4 pb-4 pt-1 space-y-6">
-        <p className="text-xs flex gap-2 -mb-3"><span className="text-pt-muted shrink-0">{bundles.length} kit{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} single item${extras.length === 1 ? '' : 's'}` : ''}</span>
-          {creator && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {shoot ? `Gear for your shoot's hours · ${note.text}` : note.text}</span>}</p>
+        <p className="text-xs flex gap-1 -mb-3"><span className="text-pt-muted shrink-0">{bundles.length} kit{bundles.length === 1 ? '' : 's'}{extras.length ? ` · ${extras.length} single item${extras.length === 1 ? '' : 's'}` : ''}</span>
+          {creator && <span className={`truncate ${note.late ? 'text-red-300' : 'text-pt-muted'}`}>· {note.text}</span>}</p>
         {creator && shoot && note.early && (
           <div className="rounded-2xl bg-pt-surface shadow-hairline p-4 space-y-1">
             <b className="block text-[15px] text-pt-text">Gear is first come, first served</b>
@@ -104,16 +105,16 @@ export default function GearShopScreen() {
           </button>
         )}
         {offers === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {offers && all.length === 0 && <p className="text-pt-muted text-sm text-center py-10">No gear to book yet. The equipment team is setting it up.</p>}
-        {offers && all.length > 0 && live.length === 0 && <p className="text-pt-muted text-sm text-center py-10">No gear matches{query ? ` "${query.trim()}"` : ''}. Try another word{cat ? ' or All' : ''}.</p>}
+        {offers && all.length === 0 && <EmptyState icon="camera" title="No gear here yet" line="The equipment team is setting it up." />}
+        {offers && all.length > 0 && live.length === 0 && <EmptyState icon="search" title={`No gear matches${query ? ` "${query.trim()}"` : ''}`} line={`Try another word${cat ? ' or All' : ''}.`} />}
 
         {bundles.length > 0 && (
           <section className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-pt-text text-xl font-semibold tracking-tight">Grab-and-go kits</h2>
-              <span className="text-pt-muted text-xs">Everything in the case, booked whole</span>
+            <div>
+              <h2 className="text-pt-text text-xl font-semibold tracking-tight whitespace-nowrap">Grab-and-go kits</h2>
+              <p className="text-pt-muted text-[13px]">Everything in the case, taken together</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-3">
               {bundles.map(b => {
                 const homeOnly = creator && !!b.housesOnly && shoot?.place === 'offsite'
                 const ok = !problem && !homeOnly && free(b) > 0, inCart = !!cart.lines[b.id]
@@ -156,18 +157,18 @@ export default function GearShopScreen() {
 
         {extras.length > 0 && (
           <section className="space-y-3">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-pt-text text-xl font-semibold tracking-tight">Single items</h2>
-              <span className="text-pt-muted text-xs">Need just one thing? Pick how many</span>
+            <div>
+              <h2 className="text-pt-text text-xl font-semibold tracking-tight whitespace-nowrap">Single items</h2>
+              <p className="text-pt-muted text-[13px]">Need just one thing? Pick how many</p>
             </div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {extras.map(x => {
                 const n = cart.lines[x.id] ?? 0, f = problem || !showFree ? 0 : free(x)
                 return (
                   <div key={x.id} className="flex items-center gap-3 px-3 py-3">
-                    <GearArt photo={x.photos?.[0]} category={x.category} className="w-11 h-11 rounded-xl shrink-0" />
+                    <GearArt photo={x.photos?.[0]} category={x.category} tile className="w-12 h-12 rounded-xl shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-pt-text text-[15px] truncate">{x.name}</p>
+                      <p className="text-pt-text text-[15px] font-semibold truncate">{x.name}</p>
                       <p className={`text-xs ${f || !showFree ? 'text-pt-muted' : 'text-red-300'}`}>{!showFree ? `${x.pieces[0]?.qty ?? 0} offered` : f ? `${f} free for your hours` : 'None free for your hours'}</p>
                     </div>
                     {creator && !(note.take || reserveOn) ? null : creator && !shoot && canBook ? (

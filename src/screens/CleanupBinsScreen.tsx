@@ -15,6 +15,8 @@ import { CombineSheet } from './CleanupListScreen'
 import { friendlyError } from '../lib/errors'
 import { thumbOf } from '../services/itemShape'
 import type { Item } from '../types'
+import { EmptyState } from '../components/PageHeader'
+import { Icon } from '../components/Icon'
 
 export function CleanupBinsScreen() {
   const navigate = useNavigate()
@@ -127,8 +129,10 @@ export function CleanupBinScreen() {
           {props.map(p => (
             <div key={p.id} className="relative rounded-2xl overflow-hidden bg-pt-surface">
               <button onClick={() => setEditing(p)} className="block w-full text-left" aria-label={`Fix ${p.name}`}>
-                <div className="aspect-square bg-black">{p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" /> : <span className="grid place-items-center h-full text-pt-muted text-sm">No photo</span>}</div>
-                <span className="absolute top-2 right-2 rounded-full bg-black/70 text-white text-[14px] font-bold px-2 py-0.5">×{p.quantity}</span>
+                {/* No photo: a faint tile with a camera (pure black vanished into the page). */}
+                <div className="aspect-square bg-white/[0.06]">{p.photos[0] ? <img src={thumbOf(p, p.photos[0])} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  : <span className="flex flex-col items-center justify-center gap-1 h-full text-pt-muted text-[14px]"><Icon name="camera" className="w-7 h-7" />No photo</span>}</div>
+                <span className="absolute top-2 right-2 rounded-full bg-black/80 shadow-hairline text-white text-[15px] font-bold px-2.5 py-0.5">×{p.quantity}</span>
                 {p.reviewedAt && <span className="absolute top-2 left-2 rounded-full bg-green-600 text-white text-[12px] font-semibold px-2 py-0.5">✓</span>}
                 <span className={`block px-2 py-2 text-[14px] font-semibold leading-tight line-clamp-2 ${oddName(p.name) ? 'text-amber-300' : 'text-pt-text'}`}>{p.name}</span>
               </button>
@@ -136,7 +140,7 @@ export function CleanupBinScreen() {
             </div>
           ))}
         </div>
-        {!props.length && <div className="rounded-[20px] bg-pt-surface p-6 text-center"><p className="text-pt-text text-[18px] font-semibold">Nothing in here</p></div>}
+        {!props.length && <EmptyState icon="box" title="Nothing in here" line="No props are in this bin in the app." />}
         {err && <p className="rounded-2xl bg-red-500/10 text-red-200 px-4 py-3 text-[16px]">{err}</p>}
       </div>
       <div className="sticky bottom-0 z-10 bg-pt-bg px-4 pt-2 pb-3 shadow-[0_-12px_16px_-8px_rgba(0,0,0,0.9)]">

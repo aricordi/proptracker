@@ -10,11 +10,14 @@ import { useBookingSettings } from '../hooks/useBookings'
 import { formatDay } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { Icon } from '../components/Icon'
+import { PageHeader, EmptyState } from '../components/PageHeader'
+import { useSession } from '../auth'
 
 const BEFORE = 7, AFTER = 42
 
 export default function RequestsCalendarScreen() {
   const navigate = useNavigate()
+  const { role } = useSession()
   const settings = useBookingSettings()
   const s = useScheduleSettings()
   const today = todayInStudio()
@@ -31,34 +34,43 @@ export default function RequestsCalendarScreen() {
   }, [live])
   const shown = byDay[day] ?? []
   const stripRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { stripRef.current?.querySelector('[data-today]')?.scrollIntoView({ inline: 'center', block: 'nearest' }) }, [])
+  // Today in the middle of the strip, without scrolling the page itself.
+  useEffect(() => {
+    const box = stripRef.current, el = box?.querySelector<HTMLElement>('[data-today]')
+    if (box && el) box.scrollLeft = el.offsetLeft - box.offsetLeft - (box.clientWidth - el.clientWidth) / 2
+  }, [])
   const pickup = pickupDay(day, settings)
 
   return (
     <div className="min-h-full bg-pt-bg pb-8">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2">Calendar</h1>
-        <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar" ref={stripRef}>
-          {strip.map(d => {
-            const n = byDay[d]?.length ?? 0, on = d === day
-            return (
-              <button key={d} onClick={() => setDay(d)} {...(d === today ? { 'data-today': '' } : {})}
-                aria-label={`${formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}: ${n} request${n === 1 ? '' : 's'}`}
-                className={`shrink-0 w-12 rounded-2xl min-h-[64px] flex flex-col items-center justify-center ${on ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-surface text-pt-text'} ${d < today && !on ? 'opacity-50' : ''}`}>
-                <span className="text-xs leading-none">{formatDay(d, { weekday: 'short' })}</span>
-                <span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
-                <span className={`mt-1 h-4 text-xs font-semibold ${n ? '' : 'invisible'}`}>{n || 0}</span>
-              </button>
-            )
-          })}
+      <PageHeader title="Calendar" sub="Props requests by shoot day" back={role !== 'arts'} noBackOnDesk>
+        <div className="flex items-center gap-2">
+          <button aria-label="Earlier days" onClick={() => stripRef.current?.scrollBy({ left: -stripRef.current.clientWidth * 0.8, behavior: 'smooth' })}
+            className="hidden min-[1100px]:grid shrink-0 w-10 h-10 rounded-full bg-pt-surface text-pt-accent text-xl place-items-center">‹</button>
+          <div className="-mx-4 px-4 scroll-px-4 flex-1 min-w-0 flex gap-2 overflow-x-auto no-scrollbar min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:scroll-px-0" ref={stripRef}>
+            {strip.map(d => {
+              const n = byDay[d]?.length ?? 0, on = d === day
+              return (
+                <button key={d} onClick={() => setDay(d)} {...(d === today ? { 'data-today': '' } : {})}
+                  aria-label={`${formatDay(d, { weekday: 'long', month: 'long', day: 'numeric' })}: ${n} request${n === 1 ? '' : 's'}`}
+                  className={`shrink-0 w-12 rounded-2xl min-h-[64px] flex flex-col items-center justify-center ${on ? 'bg-pt-accent text-stone-900 shadow-gold' : 'bg-pt-surface text-pt-text'} ${d < today && !on ? 'opacity-50' : ''}`}>
+                  <span className="text-xs leading-none">{formatDay(d, { weekday: 'short' })}</span>
+                  <span className="text-[17px] font-semibold leading-tight mt-1">{Number(d.slice(8))}</span>
+                  <span className={`mt-1 h-4 text-xs font-semibold ${n ? '' : 'invisible'}`}>{n || 0}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button aria-label="Later days" onClick={() => stripRef.current?.scrollBy({ left: stripRef.current.clientWidth * 0.8, behavior: 'smooth' })}
+            className="hidden min-[1100px]:grid shrink-0 w-10 h-10 rounded-full bg-pt-surface text-pt-accent text-xl place-items-center">›</button>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="px-4 space-y-3">
         <p className="text-pt-text text-[20px] font-semibold tracking-heading">{day === today ? 'Today' : formatDay(day, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         {pickup !== day && shown.length > 0 && <p className="text-amber-300 text-sm -mt-2">The prop room is closed that day: these are picked up {formatDay(pickup, { weekday: 'long' })}.</p>}
         {list === null && <p className="text-pt-muted text-sm">Loading…</p>}
-        {list !== null && shown.length === 0 && <p className="text-pt-muted text-sm">No props requests for this day.</p>}
+        {list !== null && shown.length === 0 && <EmptyState icon="calendar" title="No props requests this day" line="Pick another day above. Days with requests show a number." />}
         {shown.map(r => {
           const late = isLate(r.status, r.endDate, settings)
           const total = r.lines.length + (r.builds ?? []).length

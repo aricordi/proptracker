@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { PageHeader } from '../components/PageHeader'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useScheduleSettings, fmtSlot, BOOK_AHEAD_DAYS, MONTHLY_SLOTS_ON } from '../services/schedule'
@@ -17,16 +18,13 @@ export default function ScheduleRulesScreen() {
   const Li = ({ children }: { children: React.ReactNode }) => <li className="text-[15px] text-[#D8D8DC] leading-relaxed">{children}</li>
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-2 flex items-end gap-2">
-        <button onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/schedule'))} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
-        <h1 className="font-display text-[34px] text-pt-text">How it works</h1>
-      </div>
+      <PageHeader title="How it works" onBack={() => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/schedule'))} />
       <div className="px-4 max-w-prose">
         <p className="text-pt-muted text-sm pt-3">The house rules for filming at {c1} ({s.houses.cliff1.address}) and {c2} ({s.houses.cliff2.address}).</p>
 
         <H>Booking a house</H>
         <ul className="list-disc pl-5 space-y-2">
-          <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>: {s.slots.map(t => fmtSlot(t, s.slotMinutes)).join(', ')}.</Li>
+          <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>:{' '}{s.slots.map((t, i) => <span key={t}><span className="whitespace-nowrap">{fmtSlot(t, s.slotMinutes)}</span>{i < s.slots.length - 1 ? ', ' : '.'}</span>)}</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
           <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {BOOK_AHEAD_DAYS} days ahead. A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
           <Li>Filming with someone, or need longer? Tap a gold time on the <b>Calendar</b>, pick how long (2 h, 4 h, 6 h…), then say who films in each slot: you take one, a friend takes each other slot. It all goes in as one request (they don't need to confirm). Friend not on the app yet? Type their name and their slot is booked under it. Only book friends who will really be there.</Li>

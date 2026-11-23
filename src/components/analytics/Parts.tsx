@@ -19,12 +19,12 @@ export function Delta({ m, cur, prev, vs }: { m: Metric; cur: number | null; pre
 export function MetricCards({ metrics, cur, prev, selected, onSelect, tourId, link }: {
   metrics: Metric[]; cur: (m: Metric) => number | null; prev: (m: Metric) => number | null; selected?: Metric; onSelect?: (m: Metric) => void; tourId?: string; link?: boolean }) {
   return (
-    <div data-tour={tourId} role={link ? undefined : 'tablist'} aria-label={link ? undefined : 'Pick what the chart shows'} className="-mx-4 px-4 scroll-px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory">
+    <div data-tour={tourId} role={link ? undefined : 'tablist'} aria-label={link ? undefined : 'Pick what the chart shows'} className="-mx-4 px-4 scroll-px-4 flex gap-2 overflow-x-auto no-scrollbar snap-x snap-mandatory min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:grid min-[1100px]:grid-cols-[repeat(auto-fit,minmax(160px,1fr))] min-[1100px]:overflow-visible">
       {metrics.map(m => {
         const on = selected === m, v = cur(m)
         return (
           <button key={m} role={link ? undefined : 'tab'} aria-selected={link ? undefined : on} onClick={() => onSelect?.(m)}
-            className={`snap-start shrink-0 w-[46%] min-w-[150px] max-w-[200px] text-left rounded-2xl p-3 pt-2.5 relative overflow-hidden ${on ? 'bg-pt-raised shadow-hairline' : 'bg-pt-surface'}`}>
+            className={`snap-start shrink-0 w-[46%] min-w-[150px] max-w-[200px] min-[1100px]:w-auto min-[1100px]:min-w-0 min-[1100px]:max-w-none text-left rounded-2xl p-3 pt-2.5 relative overflow-hidden ${on ? 'bg-pt-raised shadow-hairline' : 'bg-pt-surface'}`}>
             <span className={`absolute inset-x-0 top-0 h-[3px] ${on ? 'bg-pt-accent' : 'bg-transparent'}`} />
             <span className={`block text-[13px] ${on ? 'text-pt-text' : 'text-pt-muted'}`}>{METRICS[m].label}{link && <span className="float-right text-pt-muted" aria-hidden>›</span>}</span>
             <span className="block text-[28px] font-bold leading-tight tabular-nums text-pt-text">{fmt(m, v)}</span>

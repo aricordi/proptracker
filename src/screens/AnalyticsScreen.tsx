@@ -116,17 +116,17 @@ export default function AnalyticsScreen() {
       : <span className="text-pt-muted text-sm">{range.dates}</span>}
   </>
   const tabsRow = !table && (
-    <div role="tablist" className="flex gap-5 overflow-x-auto no-scrollbar">
+    <div role="tablist" className="-mx-4 px-4 scroll-px-4 flex gap-5 overflow-x-auto no-scrollbar min-[1100px]:mx-0 min-[1100px]:px-0">
       {TABS.map(([v, l]) => (
         <button key={v} role="tab" aria-selected={tab === v} onClick={() => set({ tab: v === 'creators' ? null : v, m: null })}
-          className={`relative py-3 text-[15px] shrink-0 ${tab === v ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>
+          className={`relative py-3 text-[15px] shrink-0 whitespace-nowrap ${tab === v ? 'text-pt-text font-semibold' : 'text-pt-muted'}`}>
           {l}{tab === v && <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-pt-accent" />}
         </button>
       ))}
     </div>
   )
   const scopeRow = (
-    <div className="flex items-center gap-2 py-2 overflow-x-auto no-scrollbar" data-tour="scope">
+    <div className="-mx-4 px-4 flex items-center gap-2 py-2 overflow-x-auto no-scrollbar min-[1100px]:mx-0 min-[1100px]:px-0" data-tour="scope">
       <button onClick={() => setFilterOpen(true)} className="shrink-0 flex items-center gap-1.5 px-3 min-h-[40px] rounded-full bg-pt-surface text-pt-text text-sm"><Icon name="filter" className="w-4 h-4" />Filter</button>
       {chips.length === 0 && <span className="text-pt-muted text-sm whitespace-nowrap">Everyone · every house</span>}
       {chips.map((c, i) => <span key={c.label} className="shrink-0 flex items-center gap-1">{i > 0 && <span className="text-pt-muted">›</span>}
@@ -428,7 +428,7 @@ function PersonView(c: Ctx & { m: Metric }) {
     {(() => { const lt = lateTotals(lateRows(c.cur.incidents)); return (
       <button onClick={() => c.drill({ tab: 'late', m: null })} className="w-full flex items-center gap-3 bg-pt-surface rounded-2xl px-3 py-3 text-left" data-tour="theirlate">
         <span className="flex-1 min-w-0"><span className="block text-pt-text text-[15px]">Late returns · {lt.count}</span>
-          <span className="block text-pt-muted text-xs">{lt.count ? `${lt.gear} gear (fee applies) · ${lt.props} props${lt.stillOut ? ` · ${lt.stillOut} still out` : ''}` : `Nothing late ${c.range.phrase}`}</span></span>
+          <span className="block text-pt-muted text-xs">{lt.count ? `${lt.gear} gear (fee applies) · ${lt.props} ${lt.props === 1 ? 'prop' : 'props'}${lt.stillOut ? ` · ${lt.stillOut} still out` : ''}` : `Nothing late ${c.range.phrase}`}</span></span>
         <span className="text-pt-muted">›</span>
       </button>) })()}
     <SectionHead title={`Their flags · ${flagXs.length}`} sub="Tap one to see what happened and what you can do about it" onMore={() => c.drill({ tab: 'flags', m: null })} more="Flags tab" />
@@ -537,11 +537,11 @@ function LateTab(c: Ctx) {
   }
   const tile = (n: string, label: string, tone = 'text-pt-text') => (
     <div className="bg-pt-surface rounded-2xl p-3"><p className={`text-[22px] font-semibold tabular-nums ${tone}`}>{n}</p><p className="text-pt-muted text-xs leading-snug">{label}</p></div>)
-  const chip = (on: boolean, label: string, onClick: () => void) => <button key={label} onClick={onClick} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{label}</button>
+  const chip = (on: boolean, label: string, onClick: () => void) => <button key={label} onClick={onClick} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm whitespace-nowrap ${on ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{label}</button>
   return <>
     <div data-tour="lateheadline">
       <p className="text-pt-text text-[22px] font-semibold leading-snug tracking-tight">{t.count ? <>{subject} {t.count} {t.count === 1 ? 'time' : 'times'} {c.range.phrase}</> : <>Nothing came back late {c.range.phrase}</>}</p>
-      <p className="text-pt-muted text-[15px] mt-1">{t.count ? `${t.gear} gear (the fee applies) · ${t.props} props (no fee for now)` : 'Nice.'}</p>
+      <p className="text-pt-muted text-[15px] mt-1">{t.count ? `${t.gear} gear (the fee applies) · ${t.props} ${t.props === 1 ? 'prop' : 'props'} (no fee for now)` : 'Nice.'}</p>
     </div>
     <div className="grid grid-cols-2 gap-2" data-tour="latetiles">
       {tile(String(t.gear), `Gear late · fee applies (${LATE_FEE_PERCENT}% of value)`, t.gear ? 'text-amber-200' : 'text-pt-text')}
@@ -559,7 +559,7 @@ function LateTab(c: Ctx) {
             <Avatar email={p.email} name={p.name} size={32} />
             <span className="flex-1 min-w-0">
               <span className="block text-pt-text text-[15px] truncate">{p.name}</span>
-              <span className="block text-pt-muted text-xs truncate">{[p.gear && `${p.gear} gear`, p.props && `${p.props} props`, `${lateFor(p.minutes)} late in all`, p.gearValue && `${fmtMoney(p.gearValue)} of gear`].filter(Boolean).join(' · ')}</span>
+              <span className="block text-pt-muted text-xs truncate">{[p.gear && `${p.gear} gear`, p.props && `${p.props} ${p.props === 1 ? 'prop' : 'props'}`, `${lateFor(p.minutes)} late in all`, p.gearValue && `${fmtMoney(p.gearValue)} of gear`].filter(Boolean).join(' · ')}</span>
               <span className="block h-1 rounded-full bg-white/[0.06] mt-1.5 overflow-hidden"><i className="block h-full bg-amber-300/80" style={{ width: `${(p.count / pMax) * 100}%` }} /></span>
             </span>
             <span className="text-pt-text tabular-nums text-[17px] font-semibold">{p.count}</span>
@@ -569,7 +569,7 @@ function LateTab(c: Ctx) {
       </div>
     </>}
     <SectionHead title={`Every late return · ${pool.length}`} sub="Tap one for the times, the value and the photos, and to excuse it" />
-    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+    <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible">
       {chip(!type, 'Gear + props', () => c.set({ lt: null }))}{chip(type === 'gear', 'Gear', () => c.set({ lt: 'gear' }))}{chip(type === 'props', 'Props', () => c.set({ lt: 'props' }))}
       <span className="w-px bg-white/10 shrink-0" />
       {chip(!show, 'Counted', () => c.set({ ls: null }))}{chip(show === 'excused', `Excused · ${excused.length}`, () => c.set({ ls: 'excused' }))}{chip(show === 'all', 'All', () => c.set({ ls: 'all' }))}
@@ -738,7 +738,7 @@ function AdvancedView(c: Ctx & { qs: URLSearchParams }) {
     <p className="text-pt-muted text-[15px] -mt-1">Break any number down. Tap a column title to sort, tap a row to drill into it.</p>
     <div>
       <p className="text-pt-muted text-sm mb-2">Break down by</p>
-      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4" data-tour="dims">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible" data-tour="dims">
         {DIM_ORDER.map(d => <button key={d} onClick={() => c.set({ dim: d, sort: null, dir: null })} className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${dim === d ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>{d === 'period' ? (c.grain === 'month' ? 'Month' : c.grain === 'week' ? 'Week' : 'Day') : DIMS[d].label}</button>)}
       </div>
     </div>

@@ -7,8 +7,10 @@ import {
 } from '../services/importer'
 import { formatDay, studioDayOf } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
-const usd = (n: number) => `$${n.toFixed(n < 1 ? 3 : 2)}`
+// Always cents: "$0.000 of $10.00" read like a glitch.
+const usd = (n: number) => `$${n.toFixed(2)}`
 const errText = (e: unknown) => friendlyError(e)
 
 // Admin → Import: bring the existing photo library in from Google Drive.
@@ -112,11 +114,8 @@ export default function ImportScreen() {
   const pct = Math.min(100, (budget.spentUsd / Math.max(budget.capUsd, 0.0001)) * 100)
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
-        <h1 className="font-display text-xl text-pt-text">Import props</h1>
-      </div>
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <PageHeader title="Import props" sub="Bring in photos from Google Drive" />
+      <div className="px-4 pt-2 pb-8 space-y-6">
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-pt-text font-medium">AI spending</p>
@@ -191,7 +190,7 @@ export default function ImportScreen() {
         <div className="space-y-2">
           <p className="text-pt-muted text-xs">Imports</p>
           {jobs === null && <p className="text-pt-muted text-sm">Loading…</p>}
-          {jobs?.length === 0 && <p className="text-pt-muted text-sm">None yet.</p>}
+          {jobs?.length === 0 && <EmptyState icon="download" title="No imports yet" line="Start one above with a Google Drive folder link." />}
           {jobs?.map(j => {
             const c = j.counts
             const done = c.analyzed + c.approved + c.skipped + c.failed

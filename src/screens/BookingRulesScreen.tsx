@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { deleteField } from 'firebase/firestore'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useCategories } from '../hooks/useCategories'
@@ -8,6 +7,7 @@ import { updateCategory } from '../services/categories'
 import type { Category } from '../types'
 import { todayInStudio } from '../../functions/src/booking'
 import { formatDay } from '../lib/dates'
+import { PageHeader } from '../components/PageHeader'
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const sameSet = (a: (string | number)[], b: (string | number)[]) => a.length === b.length && a.every(x => b.includes(x))
@@ -15,7 +15,6 @@ const sameSet = (a: (string | number)[], b: (string | number)[]) => a.length ===
 const validDays = (s: string, max: number) => /^\d+$/.test(s) && Number(s) <= max
 
 export default function BookingRulesScreen() {
-  const navigate = useNavigate()
   const settings = useBookingSettings()
   const categories = useCategories()
   const [lead, setLead] = useState(String(settings.leadTimeHours))
@@ -67,11 +66,8 @@ export default function BookingRulesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
-        <h1 className="font-display text-xl text-pt-text">Booking rules</h1>
-      </div>
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <PageHeader title="Booking rules" sub="Notice, turnaround and closed days for props" />
+      <div className="px-4 pt-2 pb-8 space-y-6">
         <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
           <div>
             <p className="text-pt-text font-medium">Days the prop room is closed</p>

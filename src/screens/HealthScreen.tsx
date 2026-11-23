@@ -21,6 +21,7 @@ import { formatMoney } from '../components/ItemCard'
 import type { AiUsageRecord, Item } from '../types'
 import { thumbOf } from '../services/itemShape'
 import { friendlyError } from '../lib/errors'
+import { PageHeader } from '../components/PageHeader'
 
 export default function HealthScreen() {
   const navigate   = useNavigate()
@@ -129,12 +130,9 @@ export default function HealthScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <BackButton onClick={() => navigate(-1)} />
-        <h1 className="font-display text-xl text-pt-text">Health</h1>
-      </div>
+      <PageHeader title="Health" sub="What needs fixing in the inventory" />
 
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-2 pb-8 space-y-6">
 
         {/* Inventory */}
         <Card title="Inventory">
@@ -184,7 +182,7 @@ export default function HealthScreen() {
             : <>
                 <p className="text-pt-muted text-sm">These names look almost the same. If one was entered twice, open it and archive it.</p>
                 {dupProps.slice(0, 20).map(p => (
-                  <div key={pairKey(p.a.id, p.b.id)} className="bg-pt-bg rounded-xl p-2 space-y-1">
+                  <div key={pairKey(p.a.id, p.b.id)} className="bg-white/[0.04] rounded-xl p-2 space-y-1">
                     {[p.a, p.b].map(i => <ItemRow key={i.id} item={i} onTap={() => navigate(`/item/${i.id}`)} />)}
                     <button onClick={() => dismissDuplicatePair(p.a.id, p.b.id)} className="w-full text-pt-muted text-xs py-2 active:opacity-70">
                       Not duplicates, hide this pair
@@ -230,16 +228,6 @@ export default function HealthScreen() {
 
 // ─── Small building blocks ───────────────────────────────────────────────────
 
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button onClick={onClick} aria-label="Back" className="text-pt-text active:text-pt-muted py-1">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="m15 19-7-7 7-7" />
-      </svg>
-    </button>
-  )
-}
-
 function Card({ title, badge, children }: { title: string; badge?: ReactNode; children: ReactNode }) {
   return (
     <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
@@ -257,7 +245,7 @@ const Warn = ({ children }: { children: ReactNode }) => <span className="text-am
 
 function Stat({ value, label }: { value: number; label: string }) {
   return (
-    <div className="bg-pt-bg rounded-xl px-3 py-2">
+    <div className="bg-white/[0.04] rounded-xl px-3 py-2">
       <p className="text-pt-text font-semibold text-lg">{value}</p>
       <p className="text-pt-muted text-xs">{label}</p>
     </div>
@@ -285,7 +273,7 @@ function ItemGroup({ title, items, onTap, danger }: { title: string; items: Item
   return (
     <div>
       <p className={`text-sm font-medium mb-1 ${danger ? 'text-red-400' : 'text-pt-text'}`}>{title}</p>
-      <div className="bg-pt-bg rounded-xl p-1">
+      <div className="bg-white/[0.04] rounded-xl p-1">
         {shown.map(i => <ItemRow key={i.id} item={i} onTap={() => onTap(i.id)} />)}
       </div>
       {items.length > 3 && (
@@ -315,7 +303,7 @@ function TagMerge({ group, allItems }: { group: TagGroup; allItems: Item[] }) {
   }
 
   return (
-    <div className="bg-pt-bg rounded-xl p-3 space-y-2">
+    <div className="bg-white/[0.04] rounded-xl p-3 space-y-2">
       <div className="flex flex-wrap gap-2">
         {group.tags.map(t => (
           <button key={t.id} onClick={() => { setKeepId(t.id); setState('idle') }}
@@ -399,7 +387,7 @@ function RebuildIndex() {
   return (
     <div className="pt-1 space-y-1">
       <button onClick={run} disabled={state === 'busy'}
-        className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        className="w-full py-3 rounded-xl bg-white/[0.04] shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
         {state === 'busy' ? 'Rebuilding… (can take a few minutes)' : 'Rebuild smart search'}
       </button>
       <p className="text-pt-muted text-xs">
@@ -450,7 +438,7 @@ function ImproveSearchWords() {
   return (
     <div className="pt-2 space-y-1">
       <button onClick={running ? () => { stop.current = true } : run} disabled={!running && counts.remaining === 0}
-        className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        className="w-full py-3 rounded-xl bg-white/[0.04] shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
         {running ? `Improving… ${counts.total - counts.remaining} of ${counts.total} · tap to stop` : counts.remaining ? `Improve search words (${counts.remaining} props)` : 'Search words: all done ✓'}
       </button>
       <p className="text-pt-muted text-xs">
@@ -492,7 +480,7 @@ function SpeedUpPhotos() {
   return (
     <div className="pt-2 space-y-1">
       <button onClick={running ? () => { stop.current = true } : run} disabled={!running && counts.remaining === 0}
-        className="w-full py-3 rounded-xl bg-pt-bg shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
+        className="w-full py-3 rounded-xl bg-white/[0.04] shadow-hairline text-pt-text text-sm font-medium active:opacity-70 disabled:opacity-40">
         {running ? `Speeding up… ${counts.total - counts.remaining} of ${counts.total} · tap to stop` : counts.remaining ? `Speed up photos (${counts.remaining} props)` : 'Photos: all fast ✓'}
       </button>
       <p className="text-pt-muted text-xs">

@@ -2,6 +2,8 @@ import { VideosMeRow } from '../components/CastParts'
 import { useMyVideos } from '../services/cast'
 import { ReportProblemRow } from '../components/BugReport'
 import AiButton from '../components/AiButton'
+import BrandMark from '../components/BrandMark'
+import { Icon, type IconName } from '../components/Icon'
 import { MONTHS, daysIn, isBirthday, makeBirthday } from '../lib/birthdays'
 import { useEffect, useRef, useState } from 'react'
 import { NotificationsCard } from '../components/Notifications'
@@ -28,10 +30,15 @@ export default function AccountScreen() {
   const navigate = useNavigate()
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{role === 'creator' && !demo ? 'More' : shootFlow || demo ? 'Me' : 'Account'}</span>{shootFlow && <AiButton />}</h1>
+      {/* Same tab header as Chat, Calendar and Props: eagle + 30px title, 44px round buttons, centred. */}
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-2">
+        <div className="flex items-center gap-2.5 py-2">
+          <BrandMark className="w-8 text-pt-text" title="" />
+          <h1 className="font-display text-[30px] leading-tight text-pt-text flex-1">{role === 'creator' && !demo ? 'More' : shootFlow || demo ? 'Me' : 'Account'}</h1>
+          {shootFlow && <AiButton />}
+        </div>
       </div>
-      <div className="px-4 pt-4 pb-8 space-y-6">
+      <div className="px-4 pt-2 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
         {realRole === 'owner' && (
           // Owner, Nov 4: an everyday switch (not a preview). Creator mode = the whole app is the creator app until switched off here.
@@ -61,24 +68,28 @@ export default function AccountScreen() {
             <p className="text-pt-muted text-sm">Something wrong with a prop? Open it and tap <b className="text-pt-text">Suggest an edit</b>.</p>
           </div>
         )}
-        {(shootFlow || demo) && <VideosMeRow rows={videos} />}
-        <NotificationsCard />
-        <LaptopLayoutCard />
-        <ReportProblemRow />
-        {shootFlow && <CreatorLinks email={profile.email} />}
-        {demo && (
-          <button onClick={() => navigate('/help')} className="w-full flex items-center gap-3 px-4 py-3 text-left bg-pt-surface shadow-hairline rounded-2xl">
-            <span className="flex-1 min-w-0"><span className="block text-pt-text">Help</span><span className="block text-pt-muted text-xs">Sign-in trouble, notifications, how things work</span></span><span className="text-pt-muted">›</span>
-          </button>
+        {(shootFlow || demo) && (
+          <Group>
+            <VideosMeRow rows={videos} bare />
+            {shootFlow && <>
+              <Row icon="calendar" tone="gold" title="My shoots" sub="When you're filming and what each shoot still needs" onClick={() => navigate('/shoots')} />
+              <Row icon="box" tone="gold" title="My requests" sub="Every props request, grouped by shoot" onClick={() => navigate('/requests')} />
+            </>}
+          </Group>
         )}
+        {shootFlow && <StrikesRow email={profile.email} />}
+        <Group><NotificationsCard bare /></Group>
+        <LaptopLayoutCard />
+        <Group title="Help & feedback">
+          {(shootFlow || demo) && <Row icon="help" tone="grey" title="Help" sub={demo ? 'Sign-in trouble, notifications, how things work' : 'How do I…? Booking, props, check-in, sign-in'} onClick={() => navigate('/help')} />}
+          {shootFlow && <Row icon="note" tone="grey" title="How it works" sub="Slots, cutoffs, check-ins, strikes" onClick={() => navigate('/schedule/how')} />}
+          <ReportProblemRow bare />
+        </Group>
         {!shootFlow && isGearStaff && (
-          <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
-            {([['Equipment team tour', 'Approve requests, the gear log, blocking time (5 min)', '/tour/gear'], ['Help', 'How do I…? Booking, gear, check-in, sign-in', '/help']] as const).map(([t, d, to]) => (
-              <button key={to} onClick={() => navigate(to)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
-                <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span><span className="text-pt-muted">›</span>
-              </button>
-            ))}
-          </div>
+          <Group title="Team">
+            <Row icon="people" tone="gold" title="Equipment team tour" sub="Approve requests, the gear log, blocking time (5 min)" onClick={() => navigate('/tour/gear')} />
+            <Row icon="help" tone="grey" title="Help" sub="How do I…? Booking, gear, check-in, sign-in" onClick={() => navigate('/help')} />
+          </Group>
         )}
         {realRole === 'owner' && !creatorMode && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
@@ -181,31 +192,37 @@ function BirthdayField({ email, name, saved, busy, run }: { email: string; name:
   )
 }
 
-// Creators: your requests, your standing (strikes), and the rules.
-function CreatorLinks({ email }: { email: string }) {
-  const navigate = useNavigate()
+// More (Nov 23): one iOS-settings style list. Every row = 36px rounded icon tile · 16px semibold title · muted line · chevron.
+function Group({ title, children }: { title?: string; children: React.ReactNode }) {
+  return (
+    <section>
+      {title && <h2 className="text-pt-muted text-[14px] font-semibold px-1 mb-2">{title}</h2>}
+      <div className="bg-pt-surface shadow-hairline rounded-2xl overflow-hidden divide-y divide-white/[0.06]">{children}</div>
+    </section>
+  )
+}
+
+const TILE = { gold: 'bg-pt-accent/15 text-pt-accent', grey: 'bg-white/[0.08] text-pt-text', green: 'bg-green-500/15 text-green-300', amber: 'bg-amber-400/15 text-amber-300', red: 'bg-red-500/15 text-red-300' }
+function Row({ icon, tone, title, sub, onClick, chevron = true }: { icon: IconName; tone: keyof typeof TILE; title: string; sub?: string; onClick?: () => void; chevron?: boolean }) {
+  const inner = <>
+    <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 ${TILE[tone]}`}><Icon name={icon} className="w-5 h-5" /></span>
+    <span className="flex-1 min-w-0"><span className="block text-pt-text text-[16px] font-semibold">{title}</span>{sub && <span className="block text-pt-muted text-[14px]">{sub}</span>}</span>
+    {onClick && chevron && <span className="text-pt-muted" aria-hidden>›</span>}
+  </>
+  const cls = 'w-full flex items-center gap-3 px-4 py-3 min-h-[60px] text-left'
+  return onClick ? <button onClick={onClick} className={cls}>{inner}</button> : <div className={cls}>{inner}</div>
+}
+
+// Your standing, as one slim row: "No strikes ✓", the count, or the pause.
+function StrikesRow({ email }: { email: string }) {
   const st = useMyStatus(email)
   const paused = !!st?.pausedUntil && st.pausedUntil > todayInStudio()
-  const rows: [string, string, string][] = [
-    ['My shoots', 'When you\'re filming, soonest first, and what each shoot still needs', '/shoots'],
-    ['My requests', 'Every props request, grouped by shoot, with where each one is', '/requests'],
-    ['Help', 'How do I…? Booking, props, gear, check-in, sign-in', '/help'],
-    ['How it works', 'Slots, cutoffs, check-ins, strikes', '/schedule/how'],
-  ]
+  const n = st?.strikes ?? 0
   return (
-    <>
-      <div className={`rounded-2xl p-4 text-sm ${paused ? 'bg-red-500/10 border border-red-500/40' : 'bg-pt-surface shadow-hairline'}`}>
-        <p className="text-pt-text font-semibold">{paused ? `Props paused until ${formatDay(st!.pausedUntil!)}` : st?.strikes ? `${st.strikes} strike${st.strikes === 1 ? '' : 's'}` : 'No strikes'}</p>
-        <p className="text-pt-muted">{paused ? 'You can still book house time.' : 'Strikes come from no-shows, late cancels and upheld reports.'}</p>
-      </div>
-      <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
-        {rows.map(([t, d, to]) => (
-          <button key={to} onClick={() => navigate(to)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
-            <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span>
-            <span className="text-pt-muted">›</span>
-          </button>
-        ))}
-      </div>
-    </>
+    <div className={`rounded-2xl overflow-hidden ${paused ? 'bg-red-500/10 shadow-[inset_0_0_0_1px_rgba(248,113,113,0.4)]' : 'bg-pt-surface shadow-hairline'}`}>
+      <Row icon={paused ? 'pause' : n ? 'alert' : 'check'} tone={paused ? 'red' : n ? 'amber' : 'green'}
+        title={paused ? `Props paused until ${formatDay(st!.pausedUntil!)}` : n ? `${n} strike${n === 1 ? '' : 's'}` : 'No strikes ✓'}
+        sub={paused ? 'You can still book house time.' : n ? 'From no-shows, late cancels or upheld reports.' : 'Keep showing up and finishing on time.'} />
+    </div>
   )
 }

@@ -9,6 +9,7 @@ import { formatRange, formatDay } from '../lib/dates'
 import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { Pill } from '../components/GearUi'
 import ShootLine from '../components/ShootLine'
+import { PageHeader, HeaderAction, EmptyState } from '../components/PageHeader'
 import { useShootLines } from '../hooks/useShootLines'
 
 interface Tab { key: string; label: string; statuses: ReservationStatus[]; newestFirst?: boolean; byEnd?: boolean; today?: boolean }
@@ -51,7 +52,7 @@ function whenLabel(start: string, today: string) {
 export default function ReservationsScreen() {
   const settings = useBookingSettings()
   const navigate = useNavigate()
-  const { canSeeStaff: staff, profile, canBook } = useSession()   // admins see the whole queue (view only)
+  const { canSeeStaff: staff, profile, canBook, role } = useSession()   // admins see the whole queue (view only)
   // ?mine=1: just your own requests (the owner's "Me" tab), even for staff.
   const [params] = useSearchParams()
   const isStaff = staff && params.get('mine') !== '1'
@@ -79,32 +80,26 @@ export default function ReservationsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-[34px] text-pt-text py-2">{isStaff ? 'Props queue' : 'My bookings'}</h1>
-          {canBook && <button onClick={() => navigate('/reserve')} className="text-pt-accent text-sm font-medium py-1 tap">+ New request</button>}
-        </div>
-        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+      <PageHeader title={isStaff ? 'Props queue' : 'My prop requests'} back={role !== 'arts'} noBackOnDesk={isStaff}
+        action={canBook ? <HeaderAction onClick={() => navigate('/reserve')}>+ New</HeaderAction> : undefined}>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 scroll-px-4 min-[1100px]:mx-0 min-[1100px]:px-0 min-[1100px]:flex-wrap min-[1100px]:overflow-visible">
           {tabs.map(t => {
             const n = byTab[t.key]?.length ?? 0
             return (
               <button key={t.key} onClick={() => setTabKey(t.key)}
-                className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface text-pt-muted'}`}>
-                {t.label}{t.key !== 'done' && t.key !== 'past' ? ` (${n})` : ''}
+                className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${tabKey === t.key ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-muted'}`}>
+                {t.label}{t.key !== 'done' && t.key !== 'past' && n > 0 ? ` ${n}` : ''}
               </button>
             )
           })}
         </div>
-      </div>
+      </PageHeader>
 
       <div className="p-4 space-y-2">
         {list === null && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
         {list !== null && shown.length === 0 && (
-          <div className="text-center mt-12">
-            <p className="text-pt-text font-semibold">{(EMPTY[tabKey] ?? ['All clear'])[0]}</p>
-            <p className="text-pt-muted text-sm mt-1 mb-3 px-6">{(EMPTY[tabKey] ?? ['', ''])[1]}</p>
-            {!isStaff && tabKey === 'current' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium tap">Find props to reserve</button>}
-          </div>
+          <EmptyState icon={tabKey === 'returns' || tabKey === 'done' ? 'check' : 'box'} title={(EMPTY[tabKey] ?? ['All clear'])[0]} line={(EMPTY[tabKey] ?? ['', ''])[1]}
+            action={!isStaff && tabKey === 'current' ? 'Find props' : undefined} onAction={() => navigate('/browse')} />
         )}
         {shown.map(r => {
           const overdue = isLate(r.status, r.endDate, settings)

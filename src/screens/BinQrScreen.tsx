@@ -102,8 +102,8 @@ export default function BinQrScreen() {
     <div className="min-h-screen bg-pt-bg pb-32">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
         <div className="flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="tap text-pt-accent text-[17px] py-2">‹ Back</button>
-          <p className="text-pt-muted text-xs">{location?.name}</p>
+          <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] min-h-[44px] pr-3 -ml-0.5 inline-flex items-center gap-1"><span aria-hidden className="text-[22px] leading-none -mt-0.5">‹</span>Back</button>
+          <p className="text-pt-muted text-[14px]">{location?.name}</p>
         </div>
         <h1 className="font-display text-[34px] text-pt-text leading-tight">{bin.label}</h1>
         {checking ? (

@@ -1,17 +1,17 @@
 // Problem reports (owner, Nov 5): everything people sent with "Report a problem", newest first, with the screenshot,
 // what they wrote, where they were and what the app knew. Mark it fixed (thanks them with a notification) or won't fix.
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { subscribeBugReports, updateBugReport, phoneLabel, BUG_KIND_LABEL, type BugReport, type BugStatus } from '../services/bugs'
 import { friendlyError } from '../lib/errors'
 import { formatDay, studioDayOf } from '../lib/dates'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
 const TABS: { k: BugStatus; label: string }[] = [{ k: 'open', label: 'Open' }, { k: 'fixed', label: 'Fixed' }, { k: 'wontfix', label: "Won't fix" }]
 const KIND_TONE: Record<string, string> = { broken: 'bg-red-500/15 text-red-200', wrong: 'bg-amber-400/15 text-amber-200', missing: 'bg-sky-400/15 text-sky-200' }
-const when = (iso: string) => `${formatDay(studioDayOf(iso), { weekday: 'short', month: 'short', day: 'numeric' })}, ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+const when = (iso: string) => `${formatDay(studioDayOf(iso), { weekday: 'short', month: 'short', day: 'numeric' })}, ${new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
 
 export default function BugsScreen() {
-  const navigate = useNavigate()
   const [params] = useSearchParams()
   const focus = params.get('id')
   const [list, setList] = useState<BugReport[] | null>(null)
@@ -24,27 +24,20 @@ export default function BugsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-center gap-3 py-2">
-          <button onClick={() => navigate(-1)} className="text-pt-text min-w-[44px] min-h-[44px] -ml-2 text-2xl" aria-label="Back">‹</button>
-          <h1 className="font-display text-[28px] text-pt-text">Problem reports</h1>
-        </div>
-        <div className="flex gap-1 overflow-x-auto no-scrollbar">
+      <PageHeader title="Problem reports">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
           {TABS.map(t => (
             <button key={t.k} onClick={() => setTab(t.k)} aria-pressed={tab === t.k}
-              className={`shrink-0 px-3.5 min-h-[40px] inline-flex items-center gap-1 rounded-full text-sm ${tab === t.k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
+              className={`shrink-0 whitespace-nowrap px-4 min-h-[40px] inline-flex items-center gap-1 rounded-full text-[15px] ${tab === t.k ? 'bg-pt-accent text-stone-900 font-medium' : 'bg-pt-surface shadow-hairline text-pt-muted'}`}>
               {t.label} · {count(t.k)}
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
       <div className="px-4 space-y-3">
         {list === null && <p className="text-pt-muted text-sm">Loading…</p>}
         {list && shown.length === 0 && (
-          <div className="rounded-2xl bg-pt-surface shadow-hairline p-5">
-            <p className="text-pt-text text-[16px] font-semibold">{tab === 'open' ? 'Nothing to look at' : 'None yet'}</p>
-            <p className="text-pt-muted text-[14px] mt-1">When someone taps Report a problem (Me, Help, the team menus, the chat, or two fingers held on the screen), it lands here with a screenshot.</p>
-          </div>
+          <EmptyState icon="alert" title={tab === 'open' ? 'Nothing to look at' : 'None yet'} line="When someone taps Report a problem (More, Help, the team menus, the chat, or two fingers held on the screen), it lands here with a screenshot." />
         )}
         {shown.map(r => <ReportCard key={r.id} r={r} focus={r.id === focus} />)}
       </div>

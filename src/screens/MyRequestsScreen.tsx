@@ -14,6 +14,7 @@ import { formatDay } from '../lib/dates'
 import { groupByShoot, type RequestGroup } from '../lib/requestGroups'
 import { RequestRow } from '../components/ShootNeeds'
 import { returnCount } from '../hooks/useReturnables'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
 const WEEKDAY = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
@@ -79,9 +80,7 @@ export default function MyRequestsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-        <h1 className="font-display text-[34px] text-pt-text py-1">My requests</h1>
+      <PageHeader title="My requests">
         <div className="flex gap-2">
           {(['upcoming', 'past'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
@@ -90,14 +89,13 @@ export default function MyRequestsScreen() {
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
       <div className="px-4 space-y-3">
         {loading && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
         {!loading && shown.length === 0 && (
-          <div className="text-center mt-12 space-y-3">
-            <p className="text-pt-muted text-sm">{tab === 'upcoming' ? 'No props requested for an upcoming shoot.' : 'Nothing here yet.'}</p>
-            {tab === 'upcoming' && <button onClick={() => navigate('/browse')} className="text-pt-accent text-sm font-medium tap">Browse props</button>}
-          </div>
+          tab === 'upcoming'
+            ? <EmptyState icon="box" title="No props requested yet" line="Props you ask for an upcoming shoot show up here, grouped by shoot." action="Browse props" onAction={() => navigate('/browse')} />
+            : <EmptyState icon="clock" title="Nothing here yet" line="Requests for shoots that are over show up here." />
         )}
         {!loading && shown.map(card)}
       </div>

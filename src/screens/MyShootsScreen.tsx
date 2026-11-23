@@ -2,6 +2,7 @@
 // and what each one still needs (props and costumes), without digging through the schedule.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 import { useSession } from '../auth'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
@@ -132,9 +133,7 @@ export default function MyShootsScreen() {
   const loading = shoots === null
   return (
     <div className="min-h-full bg-pt-bg pb-8">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-        <h1 className="font-display text-[34px] text-pt-text py-1">My shoots</h1>
+      <PageHeader title="My shoots">
         <div className="flex gap-2">
           {(['upcoming', 'past'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
@@ -143,14 +142,11 @@ export default function MyShootsScreen() {
             </button>
           ))}
         </div>
-      </div>
+      </PageHeader>
       <div className="px-4 space-y-6">
         {loading && <p className="text-pt-muted text-sm text-center mt-10">Loading…</p>}
         {!loading && tab === 'upcoming' && (upcoming.length === 0 && videoYes.length === 0 ? (
-          <div className="text-center mt-12 space-y-3">
-            <p className="text-pt-muted text-sm">No shoots coming up.</p>
-            <button onClick={() => navigate('/schedule?book=1')} className="w-full rounded-2xl py-4 font-bold text-stone-900 bg-pt-accent shadow-gold">Book a shoot</button>
-          </div>
+          <EmptyState icon="calendar" title="No shoots coming up" line="Book a time at a house (or offsite), then add props to it." action="Book a shoot" onAction={() => navigate('/schedule?book=1')} />
         ) : (
           <>
             {groups.map(gr => (
@@ -167,7 +163,7 @@ export default function MyShootsScreen() {
           </>
         ))}
         {!loading && tab === 'past' && (past.length === 0
-          ? <p className="text-pt-muted text-sm text-center mt-12">No past shoots in the last 4 months.</p>
+          ? <EmptyState icon="clock" title="No past shoots" line="Shoots from the last 4 months show up here." />
           : <section className="space-y-2">{past.map(x => card(x, true))}</section>)}
       </div>
       {leaveSheet}

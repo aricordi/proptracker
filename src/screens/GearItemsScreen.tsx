@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSession } from '../auth'
 import BottomSheet from '../components/BottomSheet'
 import ProofPhotos from '../components/ProofPhotos'
+import { PageHeader, HeaderAction, EmptyState } from '../components/PageHeader'
+import { GearArt } from '../components/GearUi'
 import {
   subscribeToGearItems, subscribeToGearBundles, saveGearItem, bundledCounts, looseCount,
   GEAR_CATEGORIES, type GearItem, type GearBundle, type GearCategory,
@@ -13,6 +16,7 @@ const errText = (e: unknown) => friendlyError(e)
 // Gear team: every piece of gear the company owns, and how many are in bundles.
 export default function GearItemsScreen() {
   const navigate = useNavigate()
+  const { role } = useSession()
   const [items, setItems] = useState<GearItem[] | null>(null)
   const [bundles, setBundles] = useState<GearBundle[]>([])
   const [editing, setEditing] = useState<Partial<GearItem> | null>(null)
@@ -28,15 +32,10 @@ export default function GearItemsScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <div className="flex items-center gap-3 py-2">
-          <button onClick={() => navigate(-1)} className="text-pt-text py-1" aria-label="Back">‹</button>
-          <h1 className="font-display text-xl text-pt-text flex-1">All gear</h1>
-          <button onClick={() => setEditing({ category: 'Camera', have: 1 })} className="text-pt-accent text-sm font-medium tap">+ Add gear</button>
-        </div>
+      <PageHeader title="All gear" back={role !== 'equipment'} noBackOnDesk action={<HeaderAction onClick={() => setEditing({ category: 'Camera', have: 1 })}>+ Add gear</HeaderAction>}>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search gear"
-          className="w-full bg-pt-surface border border-pt-border rounded-xl px-3 py-2 text-pt-text text-sm placeholder-pt-muted focus:outline-none focus:border-pt-accent" />
-      </div>
+          className="w-full bg-pt-surface shadow-hairline rounded-xl px-3 min-h-[44px] text-pt-text text-[15px] placeholder-pt-muted focus:outline-none" />
+      </PageHeader>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <p className="text-pt-muted text-sm">
           Every piece of gear you own. Creators book it two ways: a <button onClick={() => navigate('/gear/bundles')} className="text-pt-accent">bundle</button> (a grab-and-go kit), or a single piece you set to <b className="text-pt-text">Creators can book</b>. Pieces set to <b className="text-pt-text">Internal only</b> never show to creators.
@@ -53,25 +52,27 @@ export default function GearItemsScreen() {
           </p>
         )}
         {items === null && <p className="text-pt-muted text-sm text-center">Loading…</p>}
-        {items?.length === 0 && <p className="text-pt-muted text-sm text-center py-6">No gear yet. Tap "+ Add gear" to add the first piece.</p>}
+        {items?.length === 0 && <EmptyState icon="camera" title="No gear yet" line="Add every camera, lens, light and mic the team owns." action="+ Add gear" onAction={() => setEditing({ category: 'Camera', have: 1 })} />}
         {GEAR_CATEGORIES.map(cat => {
           const rows = live.filter(i => i.category === cat)
           if (!rows.length) return null
           return (
             <div key={cat} className="space-y-2">
-              <p className="text-pt-muted text-xs">{cat}</p>
+              <p className="text-pt-muted text-[13px] font-semibold">{cat}</p>
               {rows.map(i => {
                 const inB = bundled.get(i.id) ?? 0
                 const loose = looseCount({ id: i.id, name: i.name, have: i.have, archived: i.archived }, bundled)
                 return (
                   <button key={i.id} onClick={() => setEditing(i)}
                     className="w-full flex items-center gap-3 bg-pt-surface shadow-hairline rounded-xl px-3 py-2 text-left active:opacity-75">
-                    <div className="w-10 h-10 rounded-lg bg-pt-bg overflow-hidden shrink-0">
-                      {i.photos?.[0] && <img loading="lazy" decoding="async" src={i.photos[0]} alt="" className="w-full h-full object-cover" />}
+                    <div className="w-11 h-11 rounded-lg bg-pt-raised overflow-hidden shrink-0">
+                      {i.photos?.[0]
+                        ? <img loading="lazy" decoding="async" src={i.photos[0]} alt="" className="w-full h-full object-cover" />
+                        : <GearArt category={i.category} tile className="w-full h-full" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-pt-text text-sm truncate">{i.name}</p>
-                      <p className="text-pt-muted text-xs truncate">
+                      <p className="text-pt-text text-[15px] truncate">{i.name}</p>
+                      <p className="text-pt-muted text-[13px] truncate">
                         {i.public ? 'Creators can book · ' : 'Internal only · '}{i.value != null ? `$${i.value.toLocaleString('en-CA')} each · ` : <span className="text-amber-300">No value · </span>}{i.serial ? `Serial ${i.serial} · ` : ''}{inB ? `${inB} in bundles` : 'Not in a bundle'}
                       </p>
                     </div>

@@ -88,13 +88,14 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
 }
 
 
-export function ReportProblemRow({ className = '' }: { className?: string }) {
+export function ReportProblemRow({ className = '', bare }: { className?: string; bare?: boolean }) {
   const { start } = useBugReport()
+  // iOS-settings row (More, Nov 23): 36px icon tile · 16px title · muted line · chevron. `bare` = inside a grouped list.
   return (
-    <button onClick={start} className={`w-full flex items-center gap-3 px-4 py-3 min-h-[56px] text-left rounded-2xl bg-pt-surface shadow-hairline active:opacity-80 ${className}`}>
-      <span className="w-9 h-9 rounded-full bg-amber-400/15 text-amber-300 flex items-center justify-center shrink-0"><Icon name="alert" className="w-4 h-4" /></span>
+    <button onClick={start} className={`w-full flex items-center gap-3 px-4 py-3 min-h-[60px] text-left active:opacity-80 ${bare ? '' : 'rounded-2xl bg-pt-surface shadow-hairline'} ${className}`}>
+      <span className="w-9 h-9 rounded-xl bg-amber-400/15 text-amber-300 grid place-items-center shrink-0"><Icon name="alert" className="w-5 h-5" /></span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[16px] text-pt-text font-medium">Report a problem</span>
+        <span className="block text-[16px] text-pt-text font-semibold">Report a problem</span>
         <span className="block text-[14px] text-pt-muted">Something broke, looks wrong or is missing</span>
       </span>
       <span className="text-pt-muted" aria-hidden>›</span>

@@ -53,24 +53,28 @@ export default function AvailabilityCalendar({ quantity, entries, today, bufferD
           const tone = past ? 'text-pt-border'
             : free === 0 ? 'bg-red-500/25 text-red-300'
             : free < quantity ? 'bg-amber-500/20 text-amber-200'
+            : off ? 'text-pt-muted'
             : 'text-pt-text'
+          const some = !past && quantity > 1 && free > 0 && free < quantity
           return (
             <button key={d} disabled={past || !onPick} onClick={() => onPick?.(d)}
-              className={`relative h-10 rounded-lg text-sm flex flex-col items-center justify-center ${tone} ${inRange ? 'ring-2 ring-pt-accent' : ''} ${d === today ? 'font-bold' : ''}`}>
-              {Number(d.slice(8))}
-              {!past && quantity > 1 && free > 0 && free < quantity ? (
-                <span className="text-xs leading-none">{free} left</span>
-              ) : !past && off ? (
-                <span className="text-xs leading-none text-pt-muted">closed</span>
-              ) : null}
+              aria-label={off && !past ? `${Number(d.slice(8))}, prop room closed` : undefined}
+              className={`relative h-11 rounded-lg text-sm flex flex-col items-center justify-start pt-1.5 ${tone} ${inRange ? 'ring-2 ring-pt-accent' : ''} ${d === today ? 'font-bold' : ''}`}>
+              <span className={`leading-5 ${off && !past ? 'line-through decoration-pt-muted/70' : ''}`}>{Number(d.slice(8))}</span>
+              <span className="h-3 flex items-center justify-center">
+                {some ? <span className="text-xs leading-none whitespace-nowrap">{free} left</span>
+                  : !past && off ? <i aria-hidden className="w-1 h-1 rounded-full bg-pt-muted inline-block" />
+                  : null}
+              </span>
             </button>
           )
         })}
       </div>
       <div className="flex gap-3 mt-3 text-xs text-pt-muted flex-wrap">
-        <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-pt-bg shadow-hairline inline-block" /> Free</span>
+        <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-pt-text/10 ring-1 ring-pt-text/25 inline-block" /> Free</span>
         {quantity > 1 && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-amber-500/30 inline-block" /> Some booked</span>}
         <span className="flex items-center gap-1"><i className="w-3 h-3 rounded bg-red-500/30 inline-block" /> Booked</span>
+        {(closed.closedWeekdays.length > 0 || closed.closedDates.length > 0) && <span className="flex items-center gap-1"><span className="line-through text-pt-muted">7</span><i aria-hidden className="w-1 h-1 rounded-full bg-pt-muted inline-block" /> Prop room closed</span>}
         {selected && <span className="flex items-center gap-1"><i className="w-3 h-3 rounded ring-2 ring-pt-accent inline-block" /> Your day</span>}
       </div>
       {bufferDays > 0 && <p className="text-pt-muted text-xs mt-1">Booked days include {bufferDays} turnaround day{bufferDays > 1 ? 's' : ''} after each shoot{closed.closedWeekdays.length || closed.closedDates.length ? ' (days the prop room is open)' : ''}.</p>}

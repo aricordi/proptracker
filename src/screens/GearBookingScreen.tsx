@@ -92,8 +92,8 @@ export default function GearBookingScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-10">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-2 py-2 flex items-center">
-        <button onClick={() => navigate(-1)} className="text-pt-accent text-[17px] px-2 min-h-[44px] inline-flex items-center">‹ Back</button>
+      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-1 flex items-center">
+        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/gear/bookings')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 -ml-0.5 inline-flex items-center gap-1"><span aria-hidden className="text-[22px] leading-none -mt-0.5">‹</span>Back</button>
       </div>
       <div className="px-4 space-y-4">
         <div className="space-y-1">

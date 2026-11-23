@@ -72,10 +72,11 @@ const NAV: Record<string, (Item | '-')[]> = {
     '-',
     { to: '/gear/items', label: 'All gear', icon: 'camera' },
     { to: '/gear/bundles', label: 'Kits', icon: 'box' },
-    { to: '/admin', label: 'More', icon: 'grid', also: ['/account', '/help'] },
+    { to: '/admin', label: 'Admin', icon: 'grid', also: ['/account', '/help', '/team-guide'] },
   ],
   admin: [
-    { to: '/', label: 'Dashboard', icon: 'grid' },
+    // The Dashboard page already holds the tools menu underneath the scoreboard, so /admin (the same tools) lights it too.
+    { to: '/', label: 'Dashboard', icon: 'grid', also: ['/admin', '/account', '/help', '/team-guide'] },
     { to: '/analytics', label: 'Analytics', icon: 'chart', also: ['/rules-sheet'] },
     { to: '/approvals', label: 'Requests', icon: 'calendar', badge: true },
     { to: '/creators', label: 'Creators', icon: 'people', also: ['/people'] },
@@ -85,7 +86,6 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/insights', label: 'Prop insights', icon: 'chart' },
     { to: '/gear/bookings', label: 'Gear log', icon: 'box' },
     { to: '/schedule', label: 'Schedule', icon: 'calendar' },
-    { to: '/admin', label: 'More', icon: 'grid', also: ['/account', '/help'] },
   ],
   owner: [
     { to: '/approvals', label: 'Requests', icon: 'calendar', badge: true },
@@ -96,9 +96,9 @@ const NAV: Record<string, (Item | '-')[]> = {
     { to: '/gear/bookings', label: 'Gear log', icon: 'box' },
     '-',
     { to: '/', label: 'Chat', icon: 'chat' },
-    { to: '/schedule', label: 'Book a shoot', icon: 'pin', also: ['/shoots'] },
+    { to: '/schedule', label: 'Book a shoot', icon: 'pin', also: ['/shoots', '/requests', '/return', '/videos', '/reserve'] },
     { to: '/browse', label: 'Props', icon: 'search', also: ['/item'] },
-    { to: '/admin', label: 'Team', icon: 'grid', also: ['/health', '/bins', '/categories', '/connections', '/ai', '/costs', '/insights', '/cleanup'] },
+    { to: '/admin', label: 'Team', icon: 'grid', also: ['/health', '/bins', '/categories', '/connections', '/ai', '/costs', '/insights', '/cleanup', '/account', '/help', '/team-guide'] },
   ],
 }
 
@@ -108,7 +108,8 @@ export function DeskSidebar() {
   const waiting = useWaitingCount(true) + (useCalendarQueue(isGearStaff)?.length ?? 0)
   const path = useLocation().pathname
   const items = NAV[role] ?? []
-  const on = (it: Item) => it.to === '/' ? path === '/' : path === it.to || path.startsWith(it.to + '/') || (it.also ?? []).some(a => path.startsWith(a))
+  const also = (it: Item) => (it.also ?? []).some(a => path === a || path.startsWith(a + '/'))
+  const on = (it: Item) => (it.to === '/' ? path === '/' : path === it.to || path.startsWith(it.to + '/')) || also(it)
   // The longest matching item wins (so /schedule/team doesn't also light up "Day view").
   const best = items.filter((x): x is Item => x !== '-' && on(x)).sort((a, b) => b.to.length - a.to.length)[0]
   return (

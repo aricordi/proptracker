@@ -45,16 +45,17 @@ function usePush() {
 }
 
 // Me tab.
-export function NotificationsCard() {
+export function NotificationsCard({ bare }: { bare?: boolean } = {}) {
   const p = usePush()
   const [guide, setGuide] = useState(false)
+  // Same row anatomy as the rest of More (Nov 23): 36px icon tile · 16px title · muted line; the controls stay below.
   return (
-    <div className="bg-pt-surface shadow-hairline rounded-2xl p-4 space-y-3">
-      <div className="flex items-center gap-3">
-        <span className={`w-11 h-11 rounded-full grid place-items-center shrink-0 ${p.state === 'on' ? 'bg-pt-accent/15 text-pt-accent' : 'bg-pt-bg text-pt-muted'}`}>{bell}</span>
+    <div className={`px-4 py-3 space-y-3 ${bare ? '' : 'bg-pt-surface shadow-hairline rounded-2xl'}`}>
+      <div className="flex items-center gap-3 min-h-[36px]">
+        <span className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 [&>svg]:w-5 [&>svg]:h-5 ${p.state === 'on' ? 'bg-pt-accent/15 text-pt-accent' : 'bg-white/[0.08] text-pt-muted'}`}>{bell}</span>
         <span className="flex-1 min-w-0">
-          <b className="block text-pt-text">Notifications</b>
-          <span className="block text-pt-muted text-xs">{{
+          <span className="block text-pt-text text-[16px] font-semibold">Notifications</span>
+          <span className="block text-pt-muted text-[14px]">{{
             on: 'On for this phone',
             off: 'Invites, swaps, props ready, shoot reminders',
             blocked: 'Blocked in your phone settings',

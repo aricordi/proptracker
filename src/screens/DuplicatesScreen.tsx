@@ -14,6 +14,7 @@ import ImageLightbox from '../components/ImageLightbox'
 import type { Item } from '../types'
 import { thumbOf } from '../services/itemShape'
 import { friendlyError } from '../lib/errors'
+import { PageHeader, EmptyState } from '../components/PageHeader'
 
 const errText = (e: unknown) => friendlyError(e)
 
@@ -21,7 +22,6 @@ const errText = (e: unknown) => friendlyError(e)
 // really the same prop and merge them (same bin) or flag them "to gather" (different bins).
 // The rest are released: they stay candidates with every other prop, just not with these.
 export default function DuplicatesScreen() {
-  const navigate = useNavigate()
   const { isStaff } = useSession()
   const items = useItems()
   const bins = useBins()
@@ -79,11 +79,8 @@ export default function DuplicatesScreen() {
 
   return (
     <div className="min-h-full bg-pt-bg pb-6">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-pt-text py-1">‹</button>
-        <h1 className="font-display text-xl text-pt-text">Find duplicates</h1>
-      </div>
-      <div className="p-4 space-y-3">
+      <PageHeader title="Find duplicates" />
+      <div className="px-4 pb-4 space-y-3">
         <p className="text-pt-muted text-sm">
           Groups the Prime Capitol props that look alike. In each group, <b>tap the photos of the ones that are the same prop</b>,
           then merge them or flag them to be gathered into one bin. The others are released and can still match other props.
@@ -132,7 +129,7 @@ export default function DuplicatesScreen() {
             </button>
             <p className="text-pt-muted text-xs">When they're done, tap the bin each prop is in now on its card below, then "Copies".</p>
           </div>
-        ) : !gatherLive.length && <p className="text-pt-muted text-sm text-center py-4">Nothing to gather. When you confirm look-alikes are the same prop but in different bins, they show up here.</p>)}
+        ) : !gatherLive.length && <EmptyState icon="box" title="Nothing to gather" line="When you confirm look-alikes are the same prop but in different bins, they show up here." />)}
 
         {view === 'gather' && gatherLive.map(g => (
           <GroupCard key={g.id} mode="gather" gatherId={g.id} ids={g.ids} keys={insideKeys(g.ids)} props={g.ids.map(id => byId.get(id)!)}
@@ -141,7 +138,9 @@ export default function DuplicatesScreen() {
 
         {view !== 'gather' && !pairs && <p className="text-pt-muted text-sm text-center py-4">Tap "Find duplicates" to load the groups.</p>}
         {view !== 'gather' && pairs && (view === 'later' ? laterList : toCheck).length === 0 && (
-          <p className="text-green-400 text-sm text-center py-4">{view === 'later' ? 'Nothing set aside.' : 'No likely duplicates. 🎉'}</p>
+          (view === 'later'
+            ? <EmptyState icon="pause" title="Nothing set aside" line="Groups you decide later wait here." />
+            : <EmptyState icon="check" title="No likely duplicates" line="Every look-alike group has been sorted." />)
         )}
         {view !== 'gather' && (view === 'later' ? laterList : toCheck).map(g => (
           <GroupCard key={g.keys.join(',')} mode="check" ids={g.ids} keys={g.keys} score={g.score} props={g.ids.map(id => byId.get(id)!)}

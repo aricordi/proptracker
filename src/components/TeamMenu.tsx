@@ -149,12 +149,12 @@ function Row({ item, onOpen, extra }: { item: MenuItem; onOpen: (to: string) => 
 
 export function DailyTiles({ items, onOpen, rowProps }: { items: MenuItem[]; onOpen: (to: string) => void; rowProps?: RowProps }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 min-[1100px]:grid-cols-4 gap-2 min-[1100px]:gap-3">
       {items.map(t => (
         <button key={t.id} onClick={() => onOpen(t.to)} {...rowProps?.(t)}
-          className="text-left bg-pt-surface shadow-hairline rounded-2xl p-3.5 min-h-[112px] flex flex-col justify-start gap-2.5 active:opacity-80">
-          <span className="w-9 h-9 rounded-full bg-pt-accent/15 grid place-items-center text-pt-accent"><Icon name={t.icon} /></span>
-          <span>
+          className="text-left bg-pt-surface shadow-hairline rounded-2xl p-3.5 min-h-[112px] min-[1100px]:min-h-0 flex flex-col min-[1100px]:flex-row min-[1100px]:items-center justify-start gap-2.5 min-[1100px]:gap-3 active:opacity-80 min-[1100px]:hover:bg-pt-raised">
+          <span className="w-9 h-9 shrink-0 rounded-full bg-pt-accent/15 grid place-items-center text-pt-accent"><Icon name={t.icon} /></span>
+          <span className="min-w-0">
             <span className="block text-pt-text font-semibold leading-tight">{t.title}</span>
             <span className="block text-pt-muted text-xs mt-0.5">{t.detail}</span>
           </span>

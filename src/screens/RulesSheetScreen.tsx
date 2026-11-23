@@ -13,6 +13,7 @@ import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
 import { LATE_START_MIN, KIND, THEMES } from '../lib/analytics'
 import { LOW_SHOW_UP, OUTPUT, ATTENTION_MEANS } from '../lib/insights'
 import { formatDay } from '../lib/dates'
+import { PageHeader } from '../components/PageHeader'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const list = (xs: string[]) => xs.length ? xs.join(', ') : 'None'
@@ -23,12 +24,13 @@ export default function RulesSheetScreen() {
   const b = useBookingSettings()
   const s = useScheduleSettings()
   const cats = useCategories().filter(c => c.active && c.turnaroundDays !== undefined && c.turnaroundDays !== null)
-  const you = canManagePeople ? 'You (admins) and the owner' : 'Admins and the owner'
-  const owner = 'The owner'
+  // Said from the reader's side: the owner was told "You (admins) and the owner".
+  const you = isOwner ? 'You and admins' : canManagePeople ? 'You (admins) and the owner' : 'Admins and the owner'
+  const owner = isOwner ? 'You' : 'The owner'
   const sections: { title: string; edit?: { label: string; to: string }; rows: [string, string, string, string][] }[] = [
     { title: 'Props', edit: canManagePeople ? { label: 'Change booking rules', to: '/booking-rules' } : undefined, rows: [
       ['Props we have: notice', `${b.leadTimeHours} hours`, 'Clock hours before the shoot starts (Sundays and closed days count) that a creator must ask for props from the closet.', you],
-      ['Custom props (make or find): notice', `at least ${b.buildLeadDays} open days`, 'The earliest a creator can ask for something the arts department has to make or buy. There is no guaranteed date: the creator sorts out details and timing with the arts department on Slack.', you],
+      ['Custom props (make or find): notice', `${b.buildLeadDays}+ open days`, 'The earliest a creator can ask for something the arts department has to make or buy. There is no guaranteed date: the creator sorts out details and timing with the arts department on Slack.', you],
       ['Turnaround', `${b.bufferDays} open day${b.bufferDays === 1 ? '' : 's'}`, 'Days after a shoot before the same prop can go out again (checking, cleaning).', you],
       ...cats.map(c => [`Turnaround: ${c.label}`, `${c.turnaroundDays} open days`, 'Its own turnaround (e.g. washing costumes).', you] as [string, string, string, string]),
       ['Closed days', list(b.closedWeekdays.map(d => DAYS[d])), 'The prop room is closed: props are picked up the open day before; deadlines skip these days.', you],
@@ -79,22 +81,20 @@ export default function RulesSheetScreen() {
   ]
   return (
     <div className="min-h-full bg-pt-bg pb-12">
-      <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <button onClick={() => (window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/')} className="text-pt-accent text-[17px] min-h-[44px] pr-3 inline-flex items-center">‹ Back</button>
-        <h1 className="font-display text-[34px] text-pt-text py-1">Settings sheet</h1>
-        <p className="text-pt-muted text-sm">Every rule the app runs on right now. Something should change? Admins edit the booking rules; for anything else, tell the owner.</p>
-      </div>
+      <PageHeader title="Settings sheet" sub={isOwner ? 'Every rule the app runs on right now.' : 'Every rule the app runs on right now. Something should change? Admins edit the booking rules; for anything else, tell the owner.'} />
       <div className="px-4 space-y-6">
         {sections.map(sec => (
           <section key={sec.title} className="space-y-2">
-            <div className="flex items-baseline justify-between">
+            <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-pt-text text-[20px] font-semibold tracking-tight">{sec.title}</h2>
-              {sec.edit && <button onClick={() => navigate(sec.edit!.to)} className="text-pt-accent text-sm tap">{sec.edit.label} ›</button>}
+              {sec.edit && <button onClick={() => navigate(sec.edit!.to)} className="shrink-0 text-pt-accent text-sm tap">{sec.edit.label} ›</button>}
             </div>
             <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]">
               {sec.rows.map(([name, value, means, who]) => (
                 <div key={name} className="px-4 py-3 space-y-1">
-                  <div className="flex items-baseline justify-between gap-3"><span className="text-pt-text text-[15px]">{name}</span><span className="text-pt-accent text-[15px] font-semibold text-right">{value}</span></div>
+                  {/* Value on its own line: long values wrapped into a ragged right-aligned column. */}
+                  <p className="text-pt-text text-[15px]">{name}</p>
+                  <p className="text-pt-accent text-[15px] font-semibold">{value}</p>
                   <p className="text-pt-muted text-sm">{means}</p>
                   <p className="text-pt-muted text-xs">Changed by: {who}</p>
                 </div>

@@ -67,9 +67,9 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
     const h = r.place as House, other = HOUSES.find(x => x !== h)!
     const who = (house: House, st: number) => { const e = day?.[house]?.[slotKey(st)]; return e && !e.hold && e.shootId !== sh.id ? `${e.name}${e.pending ? ' (requested)' : ''}` : '' }
     if (blockAt(day, h, r.start, s.slotMinutes)) around.push({ label: '⚠ At that time', value: 'Blocked' })
-    around.push({ label: 'Before (same house)', value: who(h, r.start - s.slotMinutes) || 'Free' })
-    around.push({ label: 'After (same house)', value: who(h, r.start + s.slotMinutes) || 'Free' })
-    around.push({ label: `${s.houses[other].name}, same time`, value: who(other, r.start) || 'Free' })
+    around.push({ label: 'Before', value: who(h, r.start - s.slotMinutes) || 'Free' })
+    around.push({ label: 'After', value: who(h, r.start + s.slotMinutes) || 'Free' })
+    around.push({ label: `${s.houses[other].name} (other house)`, value: who(other, r.start) || 'Free' })
     const blocks = (day?.blocks ?? []).filter(b => b.house === h && !b.soft)
     if (blocks.length) around.push({ label: 'Blocked that day', value: blocks.map(b => `${b.note || BLOCK_TYPES[b.type]} ${fmtSlot(b.start, b.end - b.start)}`).join(', ') })
     const notes = (day?.blocks ?? []).filter(b => b.house === h && b.soft)
