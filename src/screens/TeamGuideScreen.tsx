@@ -72,7 +72,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
       </div>
       <div className="px-4 space-y-5">
         {pages[who]}
-        <p className="text-pt-muted text-[13px]">Stuck? Tap <b className="text-pt-text">✦ AI</b> and ask "how do I…". Every rule is on the Settings sheet.</p>
+        <p className="text-pt-muted text-[13px]">Stuck? Tap <b className="text-pt-text">✦ AI</b> and ask "how do I…". {who === 'admin' ? 'Every rule is on the Settings sheet.' : who === 'equipment' ? 'Every rule is in How it works (the ? on the Calendar) and in Help.' : 'Every rule is in Help.'}</p>
       </div>
       {onDone && (
         <div className="fixed left-0 right-0 bottom-0 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-pt-bg z-20">

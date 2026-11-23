@@ -31,7 +31,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
 }) {
   const [give, setGive] = useState<GiveTarget | null>(null)
   const navigate = useNavigate()
-  const { profile } = useSession()
+  const { profile, canSeeStaff } = useSession()
   const s = useScheduleSettings()
   const today = todayInStudio()
   const [now, setNow] = useState(nowStamp())
@@ -175,7 +175,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
         {cur ? <Inspector key={reqKey(cur)} r={cur} shoots={all} status={statuses[cur.shoot.creatorEmail]} days={days} pairs={pairs} today={today} now={now}
           busy={busy} denying={denying} reason={reason} setReason={setReason} setDenying={setDenying}
           onApprove={() => decide(cur, true)} onDeny={() => decide(cur, false, reason.trim())}
-          onRecord={() => navigate(`/people/${encodeURIComponent(cur.shoot.creatorEmail)}`)}
+          onRecord={canSeeStaff ? () => navigate(`/people/${encodeURIComponent(cur.shoot.creatorEmail)}`) : undefined}
           onGive={cur.place !== 'offsite' && !cur.move && s.instantBookers.length ? () => setGive({ date: cur.date, house: cur.place as House, start: cur.start, holder: { name: cur.shoot.creatorName, email: cur.shoot.creatorEmail } }) : undefined} />
           : <div className="flex-1" />}
       </aside>
@@ -267,7 +267,7 @@ const Key = ({ c, children }: { c: string; children: React.ReactNode }) => <span
 function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, reason, setReason, setDenying, onApprove, onDeny, onRecord, onGive }: {
   r: Req; shoots: Shoot[]; status?: UserStatus; days: Record<string, ScheduleDay> | null; pairs: Pair[]; today: string; now: string
   busy: boolean; denying: boolean; reason: string; setReason: (v: string) => void; setDenying: (v: boolean) => void
-  onApprove: () => void; onDeny: () => void; onRecord: () => void; onGive?: () => void
+  onApprove: () => void; onDeny: () => void; onRecord?: () => void; onGive?: () => void
 }) {
   const s = useScheduleSettings()
   const profiles = useProfiles()
@@ -280,7 +280,7 @@ function Inspector({ r, shoots, status, days, pairs, today, now, busy, denying, 
         <Avatar email={sh.creatorEmail} name={sh.creatorName} size={42} />
         <div className="min-w-0">
           <p className="text-pt-text text-[16px] font-semibold truncate">{sh.creatorName}</p>
-          <p className="text-pt-muted text-xs truncate">{channel ? `${channel} · ` : ''}<button onClick={onRecord} className="text-pt-accent hover:underline">Open record ›</button></p>
+          <p className="text-pt-muted text-xs truncate">{channel ? `${channel}${onRecord ? ' · ' : ''}` : ''}{onRecord && <button onClick={onRecord} className="text-pt-accent hover:underline">Open record ›</button>}</p>
         </div>
       </div>
       <div className="bg-pt-surface rounded-xl px-3 py-2.5">

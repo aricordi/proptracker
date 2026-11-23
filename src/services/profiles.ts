@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
-export interface Profile { photoURL?: string; googlePhoto?: string; channel?: string; tourDoneAt?: string; birthday?: string; name?: string }
+export interface Profile { photoURL?: string; googlePhoto?: string; channel?: string; tourDoneAt?: string; birthday?: string; name?: string; appVersion?: string; appVersionAt?: string }
 export type Profiles = Record<string, Profile>
 
 // Everyone's profiles, live (a few dozen small docs). Empty until loaded or if not allowed.

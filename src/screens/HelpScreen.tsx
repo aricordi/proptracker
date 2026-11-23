@@ -1,6 +1,7 @@
 // Help for creators: short answers to "how do I…?", searchable. Numbers come from the live settings,
 // so the answers stay right when the team changes the rules.
 import { ReportProblemRow } from '../components/BugReport'
+import { APP_VERSION } from '../lib/version'
 import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -88,7 +89,7 @@ export default function HelpScreen() {
       { q: `It's less than ${s.noticeHours} hours before. What now?`, words: 'late cancel swap no show', a: <>You can still <b>swap</b> with another creator (they accept, and both shoots switch). Cancelling or moving now counts as a no-show, unless you booked it less than 24 hours before it starts: then cancelling is free. If the schedule team moved your shoot (for example for a priority booking), you can still move it, and cancelling it is free.</> },
     ] },
     { title: 'Strikes', icon: 'stop', items: [
-      { q: 'What gets me a strike?', words: 'strike penalty pause blocked', a: <>Not showing up, cancelling inside {s.noticeHours} hours, a report the team upholds, or a strike an admin gives you (always with the reason, which you can see). <b>{s.strikeCount} strikes in {s.strikeDays} days</b> pauses your prop requests for {s.pauseDays} days (you can still book house time and take gear). Your strikes are on the Me tab.</> },
+      { q: 'What gets me a strike?', words: 'strike penalty pause blocked', a: <>Not showing up, cancelling inside {s.noticeHours} hours, a report the team upholds, or a strike an admin gives you (always with the reason, which you can see). <b>{s.strikeCount} strikes in {s.strikeDays} days</b> pauses your prop requests for {s.pauseDays} days (you can still book house time and take gear). Your strikes are in More (Me for the owner).</> },
     ] },
     { title: 'Still stuck?', icon: 'chat', items: [
       { q: 'Can I ask the AI about the analytics?', words: 'ai ask analytics question stats who filmed most', a: <>Yes (owner and admins). Tap the violet <b>✦ Ask</b> at the top of Analytics, or <b>Ask AI about your creators</b> on the dashboard, and type a question like "Who filmed the most this month?" or "Who keeps returning things late?". It answers from the same numbers as Analytics (the last 6 months) and offers <b>See the details</b> to open the right page. It only reads; it can't change anything.</> },
@@ -120,6 +121,7 @@ export default function HelpScreen() {
         <div className="flex items-end gap-2 py-2">
           <button onClick={() => navigate(-1)} className="tap w-8 -ml-2 text-pt-accent text-[34px] font-light leading-none pb-1" aria-label="Back">‹</button>
           <h1 className="font-display text-[34px] text-pt-text">Help</h1>
+          <span className="ml-auto text-pt-muted text-xs pb-2">Version {APP_VERSION}</span>
         </div>
         <label htmlFor="helpSearch" className="sr-only">Search help</label>
         <input id="helpSearch" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search: cancel, props, check in…"

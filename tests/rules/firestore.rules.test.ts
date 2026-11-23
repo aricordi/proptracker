@@ -498,6 +498,10 @@ describe('swap requests and profiles', () => {
     await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '' }, { merge: true }))
     await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '1990-03-14' }, { merge: true }))
     await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { birthday: '13-01' }, { merge: true }))
+    // Which app version your phone is on (Nov 23), a short text only.
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { appVersion: '1.0.0', appVersionAt: '2026-11-23T03:00:00.000Z' }, { merge: true }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { appVersion: 'x'.repeat(21) }, { merge: true }))
+    await assertFails(setDoc(doc(as(CREATOR), 'profiles', CREATOR), { appVersion: 100 }, { merge: true }))
   })
 })
 

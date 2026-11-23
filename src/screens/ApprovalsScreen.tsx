@@ -188,7 +188,7 @@ function DaySheet({ date, day, s, email, now, reqs, onClose, onOpen }: { date: s
   return (
     <BottomSheet open onClose={onClose} title={formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}>
       {reqs.length > 0 && <p className="text-amber-300 text-sm mb-2">{reqs.length} request{reqs.length === 1 ? '' : 's'} waiting this day (dashed).</p>}
-      <p className="text-pt-muted text-xs mb-2">Tap a name to make a priority booking for that slot.</p>
+      <p className="text-pt-muted text-xs mb-2">Tap a name to open that booking.</p>
       <div className="grid grid-cols-[84px_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
         <span /><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff1.name}</span><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff2.name}</span>
         {s.slots.map(st => [

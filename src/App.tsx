@@ -91,6 +91,8 @@ const CostsScreen = lazy(() => import('./screens/CostsScreen'))
 const HelpScreen = lazy(() => import('./screens/HelpScreen'))
 import { ProfilesContext, useProfilesLive, saveProfile } from './services/profiles'
 import OfflineBanner from './components/OfflineBanner'
+import UpdateBanner from './components/UpdateBanner'
+import { APP_VERSION } from './lib/version'
 
 // Screens load on demand (smaller first download). Right after sign-in, while the phone is idle,
 // the four main tabs are fetched in the background so switching tabs is still instant.
@@ -364,6 +366,14 @@ export default function App() {
     const t = setTimeout(() => saveProfile(myEmail, { googlePhoto: g }).catch(() => {}), 1500)
     return () => clearTimeout(t)
   }, [myEmail, user?.photoURL, profiles])
+  // Which version each person's phone is on (owner, Nov 23), so the team can see who still needs to update.
+  const myVersion = myEmail ? profiles[myEmail]?.appVersion : undefined
+  const profilesReady = Object.keys(profiles).length > 0
+  useEffect(() => {
+    if (!myEmail || !profilesReady || myVersion === APP_VERSION || APP_VERSION === '0.0.0') return
+    const t = setTimeout(() => saveProfile(myEmail, { appVersion: APP_VERSION, appVersionAt: new Date().toISOString() }).catch(() => {}), 3000)
+    return () => clearTimeout(t)
+  }, [myEmail, myVersion, profilesReady])
 
   const booting = authLoading || profileLoading
   useEffect(() => { if (!booting) hideBoot() }, [booting])
@@ -397,6 +407,7 @@ export default function App() {
     {/* Solid strip behind the iPhone clock/battery, so pages never show through it while scrolling */}
     <div aria-hidden className="fixed top-0 inset-x-0 z-40 bg-pt-bg pointer-events-none" style={{ height: 'env(safe-area-inset-top)' }} />
     <OfflineBanner />
+    <UpdateBanner />
     <BugReportProvider>
     <AssistantProvider>
     <TourGate>

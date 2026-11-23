@@ -1,12 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readFileSync } from 'node:fs'
 
 // Which version of the app a problem report came from (owner, Nov 5).
 const BUILD = `${new Date().toISOString().slice(0, 16)}${process.env.GITHUB_SHA ? ` ${process.env.GITHUB_SHA.slice(0, 7)}` : ''}`
 
+// The app's version number (owner, Nov 23): package.json "version", raised on every live website deploy (see CHANGELOG.md).
+// Phones compare it with /version.json on the server to offer "Update", and the manuals say which version they match.
+const VERSION: string = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version
+
 export default defineConfig({
-  define: { __APP_BUILD__: JSON.stringify(BUILD) },
+  define: { __APP_BUILD__: JSON.stringify(BUILD), __APP_VERSION__: JSON.stringify(VERSION) },
   // Big libraries in their own files: they rarely change, so phones keep them cached across updates.
   build: {
     rollupOptions: {
@@ -24,6 +29,8 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // /version.json = the version on the server right now (never cached; not part of the offline copy).
+    { name: 'version-file', generateBundle() { this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version: VERSION, build: BUILD }) }) } },
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'],

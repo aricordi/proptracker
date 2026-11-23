@@ -8,6 +8,7 @@ import { recentErrors, recentPages } from '../lib/bugLog'
 import { friendlyError } from '../lib/errors'
 import { reportBug, type BugKind } from '../services/bugs'
 import { IS_PRACTICE } from './PracticeBar'
+import { APP_VERSION } from '../lib/version'
 
 const KINDS: { k: BugKind; title: string; detail: string; icon: 'x' | 'eye' | 'search' }[] = [
   { k: 'broken', title: 'Something broke', detail: 'An error, a button that does nothing, it froze', icon: 'x' },
@@ -51,7 +52,7 @@ export default function BugSheet({ shot, page, onClose }: { shot: string | null;
           agent: navigator.userAgent, width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio,
           standalone: window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true,
           online: navigator.onLine, lang: navigator.language, tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          build: typeof __APP_BUILD__ === 'string' ? __APP_BUILD__ : 'dev',
+          build: `${APP_VERSION} · ${typeof __APP_BUILD__ === 'string' ? __APP_BUILD__ : 'dev'}`,
           role: session.realRole, viewAs: session.viewingAs ?? (session.creatorMode ? 'creator mode' : ''),
           desk: document.documentElement.classList.contains('desk') || window.innerWidth >= 1100, practice: IS_PRACTICE,
         },

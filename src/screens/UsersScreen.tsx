@@ -7,6 +7,8 @@ import { subscribeToUsers, inviteUser, updateUser, normalizeEmail, openThingsFor
 import { nothingOpen, openText } from '../lib/stillOpen'
 import { formatDay } from '../lib/dates'
 import BottomSheet from '../components/BottomSheet'
+import { useProfiles } from '../services/profiles'
+import { APP_VERSION, isBehind, liveVersion } from '../lib/version'
 import ChangeEmailSheet from '../components/ChangeEmailSheet'
 import { ROLE_LABELS } from './AccountScreen'
 import type { AppUser, Role } from '../types'
@@ -128,6 +130,7 @@ function Row({ email, name, subtitle, inactive, onTap, badge }: {
         <p className={`text-sm truncate ${inactive ? 'text-pt-muted line-through' : 'text-pt-text'}`}>{name || email}</p>
         {name && <p className="text-pt-muted text-xs truncate">{email}</p>}
         {subtitle && <p className="text-pt-muted text-xs">{subtitle}</p>}
+        {!inactive && <VersionLine email={email} />}
       </div>
       {inactive ? <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full shrink-0">Access off</span> : badge}
       {onTap && (
@@ -399,4 +402,19 @@ function EditSheet({ user, onClose, isOwner }: { user: AppUser | null; onClose: 
 // Creators' app access during the test launch (owner, Oct 27).
 function AccessPill({ full }: { full: boolean }) {
   return <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${full ? 'bg-green-500/15 text-green-300' : 'bg-sky-500/15 text-sky-200'}`}>{full ? 'Full app' : 'Props only'}</span>
+}
+
+// Which app version this person's phone last opened (owner, Nov 23: make sure everybody's on the latest version).
+let liveCache: Promise<string | null> | null = null
+function useLive() {
+  const [v, setV] = useState<string>(APP_VERSION)
+  useEffect(() => { (liveCache ??= liveVersion()).then(x => { if (x) setV(x) }) }, [])
+  return v
+}
+function VersionLine({ email }: { email: string }) {
+  const p = useProfiles()[normalizeEmail(email)]
+  const live = useLive()
+  if (!p?.appVersion) return null
+  const behind = isBehind(p.appVersion, live)
+  return <p className={`text-xs ${behind ? 'text-amber-400' : 'text-pt-muted'}`}>App {p.appVersion}{behind ? ` · older version (latest ${live})` : ''}</p>
 }

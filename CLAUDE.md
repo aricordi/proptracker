@@ -10,6 +10,17 @@ creators reserve props, the arts department picks/packs them, everything is logg
   https://claude.ai/artifact/EAKCeBrx2mW7h1QxiXDVzR . Whenever a rule, role, setting or automatic job changes, update
   that file and republish it to the SAME URL (Artifact tool, `url` + file) so the owner never loses track.
 
+- VERSIONS + MANUALS (owner, Nov 23, standing rule): the app has a version number = package.json "version" (MAJOR.MINOR.PATCH:
+  patch = fixes/wording, minor = new or changed feature, major = redesign). EVERY live website deploy: raise the version, add a
+  plain-words entry to CHANGELOG.md, and update the matching manual cards in docs/manuals/*.html (creator / arts / equipment /
+  admin; "For app version X" chip at the top) IN THE SAME COMMIT as the feature, then re-run the screenshots if a screen changed
+  (`npm run e2e -- --only shots`), rebuild the PDFs (scratchpad manpdf.cjs pattern: Playwright, light colours, details open) and
+  republish the live manual pages to their SAME URLs (listed under TRAINING MANUALS). The app shows its version (More, Help,
+  problem reports), offers "Update" when /version.json on the server is newer, and saves each person's version on their profile
+  (People & access shows "older version").
+- POLISH STANDARD (owner, Nov 23): every screen and sheet must look as finished as the chat and calendar (Black & Gold cards,
+  type scale, 44px taps, nothing touching or running off the edge on a 390px phone or on the laptop). Check new screens with
+  the all-screens robot (`npm run e2e -- --only shots --grep "all screens"` → .e2e/screens/<role>/).
 - AI APP GUIDE (owner, Oct 28, standing rule, never wait to be asked): `functions/src/appGuide.ts` is what the ✦ AI knows
   about every screen, button, tab, rule and role. ANY change to a screen, button, tab, flow, rule or role updates the
   matching GUIDE entry (and TABS) IN THE SAME COMMIT. tests/unit/appGuide.test.ts fails when a route has no entry.

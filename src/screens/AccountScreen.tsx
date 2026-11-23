@@ -19,6 +19,7 @@ import { formatDay } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 
 import { ROLE_LABELS } from '../lib/roleLabels'
+import { APP_VERSION } from '../lib/version'
 export { ROLE_LABELS }
 
 export default function AccountScreen() {
@@ -107,6 +108,7 @@ export default function AccountScreen() {
         >
           Sign out
         </button>
+        <p className="text-center text-pt-muted text-xs pt-1">Prime Capitol · version {APP_VERSION}</p>
       </div>
     </div>
   )
