@@ -403,17 +403,16 @@ export const explainUntil = (sh: { to: string }, s: ScheduleSettings) => addMinu
 export function oldCalendarFor(s: Pick<ScheduleSettings, 'calendarFeeds' | 'googleCalendarId'>, place: string): CalendarFeed | null {
   const feeds = s.calendarFeeds.filter(f => f.id && f.id !== s.googleCalendarId)
   if (place === 'cliff1' || place === 'cliff2') return feeds.find(f => f.house === place) ?? null
-  // Offsite (owner, Nov 23): goes in the Cliff 2 calendar with "(OFFSITE)" in the title, not in the mixed Stromedy calendar.
-  return feeds.find(f => f.house === 'cliff2') ?? null
+  // Offsite (owner, Nov 23): the team's own habit = the Cliff 1 (Stromedy Talent) calendar, "<name> - Offsite Filming".
+  return feeds.find(f => f.house === 'cliff1') ?? null
 }
 // Their own style, so app bookings look like the events people add by hand (owner's pick). Editable per calendar.
 export function defaultTitleStyle(house: House | 'any'): string {
   return house === 'cliff1' ? '{name} - Stromedy Talent Filming' : house === 'cliff2' ? '{name} - Cliff 2 Filming' : '{name} - Offsite Filming'
 }
-export const OFFSITE_TAG = '(OFFSITE)'
 export function oldTitle(feed: CalendarFeed, name: string, place = ''): string {
-  const t = (feed.titleStyle && feed.titleStyle.includes('{name}') ? feed.titleStyle : defaultTitleStyle(feed.house)).split('{name}').join(name)
-  return (place === 'offsite' ? `${t} ${OFFSITE_TAG}` : t).slice(0, 200)
+  const style = place === 'offsite' ? defaultTitleStyle('any') : feed.titleStyle && feed.titleStyle.includes('{name}') ? feed.titleStyle : defaultTitleStyle(feed.house)
+  return style.split('{name}').join(name).slice(0, 200)
 }
 
 // The "not filming" list: short phrases, lowercase, no repeats, at most 60.

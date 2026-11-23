@@ -282,7 +282,7 @@ export default function ConnectionsScreen() {
                 <ul className="text-[13px] text-pt-text space-y-1">
                   {(['cliff1', 'cliff2', 'offsite'] as const).map(pl => {
                     const t = oldCalendarFor({ calendarFeeds: feeds.filter(f => f.id), googleCalendarId: sched.googleCalendarId }, pl)
-                    return <li key={pl}>{pl === 'offsite' ? 'Offsite' : sched.houses[pl].name} → {t ? <><b>{t.name || 'Old calendar'}</b>{pl === 'offsite' ? ' with (OFFSITE) in the title' : ''}</> : <span className="text-pt-muted">no calendar (set one to "{pl === 'offsite' ? `All ${sched.houses.cliff2.name}` : `All ${sched.houses[pl].name}`}")</span>}</li>
+                    return <li key={pl}>{pl === 'offsite' ? 'Offsite' : sched.houses[pl].name} → {t ? <><b>{t.name || 'Old calendar'}</b>{pl === 'offsite' ? ' as "<name> - Offsite Filming"' : ''}</> : <span className="text-pt-muted">no calendar (set one to "{pl === 'offsite' ? `All ${sched.houses.cliff1.name}` : `All ${sched.houses[pl].name}`}")</span>}</li>
                   })}
                 </ul>
                 <div className="flex gap-2">

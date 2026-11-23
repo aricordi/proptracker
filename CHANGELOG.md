@@ -13,7 +13,7 @@ Each manual says which version it was written for.
 
 ## 1.1.1 · Nov 23, 2026
 
-- Offsite shoots booked in the app now go into the **Cliff 2** calendar with **(OFFSITE)** at the end of the title (they used to go into the mixed Stromedy calendar). Moving one there keeps it offsite.
+- Offsite shoots booked in the app now go into the **Stromedy Talent (Cliff 1)** calendar as "Name - Offsite Filming", the way the team already writes them (they used to go into the mixed Stromedy calendar). Moving one there keeps it offsite.
 
 ## 1.1.0 — November 23, 2026
 - **Team log** (Team / Admin menu): every approval, denial, move, swap, cancel, priority booking, blocked time and Google

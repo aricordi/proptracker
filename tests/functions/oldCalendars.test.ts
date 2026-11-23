@@ -37,13 +37,13 @@ const book = async (who: string, place: string, start: number) => {
 }
 
 describe('which old calendar, which title (pure)', () => {
-  it('house calendars for the houses, Cliff 2 for offsite (OFFSITE); their title style', () => {
+  it('house calendars for the houses, Cliff 1 for offsite; their title style', () => {
     const s = { calendarFeeds: feeds as any, googleCalendarId: APP }
     expect(oldCalendarFor(s, 'cliff1')!.id).toBe(T1)
     expect(oldCalendarFor(s, 'cliff2')!.id).toBe(C2)
-    expect(oldCalendarFor(s, 'offsite')!.id).toBe(C2)
-    expect(oldCalendarFor({ calendarFeeds: [feeds[0]] as any, googleCalendarId: APP }, 'offsite')).toBeNull()
-    expect(oldTitle(feeds[1] as any, 'Ariel', 'offsite')).toBe('Ariel - Cliff 2 Filming (OFFSITE)')
+    expect(oldCalendarFor(s, 'offsite')!.id).toBe(T1)
+    expect(oldCalendarFor({ calendarFeeds: [feeds[1]] as any, googleCalendarId: APP }, 'offsite')).toBeNull()
+    expect(oldTitle(feeds[0] as any, 'Ariel', 'offsite')).toBe('Ariel - Offsite Filming')
     expect(oldTitle(feeds[0] as any, 'Ariel')).toBe('Ariel - Stromedy Talent Filming')
     expect(oldTitle({ ...feeds[1], titleStyle: '{name} Filming' } as any, 'Ariel')).toBe('Ariel Filming')
     expect(defaultTitleStyle('any')).toContain('{name}')
@@ -63,12 +63,13 @@ describe('app bookings go into the old calendars', () => {
     await settings(true)
     const a = await book(ANA, 'cliff1', 780)
     const b = await book(ANA, 'offsite', 600)
-    await waitFor(async () => (await appCopies(T1)).length === 1 && (await appCopies(C2)).length === 1)
-    const ev = (await appCopies(T1))[0]
+    await waitFor(async () => (await appCopies(T1)).length === 2)
+    const ev = (await appCopies(T1)).find((e: any) => e.id === a.eid)
     expect(ev).toMatchObject({ id: a.eid, summary: 'Ana - Stromedy Talent Filming' })
     expect(ev.start.dateTime.slice(11, 16)).toBe('13:00')
-    expect((await appCopies(C2))[0]).toMatchObject({ id: b.eid, summary: 'Ana - Cliff 2 Filming (OFFSITE)' })
+    expect((await appCopies(T1)).find((e: any) => e.id === b.eid)).toMatchObject({ summary: 'Ana - Offsite Filming' })
     expect(await appCopies(MIX)).toEqual([])
+    expect(await appCopies(C2)).toEqual([])
     expect(await getDoc(`calendar_mirror/${a.eid}`)).toMatchObject({ cal: T1, from: `${FRI}T13:00`, to: `${FRI}T15:00` })
     const r = await call('checkCalendarNow', {}, MAANIK)
     expect(r.ok, r.message).toBe(true)

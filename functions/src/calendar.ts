@@ -1156,7 +1156,7 @@ async function followAppCalendar(appSeen: Map<string, AppEvent>, appCal: string,
 async function moveFromAppCalendar(sid: string, sh: Record<string, any>, g: AppEvent, s: ReturnType<typeof cleanScheduleSettings>, now: string, oldCal = ''): Promise<'moved' | string> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   // Moved in an OLD calendar: that calendar's house says where (a one-house calendar), else the words, else where it was.
   const feedHouse = oldCal ? s.calendarFeeds.find(f => f.id === oldCal)?.house : undefined
-  // "(OFFSITE)" in the title (offsite copies live in the Cliff 2 calendar) beats that calendar's house.
+  // "Offsite" in the title (offsite copies live in the Cliff 1 calendar) beats that calendar's house.
   const text = placeFromText(`${g.title} ${g.location}`)
   const said = text === 'offsite' ? 'offsite' : feedHouse && feedHouse !== 'any' ? feedHouse : text
   const place = (said ?? sh.place) as Place
