@@ -286,7 +286,7 @@ async function mirrorOld(eventId: string, ev: Record<string, unknown> | null, pl
   if (prev?.cal && prev.cal !== feed?.id) { await writeOldEvent(String(prev.cal), eventId, null); await ref.delete() }
   if (!feed || !ev) return
   if ((await db.doc(`calendar_removed/${eventId}`).get()).exists && !prev) return   // taken out by hand: not put back
-  const body = { ...ev, summary: name ? oldTitle(feed, name) : ev.summary, description: `${String(ev.description ?? '')}\nAdded by the Prime Capitol app` }
+  const body = { ...ev, summary: name ? oldTitle(feed, name, place) : ev.summary, description: `${String(ev.description ?? '')}\nAdded by the Prime Capitol app` }
   delete (body as Record<string, unknown>).colorId   // the old calendars keep their own colours
   await writeOldEvent(feed.id, eventId, body)
   await ref.set({ cal: feed.id, name: feed.name, from: String((ev.start as { dateTime: string }).dateTime).slice(0, 16),
@@ -1156,7 +1156,9 @@ async function followAppCalendar(appSeen: Map<string, AppEvent>, appCal: string,
 async function moveFromAppCalendar(sid: string, sh: Record<string, any>, g: AppEvent, s: ReturnType<typeof cleanScheduleSettings>, now: string, oldCal = ''): Promise<'moved' | string> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   // Moved in an OLD calendar: that calendar's house says where (a one-house calendar), else the words, else where it was.
   const feedHouse = oldCal ? s.calendarFeeds.find(f => f.id === oldCal)?.house : undefined
-  const said = feedHouse && feedHouse !== 'any' ? feedHouse : placeFromText(`${g.title} ${g.location}`)
+  // "(OFFSITE)" in the title (offsite copies live in the Cliff 2 calendar) beats that calendar's house.
+  const text = placeFromText(`${g.title} ${g.location}`)
+  const said = text === 'offsite' ? 'offsite' : feedHouse && feedHouse !== 'any' ? feedHouse : text
   const place = (said ?? sh.place) as Place
   const spot = { place, date: g.date, start: g.startMin, end: g.endMin > g.startMin ? g.endMin : g.startMin + s.slotMinutes, where: place === 'offsite' ? String(sh.where || g.location || 'Offsite').slice(0, 200) : '' }
   if (stamp(spot.date, spot.start) <= now) return 'The new time has already started. Move it again in Google Calendar, or put it back.'
