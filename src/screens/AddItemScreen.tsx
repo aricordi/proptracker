@@ -601,7 +601,7 @@ export default function AddItemScreen() {
             ? 'Saving…'
             : uploading
               ? 'Uploading photos…'
-              : isEditMode ? 'Save Changes' : 'Save Item'}
+              : isEditMode ? 'Save changes' : 'Save prop'}
         </button>
       </div>
     </div>
