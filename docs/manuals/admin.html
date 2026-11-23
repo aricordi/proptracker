@@ -1,0 +1,934 @@
+<title>Prime Capitol Admin Manual</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: a printed-style manual. Sticky search bar, goal groups, each task a self-contained card with steps + a phone screenshot. Matches the app's Black & Gold. */
+:root{
+  --bg:#000; --surface:#151517; --raised:#1f1f22; --line:#2c2c2e; --text:#f5f5f7; --muted:#a1a1a8; --gold:#c9a961; --gold-ink:#1a1408;
+  --good:#3fbf7f; --warn:#e3a33b; --bad:#e5574f; --ask:#6fb6ff;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"Inter",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#faf8f3;--surface:#fff;--raised:#f2efe7;--line:#e2ddd0;--text:#17150f;--muted:#5d5a52;--gold:#8a6d2a;--gold-ink:#fff;color-scheme:light}}
+:root[data-theme="light"]{--bg:#faf8f3;--surface:#fff;--raised:#f2efe7;--line:#e2ddd0;--text:#17150f;--muted:#5d5a52;--gold:#8a6d2a;--gold-ink:#fff;color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font:16px/1.6 var(--body);margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 80px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,52px);letter-spacing:-.02em}
+h2{font-size:28px;margin-top:56px;padding-top:8px;border-top:1px solid var(--line)}
+h3{font-size:21px}
+p{margin:0}
+a{color:var(--gold)}
+.eyebrow{color:var(--gold);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 12px;border-radius:999px;background:var(--raised);font-size:14px;color:var(--muted)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.search{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px;margin-top:28px}
+.search input{width:100%;min-height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--text);font:inherit;font-size:17px;padding:0 18px}
+.search input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.count{color:var(--muted);font-size:14px;margin-top:6px;min-height:20px}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:20px}
+.toc div{background:var(--surface);border-radius:16px;padding:16px}
+.toc b{font-family:var(--display);display:block;margin-bottom:6px}
+.toc a{display:block;color:var(--text);text-decoration:none;font-size:15px;padding:3px 0}
+.toc a:hover{color:var(--gold)}
+.group-intro{color:var(--muted);margin-top:8px;max-width:65ch}
+.task{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:28px;background:var(--surface);border-radius:20px;padding:24px;margin-top:20px;scroll-margin-top:96px}
+.task.noshot{grid-template-columns:minmax(0,1fr)}
+.task .goal{color:var(--gold);font-size:14px;font-weight:600}
+.task h3{margin-top:4px}
+.task .why{color:var(--muted);margin-top:8px}
+.task ol{margin:16px 0 0;padding-left:0;list-style:none;counter-reset:s;display:grid;gap:10px}
+.task ol li{counter-increment:s;position:relative;padding-left:40px}
+.task ol li::before{content:counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--gold-ink);font:700 14px/28px var(--display);text-align:center}
+.task ul{margin:12px 0 0;padding-left:20px}
+.tip,.warn{margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--raised);font-size:15px}
+.tip b{color:var(--good)} .warn b{color:var(--warn)}
+.say{margin-top:14px;font-size:15px;color:var(--muted)}
+.say q{color:var(--text);font-style:normal;background:var(--raised);padding:2px 8px;border-radius:8px}
+.shot{margin:0;align-self:start}
+.shot img{width:100%;border-radius:22px;border:6px solid #1c1c1e;display:block}
+.shot figcaption{font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+.ui{font-weight:600;white-space:nowrap;background:var(--raised);padding:1px 7px;border-radius:6px;font-size:.92em}
+.faq details{background:var(--surface);border-radius:14px;padding:14px 18px;margin-top:10px}
+.faq summary{cursor:pointer;font-weight:600}
+.faq details p{margin-top:8px;color:var(--muted)}
+.hide{display:none!important}
+@media (max-width:720px){.task{grid-template-columns:minmax(0,1fr);padding:18px}.shot{max-width:260px;margin:0 auto}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Prime Capitol app · Admin manual</div>
+    <h1>Keeping creators on track</h1>
+    <p class="lede">You are the person who keeps an eye on the creators: who is filming, who needs a nudge, which bookings to approve. Find what you want to do and follow the steps. Every section works on its own.</p>
+    <div class="meta"><span class="chip">Updated Nov 23, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
+  </header>
+
+  <div class="search"><input id="q" type="search" placeholder="What do you want to do? Try “strike”, “approve”, “late”…" aria-label="Search this manual"><div class="count" id="count"></div></div>
+
+  <nav class="toc" aria-label="Contents">
+    <div><b>Find your way around</b><a href="#what-admins-do">What I can and can't do as an admin</a><a href="#phone-tabs">Know what each tab at the bottom does</a><a href="#admin-menu">Find a tool that isn't on a tab</a><a href="#laptop-view">Use the app on my laptop</a><a href="#team-guide">Practise, or read the one-page guide again</a><a href="#ask-ai-help">Ask the app how to do something</a><a href="#my-notifications">Get a notification when a booking request comes in</a><a href="#report-problem">Tell the owner something is broken</a></div>
+    <div><b>See what needs you today</b><a href="#dashboard">How my creators are doing this month</a><a href="#filter-tiles">See only the creators posting less (or needing attention)</a><a href="#needs-you-now">Clear what's waiting on the team</a></div>
+    <div><b>Approve booking requests</b><a href="#approve-request">Approve a booking request</a><a href="#deny-request">Say no to a booking request</a><a href="#read-request">Understand what a request card tells me</a><a href="#look-at-day">See everything booked on one day</a><a href="#approve-laptop">Approve requests quickly on a laptop</a><a href="#priority-booking">Give a slot to Kyle when someone else has it</a><a href="#double-booked">Sort out a double booking from Google Calendar</a></div>
+    <div><b>Dig into the numbers</b><a href="#analytics-creators">Who is posting more and who is posting less</a><a href="#date-range">Look at a different period</a><a href="#filter-analytics">Narrow Analytics to one house, one creator or one kind of flag</a><a href="#report-card">Read one creator's report card</a><a href="#films-with">Who films with whom</a><a href="#creators-list">See all creators in one list</a><a href="#ask-ai-numbers">Ask the AI a question about the numbers</a><a href="#advanced-view">Break the numbers down or download a spreadsheet</a><a href="#teams-trends">How the arts and equipment teams are keeping up, and the overall trend</a></div>
+    <div><b>Act on flags</b><a href="#flags-tab">See every flag, and who has the most</a><a href="#open-flag">See the evidence behind a flag</a><a href="#send-note">Send a creator a warning note</a><a href="#excuse-flag">Excuse a flag so it doesn't count</a><a href="#handled-flag">Mark a flag as dealt with</a><a href="#missed-checkin">Decide on a missed check-in (did they film or not?)</a><a href="#house-reports">Deal with a report that someone left a mess or ran over</a></div>
+    <div><b>Strikes and pauses</b><a href="#give-strike">Give a creator a strike</a><a href="#remove-strike">Take a strike back</a><a href="#pause-creator">Pause a creator's prop requests</a><a href="#lift-pause">Lift a pause early</a></div>
+    <div><b>Late returns and the 10% fee</b><a href="#late-log">See who returned things late</a><a href="#excuse-late">Make an exception for a late return</a><a href="#download-late">Download the late-return log</a></div>
+    <div><b>Invite and manage creators</b><a href="#invite-creator">Invite a new creator</a><a href="#props-or-full">Move a creator from Props only to the Full app</a><a href="#turn-off-access">Turn off a creator's access (or back on)</a><a href="#test-phone">Check whether a creator's phone gets notifications</a><a href="#change-role">Change someone's role or email</a></div>
+    <div><b>Rules and settings</b><a href="#settings-sheet">See every rule the app runs on</a><a href="#props-notice">Change how much notice creators must give for props</a><a href="#closed-days">Set the days the prop room is closed, and holidays</a><a href="#turnaround">Give props time to be cleaned between shoots</a></div>
+    <div><b>Look things up for a creator</b><a href="#props-queue">Check where a creator's props request is</a><a href="#gear-log">See who has a piece of gear</a><a href="#view-schedule">See who is filming when</a><a href="#prop-insights">Which props are popular, run out, or get damaged</a><a href="#browse-props">Look through the props closet</a><a href="#activity-log">Who changed what, and when</a></div>
+    <div><b>Quick answers</b><a href="#g-faq">All the short questions</a></div>
+  </nav>
+
+  <!-- ============ GROUP 1 ============ -->
+  <h2 id="g-start">Find your way around</h2>
+  <p class="group-intro">What an admin can do, where everything lives on the phone and on a laptop, and where to get help.</p>
+
+  <section class="task noshot" id="what-admins-do" data-words="role permissions allowed can cannot job admin manager">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>What I can and can't do as an admin</h3>
+      <p class="why">Admins are managers. You see almost everything and you look after the creators. Work that could break the app, or that belongs to another team, stays with them.</p>
+      <ul>
+        <li><b>You can:</b> approve or deny booking requests, make a priority booking, read every number in Analytics, act on flags, give and remove strikes, pause and un-pause creators, excuse late returns, decide missed check-ins and house reports, invite creators, turn a creator's access off, test a creator's notifications, and change the Booking rules.</li>
+        <li><b>You can look at, but not change:</b> the props queue, the gear log, the schedule, prop insights and the activity log.</li>
+        <li><b>Only the owner:</b> switching a creator between Props only and Full app, changing someone's role or email, inviting anyone who isn't a creator, Schedule settings (priority days, strike numbers, who books without approval), Google Calendar, AI budget and running costs.</li>
+        <li><b>Other teams:</b> picking, packing and checking in props (arts department); handing out and checking in gear, blocking time, moving or cancelling someone's shoot (equipment team).</li>
+        <li><b>You don't film:</b> admins don't book shoots, props or gear of their own.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="task noshot" id="phone-tabs" data-words="tabs bottom bar navigation menu home dashboard queue gear">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know what each tab at the bottom does</h3>
+      <p class="why">On a phone you have five tabs. Your home is the Dashboard.</p>
+      <ol>
+        <li><span class="ui">Dashboard</span>: the creator scoreboard, what needs you now, and every admin tool underneath.</li>
+        <li><span class="ui">Requests</span>: booking requests waiting for a yes or no.</li>
+        <li><span class="ui">Schedule</span>: the month calendar of both houses (to look at).</li>
+        <li><span class="ui">Queue</span>: the props queue run by the arts department (to look at).</li>
+        <li><span class="ui">Gear</span>: the gear log run by the equipment team (to look at).</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Browsing the props closet is in the Dashboard menu: <span class="ui">Every day</span> → <span class="ui">Props</span>.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="admin-menu" data-words="tools menu more settings list where is">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Find a tool that isn't on a tab</h3>
+      <p class="why">Everything else sits in the menu under the scoreboard on your Dashboard, sorted in four groups.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> and scroll past the creators.</li>
+        <li><b>Every day:</b> Requests calendar, Schedule team, Props, Prop insights.</li>
+        <li><b>Creators:</b> Analytics, Creators, Invite creators.</li>
+        <li><b>Rules:</b> Settings sheet, Booking rules.</li>
+        <li><b>Help &amp; records:</b> Activity, Team guide, Admin tour, Help, Report a problem, My account.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="laptop-view" data-words="computer desktop sidebar wide screen big keyboard shortcuts">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Use the app on my laptop</h3>
+      <p class="why">On a wide screen (about laptop size or bigger) the tab bar becomes a sidebar on the left, and Requests and Analytics use the whole width.</p>
+      <ol>
+        <li>Open <span class="ui">proptracker.arbcreative.co</span> in your laptop's browser and sign in with the same Google account.</li>
+        <li>The sidebar has <span class="ui">Dashboard</span>, <span class="ui">Analytics</span>, <span class="ui">Requests</span> (with a badge for waiting requests), <span class="ui">Creators</span>, <span class="ui">People &amp; access</span>, then <span class="ui">Props queue</span>, <span class="ui">Prop insights</span>, <span class="ui">Gear log</span>, <span class="ui">Schedule</span> and <span class="ui">More</span>.</li>
+        <li>Prefer the phone look? Tap <span class="ui">Use the phone layout</span> at the bottom of the sidebar.</li>
+        <li>To bring the sidebar back: <span class="ui">More</span> → <span class="ui">My account</span> → <span class="ui">Laptop layout</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Everything you can do on the phone, you can do on the laptop. Only the layout changes.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="team-guide" data-words="training tour practice guide onboarding learn first time replay">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Practise, or read the one-page guide again</h3>
+      <p class="why">The first time you open the app it walks you through a short hands-on tour (about 5 minutes). You can replay it with pretend creators, so nothing real changes.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> and scroll to <span class="ui">Help &amp; records</span>.</li>
+        <li>Tap <span class="ui">Admin tour</span> to practise, or <span class="ui">Team guide</span> for your job on one page.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="ask-ai-help" data-words="ai help how do i question assistant chat stuck">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Ask the app how to do something</h3>
+      <p class="why">The violet <span class="ui">✦ AI</span> button at the top of your Dashboard answers "how do I…" questions about the screens you have, with buttons that open the right page. It can't change anything.</p>
+      <ol>
+        <li>Tap <span class="ui">✦ AI</span> on the Dashboard.</li>
+        <li>Type your question, or tap a suggestion such as <span class="ui">How do I give a strike?</span></li>
+        <li>Tap the <span class="ui">Open …</span> button in the answer to jump there.</li>
+      </ol>
+      <p class="say">For example: <q>How do I invite a creator?</q></p>
+      <div class="tip"><b>Tip:</b> For questions about the numbers ("who filmed the most?"), use <a href="#ask-ai-numbers">Ask AI about your creators</a> instead.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="my-notifications" data-words="push notifications alerts phone ping turn on bell">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Get a notification when a booking request comes in</h3>
+      <p class="why">Admins and the equipment team are pinged for every new booking request, every request to move a shoot, and again when a request has waited more than 12 hours.</p>
+      <ol>
+        <li>On an iPhone, first add the app to your Home Screen (Safari share button → <span class="ui">Add to Home Screen</span>) and open it from that icon.</li>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">My account</span>.</li>
+        <li>In <span class="ui">Notifications</span>, tap <span class="ui">Turn on</span> and allow them.</li>
+        <li>Tap <span class="ui">Send me a test</span>. If nothing pops up, use <span class="ui">Test with the app closed (10 s)</span> and follow the checklist under it.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Turn notifications on on your laptop too, so you see requests wherever you are.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="report-problem" data-words="bug broken error wrong screenshot report issue">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Tell the owner something is broken</h3>
+      <p class="why">The app takes a screenshot of the screen with the problem and sends it to the owner with the details they need.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Report a problem</span>.</li>
+        <li>Go to the screen with the problem, then tap <span class="ui">Report this screen</span>.</li>
+        <li>Pick what happened, write a few words, and tap <span class="ui">Send report</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Shortcut: hold two fingers on the screen for about a second to report that screen straight away.</div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 2 ============ -->
+  <h2 id="g-today">See what needs you today</h2>
+  <p class="group-intro">Your Dashboard answers "how are my creators doing?" and "what is waiting on me?" in one screen.</p>
+
+  <section class="task" id="dashboard" data-words="scoreboard home overview this month standing posting more less typical">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>How my creators are doing this month</h3>
+      <p class="why">Creators are compared with each other, not with a fixed target. "Typical" is what the middle creator filmed in that period.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span>. It opens on <span class="ui">This month</span>; switch to <span class="ui">Last month</span> or <span class="ui">12 weeks</span> at the top.</li>
+        <li>Read the four tiles: <span class="ui">Posting more</span> (clearly above typical), <span class="ui">Posting less</span> (clearly below, or nothing filmed), <span class="ui">Typical</span> and <span class="ui">Needs attention</span>.</li>
+        <li>Under <span class="ui">Every creator</span>, each row shows their rank, filmed and booked shoots, and how far they are from typical. The white tick on the bar is typical.</li>
+        <li>Tap a creator to open their report card.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> "Needs attention" is about behaviour, not output: the creator is paused, has a serious flag (a no-show, a late cancel, a strike, damaged or missing props or gear), or showed up to less than 70% of what they booked.</div>
+    </div>
+    <figure class="shot"><img src="img/d-dashboard.png" alt="The Dashboard with four standing tiles and a ranked list of creators" loading="lazy"><figcaption>The Dashboard scoreboard</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="filter-tiles" data-words="filter only show posting less needs attention tile">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See only the creators posting less (or needing attention)</h3>
+      <p class="why">The four tiles are also filters.</p>
+      <ol>
+        <li>On the Dashboard, tap a tile, for example <span class="ui">Posting less</span>. The list shows only those creators.</li>
+        <li>Tap the same tile again to see everyone.</li>
+        <li>Tap <span class="ui">Open analytics</span> to keep the same filter in Analytics.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="needs-you-now" data-words="to do waiting pending decide list urgent">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Clear what's waiting on the team</h3>
+      <p class="why"><span class="ui">Needs you now</span> (under the creators on the Dashboard, on the right on a laptop) counts everything waiting on someone. Each line opens the right screen.</p>
+      <ul>
+        <li><b>Missed check-ins to decide</b> → <a href="#missed-checkin">decide them</a>.</li>
+        <li><b>House reports to review</b> → <a href="#house-reports">dismiss or uphold</a>.</li>
+        <li><b>Late returns still out</b> → the late flags, so you can chase them.</li>
+        <li><b>Flags nobody has looked at (last 28 days)</b> → <a href="#open-flag">act on them</a>.</li>
+        <li><b>Props to pack, props or gear returns to check in</b> → the arts or equipment queue (their job; useful when a creator asks).</li>
+        <li><b>Creators paused right now</b> → the Creators list.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 3 ============ -->
+  <h2 id="g-requests">Approve booking requests</h2>
+  <p class="group-intro">Every creator booking is a request. The time is held for them until you or the equipment team say yes or no.</p>
+
+  <section class="task" id="approve-request" data-words="approve yes accept booking request pending waiting">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Approve a booking request</h3>
+      <p class="why">Approved means it's on the official schedule and the creator gets a notification.</p>
+      <ol>
+        <li>Tap <span class="ui">Requests</span>. The month calendar shows an amber number on days with requests waiting; the cards below are soonest first.</li>
+        <li>On a card, check who it is, the day, house and hours, and the coloured pills (see <a href="#read-request">what the card tells you</a>).</li>
+        <li>Tap <span class="ui">Approve</span>. A confirmation shows at the top of the screen.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> A request nobody decides by its start time is dropped and the creator is told. You get a reminder once a request has waited 12 hours.</div>
+    </div>
+    <figure class="shot"><img src="img/d-requests.png" alt="The Requests screen with a month calendar of free spots and a badge on a day with requests waiting" loading="lazy"><figcaption>Requests: the month, then the cards</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="deny-request" data-words="deny decline reject no refuse reason">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Say no to a booking request</h3>
+      <p class="why">The creator reads your reason and the time frees up for others.</p>
+      <ol>
+        <li>On the request card, tap <span class="ui">Deny</span>.</li>
+        <li>Tap a ready reason (<span class="ui">The house is busy then</span>, <span class="ui">Too many bookings this week</span>, <span class="ui">Please pick another time</span>) or type your own.</li>
+        <li>Tap <span class="ui">Deny</span> again to send. Tap <span class="ui">Back</span> if you change your mind.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="read-request" data-words="flags pills facts card information abuse overbooking partner guideline history">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Understand what a request card tells me</h3>
+      <p class="why">Each card gives you what you need to spot overbooking or a no-show risk before you decide.</p>
+      <ul>
+        <li><b>Pills:</b> how many they filmed of what they booked in the last 30 days, how many shoots they have coming up, strikes or a pause, no-shows, "10th this month", "3 days in a row", other requests waiting.</li>
+        <li><b>"Back to back with X · usual partner":</b> they're filming next to someone they often film with.</li>
+        <li><b>"First in line · had a schedule change":</b> they lost a slot to a priority booking, so this request goes first.</li>
+        <li><b>Usually films with:</b> people they film back to back with most.</li>
+        <li><b>Around:</b> who is before and after them at that house.</li>
+        <li><b>Guideline:</b> Cliff 1 Thursdays and Saturdays need a filming guideline (PDF) from anyone outside the priority group. Tap the link to read it.</li>
+        <li><b>"wants to move":</b> an approved shoot asking for a new time. The "Now:" line shows the time they keep until you approve.</li>
+      </ul>
+      <div class="tip"><b>Tip:</b> Tap the creator's picture or name to open their full record. Tap the date line to see the whole day.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="look-at-day" data-words="day both houses who is booked slots grid hour by hour">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See everything booked on one day</h3>
+      <p class="why">Useful before approving: is the house already busy, who is around?</p>
+      <ol>
+        <li>On <span class="ui">Requests</span>, tap a day on the month calendar (or the date on a request card).</li>
+        <li>A sheet shows both houses hour by hour: names, dashed amber for requests, <span class="ui">Free</span> times, blocked time and offsite shoots underneath.</li>
+        <li>Tap a name to open that booking's details.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> The switch above the calendar picks <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">All</span>. A blue "C2: 3" means Cliff 1 is full but Cliff 2 still has 3 free spots.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="approve-laptop" data-words="laptop week board keyboard shortcut many ticked bulk approve all">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Approve requests quickly on a laptop</h3>
+      <p class="why">On a laptop, Requests becomes a week board of both houses with the waiting list on the right, oldest first.</p>
+      <ol>
+        <li>In the sidebar, tap <span class="ui">Requests</span>.</li>
+        <li>On the board, dashed amber is a request, blue wants to move, gold books without approval, hatched is blocked, and a red dot means strikes or a no-show in the last 30 days.</li>
+        <li>Click a request to see its details on the right, then <span class="ui">Approve</span> or <span class="ui">Deny</span>.</li>
+        <li>To approve several: tick them in the list, then <span class="ui">Approve N ticked</span>.</li>
+      </ol>
+      <div class="tip"><b>Keys:</b> A approve, D deny, J / K next / previous, W / M week / month, arrow keys change week, T today, Esc back.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="priority-booking" data-words="kyle stromedy priority give slot bump instant take time">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Give a slot to Kyle when someone else has it</h3>
+      <p class="why">Some people (like Kyle / Stromedy) have priority and book without approval. When they need a time another creator has, you can make a priority booking.</p>
+      <ol>
+        <li>On the request card for that slot, tap <span class="ui">Priority booking…</span> (on a laptop it's in the details on the right).</li>
+        <li>Under <span class="ui">Book it for</span>, pick who it's for.</li>
+        <li>Choose what happens to the creator who had it: <span class="ui">Move them to …</span> another free time that day, or <span class="ui">Cancel their shoot</span>.</li>
+      </ol>
+      <p class="why">The creator gets a neutral "Schedule change" notice. A move keeps their props; a cancel gives no strike and puts their next request first in line.</p>
+      <div class="warn"><b>Watch out:</b> The button only shows when the owner has added someone to "Books without approval" in Schedule settings.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="double-booked" data-words="clash double booked google calendar overlap conflict red box">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Sort out a double booking from Google Calendar</h3>
+      <p class="why">A red box <span class="ui">Double-booked in Google Calendar</span> at the top of Requests lists two events from the old calendars that really overlap at the same house.</p>
+      <ol>
+        <li>Tap <span class="ui">See it in Google Calendar</span> to check that day.</li>
+        <li>Decide who keeps the time and tap <span class="ui">Give it to …</span> for that person.</li>
+        <li>Choose to move or cancel the other one, as for a <a href="#priority-booking">priority booking</a>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Shoots that are only back to back (one ends 3:15, the next starts 3:30) are not clashes.</div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 4 ============ -->
+  <h2 id="g-analytics">Dig into the numbers</h2>
+  <p class="group-intro">Analytics goes deeper than the Dashboard. Every number and every row can be tapped; your phone's Back button zooms back out one step.</p>
+
+  <section class="task" id="analytics-creators" data-words="analytics stats statistics who posting more less ranking compare">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>Who is posting more and who is posting less</h3>
+      <p class="why">The Creators tab ranks everyone for the period you pick and says who filmed the most and what typical is.</p>
+      <ol>
+        <li>On the Dashboard, tap <span class="ui">Analytics ›</span> (or <span class="ui">Analytics</span> in the menu or sidebar).</li>
+        <li>It opens on <span class="ui">Creators</span> for <span class="ui">This month</span>.</li>
+        <li>Sort with <span class="ui">Most filmed</span>, <span class="ui">Least filmed</span>, <span class="ui">Most flags</span> or <span class="ui">A–Z</span>.</li>
+        <li>Tap a tile to filter, tap a creator for their report card.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Only approved shoots count. Waiting, denied or dropped requests don't. Offsite shoots and creators on Props only count as filmed unless someone marks a no-show.</div>
+    </div>
+    <figure class="shot"><img src="img/d-analytics.png" alt="Analytics on the Creators tab, with the headline, four tiles, sort choices and the ranked list" loading="lazy"><figcaption>Analytics, Creators tab</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="date-range" data-words="date range period last month week 12 weeks 6 months zoom compare">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Look at a different period</h3>
+      <ol>
+        <li>Tap the date pill under the title (it says <span class="ui">This month</span>).</li>
+        <li>Pick <span class="ui">Last 7 days</span>, <span class="ui">Last 28 days</span>, <span class="ui">Last 12 weeks</span>, <span class="ui">Last 6 months</span>, <span class="ui">Last 12 months</span>, <span class="ui">This month</span> or <span class="ui">Last month</span>. You can also choose how the chart is split.</li>
+        <li>On a chart, tap a column, then <span class="ui">Zoom in ›</span> to look at just that week or month. Tap <span class="ui">Zoom out</span> to go back.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Numbers are compared with the same number of days just before ("Up 11%", "About the same").</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="filter-analytics" data-words="filter house cliff flag type one creator narrow">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Narrow Analytics to one house, one creator or one kind of flag</h3>
+      <ol>
+        <li>Tap <span class="ui">Filter</span> under the tabs.</li>
+        <li>Pick a house, a flag type or a creator.</li>
+        <li>Your choices show as chips; tap a chip's × to remove it.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="report-card" data-words="report card one creator record month by month history films with coming up">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Read one creator's report card</h3>
+      <p class="why">Everything about one person for the period: their rank, how they compare, and why anything was flagged.</p>
+      <ol>
+        <li>Tap the creator on the Dashboard or in Analytics. (On a laptop it opens on the right, next to the list.)</li>
+        <li>At the top: their rank ("#1 of 7"), shoots filmed, and their pills (posting more / less, needs attention with the reason).</li>
+        <li>Scroll: their numbers, <span class="ui">Month by month</span> against typical, their flags, what they filmed, <span class="ui">Films with</span>, coming-up shoots, booking requests, and every shoot (a not-filmed one says why).</li>
+        <li>Tap <span class="ui">Record ›</span> for their full record with strikes and account settings.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> <span class="ui">Give a strike</span> and <span class="ui">Pause bookings</span> are right under the report card too.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="films-with" data-words="partners collab who films together pairs back to back friends">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>Who films with whom</h3>
+      <p class="why">The app notices creators who film back to back at the same house, or who were booked together.</p>
+      <ol>
+        <li>Open a creator's report card and scroll to <span class="ui">Films with</span>: who, how many days, and when they last filmed together. Tap a name to open that person.</li>
+        <li>On a laptop, the right side of Analytics and Requests shows <span class="ui">Who films together</span>, the studio's most regular pairs.</li>
+        <li>Request cards also show <span class="ui">Usually films with</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="creators-list" data-words="creators list table filmed showed up flags status all creators">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See all creators in one list</h3>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Creators</span> (or <span class="ui">Creators</span> in the sidebar).</li>
+        <li>Pick <span class="ui">Last 30 days</span>, <span class="ui">This month</span> or <span class="ui">Last 90 days</span>.</li>
+        <li>Each creator shows filmed of booked, how often they showed up, and their flags. Sort by most filming or most flags. On a laptop this is one wide table.</li>
+        <li>Tap a creator for their record.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Excused flags don't count here.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="ask-ai-numbers" data-words="ai ask question numbers analytics chat who filmed most">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Ask the AI a question about the numbers</h3>
+      <p class="why">The AI answers from the same numbers as Analytics (the last 6 months) and points you to the page with the details. It only reads; it can't change anything.</p>
+      <ol>
+        <li>Tap the violet <span class="ui">✦ Ask</span> at the top of Analytics, or <span class="ui">Ask AI about your creators</span> on the Dashboard.</li>
+        <li>Type a question or tap a starter.</li>
+        <li>Tap <span class="ui">See the details ›</span> to open the right page.</li>
+      </ol>
+      <p class="say">For example: <q>Who has the most no-shows lately?</q> or <q>How fast is the arts team packing?</q></p>
+    </div>
+  </section>
+
+  <section class="task noshot" id="advanced-view" data-words="spreadsheet download csv excel export table power bi break down">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Break the numbers down or download a spreadsheet</h3>
+      <ol>
+        <li>In Analytics, tap the table icon at the top (<span class="ui">Advanced view</span>).</li>
+        <li>Under <span class="ui">Break down by</span>, pick creator, house, week, month, flag type or staff.</li>
+        <li>Tap a column title to sort. Tap a row to drill in.</li>
+        <li>Tap <span class="ui">Download as a spreadsheet</span> to get the table as a file. <span class="ui">What these columns mean</span> explains each one.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="teams-trends" data-words="teams arts equipment packing check in speed trends chart over time">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>How the arts and equipment teams are keeping up, and the overall trend</h3>
+      <ol>
+        <li>In Analytics, tap <span class="ui">Teams</span>: requests packed, how many were packed on time, typical time to pack and to check returns in, per person, and what's waiting <span class="ui">Right now</span>. Tap a person to see every job they did, slowest first.</li>
+        <li>Tap <span class="ui">Trends</span> for shoots and flags over time, top creators, flags by type and which house is used most.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 5 ============ -->
+  <h2 id="g-flags">Act on flags</h2>
+  <p class="group-intro">A flag is anything worth a second look: a no-show, a late cancel, starting late, running over, leaving a mess, skipping the check-in or wrap, late returns, damage. Each one can be acted on.</p>
+
+  <section class="task" id="flags-tab" data-words="flags list all incidents problems serious who has the most">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See every flag, and who has the most</h3>
+      <ol>
+        <li>In Analytics, tap <span class="ui">Flags</span>.</li>
+        <li>Tap the <span class="ui">Flags</span> or <span class="ui">Serious flags</span> card for the full list.</li>
+        <li><span class="ui">Who has the most</span>: tap someone to see just their flags. <span class="ui">By type</span> groups them (abandoning shoots, not finishing on time, leaving the house a mess, skipping check-in photos and wraps, late or broken returns, strikes).</li>
+        <li>In the list, filter with <span class="ui">To do</span>, <span class="ui">Handled</span>, <span class="ui">Excused</span>, <span class="ui">All</span> and <span class="ui">Serious only</span>.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/d-flags.png" alt="Analytics Flags tab with flag cards and a Who has the most list" loading="lazy"><figcaption>Analytics, Flags tab</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="open-flag" data-words="evidence proof photo details what happened check flag">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See the evidence behind a flag</h3>
+      <p class="why">Before acting, look at what really happened.</p>
+      <ol>
+        <li>Tap the flag in any list.</li>
+        <li>The sheet shows what it means and the evidence: shoot place and hours, check-in time and set photo, wrap, what the creator explained, who reported it and their photos, return time and photos, who picked up or used the gear, due and back times, value.</li>
+        <li><span class="ui">What was done</span> lists every action so far, with who did it.</li>
+        <li>Tap <span class="ui">Open the shoot ›</span> (or the props request / gear booking) to see the original.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="send-note" data-words="warning note message tell creator reminder warn">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Send a creator a warning note</h3>
+      <p class="why">A friendly nudge without a strike. It goes to their phone as a notification and is kept on the flag.</p>
+      <ol>
+        <li>Open the flag.</li>
+        <li>Tap <span class="ui">Send … a note</span>. A suggested message is filled in; change it as you like.</li>
+        <li>Tap <span class="ui">Send the note</span>.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> Notes arrive only as a notification. If it says "Note saved (no phone signed up)", the creator hasn't turned notifications on: tell them in person.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="excuse-flag" data-words="excuse forgive exception does not count remove flag unexcuse count again">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Excuse a flag so it doesn't count</h3>
+      <p class="why">For good reasons (a family emergency, the team's mistake). An excused flag stops counting everywhere, and a strike that came with it comes off.</p>
+      <ol>
+        <li>Open the flag.</li>
+        <li>Tap <span class="ui">Excuse it (doesn't count)</span>, write why (for the record) and confirm.</li>
+        <li>Changed your mind? Filter the list on <span class="ui">Excused</span>, open it and tap <span class="ui">Count it again</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="handled-flag" data-words="handled done dealt with close resolve mark">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Mark a flag as dealt with</h3>
+      <p class="why">When you've talked to the creator and nothing else is needed. The flag still counts; it just leaves your To do list.</p>
+      <ol>
+        <li>Open the flag.</li>
+        <li>Tap <span class="ui">Mark as handled</span>. Add a note if you like (only admins see it).</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task" id="missed-checkin" data-words="no show missed check in didn't show they filmed decide schedule team">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Decide on a missed check-in (did they film or not?)</h3>
+      <p class="why">Creators check in with a photo when their shoot starts. No check-in by the end of the slot = flagged. The creator then has 12 hours to explain before you can mark a no-show.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Schedule team</span> (or <span class="ui">Missed check-ins to decide</span> in Needs you now).</li>
+        <li>On <span class="ui">Check-ins</span>, read their explanation, if any.</li>
+        <li>Tap <span class="ui">They filmed</span> (the flag goes away) or <span class="ui">No-show · strike</span> (a strike on their record).</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> While they can still explain, the button reads "No-show possible after …". You can do the same from the flag itself.</div>
+    </div>
+    <figure class="shot"><img src="img/e-schedule-team.png" alt="Schedule team screen, Check-ins tab, with They filmed and No-show strike buttons" loading="lazy"><figcaption>Schedule team (your tab bar looks different)</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="house-reports" data-words="report mess dirty ran over late overtime next creator house left">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Deal with a report that someone left a mess or ran over</h3>
+      <p class="why">When creators check in, they can report the slot before them (house left a mess, ran over into their time), with photos and a note.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Schedule team</span> → <span class="ui">Reports</span>.</li>
+        <li>Read the note and look at the photos.</li>
+        <li>Tap <span class="ui">Dismiss</span>, or <span class="ui">Strike for …</span> to give the person reported a strike.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Reports also show as flags (Ran over / Mess), where you can send a note instead of a strike.</div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 6 ============ -->
+  <h2 id="g-strikes">Strikes and pauses</h2>
+  <p class="group-intro">Strikes add up. Too many in a short time pauses a creator's prop requests automatically (by default 2 strikes in 30 days pause them for 14 days; the live numbers are on the Settings sheet). House booking and taking gear keep working.</p>
+
+  <section class="task" id="give-strike" data-words="strike penalty punish discipline give add">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Give a creator a strike</h3>
+      <p class="why">It goes on their record with your reason, they get a notification, and it counts toward the automatic pause.</p>
+      <ol>
+        <li>Open the creator's record (tap them on the Dashboard, then <span class="ui">Record ›</span>; or <span class="ui">Creators</span> → the person).</li>
+        <li>Tap <span class="ui">Give a strike</span>.</li>
+        <li>Pick what it's about: <span class="ui">Props</span>, <span class="ui">Gear</span>, <span class="ui">Schedule</span>, <span class="ui">Behaviour</span> or <span class="ui">Other</span>.</li>
+        <li>Write why (they will read it), then tap <span class="ui">Give the strike</span>. The app tells you if this paused them.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> If the strike is about a flag, give it from the flag (<span class="ui">Give a strike for this</span>) so the two stay linked.</div>
+    </div>
+    <figure class="shot"><img src="img/d-person.png" alt="A creator's record with Give a strike, Pause bookings, their numbers and a notifications box" loading="lazy"><figcaption>A creator's record</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="remove-strike" data-words="remove strike take back undo mistake appeal">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Take a strike back</h3>
+      <p class="why">It stays on the record as removed, with your reason. If they drop below the limit, an automatic pause lifts too.</p>
+      <ol>
+        <li>Open the creator's record and find the strike (or open the flag it came with).</li>
+        <li>Tap <span class="ui">Remove</span> (on a flag: <span class="ui">Remove the strike that came with it</span>).</li>
+        <li>Write why, then tap <span class="ui">Remove the strike</span>.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> Removing a strike never lifts a pause you set by hand. Lift that separately.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="pause-creator" data-words="pause suspend block stop prop requests days">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Pause a creator's prop requests</h3>
+      <p class="why">A pause stops new prop requests. They can still book house time and take gear.</p>
+      <ol>
+        <li>Open the creator's record.</li>
+        <li>Tap <span class="ui">Pause bookings</span>.</li>
+        <li>Pick <span class="ui">3 days</span>, <span class="ui">7 days</span>, <span class="ui">14 days</span> or <span class="ui">30 days</span>, write why, and tap <span class="ui">Pause for … days</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="lift-pause" data-words="lift unpause end pause release allow again">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Lift a pause early</h3>
+      <p class="why">They can request props again straight away, and their strike count starts again from zero.</p>
+      <ol>
+        <li>Open the creator's record and tap <span class="ui">Lift the pause</span>, then <span class="ui">Lift the pause</span> again to confirm.</li>
+        <li>Or: <span class="ui">Dashboard</span> → <span class="ui">Schedule team</span> → <span class="ui">Creators</span> → <span class="ui">Paused · Lift</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 7 ============ -->
+  <h2 id="g-late">Late returns and the 10% fee</h2>
+  <p class="group-intro">Company rule: gear brought back late carries a fee of 10% of its value, on whoever had it last. Gear is late 30 minutes after it's due; props from 10 AM the next open day after the shoot (props have no fee for now). The app only keeps the record; nobody is charged automatically.</p>
+
+  <section class="task" id="late-log" data-words="late return log fee 10 percent value overdue still out">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See who returned things late</h3>
+      <ol>
+        <li>In Analytics, tap <span class="ui">Late returns</span>.</li>
+        <li>The tiles show gear late (fee applies), props late (no fee for now), things still out and late right now, and the value of the late gear.</li>
+        <li><span class="ui">Who returns late most</span>: tap someone to see just theirs.</li>
+        <li>Below, every late return: how late, due and back times, value, and <span class="ui">Fee applies</span>, <span class="ui">No fee</span>, <span class="ui">Still out</span> or <span class="ui">Excused</span>. Switch between gear, props or both, and counted, excused or all.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/d-late.png" alt="Analytics Late returns tab with four tiles and the company rule" loading="lazy"><figcaption>Analytics, Late returns</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="excuse-late" data-words="excuse late fee exception waive forgive">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Make an exception for a late return</h3>
+      <p class="why">Excusing it means the fee shouldn't apply and the flag stops counting.</p>
+      <ol>
+        <li>On <span class="ui">Late returns</span>, tap the late return.</li>
+        <li>Check <span class="ui">Due back</span>, <span class="ui">Came back</span>, <span class="ui">Last had it</span> and <span class="ui">Value</span>.</li>
+        <li>Tap <span class="ui">Excuse it (doesn't count)</span>, write why and confirm.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="download-late" data-words="download late log spreadsheet csv fee billing accounting">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Download the late-return log</h3>
+      <ol>
+        <li>On <span class="ui">Late returns</span>, pick the period and filters you want.</li>
+        <li>Scroll down and tap <span class="ui">Download this log as a spreadsheet</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> "Value not set" means the equipment team hasn't entered that gear's value yet.</div>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 8 ============ -->
+  <h2 id="g-people">Invite and manage creators</h2>
+  <p class="group-intro">Only invited people can sign in. You look after the creators; the owner handles everyone else.</p>
+
+  <section class="task" id="invite-creator" data-words="invite add new creator sign up access onboard email">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Invite a new creator</h3>
+      <p class="why">Creators you invite start on <b>Props only</b>: they can search and look at the props but not book. The owner switches them to the Full app when they're ready.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Invite creators</span> (laptop: <span class="ui">People &amp; access</span>).</li>
+        <li>Tap <span class="ui">Invite</span> at the top right.</li>
+        <li>Type their email address and, if you like, their name. Tap <span class="ui">Invite as Creator</span>.</li>
+        <li>On <span class="ui">Invited ✓</span>, tap <span class="ui">Send the invite message</span> and send it by text, WhatsApp or email. The app doesn't send emails itself.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> They must sign in with a Google account that uses exactly that email. "That email is already on the list" means they're invited; tap <span class="ui">Open their access settings ›</span>.</div>
+    </div>
+    <figure class="shot"><img src="img/d-people.png" alt="The People screen listing people by role, with Full app and Props only labels on creators" loading="lazy"><figcaption>People &amp; access</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="props-or-full" data-words="props only full app demo switch access upgrade launch">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Move a creator from Props only to the Full app</h3>
+      <p class="why">This switch belongs to the owner. You can see it, but it's greyed out for you.</p>
+      <ol>
+        <li>Tap the creator on <span class="ui">People &amp; access</span> to see their <span class="ui">App access</span>: <span class="ui">Props only</span> or <span class="ui">Full app</span>.</li>
+        <li>Ask the owner to switch them.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="turn-off-access" data-words="remove creator deactivate turn off access leave fired block sign in">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Turn off a creator's access (or back on)</h3>
+      <p class="why">They're signed out right away. Their history is kept; nothing is deleted.</p>
+      <ol>
+        <li>On <span class="ui">People &amp; access</span>, tap the creator. (Or from their record: <span class="ui">Account &amp; access</span>.)</li>
+        <li>Tap <span class="ui">Turn off access</span>, then <span class="ui">Turn off</span> to confirm.</li>
+        <li>To undo, open them again and tap <span class="ui">Turn access back on</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="test-phone" data-words="notification test phone not getting pings push check signed up">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check whether a creator's phone gets notifications</h3>
+      <p class="why">When a creator says "I never get notified", you can see their phones and send them a test.</p>
+      <ol>
+        <li>Open the creator's record.</li>
+        <li>In <span class="ui">Notifications</span>, see which phones are signed up and when each was last opened.</li>
+        <li>Tap <span class="ui">Send … a test notification</span> and read the result, which says what to do next.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> If "last opened" is days old, they're probably using Safari instead of the Home Screen icon.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="change-role" data-words="change role email arts equipment admin promote merge accounts new email">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Change someone's role or email</h3>
+      <p class="why">Only the owner can change roles, change an email (it merges two accounts), or invite arts, equipment or admin people. Ask the owner, and say who and what.</p>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 9 ============ -->
+  <h2 id="g-rules">Rules and settings</h2>
+  <p class="group-intro">You can change the Booking rules (props notice, closed days, turnaround). Everything else is on the Settings sheet to read.</p>
+
+  <section class="task" id="settings-sheet" data-words="settings rules sheet all rules numbers what are the rules">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See every rule the app runs on</h3>
+      <p class="why">One page with every live rule, what it means and who can change it.</p>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Settings sheet</span> (or the page icon at the top of Analytics).</li>
+        <li>Read the sections: props, gear, schedule, check-ins and strikes, comparing creators, and what each flag means.</li>
+        <li>"Changed by: You (admins) and the owner" means you can change it with <span class="ui">Change booking rules ›</span>. Anything else: tell the owner.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/d-rules.png" alt="The Settings sheet listing props notice, custom props notice, turnaround and closed days" loading="lazy"><figcaption>The Settings sheet</figcaption></figure>
+  </section>
+
+  <section class="task noshot" id="props-notice" data-words="notice lead time hours before props deadline cutoff custom make or find">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Change how much notice creators must give for props</h3>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Booking rules</span>.</li>
+        <li>Under <span class="ui">Notice needed</span>, set <span class="ui">Props we have</span> in clock hours before the shoot starts (Sundays count), and <span class="ui">Custom props (make or find, minimum)</span> in open days.</li>
+        <li>Tap <span class="ui">Save</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Custom props never have a guaranteed date: creators sort out the details with the arts department on Slack.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="closed-days" data-words="closed days holidays sunday prop room closed dates">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Set the days the prop room is closed, and holidays</h3>
+      <p class="why">On closed days props are picked up the open day before, and deadlines skip those days. Creators can still film.</p>
+      <ol>
+        <li>Open <span class="ui">Booking rules</span>.</li>
+        <li>Under <span class="ui">Days the prop room is closed</span>, tap the weekdays (red = closed every week).</li>
+        <li>Under <span class="ui">Holidays and other closed dates</span>, pick a date and tap <span class="ui">Add</span> (<span class="ui">Remove</span> to take one off).</li>
+        <li>Tap <span class="ui">Save</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="turnaround" data-words="turnaround washing costumes cleaning days between bookings category">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Give props time to be cleaned between shoots</h3>
+      <p class="why">Turnaround is the number of open days after a shoot before the same prop can go out again.</p>
+      <ol>
+        <li>Open <span class="ui">Booking rules</span> → <span class="ui">Turnaround</span>.</li>
+        <li>Set the <span class="ui">Default</span>.</li>
+        <li>To give a category its own number (for example extra days to wash costumes), type it next to that category. Leave it blank to use the default.</li>
+        <li>Tap <span class="ui">Save</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ GROUP 10 ============ -->
+  <h2 id="g-lookup">Look things up for a creator</h2>
+  <p class="group-intro">When a creator asks "where are my props?" or "who has the FX3?", you can look. These screens belong to other teams, so you can read them but not change them.</p>
+
+  <section class="task noshot" id="props-queue" data-words="props queue arts packed ready where are my props status pickup">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check where a creator's props request is</h3>
+      <ol>
+        <li>Tap <span class="ui">Queue</span>.</li>
+        <li>Tabs: <span class="ui">Today</span>, <span class="ui">To prepare</span>, <span class="ui">Ready</span>, <span class="ui">Out</span>, <span class="ui">Returns</span>, <span class="ui">Done</span>. Each card shows which shoot it's for and its status (Late, At risk, n of N picked).</li>
+        <li>Tap a request to see its props, progress and history. Tap a photo to see it full size.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> <span class="ui">Dashboard</span> → <span class="ui">Requests calendar</span> lists every props request by shoot day, with house and time.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="gear-log" data-words="gear log who has camera kit out late check in equipment">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See who has a piece of gear</h3>
+      <p class="why">Gear is grab-and-go on the shoot day: creators tick every piece and take a photo when they take it and bring it back.</p>
+      <ol>
+        <li>Tap <span class="ui">Gear</span>.</li>
+        <li>Tabs: <span class="ui">Today</span>, <span class="ui">Out</span> (late first, in red), <span class="ui">To check in</span>, <span class="ui">Upcoming</span>, <span class="ui">Past</span>.</li>
+        <li>Tap a booking for the pieces, who picked it up, the return photo and any problems.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="view-schedule" data-words="schedule calendar month houses who is filming when free">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See who is filming when</h3>
+      <ol>
+        <li>Tap <span class="ui">Schedule</span>. The month shows free spots per day; switch <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">All</span>.</li>
+        <li>Tap a day for both houses hour by hour. A small amber dot is a heads-up (something happening at the house, filming still possible).</li>
+        <li>Tap a booking to see who, when and its history.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> Moving, swapping or cancelling someone's shoot, and blocking time, is done by the equipment team. Ask them.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="prop-insights" data-words="prop insights most booked popular damaged missing lost buy more">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>Which props are popular, run out, or get damaged</h3>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Prop insights</span>.</li>
+        <li>Pick 7 days, 30 days, 90 days or all time.</li>
+        <li>Read: most booked, trending, often unavailable ("Buy another?"), asked for but we don't have it, grab-and-go candidates, who damages the most and missing after return. Tap a name for their props and record.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="browse-props" data-words="browse props closet search find prop photos">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Look through the props closet</h3>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Props</span>.</li>
+        <li>Search by name or idea, or tap a category.</li>
+        <li>Tap a prop for its photos, how many we have, room and bin, and a calendar of when it's free.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="task noshot" id="activity-log" data-words="activity log history who changed what when audit">
+    <div>
+      <div class="goal">I want to know…</div>
+      <h3>Who changed what, and when</h3>
+      <ol>
+        <li>Tap <span class="ui">Dashboard</span> → <span class="ui">Activity</span>.</li>
+        <li>Scroll through everything that happened to props and requests, with who did it and when.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <h2 id="g-faq">Quick answers</h2>
+  <div class="faq">
+    <details><summary>Why can't I book a shoot for myself?</summary><p>Admins don't film, so there's no booking of shoots, props or gear on your account. If you also create videos, ask the owner about a creator account.</p></details>
+    <details><summary>What does "typical" mean?</summary><p>The number of shoots the middle creator filmed in the period (creators who filmed at least once). "Posting more" is clearly above that (about a quarter more, and at least one shoot); "Posting less" is clearly below it, or nothing filmed while others did.</p></details>
+    <details><summary>Is there a minimum number of shoots per month?</summary><p>No. Creators are compared with each other to see who is posting more and who is posting less.</p></details>
+    <details><summary>Why is a creator marked "Needs attention" when they film a lot?</summary><p>Needs attention is about behaviour: they're paused, have a serious flag (no-show, late cancel, strike, damaged or missing props or gear), or showed up to less than 70% of what they booked. The reason is shown in red on their row.</p></details>
+    <details><summary>How many strikes before a creator is paused?</summary><p>By default 2 strikes in 30 days pause their prop requests for 14 days. The owner sets these numbers; the live ones are on the Settings sheet.</p></details>
+    <details><summary>Does a pause stop them filming?</summary><p>No. A pause only stops new prop requests. They can still book house time and take gear.</p></details>
+    <details><summary>What gives a creator a strike automatically?</summary><p>A no-show the team confirms, cancelling a booked shoot inside the notice period (unless it was booked less than 24 hours ahead or cancelled within 10 minutes of booking), and a house report the team upholds. You can also give one by hand.</p></details>
+    <details><summary>Does the app charge the 10% late fee?</summary><p>No. It only records the late return, how late, the value and who had it last. Excuse a late return to make an exception.</p></details>
+    <details><summary>Who is responsible for shared gear that came back late?</summary><p>The last person who had it: whoever returned it, or else whoever signed for it at pickup.</p></details>
+    <details><summary>What happens if nobody approves a request?</summary><p>Admins and the equipment team get a reminder after 12 hours. If it's still waiting at its start time, it's dropped and the creator is told.</p></details>
+    <details><summary>I don't see the Google Calendar tab on Requests.</summary><p>That tab is for the owner and the equipment team, who sort events from the old calendars. You still see the red "Double-booked in Google Calendar" box.</p></details>
+    <details><summary>Can I switch a creator to the Full app?</summary><p>No, only the owner can. Creators you invite always start on Props only.</p></details>
+    <details><summary>Can I invite someone to the arts or equipment team?</summary><p>No. Admins invite creators only. Ask the owner for anyone else.</p></details>
+    <details><summary>Can I change the strike numbers or priority days?</summary><p>No. Those are Schedule settings, which only the owner changes. You can change the Booking rules (props notice, closed days, turnaround).</p></details>
+    <details><summary>Why don't I see some creators in Analytics?</summary><p>Analytics shows creators and the owner only. Staff (admins, arts, equipment) never appear as creators. Excused flags are left out of the counts.</p></details>
+    <details><summary>Can I see what the AI or the app costs?</summary><p>No. AI budgets and running costs are for the owner only.</p></details>
+    <details><summary>The phone and laptop look different. Am I missing something?</summary><p>No. Both have the same tools; only the layout changes. On a laptop, People &amp; access and Creators are in the sidebar; on a phone they're in the Dashboard menu.</p></details>
+  </div>
+</div>
+
+<script>
+(function(){
+  const q=document.getElementById('q'),count=document.getElementById('count');
+  const tasks=[...document.querySelectorAll('.task,.faq details')];
+  const heads=[...document.querySelectorAll('h2')];
+  function run(){
+    const words=q.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    let n=0;
+    tasks.forEach(t=>{const hay=(t.textContent+' '+(t.dataset.words||'')).toLowerCase();const ok=words.every(w=>hay.includes(w));t.classList.toggle('hide',!ok);if(ok)n++;if(ok&&words.length&&t.tagName==='DETAILS')t.open=true});
+    heads.forEach(h=>{let el=h.nextElementSibling,any=false;while(el&&el.tagName!=='H2'){if((el.classList.contains('task')||el.classList.contains('faq'))&&!el.classList.contains('hide')&&(!el.classList.contains('faq')||el.querySelector('details:not(.hide)')))any=true;el=el.nextElementSibling}h.classList.toggle('hide',words.length>0&&!any);const intro=h.nextElementSibling;if(intro&&intro.classList.contains('group-intro'))intro.classList.toggle('hide',words.length>0&&!any)});
+    document.querySelector('.toc').classList.toggle('hide',words.length>0);
+    count.textContent=words.length?(n?n+' match'+(n>1?'es':''):'Nothing matches. Try a simpler word, or ask the ✦ AI in the app.'):'';
+  }
+  q.addEventListener('input',run);
+})();
+</script>

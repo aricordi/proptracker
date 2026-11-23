@@ -1,0 +1,997 @@
+<title>Prime Capitol Equipment Manual</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: a printed-style manual. Sticky search bar, goal groups, each task a self-contained card with steps + a phone screenshot. Matches the app's Black & Gold. */
+:root{
+  --bg:#000; --surface:#151517; --raised:#1f1f22; --line:#2c2c2e; --text:#f5f5f7; --muted:#a1a1a8; --gold:#c9a961; --gold-ink:#1a1408;
+  --good:#3fbf7f; --warn:#e3a33b; --bad:#e5574f; --ask:#6fb6ff;
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"Inter",system-ui,-apple-system,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#faf8f3;--surface:#fff;--raised:#f2efe7;--line:#e2ddd0;--text:#17150f;--muted:#5d5a52;--gold:#8a6d2a;--gold-ink:#fff;color-scheme:light}}
+:root[data-theme="light"]{--bg:#faf8f3;--surface:#fff;--raised:#f2efe7;--line:#e2ddd0;--text:#17150f;--muted:#5d5a52;--gold:#8a6d2a;--gold-ink:#fff;color-scheme:light}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font:16px/1.6 var(--body);margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 80px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(34px,6vw,52px);letter-spacing:-.02em}
+h2{font-size:28px;margin-top:56px;padding-top:8px;border-top:1px solid var(--line)}
+h3{font-size:21px}
+p{margin:0}
+a{color:var(--gold)}
+.eyebrow{color:var(--gold);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase}
+.lede{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 12px;border-radius:999px;background:var(--raised);font-size:14px;color:var(--muted)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.search{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px;margin-top:28px}
+.search input{width:100%;min-height:52px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--text);font:inherit;font-size:17px;padding:0 18px}
+.search input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.count{color:var(--muted);font-size:14px;margin-top:6px;min-height:20px}
+.toc{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:20px}
+.toc div{background:var(--surface);border-radius:16px;padding:16px}
+.toc b{font-family:var(--display);display:block;margin-bottom:6px}
+.toc a{display:block;color:var(--text);text-decoration:none;font-size:15px;padding:3px 0}
+.toc a:hover{color:var(--gold)}
+.group-intro{color:var(--muted);margin-top:8px;max-width:65ch}
+.task{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:28px;background:var(--surface);border-radius:20px;padding:24px;margin-top:20px;scroll-margin-top:96px}
+.task.noshot{grid-template-columns:minmax(0,1fr)}
+.task .goal{color:var(--gold);font-size:14px;font-weight:600}
+.task h3{margin-top:4px}
+.task .why{color:var(--muted);margin-top:8px}
+.task ol{margin:16px 0 0;padding-left:0;list-style:none;counter-reset:s;display:grid;gap:10px}
+.task ol li{counter-increment:s;position:relative;padding-left:40px}
+.task ol li::before{content:counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--gold-ink);font:700 14px/28px var(--display);text-align:center}
+.task ul{margin:12px 0 0;padding-left:20px}
+.tip,.warn{margin-top:16px;padding:12px 14px;border-radius:12px;background:var(--raised);font-size:15px}
+.tip b{color:var(--good)} .warn b{color:var(--warn)}
+.say{margin-top:14px;font-size:15px;color:var(--muted)}
+.say q{color:var(--text);font-style:normal;background:var(--raised);padding:2px 8px;border-radius:8px}
+.shot{margin:0;align-self:start}
+.shot img{width:100%;border-radius:22px;border:6px solid #1c1c1e;display:block}
+.shot figcaption{font-size:13px;color:var(--muted);margin-top:6px;text-align:center}
+.ui{font-weight:600;white-space:nowrap;background:var(--raised);padding:1px 7px;border-radius:6px;font-size:.92em}
+.faq details{background:var(--surface);border-radius:14px;padding:14px 18px;margin-top:10px}
+.faq summary{cursor:pointer;font-weight:600}
+.faq details p{margin-top:8px;color:var(--muted)}
+.hide{display:none!important}
+@media (max-width:720px){.task{grid-template-columns:minmax(0,1fr);padding:18px}.shot{max-width:260px;margin:0 auto}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Prime Capitol app · Equipment team manual</div>
+    <h1>Running the schedule and the gear</h1>
+    <p class="lede">For the equipment team: approve bookings, keep the calendars straight, block time, and look after the gear. Find what you want to do and follow the steps. Every card works on its own.</p>
+    <div class="meta"><span class="chip">Updated Nov 23, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
+  </header>
+
+  <div class="search"><input id="q" type="search" placeholder="What do you want to do? Try “approve”, “clash”, “missing”…" aria-label="Search this manual"><div class="count" id="count"></div></div>
+
+  <nav class="toc" aria-label="Contents">
+    <div><b><a href="#g-start" style="padding:0;display:inline">Find your way around</a></b><a href="#phone-tabs">Know what each tab is for on my phone</a><a href="#laptop-view">Work from my laptop</a><a href="#notifications">Get a ping when something needs me</a><a href="#ask-ai">Ask the app how to do something</a></div>
+    <div><b><a href="#g-requests" style="padding:0;display:inline">Approve or deny booking requests</a></b><a href="#decide-phone">Approve or deny today's requests on my phone</a><a href="#deny">Deny a request and say why</a><a href="#laptop-board">Go through requests fast on the laptop with the keyboard</a><a href="#move-request">Handle a creator who wants to move an approved shoot</a><a href="#both-houses">Deal with a "Cliff 1 + Cliff 2" request</a><a href="#guideline">Check the filming guideline on a Thursday or Saturday request</a><a href="#runs-out">Know what happens if nobody decides in time</a><a href="#day-view">See a whole day at both houses</a></div>
+    <div><b><a href="#g-priority" style="padding:0;display:inline">Priority bookings (Kyle)</a></b><a href="#priority-request">Give a slot to Kyle when someone else has it</a><a href="#who-priority">Know who skips approval or can book long shoots</a></div>
+    <div><b><a href="#g-change" style="padding:0;display:inline">Change someone's booking</a></b><a href="#open-booking">Open a booking to see or change it</a><a href="#move-booking">Move someone to another day or time</a><a href="#swap-bookings">Swap two people's slots</a><a href="#cancel-booking">Cancel someone's shoot</a><a href="#book-for">Book a slot for a creator</a><a href="#book-offsite">Book an offsite shoot for someone</a></div>
+    <div><b><a href="#g-block" style="padding:0;display:inline">Block time and heads-ups</a></b><a href="#block-time">Block time for cleaners, maintenance or an event</a><a href="#block-repeat">Block the same time every week</a><a href="#heads-up">Warn people about something without blocking filming</a><a href="#block-remove">Remove a block or a heads-up</a></div>
+    <div><b><a href="#g-calendar" style="padding:0;display:inline">Google Calendar</a></b><a href="#cal-how">Understand how the calendars and the app fit together</a><a href="#cal-tab">Sort the events waiting for me</a><a href="#cal-fix">Fix an event the app couldn't read</a><a href="#cal-clash">Sort out a real clash in Google Calendar</a><a href="#cal-notfilming">Stop a team meeting showing up as a clash</a><a href="#cal-slack">Move a shoot someone asked about on Slack, from Google Calendar</a><a href="#cal-delete">Cancel a shoot by deleting its calendar event</a><a href="#cal-guaranteed">Put creators' monthly guaranteed Cliff 1 slots in</a><a href="#cal-group">Bring in one event with several creators</a><a href="#cal-redo">Redo an import that came in wrong</a><a href="#cal-import-screen">Sort many calendar events at once</a><a href="#cal-sent">Check what the app wrote to Google Calendar</a></div>
+    <div><b><a href="#g-day" style="padding:0;display:inline">On the day: check-ins, no-shows and reports</a></b><a href="#checkin-how">Know how creators check in</a><a href="#missed-checkin">Decide a missed check-in</a><a href="#reports">Review a report of a mess or someone running over</a><a href="#lift-pause">Lift someone's pause</a><a href="#creators-tab">See who books but doesn't film</a><a href="#strikes">Understand strikes</a></div>
+    <div><b><a href="#g-gearout" style="padding:0;display:inline">Gear going out</a></b><a href="#grab-go">Know how creators take gear</a><a href="#gear-log">See who has which gear right now</a><a href="#reserve-ahead">Deal with a gear reservation made ahead</a><a href="#pickup-for">Help a creator with a pickup</a><a href="#handover">Hand gear from one creator to another</a><a href="#houses-only">Keep a kit from leaving the houses</a></div>
+    <div><b><a href="#g-gearback" style="padding:0;display:inline">Gear coming back</a></b><a href="#return-flow">Know what creators do at the return</a><a href="#checkin-gear">Check gear back in</a><a href="#missing-found">Deal with a missing piece</a><a href="#damaged">Find out about damage or a problem</a><a href="#late-gear">Handle late gear</a><a href="#late-fee">Know how the late fee works</a></div>
+    <div><b><a href="#g-inventory" style="padding:0;display:inline">Gear inventory and kits</a></b><a href="#add-gear">Add a new camera (or any piece)</a><a href="#values">Set replacement values</a><a href="#build-kit">Build a kit</a><a href="#edit-kit">Change or retire a kit</a><a href="#single-item">Let creators take a single piece on its own</a><a href="#archive-piece">Retire a piece you no longer have</a></div>
+    <div><b><a href="#g-settings" style="padding:0;display:inline">Rules, settings and help</a></b><a href="#can-change">Know what I can change and what only the owner can</a><a href="#see-rules">Look up the current rules</a><a href="#report-problem">Report a problem with the app</a><a href="#phone-calendar">See every shoot in my own phone calendar</a></div>
+    <div><b><a href="#g-faq" style="padding:0;display:inline">Quick answers</a></b><a href="#g-faq">Short answers to common questions</a></div>
+  </nav>
+
+  <h2 id="g-start">Find your way around</h2>
+  <p class="group-intro">Where everything lives, on the phone and on the laptop. Read this once; after that, use the search box.</p>
+  <section class="task" id="phone-tabs" data-words="tabs bottom menu navigation phone where">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know what each tab is for on my phone</h3>
+      <p class="why">Your phone has five tabs at the bottom. Everything else is in the Admin menu.</p>
+      <ol>
+        <li><span class="ui">Requests</span>: booking requests to approve or deny, and the <span class="ui">Google Calendar</span> tab with events that need you.</li>
+        <li><span class="ui">Gear log</span>: who has which gear, what is late, what is back and waiting for you to check in.</li>
+        <li><span class="ui">Schedule</span>: the month calendar of both houses. Tap a day to see every slot, block time or book for someone. The people icon at the top opens <span class="ui">Schedule team</span> (check-ins and reports).</li>
+        <li><span class="ui">All gear</span>: every piece you own, with values and who can book it.</li>
+        <li><span class="ui">Admin</span>: Bundles & single items, Schedule team, Google Calendar imports, Team guide, Help, Report a problem and <span class="ui">My account</span> (notifications, sign out).</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> The amber number on a day in the calendar is how many requests are waiting that day.</div>
+    </div>
+    <figure class="shot"><img src="img/e-admin.png" alt="The Admin menu with Gear, Schedule and Help groups" loading="lazy"><figcaption>The Admin menu</figcaption></figure>
+  </section>
+  <section class="task noshot" id="laptop-view" data-words="laptop desktop computer sidebar wide screen desk">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Work from my laptop</h3>
+      <p class="why">Open the app in a browser on a screen at least 1100 pixels wide and it switches to the laptop view: a sidebar on the left instead of the tab bar, and a wide week board on Requests.</p>
+      <ol>
+        <li>Go to <a href="https://proptracker.arbcreative.co">proptracker.arbcreative.co</a> and sign in with your work Google account.</li>
+        <li>Use the sidebar: <span class="ui">Requests</span> (amber badge = requests and calendar events waiting), <span class="ui">Gear log</span>, <span class="ui">Check-ins</span>, <span class="ui">Schedule</span>, then <span class="ui">All gear</span>, <span class="ui">Kits</span> and <span class="ui">More</span> (the Admin menu).</li>
+        <li>Your name and photo at the bottom of the sidebar open your account.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Requests and Schedule use the full width; other pages sit in a phone-width column. Want the phone layout on a small screen? Click <span class="ui">Use the phone layout</span> at the bottom of the sidebar. To get the laptop view back: <span class="ui">My account</span> → <span class="ui">Laptop layout</span>.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="notifications" data-words="notifications push ping alerts phone laptop not getting test">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Get a ping when something needs me</h3>
+      <p class="why">You are told about new booking requests, moves, requests waiting more than 12 hours, instant bookings, same-day cancellations, gear taken and returned, hand-overs, reports from creators and Google Calendar events to check.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">My account</span>.</li>
+        <li>In the notifications card tap <span class="ui">Turn on</span> and allow notifications when the phone asks.</li>
+        <li>Tap <span class="ui">Send me a test</span>. If nothing shows, try the test with the app closed.</li>
+        <li>Do the same on your laptop browser, so you get pings at your desk too.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> On an iPhone, notifications only work when the app is added to the Home Screen (Share → Add to Home Screen) and opened from that icon. Also check iPhone Settings → Notifications → Prime Capitol and turn Focus off.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="ask-ai" data-words="ai help how do i question assistant chat stuck">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Ask the app how to do something</h3>
+      <p class="why">The violet ✦ AI button on the Admin page opens a help chat that knows every screen you can use. It only explains; it never changes anything.</p>
+      <ol>
+        <li>Tap <span class="ui">✦ AI</span> at the top of <span class="ui">Admin</span> (or on Schedule).</li>
+        <li>Type your question in plain words, for example "how do I block time for cleaners".</li>
+        <li>Read the steps and tap the <span class="ui">Open …</span> button to jump to the right screen.</li>
+      </ol>
+      <p class="say">Try: <q>how do I make a camera bookable on its own?</q></p>
+    </div>
+  </section>
+
+  <h2 id="g-requests">Approve or deny booking requests</h2>
+  <p class="group-intro">Every creator booking is a request. The time is held for them (dashed amber) until you or an admin approves it. People on "Books without approval" (for example Kyle) skip this.</p>
+  <section class="task" id="decide-phone" data-words="approve deny request booking waiting yes no decide phone card">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Approve or deny today's requests on my phone</h3>
+      <p class="why">Each request card shows what you need to decide: how many shoots they filmed in the last 30 days, what they already have coming up, strikes or a pause, their other requests, who is before and after them at the house, and who they usually film with.</p>
+      <ol>
+        <li>Tap <span class="ui">Requests</span>. The <span class="ui">Bookings</span> tab is open, with the waiting count on it.</li>
+        <li>Scroll under the month calendar to the request cards, soonest first.</li>
+        <li>Read the flags on the card (for example "10th this month", "3 days in a row", "Back to back with X · usual partner").</li>
+        <li>Tap <span class="ui">Approve</span>. The creator gets a notification and the slot turns solid on the schedule.</li>
+        <li>Or tap <span class="ui">Deny</span> (see the next card).</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> "10th this month" and "N days in a row" are rules of thumb to help you spot overbooking. The app never refuses on them; you decide.</div>
+    </div>
+    <figure class="shot"><img src="img/e-requests.png" alt="The Requests tab with the month calendar and the waiting count" loading="lazy"><figcaption>Requests, Bookings tab</figcaption></figure>
+  </section>
+  <section class="task noshot" id="deny" data-words="deny refuse reject reason no decline booking">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Deny a request and say why</h3>
+      <p class="why">The creator reads your reason in their notification, so keep it short and kind. Denying frees the slot at once, and any props they added for that shoot are let go.</p>
+      <ol>
+        <li>On the request card tap <span class="ui">Deny</span>.</li>
+        <li>Tap a ready reason (<span class="ui">The house is busy then</span>, <span class="ui">Too many bookings this week</span>, <span class="ui">Please pick another time</span>) or type your own.</li>
+        <li>Tap <span class="ui">Deny</span> again to send. (<span class="ui">Back</span> cancels.)</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> The reason needs at least 3 characters.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="laptop-board" data-words="laptop week board keyboard shortcuts keys a d j k w m arrows t esc fast">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Go through requests fast on the laptop with the keyboard</h3>
+      <p class="why">On a laptop, Requests becomes a week board: 7 days, both houses, every 2-hour slot, with the waiting list on the right (oldest first) and a numbers strip on top (requests waiting, waiting over 12 h, shoots today, house use this week).</p>
+      <ol>
+        <li>Open Requests in the sidebar. The first waiting request is selected and its details show on the right.</li>
+        <li>Press <b>A</b> to approve. The next request is selected by itself.</li>
+        <li>Press <b>D</b> to deny: pick a reason or type one, press Enter to send, Esc to back out.</li>
+        <li>Press <b>J</b> / <b>K</b> for the next / previous request without deciding.</li>
+        <li>Press <b>W</b> for the week board, <b>M</b> for the month, the left/right arrow keys to change week, <b>T</b> to jump to today, <b>Esc</b> to go back.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> On the board, dashed amber = request, blue = wants to move (the old slot is faded), gold = books without approval (Kyle), hatched = blocked, red dot = the creator had strikes or a no-show in the last 30 days.</div>
+      <div class="warn"><b>Bulk approve:</b> tick several requests in the waiting list on the right, then click <span class="ui">Approve N ticked</span>. Each creator gets a notification, so only tick the ones you checked.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="move-request" data-words="wants to move move request change time approved shoot">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Handle a creator who wants to move an approved shoot</h3>
+      <p class="why">When a creator moves an approved shoot, it shows as "wants to move". Their old time stays theirs until you decide, so nothing is lost if you say no.</p>
+      <ol>
+        <li>Open the card marked "wants to move" (blue on the laptop board).</li>
+        <li>Check the new time and what is around it.</li>
+        <li><span class="ui">Approve</span> to move them (props go with the shoot), or <span class="ui">Deny</span> with a reason to keep the old time.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> A move to another DAY can be refused by the app while props are already booked for the old day. Ask the creator to sort their props first, or move it yourself from the booking card (team moves take the props along).</div>
+    </div>
+  </section>
+  <section class="task noshot" id="both-houses" data-words="both houses cliff 1 + cliff 2 one hour whole property">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Deal with a "Cliff 1 + Cliff 2" request</h3>
+      <p class="why">A creator can ask for both houses at once for one hour (inside one 2-hour slot). These always come to you, even from people who normally book without approval.</p>
+      <ol>
+        <li>The card is marked "Cliff 1 + Cliff 2" with the exact hour.</li>
+        <li><span class="ui">Approve</span> or <span class="ui">Deny</span> like any other request.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> Both-houses bookings cannot be moved or swapped. If the time has to change, cancel it and ask the creator to request again.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="guideline" data-words="guideline pdf thursday saturday priority day cliff 1 filming guideline">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check the filming guideline on a Thursday or Saturday request</h3>
+      <p class="why">Cliff 1 on Thursdays and Saturdays is for the priority group. Anyone outside the group must attach their filming guideline (a PDF) to ask for it.</p>
+      <ol>
+        <li>Open the request. A link to the guideline PDF is on the card.</li>
+        <li>Open it and check it looks like a real plan for the shoot.</li>
+        <li><span class="ui">Approve</span> or <span class="ui">Deny</span> with a reason.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="runs-out" data-words="expired run out dropped undecided 12 hours reminder late request">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know what happens if nobody decides in time</h3>
+      <p class="why">A request is not forever. This is why the Requests badge matters.</p>
+      <ol>
+        <li>After 12 hours waiting, you (and admins) get a reminder notification.</li>
+        <li>If it is still undecided when the shoot is due to start, it is dropped: the slot opens up and the creator is told it ran out.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Admins can approve too. If you are away, let them know.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="day-view" data-words="day both houses hour by hour who is filming see a day">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See a whole day at both houses</h3>
+      <p class="why">Fastest way to answer "who is in Cliff 2 on Friday?"</p>
+      <ol>
+        <li>On <span class="ui">Schedule</span> (or Requests) tap the day in the month calendar.</li>
+        <li>The day sheet shows Cliff 1 and Cliff 2 hour by hour: names, requests (amber), blocks, heads-ups and offsite shoots.</li>
+        <li>Tap a name to open that booking. Tap a free time to book or block it.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Use the <span class="ui">Cliff 1</span> / <span class="ui">Cliff 2</span> / <span class="ui">All</span> switch above the month. All shows two chips per day (C1 and C2) with that house's free spots; a lock means a Cliff 1 priority day.</div>
+    </div>
+  </section>
+
+  <h2 id="g-priority">Priority bookings (Kyle)</h2>
+  <p class="group-intro">Stromedy (Kyle) has priority. His bookings are approved at once, and when he needs a slot someone else has, you give it to him.</p>
+  <section class="task noshot" id="priority-request" data-words="kyle priority give slot bump take slot stromedy needs">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Give a slot to Kyle when someone else has it</h3>
+      <p class="why">You choose what happens to the person who had it: move them to another free time that day, or cancel their shoot. Either way there is no strike.</p>
+      <ol>
+        <li>On a request card tap <span class="ui">Priority booking…</span>, or in a day's grid tap the person's name and choose <span class="ui">Priority booking</span> on their card.</li>
+        <li>Under <span class="ui">Book it for</span> pick Kyle (or type another name).</li>
+        <li>Pick what happens to the current holder: <span class="ui">Move them to …</span> (one button per free time that day; their props and gear follow) or <span class="ui">Cancel their shoot</span>.</li>
+        <li>Confirm. Kyle gets the slot as an approved booking.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> The person who lost the slot gets a neutral "Schedule change" notice with "Find another time" or "Shoot offsite", and their next request goes to the top of your list marked "First in line".</div>
+    </div>
+  </section>
+  <section class="task noshot" id="who-priority" data-words="books without approval instant bookers long bookers several slots in a row danny kyle list priority group">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know who skips approval or can book long shoots</h3>
+      <p class="why">Three lists in Schedule settings decide this. Only the owner can change them; ask the owner if someone needs adding.</p>
+      <ol>
+        <li><span class="ui">Books without approval</span>: bookings approved at once and can take any slot (Kyle).</li>
+        <li><span class="ui">Can book several slots in a row</span>: long shoots and more than one slot a day (Danny / Stromedy Studios). Still a request unless they are also on the first list.</li>
+        <li>The priority group: who can book Cliff 1 on priority days (Thursday and Saturday) before the Sunday release.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> On the laptop board, bookings from "Books without approval" people are gold.</div>
+    </div>
+  </section>
+
+  <h2 id="g-change">Change someone's booking</h2>
+  <p class="group-intro">You can move, swap, cancel or book for anyone. None of this gives the creator a strike, and they always get a notification.</p>
+  <section class="task" id="open-booking" data-words="open booking card tap name details who when status">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Open a booking to see or change it</h3>
+      <p class="why">Every change starts from the booking card.</p>
+      <ol>
+        <li>On <span class="ui">Schedule</span> or <span class="ui">Requests</span>, tap the day, then tap the person's name. (On the laptop board, click a booked slot.)</li>
+        <li>The card shows who, when, where and the status, then the team options: <span class="ui">Move to another day or time</span>, <span class="ui">Swap with another booking</span>, <span class="ui">Priority booking</span>, <span class="ui">Cancel their shoot (no strike)</span> and <span class="ui">History</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> <span class="ui">History</span> on the card lists every request, approval, move, swap, calendar change, check-in and report, with who and when. Useful when a creator says "I never cancelled that".</div>
+    </div>
+    <figure class="shot"><img src="img/c-shoot-sheet.png" alt="A shoot card with the date, house, status and props" loading="lazy"><figcaption>A shoot card (creator view; you see the team options too)</figcaption></figure>
+  </section>
+  <section class="task noshot" id="move-booking" data-words="move reschedule change time day slack someone asked to move">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Move someone to another day or time</h3>
+      <p class="why">For example after a creator asks you on Slack. You can move to any free slot; the usual 48-hour notice does not apply to the team.</p>
+      <ol>
+        <li>Open the booking card.</li>
+        <li>Tap <span class="ui">Move to another day or time</span>.</li>
+        <li>Pick a free slot (either house). Confirm.</li>
+        <li>The creator gets a notification. If the day changed, their props request moves with the shoot.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> If the shoot came from an old Google Calendar, you can also just change the event there (see the Google Calendar section).</div>
+    </div>
+  </section>
+  <section class="task noshot" id="swap-bookings" data-words="swap trade exchange two creators slots switch">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Swap two people's slots</h3>
+      <p class="why">Both bookings change at once, so nobody is ever without a slot halfway through.</p>
+      <ol>
+        <li>Open one of the two bookings.</li>
+        <li>Tap <span class="ui">Swap with another booking</span>.</li>
+        <li>Pick the other person's upcoming house booking and confirm.</li>
+        <li>Both get a notification. No strikes. Props move with each shoot if the day changes.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> Swaps work for house bookings only (not offsite, not both-houses).</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cancel-booking" data-words="cancel delete remove someone booking shoot no strike">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Cancel someone's shoot</h3>
+      <p class="why">When you cancel, it is never the creator's fault, so there is no strike.</p>
+      <ol>
+        <li>Open the booking card.</li>
+        <li>Tap <span class="ui">Cancel their shoot (no strike)</span> and confirm.</li>
+        <li>The creator is told. Props or gear not picked up yet are let go.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> When a booked house shoot today is cancelled before its time, everyone who films gets a "house is free" notification, so the slot can be used.</div>
+    </div>
+  </section>
+  <section class="task" id="book-for" data-words="book for someone on behalf creator book slot team">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Book a slot for a creator</h3>
+      <p class="why">Bookings made by the team are approved at once, and you can book on priority days.</p>
+      <ol>
+        <li>On <span class="ui">Schedule</span> tap the day, then tap a free time.</li>
+        <li>In the <span class="ui">Book or block</span> sheet tap <span class="ui">Book this slot…</span>.</li>
+        <li>Under <span class="ui">Book for</span> pick the creator, then book.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/e-schedule.png" alt="The Schedule tab month view with free spots per day" loading="lazy"><figcaption>Schedule tab</figcaption></figure>
+  </section>
+  <section class="task noshot" id="book-offsite" data-words="offsite somewhere else location address book for">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Book an offsite shoot for someone</h3>
+      <p class="why">Offsite shoots hold no house but still go on the schedule, so props and gear can hang off them.</p>
+      <ol>
+        <li>On Schedule tap the day.</li>
+        <li>At the bottom of the day sheet tap <span class="ui">Book Offsite</span>.</li>
+        <li>Pick the person, the start and end time (any half hour) and the address or Maps link. Save.</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-block">Block time and heads-ups</h2>
+  <p class="group-intro">Blocked time stops filming. A heads-up only warns people; they can still book.</p>
+  <section class="task noshot" id="block-time" data-words="block cleaners maintenance event rental external close house">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Block time for cleaners, maintenance or an event</h3>
+      <p class="why">Nobody can book blocked time.</p>
+      <ol>
+        <li>On <span class="ui">Schedule</span> tap the day, then tap a free time at the right house.</li>
+        <li>In <span class="ui">Book or block</span>, keep <span class="ui">Blocks filming</span> selected.</li>
+        <li>Pick the type (Cleaners, Maintenance, Event, External rental, Blocked) and add a short note if you like, e.g. "Deep clean".</li>
+        <li>Set <span class="ui">From</span> and <span class="ui">Until</span> in half hours, or tick <span class="ui">The whole day at …</span>.</li>
+        <li>Tap <span class="ui">Block …</span>.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> You cannot block over a booking. The app says whose booking is in the way; move or cancel it first.</div>
+      <div class="tip"><b>Tip:</b> Blocks can be shorter than a slot. If cleaners finish at 2 PM, the slot before shows "House free from 2 PM" so creators can start early.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="block-repeat" data-words="repeat every week weekly recurring cleaners block series">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Block the same time every week</h3>
+      <p class="why">For example cleaners every Tuesday morning.</p>
+      <ol>
+        <li>Start a block as above.</li>
+        <li>Under <span class="ui">Repeat</span> pick "Every Tuesday for 2, 4, 8, 12 or 26 weeks".</li>
+        <li>Tap <span class="ui">Block … for N weeks</span>.</li>
+        <li>Weeks where someone is already booked are skipped; the app lists them so you can deal with those by hand.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="heads-up" data-words="heads-up warning contractor delivery chargers install soft can still film">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Warn people about something without blocking filming</h3>
+      <p class="why">For a delivery, a contractor outside, chargers being installed. It shows on the calendar (small amber dot on the day, a note at the top of the day sheet), and everyone can still book.</p>
+      <ol>
+        <li>Tap the day, then a free time.</li>
+        <li>In <span class="ui">Book or block</span> switch to <span class="ui">Heads-up only</span>.</li>
+        <li>Add a note saying what is happening, set the hours (or the whole day), and repeat if needed.</li>
+        <li>Tap <span class="ui">Add heads-up …</span>.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="block-remove" data-words="remove unblock delete block heads-up undo">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Remove a block or a heads-up</h3>
+      <p class="why">The time becomes free straight away.</p>
+      <ol>
+        <li>Tap the day, then the blocked row.</li>
+        <li>Tap <span class="ui">Remove this block</span> (or <span class="ui">Remove this heads-up</span>).</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-calendar">Google Calendar</h2>
+  <p class="group-intro">The old Google calendars are the rule. Every 15 minutes the app reads them and follows them: new, changed and deleted events go on the schedule and are confirmed by themselves. Only events it could not read, and real clashes, wait for you.</p>
+  <section class="task noshot" id="cal-how" data-words="how calendar works rule automatic 15 minutes check sync old calendars">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Understand how the calendars and the app fit together</h3>
+      <p class="why">You will rarely need to type anything in the app for calendar events. Read this once.</p>
+      <ol>
+        <li>Every 15 minutes the app reads the app calendar and the old calendars (Cliff 1 / Stromedy Talent, Cliff 2, Stromedy…).</li>
+        <li>Anything it can read (a person it knows and a house) goes on the schedule, confirmed, and the creator is told.</li>
+        <li>Changed in Google = changed in the app. Deleted in Google = cancelled in the app (no strike, their props request is kept).</li>
+        <li>One person, one shoot a day: if someone gets a newer entry on a day they already film, the newest entry wins and the props follow it.</li>
+        <li>Everything from the old calendars is copied into the app calendar within 15 minutes.</li>
+        <li>Bookings made only in the app are safe: an old-calendar event landing on them becomes a clash for you to decide.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> The house comes from the address or name in the event (2375 Cliff = Cliff 1, 2371 Cliff = Cliff 2), else from the calendar's usual house. Events that say "Offsite" go on as offsite.</div>
+    </div>
+  </section>
+  <section class="task" id="cal-tab" data-words="google calendar tab waiting sort check events requests tab">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Sort the events waiting for me</h3>
+      <p class="why">Check this tab once a day. "All checked" means nothing needs you.</p>
+      <ol>
+        <li>Open <span class="ui">Requests</span> → <span class="ui">Google Calendar</span>.</li>
+        <li>Each card is an event the app could not read, a clash, or a move in the app calendar onto a taken time.</li>
+        <li>For each card: <span class="ui">Looks right ✓</span>, <span class="ui">Fix</span>, or <span class="ui">Skip</span> (new events only).</li>
+        <li>Every card has <span class="ui">Open in Google Calendar</span> so you can check the event first.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> <span class="ui">Check now</span> at the top runs the check straight away instead of waiting up to 15 minutes.</div>
+      <div class="warn"><b>Many cards?</b> Tap <span class="ui">Confirm all N that look right</span> at the top. Cards with a clash, or that the app couldn't read, stay for you to do one by one.</div>
+    </div>
+    <figure class="shot"><img src="img/e-calendar-tab.png" alt="The Google Calendar tab showing All checked and the Not filming list" loading="lazy"><figcaption>Requests, Google Calendar tab</figcaption></figure>
+  </section>
+  <section class="task noshot" id="cal-fix" data-words="fix event unread unknown who house pick creator nobody named two justins same name">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Fix an event the app couldn't read</h3>
+      <p class="why">Common reasons: nobody named, a first name two people share (for example two Justins), no house in a mixed calendar, or both houses named.</p>
+      <ol>
+        <li>On the card tap <span class="ui">Fix</span>.</li>
+        <li>Choose <span class="ui">A shoot</span>, <span class="ui">Blocked time</span> or <span class="ui">Heads-up only</span>.</li>
+        <li>For a shoot: pick who is filming (in order if it is a group) and the house or offsite.</li>
+        <li>Tap <span class="ui">Save and confirm</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Filming by people who are not on the app (for example "David &amp; Jana - Filming") becomes blocked time: Fix opens on Blocked time so you only pick the house.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-clash" data-words="clash double booked overlap conflict two events same house red box kyle stromedy priority give it to">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Sort out a real clash in Google Calendar</h3>
+      <p class="why">The red box "Double-booked in Google Calendar" lists two events that really overlap at the same house, e.g. "Bryan 1:15–3:15 PM overlaps Pedro 2–4 PM".</p>
+      <ol>
+        <li>Tap <span class="ui">See it in Google Calendar</span> to look at that day.</li>
+        <li>Find out who should have it (usually a quick message).</li>
+        <li>Tap <span class="ui">Give it to …</span> for the person who keeps the time, then move or cancel the other one.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Back-to-back events that just share a 2-hour slot (1:15–3:15 then 3:30–5:30) are NOT clashes. The slot shows whoever fills more of it.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-notfilming" data-words="meeting team meeting not filming ignore list stand-up interview admin clash ops review">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Stop a team meeting showing up as a clash</h3>
+      <p class="why">Meetings, stand-ups, huddles, all hands, 1:1s, interviews and onboarding are already ignored by themselves (unless the event says filming). For anything else that is not filming, teach the app once.</p>
+      <ol>
+        <li>On the card tap <span class="ui">Not filming? Ignore events like this</span>.</li>
+        <li>Type a short phrase from the title, for example "ops review".</li>
+        <li>Save. Every event whose title has that phrase is ignored from now on, and blocked time made from them comes off right away.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> The list is at the bottom of the Google Calendar tab under <span class="ui">Not filming</span>: tap a phrase to remove it, or + to add one. Google Calendar itself is never changed.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-slack" data-words="slack moved change in calendar drag reschedule google calendar edit event">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Move a shoot someone asked about on Slack, from Google Calendar</h3>
+      <p class="why">You can do it in Google Calendar and the app follows within 15 minutes.</p>
+      <ol>
+        <li>If the booking was made in the app: drag its event in the APP calendar. The app treats it as a team move (props follow, creator told).</li>
+        <li>If it came from an old calendar: change the event in that old calendar.</li>
+        <li>Or do it in the app instead: open the booking and use <span class="ui">Move to another day or time</span>.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> If your drag lands on someone else's time or a block, nothing moves and a "Moved in the app calendar" card waits in the Google Calendar tab with Put it back. Copies of old-calendar shoots in the app calendar are put back if you edit them; change those in the old calendar.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-delete" data-words="delete event google calendar cancel shoot props kept no strike">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Cancel a shoot by deleting its calendar event</h3>
+      <p class="why">Deleting the event is the same as a team cancel.</p>
+      <ol>
+        <li>Delete the event in Google Calendar (the app calendar for app bookings, the old calendar for imported ones).</li>
+        <li>Within 15 minutes the shoot is cancelled with no strike. The creator is told.</li>
+        <li>Their props request stays for that day: it joins any other shoot they have that day, or waits for them to cancel it.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-guaranteed" data-words="monthly guaranteed slots 4 cliff 1 slots month allocation draw">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Put creators' monthly guaranteed Cliff 1 slots in</h3>
+      <p class="why">There is no draw in the app any more. You place the guaranteed slots yourself.</p>
+      <ol>
+        <li>Add each slot as an event in the Cliff 1 Google Calendar with the creator's name in the title (as you always have).</li>
+        <li>The app brings them in every 15 minutes, confirmed, and tells the creator.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-group" data-words="group several creators one event shared booking turns back to back">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Bring in one event with several creators</h3>
+      <p class="why">For example "Bryan, Eddy, Roland &amp; Brad | Filming" 12–7 PM. At a house, each person gets one of the 2-hour slots the event covers (12–1, 1–3, 3–5, 5–7), in the order named.</p>
+      <ol>
+        <li>If the app named everyone, nothing to do.</li>
+        <li>If not, <span class="ui">Fix</span> the card: add each person in order (<span class="ui">+ Add another creator</span> on the import screen).</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Common nicknames are understood (Eddy = Eduard, Mike = Michael).</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-redo" data-words="redo import wrong person wrong house undo import">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Redo an import that came in wrong</h3>
+      <p class="why">Takes the shoot (and any others from the same event) off the schedule and shows the event again on the import screen. Google Calendar is not changed.</p>
+      <ol>
+        <li>Open the shoot on the schedule.</li>
+        <li>Tap <span class="ui">Redo this import</span>, then <span class="ui">Redo it</span>.</li>
+        <li>Pick the right people and house on the import screen and import.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-import-screen" data-words="import screen many events bulk skip hidden calendar chips">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Sort many calendar events at once</h3>
+      <p class="why">The import screen shows every event from every linked calendar, with chips to look at one calendar at a time.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">Google Calendar imports</span>.</li>
+        <li>For each event choose a shoot (who, which house), blocked time, or skip.</li>
+        <li>Clearing junk: tap <span class="ui">Set everything showing to Skip ›</span>, then Import. Skipped events never come back.</li>
+        <li>Import only acts on what is showing.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Events about people being away and birthdays are hidden and never brought in. "Show hidden" lists them.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="cal-sent" data-words="what the app put in google calendar retry remove failed sent">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check what the app wrote to Google Calendar</h3>
+      <p class="why">Every booking, move, cancel and block is written to the app calendar right away. If Google refuses (calendar not shared, API off), it waits here.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">What the app put in Google Calendar</span>.</li>
+        <li>Retry or drop anything that could not be sent.</li>
+        <li>Under "In the calendar from the app", <span class="ui">Remove</span> takes an event off Google Calendar.</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-day">On the day: check-ins, no-shows and reports</h2>
+  <p class="group-intro">Creators prove they filmed. You decide when something went wrong.</p>
+  <section class="task noshot" id="checkin-how" data-words="check in selfie how creators check in wrap prove filmed">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know how creators check in</h3>
+      <p class="why">So you can answer creators' questions.</p>
+      <ol>
+        <li>From 15 minutes before their slot, the creator gets a notification and checks in from the Chat with a selfie.</li>
+        <li>If someone filmed right before them, they say whether the house was clean and that slot finished on time (with photos for a mess).</li>
+        <li>After filming they "wrap" by saying what they filmed.</li>
+        <li>No check-in by the end of the slot = flagged to you.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Offsite shoots and creators still on Props only do not check in, so they never show as missed.</div>
+    </div>
+  </section>
+  <section class="task" id="missed-checkin" data-words="missed check-in no-show they filmed decide strike didn&#x27;t show">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Decide a missed check-in</h3>
+      <p class="why">The creator has 12 hours (by default) to explain. After that, or once they explained, you decide.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">Schedule team</span> (or the people icon on Schedule; <span class="ui">Check-ins</span> on the laptop sidebar).</li>
+        <li>On the <span class="ui">Check-ins</span> tab, read "Needs a decision" and any explanation.</li>
+        <li>Tap <span class="ui">They filmed</span> if they did (you saw them, a photo, etc.), or <span class="ui">No-show · strike</span>.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> The No-show button stays greyed ("No-show possible after …") until the explain window has passed.</div>
+    </div>
+    <figure class="shot"><img src="img/e-schedule-team.png" alt="Schedule team Check-ins tab with They filmed and No-show buttons" loading="lazy"><figcaption>Schedule team, Check-ins</figcaption></figure>
+  </section>
+  <section class="task noshot" id="reports" data-words="report mess dirty ran over late finishing house left messy previous creator">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Review a report of a mess or someone running over</h3>
+      <p class="why">At check-in, the next creator can report the slot before: ran over (minutes) and/or left a mess (with photos and a message).</p>
+      <ol>
+        <li>Open <span class="ui">Schedule team</span> → <span class="ui">Reports</span>.</li>
+        <li>Look at the photos and the note.</li>
+        <li>Tap <span class="ui">Dismiss</span>, or <span class="ui">Strike for …</span> to give that person a strike.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Reports never give a strike by themselves. It is always your call.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="lift-pause" data-words="lift pause unpause paused creator strikes blocked props">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Lift someone's pause</h3>
+      <p class="why">Too many strikes pauses a creator's prop requests for a while (by default 2 strikes in 30 days pauses 14 days).</p>
+      <ol>
+        <li>Open <span class="ui">Schedule team</span> → <span class="ui">Creators</span>.</li>
+        <li>Find the person marked <span class="ui">Paused · Lift</span> and tap it.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="creators-tab" data-words="creators booked filmed reliability who doesn&#x27;t show up record">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See who books but doesn't film</h3>
+      <p class="why">A quick view for approving requests with confidence.</p>
+      <ol>
+        <li>Open <span class="ui">Schedule team</span> → <span class="ui">Creators</span>.</li>
+        <li>Each creator shows filmed of booked, missed check-ins and strikes.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Giving a strike by hand, removing one, or pausing someone is done by admins and the owner (Analytics and Creators). Ask them.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="strikes" data-words="strike strikes rules how many pause late cancel no-show">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Understand strikes</h3>
+      <p class="why">What gives a strike, and what it does.</p>
+      <ol>
+        <li>A strike comes from: a no-show you mark, a creator cancelling inside the notice period (unless they booked less than 24 hours ahead), or a report you uphold.</li>
+        <li>Too many in the window pauses PROP requests only. House booking and taking gear still work.</li>
+        <li>Your moves, swaps and cancels never give a strike.</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-gearout">Gear going out</h2>
+  <p class="group-intro">Gear is grab-and-go: creators take what is free on their shoot day, tick every piece and take one photo. Nobody needs to be in the cage.</p>
+  <section class="task" id="grab-go" data-words="grab and go take gear shoot day how creators take gear first come first served">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know how creators take gear</h3>
+      <p class="why">Gear is not booked ahead (unless the owner turned on "Creators can reserve gear ahead"). First come, first served.</p>
+      <ol>
+        <li>From an hour before their shoot, the creator opens Take gear in the Chat (or the gear list).</li>
+        <li>They tick every piece in the case (or mark it missing) and take one photo.</li>
+        <li>The gear is theirs until the end of their shoot (offsite: until the end of the day by default).</li>
+        <li>It appears in your Gear log under Today and Out, and you get a "Gear taken" notification.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Sundays too: the photos are the record.</div>
+    </div>
+    <figure class="shot"><img src="img/c-take-gear.png" alt="The creator&#x27;s gear list showing grab-and-go kits that are free" loading="lazy"><figcaption>What creators see on the day</figcaption></figure>
+  </section>
+  <section class="task" id="gear-log" data-words="gear log queue who has what today out to check in upcoming past">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See who has which gear right now</h3>
+      <p class="why">The Gear log is your daily view.</p>
+      <ol>
+        <li>Tap <span class="ui">Gear log</span>.</li>
+        <li><span class="ui">Today</span>: taken or due back today. <span class="ui">Out</span>: everything out, late first in red. <span class="ui">To check in</span>: returned, waiting for you. <span class="ui">Upcoming</span> and <span class="ui">Past</span>.</li>
+        <li>Each card shows which shoot the gear is for (house or offsite place, day, hours, creator). Tap to open it.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/e-gear-log.png" alt="The Gear log with Today, Out and To check in tabs" loading="lazy"><figcaption>Gear log</figcaption></figure>
+  </section>
+  <section class="task noshot" id="reserve-ahead" data-words="reserve ahead held booking decline gear booking reservation">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Deal with a gear reservation made ahead</h3>
+      <p class="why">Only if the owner turned on "Creators can reserve gear ahead" in Schedule settings. Then creators can reserve a kit a set number of hours (24 by default) before their shoot.</p>
+      <ol>
+        <li>Reservations show in <span class="ui">Gear log</span> → <span class="ui">Upcoming</span> as Held.</li>
+        <li>To refuse one: open it, tap <span class="ui">Decline (equipment team)</span>, give a reason, confirm.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="pickup-for" data-words="pickup pick up for creator sign tick pieces missing at pickup">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Help a creator with a pickup</h3>
+      <p class="why">You can do the pickup check on the creator's booking with them (from 30 minutes before).</p>
+      <ol>
+        <li>Open the booking from the Gear log.</li>
+        <li>Under <span class="ui">Pick up</span>, tick every piece in the case. Tap <span class="ui">Missing?</span> for anything that is not there.</li>
+        <li>Sign. From then on it is theirs.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> A piece marked missing at pickup alerts you, puts a warning on the kit, and is recorded on the previous person's booking. Pieces already reported missing start marked "already reported missing" and are never blamed on the new person.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="handover" data-words="hand over handover pass gear to someone else another creator needs it now">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Hand gear from one creator to another</h3>
+      <p class="why">For when someone walks in and needs the kit that is already out.</p>
+      <ol>
+        <li>Open the booking (status Out).</li>
+        <li>Tap <span class="ui">Someone else needs it now? Hand it over</span>.</li>
+        <li>Search the person, pick until when, tick who used it, confirm.</li>
+        <li>The old booking is closed as handed over; the new person does the normal pickup check.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> It only works if the gear is free for those hours and the new person has no late gear.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="houses-only" data-words="houses only offsite cameras keep close usual house kit">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Keep a kit from leaving the houses</h3>
+      <p class="why">For top cameras you want close.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">Bundles &amp; single items</span> → the kit.</li>
+        <li>Turn on <span class="ui">Houses only</span>: offsite shoots cannot take it.</li>
+        <li>Optionally set a usual house: the kit is shown first to creators filming there (a suggestion, not a rule).</li>
+        <li>Save.</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-gearback">Gear coming back</h2>
+  <p class="group-intro">Creators return with a photo. You tick every piece and check it in.</p>
+  <section class="task noshot" id="return-flow" data-words="return how creators return photo charging broken missing">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know what creators do at the return</h3>
+      <p class="why">The return is step by step in the creator's app.</p>
+      <ol>
+        <li>Tick what is coming back.</li>
+        <li>Answer "Anything broken, damaged or missing?" (tap pieces + a few words).</li>
+        <li>Answer "Is the charging case plugged in?"</li>
+        <li>If shared, tick who used it.</li>
+        <li>One photo of everything in the case with batteries charging. Send.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> The gear is free for the next person as soon as it is returned, even before you check it in.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="checkin-gear" data-words="check in gear returned tick pieces checked in note damage">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Check gear back in</h3>
+      <p class="why">The last step for every booking.</p>
+      <ol>
+        <li>Open <span class="ui">Gear log</span> → <span class="ui">To check in</span> and tap the booking.</li>
+        <li>Look at the return photo.</li>
+        <li>Tick every piece under <span class="ui">Check in</span>. Mark anything missing.</li>
+        <li>Add a note if something is damaged, e.g. "lens cap scratched".</li>
+        <li>Tap <span class="ui">Checked in</span>.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Can't get to it before the next pickup? The next creator's pickup check covers it.</div>
+      <div class="warn"><b>Creator forgot to send the return?</b> Open the booking (status Out), use <span class="ui">Return gear</span> with a photo of the case, then check it in. Shared gear: whoever signed at pickup is responsible while it is out; the returner ticks who used it.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="missing-found" data-words="missing piece lost found it warning kit missing">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Deal with a missing piece</h3>
+      <p class="why">A missing piece puts a warning on the kit. The kit stays bookable, with the warning.</p>
+      <ol>
+        <li>Check <span class="ui">Problems</span> on the booking: it says whose booking it was on.</li>
+        <li>When the piece turns up, open <span class="ui">Admin</span> → <span class="ui">Bundles &amp; single items</span> and tap <span class="ui">Found it</span> on the warning.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="damaged" data-words="broken damaged reported problem while out charging case">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Find out about damage or a problem</h3>
+      <p class="why">Creators can report a problem any time from the Chat, or at the return. You get a notification.</p>
+      <ol>
+        <li>Open the booking. <span class="ui">Problems</span> lists damage reported at the return and problems reported while it was out, with their notes.</li>
+        <li>Look for "Charging case not confirmed at the return" too.</li>
+        <li>Write what you found in the check-in note.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> There is no "damaged" switch on gear. If a piece is broken for good, take it out of its kit, then archive it in All gear.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="late-gear" data-words="late gear overdue not returned red out late">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Handle late gear</h3>
+      <p class="why">Gear is late 30 minutes after it is due: the end of the shoot at the houses, the end of the day (by default) for offsite shoots.</p>
+      <ol>
+        <li>Late gear is first and red in <span class="ui">Gear log</span> → <span class="ui">Out</span>. The creator gets reminders.</li>
+        <li>Message the creator if needed.</li>
+        <li>They cannot take more gear until it is back.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="late-fee" data-words="late fee 10 percent value charge penalty">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know how the late fee works</h3>
+      <p class="why">Company rule: gear brought back late carries a fee of 10% of its value, on the last person who had it.</p>
+      <ol>
+        <li>The app records how late and the value. It does not charge anything.</li>
+        <li>Admins can excuse exceptions.</li>
+        <li>Creators only see a value if you filled in replacement values (see Inventory).</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-inventory">Gear inventory and kits</h2>
+  <p class="group-intro">Every piece you own lives in All gear. Kits are built from loose pieces.</p>
+  <section class="task" id="add-gear" data-words="add camera new piece gear inventory serial">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Add a new camera (or any piece)</h3>
+      <p class="why">Add it to All gear first. Creators do not see it until it is in a kit or set to Creators can book.</p>
+      <ol>
+        <li>Tap <span class="ui">All gear</span> → <span class="ui">+ Add gear</span>.</li>
+        <li>Fill in <span class="ui">Name</span>, <span class="ui">Type</span>, a <span class="ui">Serial number</span> (for one unit) or <span class="ui">How many</span>, and the <span class="ui">Replacement value ($ each)</span>.</li>
+        <li>Add notes for the team if needed. Save.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/e-all-gear.png" alt="All gear list with values and the missing-value warning" loading="lazy"><figcaption>All gear</figcaption></figure>
+  </section>
+  <section class="task noshot" id="values" data-words="replacement value price worth cost late fee no value">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Set replacement values</h3>
+      <p class="why">The late fee is 10% of the value, so creators need to see what each kit is worth. An amber box lists pieces with no value yet.</p>
+      <ol>
+        <li>Open <span class="ui">All gear</span>.</li>
+        <li>Tap a piece in the amber "has no value yet" box (or any piece).</li>
+        <li>Fill in <span class="ui">Replacement value ($ each)</span> and save.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task" id="build-kit" data-words="build kit bundle case new kit pieces">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Build a kit</h3>
+      <p class="why">Kits are the grab-and-go cases creators take whole. A piece can be in one kit at a time.</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">Bundles &amp; single items</span> → <span class="ui">+ Bundle</span>.</li>
+        <li>Name it (the name creators see), pick a category, add a description and a photo of the case.</li>
+        <li>Add pieces with the steppers (only pieces not already in another kit can be added).</li>
+        <li>Set <span class="ui">Houses only</span> and a usual house if you want, then <span class="ui">Save bundle</span>.</li>
+      </ol>
+    </div>
+    <figure class="shot"><img src="img/e-kits.png" alt="Bundles screen with + Bundle and Single items buttons and the list of kits" loading="lazy"><figcaption>Bundles &amp; single items</figcaption></figure>
+  </section>
+  <section class="task noshot" id="edit-kit" data-words="edit kit change pieces archive kit rename">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Change or retire a kit</h3>
+      <p class="why">Name, photo and description can change any time.</p>
+      <ol>
+        <li>Open the kit from Bundles & single items.</li>
+        <li>Change what you need and tap <span class="ui">Save changes</span>.</li>
+        <li>To retire it: <span class="ui">Archive this bundle (its pieces become free again)</span>.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> The pieces in a kit cannot change while it is booked or out.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="single-item" data-words="single item bookable on its own public internal only creators can book">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Let creators take a single piece on its own</h3>
+      <p class="why">For things used less often than kits.</p>
+      <ol>
+        <li>Open the piece in All gear.</li>
+        <li>Under <span class="ui">Who can book it on its own?</span> pick <span class="ui">Creators can book</span> (default is <span class="ui">Internal only</span>).</li>
+        <li>Save. Loose units (not in a kit) now show to creators under Single items.</li>
+      </ol>
+      <div class="warn"><b>Watch out:</b> The app refuses to make a piece internal, or lower its count, while creators have it booked.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="archive-piece" data-words="archive retire broken sold lost piece remove gear">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Retire a piece you no longer have</h3>
+      <p class="why">Nothing is ever deleted; archived gear can be brought back.</p>
+      <ol>
+        <li>If it is in a kit, take it out of the kit first.</li>
+        <li>Open it in All gear and tap <span class="ui">Archive (we no longer have it)</span>.</li>
+        <li>To bring it back: <span class="ui">Show archived gear</span> → the piece → <span class="ui">Bring it back</span>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-settings">Rules, settings and help</h2>
+  <p class="group-intro">What you can change, and what only the owner can change.</p>
+  <section class="task noshot" id="can-change" data-words="settings change rules permission owner only schedule settings">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Know what I can change and what only the owner can</h3>
+      <p class="why">Keeps you from hunting for buttons you do not have.</p>
+      <ol>
+        <li>YOU: gear, kits, values, single items; blocks and heads-ups; the Not filming list; approving, denying, moving, swapping, cancelling and booking for anyone; check-in decisions, reports and lifting pauses; calendar imports.</li>
+        <li>ADMINS / OWNER: giving or removing a strike by hand, pausing someone, excusing a late fee, booking rules for props.</li>
+        <li>OWNER ONLY (Schedule settings and Calendar &amp; email): slot times, house slots a day, moving notice, priority days and group, Books without approval, Can book several slots in a row, strike numbers, gear reservations ahead, offsite gear back-by time, app-only date, calendar links and writing to the old calendars.</li>
+      </ol>
+      <div class="tip"><b>Tip:</b> Need one of these changed? Message the owner with the exact setting name.</div>
+    </div>
+  </section>
+  <section class="task noshot" id="see-rules" data-words="how it works rules page settings numbers">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Look up the current rules</h3>
+      <p class="why">The "How it works" page shows the booking rules from the live settings, the same page creators read.</p>
+      <ol>
+        <li>On <span class="ui">Schedule</span> tap the ? button, or open <span class="ui">Admin</span> → <span class="ui">Help</span>.</li>
+        <li>The Team guide (Admin → Team guide) has your job on one page with the live numbers.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="report-problem" data-words="bug report problem app broken screenshot">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>Report a problem with the app</h3>
+      <p class="why">For the app itself (not broken gear).</p>
+      <ol>
+        <li>Open <span class="ui">Admin</span> → <span class="ui">Report a problem</span>.</li>
+        <li>Go to the screen with the problem and tap <span class="ui">Report this screen</span>.</li>
+        <li>Pick what kind, say what happened, send. The owner gets it with a screenshot.</li>
+      </ol>
+    </div>
+  </section>
+  <section class="task noshot" id="phone-calendar" data-words="phone calendar ical subscribe feed all shoots my calendar">
+    <div>
+      <div class="goal">I want to…</div>
+      <h3>See every shoot in my own phone calendar</h3>
+      <p class="why">A private live feed of the whole schedule.</p>
+      <ol>
+        <li>At the bottom of <span class="ui">Schedule</span> tap the card <span class="ui">Schedule in my phone’s calendar</span>.</li>
+        <li>iPhone: use the button. Google Calendar: copy the link and add it by URL.</li>
+        <li>It updates by itself within about an hour. Do not share the link.</li>
+      </ol>
+    </div>
+  </section>
+
+  <h2 id="g-faq">Quick answers</h2>
+  <div class="faq">
+    <details><summary>A creator says their request disappeared.</summary><p>Either it was denied (they got your reason), or nobody decided before the start time and it ran out. Check the booking&#x27;s History.</p></details>
+    <details><summary>Why can&#x27;t I approve a move?</summary><p>The creator has props booked for the old day. Move the shoot yourself from the booking card instead (team moves take the props along) or ask them to sort the props.</p></details>
+    <details><summary>Two shoots share a slot in the schedule. Is that a clash?</summary><p>No, if their real hours do not overlap (e.g. 1:15–3:15 and 3:30–5:30). Only real overlaps show in the red &quot;Double-booked&quot; box.</p></details>
+    <details><summary>A meeting keeps appearing on the schedule.</summary><p>Tap &quot;Not filming? Ignore events like this&quot; on its card and type a phrase from its title. It also removes blocked time already made from it.</p></details>
+    <details><summary>I changed an event in Google Calendar. When does the app update?</summary><p>Within 15 minutes, or tap Check now on the Google Calendar tab.</p></details>
+    <details><summary>Does moving or cancelling give a strike?</summary><p>Never when the team does it. Only creators&#x27; late cancels, no-shows you mark and reports you uphold give strikes.</p></details>
+    <details><summary>Can I give a strike by hand?</summary><p>No, that is for admins and the owner. You decide missed check-ins and reports, and you can lift a pause.</p></details>
+    <details><summary>A strike paused someone. Can they still film?</summary><p>Yes. A pause only stops prop requests. House booking and gear still work.</p></details>
+    <details><summary>Can creators book gear ahead?</summary><p>Not unless the owner turns on &quot;Creators can reserve gear ahead&quot;. By default gear is first come, first served on the shoot day.</p></details>
+    <details><summary>When is gear late?</summary><p>30 minutes after it is due: the end of the shoot at the houses, the end of the day for offsite shoots (by default).</p></details>
+    <details><summary>Who pays the late fee on shared gear?</summary><p>The last person who had it. The app only records it; admins can excuse it.</p></details>
+    <details><summary>A piece is missing but the kit is still bookable. Is that right?</summary><p>Yes. The kit shows a warning. Tap Found it when the piece turns up, or take it out of the kit.</p></details>
+    <details><summary>Can I change a kit while it is out?</summary><p>Name, photo and description yes; pieces no, until it is back.</p></details>
+    <details><summary>Kyle booked over someone in his calendar. What do I do?</summary><p>Open Requests, use the red box and tap Give it to Kyle, then move or cancel the other person (no strike).</p></details>
+    <details><summary>Where are the Schedule settings?</summary><p>Only the owner can open them. Ask the owner for changes.</p></details>
+    <details><summary>Who else can approve requests?</summary><p>Admins and the owner. Bookings the team makes are approved at once.</p></details>
+    <details><summary>Request flags say &quot;10th this month&quot;. Do I have to deny?</summary><p>No. Those are rules of thumb to help you spot overbooking; you decide.</p></details>
+  </div>
+</div>
+
+<script>
+(function(){
+  const q=document.getElementById('q'),count=document.getElementById('count');
+  const tasks=[...document.querySelectorAll('.task,.faq details')];
+  const heads=[...document.querySelectorAll('h2')];
+  function run(){
+    const words=q.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    let n=0;
+    tasks.forEach(t=>{const hay=(t.textContent+' '+(t.dataset.words||'')).toLowerCase();const ok=words.every(w=>hay.includes(w));t.classList.toggle('hide',!ok);if(ok)n++;if(ok&&words.length&&t.tagName==='DETAILS')t.open=true});
+    heads.forEach(h=>{let el=h.nextElementSibling,any=false;while(el&&el.tagName!=='H2'){if((el.classList.contains('task')||el.classList.contains('faq'))&&!el.classList.contains('hide')&&(!el.classList.contains('faq')||el.querySelector('details:not(.hide)')))any=true;el=el.nextElementSibling}h.classList.toggle('hide',words.length>0&&!any);const intro=h.nextElementSibling;if(intro&&intro.classList.contains('group-intro'))intro.classList.toggle('hide',words.length>0&&!any)});
+    document.querySelector('.toc').classList.toggle('hide',words.length>0);
+    count.textContent=words.length?(n?n+' match'+(n>1?'es':''):'Nothing matches. Try a simpler word, or ask the ✦ AI in the app.'):'';
+  }
+  q.addEventListener('input',run);
+})();
+</script>
