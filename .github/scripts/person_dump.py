@@ -70,6 +70,7 @@ except Exception as ex: print('  no status', ex)
 try:
     s = doc(req(f'{BASE}/app_settings/schedule'))
     print('  app calendar:', s.get('googleCalendarId'))
+    print('  write app bookings into the old calendars (writeOldCalendars):', s.get('writeOldCalendars'))
     for f in s.get('calendarFeeds') or []: print(f"  old calendar: {f.get('name')} ({f.get('house')}) {f.get('id')}")
 except Exception as ex: print('  no schedule settings', ex)
 
