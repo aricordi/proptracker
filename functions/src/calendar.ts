@@ -1225,14 +1225,24 @@ export const checkCalendarAccess = onCall({ ...CALLABLE, timeoutSeconds: 60 }, a
   for (const c of cals) {
     if (isEmulator()) { out.push({ id: c.id, name: c.name, role: 'writer', canWrite: true }); continue }
     try {
+      // A real write test (Nov 23): the account's token only has the "events" permission, so Google's calendar-list lookup
+      // always said 403 even for calendars it can write. Add a test event and delete it right away. Its id starts with 't'
+      // (an app id), so the 15-minute check never imports it.
       const { token } = await calendarAccess()
-      const url = (x = '') => `https://www.googleapis.com/calendar/v3/users/me/calendarList${x}`
-      let r = await fetch(url(`/${encodeURIComponent(c.id)}`), { headers: { Authorization: `Bearer ${token}` } })
-      // Shared but not in the account's own list yet: adding it to the list is how Google tells us the access level.
-      if (r.status === 404) r = await fetch(url(), { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id }) })
-      if (!r.ok) { out.push({ id: c.id, name: c.name, role: 'none', canWrite: false, error: `Google said ${r.status}: not shared with ${account || 'the app'}` }); continue }
-      const role = String(((await r.json()) as { accessRole?: string }).accessRole ?? 'none')
-      out.push({ id: c.id, name: c.name, role, canWrite: role === 'writer' || role === 'owner' })
+      const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(c.id)}/events`
+      const id = `t${randomBytes(12).toString('hex')}`
+      const day = new Date(Date.now() + 400 * 86400_000).toISOString().slice(0, 10)
+      const next = new Date(Date.now() + 401 * 86400_000).toISOString().slice(0, 10)
+      const r = await fetch(base, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, summary: 'Prime Capitol access check (deleted right away)', transparency: 'transparent', start: { date: day }, end: { date: next } }) })
+      if (!r.ok) {
+        const read = await fetch(`${base}?maxResults=1`, { headers: { Authorization: `Bearer ${token}` } })
+        out.push({ id: c.id, name: c.name, role: read.ok ? 'reader' : 'none', canWrite: false,
+          error: read.ok ? `Read only: share it with ${account || 'the app'} as "Make changes to events"` : `Google said ${r.status}: not shared with ${account || 'the app'}` })
+        continue
+      }
+      await fetch(`${base}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => 0)
+      out.push({ id: c.id, name: c.name, role: 'writer', canWrite: true })
     } catch (e) { out.push({ id: c.id, name: c.name, role: 'none', canWrite: false, error: String((e as Error).message).slice(0, 160) }) }
   }
   return { account, calendars: out }
