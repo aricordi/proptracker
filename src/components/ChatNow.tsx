@@ -187,7 +187,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
               const c = cutoffs(x), waiting = x.status === 'requested'
               const propsOpen = nowStamp() <= c.props && !x.checkin
               const early = x.place !== 'offsite' ? houseFreeFrom(soonDays?.[x.date], x.place, x.start, s) : null
-              const state = waiting ? 'Waiting for OK' : x.wrap ? 'Filmed' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved'
+              const state = waiting ? 'Waiting for approval' : x.wrap ? 'Filmed' : x.checkin ? 'Checked in' : x.moveRequest ? 'Move asked' : 'Approved'
               return (
                 <div key={x.id} className={`flex items-center gap-3 pl-4 pr-3 py-3.5 min-h-[60px] ${focus === x.id ? 'bg-pt-accent/10' : ''}`}>
                   <button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className="flex-1 min-w-0 flex items-center gap-3 text-left">
@@ -344,8 +344,8 @@ export function PickupCard({ r, onDone }: { r: Reservation; onDone?: (message: s
   return (
     <ReadyCard photos={r.lines.map(l => l.photo)} label="Props ready to pick up" title={`"${r.title}" is packed`} sub={missing === null ? `${r.lines.length} ${r.lines.length === 1 ? 'prop' : 'props'} · check them, then sign` : undefined}
       actions={missing === null ? <>
-        <button disabled={busy} onClick={() => setMissing({})} className={secondaryBtn}>Missing one</button>
-        <button disabled={busy} onClick={() => sign(true)} className={primaryBtn}>Got everything</button>
+        <button disabled={busy} onClick={() => setMissing({})} className={secondaryBtn}>Something's missing or wrong</button>
+        <button disabled={busy} onClick={() => sign(true)} className={primaryBtn}>✓ I've got everything</button>
       </> : undefined}>
       {missing !== null && <>
         <p className="text-pt-muted text-[14px]">Tap what's missing.</p>
@@ -355,7 +355,7 @@ export function PickupCard({ r, onDone }: { r: Reservation; onDone?: (message: s
             className={`px-3 min-h-[40px] rounded-full text-[14px] ${on ? 'bg-amber-400 text-stone-900 font-semibold' : 'bg-pt-border'}`}>{l.itemName}{l.qty > 1 ? ` ×${l.qty}` : ''}</button>
         })}</div>
         <div className="grid grid-cols-2 gap-2">
-          <button disabled={busy || !Object.keys(missing).length} onClick={() => sign(false)} className={gold}>{busy ? 'Signing…' : 'Sign without them'}</button>
+          <button disabled={busy || !Object.keys(missing).length} onClick={() => sign(false)} className={gold}>{busy ? 'Signing…' : 'Collect & report it'}</button>
           <button disabled={busy} onClick={() => setMissing(null)} className={grey}>Back</button>
         </div>
       </>}

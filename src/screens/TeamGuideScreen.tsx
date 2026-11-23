@@ -51,10 +51,10 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
     </>,
     arts: <>
       <P n={1} t="Start with Today"><p>The <B>Props queue</B> opens on <B>Today</B>: pickups due and props coming back. <B>To prepare</B> is everything still to pick.</p></P>
-      <P n={2} t="Pick and pack"><p>Open a request: tick props as you pick them (grouped by room and bin). Can't find one? <B>Can't find it</B> with a reason, the rest still goes. Take the <B>pack photo</B>, then <B>Packed</B>. The creator signs at pickup.</p></P>
-      <P n={3} t="Check returns in"><p><B>Returns</B>: the creator sends a photo. Check each prop: fine, <B>damaged</B> or <B>missing</B>. Built props can become new props here.</p></P>
+      <P n={2} t="Pick and pack"><p>Open a request: tick props as you pick them (grouped by room and bin). Can't find one? <B>Can't find it / broken?</B> with a reason, the rest still goes (this can't be undone). Take the <B>pack photo</B>, then <B>Mark packed &amp; ready for pickup</B>. The creator signs at pickup; if they forget, <B>They picked it up: mark it for them</B>.</p></P>
+      <P n={3} t="Check returns in"><p><B>Returns</B>: the creator sends a photo. Check each prop: fine, <B>damaged</B> or <B>missing</B>. Built props can become new props here. Props dropped off without the app: open the request on <B>Out</B> and tap <B>Dropped off without the app? Check it in anyway</B>.</p></P>
       <P n={4} t="Clean up the imported props"><p><B>Admin → Clean up props</B> (the gold card) lists the jobs in order, with what's left: <B>Combine doubles</B> (two photos: same thing? one tap; exact copies all at once), <B>Put props in their bin</B>, <B>Quick approve</B> (30 at a time), then <B>Work bin by bin</B> (a whole bin on one screen, <B>Everything here looks right</B>). Remove never deletes: <B>Removed props</B> has Put back.</p></P>
-      <P n={5} t="Fix props as you go"><p>Spotted a double or a wrong name while you're on a prop? Tap <B>⋯</B> at the top of its page: <B>Find duplicates</B> (the app shows what may be the same thing; tick, then combine), <B>Merge with another prop</B>, <B>Mark as checked</B>, or <B>Remove</B> (Put back is always there).</p></P>
+      <P n={5} t="Fix props as you go"><p>Spotted a double or a wrong name while you're on a prop? Tap <B>⋯</B> at the top of its page: <B>Find duplicates</B> (the app shows what may be the same thing; tick, then combine), <B>Merge with another prop</B>, <B>Mark as checked</B>, or <B>Remove this prop</B> (<B>Put it back</B> is always there). Repaired? Tap <B>Good</B> under Condition on the prop page.</p></P>
       <P n={6} t="Keep the closet tidy"><p><B>Prop insights</B> (Admin → Every day) shows what's booked most, what runs out or was wanted while booked out (buy another?), what creators ask for that we don't have, grab-and-go candidates, and who damages or loses props. <B>Requests calendar</B>, <B>Bins</B>, <B>Health</B> and <B>Suggested edits</B> keep the inventory right.</p></P>
     </>,
   }
@@ -72,7 +72,7 @@ export default function TeamGuideScreen({ onDone }: { onDone?: () => void }) {
       </div>
       <div className="px-4 space-y-5">
         {pages[who]}
-        <p className="text-pt-muted text-[13px]">Stuck? Tap <b className="text-pt-text">✦ AI</b> and ask "how do I…". {who === 'admin' ? 'Every rule is on the Settings sheet.' : who === 'equipment' ? 'Every rule is in How it works (the ? on the Calendar) and in Help.' : 'Every rule is in Help.'}</p>
+        <p className="text-pt-muted text-[13px]">Stuck? Tap <b className="text-pt-text">✦ AI</b> and ask "how do I…". {who === 'admin' ? 'Every rule is on the Settings sheet.' : who === 'equipment' ? 'Every rule is in Help (the ? on the Schedule) → All the house rules.' : 'Every rule is in Help.'}</p>
       </div>
       {onDone && (
         <div className="fixed left-0 right-0 bottom-0 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),12px)] bg-pt-bg z-20">

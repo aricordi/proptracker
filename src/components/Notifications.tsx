@@ -125,6 +125,7 @@ export function NotificationsNudge() {
 export function notificationsPath(role: string | undefined, demo = false) {
   if (role === 'creator') return demo ? 'Me → Notifications' : 'More → Notifications'
   if (role === 'owner') return 'Me → Notifications'
+  if (role === 'admin') return 'Dashboard → My account → Notifications'
   return 'Admin → My account → Notifications'
 }
 

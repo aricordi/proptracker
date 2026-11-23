@@ -134,7 +134,7 @@ test('4a. creator: signs for the pickup, then returns everything with one photo'
 
   await test.step('sign off the pickup', async () => {
     await page.getByRole('button', { name: "✓ I've got everything" }).click()
-    await expect(page.getByText('Collected').first()).toBeVisible()
+    await expect(page.getByText('Picked up').first()).toBeVisible()
     await expect(page.getByRole('button', { name: 'Return these props' })).toBeVisible()
   })
 

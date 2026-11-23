@@ -1221,7 +1221,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   type Sugg = { icon: IconName; title: string; sub: string; ai?: boolean; go: () => void }
   const sugg: (Sugg | false)[] = helpOnly || demo ? [] : [
     !!takeShoot && { icon: 'camera', title: 'Take gear', sub: 'Pick it, tick every piece, one photo', go: () => { choose(takeShoot.id); navigate('/gear') } },
-    hasOut && { icon: 'box', title: 'Bring gear back', sub: 'A few taps, one photo', go: () => { send('I\'m returning everything') } },
+    hasOut && { icon: 'box', title: 'Bring it back', sub: 'A few taps, one photo', go: () => { send('I\'m returning everything') } },
     !!propsShoot && { icon: 'sparkle', ai: true, title: `Props for ${formatDay(propsShoot.date, { weekday: 'short' })}`, sub: `Ideas for that shoot · by ${formatDay(cutoffs(propsShoot).props)}`, go: () => { send(`Props for my ${wd(propsShoot.date)} shoot`) } },
     { icon: 'calendar', title: 'Book a time', sub: mixed()[0].replace(/^Book /, ''), go: () => { send(mixed()[0]) } },
     { icon: 'people', title: 'With a friend', sub: 'Back-to-back slots this week', go: () => { send('Find me 2 hours this week with a friend') } },
@@ -1438,7 +1438,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               return (
                 <button key={sh.id} onClick={() => go(`/schedule?shoot=${sh.id}`)} className="w-full flex items-center gap-3 text-left rounded-[18px] bg-pt-surface px-4 py-3">
                   <span className="flex-1 min-w-0"><b className="block text-[16px]">{label(sh)}</b>{n && <VideoNote note={n} />}</span>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${sh.status === 'requested' ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{sh.status === 'requested' ? 'Waiting for OK' : sh.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${sh.status === 'requested' ? 'bg-amber-400/15 text-amber-300' : 'bg-green-500/15 text-green-400'}`}>{sh.status === 'requested' ? 'Waiting for approval' : sh.moveRequest ? 'Move asked' : 'Approved ✓'}</span>
                 </button>
               )
             })}
@@ -1609,7 +1609,7 @@ function BookedYou({ shootId }: { shootId: string }) {
   const [txt, cls] = !sh || sh.status === 'cancelled' ? ['Cancelled', grey]
     : sh.status === 'denied' ? ['Not approved', red]
     : sh.status === 'expired' ? ['Ran out', grey]
-    : sh.status === 'requested' ? ['Waiting for OK', amber]
+    : sh.status === 'requested' ? ['Waiting for approval', amber]
     : over ? (sh.wrap || sh.checkin ? ['Filmed ✓', green] : ['Done', grey])
     : sh.moveRequest ? ['Move asked', amber]
     : ['Approved ✓', green]

@@ -2,9 +2,9 @@ import type { Reservation, ReservationStatus } from '../services/reservations'
 
 export const STATUS_LABELS: Record<ReservationStatus, string> = {
   requested:      'Requested',
-  preparing:      'Being picked',
+  preparing:      'Being prepared',
   packed:         'Packed & ready',
-  collected:      'Collected',
+  collected:      'Picked up',
   return_pending: 'Returned, being checked',
   returned:       'Returned',
   declined:       'Declined',
@@ -32,8 +32,8 @@ export const STATUS_STYLES: Record<ReservationStatus, string> = {
 export const JOURNEY: { status: ReservationStatus; label: string }[] = [
   { status: 'requested',      label: 'Requested' },
   { status: 'preparing',      label: 'Being prepared' },
-  { status: 'packed',         label: 'Ready' },
-  { status: 'collected',      label: 'Collected' },
+  { status: 'packed',         label: 'Packed & ready' },
+  { status: 'collected',      label: 'Picked up' },
   { status: 'return_pending', label: 'Returned' },
   { status: 'returned',       label: 'Checked in' },
 ]

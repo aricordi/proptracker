@@ -471,7 +471,7 @@ function PersonView(c: Ctx & { m: Metric }) {
       {reqs.filter(r => r.status !== 'approved').sort((x, y) => y.date.localeCompare(x.date)).slice(0, 8).map(r => (
         <button key={r.id} onClick={() => c.navigate(`/schedule?shoot=${r.id}`)} className="w-full flex items-center gap-3 px-3 py-2.5 text-left">
           <span className="flex-1 text-pt-text text-[15px]">{formatDay(r.date)}</span>
-          <span className="text-xs text-pt-muted">{r.status === 'waiting' ? 'Waiting for OK' : r.status === 'denied' ? 'Not approved' : r.status === 'expired' ? 'Ran out' : 'Withdrawn'}</span>
+          <span className="text-xs text-pt-muted">{r.status === 'waiting' ? 'Waiting for approval' : r.status === 'denied' ? 'Not approved' : r.status === 'expired' ? 'Ran out' : 'Withdrawn'}</span>
           <span className="text-pt-muted">›</span>
         </button>))}
     </div>}
@@ -549,7 +549,7 @@ function LateTab(c: Ctx) {
       {tile(String(t.stillOut), 'Still out and late right now', t.stillOut ? 'text-red-300' : 'text-pt-text')}
       {tile(t.gearValue ? fmtMoney(t.gearValue) : '$0', 'Value of the late gear')}
     </div>
-    <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-3 py-3"><b className="text-pt-text">Company rule:</b> gear returned late carries a fee of {LATE_FEE_PERCENT}% of its value, on whoever had it last. Gear is late 30 minutes after its end time; props at 10 AM the day after the shoot. The app keeps the record; nobody is charged automatically. To make an exception, open one and <b className="text-pt-text">Excuse it</b>.</p>
+    <p className="text-pt-muted text-sm bg-pt-surface rounded-2xl px-3 py-3"><b className="text-pt-text">Company rule:</b> gear returned late carries a fee of {LATE_FEE_PERCENT}% of its value, on whoever had it last. Gear is late 30 minutes after its end time; props at 10 AM on the next open day after the shoot. The app keeps the record; nobody is charged automatically. To make an exception, open one and <b className="text-pt-text">Excuse it</b>.</p>
     {!c.who && <>
       <SectionHead title="Who returns late most" sub="Tap someone to see just theirs" />
       <div className="bg-pt-surface rounded-2xl divide-y divide-white/[0.06]" data-tour="latepeople">

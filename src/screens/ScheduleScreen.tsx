@@ -112,12 +112,14 @@ export default function ScheduleScreen() {
   // ?cast=1 (chat "Invite who's in this video"): open the shoot with its invite list already up.
   const [castAsk, setCastAsk] = useState(false)
   useEffect(() => {
-    const id = params.get('shoot'), book = params.get('book'), offsite = params.get('offsite')
+    const id = params.get('shoot'), book = params.get('book'), offsite = params.get('offsite'), dayQ = params.get('day')
     if (params.get('sent')) { setSent(params.get('sent')); const n = new URLSearchParams(params); n.delete('sent'); setParams(n, { replace: true }); return }
     if (id) { if (params.get('cast')) setCastAsk(true); if (!(sheet?.kind === 'shoot' && sheet.id === id)) setSheet({ kind: 'shoot', id }) }
     // ?book=1 = just the month (it is the booking screen); picks from ✦ Prop ideas still get "soonest times".
     else if (book) { if (peekPendingAdds()) setSheet({ kind: 'find', fromToday: true }); setParams({}, { replace: true }) }
     else if (offsite && /^\d{4}-\d{2}-\d{2}$/.test(offsite)) { setSheet({ kind: 'offsite', date: offsite }); setParams({}, { replace: true }) }
+    // ?day=YYYY-MM-DD (from the Requests day view): open that day to book or block a time.
+    else if (dayQ && /^\d{4}-\d{2}-\d{2}$/.test(dayQ)) { setDate(dayQ); setMonth(dayQ.slice(0, 7)); setSheet({ kind: 'day', date: dayQ }); setParams({}, { replace: true }) }
   }, [params])   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const want = sheet?.kind === 'shoot' ? sheet.id : null, has = params.get('shoot')
@@ -465,7 +467,9 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const sset = useScheduleSettings()
-  const { profile: me } = useSession()
+  const { profile: me, role: myRole } = useSession()
+  // The equipment team doesn't film: they must pick who it's for (the owner can still book for themselves).
+  const pickFor = team && !move && myRole !== 'owner'
   const asks = !team && !sset.instantBookers.some(p => p.email === me.email) && (!move || move.status === 'booked')
   useEffect(() => { if (team && !move) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team, move])
   async function save() {
@@ -483,7 +487,7 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
         {team && !move && (
           <label className="block"><span className="block text-pt-muted text-xs mb-2">Book for</span>
             <select value={forEmail} onChange={e => setForEmail(e.target.value)} className={field}>
-              <option value="">Me</option>
+              <option value="">{pickFor ? 'Pick who it\'s for…' : 'Me'}</option>
               {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
             </select></label>
         )}
@@ -502,7 +506,7 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
         <label className="block"><span className="block text-pt-muted text-xs mb-2">Where</span>
           <input value={where} onChange={e => setWhere(e.target.value)} placeholder="An address, or paste a Maps link" className={field} /></label>
         {err && <p className="text-red-300 text-sm">{err}</p>}
-        <button disabled={busy || !where.trim()} onClick={save} className={btnGold}>{busy ? 'Saving…' : asks ? (move ? 'Ask to move it' : 'Ask for this') : move ? 'Move it' : 'Add to the schedule'}</button>
+        <button disabled={busy || !where.trim() || (pickFor && !forEmail)} onClick={save} className={btnGold}>{busy ? 'Saving…' : asks ? (move ? 'Ask to move it' : 'Ask for this') : move ? 'Move it' : 'Add to the schedule'}</button>
         {asks && <p className="text-pt-muted text-xs text-center">The equipment team approves it. You'll get a notification.</p>}
       </div>
     </BottomSheet>
@@ -522,7 +526,8 @@ function BookSheet({ house, date, start, slots, team, mine, day, now, dayFull, o
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
-  const { profile } = useSession()
+  const { profile, role: myRole } = useSession()
+  const pickFor = team && myRole !== 'owner'   // the equipment team doesn't film: pick who it's for
   const asks = !team && !s.instantBookers.some(p => p.email === profile.email)
   const [guide, setGuide] = useState<Guideline | null>(null)
   const skipG = useSkipsGuideline(team)
@@ -588,7 +593,7 @@ function BookSheet({ house, date, start, slots, team, mine, day, now, dayFull, o
       {team && (
         <label className="block mt-4"><span className="block text-pt-muted text-xs mb-2">Book for</span>
           <select value={forEmail} onChange={e => setForEmail(e.target.value)} className={field}>
-            <option value="">Me</option>
+            <option value="">{pickFor ? 'Pick who it\'s for…' : 'Me'}</option>
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
       )}
@@ -688,7 +693,7 @@ function BookSheet({ house, date, start, slots, team, mine, day, now, dayFull, o
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       {dayFull && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
         You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
-      <button disabled={busy || done || dayFull || (needG && !guide) || (count > 1 && !filled)} onClick={book}
+      <button disabled={busy || done || dayFull || (needG && !guide) || (count > 1 && !filled) || (pickFor && !forEmail)} onClick={book}
         className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>
         {done ? (asks || both !== null ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
           : both !== null ? 'Ask for both houses'
@@ -922,7 +927,10 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const instant = s.instantBookers.some(p => p.email === shoot.creatorEmail)
   const asks = !team && !instant && shoot.status === 'booked'
   // Moving the owner's own shoot follows the priority lock; the team moving someone else's doesn't.
-  const results = findFree(days, today, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), 10, [shoot.id])
+  // From a chosen day (Nov 23: the list used to show only the 10 soonest times, so a later date couldn't be reached).
+  const [from, setFrom] = useState(today)
+  const [limit, setLimit] = useState(10)
+  const results = findFree(days, from < today ? today : from, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), limit + 1, [shoot.id])
   // Moving onto a Cliff 1 Thursday/Saturday needs a guideline (owner, Nov 3), unless the shoot already has one.
   const [guide, setGuide] = useState<Guideline | null>(null)
   const [needFor, setNeedFor] = useState<{ date: string; house: House; start: number } | null>(null)
@@ -946,19 +954,22 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
           <button key={h} onClick={() => setWhere(h)} className={`flex-1 py-2 rounded-[10px] text-sm ${where === h ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>{h === 'any' ? 'Either' : s.houses[h].name}</button>
         ))}
       </div>
+      <label className="flex items-center gap-3 mt-3"><span className="text-pt-muted text-sm shrink-0">From</span>
+        <input type="date" value={from} min={today} onChange={e => { if (e.target.value) { setFrom(e.target.value); setLimit(10) } }} className="flex-1 min-w-0 bg-pt-bg rounded-xl px-3 py-2.5 text-pt-text text-base" /></label>
       {MONTHLY_SLOTS_ON && shoot.kind === 'monthly' && <p className="text-pt-muted text-xs mt-2">Stays a monthly slot at {s.houses.cliff1.name}; at {s.houses.cliff2.name} it becomes an extra slot.</p>}
       {needFor && <div className="space-y-2"><GuidelinePicker value={guide} onChange={g => setGuide(g)} />
         {guide && <button onClick={() => { const t = needFor; setNeedFor(null); void go(t.date, t.house, t.start) }} className={btnGold}>Continue: move to {s.houses[needFor.house].name} · {fmtSlot(needFor.start, s.slotMinutes)}</button>}</div>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       <div className="mt-3 space-y-2">
-        {results.length === 0 && <p className="text-pt-muted text-sm">No free slots in the next 60 days.</p>}
-        {results.map(r => (
+        {results.length === 0 && <p className="text-pt-muted text-sm">No free slots in the 60 days from {formatDay(from)}.</p>}
+        {results.slice(0, limit).map(r => (
           <div key={`${r.date}${r.house}${r.start}`} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
             <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold">{formatDay(r.date)}</p>
               <p className="text-pt-muted text-xs">{s.houses[r.house].name} · {fmtSlot(r.start, s.slotMinutes)}{isNoCrewDay(r.date) ? ' · no crew' : ''}</p></div>
-            <button disabled={!!busy} onClick={() => go(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 py-2 text-sm disabled:opacity-40">{busy === `${r.date}${r.house}${r.start}` ? 'Moving…' : asks ? 'Ask for this' : 'Move here'}</button>
+            <button disabled={!!busy} onClick={() => go(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 min-h-[44px] text-sm disabled:opacity-40">{busy === `${r.date}${r.house}${r.start}` ? 'Moving…' : asks ? 'Ask for this' : 'Move here'}</button>
           </div>
         ))}
+        {results.length > limit && <button onClick={() => setLimit(l => l + 10)} className="w-full min-h-[44px] rounded-xl bg-pt-bg text-pt-accent text-sm font-semibold">Show more times</button>}
       </div>
     </BottomSheet>
   )

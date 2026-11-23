@@ -29,7 +29,7 @@ export default function AccountScreen() {
   return (
     <div className="min-h-full bg-pt-bg pb-6">
       <div className="sticky top-0 bg-pt-bg pt-safe z-10 px-4 pb-3">
-        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{shootFlow || demo ? 'Me' : 'Account'}</span>{shootFlow && <AiButton />}</h1>
+        <h1 className="font-display text-[34px] text-pt-text py-2 flex items-center gap-3"><span className="flex-1">{role === 'creator' && !demo ? 'More' : shootFlow || demo ? 'Me' : 'Account'}</span>{shootFlow && <AiButton />}</h1>
       </div>
       <div className="px-4 pt-4 pb-8 space-y-6">
         <ProfileCard name={profile.name || user.displayName || profile.email} email={profile.email} roleLabel={ROLE_LABELS[realRole]} />
@@ -73,7 +73,7 @@ export default function AccountScreen() {
         )}
         {!shootFlow && isGearStaff && (
           <div className="bg-pt-surface shadow-hairline rounded-2xl divide-y divide-white/[0.06]">
-            {([['Gear team tour', 'Approve requests, the gear log, blocking time (5 min)', '/tour/gear'], ['Help', 'How do I…? Booking, gear, check-in, sign-in', '/help']] as const).map(([t, d, to]) => (
+            {([['Equipment team tour', 'Approve requests, the gear log, blocking time (5 min)', '/tour/gear'], ['Help', 'How do I…? Booking, gear, check-in, sign-in', '/help']] as const).map(([t, d, to]) => (
               <button key={to} onClick={() => navigate(to)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
                 <span className="flex-1 min-w-0"><span className="block text-pt-text">{t}</span><span className="block text-pt-muted text-xs">{d}</span></span><span className="text-pt-muted">›</span>
               </button>

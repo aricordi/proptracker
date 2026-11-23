@@ -158,7 +158,7 @@ export default function BookingRulesScreen() {
           ))}
         </div>
 
-        {!valid && <p className="text-amber-400 text-sm">Notice can be 0–60 days; turnaround 0–30 days.</p>}
+        {!valid && <p className="text-amber-400 text-sm">Props notice can be 0–336 hours, custom props 0–60 open days, turnaround 0–30 days.</p>}
         <button onClick={save} disabled={!valid || !changed || state === 'busy'}
           className="w-full py-4 rounded-2xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40 shadow-gold">
           {state === 'busy' ? 'Saving…' : state === 'saved' && !changed ? 'Saved ✓' : 'Save'}

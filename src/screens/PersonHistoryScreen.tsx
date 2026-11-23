@@ -77,7 +77,7 @@ export default function PersonHistoryScreen() {
           {canManagePeople && user && email !== OWNER_EMAIL && (isOwner || user.role === 'creator') && (
             <button onClick={() => navigate(`/users?edit=${encodeURIComponent(email)}`)}
               className="mt-3 w-full min-h-[48px] rounded-xl bg-pt-surface shadow-hairline text-pt-text text-[15px] font-semibold inline-flex items-center justify-center gap-2">
-              Account & access <span className="text-pt-muted font-normal">· role, app access, email</span> ›
+              Account & access <span className="text-pt-muted font-normal">· {isOwner ? 'role, app access, email' : 'turn access on or off'}</span> ›
             </button>
           )}
         </div>

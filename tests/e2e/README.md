@@ -29,7 +29,7 @@ logs in `.e2e/*.log`.
 
 Journeys (`journeys/`, one file at a time, each file starts from fresh test data):
 
-1. Creator lands on the Chat, picks a free time on the month calendar, requests it → "Waiting for approval" / "Waiting for OK".
+1. Creator lands on the Chat, picks a free time on the month calendar, requests it → "Waiting for approval".
 2. (file 02, tests 2–4b) One props request from start to finish: creator searches, adds props to a shoot, sends it → arts picks,
    pack photo, packed → creator signs for the pickup, returns everything with a photo → arts checks it in
    with one prop damaged → the prop shows Damaged.

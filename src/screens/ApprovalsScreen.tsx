@@ -13,7 +13,7 @@ import BottomSheet from '../components/BottomSheet'
 import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
 import {
   useScheduleSettings, useScheduleDays, useShootsSince, useAllStatuses, decideBooking, fmtSlot, slotState,
-  BLOCK_TYPES, type House, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus,
+  BLOCK_TYPES, headsUps, type House, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus,
 } from '../services/schedule'
 import { waitingRequests, sortReqs, factsFor, reqKey, placeName, reqHours, ago, partnerLine, REASONS, type Req } from '../desk/requestFacts'
 import { collabPairs } from '../lib/collabs'
@@ -42,7 +42,7 @@ export function RequestTabs({ tab, setTab, bookings, calendar, desk }: { tab: st
 
 export default function ApprovalsScreen() {
   const navigate = useNavigate()
-  const { profile, isGearStaff } = useSession()
+  const { profile, isGearStaff, canSeeStaff } = useSession()
   const s = useScheduleSettings()
   const [params, setParams] = useSearchParams()
   const tab = isGearStaff && params.get('tab') === 'calendar' ? 'calendar' : 'bookings'
@@ -95,11 +95,11 @@ export default function ApprovalsScreen() {
 
         <section className="space-y-3">
           {reqs.map(r => <RequestCard key={reqKey(r)} r={r} s={s} days={days} shoots={shoots ?? []} pairs={pairs} status={statuses[r.shoot.creatorEmail]} today={today} now={now} onDone={setDone}
-            onDay={() => { setMonth(r.date.slice(0, 7)); setDayOpen(r.date) }} onPerson={() => navigate(`/people/${encodeURIComponent(r.shoot.creatorEmail)}`)}
+            onDay={() => { setMonth(r.date.slice(0, 7)); setDayOpen(r.date) }} onPerson={canSeeStaff ? () => navigate(`/people/${encodeURIComponent(r.shoot.creatorEmail)}`) : undefined}
             onGive={r.place !== 'offsite' && !r.move ? () => setGive({ date: r.date, house: r.place as House, start: r.start, holder: { name: r.shoot.creatorName, email: r.shoot.creatorEmail } }) : undefined} />)}
         </section>
       </div>}
-      {dayOpen && <DaySheet date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)}
+      {dayOpen && <DaySheet canBlock={isGearStaff} date={dayOpen} day={days?.[dayOpen]} s={s} email={profile.email} now={now} reqs={reqs.filter(r => r.date === dayOpen)} onClose={() => setDayOpen(null)}
         onOpen={id => { setDayOpen(null); navigate(`/schedule?shoot=${encodeURIComponent(id)}`) }} />}
       {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
       {done && <Toast text={done} onDone={() => setDone(null)} />}
@@ -112,7 +112,7 @@ export const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300',
 
 function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onPerson, onGive, onDone }: {
   r: Req; s: ScheduleSettings; days: Record<string, ScheduleDay> | null; shoots: Shoot[]; pairs: ReturnType<typeof collabPairs>; status?: UserStatus; today: string; now: string
-  onDay: () => void; onPerson: () => void; onGive?: () => void; onDone: (text: string) => void
+  onDay: () => void; onPerson?: () => void; onGive?: () => void; onDone: (text: string) => void
 }) {
   const sh = r.shoot, email = sh.creatorEmail
   const [denying, setDenying] = useState(false)
@@ -135,7 +135,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
   return (
     <div className="bg-pt-surface shadow-hairline rounded-2xl p-3 space-y-2.5">
       <div className="flex items-start gap-3">
-        <button onClick={onPerson} aria-label={`${sh.creatorName}'s record`}><Avatar email={email} name={sh.creatorName} size={40} /></button>
+        {onPerson ? <button onClick={onPerson} aria-label={`${sh.creatorName}'s record`}><Avatar email={email} name={sh.creatorName} size={40} /></button> : <Avatar email={email} name={sh.creatorName} size={40} />}
         <div className="min-w-0 flex-1">
           <p className="text-pt-text font-semibold">{sh.creatorName}{r.move && <span className="text-amber-300 font-normal"> · wants to move</span>}</p>
           <button onClick={onDay} className="tap text-left text-pt-text text-[15px] underline decoration-pt-border underline-offset-4">
@@ -175,7 +175,7 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
 }
 
 // One day, both houses side by side: who has each time, requests dashed. Offsite shoots and blocks underneath.
-function DaySheet({ date, day, s, email, now, reqs, onClose, onOpen }: { date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
+function DaySheet({ date, day, s, email, now, reqs, onClose, onOpen, canBlock }: { canBlock: boolean; date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
   onOpen: (shootId: string) => void }) {
   const cell = (h: House, st: number) => {
     const x = slotState(day, date, h, st, s, email, now, true)
@@ -188,7 +188,8 @@ function DaySheet({ date, day, s, email, now, reqs, onClose, onOpen }: { date: s
   return (
     <BottomSheet open onClose={onClose} title={formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}>
       {reqs.length > 0 && <p className="text-amber-300 text-sm mb-2">{reqs.length} request{reqs.length === 1 ? '' : 's'} waiting this day (dashed).</p>}
-      <p className="text-pt-muted text-xs mb-2">Tap a name to open that booking.</p>
+      {headsUps(day).map(h => <p key={h.id} className="text-amber-200 text-sm mb-2 rounded-xl bg-amber-400/10 px-3 py-2">Heads-up · {s.houses[h.house as House]?.name ?? ''}: {h.note || BLOCK_TYPES[h.type]} ({fmtSlot(h.start, h.end - h.start)}). They can still film.</p>)}
+      <p className="text-pt-muted text-xs mb-2">Tap a name to open that booking.{canBlock ? <> To book or block a free time, open this day on the <a href={`/schedule?day=${date}`} className="text-pt-accent underline">Schedule</a>.</> : null}</p>
       <div className="grid grid-cols-[84px_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
         <span /><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff1.name}</span><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff2.name}</span>
         {s.slots.map(st => [

@@ -107,6 +107,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   <a href="#creator-signs">How pickup works</a>
   <a href="#mark-picked-up">Mark it picked up for the creator</a>
   <a href="#pickup-issue">Deal with a pickup issue</a>
+  <a href="#creator-problem">A creator reported a problem while the props are out</a>
   </div>
   <div><b>Returns and check-in</b>
   <a href="#whats-out">See what's out and what's late</a>
@@ -126,6 +127,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   <a href="#add-prop">Add a new prop (the AI fills it in)</a>
   <a href="#edit-prop">Fix a prop's name, count, bin or photo</a>
   <a href="#find-prop">Find a prop in the app</a>
+  <a href="#when-free">Check when a prop is free</a>
   <a href="#zoom">See a prop's photo full size</a>
   <a href="#dots-menu">Use the ⋯ menu on a prop page</a>
   <a href="#dup-this">Combine a double you just noticed</a>
@@ -185,7 +187,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Tap <span class="ui">Queue</span> in the bottom bar (the app opens there anyway).</li>
         <li>Stay on the <span class="ui">Today</span> tab. The number in brackets is how many requests need you.</li>
-        <li>Each card shows the request name, which shoot it's for (house or offsite place, day, hours, creator) and a line like "pickup tomorrow" or "Due back by 10 AM".</li>
+        <li>Each card shows the request name, which shoot it's for (house or offsite place, day, hours, creator) and a line saying what's due: "Pickup today", "Pickup was due" (overdue), "Due back by 10 AM" or "Was due back …".</li>
         <li>Tap a card to open the request.</li>
       </ol>
       <div class="tip"><b>Tip:</b> "Nothing due today" means you're clear. Check <span class="ui">To prepare</span> next to get ahead on later shoots.</div>
@@ -202,9 +204,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li><span class="ui">Today</span>: pickups due today or overdue, and props due back today or late.</li>
         <li><span class="ui">To prepare</span>: new requests and ones you've started picking. Your main to-do list.</li>
         <li><span class="ui">Ready</span>: packed and waiting for the creator to sign for them.</li>
-        <li><span class="ui">Out</span>: the creator has them. Late ones are marked in red.</li>
+        <li><span class="ui">Out</span>: the creator has them, soonest due back first. Late ones have a red <span class="ui">Late</span> badge.</li>
         <li><span class="ui">Returns</span>: the creator brought them back with a photo. They wait for you to check each prop in.</li>
-        <li><span class="ui">Done</span>: checked in, declined or cancelled. Newest first.</li>
+        <li><span class="ui">Done</span>: checked in, declined or cancelled. Newest first. (This is the only tab without a count.)</li>
       </ul>
     </div>
   </section>
@@ -219,7 +221,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li><span class="ui">Late</span>: the props should have been back by 10 AM on the next open day after the shoot.</li>
         <li><span class="ui">⚠ At risk</span> (amber ring): one of the props may not be ready in time. See <a href="#at-risk">At-risk warnings</a>.</li>
         <li><span class="ui">⚠ Pickup issue</span>: the creator said something was missing when they signed for it.</li>
-        <li><span class="ui">3/5 picked</span>: how far along the picking is.</li>
+        <li><span class="ui">3/5 picked</span>: how far along the picking is (shows once you've started picking).</li>
       </ul>
     </div>
   </section>
@@ -232,7 +234,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Tap the request in the queue.</li>
         <li>The top line reads like "Cliff 1 · Sat, Nov 8 · 1–3 PM · Riley": the house (or offsite place), the day, the hours and the creator.</li>
-        <li>Read the progress line (Requested, Being picked, Packed, Picked up, Returned) and any "Notes from the creator".</li>
+        <li>Under it, <span class="ui">Booked by &lt;name&gt; · &lt;email&gt; ›</span> opens that creator's record. If the prop room is closed on the shoot day, an amber line says which day it's picked up instead.</li>
+        <li>Read the progress line (Requested, Being prepared, Packed &amp; ready, Picked up, Returned, Checked in) and any "Notes from the creator".</li>
         <li>Scroll to the bottom for the <span class="ui">History</span>: who did what, and when.</li>
       </ol>
       <div class="tip"><b>Tip:</b> If the request isn't linked to a shoot, the app shows the creator's own shoot that day instead. If there's none, it says "no shoot time on the schedule".</div>
@@ -285,7 +288,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Type a short reason the creator will understand (for example "Lamp shade is torn").</li>
         <li>Tap <span class="ui">Mark not available</span>. The prop is crossed out and counts as done.</li>
       </ol>
-      <div class="warn"><b>Watch out:</b> This link disappears once a prop is ticked. Untick it first if you need it.</div>
+      <div class="warn"><b>Watch out:</b> This link disappears once a prop is ticked. Untick it first if you need it. Once a prop is marked not available it can't be undone, and it's released from the booking straight away, so be sure first.</div>
       <div class="tip"><b>Tip:</b> If the prop is really lost or broken, also fix it in the closet so nobody else books it: open the prop, tap <span class="ui">Edit</span>, and lower the count or set it to Damaged.</div>
     </div>
   </section>
@@ -328,8 +331,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Pack, return and check-in photos show when they were taken, so nobody can reuse an old photo.</p>
       <ul>
         <li>"Taken Nov 14, 2:14 PM": all good.</li>
-        <li>Red "⚠ Taken 3 days before upload": the photo is more than an hour older than when it was sent. Ask the person about it.</li>
-        <li>Amber "⚠ No date on this photo": the phone didn't save a date. Usually harmless.</li>
+        <li>Red "⚠ Taken 3 days before upload (Nov 11, 2:14 PM)": the photo is more than an hour older than when it was sent. Ask the person about it.</li>
+        <li>Amber "⚠ No date on this photo (screenshot or edited?)": the photo has no date saved. Ask if it matters.</li>
+        <li>Amber "⚠ Phone clock looks wrong": the phone's clock is off. Usually harmless.</li>
       </ul>
     </div>
   </section>
@@ -357,6 +361,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ul>
         <li>A change shows in the request's <span class="ui">History</span> as "Changed".</li>
         <li>A second request for the same shoot shows as its own card in the queue.</li>
+        <li>Ticked something by mistake and unticked everything again? The request goes back to Requested (History: "Back to Requested (nothing picked yet)"), so the creator can change it again.</li>
       </ul>
     </div>
   </section>
@@ -373,7 +378,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>The request sits in <span class="ui">Ready</span> with "Waiting for pickup".</li>
         <li>The creator signs on their phone. The request moves to <span class="ui">Out</span>, with "Signed by … on … at …".</li>
-        <li>If they tapped "Something's missing", the card gets <span class="ui">⚠ Pickup issue</span> and the request shows what they reported.</li>
+        <li>If they tapped "Something's missing or wrong", the card gets <span class="ui">⚠ Pickup issue</span> and the request shows what they reported.</li>
       </ol>
     </div>
   </section>
@@ -403,6 +408,19 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>If it's really lost, fix the prop: open it, <span class="ui">Edit</span>, lower the count.</li>
       </ol>
       <div class="tip"><b>Tip:</b> The pack photo is your proof of what was in the bin when it left.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="creator-problem" data-words="problem reported creator chat broke while out notification props problem">
+    <div>
+      <div class="goal">I got a "Props problem reported" notification…</div>
+      <h3>A creator reported a problem while the props are out</h3>
+      <p class="why">Creators can tell the app from their chat that something broke or went missing while they have the props. It goes on the request and the arts department gets a ping.</p>
+      <ol>
+        <li>Tap the notification (or open the request from <span class="ui">Out</span>).</li>
+        <li>It shows in red at the top of the request: <span class="ui">Problem reported</span>, with what they wrote and when (also in <span class="ui">History</span>).</li>
+        <li>Sort it out with them, then record it properly at check-in (<span class="ui">Damaged</span> or <span class="ui">Missing</span>).</li>
+      </ol>
     </div>
   </section>
 
@@ -447,7 +465,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>At check-in, tap <span class="ui">Damaged</span> on the prop and write what happened.</li>
         <li>Take a check-in photo of the damage.</li>
-        <li>Once it's repaired: open the prop, tap <span class="ui">Edit</span>, set Condition back to <span class="ui">Good</span> or <span class="ui">Fair</span>, save.</li>
+        <li>Once it's repaired: open the prop, scroll down to <span class="ui">Condition</span> and tap <span class="ui">Good</span> or <span class="ui">Fair</span> (it saves straight away). Or use <span class="ui">Edit</span> → Condition → <span class="ui">Save Changes</span>.</li>
       </ol>
       <div class="tip"><b>Tip:</b> If the creator already said it was damaged when returning, you'll see "Damage reported: …" in the return box.</div>
     </div>
@@ -474,7 +492,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">You don't have to wait for the creator's return photo. You can check props in straight from the Out tab.</p>
       <ol>
         <li>Open the request from <span class="ui">Out</span>.</li>
-        <li>Scroll to the check-in form and go through each prop as usual.</li>
+        <li>Scroll down and tap <span class="ui">Dropped off without the app? Check it in anyway</span>. The check-in form opens; go through each prop as usual.</li>
         <li>Add a check-in photo of what came back.</li>
         <li>Tap <span class="ui">Complete check-in</span>. The request is marked "Returned without the creator's return photo".</li>
       </ol>
@@ -540,7 +558,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">A creator cancelled…</div>
       <h3>A creator cancelled their request</h3>
-      <p class="why">You get a notification and the request moves to <span class="ui">Done</span> as Cancelled. If you already pulled the props, put them back on the shelf. The props are free for others straight away.</p>
+      <p class="why">The request moves to <span class="ui">Done</span> as Cancelled and the props are free for others straight away. If you had already started picking or packed it, you get a "Props request cancelled" notification: put the props back on the shelf. (A cancel before you started doesn't ping you.)</p>
     </div>
   </section>
 
@@ -572,9 +590,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Fix a prop's name, count, bin or photo</h3>
       <ol>
         <li>Find the prop: tap <span class="ui">Props</span> and search, or open it from a request.</li>
-        <li>Tap <span class="ui">Edit</span> at the top right.</li>
-        <li>Change what's wrong: photos, name, quantity, condition, bin, search words, notes.</li>
-        <li>Save.</li>
+        <li>Tap <span class="ui">Edit</span> at the top right. The <span class="ui">Edit Item</span> screen opens.</li>
+        <li>Change what's wrong: photos, name, category, quantity, replacement cost, condition, storage area and bin, search words, notes.</li>
+        <li>Tap <span class="ui">Save Changes</span>.</li>
       </ol>
       <div class="warn"><b>Watch out:</b> You can't lower the quantity below what's booked right now. Wait until those props are back.</div>
       <div class="tip"><b>Tip:</b> Every change is saved in Activity with your name, so mistakes can always be traced and fixed.</div>
@@ -589,8 +607,22 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Tap <span class="ui">Props</span> in the bottom bar.</li>
         <li>Type in the search box. It also finds related words (for example "president" finds a Lincoln mask).</li>
         <li>Or tap the camera in the search box and take a photo of the thing: the closest props show at the top under "Looks like your photo".</li>
-        <li>Tap a category chip or <span class="ui">Status</span> to filter. Status → Order → A to Z sorts alphabetically (the default puts popular props first).</li>
+        <li>Tap a category chip, or <span class="ui">Status</span> to filter (Any status, Available, Checked out, Damaged, or Archived to see removed props). In the same sheet, Order → <span class="ui">A to Z</span> sorts alphabetically (the default, <span class="ui">Hot first</span>, puts popular props first).</li>
       </ol>
+      <div class="tip"><b>Tip:</b> Tap <span class="ui">Pick a day</span> next to Status to see what's free on a given day. See <a href="#when-free">Check when a prop is free</a>.</div>
+    </div>
+  </section>
+
+  <section class="task noshot" id="when-free" data-words="free available day calendar booked when can someone have it availability">
+    <div>
+      <div class="goal">Someone asks "is it free that day?"…</div>
+      <h3>Check when a prop is free</h3>
+      <ol>
+        <li>Open the prop. Under <span class="ui">Availability</span> there's a calendar of when it's booked.</li>
+        <li>Tap a day: it says "free", "3 of 5 free" or "not available". <span class="ui">Clear</span> resets it.</li>
+        <li>For the whole closet: on <span class="ui">Props</span>, tap <span class="ui">Pick a day</span>, choose the day, then <span class="ui">Show what’s free</span>.</li>
+      </ol>
+      <div class="tip"><b>Good to know:</b> The arts department can't book props for anyone. Creators request them for their own shoot.</div>
     </div>
   </section>
 
@@ -617,7 +649,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li><span class="ui">Find duplicates</span>: see <a href="#dup-this">Combine a double you just noticed</a>.</li>
         <li><span class="ui">Merge with another prop</span>: type its name, then the same steps.</li>
         <li><span class="ui">Mark as checked</span>: counts as done in Clean up props.</li>
-        <li><span class="ui">Remove this prop</span>: see <a href="#remove">Remove a prop</a>.</li>
+        <li><span class="ui">Remove this prop</span>: see <a href="#remove">Remove a prop</a>. On a removed prop it's <span class="ui">Put it back</span> instead.</li>
         <li><span class="ui">Delete for good</span>: only for imported props that were never booked. Can't be undone.</li>
       </ul>
     </div>
@@ -647,7 +679,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>On the prop page, tap <span class="ui">⋯</span> → <span class="ui">Remove this prop</span>.</li>
         <li>Pick why: same prop twice, not a prop, blurry or bad photo, we don't have it any more, or supplies.</li>
         <li>Changed your mind straight away? Tap <span class="ui">Undo</span> at the top.</li>
-        <li>Later: Admin → Clean up props → <span class="ui">Removed props</span> → <span class="ui">Put back</span>, or open the prop and tap <span class="ui">Restore</span>.</li>
+        <li>Later: Admin → Clean up props → <span class="ui">Removed props</span> → <span class="ui">Put it back</span>. Or open the prop and tap <span class="ui">⋯</span> → <span class="ui">Put it back</span> (also at the bottom of the page).</li>
       </ol>
       <div class="warn"><b>Watch out:</b> A prop in a current booking can't be removed until it's back.</div>
     </div>
@@ -673,9 +705,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Admin → <span class="ui">Suggested edits</span> (open suggestions also show on the prop page).</li>
         <li>Read the message, the proposed changes and any photos.</li>
-        <li>Tap <span class="ui">Apply changes</span> to change the prop, or <span class="ui">Dismiss…</span> (you can add a reply).</li>
+        <li>Tap <span class="ui">Apply changes</span> to change the prop (or <span class="ui">Fixed it ✓</span> when they only sent a message and you fixed it yourself), or <span class="ui">Dismiss…</span>, add an optional reply, then <span class="ui">Dismiss</span>.</li>
       </ol>
-      <div class="tip"><b>Tip:</b> The creator sees whether it was applied or dismissed.</div>
+      <div class="tip"><b>Tip:</b> The creator sees whether it was applied or dismissed. Handled ones move to the <span class="ui">Done</span> tab of Suggested edits.</div>
     </div>
   </section>
 
@@ -705,10 +737,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">The app compares every prop and shows groups (2 to 10) that may be the same thing, most sure first: "Same picture", "Very likely", "Maybe".</p>
       <ol>
         <li>Clean up props → <span class="ui">Combine doubles</span>.</li>
-        <li>All photos in a group start ticked "✓ Same". Untick any that is not the same thing. Tap a photo to see it bigger.</li>
-        <li>Tap <span class="ui">Combine N</span>.</li>
+        <li>Two props? The app asks <span class="ui">Same thing?</span>: tap <span class="ui">Yes, combine</span> or <span class="ui">No, different</span>.</li>
+        <li>Three or more? All start ticked "✓ Same". Tap <span class="ui">Not this one</span> on any that isn't the same thing, then tap <span class="ui">Combine N</span>. Tap a photo to see it bigger.</li>
         <li>Choose <span class="ui">One prop, photographed N times</span> (keeps the highest count) or <span class="ui">We have N separate copies</span> (adds them up). Tap <span class="ui">Keep this one</span> to choose which entry stays.</li>
-        <li>None alike? Tap <span class="ui">None are the same</span>. Not sure? Skip it.</li>
+        <li>None alike? Tap <span class="ui">None are the same</span>. Not sure? Tap <span class="ui">Not sure, skip ›</span>.</li>
       </ol>
       <div class="tip"><b>Tip:</b> The ✦ AI gives an opinion ("looks like the same thing" / "looks different"), but it never combines anything. Bulk buttons (exact same picture, or groups the AI is sure about) always show you the list first and wait for your "Yes".</div>
     </div>
@@ -777,10 +809,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">One big photo per prop, in shelf order. Good for careful checking.</p>
       <ol>
         <li>Clean up props → <span class="ui">Check props one by one</span>.</li>
-        <li>The pill at the top right picks which props: Not checked yet, No bin, Odd names, No photo, More than 1, Costumes, From the photo import, Everything, or one bin.</li>
+        <li>The pill at the top right picks which props: Not checked yet, No bin, Odd names, No photo, More than 1, Costumes, From the photo import, Checked, Everything, or one bin.</li>
         <li>Fix the name, <span class="ui">How many?</span> (− / +) and <span class="ui">Where is it?</span> (Change).</li>
         <li>Tap <span class="ui">Looks right ✓</span> (it says <span class="ui">Save ✓</span> if you changed something). The next prop comes up.</li>
-        <li>Or tap <span class="ui">Remove</span>, or <span class="ui">It's a double</span> to combine it with another prop. <span class="ui">Skip for now</span> and <span class="ui">‹ Previous</span> are at the top.</li>
+        <li>Or tap <span class="ui">Remove</span>, or <span class="ui">It's a double</span> to combine it with another prop. <span class="ui">Skip for now ›</span> (keeps your edits, doesn't mark it checked) and <span class="ui">‹ Previous</span> are at the top.</li>
       </ol>
     </div>
     <figure class="shot"><img src="img/a-cleanup-check.png" alt="Check props screen with one prop called IMG_2034, count and bin" loading="lazy"><figcaption>Check props one by one</figcaption></figure>
@@ -860,8 +892,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Admin → <span class="ui">Bins &amp; storage</span>.</li>
         <li>New room first? Tap <span class="ui">Locations</span> and add it.</li>
-        <li>Tap <span class="ui">+ Add</span>, type the bin name (for example "Bin 12"), pick its storage area, save.</li>
-        <li>To rename or move a bin, tap the pencil on its row.</li>
+        <li>Tap <span class="ui">+ Add</span>, type the bin name (for example "Bin 12"), pick its storage area (required), tap <span class="ui">Save</span>.</li>
+        <li>To rename or move a bin, tap the pencil on its row. An empty bin can be removed there with <span class="ui">Delete bin</span>; a bin with props in it can't.</li>
       </ol>
       <div class="tip"><b>Tip:</b> Bins are listed in number order ("Bin 2" before "Bin 10"). "B.31", "B:31" and "B031" count as the same bin; the app offers to merge look-alike bins.</div>
     </div>
@@ -875,7 +907,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Admin → <span class="ui">Bins &amp; storage</span>.</li>
         <li>Tap the QR icon on the bin's row.</li>
-        <li>Tap <span class="ui">Print</span>. On iPhone the image opens instead: long-press it and choose <span class="ui">Save to Photos</span>.</li>
+        <li>Tap <span class="ui">Print</span> to print it, or <span class="ui">Save Image</span> to keep it. On iPhone, Save Image opens the picture: long-press it and choose <span class="ui">Save to Photos</span>.</li>
         <li>Stick it on the bin. Scanning it with a phone camera opens that bin in the app.</li>
       </ol>
       <div class="warn"><b>Watch out:</b> When two look-alike bins are merged, the extra bin's old sticker stops working. Use the kept bin's sticker.</div>
@@ -893,7 +925,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>For each prop, tap <span class="ui">Here</span> or <span class="ui">Not here</span>. Not here, but you know where it is? Tap <span class="ui">I know where it is → set its bin</span>.</li>
         <li>Something in the bin that the app lists elsewhere? <span class="ui">It's in the app → move it here</span>, type its name, <span class="ui">Move here</span>.</li>
         <li>Something not in the app at all? <span class="ui">It's not in the app → add it</span>.</li>
-        <li>Once every prop is ticked, tap <span class="ui">Done ✓ · next: …</span>. The next unchecked bin opens.</li>
+        <li>Once every prop is ticked, tap <span class="ui">Done ✓ · next: …</span> and the next unchecked bin opens (or <span class="ui">Done with this bin ✓</span> when it's the last one).</li>
       </ol>
       <div class="tip"><b>Tip:</b> The bin check confirms where props are. To check names and counts in that bin too, tap <span class="ui">Check names and counts in Clean up ›</span>.</div>
     </div>
@@ -933,7 +965,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <div class="goal">I want to know…</div>
       <h3>What we should buy more of (or buy at all)</h3>
       <ul>
-        <li><span class="ui">Often unavailable</span>: props where every unit was booked on a shoot day, couldn't be found when packing, were in a declined request, or were wanted while booked out. "Buy another?" shows when it happened on 2+ days or 2+ creators wanted it.</li>
+        <li><span class="ui">Often unavailable</span>: props where every unit was booked on a shoot day, couldn't be found when packing, were in a declined request, or were wanted while booked out. "Buy another?" shows when every unit was booked on 2+ shoot days, on 1 day plus a declined request, or when it was wanted 2+ times while booked out.</li>
         <li><span class="ui">Asked for, but we don't have it</span>: custom requests grouped together. Your shopping ideas.</li>
         <li><span class="ui">Never asked for</span>: props nobody has requested (candidates to store away).</li>
       </ul>
@@ -954,7 +986,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Who damages or loses props</h3>
       <ol>
         <li>Prop insights → <span class="ui">Damaged the most</span> and <span class="ui">Missing after return</span> (by the creator who booked it, from your check-ins).</li>
-        <li>Tap a name to see their props, then <span class="ui">Open record</span> for their full history.</li>
+        <li>Tap a name to see their props, then <span class="ui">Open &lt;name&gt;’s record ›</span> for their full history.</li>
         <li><span class="ui">Needs attention now</span> lists props that are damaged or missing today.</li>
       </ol>
       <div class="tip"><b>Good to know:</b> Strikes and pauses are given by admins and the owner, not by the arts department. Tell them if someone keeps breaking things.</div>
@@ -967,7 +999,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Who did what, and when</h3>
       <ol>
         <li>Admin → <span class="ui">Activity</span>.</li>
-        <li>Every change to props and requests, newest first, with the person's name.</li>
+        <li>Every change to props and requests, newest first, with the person's name. Tabs: <span class="ui">Everything</span>, <span class="ui">Bookings</span>, <span class="ui">Prop changes</span>.</li>
       </ol>
     </div>
   </section>
@@ -995,7 +1027,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Get notifications for new requests</h3>
-      <p class="why">The arts department gets a ping for new requests, returns, cancellations and requests that move to another shoot.</p>
+      <p class="why">The arts department gets a ping for new requests, pickup issues, returns (with any damage the creator reported), problems creators report while props are out, cancellations of requests you'd already started, and requests that move to another shoot.</p>
       <ol>
         <li>On iPhone, first add the app to your Home Screen: open it in Safari, tap Share → <span class="ui">Add to Home Screen</span>, then open it from that icon.</li>
         <li>Admin → <span class="ui">My account</span> → Notifications → <span class="ui">Turn on</span>, and allow.</li>
@@ -1023,7 +1055,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Admin → <span class="ui">Report a problem</span> (or top of Help).</li>
         <li>Go to the screen where it happened and tap <span class="ui">Report this screen</span>. The app takes a screenshot.</li>
-        <li>Pick Something broke / Something looks wrong / Something is missing, say what happened, and send.</li>
+        <li>Pick Something broke / Something looks wrong / Something is missing, say what happened, and tap <span class="ui">Send report</span>.</li>
       </ol>
       <div class="tip"><b>Shortcut:</b> hold two fingers on any screen for a moment.</div>
     </div>
@@ -1066,9 +1098,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <details><summary>When is pickup if the shoot is on a Sunday?</summary><p>The prop room is closed on closed days (Sundays by default), so pickup is the last open day before the shoot. The queue counts urgency to that pickup day.</p></details>
     <details><summary>Can I use an old photo for the pack photo?</summary><p>No. Proof photos open the camera only, and the photo shows the time it was taken. A photo more than an hour old gets a red warning.</p></details>
     <details><summary>A creator never signed for the props. What do I do?</summary><p>Open the request in Ready and tap "They picked it up: mark it for them", then "Mark as picked up". It's saved as signed by you.</p></details>
-    <details><summary>The props are back, but the creator never did the return in the app.</summary><p>Open the request from the Out tab and do the check-in anyway. Add a check-in photo. It's recorded as "Returned without the creator's return photo".</p></details>
+    <details><summary>The props are back, but the creator never did the return in the app.</summary><p>Open the request from the Out tab, tap "Dropped off without the app? Check it in anyway" and do the check-in. Add a check-in photo. It's recorded as "Returned without the creator's return photo".</p></details>
+    <details><summary>I marked a prop "not available" by mistake. Can I undo it?</summary><p>Not in the app. The prop is released from that request. Tell the creator; they can add it again from Browse if it's still free.</p></details>
     <details><summary>I marked something Missing and then found it.</summary><p>Open the prop's page and tap "Found it: make bookable again".</p></details>
-    <details><summary>A damaged prop has been repaired. How do creators book it again?</summary><p>Open the prop, tap Edit, set Condition to Good or Fair and save. Creators can't book damaged props.</p></details>
+    <details><summary>A damaged prop has been repaired. How do creators book it again?</summary><p>Open the prop, scroll to Condition and tap Good or Fair (it saves straight away). Creators can't book damaged props.</p></details>
     <details><summary>Why can't I lower a prop's count?</summary><p>That many are booked right now. Wait until they come back, then lower it.</p></details>
     <details><summary>Why can't I remove or combine this prop?</summary><p>It's in a current booking. Wait until it's checked back in.</p></details>
     <details><summary>Does Remove delete the prop?</summary><p>No. It's hidden and kept in Clean up props → Removed props, with Put back. Only "Delete for good" (imported props never booked) really deletes.</p></details>

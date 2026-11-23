@@ -98,7 +98,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div><b>On the shoot day</b><a href="#check-in">Check in</a><a href="#report-before">The people before me ran over or left a mess</a><a href="#wrap">Wrap my shoot</a><a href="#missed-checkin">I forgot to check in</a><a href="#running-late">I'm running late, or there's a problem at the house</a></div>
     <div><b>Film with friends and video invites</b><a href="#book-friends">Film with friends, back to back</a><a href="#friend-not-on-app">Book a slot for a friend who isn't on the app</a><a href="#friend-booked-me">A friend booked a slot for me</a><a href="#invite-to-video">Tell people they're in my video</a><a href="#invited-to-video">Someone invited me into their video</a></div>
     <div><b>Strikes, your profile and getting help</b><a href="#strikes">What gets me a strike, and what happens?</a><a href="#profile">Set up my profile (photo, channel, birthday)</a><a href="#report-problem">The app is broken or shows something wrong</a><a href="#help-page">Find an answer or the house rules</a></div>
-    <div><b><a href="#g-faq" style="padding:0;color:inherit">Quick answers</a></b><a href="#g-faq">20 short answers</a></div>
+    <div><b><a href="#g-faq" style="padding:0;color:inherit">Quick answers</a></b><a href="#g-faq">21 short answers</a></div>
   </nav>
 
   <!-- ============ GROUP: GET STARTED ============ -->
@@ -180,12 +180,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm wondering…</div>
       <h3>Why do I only see Props and Me? ("Props only")</h3>
-      <p class="why">Some creators start on <b>Props only</b>: a sneak peek while booking opens up step by step. The owner switches people to the full app a few at a time. Nothing to do on your side.</p>
+      <p class="why">Some creators start on <b>Props only</b>: a sneak peek while booking opens up step by step. You get two tabs, <span class="ui">Props</span> and <span class="ui">Me</span>. The owner switches people to the full app a few at a time. Nothing to do on your side.</p>
       <ul>
         <li>You can search the whole closet on <span class="ui">Props</span> and open any prop.</li>
         <li>You can tap <span class="ui">Something wrong? Suggest an edit</span> on a prop.</li>
         <li>You can ask <span class="ui">✦ AI</span> which props fit a video idea (it suggests props to look at; no booking).</li>
-        <li>You can say yes or no when someone invites you into their video (the card shows on Props).</li>
+        <li>You can say yes or no when someone invites you into their video: a blue link on Props ("… wants you in their video · say yes or no") opens <span class="ui">Videos you're in</span> (also in <span class="ui">Me</span>).</li>
         <li>You can't book filming time or send prop requests yet. Friends can still book a slot for you.</li>
       </ul>
     </div>
@@ -225,7 +225,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="say">Try: <q>Thursday Cliff 1 at 5pm</q> <q>props for a séance video</q> <q>is my shoot approved?</q> <q>how do I return gear?</q></p>
       <div class="tip"><b>Tip:</b> After free times show, you can type your pick: <q>the 5pm one</q>, <q>the second one</q>, <q>yes book it</q>. It works in French too.</div>
     </div>
-    <figure class="shot"><img src="img/c-chat-typed.png" alt="The chat after typing 'is my shoot approved?': a list of upcoming shoots, four Approved and one Waiting for OK" loading="lazy"><figcaption>Asking the chat about your shoots</figcaption></figure>
+    <figure class="shot"><img src="img/c-chat-typed.png" alt="The chat after typing 'is my shoot approved?': a list of upcoming shoots, four Approved and one Waiting for approval" loading="lazy"><figcaption>Asking the chat about your shoots</figcaption></figure>
   </section>
 
   <section class="task noshot" id="chat-limits" data-words="is the chat a person bot robot ai what can it do cant do limits door code wifi">
@@ -262,12 +262,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Send the chat a photo, or talk instead of typing</h3>
-      <p class="why">Show it a picture of what you need and it finds the closest props. Talk with the mic and it reads its answer out loud.</p>
+      <p class="why">Show it a picture of what you need and it finds the closest props. Talk with the mic and it can read its answer out loud.</p>
       <ol>
         <li>Tap the <span class="ui">camera</span> in the typing box and take or pick a photo (a screenshot works too).</li>
         <li>The chat says what it sees and shows the closest props. Tick the ones you want.</li>
-        <li>To talk, tap the <span class="ui">mic</span> and speak. Tap it again to stop.</li>
-        <li>Don't want answers read aloud? Tap the <span class="ui">speaker</span> at the top of the chat.</li>
+        <li>To talk, tap the <span class="ui">mic</span> and speak. Tap the red square to stop. Your words go in the box: tap the gold <span class="ui">↑</span> to send.</li>
+        <li>After a spoken message, the chat reads its answer aloud. Don't want that? Tap the <span class="ui">speaker</span> at the top of the chat (it only shows on phones that can read aloud).</li>
       </ol>
     </div>
   </section>
@@ -286,7 +286,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
   <!-- ============ GROUP: BOOK ============ -->
   <h2 id="g-book">Book a time to film</h2>
-  <p class="group-intro">Houses are Cliff 1 (2375 Cliff Road) and Cliff 2 (2371 Cliff Road). They're booked in 2-hour slots from 7 AM to 1 AM, and a booking takes the whole house. Every booking is a request the equipment team approves.</p>
+  <p class="group-intro">Houses are Cliff 1 (2375 Cliff Road) and Cliff 2 (2371 Cliff Road). They're booked in 2-hour slots from 7 AM to 1 AM, and a booking takes the whole house. Every booking is a request the equipment team (or an admin) approves, unless the team put you on "Books without approval".</p>
 
   <section class="task" id="read-calendar" data-words="calendar month free spots how many free colours green amber grey lock gold">
     <div>
@@ -331,7 +331,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Gold <span class="ui">Free</span> = you can ask for it.</li>
         <li>A name = someone has it. Dashed amber = someone asked and is waiting for approval.</li>
         <li>"Guideline required" = Cliff 1 on a priority day: you'll need a filming guideline PDF.</li>
-        <li>"House free from 2 PM" = a short block (like cleaners) ends early, so you can start early.</li>
+        <li>A small blue "from 2 PM" under <span class="ui">Free</span> = a short block before it (like cleaners) ends early, so you can start early.</li>
+        <li>A bell next to a taken time = join its waitlist (see "Get a time that's already taken").</li>
         <li><span class="ui">Book Offsite</span> at the bottom = shooting somewhere else.</li>
       </ul>
     </div>
@@ -358,7 +359,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Each creator gets <b>one house slot a day</b> (Cliff 1 and Cliff 2 together). Longer blocks are for filming with friends: each person takes one slot, back to back.</p>
       <ul>
         <li>Filming with friends? Book back to back (next section).</li>
-        <li>Really need more time yourself? Ask the schedule team (Maanik). They can book it for you.</li>
+        <li>Really need more time yourself? Ask the schedule team (Maanik). They can book it for you, or put you on "Can book several slots in a row" so you can pick 4 h, 6 h… yourself (still a request).</li>
         <li>Offsite shoots don't count toward the one-a-day limit.</li>
       </ul>
     </div>
@@ -387,7 +388,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Possible for one hour only. It always goes to the equipment team for approval, and counts as your one booking that day.</p>
       <ol>
         <li>Tap a free time on the day sheet.</li>
-        <li>Tap the small link <span class="ui">Need both houses at once? (1 hour)</span> under the button.</li>
+        <li>Leave <span class="ui">2 h · 1 slot</span> picked and tap the small link <span class="ui">Need both houses at once? (1 hour)</span> under the button. (It only shows when the other house is free at that time too.)</li>
         <li>Pick the first or second hour of that 2-hour time, then <span class="ui">Ask for both houses</span>.</li>
       </ol>
     </div>
@@ -397,9 +398,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm wondering…</div>
       <h3>Why is Thursday or Saturday at Cliff 1 locked?</h3>
-      <p class="why">Thursdays and Saturdays at Cliff 1 are <b>priority days</b> for the priority group (Main Channel, Stromedy Studios and a few creators). Slots nobody claimed open to everyone on the <b>Sunday before at 6 PM</b>.</p>
+      <p class="why">Thursdays and Saturdays at Cliff 1 are <b>priority days</b> for the priority group (Main Channel, Stromedy Studios and a few creators). Slots nobody claimed open to everyone on the <b>Sunday before</b>, usually at <b>6 PM</b>.</p>
       <ul>
-        <li>The lock shows until it opens. Check back after Sunday 6 PM.</li>
+        <li>The lock (or "Priority" on a day's times) shows until it opens. Check back after the Sunday release.</li>
         <li>Once open, booking those Cliff 1 slots needs your <b>filming guideline</b> (a PDF), unless you're in the priority group.</li>
         <li>Cliff 2 on those days is first come, first served as usual.</li>
       </ul>
@@ -413,7 +414,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Only needed for Cliff 1 on Thursdays and Saturdays if you're not in the priority group. The button says <b>Add your guideline first</b> until you do.</p>
       <ol>
         <li>Have your guideline saved as a PDF on your phone (under 20 MB).</li>
-        <li>On the booking sheet, tap the guideline box and pick the PDF.</li>
+        <li>On the booking sheet, under <b>Filming guideline needed</b>, tap <span class="ui">Attach the PDF</span> and pick it.</li>
         <li>Tap the request button. The team sees your guideline with the request.</li>
       </ol>
       <div class="tip"><b>Tip:</b> The chat and the Move sheet ask for it the same way.</div>
@@ -424,7 +425,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm wondering…</div>
       <h3>Where are my 4 guaranteed Cliff 1 slots?</h3>
-      <p class="why">Every creator gets 4 Cliff 1 slots a month. The equipment team schedules them for you. They show up on your Calendar, in the Chat and in My shoots.</p>
+      <p class="why">Every creator gets 4 Cliff 1 slots a month. The equipment team puts them on the schedule for you (there's no wishlist or draw any more). They show up on your Calendar, in the Chat and in My shoots like any other shoot.</p>
       <ul>
         <li>You don't need to book them yourself.</li>
         <li>Want more? Book extra slots whenever they're free.</li>
@@ -456,12 +457,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm wondering…</div>
       <h3>Is my shoot approved?</h3>
-      <p class="why">Every creator booking is checked by the equipment team (Maanik) or an admin, so nobody overbooks. While you wait, the time is held for you and you can already add props.</p>
+      <p class="why">Every creator booking is checked by the equipment team (Maanik) or an admin, so nobody overbooks (only people on "Books without approval" skip this). While you wait, the time is held for you and you can already add props.</p>
       <ul>
-        <li><b>Waiting for approval</b> / <b>Waiting for OK</b>: held for you, not final yet.</li>
+        <li><b>Waiting for approval</b>: held for you, not final yet.</li>
         <li><b>Approved ✓</b>: it's on the official schedule. You get a notification.</li>
         <li><b>Not approved</b>: you see the reason and the time frees up.</li>
-        <li><b>Ran out</b>: nobody decided before it started, so it was dropped.</li>
+        <li><b>Ran out</b> (Chat: "Request ran out"): nobody decided before it started, so it was dropped.</li>
       </ul>
       <p class="say">Type: <q>is my shoot approved?</q></p>
       <div class="tip"><b>Tip:</b> Withdrawing a request that's still waiting is always free.</div>
@@ -477,7 +478,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Read the reason on the card.</li>
         <li>Tap <span class="ui">Find a new time</span> and request another slot.</li>
-        <li>Close the card when you're done.</li>
+        <li>Close the card with <span class="ui">×</span> when you're done.</li>
       </ol>
     </div>
   </section>
@@ -488,9 +489,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>See all my shoots</h3>
       <p class="why">The Chat shows your next 3. My shoots shows all of them, soonest first, with what each one still needs.</p>
       <ol>
-        <li>Go to <span class="ui">More</span> → <span class="ui">My shoots</span> (or tap <span class="ui">See all shoots</span> in the Chat).</li>
+        <li>Go to <span class="ui">More</span> → <span class="ui">My shoots</span> (or tap <span class="ui">See all my shoots</span> at the bottom of your shoots list in the Chat; it says "See all N shoots" when you have more).</li>
         <li><span class="ui">Coming up</span> is split into Today, This week and Later. <span class="ui">Past</span> shows Filmed, No-show or Not checked in.</li>
-        <li>A dashed <b>+ Props by…</b> means you can still add props until that time.</li>
+        <li>A dashed <b>+ Props by…</b> means you can still add props until that time. "No props · too late to add now" means the cutoff passed.</li>
         <li>Tap a shoot to open it.</li>
       </ol>
     </div>
@@ -505,8 +506,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Tap the shoot in the Chat, on the Calendar, or in My shoots.</li>
         <li>Tap <span class="ui">See in calendar</span> to see the whole day (who films before and after you).</li>
-        <li>Under <b>Props &amp; costumes</b> you see the last time to add props and the last day for custom props. Tap <span class="ui">+ Add</span> to add.</li>
-        <li>Scroll down for <span class="ui">Move</span>, <span class="ui">Swap</span>, <span class="ui">History</span> and <span class="ui">Cancel this shoot</span>.</li>
+        <li>Under <b>Props &amp; costumes</b> you see <b>Add by…</b> (the last time to add props) and the last day for custom props. Tap <span class="ui">+ Add</span> to add.</li>
+        <li>Scroll down for <span class="ui">Move</span>, <span class="ui">Swap</span>, <span class="ui">History</span> (tap to open it) and <span class="ui">Cancel this shoot</span>. Move and Swap only show when they're allowed.</li>
       </ol>
     </div>
     <figure class="shot"><img src="img/c-shoot-sheet.png" alt="The Your shoot sheet: Monday Nov 30, 3 to 5 PM, Cliff 1, Approved, Plan it with AI, Props and costumes with Add by dates, Who's in this video with Invite, and Move and Swap buttons" loading="lazy"><figcaption>The shoot page</figcaption></figure>
@@ -520,9 +521,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Go to <span class="ui">Calendar</span> and scroll to the bottom.</li>
         <li>Tap <span class="ui">My shoots in my phone's calendar</span>.</li>
-        <li><b>iPhone:</b> tap the iPhone button. <b>Google Calendar:</b> tap <span class="ui">Copy link</span> and add it as a calendar "From URL".</li>
+        <li><b>iPhone:</b> tap <span class="ui">Add to iPhone / Apple Calendar</span>. <b>Google Calendar:</b> tap <span class="ui">Copy link (for Google Calendar)</span>, then on a computer open Google Calendar → Other calendars → + → From URL and paste it.</li>
       </ol>
-      <div class="warn"><b>Watch out:</b> The link is private. Don't share it.</div>
+      <div class="warn"><b>Watch out:</b> The link is private. Don't share it. Shared it by mistake? Tap <span class="ui">Shared it by mistake? Make a new link</span>: the old one stops working.</div>
     </div>
   </section>
 
@@ -540,7 +541,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
   <!-- ============ GROUP: CHANGE ============ -->
   <h2 id="g-change">Move, swap or cancel a shoot</h2>
-  <p class="group-intro">Free with at least 48 hours' notice. Closer than that, only a swap is safe.</p>
+  <p class="group-intro">Free with at least 48 hours' notice (the usual setting). Closer than that, only a swap is safe.</p>
 
   <section class="task noshot" id="move-shoot" data-words="move reschedule change time different day earlier later">
     <div>
@@ -550,9 +551,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Open the shoot (Chat, Calendar or My shoots).</li>
         <li>Tap <span class="ui">Move</span>.</li>
-        <li>Pick a free time and tap <span class="ui">Ask for this</span>.</li>
+        <li>Pick <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">Either</span>, then tap <span class="ui">Ask for this</span> next to a free time (the next 60 days are listed).</li>
       </ol>
       <p class="say">Or type: <q>move my Thursday shoot</q></p>
+      <div class="tip"><b>Tip:</b> A request still waiting moves straight away. An offsite shoot opens the offsite form instead (<span class="ui">Ask to move it</span>). You can't move a shoot between a house and offsite: cancel and book again.</div>
       <div class="warn"><b>Watch out:</b> Less than 48 hours before, you can't move it (swap instead). A shoot with props requests can only move on the same day; to change the day, cancel the props first.</div>
     </div>
   </section>
@@ -563,7 +565,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Swap times with another creator</h3>
       <p class="why">A swap never counts against anyone, even inside 48 hours. When they accept, both shoots switch at once.</p>
       <ol>
-        <li>Open your shoot and tap <span class="ui">Swap</span>, then pick their booking. Or tap someone's slot on the day sheet → <span class="ui">Ask to swap</span>.</li>
+        <li>Open your shoot and tap <span class="ui">Swap</span>, then tap <span class="ui">Ask</span> next to their booking. Or tap someone's slot on the day sheet → <span class="ui">Ask to swap</span> and pick which of your shoots to offer.</li>
         <li>They get a blue <b>Needs your answer</b> card. You can <span class="ui">Withdraw</span> while you wait.</li>
       </ol>
       <div class="warn"><b>Watch out:</b> Only approved house shoots can be swapped (not requests still waiting, and not a shoot with a move waiting). A swap to another day isn't possible while either shoot has props requests.</div>
@@ -615,7 +617,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
   <!-- ============ GROUP: PROPS ============ -->
   <h2 id="g-props">Get props and costumes</h2>
-  <p class="group-intro">Book your time first, then add props to that shoot. Props from the closet close 48 hours before your shoot starts. Browsing is open any time.</p>
+  <p class="group-intro">Book your time first, then add props to that shoot. Props from the closet usually close 48 hours before your shoot starts. Browsing is open any time.</p>
 
   <section class="task" id="browse-props" data-words="browse search find props costumes closet catalogue category filter look for">
     <div>
@@ -625,7 +627,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Tap <span class="ui">Props</span>.</li>
         <li>Type in the search box. It also finds related words ("president" finds a Lincoln mask).</li>
-        <li>Tap a category chip, or <span class="ui">Status</span> to filter (or order A to Z).</li>
+        <li>Tap a category chip, or <span class="ui">Status</span> to filter by what's free or switch the order (<span class="ui">Hot first</span> / <span class="ui">A to Z</span>).</li>
         <li>Tap a photo to open the prop.</li>
       </ol>
       <div class="tip"><b>Tip:</b> The chip at the top shows which shoot you're adding to, and each photo says Free or how many are free that day.</div>
@@ -673,7 +675,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Check the availability calendar: your shoot day has a gold box.</li>
         <li>Scroll down for <b>Booked together with this</b> and <b>Similar props</b>.</li>
       </ol>
-      <div class="tip"><b>Tip:</b> Says "Not available on this day"? Every one is booked. Look at Similar props. The arts team is quietly told you wanted it.</div>
+      <div class="tip"><b>Tip:</b> Says "Not available on this day"? Every one is booked. Look at Similar props. The arts team is quietly told you wanted it. A prop marked damaged can't be asked for until the arts department fixes it.</div>
     </div>
     <figure class="shot"><img src="img/c-prop-page.png" alt="A prop page for a Wooden dining chair: photo, Fair condition, 10 in stock, replacement cost, and an availability calendar" loading="lazy"><figcaption>A prop page</figcaption></figure>
   </section>
@@ -702,7 +704,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Tap <span class="ui">Review</span> on the gold bar (or the <b>Not sent yet</b> card).</li>
         <li>Check <b>Adding to</b> shows the right shoot.</li>
-        <li>Type the <b>Shoot or video name</b> (required). Add notes for the arts department if you want.</li>
+        <li>Type the <b>Shoot or video name</b> (required). Add notes in <b>Anything the arts department should know (optional)</b>.</li>
         <li>Change amounts with <span class="ui">−</span> <span class="ui">+</span>, or tap <span class="ui">×</span> to remove.</li>
         <li>Tap <span class="ui">Send the props</span>. The button tells you if something is missing.</li>
       </ol>
@@ -714,11 +716,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm wondering…</div>
       <h3>Why can't I add props any more?</h3>
-      <p class="why">Props from the closet close <b>48 hours before your shoot starts</b> (clock hours; Sundays count). After that the + buttons disappear for that shoot.</p>
+      <p class="why">Props from the closet close <b>48 hours before your shoot starts</b> (the usual setting; clock hours, Sundays count). After that the + buttons disappear for that shoot.</p>
       <ul>
-        <li>Your shoot page and the bar on Props show the exact time: "Props by Mon, Nov 23, 9 PM".</li>
+        <li>Your shoot page ("Add by …"), My shoots ("+ Props by …") and the line above the photos on Props show the exact time, for example "Mon, Nov 23, 9 PM".</li>
         <li>Too late? Ask the arts department directly, or pick another shoot.</li>
-        <li>Your prop requests are also paused if you have 2 strikes (see Strikes).</li>
+        <li>Your prop requests are also paused after too many strikes (usually 2 in 30 days; see Strikes).</li>
         <li>Props from an earlier shoot still not returned? Bring them back first.</li>
       </ul>
     </div>
@@ -728,14 +730,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Ask for something we don't have</h3>
-      <p class="why">The arts department can try to make or find it. It needs at least <b>4 open days</b> before the shoot (Sundays don't count), and there is <b>no guaranteed date</b>.</p>
+      <p class="why">The arts department can try to make or find it. It needs at least <b>4 open days</b> before the shoot (the usual setting; Sundays don't count), and there is <b>no guaranteed date</b>.</p>
       <ol>
-        <li>On the review screen, tap <span class="ui">Request something we don't have</span>.</li>
-        <li>Describe it, say how many, and add a reference photo if you can.</li>
-        <li>Send your request.</li>
+        <li>On the review screen, tap <span class="ui">+ Request something we don't have</span>.</li>
+        <li>Describe it, set <b>How many?</b>, and add a reference photo if you can. Tap <span class="ui">Add request</span>.</li>
+        <li>Tap <span class="ui">Send the props</span>.</li>
         <li>Then message the arts department on <b>Slack</b> to sort out the details and when it can be ready.</li>
       </ol>
-      <div class="warn"><b>Watch out:</b> Inside 4 open days the option is hidden. Pick from the closet instead.</div>
+      <div class="warn"><b>Watch out:</b> Inside 4 open days the button is replaced by "Too late to ask for things we don't have for this shoot". Pick from the closet instead.</div>
     </div>
   </section>
 
@@ -746,7 +748,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Open the prop.</li>
         <li>Tap <span class="ui">Wrong name?</span> under the name, or <span class="ui">Something wrong? Suggest an edit</span> further down.</li>
-        <li>Say what's wrong (add a photo if it helps) and send. You'll see if it was applied.</li>
+        <li>Say what's wrong (you can also suggest the right name, count, condition or description, and add a photo) and send. You'll see if the arts team applied it.</li>
       </ol>
     </div>
   </section>
@@ -759,9 +761,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>See where my props request is</h3>
-      <p class="why">Each shoot is one card, with a bar for each request: Requested → Being picked → Packed → Picked up → Returned.</p>
+      <p class="why">Each shoot is one card, with a bar for each request: Requested → Being prepared → Packed &amp; ready → Picked up → Returned, being checked → Returned.</p>
       <ol>
-        <li>Go to <span class="ui">More</span> → <span class="ui">My requests</span>, or tap the box button next to <span class="ui">✦ AI</span>.</li>
+        <li>Go to <span class="ui">More</span> → <span class="ui">My requests</span>, or tap the box button next to <span class="ui">✦ AI</span> on Calendar or Props.</li>
         <li><span class="ui">Upcoming</span> shows current ones, <span class="ui">Past</span> the rest.</li>
         <li>Tap a request to see it.</li>
       </ol>
@@ -774,7 +776,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Change a request I already sent</h3>
-      <p class="why">You can change it while it still says <b>Requested</b> (before the arts department starts picking). New props still need the 48-hour notice.</p>
+      <p class="why">You can change it while it still says <b>Requested</b> (before the arts department starts on it). New props still need the 48-hour notice.</p>
       <ol>
         <li>Open the request (My requests, or from the shoot page).</li>
         <li>Tap <span class="ui">Change</span>.</li>
@@ -794,8 +796,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Open the request (it says <b>Packed &amp; ready</b>).</li>
         <li>Check everything is there.</li>
         <li>Tap <span class="ui">✓ I've got everything</span>.</li>
-        <li>Something isn't there? Tap <span class="ui">Something's missing</span>, tap the missing props, add a note, then confirm.</li>
+        <li>Something isn't there? Tap <span class="ui">Something's missing or wrong</span>, tap the missing props, add a note if you want, then tap <span class="ui">Collect &amp; report it</span>.</li>
       </ol>
+      <div class="tip"><b>Tip:</b> The Chat also shows a <b>Props ready to pick up</b> card: <span class="ui">✓ I've got everything</span> or <span class="ui">Something's missing or wrong</span> (then tap what's missing and <span class="ui">Collect &amp; report it</span>).</div>
       <div class="warn"><b>Watch out:</b> Report missing things before you sign. Reporting protects you.</div>
     </div>
   </section>
@@ -806,10 +809,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Return my props</h3>
       <p class="why">Props are due back the night of the shoot. They count as late from 10 AM on the next open day.</p>
       <ol>
-        <li>In My requests, tap <span class="ui">Return it</span> (or type <q>bringing the props back</q> in the Chat).</li>
+        <li>In My requests, tap <span class="ui">Return it</span> on the shoot's card, or <span class="ui">Return it now</span> on the <b>To bring back</b> card in the Chat (or type <q>bringing the props back</q>).</li>
         <li>Tick what's coming back. Untick anything you're keeping for now.</li>
         <li>Answer <b>Anything broken, damaged or missing?</b> (tap the prop + a few words, or <span class="ui">No, all good</span>).</li>
-        <li>Take <b>one photo</b> of everything where you left it.</li>
+        <li>Take <b>one photo</b> of everything where you left it (add where you left it if you want).</li>
         <li>Tap <span class="ui">Send the return</span>. The arts department then checks each prop in.</li>
       </ol>
       <div class="warn"><b>Watch out:</b> With late props you can't send a new props request until they're back. Late props are logged (no fee).</div>
@@ -822,7 +825,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Return props and gear together</h3>
       <p class="why">One flow, one photo for everything from a shoot.</p>
       <ol>
-        <li>Tap <span class="ui">Return everything</span> on the shoot's card in My requests (or on the card in the Chat).</li>
+        <li>Tap <span class="ui">Return everything</span> on the shoot's card in My requests, <span class="ui">Return all</span> on a request or gear page, or <span class="ui">Return it now</span> on the <b>To bring back</b> card in the Chat.</li>
         <li>Tick what's coming back, answer the questions (broken? charging case plugged in? who used the gear?).</li>
         <li>Take one photo, then tap <span class="ui">Return all</span>.</li>
       </ol>
@@ -837,13 +840,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Take gear for my shoot</h3>
-      <p class="why">From an hour before your shoot until it ends, you take what's free. It's yours until the shoot ends.</p>
+      <p class="why">From an hour before your shoot until it ends, you take what's free. Your shoot must be approved first. It's yours until the shoot ends.</p>
       <ol>
-        <li>In the Chat, tap the <span class="ui">Take gear</span> card above the typing box (it shows on your shoot day).</li>
+        <li>In the Chat, tap the <span class="ui">Take gear</span> card above the typing box (it shows from an hour before your approved shoot).</li>
         <li>Tap <span class="ui">+</span> on what you're taking (kits first, then single items: pick how many).</li>
         <li>Tap <span class="ui">Take it</span> on the gold bar.</li>
         <li>Tick <b>every piece</b>. Tap <span class="ui">Missing?</span> for anything that isn't there.</li>
-        <li>Take one photo, then tap <span class="ui">Take it</span>.</li>
+        <li>Take one photo of the gear, then tap <span class="ui">Take it</span>.</li>
       </ol>
       <p class="say">Or type: <q>taking the FX3</q></p>
       <div class="tip"><b>Tip:</b> Battery charge isn't guaranteed. Check before you leave. Sundays work the same: no one needs to give you an OK.</div>
@@ -858,7 +861,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>When is gear due back, and is there a late fee?</h3>
       <ul>
         <li><b>At the houses:</b> due when your shoot ends (the next person may need it).</li>
-        <li><b>Offsite:</b> due by the end of the day (midnight).</li>
+        <li><b>Offsite:</b> due by the end of the day (usually midnight).</li>
         <li>It counts as <b>late 30 minutes</b> after that.</li>
         <li>Company rule: late gear carries a fee of <b>10% of its value</b>, on the last person who had it. Each kit's page shows what it's worth. Every late return is recorded. Admins can excuse real exceptions.</li>
         <li>With late gear out, you can't take more until it's back.</li>
@@ -873,12 +876,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Return gear</h3>
       <p class="why">One photo of everything in the case, with batteries charging. The equipment team then checks every piece.</p>
       <ol>
-        <li>Tap <span class="ui">Bring gear back</span> in the Chat (or <span class="ui">Return it</span> in My requests).</li>
+        <li>Tap the <span class="ui">Bring it back</span> card above the typing box in the Chat, or <span class="ui">Return it</span> in My requests or on the gear's page.</li>
         <li>Tick what's coming back.</li>
         <li>Answer <b>Anything broken, damaged or missing?</b></li>
         <li>Answer <b>Is the charging case plugged in?</b></li>
         <li>Shared gear? Tick <b>Who used this gear?</b></li>
-        <li>Take one photo of everything, then send.</li>
+        <li>Take one photo of everything, then tap <span class="ui">Send the return</span> (or <span class="ui">Return all N</span>).</li>
       </ol>
       <p class="say">Or type: <q>returning the camera</q></p>
     </div>
@@ -905,9 +908,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Pass gear I have to another creator</h3>
       <p class="why">Someone needs it right now? Hand it over in the app so it's on them, not you.</p>
       <ol>
-        <li>Open the gear (My requests → the gear).</li>
+        <li>Open the gear (More → My requests → the gear).</li>
         <li>Tap <span class="ui">Someone else needs it now? Hand it over</span>.</li>
-        <li>Search for the person, pick until when they need it, tick who used it, and confirm.</li>
+        <li>Under <b>Who's taking it?</b> search the person, pick <b>Until when?</b>, then tap <span class="ui">Hand it to …</span>.</li>
         <li>They do the normal pickup check (tick every piece).</li>
       </ol>
     </div>
@@ -917,6 +920,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm wondering…</div>
       <h3>Who's responsible for shared gear?</h3>
+      <p class="why">Gear you take on the day is on you alone. Shared gear only happens when the team lets creators reserve gear ahead and a friend filming back to back is added to it.</p>
       <ul>
         <li>While it's out: the person who signed for it at pickup.</li>
         <li>At the return, tick everyone who actually used it. The others get a notification.</li>
@@ -934,11 +938,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I'm at the house…</div>
       <h3>Check in</h3>
-      <p class="why">Check-in opens <b>15 minutes before</b> your slot. You get a notification and a gold check-in card at the top of the Chat.</p>
+      <p class="why">Check-in usually opens <b>15 minutes before</b> your slot. You get a notification and a gold "You're up · check in" card at the top of the Chat.</p>
       <ol>
         <li>Open the <span class="ui">Chat</span>.</li>
         <li>Tap <span class="ui">Selfie</span> on the check-in card and take one selfie.</li>
-        <li>If someone filmed right before you, tap <span class="ui">All good</span> or <span class="ui">Report it</span>. You're only checked in after you tap one.</li>
+        <li>Nobody filmed right before you? The selfie checks you in. If someone did, the card says "One more tap to check in": tap <span class="ui">All good</span> or <span class="ui">Report it</span>.</li>
       </ol>
       <p class="say">Or type: <q>I'm here</q></p>
       <div class="tip"><b>Tip:</b> My shoots also shows a <span class="ui">Check in</span> button on today's shoot.</div>
@@ -952,9 +956,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Report it when you check in. The schedule team reviews every report.</p>
       <ol>
         <li>On the check-in card, tap <span class="ui">Report it</span>.</li>
-        <li>Tap the mess option and take a photo, and/or pick how many minutes they ran over.</li>
-        <li>Write a line about what happened, then send.</li>
+        <li>Tap <span class="ui">House was a mess</span> (then add a photo) and/or <span class="ui">Ran over 15 / 30 / 60 min</span>.</li>
+        <li>Add a line in <b>Anything to add? (optional)</b>, then tap <span class="ui">Check in and tell the team</span>.</li>
       </ol>
+      <div class="tip"><b>Tapped Report it by mistake?</b> Tap <span class="ui">Never mind, all good</span>.</div>
       <div class="warn"><b>Watch out:</b> The next creator can report you too. Finish on time and leave the house clean.</div>
     </div>
   </section>
@@ -964,7 +969,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <div class="goal">I'm done filming…</div>
       <h3>Wrap my shoot</h3>
       <ol>
-        <li>On the <b>Filming now</b> card in the Chat, type what you filmed.</li>
+        <li>On the <b>Filming now</b> card in the Chat, type what you filmed in <b>Done? What did you film?</b></li>
         <li>Tap <span class="ui">Wrap</span>. The card shows <b>Wrapped ✓</b>.</li>
         <li>Bring back props and gear (see the return sections).</li>
       </ol>
@@ -977,7 +982,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">Something's wrong…</div>
       <h3>I forgot to check in</h3>
-      <p class="why">You have <b>12 hours</b> after your slot ends to explain. Then the schedule team decides whether it counts as filmed or a no-show.</p>
+      <p class="why">You usually have <b>12 hours</b> after your slot ends to explain. Then the schedule team decides whether it counts as filmed or a no-show.</p>
       <ol>
         <li>Tap <span class="ui">Explain what happened</span> on the red card in the Chat (it shows a countdown), or open the shoot.</li>
         <li>Write what happened and send.</li>
@@ -1009,13 +1014,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Tap <span class="ui">Calendar</span>, a day, then a gold time.</li>
         <li>Under <b>How long do you need?</b> pick one slot per person (3 people = <span class="ui">6 h · 3 slots</span>).</li>
-        <li>Tap each empty slot (<span class="ui">+ Add who's filming</span>) and search a friend by name or channel. "Usually films with" shortcuts show first.</li>
+        <li>Tap each empty slot (<span class="ui">+ Add who's filming</span>) and search a friend by name or channel. People you often film with show as quick picks first.</li>
         <li>You're in one slot. Tap <span class="ui">Change</span> → <span class="ui">Move me to this slot</span> to switch.</li>
         <li>Leave <b>In each other's videos</b> ticked if you're on camera together.</li>
         <li>Tap the button, for example <span class="ui">Request 6 hours · 3 people</span>.</li>
       </ol>
       <p class="say">Or type: <q>Friday at Cliff 2 with Kyle and Alex</q></p>
-      <div class="tip"><b>Tip:</b> You can cancel the slots you booked for friends.</div>
+      <div class="tip"><b>Tip:</b> Each friend's slot is their own shoot: they cancel it from their app (a friend who isn't on the app: ask the schedule team). Each friend can only have one house slot that day too.</div>
     </div>
     <figure class="shot"><img src="img/c-book-3slots.png" alt="Ask for 3 slots in a row: 11 AM You, 1 PM Kyle, 3 PM Sam Guest not on the app, In each other's videos ticked, and Request 6 hours, 3 people" loading="lazy"><figcaption>Three people, three slots</figcaption></figure>
   </section>
@@ -1038,7 +1043,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>A friend booked a slot for me</h3>
       <p class="why">Nothing to do: it's already yours (or requested, if it's waiting for approval). You get a notification and it shows in your shoots.</p>
       <ul>
-        <li>Can't make it? Cancel it from the shoot, or ask the friend to cancel it.</li>
+        <li>Can't make it? Open the shoot and cancel it yourself (the usual 48-hour rule applies).</li>
         <li>You still check in for your own slot.</li>
       </ul>
     </div>
@@ -1052,7 +1057,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Open your shoot.</li>
         <li>Under <b>Who's in this video?</b> tap <span class="ui">+ Invite</span>.</li>
-        <li>Pick the people (anyone on the app, Props only too).</li>
+        <li>Type a name or channel and tap the people (anyone on the app, Props only too), then tap <span class="ui">Invite …</span>.</li>
         <li>The list shows Waiting / In ✓ / Can't make it. Tap <span class="ui">×</span> to take someone out.</li>
       </ol>
       <p class="say">Or type: <q>invite Kyle to my Saturday shoot</q></p>
@@ -1065,7 +1070,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Someone invited me into their video</h3>
       <p class="why">You get a notification and a "wants you in their video" card. Everyone shows up at the shoot's <b>start time</b>.</p>
       <ol>
-        <li>Tap <span class="ui">I'm in</span> or <span class="ui">Can't make it</span> on the card in the Chat (Props-only creators see it on Props).</li>
+        <li>Tap <span class="ui">I'm in</span> or <span class="ui">Can't make it</span> on the card in the Chat (Props-only creators: tap the blue link on Props, or <span class="ui">Me</span> → <span class="ui">Videos you're in</span>).</li>
         <li>Once you say yes, it shows in your Coming up list, on your calendar (blue edge on that day), in your phone calendar link, and in <span class="ui">More</span> → <span class="ui">Videos you're in</span>.</li>
         <li>Can't go any more? Tap <span class="ui">Can't go</span> next to it. They're told.</li>
       </ol>
@@ -1090,7 +1095,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>a report about you that the team upholds (mess, running over),</li>
         <li>a strike an admin gives you, always with a reason.</li>
       </ul>
-      <p class="why"><b>2 strikes in 30 days</b> pause your <b>prop requests for 14 days</b>. You can still book house time and take gear. The team can lift a pause.</p>
+      <p class="why">Usually <b>2 strikes in 30 days</b> pause your <b>prop requests for 14 days</b>. You can still book house time and take gear. The team can lift a pause.</p>
       <ol>
         <li>See your strikes: <span class="ui">More</span> → the strikes card ("No strikes", "1 strike" or "Props paused until…").</li>
       </ol>
@@ -1103,12 +1108,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Set up my profile (photo, channel, birthday)</h3>
-      <p class="why">Your photo and channel name show on the schedule and to the team. On your birthday, the app throws you a little party and tells the team.</p>
+      <p class="why">Your photo and channel name show on the schedule and to the team. On your birthday, the app throws you a little party and everyone else gets a "It's your birthday today!" pop-up.</p>
       <ol>
         <li>Go to <span class="ui">More</span>.</li>
-        <li>Tap <span class="ui">Change photo</span> (your Google photo is used until you do).</li>
-        <li>Type your <b>Channel name</b> (like @yourchannel) and save.</li>
-        <li>Pick your <b>Birthday</b> month and day (no year) and save. Remove it any time.</li>
+        <li>Tap <span class="ui">Change photo</span> (your Google photo is used until you do; <span class="ui">Use Google photo</span> goes back).</li>
+        <li>Type your <b>Channel name</b> (like @yourchannel) and tap <span class="ui">Save</span>.</li>
+        <li>Pick your <b>Birthday</b> month and day (no year) and tap <span class="ui">Save</span>. <span class="ui">Remove my birthday</span> takes it off.</li>
       </ol>
     </div>
     <figure class="shot"><img src="img/c-more.png" alt="The More tab (titled Me): profile with Change photo, Channel name, Birthday month and day, Videos you're in, Notifications Turn on, Report a problem, and No strikes" loading="lazy"><figcaption>The More tab</figcaption></figure>
@@ -1136,7 +1141,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li>Go to <span class="ui">More</span> → <span class="ui">Help</span> (or the <span class="ui">?</span> button on Calendar).</li>
         <li>Type a word in the search box ("cancel", "check in").</li>
-        <li>Tap <span class="ui">All the house rules</span> at the bottom for How it works.</li>
+        <li>Tap <span class="ui">All the house rules</span> at the bottom (or <span class="ui">More</span> → <span class="ui">How it works</span>) for the rules with today's numbers.</li>
       </ol>
       <p class="why"><b>Who to ask:</b> bookings and schedule: the equipment team (Maanik). Props and costumes: the arts department. Gear: the equipment team. Strikes, pauses, inviting someone: an admin. The app itself: Report a problem.</p>
     </div>
@@ -1148,23 +1153,24 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   <div class="faq">
     <details><summary>How long is a slot, and when can I film?</summary><p>2 hours. Starts at 7, 9 and 11 AM, 1, 3, 5, 7, 9 and 11 PM (the last one ends at 1 AM). A booking takes the whole house.</p></details>
     <details><summary>Is my booking final when I tap Request?</summary><p>No. It's held for you and the equipment team or an admin approves it. You get a notification. If nobody decides before it starts, it's dropped.</p></details>
-    <details><summary>How many slots can I book a day?</summary><p>One house slot a day, Cliff 1 and Cliff 2 together. Offsite shoots don't count. Need more? Ask the schedule team.</p></details>
-    <details><summary>How far ahead do I need to ask for props?</summary><p>Props from the closet: 48 hours before your shoot starts (clock hours, Sundays count). Custom props to make or find: at least 4 open days (Sundays don't count), with no guaranteed date; sort the details with the arts department on Slack.</p></details>
-    <details><summary>Can I book gear ahead?</summary><p>No. Gear is first come, first served. On your shoot day, from an hour before, take what's free with the Take gear card in the Chat.</p></details>
+    <details><summary>How many slots can I book a day?</summary><p>One house slot a day, Cliff 1 and Cliff 2 together (more only if you're filming with friends, each in their own slot). Offsite shoots don't count. Need more yourself? Ask the schedule team.</p></details>
+    <details><summary>How far ahead do I need to ask for props?</summary><p>Props from the closet: usually 48 hours before your shoot starts (clock hours, Sundays count). Custom props to make or find: usually at least 4 open days (Sundays don't count), with no guaranteed date; sort the details with the arts department on Slack.</p></details>
+    <details><summary>Can I book gear ahead?</summary><p>No. Gear is first come, first served. Once your shoot is approved, from an hour before it, take what's free with the Take gear card in the Chat.</p></details>
     <details><summary>When is gear late, and how much is the fee?</summary><p>At the houses gear is due when your shoot ends, offsite by midnight. It's late 30 minutes after that. The fee is 10% of the gear's value, on the last person who had it. Admins can excuse exceptions.</p></details>
     <details><summary>When are props late?</summary><p>From 10 AM on the next open day after your shoot. It's logged (no fee), and you can't send new props requests until they're back.</p></details>
     <details><summary>Can I cancel without a strike?</summary><p>Yes, with 48 hours' notice, within 10 minutes of booking, if it's still a request, if you booked it less than 24 hours ahead, or if the team moved it. Otherwise it counts as a no-show. A swap never counts.</p></details>
-    <details><summary>How many strikes until I'm paused?</summary><p>2 strikes in 30 days pause your prop requests for 14 days. You can still book house time and take gear.</p></details>
+    <details><summary>How many strikes until I'm paused?</summary><p>Usually 2 strikes in 30 days pause your prop requests for 14 days. You can still book house time and take gear.</p></details>
     <details><summary>Do my friends have to confirm a back-to-back booking?</summary><p>No. Their slots are requested with yours and they're told. Only add people who will really be there.</p></details>
-    <details><summary>When does check-in open?</summary><p>15 minutes before your slot. Take one selfie on the card in the Chat.</p></details>
-    <details><summary>I missed my check-in. How long do I have to explain?</summary><p>12 hours after your slot ends. Then the schedule team decides.</p></details>
+    <details><summary>When does check-in open?</summary><p>Usually 15 minutes before your slot. Take one selfie on the card in the Chat.</p></details>
+    <details><summary>I missed my check-in. How long do I have to explain?</summary><p>Usually 12 hours after your slot ends. Then the schedule team decides.</p></details>
     <details><summary>Do I need a guideline PDF?</summary><p>Only for Cliff 1 on Thursdays and Saturdays, if you're not in the priority group.</p></details>
-    <details><summary>Why is Cliff 1 locked on Thursday and Saturday?</summary><p>They're priority days. Unclaimed slots open to everyone on the Sunday before at 6 PM.</p></details>
+    <details><summary>Why is Cliff 1 locked on Thursday and Saturday?</summary><p>They're priority days. Unclaimed slots open to everyone on the Sunday before (usually at 6 PM).</p></details>
     <details><summary>Is there crew on Sundays?</summary><p>No. Sundays are open to everyone, first come, first served, and you run the shoot yourself. Taking gear works the same.</p></details>
     <details><summary>Does the chat book things by itself?</summary><p>Never. It shows cards and buttons; nothing happens until you tap. Only a card saying Requested ✓ or Approved ✓ means it went through.</p></details>
     <details><summary>Where are the props I added? They're not sent.</summary><p>Added props stay on your phone until you send them. Look for the amber "Not sent yet" card in the Chat, or tap Review on the gold bar in Props.</p></details>
     <details><summary>I'm on "Props only". When can I book?</summary><p>When the owner switches you to the full app. Nothing to do on your side. Meanwhile you can search props, ask the AI for ideas and answer video invites.</p></details>
-    <details><summary>Notifications don't show on my iPhone.</summary><p>Add the app to your Home Screen, open it from that icon, then More → Notifications → Turn on and Send me a test. Check Settings → Notifications → Prime Capitol and turn Focus off.</p></details>
+    <details><summary>Notifications don't show on my iPhone.</summary><p>Add the app to your Home Screen, open it from that icon, then More → the Notifications card → Turn on, then Send me a test. Check Settings → Notifications → Prime Capitol and turn Focus off.</p></details>
+    <details><summary>Someone cancelled today. Can I grab the house?</summary><p>Yes. When a house shoot for today is cancelled before its time, everyone who films gets a notification that the house is free. Tap it, or open Calendar, and request the time like any other.</p></details>
     <details><summary>Does a shoot I'm invited to count against me?</summary><p>No. Being in someone's video means no check-in, no strikes and no props or gear on you. It's just so you know where to be.</p></details>
   </div>
 </div>

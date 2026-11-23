@@ -55,12 +55,12 @@ test('creator lands on the chat, picks a free time on the calendar and it waits 
     await expect(shoot.getByText(/Sent to the equipment team/)).toBeVisible()
   })
 
-  await test.step('the chat lists it as "Waiting for OK"', async () => {
+  await test.step('the chat lists it as "Waiting for approval"', async () => {
     await page.keyboard.press('Escape')
     await openTab(page, 'Chat')
     await expect(page.getByText(/Your next 1 shoot|Your next shoot/)).toBeVisible()
     await expect(page.getByText(/Cliff 2 · 3 PM–5 PM/)).toBeVisible()
-    await expect(page.getByText(/Waiting for OK/)).toBeVisible()
+    await expect(page.getByText(/Waiting for approval/)).toBeVisible()
   })
 })
 

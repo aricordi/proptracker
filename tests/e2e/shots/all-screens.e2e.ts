@@ -20,7 +20,7 @@ const DETAILS: [string, string][] = [['/reservations', 'a[href^="/reservations/"
 
 const slug = (r: string) => (r === '/' ? 'home' : r.replace(/^\//, '').replace(/[/?=&]+/g, '_'))
 async function shoot(page: Page, dir: string, name: string) {
-  await page.waitForTimeout(1200)
+  await page.waitForTimeout(1500)
   await page.screenshot({ path: path.join(dir, `${name}.png`) })
   const scrolled = await page.evaluate(() => {
     const els = [document.scrollingElement, document.getElementById('root'), ...Array.from(document.querySelectorAll('main, .overflow-y-auto'))]
@@ -35,7 +35,7 @@ async function crawl(page: Page, role: RoleKey, tag = '') {
   const seen = new Set<string>()
   for (const r of LIST) {
     try {
-      await page.goto(r); await page.waitForLoadState('networkidle').catch(() => {})
+      await page.goto(r)
       const at = new URL(page.url()); const key = at.pathname + at.search
       if (seen.has(key) && r !== '/not-a-page') continue
       seen.add(key); await shoot(page, dir, slug(r))
@@ -44,7 +44,7 @@ async function crawl(page: Page, role: RoleKey, tag = '') {
   for (const [list, sel] of DETAILS) {
     try {
       await page.goto(list); const a = page.locator(sel).first(); await a.waitFor({ timeout: 5000 })
-      await a.click(); await page.waitForLoadState('networkidle').catch(() => {})
+      await a.click()
       const key = new URL(page.url()).pathname; if (seen.has(key)) continue; seen.add(key)
       await shoot(page, dir, slug(key))
     } catch { /* not reachable for this role */ }

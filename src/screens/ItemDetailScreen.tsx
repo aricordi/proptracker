@@ -192,7 +192,7 @@ export default function ItemDetailScreen() {
             {canSeeStaff ? <>
               <p className="text-pt-text text-sm font-medium">{item.removedAt ? 'Removed in the clean-up' : item.mergedInto ? 'Combined with another prop' : 'Archived'}</p>
               <p className="text-pt-muted text-xs mt-0.5">{item.removedAt
-                ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Restore puts it back.`
+                ? `${item.removedNote || 'Removed'} · by ${(item.removedBy ?? '').split('@')[0]} · ${new Date(item.removedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}. Hidden from search; Put it back returns it.`
                 : 'Hidden from search. Its history is kept.'}</p>
             </> : <p className="text-pt-text text-sm font-medium">This prop isn't in the closet any more.</p>}
             {item.mergedInto && (
@@ -373,7 +373,7 @@ export default function ItemDetailScreen() {
             {item.archived ? (
               <button onClick={() => setArchived(false)} disabled={busy}
                 className="w-full text-pt-accent text-sm py-2 active:opacity-70 disabled:opacity-40">
-                Restore to inventory
+                Put it back
               </button>
             ) : item.collection === 'company' ? (
               <p className="text-pt-muted text-[14px] text-center">Duplicates, merging and removing: tap <b className="text-pt-text">⋯</b> at the top.</p>

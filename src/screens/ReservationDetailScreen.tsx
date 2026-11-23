@@ -122,6 +122,14 @@ export default function ReservationDetailScreen() {
           </div>
         )}
         {res.statusReason && <Banner tone="red" title={s === 'declined' ? 'Declined' : 'Note'}>{res.statusReason}</Banner>}
+        {/* Problems the creator reported from the chat (Nov 23: they only showed inside History before). */}
+        {res.issues?.length ? (
+          <Banner tone="red" title={`Problem reported (${res.issues!.length})`}>
+            {res.issues!.slice().sort((x, y) => y.at.localeCompare(x.at)).map((i, k) => (
+              <span key={k} className="block">{i.name !== 'Props' ? <strong>{i.name}: </strong> : null}{i.note} <span className="opacity-70">· {new Date(i.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></span>
+            ))}
+          </Banner>
+        ) : null}
         {res.notes && <Section title="Notes from the creator"><p className="text-pt-text text-sm whitespace-pre-wrap">{res.notes}</p></Section>}
 
         {/* ── Arts: picking ── */}
@@ -146,7 +154,7 @@ export default function ReservationDetailScreen() {
         {s === 'packed' && !mine && isStaff && <StaffPickup res={res} />}
 
         {res.pickup && (
-          <Banner tone={res.pickup.allReceived ? 'green' : 'red'} title={res.pickup.byStaff ? 'Collected: marked by the arts team' : res.pickup.allReceived ? 'Collected: creator confirmed everything ✓' : 'Collected, with an issue'}>
+          <Banner tone={res.pickup.allReceived ? 'green' : 'red'} title={res.pickup.byStaff ? 'Picked up: marked by the arts team' : res.pickup.allReceived ? 'Picked up: creator confirmed everything ✓' : 'Picked up, with an issue'}>
             Signed by {res.pickup.by} on {formatDay(studioDayOf(res.pickup.at))} at {time(res.pickup.at)}
             {res.pickup.issue && <><br /><strong>Reported:</strong> {res.pickup.issue}</>}
           </Banner>
