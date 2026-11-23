@@ -2828,6 +2828,21 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       owner guide #nov23.
     - LIVE Nov 23 (owner "put everything from today live"): backend run 45097597654 (118 updated; aiCheckPairs + analyzePropPhoto
       redeployed with `only` after quota retries) + website run 45097600016 = slots-first booking, Not filming list, offsite date box.
+    - VERSION 1.0.0 + MANUAL CHECK + POLISH PASS (owner, Nov 23; NOT deployed: website + backend (appGuide text) + FIRESTORE RULES
+      (profiles.appVersion/appVersionAt) → ask): package.json 1.0.0, CHANGELOG.md, src/lib/version.ts (APP_VERSION, compareVersions,
+      liveVersion from /version.json written by a vite plugin, no-cache in firebase.json), UpdateBanner ("Version X is ready · Update"),
+      profile appVersion saved on start (App.tsx), People shows "Older app version" only when behind, version in More/Help/bug reports.
+      Four agents checked every manual card against the code (manuals fixed) and reported app problems → fixed: one status vocabulary
+      (reservationLabels: Being prepared / Packed & ready / Picked up; "Waiting for approval"; "Put it back"), reported problems shown on
+      the props request (Reservation.issues), Move sheet "From" date + Show more, team must pick who a booking is for (pickFor), Requests
+      day sheet heads-ups + /schedule?day= link, Help/appGuide/Team guide wording (friends cancel their own slot, tab names per role,
+      suggestions not for admins), GiveSlot clash text, admin notifications path. All-screens robot (tests/e2e/shots/all-screens.e2e.ts
+      + all-sheets.e2e.ts → .e2e/screens) + 4 visual reviewers → three agents polished every screen: shared PageHeader/HeaderAction/
+      EmptyState (src/components/PageHeader.tsx) everywhere, disabled gold buttons grey (index.css), DetailLayout (laptop frame for
+      detail routes, ShellLayout.tsx), edge-to-edge pill rows (wrap on laptop), switches/round ticks instead of checkboxes, More = one
+      settings list, prop calendar closed days, chat starters reset, gear picker date row + no past default, approval cards, flags list
+      dots, Locations screen titled "Rooms", Add a prop / Save prop, /team-guide staff only, creators' /reservations → /requests.
+      Robot journeys 23/23 + crawl green, unit 537, rules 142. Manuals re-shot, PDFs + PPTX rebuilt, live pages + deck republished.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
