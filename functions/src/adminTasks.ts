@@ -15,6 +15,9 @@
 //   kind 'moveShoots' {moves: [{shootId, start, place?, date?}]} → owner, Nov 23: moves shoots as the schedule team (same checks
 //                       as Move in the app; the creator is told; logged in the team log). Each move reported, one failing doesn't stop the rest.
 //   kind 'offAppPeople' {names: [string]} → owner, Nov 23: adds people who aren't on the app yet (no access), like People → Add.
+//   kind 'mergePerson' {from, to, apply?} → owner, Nov 23: People → Change their email (preview without apply; apply moves everything).
+//   kind 'oldCalendars' {on} → owner, Nov 23: checks the app can write to each calendar, then turns "Write app bookings into the
+//                       old calendars" on (only when every old calendar is writable) or off. Only that one setting is written.
 // Long imports continue in a fresh task (continues: <id>, round n) so no run hits the 9-minute limit.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
@@ -25,6 +28,8 @@ import { GEMINI_API_KEY } from './gemini.js'
 import { startImport, processImport, approveImports, mergeImports, skipImports } from './importer.js'
 import { folderIdFrom, listSubfolders, listShortcuts, listImages } from './drive.js'
 import { moveShoot, addOffAppPerson } from './scheduling.js'
+import { changeUserEmail } from './emailMove.js'
+import { checkCalendarAccess } from './calendar.js'
 
 const BUDGET_MS = 470_000
 const MAX_ROUNDS = 40
@@ -176,6 +181,23 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       }
       out.forEach(o => say(JSON.stringify(o)))
       await ref.update({ status: 'done', result: { people: out }, log, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'mergePerson') {
+      const r = await changeUserEmail.run(asOwner({ from: String(task.from ?? ''), to: String(task.to ?? ''), apply: task.apply === true }))
+      say(JSON.stringify(r))
+      await ref.update({ status: 'done', result: r, log, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'oldCalendars') {
+      const acc = await checkCalendarAccess.run(asOwner({})) as { account: string; calendars: { id: string; name: string; role: string; canWrite: boolean; error?: string }[] }
+      acc.calendars.forEach(c => say(`${c.name}: ${c.role}${c.canWrite ? ' (can write)' : ' (CANNOT write)'}${c.error ? ' · ' + c.error : ''}`))
+      const on = task.on !== false
+      const blocked = acc.calendars.filter(c => !c.canWrite)
+      if (on && blocked.length) {
+        say(`Not turned on: the app can't write to ${blocked.map(c => c.name).join(', ')} (account ${acc.account || '?'})`)
+        await ref.update({ status: 'done', result: { turnedOn: false, access: acc }, log, finishedAt: new Date().toISOString() })
+      } else {
+        await db.doc('app_settings/schedule').set({ writeOldCalendars: on, updatedAt: new Date().toISOString(), updatedBy: OWNER_EMAIL }, { merge: true })
+        say(`writeOldCalendars = ${on}`)
+        await ref.update({ status: 'done', result: { turnedOn: on, access: acc }, log, finishedAt: new Date().toISOString() })
+      }
     } else if (task.kind === 'binShortcuts') {
       const root = folderIdFrom(String(task.folder ?? ''))
       if (!root) throw new Error('no folder')
