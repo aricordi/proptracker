@@ -2796,6 +2796,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the in-place message path clears it. (iPhone often woke/cold-started the home-screen app on '/' and dropped the link.)
       Links made more specific: cast answers → /schedule?shoot=<id>, swap accepted/declined → that shoot, block clash → /approvals.
       Needs website deploy (+ backend for the link changes).
+    - LIVE Nov 23 (owner "yeah okay"): backend run 45090771385 (green; quota retries all succeeded) + website run 45090773966 =
+      notification flood fix + tap opens its page. Safety redeploy with `only` of calendarCheck/checkCalendarNow/push triggers
+      (the deploy log can't be downloaded here to check every function).
     - WRONG GOOGLE ACCOUNT (owner, Nov 4: "it defaults to the last sign in account… even when they press sign out"): every Google
       sign-in uses `googleProvider()` (src/lib/googleSignIn.ts, prompt=select_account → Google's account chooser every time).
       NotAuthorizedScreen: gold "Use a different Google account" (opens the chooser straight away, pop-up first, redirect fallback)
