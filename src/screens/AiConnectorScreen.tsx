@@ -37,7 +37,7 @@ export default function AiConnectorScreen() {
             <li>Sign in with your Google account and tap <b>Allow</b>.</li>
             <li>In a chat, pick <b>Prime Capitol</b> from the + menu (or just ask).</li>
           </ol>
-          <p className="text-pt-muted text-[13px]">For now this needs a paid ChatGPT plan and works in typed chat. Once Prime Capitol is approved in ChatGPT's app list, everyone can add it in one tap and talk to it by voice.</p>
+          <p className="text-pt-muted text-[13px]">Works in typed chat and in ChatGPT's voice mode. No approval from OpenAI is needed: adding the link is enough.</p>
         </section>
         <section className="bg-pt-surface rounded-[20px] shadow-card p-5 space-y-2">
           <h2 className="text-[18px] font-semibold">Claude</h2>

@@ -3028,6 +3028,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       shoot-photos/<shootId>/ with taken-date → takeGear), return_gear (WRITE_OUT: their only out booking by default, photo →
       gear-returns/<id>/, damage by piece name, charging → returnGear). Reviewer demo: gear tools answer "no gear room".
       Hand-over stays in the app. Owner still to answer: what "I need a day" means; does ChatGPT show the photo cards.
+    - CHATGPT FACTS (owner, Nov 24): a custom MCP server added in ChatGPT (Plugins → + → Add custom MCP server) works in typed
+      chat AND VOICE MODE with NO OpenAI approval/submission. Older notes saying "typed chat only / voice after approval /
+      Developer mode / Plus-Pro plan" are WRONG; app screen, appGuide, manuals and owner guide corrected. Directory listing = optional.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
