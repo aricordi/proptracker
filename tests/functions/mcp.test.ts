@@ -172,6 +172,41 @@ describe('connector tools', () => {
     expect(nine.content[0].text).toMatch(/09:00–11:00/)
   })
 
+  it('understands casual words in every tool, asks when unclear, and suggests what to do next', async () => {
+    const t = await connect(ANA)
+    const MON = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+    const said = (d: string) => `${MON[Number(d.slice(5, 7)) - 1]} ${Number(d.slice(8))}`   // "nov 28"
+    const SAT = addDays(FRI, 3)   // a Monday (Saturdays at Cliff 1 are priority days)
+    // "book c2 nov 28 at 1" → Cliff 2, 1–3 PM (2 hours for one person, "1" = 1 PM).
+    const b1 = await tool(t.access_token, 'book_shoot', { place: 'c2', day: said(FRI), start: '1' })
+    expect(b1.content[0].text).toMatch(/^Requested: Cliff 2, .* 13:00–15:00/)
+    expect(b1.content[0].text).toMatch(/Next: props from the closet/)
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff one', day: said(SAT), start: '5pm', end: '7' })).content[0].text).toMatch(/^Requested: Cliff 1/)
+    // Which shoot: unclear → options; by day / house words → the right one.
+    const unclear = await tool(t.access_token, 'get_shoot', { shoot_id: 'my shoot' })
+    expect(unclear.structuredContent.needs_clarifying).toBe(true)
+    expect(unclear.structuredContent.options).toHaveLength(2)
+    const g = await tool(t.access_token, 'get_shoot', { shoot_id: 'the c2 one' })
+    expect(g.structuredContent).toMatchObject({ day: FRI, start: '13:00' })
+    expect((await tool(t.access_token, 'get_shoot', { shoot_id: said(SAT) })).structuredContent).toMatchObject({ start: '17:00', end: '19:00' })
+    // Props by name, shoot by words.
+    const rp = await tool(t.access_token, 'request_props', { shoot_id: 'the cliff 2 one', video_name: 'Ring Ring', items: [{ id: 'the red phone' }] })
+    expect(rp.content[0].text).toMatch(/^Sent: props request "Ring Ring"/)
+    expect((await tool(t.access_token, 'request_props', { shoot_id: 'the cliff 2 one', items: [{ id: 'pirate ship' }] })).content[0].text).toMatch(/custom props/)
+    // The request by its video name; the prop by name with a count.
+    const ch = await tool(t.access_token, 'change_props_request', { request_id: 'ring ring', items: [{ id: 'red rotary phone', qty: 2 }] })
+    expect(ch.content[0].text).toMatch(/Red rotary phone x2/)
+    expect((await tool(t.access_token, 'get_prop', { id: 'red phone' })).structuredContent.id).toBe('phone')
+    // A day word that covers several days asks which.
+    expect((await tool(t.access_token, 'book_shoot', { place: 'c2', day: 'this weekend', start: '1' })).structuredContent.needs_clarifying).toBe(true)
+    // "how do I…" answers from the app guide; my_status suggests what to do next.
+    const how = await tool(t.access_token, 'how_to', { question: 'how do i return my props' })
+    expect(how.structuredContent.entries.length).toBeGreaterThan(0)
+    const st = await tool(t.access_token, 'my_status')
+    expect(Array.isArray(st.structuredContent.suggestions)).toBe(true)
+    expect(st.content[0].text).toMatch(/Worth doing next/)
+  })
+
   it('cannot touch someone else\'s shoot', async () => {
     const t = await connect(ANA)
     await put('shoots/other', { creatorEmail: MAANIK, status: 'booked', date: FRI, place: 'cliff2', start: 780, end: 900 })
@@ -276,6 +311,12 @@ describe('connector tools', () => {
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff2['780']).toBeUndefined()
     const mine = (await tool(T, 'my_shoots')).structuredContent.shoots
     expect(mine.some((x: { day: string; start: string }) => x.day === FRI && x.start === '13:00')).toBe(true)
+    // Casual words work for the reviewer too: their invite by the host's name, their shoot by "next", people by name.
+    expect((await tool(T, 'answer_video_invite', { invite_id: "Jordan's", accept: true })).content[0].text).toMatch(/You're in/)
+    expect((await tool(T, 'get_shoot', { shoot_id: 'my next one' })).structuredContent.demo_account).toBe(true)
+    const plan = (await tool(T, 'plan_shoot', { with: ['Jordan', 'Kai'], day: FRI })).structuredContent
+    expect(plan.length_hours).toBe(6)
+    expect(plan.people.map((p: { status: string }) => p.status)).toEqual(['found', 'found'])
     // Turning it off cuts the reviewer off at once.
     await call('reviewerAccount', { action: 'disable' }, OWNER)
     expect((await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: `Bearer ${T}` })).status).toBe(401)

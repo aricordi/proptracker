@@ -8,7 +8,7 @@
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import { db, OWNER_EMAIL, getCaller, type Caller } from '../auth.js'
 import { collectionOf } from '../collections.js'
-import { freeForRange, todayInStudio, addDays, isDay, weekday, isOpen, type BookingEntry } from '../booking.js'
+import { freeForRange, todayInStudio, addDays, isDay, weekday, isOpen, propsDeadline, shootStartStamp, type BookingEntry } from '../booking.js'
 import { fmtTime, nowStamp } from '../gearBooking.js'
 import {
   HOUSES, BLOCK_TYPES, hardBlocks, headsUps, priorityLocked, isPriorityDay, needsGuideline, isNoCrewDay, freeGaps, houseOpen, houseClose,
@@ -19,9 +19,11 @@ import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot 
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
+import { guideFor, searchGuide, type GuideRole } from '../appGuide.js'
 import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
+import { understandArgs } from './lenient.js'
 import { runReviewerTool } from './reviewer.js'
 
 function wordScore(p: Prop, words: string[]) {
@@ -69,6 +71,9 @@ export const TOOLS = [
   { name: 'get_rules', title: 'Studio rules', annotations: READ,
     description: 'The live Prime Capitol rules (houses, booking hours, notice for props, priority days, approval, cancelling) and today\'s date in studio time (America/Toronto). Use these to reason about times and props yourself.',
     inputSchema: obj({}) },
+  { name: 'how_to', title: 'How the app works', annotations: READ,
+    description: 'Answers "how do I…" / "where do I…" / "what happens if…" questions about the Prime Capitol app and studio (returning props, taking gear, strikes, guidelines, swaps, notifications, what a status means…) from the app\'s own guide for this person\'s role, with a link to the right screen. Use it whenever the person asks how something works or seems unsure what to do.',
+    inputSchema: obj({ question: { type: 'string', description: 'Their question, in their words' } }, ['question']) },
   { name: 'whoami', title: 'Who am I', annotations: READ,
     description: 'The signed-in person: name, role and whether they can book (some creators can only browse props for now).',
     inputSchema: obj({}) },
@@ -76,13 +81,13 @@ export const TOOLS = [
     description: 'Find props, costumes and set dressing in the company closet. Matches words in names, tags, descriptions and hidden search words, plus a meaning-based match (e.g. "president" finds a Lincoln mask). Give a `day` (YYYY-MM-DD) to get how many are free that day. Returns ids, names, how many, and a photo link. Then call show_props to show pictures.',
     inputSchema: obj({ query: { type: 'string', description: 'What to look for, e.g. "vintage phone" or "something for a seance"' },
       category: { type: 'string', description: 'Optional category name to narrow it, e.g. "Costumes"' },
-      day: { type: 'string', description: 'Optional shoot day YYYY-MM-DD for availability' },
+      day: { type: 'string', description: 'Optional shoot day for availability: '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' },
       limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 20' } }, ['query']) },
   { name: 'props_for_idea', title: 'Check the closet for a video idea', annotations: READ,
     description: 'Checks which props, costumes and set dressing Prime Capitol already has for a video idea. Give the idea broken into concrete needs (per scene or character) and it looks up each one in the closet. Returns the best matches per need (id, name, how many, photo, free on the day if given) and the needs with nothing in the closet (those can be asked for as custom props). Then offer to show_props, adjust the idea to what exists, or request them for a shoot. Props, costumes and set dressing only (no cameras, lights or batteries).',
     inputSchema: obj({ idea: { type: 'string', description: 'One line about the video' },
       needs: { type: 'array', maxItems: 15, items: obj({ need: { type: 'string', description: 'A concrete thing, e.g. "police uniform" or "old rotary phone"' }, scene: { type: 'string', description: 'Optional scene or character it is for' } }, ['need']) },
-      day: { type: 'string', description: 'Optional shoot day YYYY-MM-DD for availability' } }, ['needs']) },
+      day: { type: 'string', description: 'Optional shoot day for availability: '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' } }, ['needs']) },
   { name: 'browse_props', title: 'List the whole closet', annotations: READ,
     description: 'The raw props list, page by page (names, categories, tags, how many; no photos), so you can scan it yourself for ideas. Optional category. 150 per page.',
     inputSchema: obj({ category: { type: 'string' }, page: { type: 'integer', minimum: 1, description: 'Page number, from 1' } }) },
@@ -90,13 +95,13 @@ export const TOOLS = [
     description: 'Every prop category with how many props it has.', inputSchema: obj({}) },
   { name: 'show_props', title: 'Show props with photos', annotations: READ,
     description: 'Show up to 12 props as picture cards (photo, name, how many, free on the day if given). Use after search_props whenever the person wants to see them.',
-    inputSchema: obj({ ids: { type: 'array', items: { type: 'string' }, maxItems: 12 }, day: { type: 'string', description: 'Optional YYYY-MM-DD for availability' } }, ['ids']) },
+    inputSchema: obj({ ids: { type: 'array', items: { type: 'string', description: 'Prop id or name' }, maxItems: 12 }, day: { type: 'string', description: 'Optional day for availability: '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' } }, ['ids']) },
   { name: 'get_prop', title: 'One prop in detail', annotations: READ,
     description: 'Everything about one prop: all photos, description, tags, how many, and free count on a day.',
-    inputSchema: obj({ id: { type: 'string' }, day: { type: 'string' } }, ['id']) },
+    inputSchema: obj({ id: { type: 'string', description: 'Prop id or its name' }, day: { type: 'string', description: 'Optional day: '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' } }, ['id']) },
   { name: 'get_schedule', title: 'The schedule, raw', annotations: READ,
     description: 'Who has each house when, day by day (up to 21 days): bookings with start/end, first names and collaborators (status booked / waiting for approval), blocked times, heads-ups, offsite shoots, priority days locked for this person, house opening hours, and the FREE stretches at each house (already worked out, from now on). Bookings are free-form: any start/end on the quarter hour (e.g. 13:15–15:15) inside a free stretch, at least 30 minutes, up to 2 h per person on the booking. Use your own judgement to suggest good times (e.g. next to a collaborator\'s shoot, the person\'s usual time of day), then book with book_shoot.',
-    inputSchema: obj({ from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' } }) },
+    inputSchema: obj({ from: { type: 'string', description: 'First day (default today): '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' } }) },
   { name: 'list_people', title: 'People who film', annotations: READ,
     description: 'Names of everyone who films (to add collaborators or invite into a video), each with a person id. First names may repeat; pass the person id to pick the right one. Never shows email addresses.',
     inputSchema: obj({ search: { type: 'string', description: 'Optional part of a name' } }) },
@@ -108,22 +113,23 @@ export const TOOLS = [
     inputSchema: obj({}) },
   { name: 'book_shoot', title: 'Book a shoot', annotations: WRITE_OUT,
     description: 'Book time at Cliff 1 or Cliff 2 (or an offsite shoot). Confirm the details with the person first. A creator\'s booking is a REQUEST the schedule team approves; it holds the time meanwhile. Each person gets up to 2 hours; for longer, add one collaborator per extra 2 hours in `with` (names, nicknames or person ids; plan_shoot resolves them first). Someone who films with them but isn\'t on the app goes in `with` AND `not_on_app`, only after the person confirms that. Times are HH:MM (24 h).',
-    inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string', description: 'YYYY-MM-DD' },
-      start: { type: 'string', description: 'HH:MM' }, end: { type: 'string', description: 'HH:MM' },
+    inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string', description: 'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' },
+      start: { type: 'string', description: 'HH:MM, or as said ("5", "5pm", "noon"; a bare 1–6 means PM)' }, end: { type: 'string', description: 'HH:MM or as said; leave out for 2 hours per person on the booking' },
       with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Collaborators: names or person ids (from plan_shoot or list_people)' },
       not_on_app: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Names in `with` the person confirmed are not on the app yet (booked under their name)' },
-      where: { type: 'string', description: 'Offsite only: address or place' } }, ['place', 'day', 'start', 'end']) },
+      hours: { type: 'number', minimum: 0.5, maximum: 12, description: 'Length, only if they said one and gave no end' },
+      where: { type: 'string', description: 'Offsite only: address or place' } }, ['place', 'day', 'start']) },
   { name: 'move_shoot', title: 'Move a shoot', annotations: DESTRUCTIVE_OUT,
     description: 'Move one of this person\'s shoots to another time (same rules as the app: notice period, approval). Confirm first.',
-    inputSchema: obj({ shoot_id: { type: 'string' }, place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string' }, start: { type: 'string', description: 'HH:MM' },
+    inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' }, place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string' }, start: { type: 'string', description: 'HH:MM, or as said ("5", "5pm", "noon"; a bare 1–6 means PM)' },
       end: { type: 'string', description: 'Optional HH:MM; leave out to keep the same length' } }, ['shoot_id', 'day', 'start']) },
   { name: 'cancel_shoot', title: 'Cancel a shoot', annotations: DESTRUCTIVE_OUT,
     description: 'Cancel one of this person\'s shoots. If it\'s inside the notice period it counts as a no-show: the tool refuses and explains; only retry with accept_no_show true after the person clearly agrees. Always confirm first.',
-    inputSchema: obj({ shoot_id: { type: 'string' }, accept_no_show: { type: 'boolean' } }, ['shoot_id']) },
+    inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' }, accept_no_show: { type: 'boolean' } }, ['shoot_id']) },
   { name: 'request_props', title: 'Request props for a shoot', annotations: WRITE_OUT,
     description: 'Send a props request for one of this person\'s shoots (the arts department packs it). items = prop ids from search_props with how many; custom = things to make or find (no guaranteed date). If the shoot already has a request still waiting, the props are added to it. Confirm the list first.',
-    inputSchema: obj({ shoot_id: { type: 'string' }, video_name: { type: 'string', description: 'Name of the video' },
-      items: { type: 'array', items: obj({ id: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['id', 'qty']), maxItems: 60 },
+    inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' }, video_name: { type: 'string', description: 'Name of the video' },
+      items: { type: 'array', items: obj({ id: { type: 'string', description: 'Prop id, or its name as said ("the red phone")' }, qty: { type: 'integer', minimum: 1 } }, ['id']), maxItems: 60 },
       custom: { type: 'array', items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']), maxItems: 10 },
       notes: { type: 'string' } }, ['shoot_id']) },
 ]
@@ -132,17 +138,23 @@ const ALL_TOOLS = [...TOOLS, ...MORE_TOOLS]
 export const toolsFor = (demo: boolean) => demo ? ALL_TOOLS.filter(t => !BOOKING_TOOLS.has(t.name)) : ALL_TOOLS
 
 // ─── Running a tool ─────────────────────────────────────────────────────────────────────────────────────────────────
-export async function runTool(name: string, args: Json, u: McpUser): Promise<ToolResult> {
+export async function runTool(name: string, input: Json, u: McpUser): Promise<ToolResult> {
   // OpenAI's reviewers: their own things live in a practice copy (reviewer.ts); closet tools and rules run as normal.
+  let args = input
   await ensurePeopleKey()
-  if (u.reviewer) {
-    const r = await runReviewerTool(name, args, u)
-    if (r) return r
-  }
   const caller = u.reviewer ? ({ email: u.email, name: u.name, role: 'creator', demo: false } as unknown as Caller) : await callerOf(u)
   const canBook = !caller.demo && (caller.role === 'creator' || caller.role === 'owner')
   if (BOOKING_TOOLS.has(name) && !canBook) {
     return { text: caller.demo ? 'Booking isn\'t open for you yet: for now you can search and look at props.' : 'Your role doesn\'t book shoots. Use the Prime Capitol app for team work.' }
+  }
+  // The person's own words → what the tool needs ("sat", "c2", "5", "my saturday shoot", "the red phone"); unclear → a question.
+  const u2 = await understandArgs(name, args, u)
+  if ('ask' in u2) return u2.ask
+  args = u2.args
+  // OpenAI's reviewers: their own things live in a practice copy (reviewer.ts); closet tools and rules run as normal.
+  if (u.reviewer) {
+    const r = await runReviewerTool(name, args, u)
+    if (r) return r
   }
   switch (name) {
     case 'get_rules': {
@@ -153,6 +165,13 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
       return { text: `Today is ${today} (${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekday(today)]}), studio time America/Toronto.${u.reviewer ? ' Houses: Cliff 1 and Cliff 2.' : ` Houses: Cliff 1 = ${sch.houses.cliff1.address}, Cliff 2 = ${sch.houses.cliff2.address}.`} Rules: ${rulesText(b, sch)}`,
         structured: { today, houses, house_hours: { from: hm(houseOpen(sch)), until: hm(houseClose(sch)) }, booking_step_minutes: TIME_STEP, max_hours_per_person: sch.slotMinutes / 60, can_book_long_alone: isLongBooker(u.email, sch),
           props_notice_hours: b.leadTimeHours ?? 48, custom_props_notice_days: b.buildLeadDays ?? 4, priority_weekdays: sch.priorityWeekdays, closed_weekdays: b.closedWeekdays, closed_dates: b.closedDates } }
+    }
+    case 'how_to': {
+      const role: GuideRole = caller.demo ? 'demo' : (caller.role as GuideRole)
+      const hits = searchGuide(s(args.question, 300), guideFor(role), 3)
+      if (!hits.length) return { text: 'Nothing in the app guide matches that. Try other words, or get_rules for the studio rules.', structured: { entries: [] } }
+      const entries = hits.map(e => ({ title: e.title, about: e.about.replace(/\s*\((?:owner|admin)[^)]*\b(?:Oct|Nov|Dec)\b[^)]*\)/g, '').slice(0, 900), ...(e.path && !e.path.includes(':') ? { app_link: `${APP_LINK}${e.path}` } : {}) }))
+      return { text: entries.map(e => `${e.title}: ${e.about}${e.app_link ? ` (Open: ${e.app_link})` : ''}`).join('\n\n'), structured: { entries } }
     }
     case 'whoami':
       return { text: `${caller.name} (${caller.email}), role ${caller.role}${caller.demo ? ', Props only for now (can search and look at props, not book)' : ''}.`, structured: { name: caller.name, role: caller.role, can_book: canBook } }
@@ -367,7 +386,11 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
     }
   }
   const requested = JSON.stringify(res).includes('"requested"') || res?.pending === true
-  return { text: `${requested ? 'Requested' : 'Booked'}: ${place === 'offsite' ? 'offsite' : sch.houses[place as House].name}, ${day} ${hm(start)}–${hm(realEnd)}${friends.length ? ` with ${names.join(', ')}` : ''}.${requested ? ' The schedule team approves it; the time is held for them meanwhile.' : ''}`, structured: { result: res } }
+  // What's worth doing next, from what we know (owner, Nov 24): props close a set time before the shoot.
+  const b = await loadSettings()
+  const deadline = propsDeadline(shootStartStamp(day, start), b.leadTimeHours ?? 48)
+  const nextStep = nowStamp() <= deadline ? ` Next: props from the closet for it can be requested until ${deadline.replace('T', ' ')}; want to look for props?` : ' Closet props for it are past their deadline; the arts department can be asked on Slack.'
+  return { text: `${requested ? 'Requested' : 'Booked'}: ${place === 'offsite' ? 'offsite' : sch.houses[place as House].name}, ${day} ${hm(start)}–${hm(realEnd)}${friends.length ? ` with ${names.join(', ')}` : ''}.${requested ? ' The schedule team approves it; the time is held for them meanwhile.' : ''}${nextStep}`, structured: { result: res, props_deadline: deadline.replace('T', ' ') } }
 }
 
 async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {

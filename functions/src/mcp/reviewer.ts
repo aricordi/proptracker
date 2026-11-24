@@ -17,6 +17,7 @@ import { loadScheduleSettings } from '../scheduling.js'
 import { loadSettings } from '../reservations.js'
 import { s, objs, clampInt, hm, houseNight, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
 import { resolvePerson, resolveWhen } from './understand.js'
+import { suggestNext } from './casual.js'
 
 const demoMatch = (said: string) => resolvePerson(DEMO_PEOPLE, said, REVIEWER_EMAIL, (p, id) => personId(p.email) === id)
 
@@ -54,6 +55,19 @@ async function load(key: string): Promise<Sandbox> {
   if (d?.shoots) return d
   await resetSandbox(key)
   return (await sandboxRef(key).get()).data() as Sandbox
+}
+/** The practice copy as the understanding layer needs it (lenient.ts: "my saturday shoot", "Jordan's invite"…). */
+export async function sandboxContext(key: string) {
+  const sb = await load(key)
+  return {
+    shoots: sb.shoots.filter(x => ['booked', 'requested'].includes(x.status)).map(x => ({ id: x.id, place: x.place, date: x.date, start: x.start, end: x.end, status: x.status, with: x.with,
+      titles: sb.requests.filter(r => r.shootId === x.id).map(r => r.title) })),
+    requests: sb.requests.map(r => ({ id: r.id, date: r.date, title: r.title, status: r.status, items: r.lines.map(l => `${l.itemName} x${l.qty}`) })),
+    invites: sb.invites.filter(i => i.status === 'pending').map(i => ({ id: String(i.id), who: String(i.host ?? ''), date: String(i.date ?? '') })),
+    swaps: sb.swaps.filter(x => x.status === 'pending').map(x => ({ id: String(x.id), who: String(x.from ?? ''), date: String((x.theirs as Json | undefined)?.date ?? '') })),
+    waitlist: sb.waitlist.map(w => ({ id: String(w.id), who: String(w.place ?? ''), date: String(w.day ?? w.date ?? '') })),
+    out: [] as { id: string; who: string; date: string; kind: 'props' | 'gear' }[],
+  }
 }
 const nextId = (sb: Sandbox, kind: string) => `demo-${kind}-${++sb.n}`
 
@@ -178,7 +192,12 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
         props_requests_open: sb.requests.filter(r => r.status === 'requested').map(r => ({ id: r.id, video: r.title, day: r.date, status: r.status })),
         video_invites_waiting: sb.invites.filter(i => i.status === 'pending'), swap_requests_for_you: sb.swaps.filter(x => x.status === 'pending'),
         waitlist: sb.waitlist, props_to_bring_back: [], gear_to_bring_back: [], strikes: 0, paused_until: null, demo_account: true }
-      return { text: `${next ? `Next shoot: ${next.date} ${hm(next.start)}–${hm(next.end)} ${PLACE[next.place]} (${data.next_shoot!.status}).` : 'No shoots coming up.'} ${data.video_invites_waiting.length} video invite(s) and ${data.swap_requests_for_you.length} swap request(s) waiting.`, structured: data }
+      const dl = next ? propsDeadline(shootStartStamp(next.date, next.start), 48) : ''
+      const suggestions = suggestNext({ today, upcoming: sb.shoots.filter(x => ['booked', 'requested'].includes(x.status) && x.date >= today).length, pausedUntil: null,
+        next: next ? { day: next.date, label: `${next.date} ${PLACE[next.place]}`, status: next.status, hasProps: sb.requests.some(r => r.shootId === next.id && r.status !== 'cancelled'),
+          propsOpen: now <= dl, propsDeadline: dl.replace('T', ' '), withPeople: next.with.length } : null,
+        invites: data.video_invites_waiting.map(i => String(i.host)), swaps: data.swap_requests_for_you.map(x => String(x.from)), toReturn: [], gearOut: [], waitlistOffered: 0 })
+      return { text: `${next ? `Next shoot: ${next.date} ${hm(next.start)}–${hm(next.end)} ${PLACE[next.place]} (${data.next_shoot!.status}).` : 'No shoots coming up.'} ${data.video_invites_waiting.length} video invite(s) and ${data.swap_requests_for_you.length} swap request(s) waiting.${suggestions.length ? `\nWorth doing next:\n${suggestions.map(x => `- ${x.do} (${x.why})`).join('\n')}` : ''}`, structured: { ...data, suggestions } }
     }
     case 'get_shoot': {
       const x = sb.shoots.find(y => y.id === s(a.shoot_id, 100))

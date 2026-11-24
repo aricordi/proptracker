@@ -20,6 +20,7 @@ import {
   type Json, type McpUser, type ToolResult,
 } from './common.js'
 import { resolveWhen } from './understand.js'
+import { suggestNext } from './casual.js'
 
 export const APP_URL = 'https://proptracker.arbcreative.co'
 const PLACE: Record<string, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2', offsite: 'Offsite' }
@@ -42,7 +43,7 @@ export const MORE_TOOLS = [
     inputSchema: obj({}) },
   { name: 'get_shoot', title: 'One shoot in detail', annotations: READ,
     description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, and an app link.',
-    inputSchema: obj({ shoot_id: { type: 'string' } }, ['shoot_id']) },
+    inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' } }, ['shoot_id']) },
   { name: 'plan_shoot', title: 'Plan a shoot from a casual request', annotations: READ,
     description: 'Turns a casual request to film with people (e.g. "film with Justin and Rolly tomorrow", "shoot with Ari this weekend, evenings") into a plan: who each name matches (names, nicknames, short forms and typos as said), questions to confirm (shared names, likely matches, people not on the app), the length (2 hours per person unless hours is given), the days, and times free for everyone on the booking (days a collaborator already films are skipped). Read only: books nothing. Book a chosen time with book_shoot.',
     inputSchema: obj({ with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'People filming with them, as they said the names' },
@@ -52,42 +53,42 @@ export const MORE_TOOLS = [
       houses: { type: 'array', items: { type: 'string', enum: ['cliff1', 'cliff2'] } }, limit: { type: 'integer', minimum: 1, maximum: 12, description: 'Default 6' } }) },
   { name: 'find_free_times', title: 'Find free filming times', annotations: READ,
     description: 'Search the schedule for times that fit: how long, how many people (2 h per person; longer needs collaborators), which houses, time of day or a preferred start. Returns ready-to-book options that respect this person\'s priority-day locks and one-booking-a-day limit, with notes like "needs a guideline PDF". Use your own judgement to pick or suggest between them; get_schedule has the full raw picture.',
-    inputSchema: obj({ from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' },
+    inputSchema: obj({ from: { type: 'string', description: 'First day (default today): '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' },
       hours: { type: 'number', minimum: 0.5, maximum: 12, description: 'Length, default 2' }, people: { type: 'integer', minimum: 1, maximum: 5, description: 'How many on the booking incl. the person, default 1' },
       houses: { type: 'array', items: { type: 'string', enum: ['cliff1', 'cliff2'] } }, time_of_day: { type: 'string', enum: ['any', 'morning', 'afternoon', 'evening', 'night'] },
       around: { type: 'string', description: 'Preferred start HH:MM (closest first)' }, limit: { type: 'integer', minimum: 1, maximum: 30, description: 'Default 12' } }) },
   { name: 'prop_calendar', title: 'When a prop is free', annotations: READ,
     description: 'How many units of one prop are free on each day over a range (up to 28 days). Use it to pick a shoot day around a key prop.',
-    inputSchema: obj({ id: { type: 'string' }, from: { type: 'string' }, days: { type: 'integer', minimum: 1, maximum: 28 } }, ['id']) },
+    inputSchema: obj({ id: { type: 'string', description: 'Prop id or its name' }, from: { type: 'string', description: 'First day: '+'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' }, days: { type: 'integer', minimum: 1, maximum: 28 } }, ['id']) },
   { name: 'change_props_request', title: 'Change a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Change one of the person\'s props requests while it is still "requested": set the quantity of props (0 removes one; new ids add them) and/or add custom props. Additions must still be within the props notice. Confirm the new list with the person first.',
-    inputSchema: obj({ request_id: { type: 'string' }, items: { type: 'array', maxItems: 60, items: obj({ id: { type: 'string' }, qty: { type: 'integer', minimum: 0 } }, ['id', 'qty']) },
+    inputSchema: obj({ request_id: { type: 'string', description: 'Props request id, or their words ("the ring ring one", "my friday props")' }, items: { type: 'array', maxItems: 60, items: obj({ id: { type: 'string', description: 'Prop id or its name as said' }, qty: { type: 'integer', minimum: 0 } }, ['id', 'qty']) },
       add_custom: { type: 'array', maxItems: 10, items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']) } }, ['request_id']) },
   { name: 'cancel_props_request', title: 'Cancel a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Cancel one of the person\'s props requests (only before pick-up). Confirm first.',
-    inputSchema: obj({ request_id: { type: 'string' } }, ['request_id']) },
+    inputSchema: obj({ request_id: { type: 'string', description: 'Props request id, or their words ("the ring ring one", "my friday props")' } }, ['request_id']) },
   { name: 'join_waitlist', title: 'Wait for a taken time', annotations: WRITE,
     description: 'Put the person on the waitlist for a booking someone else has (give the house, day and that booking\'s start time). If it opens up they get it held for 20 minutes and a notification. Up to 5 at once.',
-    inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2'] }, day: { type: 'string' }, start: { type: 'string', description: 'HH:MM, the start of the taken booking' } }, ['place', 'day', 'start']) },
+    inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2'] }, day: { type: 'string', description: 'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' }, start: { type: 'string', description: 'Start of the taken booking: HH:MM or as said' } }, ['place', 'day', 'start']) },
   { name: 'leave_waitlist', title: 'Leave a waitlist', annotations: DESTRUCTIVE,
-    description: 'Take the person off a waitlist (ids from my_status).', inputSchema: obj({ waitlist_id: { type: 'string' } }, ['waitlist_id']) },
+    description: 'Take the person off a waitlist (ids from my_status).', inputSchema: obj({ waitlist_id: { type: 'string', description: 'Waitlist id, or the day / house' } }, ['waitlist_id']) },
   { name: 'invite_to_video', title: 'Invite people into my video', annotations: WRITE_OUT,
     description: 'Tell people they are on camera in one of the person\'s shoots (names or person ids from list_people, people on the app). Each gets a notification to say yes or no; once they accept, the shoot shows in their app with reminders. Different from collaborators on the booking. Confirm first.',
-    inputSchema: obj({ shoot_id: { type: 'string' }, people: { type: 'array', items: { type: 'string' }, maxItems: 12 } }, ['shoot_id', 'people']) },
+    inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' }, people: { type: 'array', items: { type: 'string' }, maxItems: 12 } }, ['shoot_id', 'people']) },
   { name: 'answer_video_invite', title: 'Answer a video invite', annotations: WRITE_OUT,
-    description: 'Say yes or no to being in someone\'s video (invite ids from my_status).', inputSchema: obj({ invite_id: { type: 'string' }, accept: { type: 'boolean' } }, ['invite_id', 'accept']) },
+    description: 'Say yes or no to being in someone\'s video (invite ids from my_status).', inputSchema: obj({ invite_id: { type: 'string', description: 'Invite id, or who sent it / the day ("Jordan\'s")' }, accept: { type: 'boolean' } }, ['invite_id', 'accept']) },
   { name: 'request_swap', title: 'Ask someone to swap times', annotations: WRITE_OUT,
     description: 'Ask another creator to trade times: one of the person\'s approved house shoots for theirs (same length). They accept or decline in the app. The only no-penalty way to change inside the notice period. Confirm first.',
-    inputSchema: obj({ my_shoot_id: { type: 'string' }, their_day: { type: 'string' }, their_place: { type: 'string', enum: ['cliff1', 'cliff2'] }, their_start: { type: 'string', description: 'HH:MM of their booking' } }, ['my_shoot_id', 'their_day', 'their_place', 'their_start']) },
+    inputSchema: obj({ my_shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' }, their_day: { type: 'string', description: 'YYYY-MM-DD, or the person\'s words ("sat", "tmrw", "the 28th")' }, their_place: { type: 'string', enum: ['cliff1', 'cliff2'] }, their_start: { type: 'string', description: 'HH:MM of their booking' } }, ['my_shoot_id', 'their_day', 'their_place', 'their_start']) },
   { name: 'answer_swap', title: 'Answer a swap request', annotations: DESTRUCTIVE_OUT,
     description: 'Accept or decline a swap someone asked for (ids from my_status). Accepting trades both shoots at once. Confirm first.',
-    inputSchema: obj({ swap_id: { type: 'string' }, accept: { type: 'boolean' } }, ['swap_id', 'accept']) },
+    inputSchema: obj({ swap_id: { type: 'string', description: 'Swap id, or who asked / the day ("Sam\'s")' }, accept: { type: 'boolean' } }, ['swap_id', 'accept']) },
   { name: 'report_problem', title: 'Report something broken or missing', annotations: WRITE_OUT,
     description: 'Tell the arts department (props) or the equipment team (gear) that something the person has out is broken or missing. Ids from my_status.',
-    inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request id or gear booking id' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' } }, ['kind', 'id', 'note']) },
+    inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request or gear booking: id or their words ("the phone", "the camera kit"); can be left out if only one thing is out' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' } }, ['note']) },
   { name: 'app_link', title: 'Open the right screen in the app', annotations: READ,
     description: 'A link that opens the Prime Capitol app on the right screen for things that need the phone: picking up or returning props and gear (photos), taking gear on the shoot day, or the calendar. Give it to the person to tap.',
-    inputSchema: obj({ what: { type: 'string', enum: ['return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string' } }, ['what']) },
+    inputSchema: obj({ what: { type: 'string', enum: ['return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string', description: 'Shoot id, or the person\'s words ("saturday", "my next one", "the one with Kyle", "the c2 one")' } }, ['what']) },
 ]
 export const MORE_BOOKING = new Set(MORE_TOOLS.map(t => t.name).filter(n => n !== 'prop_calendar' && n !== 'app_link'))
 
@@ -232,7 +233,15 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     data.video_invites_waiting.length ? `${data.video_invites_waiting.length} video invite(s) waiting: ${data.video_invites_waiting.map(v => `${v.host} ${v.day}`).join(', ')}.` : '',
     data.paused_until ? `Props requests are paused until ${data.paused_until} (${data.strikes} strikes).` : data.strikes ? `${data.strikes} strike(s) in the last ${sch.strikeDays} days.` : '',
   ].filter(Boolean)
-  return { text: lines.join('\n'), structured: data }
+  const nextReqs = next ? out.filter(r => String(r.scheduleShootId ?? r.shootId ?? '') === next.id && !['cancelled', 'declined'].includes(String(r.status))) : []
+  const deadline = next ? propsDeadline(shootStartStamp(String(next.date), Number(next.start)), b.leadTimeHours ?? 48) : ''
+  const suggestions = suggestNext({ today, upcoming: shoots.length, pausedUntil: data.paused_until as string | null,
+    next: next ? { day: String(next.date), label: `${next.date} ${PLACE[String(next.place)] ?? next.place}`, status: String(next.status), hasProps: nextReqs.length > 0,
+      propsOpen: now <= deadline, propsDeadline: clock(deadline), withPeople: ((next.with ?? []) as unknown[]).length } : null,
+    invites: data.video_invites_waiting.map(v => v.host), swaps: data.swap_requests_for_you.map(v => v.from),
+    toReturn: toReturn.map(r => ({ what: String(r.video), due: r.due })), gearOut: gearOut.map(g => ({ what: g.items.join(', '), due: g.due })),
+    waitlistOffered: data.waitlist.filter(w => w.status === 'offered').length })
+  return { text: [...lines, ...(suggestions.length ? ['Worth doing next:', ...suggestions.map(x => `- ${x.do} (${x.why})`)] : [])].join('\n'), structured: { ...data, suggestions } }
 }
 
 async function getShoot(args: Json, u: McpUser): Promise<ToolResult> {
