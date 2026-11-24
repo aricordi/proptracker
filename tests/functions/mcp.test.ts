@@ -183,8 +183,8 @@ describe('connector tools', () => {
     expect(detail.structuredContent.props_still_open).toBe(true)
     const cancel = await tool(t.access_token, 'cancel_props_request', { request_id: req.id })
     expect(cancel.content[0].text).toMatch(/^Cancelled/)
-    const link = await tool(t.access_token, 'app_link', { what: 'check_in', shoot_id: shoot.id })
-    expect(link.structuredContent.url).toBe(`https://proptracker.arbcreative.co/?shoot=${shoot.id}`)
+    const link = await tool(t.access_token, 'app_link', { what: 'shoot', shoot_id: shoot.id })
+    expect(link.structuredContent.url).toBe(`https://proptracker.arbcreative.co/schedule?shoot=${shoot.id}`)
     // Someone else's props request is off limits.
     await put('reservations/theirs', { creatorEmail: MAANIK, status: 'requested', title: 'X', lines: [] })
     expect((await tool(t.access_token, 'cancel_props_request', { request_id: 'theirs' })).content[0].text).toMatch(/isn't one of your/)
@@ -194,6 +194,44 @@ describe('connector tools', () => {
     expect((await fetch(`${BASE}/.well-known/openai-apps-challenge`)).status).toBe(404)
     await put('mcp_settings/openai', { challenge: 'tok_12345678' })
     expect(await (await fetch(`${BASE}/.well-known/openai-apps-challenge`)).text()).toBe('tok_12345678')
+  })
+
+  it('the reviewers\' demo account: owner makes it, it signs in with a password and only touches a practice copy', async () => {
+    const OWNER = 'alexisricordi@gmail.com'
+    expect((await call('reviewerAccount', { action: 'create' }, ANA)).ok).toBe(false)
+    const acc = (await call('reviewerAccount', { action: 'create' }, OWNER)).result
+    expect(acc.email).toBe('reviewer@demo.primecapitol.app')
+    const reg = await (await json('/oauth/register', { client_name: 'chatgpt', redirect_uris: ['https://chatgpt.com/connector_platform_oauth_redirect'] })).json()
+    const verifier = randomBytes(32).toString('base64url')
+    const q = new URLSearchParams({ response_type: 'code', client_id: reg.client_id, redirect_uri: 'https://chatgpt.com/connector_platform_oauth_redirect', code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256' })
+    const req = new URL((await fetch(`${BASE}/oauth/authorize?${q}`, { redirect: 'manual' })).headers.get('location')!).searchParams.get('req')!
+    expect((await call('approveConnectorReviewer', { req, email: acc.email, password: 'wrong' })).ok).toBe(false)
+    const ok = await call('approveConnectorReviewer', { req, email: acc.email, password: acc.password })
+    expect(ok.ok, ok.message).toBe(true)
+    const code = new URL(ok.result.redirect).searchParams.get('code')!
+    const tok = await (await fetch(`${BASE}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: reg.client_id }) })).json()
+    const T = tok.access_token
+    const tools = (await rpc(T, 'tools/list')).result.tools.map((x: { name: string }) => x.name)
+    expect(tools).toContain('book_shoot')
+    // Sample data is there; real people are hidden.
+    await put('shoots/real', { creatorEmail: ANA, creatorName: 'Ana Lopez', status: 'booked', date: FRI, place: 'cliff2', start: 600, end: 720 })
+    await put(`schedule_days/${FRI}`, { date: FRI, cliff2: { '600': { shootId: 'real', name: 'Ana Lopez', email: ANA, kind: 'extra', time: { start: 600, end: 720 } } } })
+    const sch = await tool(T, 'get_schedule', { from: FRI, days: 1 })
+    expect(JSON.stringify(sch)).not.toContain('Ana')
+    const st = await tool(T, 'my_status')
+    expect(st.structuredContent.demo_account).toBe(true)
+    expect(st.structuredContent.video_invites_waiting).toHaveLength(1)
+    // Booking: same rules (overlap refused), saved only in the practice copy.
+    expect((await tool(T, 'book_shoot', { place: 'cliff2', day: FRI, start: '10:30', end: '12:00' })).content[0].text).toMatch(/Another creator/)
+    const b = await tool(T, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '15:00' })
+    expect(b.content[0].text).toMatch(/^Requested.*practice copy/)
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff2['780']).toBeUndefined()
+    const mine = (await tool(T, 'my_shoots')).structuredContent.shoots
+    expect(mine.some((x: { day: string; start: string }) => x.day === FRI && x.start === '13:00')).toBe(true)
+    // Turning it off cuts the reviewer off at once.
+    await call('reviewerAccount', { action: 'disable' }, OWNER)
+    expect((await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: `Bearer ${T}` })).status).toBe(401)
   })
 })
 

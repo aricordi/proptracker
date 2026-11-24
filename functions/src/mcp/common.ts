@@ -5,7 +5,9 @@ import { collectionOf } from '../collections.js'
 import { freeForRange, todayInStudio, type BookingEntry } from '../booking.js'
 import { loadSettings } from '../reservations.js'
 
-export interface McpUser { email: string; name: string; assistant: string }
+export interface McpUser { email: string; name: string; assistant: string; reviewer?: boolean }
+/** OpenAI's app reviewers' demo account (practice copy of the studio; never a real person). */
+export const REVIEWER_EMAIL = 'reviewer@demo.primecapitol.app'
 export type Json = Record<string, unknown>
 export interface ToolResult { text: string; structured?: Json; images?: { url: string; caption: string }[]; widget?: boolean }
 

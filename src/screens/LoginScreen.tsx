@@ -1,3 +1,4 @@
+import type React from 'react'
 import { useEffect, useState } from 'react'
 import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider } from 'firebase/auth'
 import { auth, USING_EMULATORS } from '../firebase'
@@ -41,7 +42,7 @@ function signInProblem(code: string) {
   return `${base}${tip} (${code})`
 }
 
-export default function LoginScreen() {
+export default function LoginScreen({ children }: { children?: React.ReactNode } = {}) {
   const [problem, setProblem] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const insideApp = USING_EMULATORS ? null : inAppBrowser(navigator.userAgent)
@@ -117,6 +118,8 @@ export default function LoginScreen() {
             use a normal tab. You only need to sign in once; you stay signed in after that.</p>
         </details>
       )}
+
+      {children}
 
       {USING_EMULATORS && (
         <div className="mt-10 w-full max-w-xs space-y-2">

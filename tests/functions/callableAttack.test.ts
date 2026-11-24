@@ -15,7 +15,9 @@ const DEMO_OK = new Set(['searchSimilar', 'photoSearch', 'propsLike', 'hotProps'
   // The ChatGPT/Claude connector's sign-in page and settings (Props-only creators may connect to search props).
   'approveConnector', 'connectorRequestInfo', 'myConnectors', 'disconnectConnector'])
 // Owner-only maintenance and money: everyone else must be refused.
-const OWNER_ONLY = ['changeUserEmail', 'saveScheduleSettings', 'saveGoogleClient', 'googleConnectStart', 'googleDisconnect',
+// Open on purpose: OpenAI's reviewers sign in with the demo account without Google (it checks its own password).
+const OPEN = new Set(['approveConnectorReviewer'])
+const OWNER_ONLY = ['reviewerAccount', 'changeUserEmail', 'saveScheduleSettings', 'saveGoogleClient', 'googleConnectStart', 'googleDisconnect',
   'googleAccountStatus', 'cleanUpPhotos', 'costReport', 'undoImport', 'startImport', 'processImport', 'rebuildSearchIndex',
   'improveSearchWords', 'updateBugReport', 'testCalendarLink', 'makeMissingThumbs', 'sendTestEmail', 'checkNoticesNow']
 
@@ -56,6 +58,7 @@ describe('every server function refuses people who are not in', () => {
     const fake = await unverifiedToken(OWNER)
     const leaks: string[] = []
     for (const name of callables) {
+      if (OPEN.has(name)) continue
       for (const [who, r] of [
         ['signed out', await call(name, {})],
         ['never invited', await call(name, {}, 'stranger@example.com')],
@@ -71,7 +74,7 @@ describe('every server function refuses people who are not in', () => {
   it('Props-only creators are refused everywhere except searching props, the AI helpers, push and problem reports', async () => {
     const leaks: string[] = []
     for (const name of callables) {
-      if (DEMO_OK.has(name)) continue
+      if (DEMO_OK.has(name) || OPEN.has(name)) continue
       const r = await call(name, {}, 'demo@example.com')
       if (r.ok || !REFUSED.includes(String(r.error))) leaks.push(`${name} let a Props-only creator in (${r.ok ? 'ok' : r.error})`)
     }

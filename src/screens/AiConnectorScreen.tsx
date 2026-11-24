@@ -1,7 +1,8 @@
 // Me → ChatGPT & Claude (owner, Nov 24): how to add Prime Capitol to your AI assistant, and the ones you've connected.
 import { useEffect, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
-import { CONNECTOR_URL, myConnectors, disconnectConnector, type Connection } from '../services/connector'
+import { CONNECTOR_URL, myConnectors, disconnectConnector, reviewerAccount, type Connection } from '../services/connector'
+import { useSession } from '../auth'
 import { friendlyError } from '../lib/errors'
 
 const ago = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : ''
@@ -57,7 +58,31 @@ export default function AiConnectorScreen() {
           ))}
           {error && <p className="text-amber-300 text-sm px-1">{error}</p>}
         </section>
+        <ReviewerCard />
       </div>
     </div>
+  )
+}
+
+// Owner only (Nov 24): the demo account OpenAI's reviewers need to test the app. It only sees a practice copy of the studio.
+function ReviewerCard() {
+  const { realRole } = useSession()
+  const [st, setSt] = useState<{ enabled: boolean; email?: string; password?: string; createdAt?: string } | null>(null)
+  const [busy, setBusy] = useState(false), [err, setErr] = useState('')
+  useEffect(() => { if (realRole === 'owner') reviewerAccount({ action: 'status' }).then(r => setSt(r.data)).catch(e => setErr(friendlyError(e))) }, [realRole])
+  if (realRole !== 'owner') return null
+  const run = async (action: 'create' | 'disable') => { setBusy(true); setErr(''); try { setSt((await reviewerAccount({ action })).data) } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) } }
+  return (
+    <section className="bg-pt-surface rounded-[20px] shadow-card p-4 space-y-2">
+      <h2 className="text-[18px] font-semibold">Demo account for app review</h2>
+      <p className="text-pt-muted text-[14px]">OpenAI's reviewers need a login to test Prime Capitol in ChatGPT. This account signs in on the ChatGPT sign-in page ("App reviewer? Use the demo account") and only sees a practice copy of the studio: the real props, made-up people and bookings. Nothing it does reaches the team, the schedule or the calendars.</p>
+      {st?.password && <div className="rounded-xl bg-pt-bg p-3 text-[14px] space-y-1"><div>Email: <b className="select-all">{st.email}</b></div><div>Password: <b className="select-all">{st.password}</b></div><p className="text-amber-200 text-xs">Copy it now: the password is only shown once. Paste both into OpenAI's form.</p></div>}
+      {st && !st.password && <p className="text-[14px]">{st.enabled ? <>On · {st.email}{st.createdAt ? ` · made ${ago(st.createdAt)}` : ''}</> : 'Off'}</p>}
+      <div className="flex gap-2">
+        <button disabled={busy} onClick={() => run('create')} className="flex-1 min-h-[44px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{st?.enabled ? 'Make a new password' : 'Turn on'}</button>
+        {st?.enabled && <button disabled={busy} onClick={() => run('disable')} className="flex-1 min-h-[44px] rounded-xl bg-white/10 disabled:opacity-40">Turn off</button>}
+      </div>
+      {err && <p className="text-amber-300 text-sm">{err}</p>}
+    </section>
   )
 }

@@ -8,3 +8,6 @@ export const approveConnector = httpsCallable<{ req: string; deny?: boolean }, {
 export interface Connection { id: string; assistant: string; connectedAt: string; lastUsed: string }
 export const myConnectors = httpsCallable<Record<string, never>, { connections: Connection[] }>(functions, 'myConnectors')
 export const disconnectConnector = httpsCallable<{ id: string }, { ok: boolean }>(functions, 'disconnectConnector')
+// OpenAI's app reviewers (owner, Nov 24): a demo account with a practice copy of the studio (nothing reaches the team).
+export const approveConnectorReviewer = httpsCallable<{ req: string; email: string; password: string }, { redirect: string }>(functions, 'approveConnectorReviewer')
+export const reviewerAccount = httpsCallable<{ action: 'status' | 'create' | 'disable' }, { enabled: boolean; email?: string; password?: string; createdAt?: string }>(functions, 'reviewerAccount')

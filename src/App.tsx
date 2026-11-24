@@ -20,6 +20,7 @@ const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
 const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const VideosScreen = lazy(() => import('./screens/VideosScreen'))
 const ConnectScreen = lazy(() => import('./screens/ConnectScreen'))
+const ReviewerSignIn = lazy(() => import('./components/ReviewerSignIn'))
 const AiConnectorScreen = lazy(() => import('./screens/AiConnectorScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
@@ -393,6 +394,8 @@ export default function App() {
   if (booting) return <Loading />
 
   if (!user) {
+    // OpenAI's app reviewers (owner, Nov 24): on the ChatGPT sign-in link only, a demo account sign-in under Google.
+    if (window.location.pathname === '/connect') return <LoginScreen><Suspense fallback={null}><ReviewerSignIn /></Suspense></LoginScreen>
     return (
       <Routes>
         <Route path="*" element={<LoginScreen />} />

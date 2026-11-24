@@ -22,6 +22,7 @@ import { rulesText } from '../assistant.js'
 import { asUser, callerOf, s, firstName, hm, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
+import { runReviewerTool } from './reviewer.js'
 
 function wordScore(p: Prop, words: string[]) {
   const hay = `${p.name} ${p.category} ${p.tags.join(' ')} ${p.description} ${p.words}`.toLowerCase()
@@ -130,7 +131,12 @@ export const toolsFor = (demo: boolean) => demo ? ALL_TOOLS.filter(t => !BOOKING
 
 // ─── Running a tool ─────────────────────────────────────────────────────────────────────────────────────────────────
 export async function runTool(name: string, args: Json, u: McpUser): Promise<ToolResult> {
-  const caller = await callerOf(u)
+  // OpenAI's reviewers: their own things live in a practice copy (reviewer.ts); closet tools and rules run as normal.
+  if (u.reviewer) {
+    const r = await runReviewerTool(name, args, u)
+    if (r) return r
+  }
+  const caller = u.reviewer ? ({ email: u.email, name: u.name, role: 'creator', demo: false } as unknown as Caller) : await callerOf(u)
   const canBook = !caller.demo && (caller.role === 'creator' || caller.role === 'owner')
   if (BOOKING_TOOLS.has(name) && !canBook) {
     return { text: caller.demo ? 'Booking isn\'t open for you yet: for now you can search and look at props.' : 'Your role doesn\'t book shoots. Use the Prime Capitol app for team work.' }

@@ -7,6 +7,9 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions'
 import type { Request } from 'express'
 import { db, CALLABLE, requireRole, getCaller } from '../auth.js'
+import { scryptSync, timingSafeEqual, randomBytes } from 'node:crypto'
+import { REVIEWER_EMAIL } from './common.js'
+import { resetSandbox } from './reviewer.js'
 import { GEMINI_API_KEY } from '../gemini.js'
 import {
   redirectAllowed, assistantName, randomToken, hashToken, pkceOk, metadata, resourceMetadata,
@@ -130,6 +133,54 @@ export const approveConnector = onCall(CALLABLE, async req => {
   const u = new URL(r.redirect); u.searchParams.set('code', code); if (r.state) u.searchParams.set('state', r.state)
   return { redirect: u.toString(), assistant: r.assistant }
 })
+// ─── The reviewers' demo account (owner, Nov 24: OpenAI needs a login and password to review the app) ────────────────
+// One account, made by the owner (More → ChatGPT & Claude → Demo account), stored as a salted scrypt hash in
+// mcp_settings/reviewer (server only). It signs in on the /connect page without Google and only ever sees the practice copy
+// of the studio (reviewer.ts): real props, made-up people and bookings. Nothing it does reaches the team or the calendars.
+const hashPassword = (password: string, salt: string) => scryptSync(password, salt, 32).toString('hex')
+async function reviewerEnabled() { return (await db.doc('mcp_settings/reviewer').get()).get('enabled') === true }
+export const reviewerAccount = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner'])
+  const ref = db.doc('mcp_settings/reviewer')
+  const action = String(req.data?.action ?? 'status')
+  if (action === 'create') {
+    const password = randomToken(9).replace(/[^A-Za-z0-9]/g, 'x').slice(0, 12) + '-' + randomBytes(2).toString('hex')
+    const salt = randomBytes(16).toString('hex')
+    await ref.set({ email: REVIEWER_EMAIL, salt, hash: hashPassword(password, salt), enabled: true, createdAt: new Date().toISOString(), createdBy: caller.email, failures: 0 })
+    await resetSandbox()
+    return { enabled: true, email: REVIEWER_EMAIL, password }
+  }
+  if (action === 'disable') {
+    await ref.set({ enabled: false, disabledAt: new Date().toISOString() }, { merge: true })
+    const toks = await db.collection('mcp_tokens').where('email', '==', REVIEWER_EMAIL).get()
+    await Promise.all(toks.docs.map(d => d.ref.delete()))
+    return { enabled: false }
+  }
+  const d = (await ref.get()).data()
+  return { enabled: d?.enabled === true, email: d?.enabled ? REVIEWER_EMAIL : undefined, createdAt: d?.createdAt }
+})
+export const approveConnectorReviewer = onCall(CALLABLE, async req => {
+  const id = String(req.data?.req ?? '')
+  const ref = db.doc(`mcp_auth_requests/${/^[\w-]{10,40}$/.test(id) ? id : 'x'}`)
+  const r = (await ref.get()).data()
+  if (!r || expired(r.expiresAt)) throw new HttpsError('not-found', 'This sign-in link ran out. Start again from ChatGPT or Claude.')
+  // A few tries per sign-in link, then it closes (no guessing the password).
+  const tries = Number(r.reviewerTries ?? 0)
+  if (tries >= 5) { await ref.delete(); throw new HttpsError('resource-exhausted', 'Too many tries. Start again from ChatGPT or Claude.') }
+  await ref.update({ reviewerTries: tries + 1 })
+  const acc = (await db.doc('mcp_settings/reviewer').get()).data()
+  const email = String(req.data?.email ?? '').trim().toLowerCase(), password = String(req.data?.password ?? '').slice(0, 200)
+  const good = !!acc?.enabled && email === acc.email && password.length > 0 &&
+    timingSafeEqual(Buffer.from(hashPassword(password, String(acc.salt)), 'hex'), Buffer.from(String(acc.hash), 'hex'))
+  if (!good) throw new HttpsError('permission-denied', 'That email and password don\'t match the demo account.')
+  const code = randomToken(32)
+  await db.doc(`mcp_codes/${hashToken(code)}`).set({ clientId: r.clientId, redirect: r.redirect, challenge: r.challenge, email: REVIEWER_EMAIL,
+    name: 'App Reviewer', assistant: r.assistant, reviewer: true, expiresAt: later(CODE_TTL_SECONDS) })
+  await ref.delete()
+  const u = new URL(r.redirect); u.searchParams.set('code', code); if (r.state) u.searchParams.set('state', r.state)
+  return { redirect: u.toString() }
+})
+
 // What the /connect page shows before Allow.
 export const connectorRequestInfo = onCall(CALLABLE, async req => {
   await requireRole(req, ['owner', 'admin', 'arts', 'equipment', 'creator'], { demoOk: true })
@@ -139,12 +190,13 @@ export const connectorRequestInfo = onCall(CALLABLE, async req => {
   return { ok: true, assistant: r.assistant }
 })
 
-async function issueTokens(email: string, name: string, clientId: string, assistant: string) {
+async function issueTokens(email: string, name: string, clientId: string, assistant: string, reviewer = false) {
   const access = randomToken(32), refresh = randomToken(32)
   const now = new Date().toISOString()
   const batch = db.batch()
-  batch.set(db.doc(`mcp_tokens/${hashToken(access)}`), { kind: 'access', email, name, clientId, assistant, expiresAt: later(ACCESS_TTL_SECONDS), createdAt: now })
-  batch.set(db.doc(`mcp_tokens/${hashToken(refresh)}`), { kind: 'refresh', email, name, clientId, assistant, expiresAt: later(REFRESH_TTL_DAYS * 86400), createdAt: now })
+  const extra = reviewer ? { reviewer: true } : {}
+  batch.set(db.doc(`mcp_tokens/${hashToken(access)}`), { kind: 'access', email, name, clientId, assistant, ...extra, expiresAt: later(ACCESS_TTL_SECONDS), createdAt: now })
+  batch.set(db.doc(`mcp_tokens/${hashToken(refresh)}`), { kind: 'refresh', email, name, clientId, assistant, ...extra, expiresAt: later(REFRESH_TTL_DAYS * 86400), createdAt: now })
   batch.set(db.doc(`mcp_connections/${email}__${clientId}`), { email, clientId, assistant, lastUsed: now, connectedAt: now }, { merge: true })
   await batch.commit()
   return { access_token: access, token_type: 'Bearer', expires_in: ACCESS_TTL_SECONDS, refresh_token: refresh, scope: 'primecapitol' }
@@ -158,14 +210,15 @@ async function token(req: Request, res: import('express').Response) {
     const c = await db.runTransaction(async tx => { const s = await tx.get(ref); if (s.exists) tx.delete(ref); return s.data() })   // one use only
     if (!c || expired(c.expiresAt) || c.clientId !== b.client_id || (b.redirect_uri && b.redirect_uri !== c.redirect)) { bad('invalid_grant'); return }
     if (!pkceOk(b.code_verifier, c.challenge)) { bad('invalid_grant', 'PKCE check failed'); return }
-    res.json(await issueTokens(c.email, c.name, c.clientId, c.assistant)); return
+    if (c.reviewer) await resetSandbox()   // every new reviewer connection starts from the same practice data
+    res.json(await issueTokens(c.email, c.name, c.clientId, c.assistant, c.reviewer === true)); return
   }
   if (b.grant_type === 'refresh_token') {
     const ref = db.doc(`mcp_tokens/${hashToken(String(b.refresh_token ?? ''))}`)
     const t = await db.runTransaction(async tx => { const s = await tx.get(ref); if (s.exists) tx.delete(ref); return s.data() })   // rotated
     if (!t || t.kind !== 'refresh' || expired(t.expiresAt) || (b.client_id && b.client_id !== t.clientId)) { bad('invalid_grant'); return }
-    if (!(await stillAllowed(t.email))) { bad('invalid_grant', 'Prime Capitol access was turned off'); return }
-    res.json(await issueTokens(t.email, t.name, t.clientId, t.assistant)); return
+    if (!(t.reviewer ? await reviewerEnabled() : await stillAllowed(t.email))) { bad('invalid_grant', 'Prime Capitol access was turned off'); return }
+    res.json(await issueTokens(t.email, t.name, t.clientId, t.assistant, t.reviewer === true)); return
   }
   bad('unsupported_grant_type')
 }
@@ -187,10 +240,10 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
   const auth = String(req.headers.authorization ?? '')
   const tok = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
   const t = tok ? (await db.doc(`mcp_tokens/${hashToken(tok)}`).get()).data() : undefined
-  if (!t || t.kind !== 'access' || expired(t.expiresAt) || !(await stillAllowed(t.email))) {
+  if (!t || t.kind !== 'access' || expired(t.expiresAt) || !(t.reviewer ? await reviewerEnabled() : await stillAllowed(t.email))) {
     res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`).json({ error: 'invalid_token' }); return
   }
-  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant }
+  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true } : {}) }
   const msg = bodyOf(req) as { jsonrpc?: string; id?: string | number; method?: string; params?: Record<string, unknown> }
   if (Array.isArray(msg)) { res.status(400).json(rpcError(null, -32600, 'Batches are not supported')); return }
   const id = msg.id ?? null
@@ -208,7 +261,7 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
     }
     case 'ping': res.json(ok(id, {})); return
     case 'tools/list': {
-      const c = await getCaller({ data: {}, auth: { uid: 'mcp', token: { email: user.email, email_verified: true } }, rawRequest: {}, acceptsStreaming: false } as never)
+      const c = user.reviewer ? null : await getCaller({ data: {}, auth: { uid: 'mcp', token: { email: user.email, email_verified: true } }, rawRequest: {}, acceptsStreaming: false } as never)
       res.json(ok(id, { tools: toolsFor(!!c?.demo).map(tl => describeTool(tl)) })); return
     }
     case 'resources/list':
