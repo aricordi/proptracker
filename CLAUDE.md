@@ -3115,6 +3115,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       constraints"; no always-awake copy): mcp onRequest = 2 GiB + 2 vCPU, concurrency 40, minInstances 0, maxInstances 3 (caps
       worst-case spend). INSTRUCTIONS SPEED line: get_context once per conversation, no chained look-ups. Always-awake (minInstances 1,
       ~$10/month) offered as the next step if still slow.
+    - LEAN CONNECTOR TEXT (owner, Nov 24: "so much faster in Claude… trim so long as it doesn't affect functionality"): measured
+      our server ~1-2 s per call; the wait is ChatGPT re-reading instructions + 38 tool definitions every turn. INSTRUCTIONS cut
+      8.5k → 2.4k chars (talk / do it / speed / studio / props / options); `functions/src/mcp/lean.ts` SHORT one-line descriptions
+      for the long tools + leanSchema (param hints = first sentence ≤80 chars), applied in describeTool (tools/list only). All
+      tools kept; full descriptions stay in tools.ts/more.ts as the reference. Tool list 31.7k → 26k chars (~30% less overall).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
