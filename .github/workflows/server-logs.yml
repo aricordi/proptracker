@@ -18,6 +18,9 @@ on:
       days:
         description: Optional, with person - days to list every calendar import for (YYYY-MM-DD,YYYY-MM-DD)
         default: ''
+      calendar:
+        description: Optional, part of an old calendar's name (e.g. Stromedy) - every future booking that came from it (read only)
+        default: ''
       imports:
         description: Show what the photo import has already seen (read only)
         type: boolean
@@ -219,6 +222,12 @@ jobs:
           PERSON: ${{ inputs.person }}
           DAYS: ${{ inputs.days }}
         run: T=$(gcloud auth print-access-token) python3 .github/scripts/person_dump.py
+
+      - name: Bookings that came from one old calendar (read only)
+        if: inputs.calendar != ''
+        env:
+          FEED: ${{ inputs.calendar }}
+        run: T=$(gcloud auth print-access-token) python3 .github/scripts/feed_dump.py
 
       - name: What the photo import has already seen (read only)
         if: inputs.imports
