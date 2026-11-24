@@ -3058,6 +3058,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       MCP Apps ui/message): Request on time rows, + Add to my shoot on props, Take this on gear; plan_shoot now has the card.
       Script → props and "make it look like this" = INSTRUCTIONS only (ChatGPT reads the closet/picture itself; custom request
       with reference_image). TO DO LATER (owner): guideline template so creators build + submit guidelines through ChatGPT.
+    - OPTION A: ✦ AI = CHATGPT/CLAUDE (owner, Nov 24; part of 1.4.0): src/components/AiLauncher.tsx (openAiLauncher(prompt),
+      AiLauncherHost mounted in AssistantProvider for canBook||demo; myConnectors → connected apps cached in localStorage
+      pc.aiConnected; preferred app pc.aiApp; goToAi opens chatgpt.com/?q= or claude.ai/new?q= with "Using Prime Capitol: …").
+      AiButton: bookers + demo → launcher; staff → app help chat. useAssistant().open('props'|'time'|'plan') → launcher;
+      open('help') → app chat. Assistant.tsx handOff(q, kind) replaces props/time/plan/photo answers (runHelpers, runOne,
+      planOnce pair, startPlan, sendPhoto) with a HandOffCard (Open ChatGPT/Claude, Open the Calendar / Search the closet,
+      2-minute setup). Chat suggestions/chips = how-to + status; say-it-once code dormant (void planOnce). Staff chat unchanged.
+      DAY VIEW: Apple-style header (left title + subtitle, ‹ › pill, Offsite), 9 AM start (earlier if something is booked),
+      "Also free before 9 AM · Show all times" bar, purple blocks; MonthGrid: creators see days past bookAheadDays (bookings
+      show, "Not open yet"), DayPickSheet notOpen = can't request.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
