@@ -275,11 +275,12 @@ export default function ScheduleScreen() {
           </div>
           <p className="text-pt-text text-sm mt-4">{sheet.slot.move ? 'Someone asked to move their shoot here. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
             : sheet.slot.pending ? 'Someone asked for this time. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
-            : 'This time is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
+            : 'This time is booked. "Find a time" shows the next free one, or tap the bell to hear if it opens up.'}</p>
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
           {canBook && !team && <WaitButton slot={sheet.slot} email={profile.email} day={days?.[sheet.slot.date]} now={now} />}
           {!sheet.slot.pending && (mine ?? []).some(x => swappable(x, now)) && (
-            <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className={`mt-2 ${btnGrey}`}>Ask to swap</button>
+            // Swaps are for after two creators already agreed (owner, Nov 24: asking out of the blue feels abrasive): a quiet link.
+            <button onClick={() => setSheet({ kind: 'swap', theirs: sheet.slot })} className="mt-3 w-full min-h-[44px] text-[13px] text-pt-muted">Already agreed with {sheet.slot.name?.split(' ')[0] || 'them'} to trade times? <b className="text-pt-text">Send the swap</b></button>
           )}
           {!sheet.slot.move && s.instantBookers.some(p => p.email === profile.email) && !s.instantBookers.some(p => p.email === sheet.slot.email) && (
             <TakeSlot slot={sheet.slot} onTaken={id => setSheet({ kind: 'shoot', id })} />
@@ -914,7 +915,7 @@ function ShootSheet({ id, team, sent, castAsk, onClose, onMove, onSwap, onGive }
         ) : (canMove || canSwap) && (
           <div className="flex gap-2">
             {canMove && <button onClick={() => onMove(shoot)} className={`flex-1 ${secondaryBtn}`}>Move</button>}
-            {canSwap && <button onClick={() => onSwap(shoot)} className={`flex-1 ${secondaryBtn}`}>Swap</button>}
+            {canSwap && <button onClick={() => onSwap(shoot)} title="Only after you've agreed with the other creator" className={`flex-1 ${secondaryBtn}`}>Swap (agreed)</button>}
           </div>
         )}
         <div>
