@@ -6,7 +6,7 @@ import { PageHeader, EmptyState } from '../components/PageHeader'
 import { useSession } from '../auth'
 import { subscribeToReservations, type Reservation } from '../services/reservations'
 import { subscribeToGearBookings, type GearBooking } from '../services/gear'
-import { useMyShoots, useScheduleSettings, checkinWindow, expectsCheckIn, fmtSlot, type Shoot } from '../services/schedule'
+import { useMyShoots, useScheduleSettings, checkinWindow, expectsCheckIn, CHECKIN_ON, fmtSlot, type Shoot } from '../services/schedule'
 import { useActiveShoot, useCutoffs } from '../activeShoot'
 import { useAssistant } from '../assistant'
 import { todayInStudio, addDays } from '../../functions/src/booking'
@@ -118,7 +118,7 @@ export default function MyShootsScreen() {
             {g.length > 0 && chip('g', 'Gear', (GEAR_WORDS[g[0].status] ?? g[0].status) + (shared ? ` · ${(shared.creatorName ?? '').split(' ')[0]}'s` : ''), cut.gear, () => add(x, '/gear'))}
           </div>
         )}
-        {!isPast && x.date === today && !x.checkin && win === 'open' && (
+        {CHECKIN_ON && !isPast && x.date === today && !x.checkin && win === 'open' && (
           <button onClick={() => open(x)} className="w-full rounded-xl py-3 font-semibold text-stone-900 bg-pt-accent shadow-gold">Check in</button>
         )}
         {!isPast && x.date !== today && !p.length && ai.available && nowStamp() <= cut.props && (

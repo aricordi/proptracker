@@ -12,7 +12,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useShootsSince, useOpenReports, useAllStatuses, decideShoot, reviewReport, liftPause, errorText,
-  isMissed, explainUntil, fmtSlot, type Shoot,
+  isMissed, explainUntil, CHECKIN_ON, fmtSlot, type Shoot,
 } from '../services/schedule'
 
 type Tab = 'checkins' | 'reports' | 'creators'
@@ -27,7 +27,7 @@ export default function ScheduleTeamScreen() {
   const shoots = useShootsSince(addDays(today, -s.strikeDays), true)
   const reports = useOpenReports(true)
   const statuses = useAllStatuses(true)
-  const [tab, setTab] = useState<Tab>('checkins')
+  const [tab, setTab] = useState<Tab>(CHECKIN_ON ? 'checkins' : 'creators')
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   async function run(key: string, f: () => Promise<unknown>) { setBusy(key); setErr(''); try { await f() } catch (e) { setErr(errorText(e)) } finally { setBusy('') } }
@@ -55,7 +55,9 @@ export default function ScheduleTeamScreen() {
 
   // The count is what can be decided now: once the creator's time to explain is over (owner, Nov 8). The list shows them all.
   const toDecide = missed.filter(x => x.explanation || now >= explainUntil(x, s)).length
-  const tabs: [Tab, string][] = [['checkins', `Check-ins${toDecide ? ` (${toDecide})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
+  // Check-in off (owner, Nov 24): only Creators (and any old reports) remain.
+  const tabs: [Tab, string][] = CHECKIN_ON ? [['checkins', `Check-ins${toDecide ? ` (${toDecide})` : ''}`], ['reports', `Reports${reports.length ? ` (${reports.length})` : ''}`], ['creators', 'Creators']]
+    : [['creators', 'Creators'], ...(reports.length ? [['reports', `Reports (${reports.length})`] as [Tab, string]] : [])]
   return (
     <div className="min-h-full bg-pt-bg pb-10">
       <PageHeader title="Schedule team" onBack={() => navigate('/schedule')}>

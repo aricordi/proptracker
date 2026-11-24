@@ -4,7 +4,7 @@ import { fmtTime, addMinutes, isGearLate } from './gearBooking.js'
 import { LATE_FEE_PERCENT } from './gearStock.js'
 import { responsible } from './gearCrew.js'
 import { returnDueDay, propsDeadline, shootStartStamp, RETURN_DEADLINE_HOUR, type ClosedDays } from './booking.js'
-import { checkinWindow, isMissed, expectsCheckIn, explainUntil, INVITE_HOLD_MINUTES, type ScheduleSettings } from './schedule.js'
+import { checkinWindow, isMissed, expectsCheckIn, explainUntil, CHECKIN_ON, INVITE_HOLD_MINUTES, type ScheduleSettings } from './schedule.js'
 
 type Doc = Record<string, any> | null | undefined
 // Who: email addresses, or a whole team ('arts-team' = props, 'gear-team' = equipment + schedule).
@@ -302,7 +302,7 @@ export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSett
   // Check-in time (houses only): one ping when it opens.
   if (house && win === 'open' && !sh.checkin && expectsCheckIn(sh as any)) out.push({ key: `checkin_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Time to check in 📸', body: `${where} · ${fmtTime(sh.start)}. Tap and take a quick selfie with your camera.` } })
   // An hour before (when check-in isn't open yet).
-  else if (win === 'early' && now >= addMinutes(sh.from, -60)) out.push({ key: `hour_${id}`, push: { to, url, tag: `shoot-${id}`, title: `Your shoot starts at ${fmtTime(sh.start)}`, body: `${where}.${house ? ` Check-in opens ${s.checkinBefore} min before.` : ''}` } })
+  else if (win === 'early' && now >= addMinutes(sh.from, -60)) out.push({ key: `hour_${id}`, push: { to, url, tag: `shoot-${id}`, title: `Your shoot starts at ${fmtTime(sh.start)}`, body: `${where}.${house && CHECKIN_ON ? ` Check-in opens ${s.checkinBefore} min before.` : ''}` } })
   // Checked in and the slot is over: one nudge to wrap ("what did you film?"), within 3 hours.
   if (sh.checkin && !sh.wrap && now >= (sh.to as string) && now < addMinutes(sh.to as string, 180))
     out.push({ key: `wrap_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'That\'s a wrap? 🎬', body: 'Tell us what you filmed. One line is enough.' } })

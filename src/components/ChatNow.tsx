@@ -26,7 +26,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime, addMinutes } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, useMyShoots, useMySwaps, useMyInvites, useMyStatus, checkInShoot, wrapShoot,
-  checkinWindow, isMissed, explainUntil, houseBookings, fmtSlot, houseFreeFrom, type Shoot,
+  checkinWindow, isMissed, explainUntil, houseBookings, CHECKIN_ON, fmtSlot, houseFreeFrom, type Shoot,
 } from '../services/schedule'
 
 const card = 'rise-in rounded-[20px] bg-pt-surface p-4 space-y-3'
@@ -77,7 +77,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const live = useMemo(() => (recent ?? []).filter(x => x.status === 'booked' && x.place !== 'offsite'), [recent])
   // Just wrapped (last 10 minutes): the card stays to say "Wrapped ✓" instead of vanishing with no confirmation.
   const justWrapped = (x: Shoot) => !!x.wrap && Date.now() - Date.parse(x.wrap.at) < 10 * 60_000
-  const onNow = live.filter(x => (!x.wrap || justWrapped(x)) && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && now < addMinutes(x.to, 180))))
+  const onNow = !CHECKIN_ON ? [] : live.filter(x => (!x.wrap || justWrapped(x)) && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && now < addMinutes(x.to, 180))))
   const missed = live.filter(x => isMissed(x, now) && !x.explanation && now < explainUntil(x, s))
   const ahead = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from))
   // Only the next 3 here (owner, Nov 5: say so, so nobody thinks it's everything they're booked for); the rest on My shoots.
@@ -433,7 +433,7 @@ function ChatIntro({ onDone }: { onAsk?: (t: string) => void; onDone: () => void
   const tips = [
     'Type it like a text. Nothing is booked until you tap Request.',
     'Ask for anything: props for a video, cancel a shoot, returning gear, something broke.',
-    'Your to-dos (check-in, returns, invites) show up right here.',
+    'Your to-dos (returns, invites, swaps) show up right here.',
   ]
   const last = n === tips.length - 1
   return (

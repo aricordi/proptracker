@@ -28,7 +28,7 @@ test('creator lands on the chat, picks a free time on the calendar and it waits 
     const heading = page.getByRole('heading', { level: 2, name: new RegExp(`${monthName} ${y}`) })
     if (!(await heading.isVisible())) await page.getByRole('button', { name: 'Next month' }).click()
     await expect(heading).toBeVisible()
-    await expect(page.getByRole('button', { name: new RegExp(`^${date}: [\\d.]+h free`) })).toBeEnabled()
+    await expect(page.getByRole('button', { name: new RegExp(`^${date}: (lots of free time|a little free time)`) })).toBeEnabled()
   })
 
   await test.step('tap the day, then a free stretch at Cliff 2', async () => {
@@ -76,7 +76,7 @@ test('free time: a creator asks for 6 hours with two people on the same booking 
   await expect(page.getByRole('heading', { level: 2, name: /^[A-Z][a-z]+ \d{4}$/ })).toBeVisible()
   const heading = page.getByRole('heading', { level: 2, name: new RegExp(`${monthName} ${y}`) })
   if (!(await heading.isVisible())) await page.getByRole('button', { name: 'Next month' }).click()
-  await expect(page.getByRole('button', { name: new RegExp(`^${date}: [\\d.]+h free`) })).toBeEnabled()
+  await expect(page.getByRole('button', { name: new RegExp(`^${date}: (lots of free time|a little free time)`) })).toBeEnabled()
   await page.getByRole('button', { name: new RegExp(`^${date}:`) }).click()
   const day = sheet(page)
   await day.locator('[data-testid="free-gap"][data-house="cliff2"]').first().click()

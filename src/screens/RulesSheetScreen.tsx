@@ -10,7 +10,7 @@ import { RETURN_DEADLINE_HOUR, todayInStudio } from '../../functions/src/booking
 import { GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
 import { LATE_FEE_PERCENT } from '../../functions/src/gearStock'
-import { LATE_START_MIN, KIND, THEMES } from '../lib/analytics'
+import { KIND, THEMES } from '../lib/analytics'
 import { LOW_SHOW_UP, OUTPUT, ATTENTION_MEANS } from '../lib/insights'
 import { formatDay } from '../lib/dates'
 import { PageHeader } from '../components/PageHeader'
@@ -72,9 +72,7 @@ export default function RulesSheetScreen() {
       ['Low show-up', `under ${Math.round(LOW_SHOW_UP * 100)}%`, 'Filmed out of booked, once they have 2 or more shoots in the range.', owner],
     ] },
     { title: 'On the day, strikes and pauses', rows: [
-      ['Check-in opens', `${s.checkinBefore} min before`, 'Creators check in with a selfie (camera only) from this time until the slot ends.', owner],
-      ['Started late', `more than ${LATE_START_MIN} min`, 'Checking in this long after the slot began shows a "Started late" flag in Analytics.', owner],
-      ['Time to explain a missed check-in', `${s.explainHours} h`, 'After that, the team decides: they filmed, or a no-show (strike).', owner],
+      ['Check-in', 'Off', 'No check-in on the day. A shoot counts as filmed unless the schedule team marks a no-show (a strike) on its card.', owner],
       ['Automatic pause', `${s.strikeCount} strikes in ${s.strikeDays} days`, `Pauses prop bookings for ${s.pauseDays} days (house time still OK). Admins can give, remove and lift.`, owner],
       ['Old photos', `taken more than ${OLD_PHOTO_MINUTES} min before upload`, 'Proof photos show a red warning, so people can\'t reuse old pictures.', owner],
     ] },

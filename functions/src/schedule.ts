@@ -483,7 +483,12 @@ export interface AttendanceShoot { status: string; from: string; to: string; che
  *  not people on Props only. `checksIn` is stamped on the shoot when its check-in opens (push.ts), from the person's access AT
  *  THAT TIME, so switching someone to the Full app later never turns their past shoots into missed check-ins. Before the
  *  stamp: shoots made in the app expect one (unless `canCheckIn` says the person can't); imported ones don't. */
-export const expectsCheckIn = (sh: AttendanceShoot, canCheckIn?: (email: string) => boolean) =>
+// CHECK-IN OFF (owner, Nov 24: "remove the check in selfie and the whole check in mechanism"): nobody is asked to check in
+// or wrap, nothing is ever a missed check-in; a shoot counts as filmed unless the team marks a no-show. Flip to bring it back.
+export let CHECKIN_ON = false
+/** Tests only: turn the old check-in rules back on to keep testing them. */
+export function setCheckinOn(on: boolean) { CHECKIN_ON = on }
+export const expectsCheckIn = (sh: AttendanceShoot, canCheckIn?: (email: string) => boolean) => CHECKIN_ON &&
   sh.place !== 'offsite' && !sh.toCheck && (sh.checksIn ?? (!sh.importedFrom && (canCheckIn && sh.creatorEmail ? canCheckIn(sh.creatorEmail) : true)))
 // Check-in opens a little before the start and stays open until the end.
 export function checkinWindow(sh: { from: string; to: string }, now: string, s: ScheduleSettings): 'early' | 'open' | 'over' {

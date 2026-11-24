@@ -34,7 +34,7 @@ import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, needsGuideline, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, redoCalendarImport, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
-  checkinWindow, isMissed, explainUntil, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
+  checkinWindow, isMissed, explainUntil, CHECKIN_ON, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
   monthOf, isShortNotice, withinUndo, bookedLate, cancelCountsAsNoShow, timeSetByTeam, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive, swapShootsAsTeam,
@@ -164,7 +164,7 @@ export default function ScheduleScreen() {
           <div className="flex items-center gap-2 ml-auto">
             <AiButton mode="time" />
             <MyRequestsButton />
-            {teamView && <RoundIcon icon="team" label="Check-ins, reports and creators" to="/schedule/team" />}
+            {teamView && <RoundIcon icon="team" label={CHECKIN_ON ? "Check-ins, reports and creators" : "Creators and no-shows"} to="/schedule/team" />}
             {role === 'owner' && <RoundIcon icon="settings" label="Schedule settings" to="/schedule/settings" />}
             <RoundIcon icon="help" label="Help" to="/help" />
           </div>
@@ -777,7 +777,8 @@ function ShootSheet({ id, team, sent, castAsk, onClose, onMove, onSwap, onGive }
         {shoot.status === 'denied' && <p className="rounded-xl px-3 py-3 text-sm border border-red-400/40 bg-red-400/10 text-pt-text">Not approved{shoot.deniedReason ? `: ${shoot.deniedReason}` : '.'}</p>}
         {shoot.moveRequest && <p className="rounded-xl px-3 py-3 text-sm border border-amber-400/40 bg-amber-400/10 text-pt-text">
           Move requested to <b>{shoot.moveRequest.place === 'offsite' ? shoot.moveRequest.where : s.houses[shoot.moveRequest.place].name} · {formatDay(shoot.moveRequest.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtSlot(shoot.moveRequest.start, shoot.moveRequest.end - shoot.moveRequest.start)}</b>. This time stays yours until it's approved.</p>}
-        {shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
+        {CHECKIN_ON && shoot.status === 'booked' && <OnTheDay shoot={shoot} mine={mine} team={team} />}
+        {!CHECKIN_ON && team && shoot.status === 'booked' && <TeamOutcome shoot={shoot} />}
         {isLive(shoot) && <ShootNeeds shoot={shoot} mine={mine} team={team} />}
         {isLive(shoot) && !shoot.creatorEmail.startsWith('guest:') && (mine || team) && <ShootCast shoot={shoot} team={team && !mine} autoInvite={castAsk} note={mine ? videoNoteFor(shoot, (myVideos ?? []).filter(v => isUpcoming(v))) : null} />}
         {mine && upcoming && short && !team && (
@@ -1313,6 +1314,33 @@ function CalendarSheet({ team, onClose }: { team: boolean; onClose: () => void }
         </div>
       )}
     </BottomSheet>
+  )
+}
+
+// Check-in off (owner, Nov 24): once a shoot has started, the schedule team can mark it a no-show (strike) or filmed.
+function TeamOutcome({ shoot }: { shoot: Shoot }) {
+  const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [ask, setAsk] = useState(false)
+  if (nowStamp() < shoot.from) return null
+  if (shoot.outcome || shoot.noShow) return <p className="text-pt-muted text-sm">{shoot.noShow || shoot.outcome === 'noshow' ? 'Marked a no-show (strike).' : 'Marked as filmed ✓'}</p>
+  async function go(outcome: 'filmed' | 'noshow') {
+    setBusy(true); setErr('')
+    try { await decideShoot({ id: shoot.id, outcome }) } catch (e) { setErr(errorText(e)) } finally { setBusy(false); setAsk(false) }
+  }
+  return (
+    <div className="rounded-xl bg-pt-bg/60 p-3 space-y-2">
+      <p className="text-pt-text text-sm font-semibold">Did they film?</p>
+      <p className="text-pt-muted text-xs">It counts as filmed unless you mark a no-show.</p>
+      {!ask ? <div className="flex gap-2">
+        <button disabled={busy} onClick={() => go('filmed')} className="flex-1 min-h-[44px] rounded-xl bg-pt-border text-pt-text text-sm font-semibold">They filmed</button>
+        <button disabled={busy} onClick={() => setAsk(true)} className="flex-1 min-h-[44px] rounded-xl bg-red-500/15 text-red-300 text-sm font-semibold">No-show</button>
+      </div> : <div className="space-y-2">
+        <p className="text-pt-text text-sm">Mark {shoot.creatorName.split(' ')[0]} as a no-show? It gives them a strike.</p>
+        <div className="flex gap-2">
+          <button onClick={() => setAsk(false)} className="flex-1 min-h-[44px] rounded-xl bg-pt-border text-pt-text text-sm">Back</button>
+          <button disabled={busy} onClick={() => go('noshow')} className="flex-1 min-h-[44px] rounded-xl bg-red-500 text-white text-sm font-semibold disabled:opacity-40">{busy ? 'Saving…' : 'No-show · strike'}</button>
+        </div></div>}
+      {err && <p className="text-red-300 text-sm">{err}</p>}
+    </div>
   )
 }
 

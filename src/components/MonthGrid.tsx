@@ -16,9 +16,10 @@ export const monthTitle = (month: string) => new Date(`${month}-15T12:00:00Z`).t
 export function daysOfMonth(month: string) { const out: string[] = []; for (let d = monthStart(month); d.startsWith(month); d = addDays(d, 1)) out.push(d); return out }
 
 // Free time (owner, Nov 24): any start/end in 15-minute steps, so a day is counted in FREE MINUTES, not slots.
-// freeAt: one entry per hour of the day (morning → night): any free time then at the picked house(s)? null = already over.
+// freeAt: one entry per hour of the day (morning → night): how much of that hour is bookable (0–1, the best of the picked
+// houses); null = already over.
 // locked: free minutes on a Cliff 1 priority day that only the priority group can book until the Sunday release.
-export interface DayCount { free: number; total: number; booked: number; requested: number; locked: number; mine: boolean; freeAt: (boolean | null)[] }
+export interface DayCount { free: number; total: number; booked: number; requested: number; locked: number; mine: boolean; freeAt: (number | null)[] }
 export function countDay(day: ScheduleDay | undefined, date: string, houses: House[], s: ScheduleSettings, email: string, now: string, team: boolean): DayCount {
   const open = houseOpen(s), close = houseClose(s), hours = Math.max(1, Math.ceil((close - open) / 60))
   const c: DayCount = { free: 0, total: 0, booked: 0, requested: 0, locked: 0, mine: false, freeAt: Array.from({ length: hours }, () => null) }
@@ -34,8 +35,8 @@ export function countDay(day: ScheduleDay | undefined, date: string, houses: Hou
       const a = open + i * 60, b = Math.min(close, a + 60)
       if (over(b)) continue
       c.total += b - a
-      const f = !locked && gaps.some(g => g.start < b && g.end > a)
-      c.freeAt[i] = c.freeAt[i] === true || f
+      const part = locked ? 0 : gaps.reduce((n, g) => n + Math.max(0, Math.min(b, g.end) - Math.max(a, g.start)), 0) / (b - a)
+      c.freeAt[i] = Math.max(c.freeAt[i] ?? 0, part)
     }
     for (const bk of houseBookings(day, h, s, now)) {
       if (bk.entry.hold) continue
@@ -46,10 +47,18 @@ export function countDay(day: ScheduleDay | undefined, date: string, houses: Hou
   for (const o of day?.offsite ?? []) { if (o.pending) c.requested++; if (o.email?.toLowerCase() === me) c.mine = true }
   return c
 }
-/** Free minutes as a short label for a calendar square: "5h", "1.5h" (rounded down to the half hour, never overstated). */
-export const freeLabel = (min: number) => `${Math.floor(min / 30) / 2}h`
-/** "A few left" = less than one 2-hour booking per house would still fit twice. */
+/** Words for screen readers (owner, Nov 24: no hour counts on the squares, the bar shows it). */
+const amount = (min: number) => min === 0 ? 'full' : min <= FEW_MINUTES ? 'a little free time' : 'lots of free time'
+/** "A little free time" = 4 hours or less left. */
 const FEW_MINUTES = 4 * 60
+/** The day's bar: one segment per hour, bright = the whole hour is free, faint = part of it, grey = taken (or over). */
+function DayBar({ c, past, tone, wide = 'w-[80%]' }: { c: DayCount; past: boolean; tone: string; wide?: string }) {
+  return (
+    <span className={`${wide} flex gap-px h-1.5 lg:h-2`} aria-hidden>
+      {c.freeAt.map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${!past && f ? tone : 'bg-pt-border'} ${!past && f && f < 0.99 ? 'opacity-45' : ''} ${f === null && !past ? 'opacity-40' : ''}`} />)}
+    </span>
+  )
+}
 
 // Which house the month shows (owner, Nov 4, option B: people prefer Cliff 1, so it opens on Cliff 1; remembered per phone).
 export type MonthHouse = House | 'all'
@@ -114,14 +123,13 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const hint = alt > c.free ? alt : 0
           const n = Number(date.slice(8))
           const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= FEW_MINUTES ? 'few' : 'lots'
-          const tone = level === 'few' ? 'text-amber-300' : 'text-green-400'
           const bar = level === 'few' ? 'bg-amber-300' : 'bg-green-400'
           // Owner, Nov 4: your filming days stand out (gold tint + gold edge), and today is a white circle on the date.
           const mine = !!myDates?.has(date) || (c.mine && !team)
           const inVideo = !!castDates?.has(date) && !past
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : inVideo ? 'shadow-[inset_0_0_0_2px_#7DD3FC]' : ''
           return (
-            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}${inVideo ? ", you're in someone's video" : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : `${freeLabel(x.free)} free`}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${freeLabel(c.free)} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${freeLabel(hint)} free` : ''}`}
+            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}${inVideo ? ", you're in someone's video" : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : amount(x.free)}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${amount(c.free)} at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has time` : ''}`}
               className={`relative ${house === 'all' ? 'aspect-[0.7] lg:aspect-[0.95] pt-1 pb-1.5' : 'aspect-[0.82] pt-1.5 pb-2'} rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               {/* Nov 13 polish: corner dots sit 7px in, clear of the rounded corner and the gold edge; the heads-up dot moves left when the request badge takes the right corner. */}
               {!past && headsUps(days?.[date]).length > 0 && <i className={`absolute top-[7px] lg:top-2.5 ${team && c.requested > 0 ? 'left-[7px] lg:left-2.5' : 'right-[7px] lg:right-2.5'} w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full ring-[1.5px] ring-amber-300 bg-transparent`} aria-label="Heads-up that day" />}
@@ -138,23 +146,17 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
                 <span className={`font-bold leading-none ${date === today ? `text-[16px] lg:text-[19px] w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-white text-stone-900 flex items-center justify-center ${mine ? 'ring-2 ring-pt-accent' : ''}` : `text-[18px] lg:text-[22px] ${mine ? 'text-pt-accent' : 'text-pt-text'}`}`}>{n}</span>
               </span>
               {house === 'all' ? <AllCell days={days?.[date]} date={date} s={s} email={email} now={now} lockFree={lockFree} past={past} /> : <>
-              {!past && (
-                <span className="flex flex-col items-center leading-none gap-0.5">
-                  {prio
-                    ? <span className={`inline-flex items-center ${hint > 0 ? 'gap-[3px]' : 'gap-1'} text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap`}><Icon name="lock" className={hint > 0 ? 'w-3 h-3 lg:w-3.5 lg:h-3.5' : 'w-3.5 h-3.5'} />{hint > 0
-                        ? <span className="text-sky-300">{other === 'cliff2' ? 'C2' : 'C1'}<span className="hidden lg:inline">:</span> {freeLabel(hint)}<span className="hidden lg:inline"> free</span></span>
-                        : <span className="hidden lg:inline">Priority</span>}</span>
-                    : hint > 0
-                    ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'}: {freeLabel(hint)}<span className="hidden lg:inline"> free</span></span>
-                    : c.free === 0
-                    ? <span className="text-xs font-semibold text-pt-muted">Full</span>
-                    : <span className={`text-xs lg:text-[13px] font-semibold ${tone}`}>{freeLabel(c.free)} free</span>}
-                </span>
-              )}
-              {/* Owner, Nov 4: the bar shows WHICH times are free, morning (left) to night (right), not how many. */}
-              <span className="w-[80%] flex gap-px h-1.5 lg:h-2" aria-hidden>
-                {c.freeAt.map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${!past && f ? bar : 'bg-pt-border'} ${f === null && !past ? 'opacity-40' : ''}`} />)}
+              {/* Owner, Nov 24: no hour counts, just the bar; words only when it matters (full, priority, the other house has time). */}
+              <span className="h-4 lg:h-5 flex items-center leading-none">
+                {!past && (prio
+                  ? <span className="inline-flex items-center gap-1 text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap"><Icon name="lock" className="w-3 h-3 lg:w-3.5 lg:h-3.5" />{hint > 0 ? <span className="text-sky-300">{other === 'cliff2' ? 'C2' : 'C1'}</span> : <span className="hidden lg:inline">Priority</span>}</span>
+                  : hint > 0
+                  ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'} open</span>
+                  : c.free === 0
+                  ? <span className="text-xs font-semibold text-pt-muted">Full</span>
+                  : null)}
               </span>
+              <DayBar c={c} past={past} tone={bar} />
               </>}
             </button>
           )
@@ -162,15 +164,12 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
       </div>
       <MonthKey>
       <div className="flex flex-wrap gap-3 text-xs text-pt-muted">
-        {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">Each day shows the free hours per house:
-          <LegendChip tone="lots" house="C1" n="9h" /><span>lots free</span>
-          <LegendChip tone="few" house="C2" n="2.5h" /><span>a few left</span>
-          <LegendChip tone="full" house="C1" n="0h" /><span>full</span></span>
-        : <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(houseOpen(s))} on the left to ${fmtHour(houseClose(s))} on the right` : 'morning to night'}: lit = free then at {HOUSE_NAME[house as House]}</span>}
-        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>}
-        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>}
+        {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">Each day shows a bar per house (C1, C2), morning on the left to night on the right: bright = free that hour, faint = partly free.</span>
+        : <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(houseOpen(s))} on the left to ${fmtHour(houseClose(s))} on the right` : 'morning to night'}: bright = free that hour at {HOUSE_NAME[house as House]}, faint = partly free</span>}
+        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots of time</span>}
+        {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A little time left</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>}
-        {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3h' : 'C1: 3h'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free hours</span>}
+        {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2 open' : 'C1 open'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has time</span>}
         {(house === PRIORITY_HOUSE || house === 'all') && !lockFree && s.priorityWeekdays.length > 0 && <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5 text-pt-text/80" />Priority day: open to everyone from Sunday {fmtTime(s.releaseMinute)}</span>}
         <span><i className="inline-block w-2 h-2 rounded-full ring-[1.5px] ring-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team && <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>}
@@ -183,29 +182,22 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
   )
 }
 
-// One day in the ALL view (owner, Nov 9: "tough to see what's free on Cliff 1 versus Cliff 2"): two chips, one per house, with
-// the free count in the same colours as the single-house view (green lots, amber a few, grey full; lock = priority day).
-const CHIP = 'inline-flex items-center justify-center gap-[5px] lg:gap-1.5 h-[18px] lg:h-6 min-w-[38px] lg:min-w-[64px] px-1.5 rounded-full text-xs lg:text-[13px] font-bold leading-none whitespace-nowrap'
-const CHIP_TONE = { lots: 'bg-green-400/20 text-green-300', few: 'bg-amber-300/20 text-amber-200', full: 'bg-white/[0.06] text-pt-muted', lock: 'bg-white/10 text-pt-text/85' }
-function LegendChip({ tone, house, n }: { tone: keyof typeof CHIP_TONE; house: string; n: string }) {
-  return <span className={`${CHIP} ${CHIP_TONE[tone]}`}><span className="font-medium text-pt-text/55">{house}</span><span>{n}</span></span>
-}
+// One day in the ALL view (owner, Nov 9: "tough to see what's free on Cliff 1 versus Cliff 2"; Nov 24: bars, not hour counts):
+// a small bar per house, same colours as the single-house view (green lots, amber a little; Full; lock = priority day).
 function AllCell({ days, date, s, email, now, lockFree, past }: {
   days: ScheduleDay | undefined; date: string; s: ScheduleSettings; email: string; now: string; lockFree: boolean; past: boolean
 }) {
   if (past) return <span className="h-[18px]" />
   return (
-    <span className="flex flex-col items-center gap-[3px] lg:gap-1">
+    <span className="w-[86%] flex flex-col gap-1.5 lg:gap-2">
       {HOUSES.map(h => {
         const c = countDay(days, date, [h], s, email, now, lockFree)
-        const short = h === 'cliff1' ? 'C1' : 'C2'
         const locked = c.free === 0 && c.locked > 0
-        const tone = locked ? CHIP_TONE.lock : c.free === 0 ? CHIP_TONE.full : c.free <= FEW_MINUTES ? CHIP_TONE.few : CHIP_TONE.lots
+        const tone = c.free <= FEW_MINUTES ? 'bg-amber-300' : 'bg-green-400'
         return (
-          <span key={h} className={`${CHIP} ${tone}`}>
-            <span className="font-medium text-pt-text/55">{short}</span>
-            {locked ? <Icon name="lock" className="w-3 h-3" /> : <span>{freeLabel(c.free)}</span>}
-            <span className="hidden lg:inline font-semibold opacity-80">{locked ? '' : ' free'}</span>
+          <span key={h} className="flex items-center gap-1">
+            <span className="text-[11px] lg:text-xs font-semibold text-pt-text/55 w-[14px] lg:w-[18px] leading-none">{h === 'cliff1' ? 'C1' : 'C2'}</span>
+            {locked ? <Icon name="lock" className="w-3 h-3 text-pt-text/70" /> : c.free === 0 ? <span className="text-[11px] text-pt-muted leading-none">Full</span> : <DayBar c={c} past={false} tone={tone} wide="flex-1" />}
           </span>
         )
       })}

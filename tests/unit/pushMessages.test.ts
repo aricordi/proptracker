@@ -1,7 +1,13 @@
 // Phone notifications: who gets told what, and when the reminders go out.
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { setCheckinOn } from '../../functions/src/schedule'
 import { inviteChange, swapChange, reservationChange, gearChange, shootChange, strikeCreated, reportCreated, houseFreed, shootReminders, propsReminders, gearReminders, dayLabel } from '../../functions/src/pushMessages'
 import { cleanScheduleSettings } from '../../functions/src/schedule'
+
+// These test the old check-in rules (turned off Nov 24, kept behind a switch).
+setCheckinOn(true)   // before any data is built at the top of the file
+afterAll(() => setCheckinOn(false))
+
 
 const s = cleanScheduleSettings({})
 const closed = { closedWeekdays: [0], closedDates: [] as string[] }

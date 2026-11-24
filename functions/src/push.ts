@@ -18,6 +18,7 @@ import {
   shootReminders, propsReminders, gearReminders, type Push, type Reminder,
 } from './pushMessages.js'
 import { castReminders, type CastInvite } from './cast.js'
+import { CHECKIN_ON } from './schedule.js'
 
 export const APP_URL = 'https://proptracker.arbcreative.co'
 const isEmulator = () => process.env.FUNCTIONS_EMULATOR === 'true'
@@ -213,7 +214,7 @@ export async function runReminders(now = nowStamp()) {
       if (!(sh.status === 'booked' || sh.status === 'requested') || sh.toCheck) continue
       // When check-in opens, remember whether this person could check in then (audit, Nov 5): Props-only creators' shoots
       // (calendar imports) never ask them to, and switching them to the Full app later doesn't turn old shoots into misses.
-      if (sh.status === 'booked' && sh.place !== 'offsite' && sh.checksIn === undefined && now >= addMinutes(sh.from, -s.checkinBefore)) {
+      if (CHECKIN_ON && sh.status === 'booked' && sh.place !== 'offsite' && sh.checksIn === undefined && now >= addMinutes(sh.from, -s.checkinBefore)) {
         sh.checksIn = await canCheckIn(String(sh.creatorEmail ?? ''))
         await d.ref.update({ checksIn: sh.checksIn }).catch(e => logger.warn('stamp checksIn', d.id, String(e)))
       }

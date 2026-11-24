@@ -1,13 +1,13 @@
 // More connector tools (owner, Nov 24: "full functionality… leverage all of ChatGPT's intelligence"). Same two kinds as
 // tools.ts: LOOK tools give raw facts the assistant reasons over; DO tools run the app's own server functions AS the person,
-// so every rule, limit and approval applies exactly as in the app. Things that need the phone's camera (check-in selfie,
-// return photo, taking gear) come back as a link that opens the right screen in the app.
+// so every rule, limit and approval applies exactly as in the app. Things that need the phone's camera (return photos,
+// taking gear) come back as a link that opens the right screen in the app.
 import { HttpsError } from 'firebase-functions/v2/https'
 import { db } from '../auth.js'
 import { todayInStudio, addDays, isDay, shootStartStamp, propsDeadline, lastDayToBook, returnDueDay, freeForRange, type BookingEntry } from '../booking.js'
-import { nowStamp, addMinutes } from '../gearBooking.js'
+import { nowStamp } from '../gearBooking.js'
 import {
-  HOUSES, freeGaps, priorityLocked, needsGuideline, houseSlotsOn, slotsPerDayFor, maxMinutesFor, isLongBooker, checkinWindow,
+  HOUSES, freeGaps, priorityLocked, needsGuideline, houseSlotsOn, slotsPerDayFor, maxMinutesFor, isLongBooker,
   TIME_STEP, type House, type ScheduleDay,
 } from '../schedule.js'
 import { loadScheduleSettings, filmingPeople, requestSwap, answerSwap } from '../scheduling.js'
@@ -36,10 +36,10 @@ async function ownShoot(id: string, u: McpUser, allowCrew = true) {
 
 export const MORE_TOOLS = [
   { name: 'my_status', title: 'What needs my attention', annotations: READ,
-    description: 'A quick personal dashboard: the next shoot (and when check-in opens), props or gear to bring back (and when they are due), props requests that still need something, video invites and swap requests waiting for an answer, waitlist spots, strikes and any pause. Use it when the person asks "what do I have going on?" or before planning.',
+    description: 'A quick personal dashboard: the next shoot (and the deadline to add props), props or gear to bring back (and when they are due), props requests that still need something, video invites and swap requests waiting for an answer, waitlist spots, strikes and any pause. Use it when the person asks "what do I have going on?" or before planning.',
     inputSchema: obj({}) },
   { name: 'get_shoot', title: 'One shoot in detail', annotations: READ,
-    description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, check-in status, and an app link.',
+    description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, and an app link.',
     inputSchema: obj({ shoot_id: { type: 'string' } }, ['shoot_id']) },
   { name: 'find_free_times', title: 'Find free filming times', annotations: READ,
     description: 'Search the schedule for times that fit: how long, how many people (2 h per person; longer needs collaborators), which houses, time of day or a preferred start. Returns ready-to-book options that respect this person\'s priority-day locks and one-booking-a-day limit, with notes like "needs a guideline PDF". Use your own judgement to pick or suggest between them; get_schedule has the full raw picture.',
@@ -77,8 +77,8 @@ export const MORE_TOOLS = [
     description: 'Tell the arts department (props) or the equipment team (gear) that something the person has out is broken or missing. Ids from my_status.',
     inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request id or gear booking id' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' } }, ['kind', 'id', 'note']) },
   { name: 'app_link', title: 'Open the right screen in the app', annotations: READ,
-    description: 'A link that opens the Prime Capitol app on the right screen for things that need the phone: checking in (selfie), wrapping, picking up or returning props and gear (photos), taking gear on the shoot day, or the calendar. Give it to the person to tap.',
-    inputSchema: obj({ what: { type: 'string', enum: ['check_in', 'wrap', 'return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string' } }, ['what']) },
+    description: 'A link that opens the Prime Capitol app on the right screen for things that need the phone: picking up or returning props and gear (photos), taking gear on the shoot day, or the calendar. Give it to the person to tap.',
+    inputSchema: obj({ what: { type: 'string', enum: ['return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string' } }, ['what']) },
 ]
 export const MORE_BOOKING = new Set(MORE_TOOLS.map(t => t.name).filter(n => n !== 'prop_calendar' && n !== 'app_link'))
 
@@ -164,11 +164,11 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
     case 'app_link': {
       const id = s(args.shoot_id, 100)
       const path: Record<string, string> = {
-        check_in: id ? `/?shoot=${id}` : '/', wrap: id ? `/?shoot=${id}` : '/', shoot: id ? `/schedule?shoot=${id}` : '/shoots',
+        shoot: id ? `/schedule?shoot=${id}` : '/shoots',
         return: '/requests', pickup: '/requests', take_gear: '/gear', calendar: '/schedule', props: '/browse', requests: '/requests', notifications: '/account',
       }
       const p = path[s(args.what, 20)] ?? '/'
-      const what: Record<string, string> = { check_in: 'check in with a selfie', wrap: 'wrap', return: 'return props or gear (with a photo)', pickup: 'sign for your props', take_gear: 'take gear for your shoot', shoot: 'open the shoot', calendar: 'see the calendar', props: 'browse the props', requests: 'see your requests', notifications: 'turn on notifications' }
+      const what: Record<string, string> = { return: 'return props or gear (with a photo)', pickup: 'sign for your props', take_gear: 'take gear for your shoot', shoot: 'open the shoot', calendar: 'see the calendar', props: 'browse the props', requests: 'see your requests', notifications: 'turn on notifications' }
       return { text: `Tap to ${what[s(args.what, 20)] ?? 'open the app'}: ${APP_URL}${p}`, structured: { url: `${APP_URL}${p}` } }
     }
   }
@@ -202,7 +202,6 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
   const data = {
     today, now: clock(now),
     next_shoot: next ? { id: next.id, day: next.date, start: hm(Number(next.start)), end: hm(Number(next.end)), place: PLACE[String(next.place)] ?? next.place, status: STATUS[String(next.status)],
-      check_in: next.place === 'offsite' ? 'no check-in for offsite' : checkinWindow(next as never, now, sch) === 'open' ? 'OPEN NOW (selfie in the app)' : `opens ${clock(addMinutes(String(next.from), -sch.checkinBefore))}`,
       props_deadline: clock(propsDeadline(shootStartStamp(String(next.date), Number(next.start)), b.leadTimeHours ?? 48)) } : null,
     upcoming_shoots: shoots.length,
     props_to_bring_back: toReturn, gear_to_bring_back: gearOut, props_requests_open: open,
@@ -213,7 +212,7 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     strikes: Number(st.strikes ?? 0), paused_until: st.pausedUntil && String(st.pausedUntil) >= today ? st.pausedUntil : null,
   }
   const lines = [
-    next ? `Next shoot: ${data.next_shoot!.day} ${data.next_shoot!.start}–${data.next_shoot!.end} ${data.next_shoot!.place} (${data.next_shoot!.status}); check-in ${data.next_shoot!.check_in}; props from the closet by ${data.next_shoot!.props_deadline}.` : 'No shoots coming up.',
+    next ? `Next shoot: ${data.next_shoot!.day} ${data.next_shoot!.start}–${data.next_shoot!.end} ${data.next_shoot!.place} (${data.next_shoot!.status}); props from the closet by ${data.next_shoot!.props_deadline}.` : 'No shoots coming up.',
     toReturn.length ? `Props to bring back: ${toReturn.map(r => `"${r.video}" by ${r.due}`).join('; ')}.` : '',
     gearOut.length ? `Gear out: ${gearOut.map(g => `${g.items.join(', ')} (due ${g.due})`).join('; ')}.` : '',
     data.swap_requests_for_you.length ? `${data.swap_requests_for_you.length} swap request(s) waiting for an answer.` : '',
@@ -228,7 +227,7 @@ async function getShoot(args: Json, u: McpUser): Promise<ToolResult> {
   if (!own) return { text: 'That isn\'t one of your shoots (my_shoots has the ids).' }
   const { sh } = own
   const id = s(args.shoot_id, 100)
-  const [sch, b, reqs, casts] = await Promise.all([loadScheduleSettings(), loadSettings(),
+  const [, b, reqs, casts] = await Promise.all([loadScheduleSettings(), loadSettings(),
     db.collection('reservations').where('scheduleShootId', '==', id).get(), db.collection('cast_invites').where('shootId', '==', id).get()])
   const now = nowStamp()
   const start = shootStartStamp(String(sh.date), Number(sh.start))
@@ -242,11 +241,11 @@ async function getShoot(args: Json, u: McpUser): Promise<ToolResult> {
       custom: ((d.get('builds') ?? []) as Json[]).map(x => String(x.description)) })),
     props_deadline: clock(propsDeadline(start, b.leadTimeHours ?? 48)), props_still_open: now <= propsDeadline(start, b.leadTimeHours ?? 48),
     custom_props_deadline: lastDayToBook(String(sh.date), b.buildLeadDays ?? 4, b),
-    check_in: sh.place === 'offsite' ? 'none (offsite)' : sh.checkin ? 'checked in' : checkinWindow(sh as never, now, sch) === 'open' ? 'open now' : checkinWindow(sh as never, now, sch) === 'early' ? `opens ${clock(addMinutes(String(sh.from), -sch.checkinBefore))}` : 'over',
+    outcome: sh.noShow || sh.outcome === 'noshow' ? 'marked a no-show' : undefined,
     wrapped: !!sh.wrap || undefined, guideline: sh.guideline ? 'attached' : undefined,
     app_link: `${APP_URL}/schedule?shoot=${id}`,
   }
-  const text = `${data.place} ${data.day} ${data.start}–${data.end}, ${data.status}${data.collaborators.length ? `, with ${data.collaborators.map(c => c.name).join(', ')}` : ''}.\nProps: ${data.props_requests.map(r => `"${r.video}" ${r.status}: ${r.items.join(', ')}`).join(' | ') || 'none yet'}${data.props_still_open ? ` (add from the closet by ${data.props_deadline})` : ' (too late for new closet props)'}.\nCheck-in: ${data.check_in}. App: ${data.app_link}`
+  const text = `${data.place} ${data.day} ${data.start}–${data.end}, ${data.status}${data.collaborators.length ? `, with ${data.collaborators.map(c => c.name).join(', ')}` : ''}.\nProps: ${data.props_requests.map(r => `"${r.video}" ${r.status}: ${r.items.join(', ')}`).join(' | ') || 'none yet'}${data.props_still_open ? ` (add from the closet by ${data.props_deadline})` : ' (too late for new closet props)'}.\nApp: ${data.app_link}`
   return { text, structured: data }
 }
 

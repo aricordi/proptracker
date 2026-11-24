@@ -45,7 +45,7 @@ import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type Ge
 import { thumbOf } from '../services/itemShape'
 import {
   askForTime, bookShoot, useMyInvites, useMyStatus, useMyShoots, useShoot, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
-  checkinWindow,
+  checkinWindow, CHECKIN_ON,
   type TimeAskResult, type House,
 } from '../services/schedule'
 import { freeForRange, todayInStudio, propsStillOpen, shootStartStamp } from '../../functions/src/booking'
@@ -633,6 +633,20 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       const open = todays.find(x => x.place !== 'offsite' && !x.checkin && checkinWindow(x, nowS, s) === 'open')
       const next = todays.find(x => x.date === today && nowS < x.to)
       const t = (st: string) => fmtTime(Number(st.slice(11, 13)) * 60 + Number(st.slice(14, 16)))
+      if (!CHECKIN_ON) {
+        // Check-in off (owner, Nov 24): nothing to tap on the day; just film.
+        if (intent === 'house') { say('Thanks for flagging it. Tell the equipment team (Maanik) directly so it\'s sorted before the next shoot.', [], [], true); return true }
+        if (intent === 'done') {
+          if ((returns ?? []).length) { say('Nice work! Let\'s bring the gear and props back. A few taps and one photo.', [{ who: 'return' }], [], true); return true }
+          say('Nice work! Anything else I can line up for you?', [], defaultChips(), true); return true
+        }
+        if (intent === 'late') {
+          if (!next) { say('You don\'t have a shoot today. Anything I can help with?', [], defaultChips(), true); return true }
+          say(`No stress, your shoot runs until **${t(next.to)}**. If you can\'t make it at all, cancel or swap it so someone else can use the time.`, [], [], true); return true
+        }
+        if (next) { say(`You're all set: no check-in needed, just film. Your shoot runs **${t(next.from)}–${t(next.to)}**. Have a great one!`, [], [], true); return true }
+        say(upcoming.length ? 'You don\'t have a shoot today. Here are your next ones.' : 'You don\'t have a shoot today. Want to book one?', upcoming.length ? [{ who: 'status' }] : [], defaultChips(), true); return true
+      }
       if (intent === 'house') {
         say(open ? 'Thanks for flagging it. If the person before you left it like this, tap **Report it** when you check in (with a photo). For anything broken in the house, tell the equipment team (Maanik) so it\'s fixed.'
           : 'Thanks for flagging it. Tell the equipment team (Maanik) directly so it\'s sorted before the next shoot. If it was the person filming before you, you can report it when you check in.',

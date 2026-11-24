@@ -1,5 +1,6 @@
 // House schedule rules (pure logic shared by the app and the server).
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { setCheckinOn } from '../../functions/src/schedule'
 import {
   cleanScheduleSettings, slotState, findFree, priorityLocked, releaseStamp, slotWindow, checkSlot, fmtSlot,
   DEFAULT_SCHEDULE, isShortNotice, offsiteHoursOk, type ScheduleDay,
@@ -105,6 +106,11 @@ describe('who is expected to check in (audit, Nov 5)', () => {
 })
 
 import { bookedLate, cancelCountsAsNoShow, timeSetByTeam, DEFAULT_SCHEDULE as DS2 } from '../../functions/src/schedule'
+
+// These test the old check-in rules (turned off Nov 24, kept behind a switch).
+setCheckinOn(true)   // before any data is built at the top of the file
+afterAll(() => setCheckinOn(false))
+
 describe('free cancel for late bookings (owner, Nov 6)', () => {
   // 2026-11-07 is EST (UTC-5): 17:00 Toronto = 22:00 UTC.
   it('booked less than 24 h before the start = late', () => {

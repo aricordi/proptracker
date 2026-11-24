@@ -1,6 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { setCheckinOn } from '../../functions/src/schedule'
 import { analyze } from '../../src/lib/analytics'
 import { flagState, warnText, stillOut } from '../../src/lib/flagState'
+
+// These test the old check-in rules (turned off Nov 24, kept behind a switch).
+setCheckinOn(true)   // before any data is built at the top of the file
+afterAll(() => setCheckinOn(false))
+
 
 const closed = { closedWeekdays: [0], closedDates: [] }
 const shoot = (id: string, date: string, extra: Record<string, unknown> = {}) =>

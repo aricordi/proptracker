@@ -25,7 +25,7 @@ import { todayInStudio, addDays, daysBetween } from '../../functions/src/booking
 import { nowStamp } from '../../functions/src/gearBooking'
 import { formatDay } from '../lib/dates'
 import {
-  useScheduleSettings, useMyShoots, useMySwaps, useMyStatus, useMyInvites, checkinWindow, isMissed, explainUntil, fmtSlot, monthOf, type Shoot,
+  useScheduleSettings, useMyShoots, useMySwaps, useMyStatus, useMyInvites, checkinWindow, isMissed, explainUntil, CHECKIN_ON, fmtSlot, monthOf, type Shoot,
   MONTHLY_SLOTS_ON,
 } from '../services/schedule'
 
@@ -157,7 +157,7 @@ export default function CreatorHomeScreen() {
               {step('Gear', !!linked[next.id]?.gear, 'Held', cutoffs(next).gear)}
             </span>
             <span className="relative block w-full text-center rounded-2xl py-4 font-bold text-[17px] text-stone-900 bg-pt-accent shadow-gold">
-              {next.checkin ? 'Checked in ✓' : win === 'open' ? 'Check in' : 'Open this shoot'}
+              {CHECKIN_ON && next.checkin ? 'Checked in ✓' : CHECKIN_ON && win === 'open' ? 'Check in' : 'Open this shoot'}
             </span>
           </button>
         ) : (

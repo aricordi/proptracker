@@ -5,7 +5,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { OWNER_EMAIL, db, requireRole, CALLABLE } from './auth.js'
 import { teamLog } from './teamLog.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
-import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, houseBookings, type ScheduleDay, type House } from './schedule.js'
+import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, CHECKIN_ON, houseBookings, type ScheduleDay, type House } from './schedule.js'
 import { addStrike, removeStrikeById } from './strikes.js'
 import { addDays, todayInStudio } from './booking.js'
 
@@ -112,9 +112,11 @@ export const decideShoot = onCall(CALLABLE, async req => {
   const sh = await db.runTransaction(async tx => {
     const cur = (await tx.get(ref)).data()
     const now = nowStamp()
-    if (!cur || !isMissed(cur as any, now, () => canCheckIn)) throw new HttpsError('failed-precondition', 'This shoot was checked in or already decided.')
+    // Check-in off (owner, Nov 24): the team can mark any approved shoot that has started, once.
+    const open = CHECKIN_ON ? !!cur && isMissed(cur as any, now, () => canCheckIn) : !!cur && cur.status === 'booked' && !cur.outcome && !cur.noShow && now >= String(cur.from)
+    if (!cur || !open) throw new HttpsError('failed-precondition', CHECKIN_ON ? 'This shoot was checked in or already decided.' : 'Only an approved shoot that has started, and not decided yet.')
     // Owner's rule (Oct 16): the creator has explainHours to explain, THEN the team decides. "They filmed" is always fine.
-    if (outcome === 'noshow' && !cur.explanation && now < explainUntil(cur as any, s)) {
+    if (CHECKIN_ON && outcome === 'noshow' && !cur.explanation && now < explainUntil(cur as any, s)) {
       throw new HttpsError('failed-precondition', `${cur.creatorName || 'They'} can still explain until ${stampClock(explainUntil(cur as any, s))}. Decide after that.`, { problem: 'explain-window' })
     }
     tx.update(ref, { outcome, ...(outcome === 'noshow' ? { noShow: 'missed' } : {}), updatedAt: at,

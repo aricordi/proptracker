@@ -69,10 +69,9 @@ export default function ScheduleRulesScreen() {
 
         <H>On the day</H>
         <ul className="list-disc pl-5 space-y-2">
-          <Li>Check-in opens <b>{s.checkinBefore} minutes before</b> your shoot: a <b>Check in</b> card appears in the Chat. Take one selfie with your camera and you're checked in.</Li>
-          <Li>When you're done, tap <b>Wrap</b> and name what you filmed.</Li>
-          <Li>Finish on time and leave the house clean. When the next creator checks in, they can report an overrun or a mess (with photos and a short note). The team reviews every report.</Li>
-          <Li>No check-in by the end of your slot? You have <b>{s.explainHours} hours</b> to explain on your shoot; then the team decides.</Li>
+          <Li>No check-in: just turn up at your time and film.</Li>
+          <Li>Finish on time and leave the house clean for the next person. Problems at the house go to the equipment team.</Li>
+          <Li>A booked shoot that doesn't happen can be marked a <b>no-show</b> by the schedule team, which counts as a strike. Can't make it? Cancel or swap ahead of time.</Li>
         </ul>
 
         <H>Strikes</H>
