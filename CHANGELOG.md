@@ -11,6 +11,11 @@ the app shows a "Version X is ready · Update" bar. The team can see who still n
 Each manual says which version it was written for.
 
 
+
+## 1.2.0 · Nov 24, 2026
+
+- **Use Prime Capitol from ChatGPT or Claude.** More → **ChatGPT & Claude** has the link and the steps. Sign in with Google, tap Allow, then ask it to find props (with photos), check the schedule, book time, request props or check your shoots. It asks before changing anything, and the same rules and approvals apply.
+
 ## 1.1.1 · Nov 23, 2026
 
 - Offsite shoots booked in the app now go into the **Stromedy Talent (Cliff 1)** calendar as "Name - Offsite Filming", the way the team already writes them (they used to go into the mixed Stromedy calendar). Moving one there keeps it offsite.

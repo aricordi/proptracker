@@ -77,6 +77,7 @@ export default function AccountScreen() {
             </>}
           </Group>
         )}
+        {(shootFlow || demo) && <Group><Row icon="sparkle" tone="gold" title="ChatGPT & Claude" sub="Book and find props by chatting with your AI" onClick={() => navigate('/ai')} /></Group>}
         {shootFlow && <StrikesRow email={profile.email} />}
         <Group><NotificationsCard bare /></Group>
         <LaptopLayoutCard />

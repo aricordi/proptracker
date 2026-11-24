@@ -19,6 +19,8 @@ const HomeScreen = lazy(() => import('./screens/HomeScreen'))
 const MyRequestsScreen = lazy(() => import('./screens/MyRequestsScreen'))
 const MyShootsScreen = lazy(() => import('./screens/MyShootsScreen'))
 const VideosScreen = lazy(() => import('./screens/VideosScreen'))
+const ConnectScreen = lazy(() => import('./screens/ConnectScreen'))
+const AiConnectorScreen = lazy(() => import('./screens/AiConnectorScreen'))
 const ReturnAllScreen = lazy(() => import('./screens/ReturnAllScreen'))
 const TakeGearScreen = lazy(() => import('./screens/TakeGearScreen'))
 const TeamGuideScreen = lazy(() => import('./screens/TeamGuideScreen'))
@@ -406,6 +408,11 @@ export default function App() {
     )
   }
 
+  // ChatGPT / Claude sign-in (owner, Nov 24): the "Allow?" page on its own, before tours or anything else.
+  if (window.location.pathname === '/connect') {
+    return <SessionContext.Provider value={session}><Suspense fallback={<ScreenFallback />}><ConnectScreen /></Suspense></SessionContext.Provider>
+  }
+
   return (
     <SessionContext.Provider value={session}>
     <ProfilesContext.Provider value={profiles}>
@@ -435,6 +442,7 @@ export default function App() {
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/help" element={<HelpScreen />} />
           <Route path="/videos" element={<VideosScreen />} />
+          <Route path="/ai" element={<AiConnectorScreen />} />
         </Route>
         <Route path="*" element={<Navigate to="/browse" replace />} />
       </Routes>
@@ -503,6 +511,7 @@ export default function App() {
           <Route path="/team-log" element={<SeeGear><TeamLogScreen /></SeeGear>} />
           <Route path="/costs" element={<OwnerOnly><CostsScreen /></OwnerOnly>} />
           <Route path="/help" element={<HelpScreen />} />
+          <Route path="/ai" element={<AiConnectorScreen />} />
           <Route path="/activity" element={<SeeStaff><ActivityScreen /></SeeStaff>} />
           <Route path="/people/:email" element={<SeeStaff><PersonHistoryScreen /></SeeStaff>} />
           <Route path="/import" element={<OwnerOnly><ImportScreen /></OwnerOnly>} />
