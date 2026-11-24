@@ -20,7 +20,7 @@ import { loadSettings, createReservation, editReservation } from '../reservation
 import { similarFor } from './similar.js'
 import { rulesText } from '../assistant.js'
 import { guideFor, searchGuide, type GuideRole } from '../appGuide.js'
-import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, propsProblem, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
+import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, propsProblem, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, compact, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { GEAR_TOOLS, GEAR_TOOL_NAMES, runGearTool } from './gear.js'
@@ -156,7 +156,9 @@ export const TOOLS = [
       notes: { type: 'string' } }, ['shoot_id']) },
 ]
 const BOOKING_TOOLS = new Set(['book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'my_shoots', 'my_props_requests', 'get_schedule', 'list_people', ...MORE_BOOKING, ...GEAR_TOOL_NAMES])
-const ALL_TOOLS = [...TOOLS, ...MORE_TOOLS, ...GEAR_TOOLS]
+// Gear tools are hidden for now (owner, Nov 24: "remove gear stuff… we're not using that functionality yet"); runGearTool stays.
+const GEAR_ON = false
+const ALL_TOOLS = [...TOOLS, ...MORE_TOOLS, ...(GEAR_ON ? GEAR_TOOLS : [])]
 export const toolsFor = (demo: boolean) => demo ? ALL_TOOLS.filter(t => !BOOKING_TOOLS.has(t.name)) : ALL_TOOLS
 
 // ─── Running a tool ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -254,7 +256,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
         partners.length ? `Filmed with lately: ${partners.map(p => p.name).join(', ')}` : '',
         rebook.length ? `Didn't go through (tell them why and offer new times): ${rebook.map(r => `${r.place} ${r.day} ${r.start} (${r.why})`).join('; ')}` : '',
         friends.length ? `Friends filming soon (could film right before/after): ${friends.map(f => `${f.name} ${f.day} ${f.place} ${f.start}–${f.end}${f.free_after ? `, free after ${f.free_after}` : ''}${f.free_before ? `, free before ${f.free_before}` : ''}`).join('; ')}` : ''].filter(Boolean)
-      return { text: lines.join('\n'), structured: data }
+      return { text: lines.join('\n'), structured: compact(data) }
     }
     case 'whoami':
       return { text: `${caller.name} (${caller.email}), role ${caller.role}${caller.demo ? ', Props only for now (can search and look at props, not book)' : ''}.`, structured: { name: caller.name, role: caller.role, can_book: canBook } }
@@ -336,7 +338,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const free = day ? (await freeOn(day, [p.id]))[p.id] ?? 0 : undefined
       return { text: `${p.name} · ${p.category} · x${Math.max(0, p.quantity - p.missing)}${day ? ` · ${free} free on ${day}` : ''}${p.damaged ? ' · damaged' : ''}\n${p.description}\nTags: ${p.tags.join(', ')}`,
         structured: { ...short(p), description: p.description, tags: p.tags, photos: p.photos, damaged: p.damaged, ...(day ? { free_that_day: free } : {}) },
-        images: p.photos.slice(0, 3).map(url => ({ url, caption: p.name })), widget: true }
+        images: [...(p.photo ? [p.photo] : []), ...p.photos.slice(1, 3)].map(url => ({ url, caption: p.name })), widget: true }
     }
 
     case 'get_schedule': {
@@ -435,7 +437,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
   }
   const more = await runMoreTool(name, args, u)
   if (more) return more
-  const gear = await runGearTool(name, args, u)
+  const gear = GEAR_ON ? await runGearTool(name, args, u) : null
   if (gear) return gear
   throw new HttpsError('not-found', `Unknown tool ${name}`)
 }
@@ -495,7 +497,7 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
   const b = await loadSettings()
   const deadline = propsDeadline(shootStartStamp(day, start), b.leadTimeHours ?? 48)
   const nextStep = nowStamp() <= deadline ? ` Next: props from the closet for it can be requested until ${deadline.replace('T', ' ')}; want to look for props?` : ' Closet props for it are past their deadline; the arts department can be asked on Slack.'
-  return { text: `${requested ? 'Requested' : 'Booked'}: ${place === 'offsite' ? 'offsite' : sch.houses[place as House].name}, ${day} ${hm(start)}–${hm(realEnd)}${friends.length ? ` with ${names.join(', ')}` : ''}.${requested ? ' The schedule team approves it; the time is held for them meanwhile.' : ''}${nextStep}`, structured: { result: res, props_deadline: deadline.replace('T', ' ') } }
+  return { text: `${requested ? 'Requested' : 'Booked'}: ${place === 'offsite' ? 'offsite' : sch.houses[place as House].name}, ${day} ${hm(start)}–${hm(realEnd)}${friends.length ? ` with ${names.join(', ')}` : ''}.${requested ? ' Request sent to the schedule team ✓ They get it now and approve it; the time is held meanwhile and the person gets a notification when it\'s approved. Tell them it was sent.' : ''}${nextStep}`, structured: { result: res, props_deadline: deadline.replace('T', ' ') } }
 }
 
 async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {

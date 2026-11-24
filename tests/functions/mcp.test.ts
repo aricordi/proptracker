@@ -366,34 +366,16 @@ describe('connector tools', () => {
     expect((await tool(t.access_token, 'pick_up_props', { request_id: 'theirs2', all_received: true })).content[0].text).toMatch(/isn't one of your/)
   })
 
-  it('gear: what is free for my shoot, take it (check every piece + photo), return it (photo); never booked ahead', async () => {
+  it('gear tools are hidden for now (owner, Nov 24: not using gear yet): not listed and not callable', async () => {
     const t = await connect(ANA)
-    await put('gear_bundles/fx3', { name: 'FX3 kit', kind: 'bundle', category: 'Camera', archived: false, photos: [],
-      pieces: [{ itemId: 'cam', qty: 1, name: 'Sony FX3 body' }, { itemId: 'bat', qty: 2, name: 'Battery' }] })
-    // No shoot today → it says gear is only taken for an approved shoot on its day.
-    const none = await tool(t.access_token, 'gear_available', { search: 'camera' })
-    expect(none.content[0].text).toMatch(/no approved shoot/)
-    expect(none.structuredContent.props[0]).toMatchObject({ name: 'FX3 kit', kind: 'kit', free_that_day: 1 })
-    const now = nowStamp(), today = now.slice(0, 10), min = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
-    if (min < 360 || min >= 1350) return   // outside gear hours: nothing more to check
-    const start = Math.floor(min / 60) * 60, end = Math.min(1440, start + 120)
-    const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:00`
-    await put('shoots/now', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: today, start, end,
-      from: `${today}T${hh(start)}`, to: end === 1440 ? `${today}T23:59` : `${today}T${hh(end)}`, kind: 'extra', history: [] })
-    expect((await tool(t.access_token, 'gear_available', {})).content[0].text).toMatch(/can take it now/)
-    // Asks them to check every piece first; then a missing piece is noted by name.
-    expect((await tool(t.access_token, 'take_gear', { items: [{ gear: 'fx3' }], photo: 'x' })).content[0].text).toMatch(/check every piece/)
-    const photo = 'http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fnow%2Fp.jpg?alt=media'
-    const took = await tool(t.access_token, 'take_gear', { items: [{ gear: 'the fx3' }], missing: ['battery'], photo })
-    expect(took.content[0].text).toMatch(/^Taken ✓ FX3 kit.*missing: 1 piece.*Due back/)
-    const b = (await getDoc(`gear_bookings/${took.structuredContent.booking_id}`))!
-    expect(b).toMatchObject({ status: 'out', grab: true, scheduleShootId: 'now' })
-    expect(b.pickup.missing).toHaveLength(1)
-    expect((await tool(t.access_token, 'my_status')).structuredContent.suggestions.some((x: { tool?: string }) => x.tool === 'return_gear')).toBe(true)
-    // Return: photo from their own return folder; damage by piece name.
-    const back = await tool(t.access_token, 'return_gear', { photo: `http://127.0.0.1:9199/v0/b/demo/o/gear-returns%2F${b.id ?? took.structuredContent.booking_id}%2Fp.jpg?alt=media`, charging: true, damage: [{ piece: 'fx3 body', note: 'scratch on screen' }] })
-    expect(back.content[0].text).toMatch(/^Returned ✓.*Damage noted: Sony FX3 body/)
-    expect((await getDoc(`gear_bookings/${took.structuredContent.booking_id}`))!).toMatchObject({ status: 'returned', return: { charging: true } })
+    const names = (await rpc(t.access_token, 'tools/list')).result.tools.map((x: { name: string }) => x.name)
+    for (const g of ['gear_available', 'take_gear', 'return_gear']) expect(names).not.toContain(g)
+    const r = await tool(t.access_token, 'gear_available', {})
+    expect(r.isError).toBe(true)
+    // Only prop tools draw picture cards; times and shoots are just talk.
+    const all = (await rpc(t.access_token, 'tools/list')).result.tools as { name: string; _meta: Record<string, unknown> }[]
+    expect(all.find(x => x.name === 'find_free_times')!._meta['openai/outputTemplate']).toBeUndefined()
+    expect(all.find(x => x.name === 'get_shoot')!._meta['openai/outputTemplate']).toBeUndefined()
   })
 
   it('problem-solves a day with no full back-to-back block: shorter house block + offsite, or separate times', async () => {
@@ -432,7 +414,7 @@ describe('connector tools', () => {
     const sh = (await getDoc('shoots/past'))!
     expect(sh.said).toMatchObject({ filmed: true, title: 'Prank call', via: 'assistant' })
     expect(sh.wrap.title).toBe('Prank call')
-    expect((await tool(t.access_token, 'my_status')).structuredContent.shoots_to_confirm).toHaveLength(0)
+    expect((await tool(t.access_token, 'my_status')).structuredContent.shoots_to_confirm ?? []).toHaveLength(0)
     // The app's one tap: a "no" with what happened; future shoots can't be answered yet.
     await put('shoots/past2', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: y, start: 900, end: 1020, from: `${y}T15:00`, to: `${y}T17:00`, kind: 'extra', history: [] })
     expect((await call('reportShootDone', { id: 'past2', filmed: false, note: 'Ariel was sick' }, ANA)).ok).toBe(true)
@@ -516,7 +498,7 @@ describe('connector tools', () => {
     const props = await tool(t.access_token, 'request_props', { shoot_id: mine[0].id, video_name: 'Test', items: [{ id: 'phone', qty: 1 }] })
     expect(props.content[0].text).toMatch(/Practice mode/)
     await tool(t.access_token, 'cancel_shoot', { shoot_id: mine[0].id })
-    expect((await tool(t.access_token, 'take_gear', { items: ['camera'] })).content[0].text).toMatch(/Practice mode/)
+    expect((await tool(t.access_token, 'take_gear', { items: ['camera'] })).isError).toBe(true)   // gear tools hidden for now
     expect((await tool(t.access_token, 'shoot_done', { shoot_id: mine[0].id, filmed: true })).content[0].text).toMatch(/Practice mode/)
     expect((await listIds('shoots')).length).toBe(shootsBefore)
     expect((await listIds('reservations')).length).toBe(resBefore)

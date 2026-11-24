@@ -17,10 +17,11 @@ import { nowStamp } from '../gearBooking.js'
 import {
   HOUSES, SCHEDULE_MESSAGES, freeGaps, checkTimes, conflictAt, maxMinutesFor, hardBlocks, priorityLocked, needsGuideline, TIME_STEP,
   type House, type ScheduleDay, type SlotEntry,
+  houseBookings as dayBookings,
 } from '../schedule.js'
 import { loadScheduleSettings, filmingPeople } from '../scheduling.js'
 import { loadSettings } from '../reservations.js'
-import { s, objs, clampInt, hm, houseNight, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
+import { s, objs, clampInt, hm, houseNight, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, compact, type Json, type McpUser, type ToolResult } from './common.js'
 import { resolvePerson, resolveWhen } from './understand.js'
 import { suggestNext } from './casual.js'
 import { CUSTOM_NOTE } from './custom.js'
@@ -176,11 +177,11 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       const dates = Array.from({ length: n }, (_, i) => addDays(from, i))
       const ds = await days(dates, sb, u)
       const out = dates.map(date => ({ date, houses: Object.fromEntries(HOUSES.map(h => [h, {
-        bookings: Object.values((ds[date][h] ?? {}) as Record<string, SlotEntry>).map(e => ({ start: hm(e.time?.start ?? 0), end: hm(e.time?.end ?? 0), who: e.name === 'You' ? 'you' : u.practice ? e.name : 'another creator', status: e.pending ? 'waiting for approval' : 'booked' })),
+        bookings: dayBookings(ds[date], h, sch, now).map(b => ({ start: hm(b.start), end: hm(b.end), who: b.entry.name === 'You' ? 'you' : u.practice ? String(b.entry.name ?? '') : 'another creator', status: b.entry.hold ? 'held' : b.entry.pending ? 'waiting for approval' : 'booked' })),
         blocked: hardBlocks(ds[date]).filter(b => b.house === h).map(b => ({ start: hm(b.start), end: hm(b.end) })),
         free: priorityLocked(date, h, sch, me, now) ? [] : freeGaps(ds[date], date, h, sch, now).map(g => ({ start: hm(g.start), end: hm(g.end) })),
       }])) }))
-      return { text: out.map(d => `${d.date}: ` + HOUSES.map(h => `${PLACE[h]} free ${(d.houses[h] as { free: Json[] }).free.map(f => `${f.start}-${f.end}`).join(', ') || 'none'}`).join(' · ')).join('\n'), structured: { days: out, ...(u.practice ? { practice_mode: true } : { demo_account: true }) } }
+      return { text: out.map(d => `${d.date}: ` + HOUSES.map(h => { const x = d.houses[h] as { free: Json[]; bookings: Json[] }; return `${PLACE[h]} [${x.bookings.map(e => `${e.start}-${e.end} ${e.who}${e.status !== 'booked' ? ` (${e.status})` : ''}`).join(', ') || 'nothing booked'}; FREE ${x.free.map(f => `${f.start}-${f.end}`).join(', ') || 'none'}]` }).join(' · ')).join('\n'), structured: { days: out, ...(u.practice ? { practice_mode: true } : { demo_account: true }) } }
     }
     case 'find_free_times': {
       const from = isDay(a.from) && String(a.from) >= today ? String(a.from) : today
@@ -250,13 +251,14 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       const data = { today, next_shoot: next ? { ...shootRow(next, sb), props_deadline: propsDeadline(shootStartStamp(next.date, next.start), 48).replace('T', ' ') } : null,
         props_requests_open: sb.requests.filter(r => r.status === 'requested').map(r => ({ id: r.id, video: r.title, day: r.date, status: r.status })),
         video_invites_waiting: sb.invites.filter(i => i.status === 'pending'), swap_requests_for_you: sb.swaps.filter(x => x.status === 'pending'),
-        waitlist: sb.waitlist, props_to_bring_back: [], gear_to_bring_back: [], strikes: 0, paused_until: null, ...(u.practice ? { practice_mode: true } : { demo_account: true }) }
+        waitlist: sb.waitlist, props_to_bring_back: [], strikes: 0, paused_until: null, ...(u.practice ? { practice_mode: true } : { demo_account: true }) }
       const dl = next ? propsDeadline(shootStartStamp(next.date, next.start), 48) : ''
       const suggestions = suggestNext({ today, upcoming: sb.shoots.filter(x => ['booked', 'requested'].includes(x.status) && x.date >= today).length, pausedUntil: null,
         next: next ? { day: next.date, label: `${next.date} ${PLACE[next.place]}`, status: next.status, hasProps: sb.requests.some(r => r.shootId === next.id && r.status !== 'cancelled'),
           propsOpen: now <= dl, propsDeadline: dl.replace('T', ' '), withPeople: next.with.length } : null,
         invites: data.video_invites_waiting.map(i => String(i.host)), swaps: data.swap_requests_for_you.map(x => String(x.from)), toReturn: [], gearOut: [], waitlistOffered: 0 })
-      return { text: `${next ? `Next shoot: ${next.date} ${hm(next.start)}–${hm(next.end)} ${PLACE[next.place]} (${data.next_shoot!.status}).` : 'No shoots coming up.'} ${data.video_invites_waiting.length} video invite(s) and ${data.swap_requests_for_you.length} swap request(s) waiting.${suggestions.length ? `\nWorth doing next:\n${suggestions.map(x => `- ${x.do} (${x.why})`).join('\n')}` : ''}`, structured: { ...data, suggestions } }
+      const extra = [data.props_requests_open.length ? `${data.props_requests_open.length} props request(s) open.` : '', data.video_invites_waiting.length ? `${data.video_invites_waiting.length} video invite(s) waiting.` : '', data.swap_requests_for_you.length ? `${data.swap_requests_for_you.length} swap request(s) waiting.` : ''].filter(Boolean).join(' ')
+      return { text: `${next ? `Next shoot: ${next.date} ${hm(next.start)}–${hm(next.end)} ${PLACE[next.place]} (${data.next_shoot!.status}).` : 'No shoots coming up.'}${extra ? ` ${extra}` : ''}${suggestions.length ? `\nWorth doing next:\n${suggestions.map(x => `- ${x.do} (${x.why})`).join('\n')}` : ''}`, structured: compact({ ...data, suggestions }) }
     }
     case 'get_shoot': {
       const x = sb.shoots.find(y => y.id === s(a.shoot_id, 100))
@@ -297,7 +299,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       } else if (!s(a.where, 200)) return { text: 'Where is the offsite shoot? Pass `where`.' }
       const x: SShoot = { id: nextId(sb, 'shoot'), place, date, start, end, status: 'requested', with: withNames, ...(place === 'offsite' ? { where: s(a.where, 200) } : {}) }
       sb.shoots.push(x); await save(sb)
-      return { text: `Requested: ${PLACE[place]}, ${date} ${hm(start)}–${hm(end)}${withNames.length ? ` with ${withNames.join(', ')}` : ''}. The schedule team approves it; the time is held meanwhile.${note}`, structured: { result: shootRow(x, sb) } }
+      return { text: `Requested: ${PLACE[place]}, ${date} ${hm(start)}–${hm(end)}${withNames.length ? ` with ${withNames.join(', ')}` : ''}. ${u.practice ? 'For real, this request would go straight to the schedule team to approve.' : 'Request sent to the schedule team ✓ (they approve it; the time is held meanwhile). Tell them it was sent.'}${note}`, structured: { result: shootRow(x, sb) } }
     }
     case 'move_shoot': case 'cancel_shoot': {
       const x = sb.shoots.find(y => y.id === s(a.shoot_id, 100))
@@ -326,7 +328,12 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       return { text: `Moved to ${PLACE[place]} ${date} ${hm(start)}–${hm(end)}; the schedule team approves the new time.${note}` }
     }
     case 'pick_up_props': case 'return_props': {
-      const r = sb.requests.find(y => y.id === s(a.request_id, 100)) ?? sb.requests.find(y => y.status === (name === 'pick_up_props' ? 'packed' : 'collected'))
+      let r = sb.requests.find(y => y.id === s(a.request_id, 100)) ?? sb.requests.find(y => y.status === (name === 'pick_up_props' ? 'packed' : 'collected'))
+      // Practice (owner, Nov 24: "it just sent me a link"): real requests are rarely packed yet, so practise on the newest one.
+      if (u.practice && (!r || !['packed', 'collected'].includes(r.status))) {
+        const any = r ?? [...sb.requests].reverse().find(y => !['cancelled', 'returned', 'return_pending'].includes(y.status))
+        if (any) { any.status = name === 'pick_up_props' ? 'packed' : 'collected'; r = any }
+      }
       if (!r) return { text: name === 'pick_up_props' ? 'Nothing is packed and ready to pick up.' : 'No props are out to bring back.' }
       if (name === 'pick_up_props') {
         if (r.status !== 'packed') return { text: `"${r.title}" is ${r.status}, so there's nothing to sign.` }

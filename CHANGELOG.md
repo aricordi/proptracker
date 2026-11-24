@@ -12,6 +12,16 @@ Each manual says which version it was written for.
 
 
 
+## 1.5.1 · Nov 24, 2026
+
+- **ChatGPT and Claude talk like a friend now.** Short, casual answers made for voice mode: no long overviews, no lists of
+  things you don't have, no troubleshooting out loud. It does things for you in the background instead of showing app
+  screens or sending links (pictures only for props). It says plainly when a request has been sent.
+- It can now look at prop photos itself, so it can tell you the colour or style.
+- Gear is taken off ChatGPT and Claude for now (it's taken from the gear room on the shoot day, as before).
+- Practice mode: practise picking up and returning props even if nothing is packed yet; schedule times show properly.
+- Tip: start your first message with "Using Prime Capitol," so ChatGPT knows to use it.
+
 ## 1.5.0 · Nov 24, 2026
 
 - **Practice mode for ChatGPT and Claude.** More → ChatGPT & Claude → Practice mode. Your AI keeps using the real props, real

@@ -3100,6 +3100,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - LIVE Nov 24 (owner "put it live right now"): backend run 45480536560 + website run 45480541970 = VERSION 1.5.0 (one day view for
       every role + connector practice mode); safety redeploy of mcp/connectorPractice/askApp/askChat run 45484206761. Manuals re-shot
       (manual-shots only; the full shots run OOMs this machine), PDFs rebuilt, 4 manual pages republished.
+    - VOICE-FIRST CONNECTOR (owner's practice test notes, Nov 24; version 1.5.1; NOT deployed: backend + website, ask): notes in
+      the test sheet https://claude.ai/artifact/4DEkvRLC3KgCFKjZ1beGkV (db collection notes). INSTRUCTIONS now open with HOW TO TALK
+      (friendly PA, casual, 1-3 sentences, one question, never list what they don't have, no troubleshooting aloud) + DO IT FOR
+      THEM (tools in the background, no app links, times as 2-3 spoken options, "Sent!"). Picture cards only for prop tools
+      (WIDGET_TOOLS: show_props, get_prop, props_for_idea, search_props, browse_props). ChatGPT also gets up to 3 small prop photos
+      as image content so it can check colour. GEAR TOOLS HIDDEN (tools.ts GEAR_ON = false; owner: not using gear yet). my_status /
+      get_context structured output drop empty lists (common.ts compact). app_link = last resort. book_shoot says "Request sent to
+      the schedule team ✓". Practice: schedule bookings use real hours (houseBookings; imported shoots showed 00:00 = "time data
+      incomplete"), pick-up/return practise on the newest request when nothing is packed. ChatGPT only uses the connector when
+      told: start with "Using Prime Capitol," (just "Prime Capitol" wasn't enough). cancel_shoot's one-time "Always allow" prompt is
+      ChatGPT's own safety step for destructive tools (kept: the label must be honest).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

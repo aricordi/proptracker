@@ -22,6 +22,7 @@ import { reportShootDone } from '../attendance.js'
 import {
   asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, niceRange, matchPerson, askWho, personId, parseClock, propsProblem, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs,
   type Json, type McpUser, type ToolResult,
+  compact,
 } from './common.js'
 import { resolveWhen } from './understand.js'
 import { suggestNext } from './casual.js'
@@ -44,7 +45,7 @@ async function ownShoot(id: string, u: McpUser, allowCrew = true) {
 
 export const MORE_TOOLS = [
   { name: 'my_status', title: 'What needs my attention', annotations: READ,
-    description: 'A quick personal dashboard: the next shoot (and the deadline to add props), props or gear to bring back (and when they are due), props requests that still need something, video invites and swap requests waiting for an answer, waitlist spots, strikes and any pause. Use it when the person asks "what do I have going on?" or before planning.',
+    description: 'What the person has going on: the next shoot (and the deadline to add props), props to pick up or bring back, props requests, video invites and swap requests waiting for an answer, waitlist spots, strikes and any pause. Only what they actually have is listed. Use it for "what do I have going on?", then tell them out loud in a sentence or two, like a friend would (never read it out as a list).',
     inputSchema: obj({}) },
   { name: 'get_shoot', title: 'One shoot in detail', annotations: READ,
     description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, and an app link.',
@@ -112,7 +113,7 @@ export const MORE_TOOLS = [
     inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request or gear booking id from my_status (can be left out when only one thing is out)' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' },
       photo: { type: 'object', properties: { download_url: { type: 'string' }, file_id: { type: 'string' } }, description: 'A photo of the damage they attached in this chat (ask for one)' } }, ['note']) },
   { name: 'app_link', title: 'Open the right screen in the app', annotations: READ,
-    description: 'A link that opens the Prime Capitol app on the right screen: gear pick-up and returns, taking gear on the shoot day, the calendar, or props pick-up/returns when they prefer the app (pick_up_props and return_props do those here). Give it to the person to tap.',
+    description: 'A link that opens the Prime Capitol app on one screen. LAST RESORT: only for what can\'t be done here (attaching a filming guideline PDF, gear on the shoot day, or when the person asks for the app). Booking, moving, cancelling, props requests, props pick-up (pick_up_props) and returns (return_props) are all done here, by you.',
     inputSchema: obj({ what: { type: 'string', enum: ['return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string', description: 'Shoot id from get_context or my_shoots (a short description also works)' } }, ['what']) },
 ]
 export const MORE_BOOKING = new Set(MORE_TOOLS.map(t => t.name).filter(n => n !== 'prop_calendar' && n !== 'app_link'))
@@ -337,12 +338,11 @@ async function shootDone(args: Json, u: McpUser): Promise<ToolResult> {
 
 async function myStatus(u: McpUser): Promise<ToolResult> {
   const today = todayInStudio(), now = nowStamp()
-  const [sch, b, shootsOwn, shootsCrew, res, gear, swaps, casts, waits, status] = await Promise.all([
+  const [sch, b, shootsOwn, shootsCrew, res, swaps, casts, waits, status] = await Promise.all([
     loadScheduleSettings(), loadSettings(),
     db.collection('shoots').where('creatorEmail', '==', u.email).where('date', '>=', addDays(today, -1)).get(),
     db.collection('shoots').where('people', 'array-contains', u.email).get(),
     db.collection('reservations').where('creatorEmail', '==', u.email).get(),
-    db.collection('gear_bookings').where('creatorEmail', '==', u.email).get(),
     db.collection('swap_requests').where('toEmail', '==', u.email).where('status', '==', 'pending').get(),
     db.collection('cast_invites').where('toEmail', '==', u.email).get(),
     db.collection('waitlist').where('email', '==', u.email).get(),
@@ -357,7 +357,6 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
   const toReturn = out.filter(r => r.status === 'collected').map(r => ({ id: r.id, video: r.title, items: ((r.lines ?? []) as Json[]).map(l => `${l.itemName} x${l.qty}`), due: `${returnDueDay(String(r.endDate), b)} 10:00` }))
   const open = out.filter(r => ['requested', 'preparing', 'packed'].includes(String(r.status)) && String(r.startDate) >= today)
     .map(r => ({ id: r.id, video: r.title, day: r.startDate, status: PROPS_STATUS[String(r.status)] ?? r.status, issues: ((r.issues ?? []) as Json[]).length || undefined }))
-  const gearOut = gear.docs.map(d => ({ id: d.id, ...d.data() } as Json & { id: string })).filter(g => g.status === 'out').map(g => ({ id: g.id, items: ((g.lines ?? []) as Json[]).map(l => String(l.name)), due: clock(String(g.to ?? '')) }))
   const st = status.data() ?? {}
   const [toConfirm, rebook, friends] = await Promise.all([shootsToConfirm(u), toRebook(u), friendsFilming(u)])
   const data = {
@@ -367,7 +366,7 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     next_shoot: next ? { id: next.id, day: next.date, start: hm(Number(next.start)), end: hm(Number(next.end)), place: PLACE[String(next.place)] ?? next.place, status: STATUS[String(next.status)],
       props_deadline: clock(propsDeadline(shootStartStamp(String(next.date), Number(next.start)), b.leadTimeHours ?? 48)) } : null,
     upcoming_shoots: shoots.length,
-    props_to_bring_back: toReturn, gear_to_bring_back: gearOut, props_requests_open: open,
+    props_to_bring_back: toReturn, props_requests_open: open,
     swap_requests_for_you: swaps.docs.map(d => ({ id: d.id, from: firstName(String(d.get('fromName'))), they_offer: d.get('from'), they_want: d.get('to') })),
     video_invites_waiting: casts.docs.filter(d => d.get('status') === 'pending' && String(d.get('to') ?? '') > now).map(d => ({ id: d.id, host: firstName(String(d.get('hostName'))), day: d.get('date'), start: hm(Number(d.get('start'))), place: d.get('placeName') })),
     videos_you_are_in: casts.docs.filter(d => d.get('status') === 'accepted' && String(d.get('to') ?? '') > now).map(d => ({ host: firstName(String(d.get('hostName'))), day: d.get('date'), start: hm(Number(d.get('start'))), place: d.get('placeName') })),
@@ -378,7 +377,6 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     next ? `Next shoot: ${data.next_shoot!.day} ${data.next_shoot!.start}–${data.next_shoot!.end} ${data.next_shoot!.place} (${data.next_shoot!.status}); props from the closet by ${data.next_shoot!.props_deadline}.` : 'No shoots coming up.',
     open.some(r => r.status === PROPS_STATUS.packed) ? `Ready to pick up: ${out.filter(r => r.status === 'packed').map(r => `"${r.title}" (${r.startDate})`).join('; ')}.` : '',
     toReturn.length ? `Props to bring back: ${toReturn.map(r => `"${r.video}" by ${r.due}`).join('; ')}.` : '',
-    gearOut.length ? `Gear out: ${gearOut.map(g => `${g.items.join(', ')} (due ${g.due})`).join('; ')}.` : '',
     data.swap_requests_for_you.length ? `${data.swap_requests_for_you.length} swap request(s) waiting for an answer.` : '',
     data.video_invites_waiting.length ? `${data.video_invites_waiting.length} video invite(s) waiting: ${data.video_invites_waiting.map(v => `${v.host} ${v.day}`).join(', ')}.` : '',
     data.paused_until ? `Props requests are paused until ${data.paused_until} (${data.strikes} strikes).` : data.strikes ? `${data.strikes} strike(s) in the last ${sch.strikeDays} days.` : '',
@@ -393,9 +391,9 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     friends: friends.filter(f => f.free_after || f.free_before).map(f => `${f.name} films ${f.day} ${f.place} ${f.start}–${f.end}; free ${f.free_after ? `right after (${f.free_after})` : `right before (${f.free_before})`}`),
     toConfirm: toConfirm.map(x => `${PLACE[String(x.place)] ?? x.place} ${x.date} ${hm(Number(x.start))}`),
     toPickUp: out.filter(r => r.status === 'packed').map(r => ({ what: String(r.title), day: String(r.startDate) })),
-    toReturn: toReturn.map(r => ({ what: String(r.video), due: r.due })), gearOut: gearOut.map(g => ({ what: g.items.join(', '), due: g.due })),
+    toReturn: toReturn.map(r => ({ what: String(r.video), due: r.due })), gearOut: [],
     waitlistOffered: data.waitlist.filter(w => w.status === 'offered').length })
-  return { text: [...lines, ...(suggestions.length ? ['Worth doing next:', ...suggestions.map(x => `- ${x.do} (${x.why})`)] : [])].join('\n'), structured: { ...data, suggestions } }
+  return { text: [...lines, ...(suggestions.length ? ['Worth doing next:', ...suggestions.map(x => `- ${x.do} (${x.why})`)] : [])].join('\n'), structured: compact({ ...data, suggestions }) }
 }
 
 async function getShoot(args: Json, u: McpUser): Promise<ToolResult> {

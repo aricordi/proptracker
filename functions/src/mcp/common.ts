@@ -169,3 +169,9 @@ export function niceRange(day: string, start: number, end: number): string {
   const t12 = (m: number) => { const h = Math.floor(m / 60) % 24, mm = m % 60; return `${h % 12 || 12}${mm ? `:${String(mm).padStart(2, '0')}` : ''} ${h < 12 ? 'AM' : 'PM'}` }
   return `${wd} ${md}, ${t12(start)}–${t12(end)}`
 }
+
+// Owner (Nov 24, practice test): "it says you've got no pending invites, swaps, waitlists or gear… only say what we do have".
+// Leaves out empty lists, nulls and zeros so the assistant never reads out things the person doesn't have.
+export function compact<T extends Record<string, unknown>>(o: T): Partial<T> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => !(v == null || v === 0 || (Array.isArray(v) && !v.length)))) as Partial<T>
+}

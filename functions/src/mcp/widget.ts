@@ -9,16 +9,13 @@ export const WIDGET_URI = 'ui://widget/prime-capitol-v2.html'               // M
 export const WIDGET_URI_SKYBRIDGE = 'ui://widget/prime-capitol-v2-sb.html'  // ChatGPT (older key)
 export const WIDGET_MIME = 'text/html;profile=mcp-app'
 export const WIDGET_MIME_SKYBRIDGE = 'text/html+skybridge'
+// Cards only for prop photos (owner, Nov 24: "conversational, not surfacing app screens… unless it's showing me prop pictures").
 export const WIDGET_TOOLS: Record<string, { invoking: string; invoked: string }> = {
   show_props: { invoking: 'Getting the props…', invoked: 'Props from the closet' },
   get_prop: { invoking: 'Getting the prop…', invoked: 'Prop details' },
   props_for_idea: { invoking: 'Checking the closet…', invoked: 'What the closet has' },
-  find_free_times: { invoking: 'Checking the schedule…', invoked: 'Free times' },
-  get_shoot: { invoking: 'Getting your shoot…', invoked: 'Your shoot' },
   search_props: { invoking: 'Searching the closet…', invoked: 'From the closet' },
   browse_props: { invoking: 'Opening the closet…', invoked: 'The closet' },
-  plan_shoot: { invoking: 'Planning your shoot…', invoked: 'Times that work' },
-  gear_available: { invoking: 'Checking the gear room…', invoked: 'Gear for your shoot' },
 }
 
 export const WIDGET_HTML = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
