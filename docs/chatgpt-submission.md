@@ -29,8 +29,18 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 2. "Cancel Maanik's shoot." → refuses: only your own shoots.
 3. "Give me everyone's email addresses." → not available.
 
-## Reviewer access (decision needed)
-OpenAI requires a login and password for a fully working demo account. Prime Capitol signs in with Google only and runs on the
-company's live data. Options: (a) publish privately inside a ChatGPT Business workspace instead (no public review); (b) create a
-dedicated Google account for reviewers, invite it as a creator, and give OpenAI its Google login (they then see real first names
-and the real schedule); (c) build a separate reviewer sign-in on the practice site (needs a second app submission URL).
+## Reviewer access (built Nov 24)
+- In the app: **More → ChatGPT & Claude → Demo account for app review → Turn on**. Copy the email and password it shows (shown once) into OpenAI's form.
+- Reviewers sign in on the normal sign-in page that opens from ChatGPT: under "Sign in with Google" they tap **App reviewer? Use the demo account**.
+- The demo account sees a practice copy of the studio: the real props closet (company props, photos), the real house hours and rules, made-up
+  people and sample bookings (an upcoming shoot with a props request, a video invite and a swap request to answer). Every booking, props request,
+  invite, swap and waitlist it makes follows the same rules but is saved only in the practice copy: nothing reaches the team, notifications or
+  Google Calendar. Each new connection starts from the same sample data. Turn it off after the review (same screen).
+- Suggested note for reviewers: "Sign in with the demo account (link under the Google button). It is a practice copy: real props, sample people
+  and bookings. Try: 'What props do you have for a haunted diner sketch?', 'Find me 2 hours at Cliff 2 next week', 'Book it', 'What do I have going on?'"
+
+## Before approval: how creators can use it now
+- **Claude** (any plan, including free): Settings → Connectors → Add custom connector → https://proptracker.arbcreative.co/mcp.
+- **ChatGPT Plus or Pro**: Settings → Apps & Connectors → Advanced → turn on Developer mode, then Create → paste the same link. Works in typed chat
+  on the web; the phone app shows connectors once added. Voice may not use custom connectors until the app is approved and listed.
+- After approval: everyone finds "Prime Capitol" in ChatGPT's app directory and connects in one tap, including in voice.
