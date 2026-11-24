@@ -3068,6 +3068,11 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       DAY VIEW: Apple-style header (left title + subtitle, ‹ › pill, Offsite), 9 AM start (earlier if something is booked),
       "Also free before 9 AM · Show all times" bar, purple blocks; MonthGrid: creators see days past bookAheadDays (bookings
       show, "Not open yet"), DayPickSheet notOpen = can't request.
+    - LIVE Nov 24 (owner "this is going live today… push to live"): backend run 45442897178 (green) + website run 45447165971
+      (green) + safety redeploy of key functions run 45447172174 = VERSION 1.4.0: connector pick-up/return (props + gear with
+      photos), studio basics, speed, photo cards + buttons, deals, 2-week limit, denial follow-up, friends filming, closet_list,
+      substitutes, report photos, Did you film?, option A (✦ AI = ChatGPT/Claude, app chat = how-to), day view polish, review
+      fixes (team decision beats "we filmed", no swaps with priority/past the limit, swaps only after agreeing).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
