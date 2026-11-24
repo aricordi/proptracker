@@ -32,7 +32,7 @@ Invite-only: you need a Prime Capitol account.
 - Website: https://proptracker.arbcreative.co
 - Privacy policy: https://proptracker.arbcreative.co/privacy.html
 - Terms of service: https://proptracker.arbcreative.co/terms.html
-- Support: support@arbcreative.co
+- Support page: https://proptracker.arbcreative.co/support.html (contact email support@arbcreative.co)
 
 **Logo:** the attached prime-capitol-logo-512.png (white eagle on black, square, 512 px).
 

@@ -12,6 +12,11 @@ Each manual says which version it was written for.
 
 
 
+## 1.2.2 · Nov 24, 2026
+
+- New public support page (proptracker.arbcreative.co/support.html): how to reach us, connecting Prime Capitol in ChatGPT or
+  Claude, and common sign-in questions. Linked from the privacy policy and terms. Nothing in the app itself changed.
+
 ## 1.2.1 · Nov 24, 2026
 
 - The privacy policy and terms now say the app is built and run by ARB Creative for Prime Capitol, with
