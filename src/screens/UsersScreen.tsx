@@ -444,7 +444,7 @@ function OffAppSheet({ open, onClose }: { open: boolean; onClose: () => void }) 
   useEffect(() => { if (open) { setName(''); setMsg(null) } }, [open])
   async function add() {
     setBusy(true); setMsg(null)
-    try { const r = await addOffAppPerson({ name: name.trim() }); setMsg({ ok: true, text: `${r.data.name} added. Their Google Calendar events will show under their name within 15 minutes.` }); setName('') }
+    try { const r = await addOffAppPerson({ name: name.trim() }); setMsg({ ok: true, text: `${r.data.name} added. Their Google Calendar events will show under their name within seconds (or at the next 30-minute check).` }); setName('') }
     catch (e) { setMsg({ ok: false, text: friendlyError(e) }) }
     finally { setBusy(false) }
   }

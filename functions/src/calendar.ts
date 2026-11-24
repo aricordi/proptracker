@@ -1538,8 +1538,11 @@ export const reviewCalendarImport = onCall({ ...CALLABLE, timeoutSeconds: 300 },
   throw new HttpsError('invalid-argument', 'Unknown action.')
 })
 
-export const calendarCheck = onSchedule({ schedule: 'every 15 minutes', timeZone: 'America/Toronto', timeoutSeconds: 300 }, async () => {
+// The safety check (owner, Nov 24): Google tells the app about changes the moment they happen (calendarWatch.ts); this
+// timer catches anything missed and renews those live channels before they run out.
+export const calendarCheck = onSchedule({ schedule: 'every 30 minutes', timeZone: 'America/Toronto', timeoutSeconds: 300 }, async () => {
   try { await runCalendarCheck() } catch (e) { logger.warn('Calendar check failed or skipped (another one running)', String(e)) }
+  try { const { ensureWatches } = await import('./calendarWatch.js'); await ensureWatches() } catch (e) { logger.warn('Live calendar sync renewal failed', String(e)) }
 })
 
 // "Check now" on the import screen (same as the 15-minute check).
@@ -1564,5 +1567,8 @@ export const redoCalendarImport = onCall(CALLABLE, async req => {
 
 export const checkCalendarNow = onCall({ ...CALLABLE, timeoutSeconds: 300 }, async req => {
   await requireRole(req, ['owner', 'equipment'])
-  return (await runCalendarCheck()) ?? { error: 'Paste a Google Calendar ID in Calendar & email first.' }
+  const r = await runCalendarCheck()
+  // Also (re)open the live channels, e.g. right after a calendar was linked.
+  try { const { ensureWatches } = await import('./calendarWatch.js'); await ensureWatches() } catch (e) { logger.warn('Live calendar sync renewal failed', String(e)) }
+  return r ?? { error: 'Paste a Google Calendar ID in Calendar & email first.' }
 })

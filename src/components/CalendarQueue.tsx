@@ -1,5 +1,5 @@
 // Requests → Calendar (owner, Nov 4: "all the imports in a queue for the equipment team, like new bookings, in a separate
-// tab so it's easy to confirm and double check"). The 15-minute check puts what it can read on the schedule straight
+// tab so it's easy to confirm and double check"). The live calendar sync (and the 30-minute safety check) puts what it can read on the schedule straight
 // away and is confirmed by itself (owner, Nov 16: the calendars are the rule). Only unreadable events and clashes wait here:
 // Looks right / Fix / Skip. Google Calendar itself is never changed.
 import { useEffect, useState } from 'react'
@@ -26,6 +26,20 @@ function turns(q: { startMin: number; endMin: number }, emails: string[], _house
   return emails.map((m, i) => `${firstName(m, people)} ${fmtTime(parts[i]?.start ?? q.startMin)}–${fmtTime(parts[i]?.end ?? q.endMin)}`).join(' · ')
 }
 
+// Real-time sync status (owner, Nov 24): Google tells the app about changes within seconds; the timer is the safety net.
+export function useCalendarLive() {
+  const [live, setLive] = useState<{ on?: number; calendars?: number; errors?: string[]; lastPing?: string; lastSynced?: string } | null>(null)
+  useEffect(() => onSnapshot(doc(db, 'app_settings/calendarLive'), d => setLive(d.exists() ? d.data() as typeof live : {}), () => setLive({})), [])
+  return live
+}
+export function liveText(live: ReturnType<typeof useCalendarLive>) {
+  if (!live) return 'Google Calendar'
+  const t = (iso?: string) => iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
+  if ((live.on ?? 0) > 0 && (live.on ?? 0) >= (live.calendars ?? 0)) return `Live: changes in Google Calendar show here within seconds${live.lastSynced ? ` (last ${t(live.lastSynced)})` : ''}, plus a safety check every 30 minutes`
+  if ((live.on ?? 0) > 0) return `Live for ${live.on} of ${live.calendars} calendars; the others are checked every 30 minutes`
+  return 'Google Calendar is checked every 30 minutes (live updates start after the next check)'
+}
+
 export function useQueuePeople(): Person[] {
   const [people, setPeople] = useState<Person[]>([])
   useEffect(() => onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setPeople((d.data()?.people as Person[]) ?? []), () => {}), [])
@@ -36,6 +50,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
   const s = useScheduleSettings()
   const people = useQueuePeople()
   const [last, setLast] = useState<{ at?: string; error?: string } | null>(null)
+  const live = useCalendarLive()
   useEffect(() => onSnapshot(doc(db, 'app_settings', 'calendarCheck'), d => setLast(d.data() ?? null), () => {}), [])
   const [checking, setChecking] = useState(false)
   const [busy, setBusy] = useState('')
@@ -64,7 +79,7 @@ export default function CalendarQueue({ items }: { items: QueueItem[] | null }) 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 bg-pt-surface rounded-2xl px-4 py-3">
-        <span className="flex-1 min-w-0 text-pt-muted text-sm">Google Calendar is checked every 15 minutes{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
+        <span className="flex-1 min-w-0 text-pt-muted text-sm">{liveText(live)}{live?.errors?.length ? ` · ⚠ ${live.errors[0]}` : ''}{last?.at ? ` · last ${new Date(last.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}` : ''}{last?.error ? ` · ⚠ ${last.error}` : ''}</span>
         <button disabled={checking} onClick={runCheck} className="shrink-0 min-h-[40px] px-2 text-pt-accent text-sm font-semibold disabled:opacity-40">{checking ? 'Checking…' : 'Check now'}</button>
       </div>
       {items === null && <p className="text-pt-muted text-sm px-1">Loading…</p>}

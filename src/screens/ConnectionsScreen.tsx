@@ -81,7 +81,7 @@ export default function ConnectionsScreen() {
     setBusy('write'); setWriteMsg(null)
     try {
       await saveScheduleSettings({ ...sched, writeOldCalendars: on })
-      setWriteMsg({ ok: true, text: on ? 'On ✓ New and changed app bookings go into the old calendars now; bookings already on the schedule are added over the next few checks (every 15 minutes).' : 'Off. Nothing more is written to the old calendars (what is already there stays).' })
+      setWriteMsg({ ok: true, text: on ? 'On ✓ New and changed app bookings go into the old calendars now; bookings already on the schedule are added over the next few checks (live (within seconds; a safety check runs every 30 minutes)).' : 'Off. Nothing more is written to the old calendars (what is already there stays).' })
     } catch (e) { setWriteMsg({ ok: false, text: errorText(e) }) } finally { setBusy('') }
   }
   // Step 3 bits.
@@ -246,7 +246,7 @@ export default function ConnectionsScreen() {
 
             <div className="border-t border-pt-border pt-3 space-y-3">
               <p className="text-pt-text text-sm font-semibold">Old calendars</p>
-              <p className="text-pt-muted text-[13px]">The calendars the team still uses until everyone is on the app. Share each with {c?.email ?? 'the account'} and paste its ID. The app reads them every 15 minutes and follows what's there. {sched.writeOldCalendars
+              <p className="text-pt-muted text-[13px]">The calendars the team still uses until everyone is on the app. Share each with {c?.email ?? 'the account'} and paste its ID. The app reads them live (within seconds; a safety check runs every 30 minutes) and follows what's there. {sched.writeOldCalendars
                 ? <>It also writes approved app bookings into them (share as <b>"Make changes to events"</b>).</>
                 : <>To let it write app bookings into them too, share as <b>"Make changes to events"</b> and turn that on below.</>}</p>
               {feeds.map((f, i) => (
