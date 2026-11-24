@@ -82,7 +82,7 @@ function HouseTimeline({ day, date, house, label }: { day: ScheduleDay | undefin
   const rows: LineRow[] = [
     ...houseBookings(day, house, s, nowStamp()).map(b => ({ start: b.start, end: b.end, ...label(b) })),
     ...hardBlocks(day).filter(b => b.house === house).map(b => ({ start: b.start, end: b.end, text: b.note || 'Blocked', cls: 'bg-pt-surface text-pt-muted' })),
-    ...freeGaps(day, date, house, s, nowStamp()).map(g => ({ start: g.start, end: g.end, text: 'Free', cls: 'text-pt-muted/60 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]' })),
+    ...freeGaps(day, date, house, s, nowStamp()).map(g => ({ start: g.start, end: g.end, text: 'Free', cls: 'text-pt-accent border border-dashed border-pt-accent/60' })),
   ].sort((x, y) => x.start - y.start)
   return (
     <div className="space-y-1">

@@ -200,7 +200,7 @@ function DaySheet({ date, day, s, now, reqs, onClose, onOpen, canBlock }: { canB
       ? <span className="truncate text-amber-300">Held · {b.entry.name}</span>
       : <button onClick={() => onOpen(b.entry.shootId)} title="Open this booking" className={`min-w-0 flex-1 text-left truncate rounded-lg px-2 py-1 ${b.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{b.entry.name}{b.entry.withNames?.length ? ` + ${b.entry.withNames.join(', ')}` : ''}</button> })),
     ...hardBlocks(day).filter(b => b.house === h).map(b => ({ start: b.start, end: b.end, node: <span className="truncate text-pt-muted">{b.note || BLOCK_TYPES[b.type]}</span> })),
-    ...freeGaps(day, date, h, s, now).map(g => ({ start: g.start, end: g.end, node: <span className="text-green-400">Free</span> })),
+    ...freeGaps(day, date, h, s, now).map(g => ({ start: g.start, end: g.end, node: <span className="text-pt-accent">Free</span> })),
   ].sort((x, y) => x.start - y.start)
   return (
     <BottomSheet open onClose={onClose} title={formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}>

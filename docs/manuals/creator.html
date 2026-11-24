@@ -81,7 +81,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div class="eyebrow">Prime Capitol app · Creator manual</div>
     <h1>Everything you can do as a creator</h1>
     <p class="lede">Find what you want to do, follow the steps. Every section works on its own, so you never need to read this front to back.</p>
-    <div class="meta"><span class="chip">For app version 1.3.0</span><span class="chip">Updated Nov 24, 2026</span><span class="chip">proptracker.arbcreative.co</span></div>
+    <div class="meta"><span class="chip">For app version 1.3.2</span><span class="chip">Updated Nov 24, 2026</span><span class="chip">proptracker.arbcreative.co</span></div>
   </header>
 
   <div class="search"><input id="q" type="search" placeholder="What do you want to do? Try “cancel”, “camera”, “friend”…" aria-label="Search this manual"><div class="count" id="count"></div></div>
@@ -322,7 +322,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Pick <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">All</span> (both houses side by side) above the month.</li>
         <li>Read the bars: bright = free, faded = partly free. Green = lots of time, amber = a little time left. "Full" = nothing free. Your own filming days are gold. Today has a white circle.</li>
         <li>A small lock on a Cliff 1 day = priority day (see below). A blue "C2 open" = Cliff 1 is full but Cliff 2 still has time.</li>
-        <li>Tap a day to see it like a Google Calendar day: Cliff 1 and Cliff 2 side by side, who is filming when, and every free stretch in green with how long it is. Use the arrows to flip to the next day.</li>
+        <li>Tap a day to see it like a Google Calendar day: Cliff 1 and Cliff 2 side by side, who is filming when, and every free stretch as an open space with a dashed gold outline and how long it is. Use the arrows to flip to the next day.</li>
         <li>Use <span class="ui">‹</span> and <span class="ui">›</span> to change month.</li>
       </ol>
       <div class="tip"><b>Tip:</b> A small amber dot on a day is a heads-up (for example a contractor at a house). Tap the day to read it. You can still film.</div>
@@ -351,17 +351,17 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>See every time on one day</h3>
-      <p class="why">Tapping a day shows Cliff 1 and Cliff 2 as timelines: every booking at its real time, in order.</p>
+      <p class="why">Tapping a day shows it like a Google Calendar day: hours down the side, Cliff 1 and Cliff 2 side by side, every booking at its real time. The arrows flip to the day before or after.</p>
       <ul>
-        <li>Gold <span class="ui">Free</span> with its hours (e.g. "Free · 3 h 30 min") = you can book any time inside it.</li>
-        <li>A name = someone has it (with "+ Kyle" when friends are on the booking). Dashed amber = someone asked and is waiting for approval.</li>
+        <li>An open space with a dashed gold outline (e.g. "+ Free 3 h 30") = free: tap it to book any time inside it. A short "15 min gap" is too short to book.</li>
+        <li>A blue block with a name = someone is filming (with "+ Kyle" when friends are on the booking). Yours is gold. Dashed amber = waiting for approval.</li>
         <li>"Guideline required" = Cliff 1 on a priority day: you'll need a filming guideline PDF.</li>
         <li>Striped = blocked time (cleaners, maintenance).</li>
-        <li>A bell next to a taken time = join its waitlist (see "Get a time that's already taken").</li>
-        <li><span class="ui">Book Offsite</span> at the bottom = shooting somewhere else.</li>
+        <li>A bell on someone's booking = tap it to get that time if they cancel (it's held for you for 20 minutes). The day explains this at the top.</li>
+        <li><span class="ui">Shooting somewhere else? Book offsite</span> at the top = shooting somewhere else.</li>
       </ul>
     </div>
-    <figure class="shot"><img src="img/c-day-sheet.png" alt="The day sheet: Cliff 1 and Cliff 2 as timelines with bookings and gold Free stretches, and a Book Offsite button" loading="lazy"><figcaption>One day, both houses</figcaption></figure>
+    <figure class="shot"><img src="img/c-day-sheet.png" alt="The day: Cliff 1 and Cliff 2 side by side like a calendar, bookings as blocks with names, free stretches outlined in gold, Book offsite at the top" loading="lazy"><figcaption>One day, both houses</figcaption></figure>
   </section>
 
   <section class="task noshot" id="find-time-ai" data-words="find a time search earliest soonest next free ai ask for a time evenings">
@@ -397,7 +397,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Offsite shoots go on the schedule too, so props, gear and the team know about them. No house is held. You can pick any hours.</p>
       <ol>
         <li>Tap <span class="ui">Calendar</span>, tap the day.</li>
-        <li>Scroll down and tap <span class="ui">Book Offsite</span>.</li>
+        <li>Tap <span class="ui">Shooting somewhere else? Book offsite</span> at the top of the day.</li>
         <li>Pick <b>From</b> and <b>Until</b> (half-hour steps) and fill in <b>Where</b> (an address or a Maps link).</li>
         <li>Tap <span class="ui">Ask for this</span>. The equipment team approves it.</li>
       </ol>
@@ -412,7 +412,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Use both houses at once</h3>
       <p class="why">Possible for one hour only. It always goes to the equipment team for approval, and counts as your one booking that day.</p>
       <ol>
-        <li>Tap a green free stretch on the day.</li>
+        <li>Tap a free stretch on the day (the open spaces with a dashed gold outline).</li>
         <li>Tap the small link <span class="ui">Need both houses at once? (1 hour)</span> under the button. (It only shows when the other house is free at that time too.)</li>
         <li>Pick a start and end up to 1 hour apart, then tap the gold button.</li>
       </ol>
@@ -465,7 +465,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Join the waitlist. If the time opens up, it's held for you for 20 minutes.</p>
       <ol>
         <li>Tap the day on <span class="ui">Calendar</span>.</li>
-        <li>Tap the <b>bell</b> next to the taken time. It turns gold and shows your place in line (#2).</li>
+        <li>Tap the <b>bell</b> on their booking. It turns gold and a line under the day confirms you're on the list.</li>
         <li>If it opens, you get a notification and a card in the Chat. Tap <span class="ui">Confirm my slot</span> within 20 minutes, or it goes to the next person.</li>
         <li>Tap the bell again to leave the list.</li>
       </ol>

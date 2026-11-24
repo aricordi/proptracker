@@ -346,10 +346,15 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const waits = useMyWaitlist(email, canBook && !team)
   const [waitErr, setWaitErr] = useState('')
   const [waitBusy, setWaitBusy] = useState('')
+  const [waitInfo, setWaitInfo] = useState('')
   async function bell(h: House, start: number) {
     const k = waitKey(date, h, start), w = waits.entries[k]
     setWaitBusy(k); setWaitErr('')
-    try { if (w) await waits.leave(w); else await waits.join(date, h, start) } catch (e) { setWaitErr(errorText(e)) } finally { setWaitBusy('') }
+    setWaitInfo('')
+    try {
+      if (w) { await waits.leave(w); setWaitInfo(`Off the list for ${fmtTime(start % 1440)}.`) }
+      else { await waits.join(date, h, start); setWaitInfo(`You're on the list for ${s.houses[h].name} at ${fmtTime(start % 1440)}. If it opens up, it's held for you for ${INVITE_HOLD_MINUTES} minutes and you'll get a notification.`) }
+    } catch (e) { setWaitErr(errorText(e)) } finally { setWaitBusy('') }
   }
   // DAY GRID (owner, Nov 24: "people go on the Google Calendar app because it's easy to see gaps and who's filming… too neat"):
   // like a Google Calendar day: hours down the side, Cliff 1 and Cliff 2 side by side, every booking a block sized by its real
@@ -373,8 +378,8 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
         <button key={`f${g.start}`} disabled={!can} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)}
           data-testid={can ? 'free-gap' : undefined} data-house={h}
           style={{ top: y(g.start) + 1, height: Math.max(tall - 2, 10) }}
-          className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden flex flex-col justify-start ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'bg-emerald-400/[0.06] text-emerald-200/70' : 'bg-emerald-400/[0.16] text-emerald-200 shadow-[inset_0_0_0_1.5px_rgba(52,211,153,0.55)] active:opacity-80'}`}>
-          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `Free ${hoursText(g.end - g.start)}`}</span>}
+          className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden flex flex-col justify-start ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'border border-dashed border-white/15 text-pt-muted' : 'border-2 border-dashed border-pt-accent/70 text-pt-accent active:bg-pt-accent/10'}`}>
+          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `+ Free ${hoursText(g.end - g.start)}`}</span>}
           {tall >= 34 && !locked && <span className="block text-[12px] leading-tight opacity-80 truncate">{fmtTime(g.start % 1440)}–{fmtTime(g.end % 1440)}</span>}
           {tall >= 50 && guide && <span className="block text-[12px] text-amber-200 truncate">Guideline needed</span>}
         </button>)
@@ -434,7 +439,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
         {HOUSES.map(h => (
           <span key={h} className="px-2 py-2 border-l border-white/[0.06]">
             <span className="block text-pt-text text-[14px] font-bold leading-tight">{s.houses[h].name}</span>
-            <span className={`block text-[12px] leading-tight ${freeTotal(h) ? 'text-emerald-300' : 'text-pt-muted'}`}>{freeTotal(h) ? `${hoursText(freeTotal(h))} free` : 'Full'}</span>
+            <span className={`block text-[12px] leading-tight ${freeTotal(h) ? 'text-pt-accent' : 'text-pt-muted'}`}>{freeTotal(h) ? `${hoursText(freeTotal(h))} free` : 'Full'}</span>
           </span>
         ))}
       </div>
@@ -496,11 +501,28 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           ))}
         </div>
       )}
+      {(canBook || team) && (
+        <button onClick={onOffsite} className="w-full mb-3 flex items-center gap-3 rounded-2xl bg-pt-raised shadow-hairline px-4 min-h-[48px] text-left">
+          <Icon name="pin" className="w-5 h-5 text-sky-300 shrink-0" />
+          <span className="flex-1 text-pt-text text-[15px] font-semibold">Shooting somewhere else? Book offsite</span>
+          <span className="text-pt-muted text-lg">›</span>
+        </button>
+      )}
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5 mb-2 text-[12px] text-pt-muted">
+        <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border-2 border-dashed border-pt-accent/80" />Free, tap to book</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-[#3A4A63]" />Filming</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-pt-accent" />You</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border border-dashed border-amber-400" />Waiting for OK</span>
+      </div>
+      {!team && canBook && (
+        <p className="flex items-start gap-2 mb-3 text-[12px] text-pt-muted">
+          <span className="shrink-0 w-6 h-6 rounded-md grid place-items-center bg-black/30 text-white/80"><Icon name="bell" className="w-3.5 h-3.5" /></span>
+          <span><b className="text-pt-text">Want a time someone has?</b> Tap the bell on their booking. If they cancel, it's held for you for {INVITE_HOLD_MINUTES} minutes and you get a notification. Tap it again (gold) to leave the list.</span>
+        </p>
+      )}
       {grid}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[12px] text-pt-muted"><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-400/40" />Free</span><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#3A4A63]" />Filming</span><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-pt-accent" />You</span><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded border border-dashed border-amber-400" />Waiting for OK</span></div>
+      {waitInfo && <p role="status" className="mt-2 text-[13px] text-pt-accent">{waitInfo}</p>}
       {waitErr && <p className="text-red-300 text-sm mt-3">{waitErr}</p>}
-      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold free time and pick any start and end inside it (up to {s.slotMinutes / 60} hours each person; add the people filming with you for longer). The equipment team approves it, and it's held for you while you wait.
-        {' '}Want a taken time? If it has a bell, tap it: if it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes{Object.keys(waits.entries).some(k => k.startsWith(date)) ? '. Tap a gold bell to leave the list.' : '.'}</p>}
       {offsite.length > 0 && (
         <div className="mt-4 space-y-1.5">
           <p className="text-pt-text text-sm font-semibold">Offsite this day</p>
@@ -512,7 +534,6 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           ))}
         </div>
       )}
-      {(canBook || team) && <button onClick={onOffsite} className={`mt-4 ${btnGrey}`}>Book Offsite</button>}
   </>)
   // Laptop: the day sits next to the month instead of sliding up.
   if (inline) return <section className="rounded-[20px] shadow-hairline p-4"><h2 className="text-pt-text text-[20px] font-semibold mb-3">{title}</h2>{body}</section>

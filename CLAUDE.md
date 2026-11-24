@@ -2985,6 +2985,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       LIVE Nov 24 as version 1.2.1 (website run 45352878142). Support page public/support.html LIVE as 1.2.2 (website run 45356711726);
       plugin ZIP via Codex Plugin Creator (docs/chatgpt-plugin-codex-prompt.md), demo video via local Claude Code (docs/chatgpt-demo-video-prompt.md). Next: owner verifies on platform.openai.com, submits, sends the domain
       token → admin task {"kind":"openaiChallenge","token":"…"}. Kit + reviewer note: docs/chatgpt-submission.md.
+    - DAY GRID + CONNECT FIX + UPDATE BUTTON (owner, Nov 24): DayPickSheet (ScheduleScreen) = Google-Calendar day: hours down the
+      side, Cliff 1 | Cliff 2 side by side, bookings as blocks at real hours (you gold, others #3A4A63, pending dashed amber, blocks
+      hatched, overlaps in lanes), free stretches = OPEN space with a dashed gold outline "+ Free 2 h" (owner: green looked booked),
+      gaps < 30 min shown as "N min gap" (not bookable), header free hours per house, ‹ › day arrows (onDay), now line + past dimmed;
+      "Shooting somewhere else? Book offsite" + colour key + bell explanation at the TOP; bell tap confirms in a status line.
+      CONNECT: src/lib/connectPending.ts remembers the /connect request 15 min (localStorage pc.connectReq) so sign-in landing on
+      the home page still shows the Allow page; Copy link copies the full connect URL; SW denylist /connect. Logs had shown authorize
+      302s but connectorRequestInfo never called. UpdateBanner waits for controllerchange (else unregisters SW + clears caches),
+      "Updating…", z-[90]. Versions 1.3.0 (website run 45361759441) / 1.3.1 / 1.3.2.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

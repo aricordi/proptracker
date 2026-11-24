@@ -57,7 +57,7 @@ export default function ScheduleRulesScreen() {
         <H>{c2} and offsite shoots</H>
         <ul className="list-disc pl-5 space-y-2">
           <Li>{c2} is first come, first served. External rentals come first.</Li>
-          <Li>Shooting somewhere else? Tap a day on the <b>Calendar</b> → <b>Book Offsite</b>: pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
+          <Li>Shooting somewhere else? Tap a day on the <b>Calendar</b> → <b>Book offsite</b> (at the top of the day): pick any start and end time and say where (an address or a Maps link). It goes on the schedule so props, gear and the team know, and it counts toward production.</Li>
         </ul>
 
         <H>Props for your shoot</H>

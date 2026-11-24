@@ -12,6 +12,14 @@ Each manual says which version it was written for.
 
 
 
+## 1.3.2 · Nov 24, 2026
+
+- **Free time is easier to spot on a day.** Free stretches are now open spaces with a dashed gold outline ("+ Free 2 h")
+  instead of a filled green block that looked booked. The same gold is used for free time everywhere.
+- **"Shooting somewhere else? Book offsite" is at the top of the day,** not hidden at the bottom.
+- **The bell is explained.** A line above the day says what it does, and tapping it confirms you're on the list and that
+  the time is held for you for 20 minutes if it opens up.
+
 ## 1.3.1 · Nov 24, 2026
 
 - **The Update button always works now.** It says "Updating…", waits for the new version to finish downloading, and if
