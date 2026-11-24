@@ -2892,7 +2892,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       AS the person (.run with their auth): look tools (get_rules, whoami, search_props, props_for_idea (brainstorm: needs per scene →
       closet matches + missing), browse_props, list_categories, show_props (ChatGPT widget text/html+skybridge), get_prop,
       get_schedule (bookings + free stretches), list_people, my_shoots (incl. as collaborator), my_props_requests) and do tools
-      (book_shoot (bookShoot with end + `with`), move_shoot, cancel_shoot, request_props). Props-only creators get look tools only.
+      (book_shoot (bookShoot with end + `with`), move_shoot, cancel_shoot, request_props). MORE (more.ts, Nov 24 "full functionality,
+      highest chance of OpenAI approval"): my_status, get_shoot, find_free_times, prop_calendar, change_props_request,
+      cancel_props_request, join/leave_waitlist, invite_to_video, answer_video_invite, request_swap, answer_swap, report_problem,
+      app_link (camera steps open the app). Shared helpers in mcp/common.ts (tools.ts ↔ more.ts never import each other's values).
+      Every tool has explicit readOnly/destructive/openWorld hints + securitySchemes oauth2; visual tools (show_props, get_prop,
+      props_for_idea, find_free_times, get_shoot) carry BOTH _meta.ui.resourceUri (MCP Apps, text/html;profile=mcp-app) and
+      openai/outputTemplate (text/html+skybridge); one display-only widget (widget.ts). /.well-known/openai-apps-challenge serves
+      mcp_settings/openai.challenge (admin task kind openaiChallenge). Privacy policy has a ChatGPT/Claude section. Submission kit:
+      docs/chatgpt-submission.md (OPEN: reviewer demo login vs private ChatGPT Business workspace = owner decision). Props-only creators get look tools only.
       400 requests/h per person (mcp_rate). Server collections mcp_* (no rules). ChatGPT: Developer mode (paid) now; directory
       submission later (voice) = owner needs an OpenAI developer account.
       (2) FREE-TIME BOOKING (owner: "remove slot bookings", 15-min steps, 2 h per person, one booking lists everyone, collaborators
