@@ -2872,6 +2872,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       moveShoots run 45253984153: Val's 6 Monday Cliff 2 shoots 11 → 1 PM (all ok). Admin task offAppPeople run 45254209366: Moe =
       users/guest:moe. The 20:00 calendar check turned Moe's Cliff 2 series into 16 shoots under his name (Dec 7 – Mar 22, no clashes,
       auto-confirmed). Manuals + owner guide republished. Old-calendar writing still OFF (owner turns it on in Calendar & email).
+    - OLD CALENDARS WRITING ON (Nov 24, owner): version 1.1.1 live (backend run 45278940572 + website run 45278947485; runAdminTask
+      and checkCalendarAccess redeployed with `only` after quota skips). OFFSITE app bookings go to the Cliff 1 (Stromedy Talent)
+      calendar as "<name> - Offsite Filming" (the team's own habit; owner picked it over Cliff 2 / mixed); "Offsite" in the title
+      keeps a moved copy offsite. checkCalendarAccess = REAL write test (add + delete a 't…' all-day event 400 days out): the
+      account token only has calendar.events, so calendarList always 403'd. Admin task kinds `oldCalendars {on}` (turns
+      writeOldCalendars on only when the app calendar + the Cliff 1/Cliff 2/offsite target calendars are writable) and
+      `mergePerson {from,to,apply}`. Run 45303649487: App calendar, Cliff 2, Stromedy Talent writable; Stromedy + Stromedy Studios
+      READ ONLY (only Kyle's Nov 24 restaurant shoot came from Stromedy; edits to shoots from those two stay app-side, logged);
+      writeOldCalendars = TRUE. Moe = knmohammed6@gmail.com (owner merged guest:moe). "Read server logs" has a `calendar` input
+      (feed_dump.py: future imports from old calendars whose name contains it). NOTE Moe's Cliff 2 events are titled
+      "Moe - Stromedy Talent Filming", so the Cliff 2 title style "{name} - Cliff 2 Filming" may not match the team's habit.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
