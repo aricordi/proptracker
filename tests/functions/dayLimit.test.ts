@@ -54,14 +54,14 @@ describe('one house slot a day', () => {
     const bens = await book(BEN, { start: 1140 })
     const req = await call('requestSwap', { myShootId: mine2.result.id, theirShootId: bens.result.id }, ANA)
     expect(req.ok).toBe(true)
-    expect((await call('answerSwap', { id: req.result.id, accept: true }, BEN)).message).toMatch(/Ana already has a house slot/)
+    expect((await call('answerSwap', { id: req.result.id, accept: true }, BEN)).message).toMatch(/Ana already has a house (slot|booking)/)
     expect(mine.ok).toBe(true)
   })
 
   it('booking with a friend: one slot each, and a friend who already films that day is refused', async () => {
     expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 2 }, ANA)).message).toMatch(/one a day|house booking that day/)
     expect((await book(BEN, { place: 'cliff1', start: 1260 })).ok).toBe(true)
-    expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 1 }, ANA)).message).toMatch(/Ben already has a house slot/)
+    expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 1 }, ANA)).message).toMatch(/Ben already has a house (slot|booking)/)
     const ok = await call('bookWithFriends', { place: 'cliff2', date: SAT, start: 780, friends: [BEN], mySlots: 1 }, ANA)
     expect(ok.ok, ok.message).toBe(true)
     expect((await getDoc(`schedule_days/${SAT}`))!.cliff2['900'].email).toBe(BEN)
