@@ -19,6 +19,7 @@ import { houseSlotsOn, needsGuideline, isLongBooker, slotsPerDayFor,
   cleanScheduleSettings, checkSlot, checkTimes, houseBookings as houseBookingsOf, conflictAt, normalizeDay, maxMinutesFor, DEFAULT_SCHEDULE, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type Block, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
+  aheadDaysFor,
 } from './schedule.js'
 
 const TEAM = ['owner', 'equipment']
@@ -95,6 +96,11 @@ function readSpot(d: Record<string, any>, s: ScheduleSettings): Spot {
     if (!where) throw fail('no-where')
   }
   return { place, date: d.date, start, end: end as number, where }
+}
+
+// Creators book about 2 weeks ahead at most (owner, Nov 24); the team (booking for someone) and instant bookers go further.
+function assertAhead(spot: Spot, caller: Caller, forEmail: string, s: ScheduleSettings) {
+  if (spot.date > addDays(todayInStudio(), aheadDaysFor(forEmail, s, isTeam(caller)))) throw fail('too-far-creator')
 }
 
 const dayRefOf = (date: string) => db.doc(`schedule_days/${date}`)
@@ -239,6 +245,7 @@ export const bookShoot = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   const spot = readSpot(d, s)
   const who = await shootFor(caller, d.forEmail)
+  assertAhead(spot, caller, who.email, s)
   // BOTH HOUSES (owner, Nov 17: rare, late evening / early morning): one hour in Cliff 1 AND Cliff 2 at once, inside one
   // 2-hour slot (half 0 = its first hour, 1 = its second). Takes that slot in both houses. Always a request the team approves
   // (even for people who book without approval), unless the team books it for someone. Counts as one booking for the day.
@@ -391,6 +398,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
   // Free time: a move keeps the shoot's length unless a new end is given.
   const keepLen = Number.isInteger(d.start) && !Number.isInteger(d.end) ? { end: (d.start as number) + (Number(pre.end) - Number(pre.start)) } : {}
   const spot = readSpot({ ...d, ...keepLen, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
+  assertAhead(spot, caller, String(pre.creatorEmail), s)
   assertLength(spot, 1 + (Array.isArray(pre.with) ? pre.with.length : 0), caller, pre.creatorEmail, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
   // The team moving a shoot to another day takes its props along (owner, Nov 15); creators still sort their props first
@@ -1240,6 +1248,7 @@ export const bookWithFriends = onCall(CALLABLE, async req => {
   const s = await loadScheduleSettings()
   const spot = readSpot(d, s)
   if (spot.place === 'offsite') throw new HttpsError('invalid-argument', 'Back-to-back booking is for the houses.')
+  assertAhead(spot, caller, caller.email, s)
   const house = spot.place as House
   const maxMine = isLongBooker(caller.email, s) ? s.slots.length : 3
   // LINEUP (owner, Nov 23: "decide how many slots, then for each slot assign somebody"): one entry per back-to-back slot, in

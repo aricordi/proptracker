@@ -28,6 +28,9 @@ import { understandArgs, knownFor } from './lenient.js'
 import { noteDemand } from './demand.js'
 import { attachRefImage, CUSTOM_NOTE } from './custom.js'
 import { runReviewerTool } from './reviewer.js'
+import { dealsFor } from './deals.js'
+import { propsProblemWithSubs } from './subs.js'
+import { toRebook, friendsFilming } from './followUp.js'
 
 // Words people add that say nothing about the prop ("cop stuff", "some kind of chair", "any props for a diner").
 const FILLER = new Set(['stuff', 'things', 'thing', 'something', 'some', 'any', 'anything', 'like', 'kinda', 'kind', 'sort', 'type', 'of', 'for', 'the', 'an',
@@ -97,6 +100,9 @@ export const TOOLS = [
       category: { type: 'string', description: 'Optional category name to narrow it, e.g. "Costumes"' },
       day: { type: 'string', description: 'Optional shoot day for availability: '+'YYYY-MM-DD (resolve it yourself with get_context; plain words are also understood)' },
       limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 20' } }, ['query']) },
+  { name: 'closet_list', title: 'The whole props closet (compact)', annotations: READ,
+    description: 'EVERY company prop in one compact list (id | name | category | tags | search words | how many), so you can read the closet yourself and find things the keyword search misses: substitutes, creative reuses, things that could stand in ("no cop uniform, but this security jacket + badge works"). Use it for brainstorming, scripts and unusual asks; then show_props (photos) for what you suggest. Pages of 400; optional category filter.',
+    inputSchema: obj({ category: { type: 'string', description: 'Optional: only this category (list_categories)' }, page: { type: 'integer', minimum: 1, description: 'Default 1' } }) },
   { name: 'props_for_idea', title: 'Check the closet for a video idea', annotations: READ,
     description: 'Checks which props, costumes and set dressing Prime Capitol already has for a video idea. Give the idea broken into concrete needs (per scene or character) and it looks up each one in the closet. Returns the best matches per need (id, name, how many, photo, free on the day if given) and the needs with nothing in the closet (those can be asked for as custom props). Then offer to show_props, adjust the idea to what exists, or request them for a shoot. Props, costumes and set dressing only (no cameras, lights or batteries).',
     inputSchema: obj({ idea: { type: 'string', description: 'One line about the video' },
@@ -206,7 +212,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
     }
     case 'get_context': {
       const today = todayInStudio(), now = nowStamp()
-      const [known, b, sch] = await Promise.all([knownFor(u), loadSettings(), loadScheduleSettings()])
+      const [known, b, sch, rebook, friends] = await Promise.all([knownFor(u), loadSettings(), loadScheduleSettings(), canBook ? toRebook(u) : [], canBook ? friendsFilming(u) : []])
       const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
       const days = Array.from({ length: 14 }, (_, i) => { const d = addDays(today, i); return { date: d, weekday: WD[weekday(d)], ...(i === 0 ? { is: 'today' } : i === 1 ? { is: 'tomorrow' } : {}) } })
       const upcoming = known.shoots.filter(x => x.date >= today).sort((x, y) => `${x.date}${x.start}`.localeCompare(`${y.date}${y.start}`)).slice(0, 12).map(x => {
@@ -231,13 +237,17 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
         props_requests_open: known.requests.filter(r => ['requested', 'preparing', 'packed', 'collected'].includes(r.status) && r.date >= addDays(today, -7)).map(r => ({ id: r.id, video: r.title, day: r.date, status: r.status, items: r.items.slice(0, 8) })),
         waiting_for_your_answer: [...known.invites.map(x => ({ kind: 'video invite', id: x.id, from: firstName(x.who), day: x.date })), ...known.swaps.map(x => ({ kind: 'swap request', id: x.id, from: firstName(x.who), day: x.date }))],
         filmed_with_lately: partners,
+        ...(rebook.length ? { did_not_go_through: rebook } : {}),
+        ...(friends.length ? { friends_filming_soon: friends } : {}),
         rules: { houses: `${sch.houses.cliff1.name} (cliff1), ${sch.houses.cliff2.name} (cliff2), or offsite`, open: `${hm(sch.slots[0])}–${hm(sch.slots[sch.slots.length - 1] + sch.slotMinutes)}`,
           per_person_hours: sch.slotMinutes / 60, approval: 'creator bookings are requests the schedule team approves', props_notice_hours: b.leadTimeHours ?? 48, custom_props_days: b.buildLeadDays ?? 4 },
       }
       const lines = [`${data.you.name} (${data.you.role}${canBook ? '' : ', cannot book'}) · now ${data.now} (${days[0].weekday})`,
         upcoming.length ? `Upcoming: ${upcoming.map(x => `${x.id} ${x.weekday} ${x.day} ${x.start}–${x.end} ${x.place}${x.with.length ? ` with ${x.with.join(', ')}` : ''} (${x.status})`).join('; ')}` : 'No upcoming shoots.',
         data.waiting_for_your_answer.length ? `Waiting for their answer: ${data.waiting_for_your_answer.map(x => `${x.kind} from ${x.from}`).join(', ')}` : '',
-        partners.length ? `Filmed with lately: ${partners.map(p => p.name).join(', ')}` : ''].filter(Boolean)
+        partners.length ? `Filmed with lately: ${partners.map(p => p.name).join(', ')}` : '',
+        rebook.length ? `Didn't go through (tell them why and offer new times): ${rebook.map(r => `${r.place} ${r.day} ${r.start} (${r.why})`).join('; ')}` : '',
+        friends.length ? `Friends filming soon (could film right before/after): ${friends.map(f => `${f.name} ${f.day} ${f.place} ${f.start}–${f.end}${f.free_after ? `, free after ${f.free_after}` : ''}${f.free_before ? `, free before ${f.free_before}` : ''}`).join('; ')}` : ''].filter(Boolean)
       return { text: lines.join('\n'), structured: data }
     }
     case 'whoami':
@@ -274,6 +284,15 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const rows = found.map(({ p, term, words }) => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 200), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: words ? 'words' : 'similar meaning', ...(terms.length > 1 ? { for: term } : {}) }))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}${r.for ? ` | for "${r.for}"` : ''} | ${r.description.slice(0, 90)}`).join('\n') : `Nothing in the closet matches ${terms.map(x => `"${x}"`).join(', ')}. Try other words, or ask for it as a custom prop.`,
         structured: { query: terms[0], ...(terms.length > 1 ? { also: terms.slice(1) } : {}), day: day || null, results: rows, props: rows.slice(0, 12) }, widget: true }
+    }
+    case 'closet_list': {
+      const cat = s(args.category, 60).toLowerCase()
+      const all = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat)).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+      const PER = 400, pages = Math.max(1, Math.ceil(all.length / PER)), page = Math.min(pages, clampInt(args.page, 1, 99, 1))
+      const rows = all.slice((page - 1) * PER, page * PER)
+      const line = (p: Prop) => [p.id, p.name, p.category, p.tags.slice(0, 6).join(', '), p.words.slice(0, 90), `x${Math.max(0, p.quantity - p.missing)}${p.damaged ? ' damaged' : ''}`].join(' | ')
+      return { text: `Closet${cat ? ` (${cat})` : ''}: ${all.length} props, page ${page} of ${pages}. id | name | category | tags | search words | how many\n${rows.map(line).join('\n')}${page < pages ? `\n(More: page ${page + 1}.)` : ''}`,
+        structured: { total: all.length, page, pages } }
     }
     case 'props_for_idea': {
       const needs = objs(args.needs).map(x => ({ need: s((x as Json).need, 120), scene: s((x as Json).scene, 80) })).filter(x => x.need.length >= 2).slice(0, 15)
@@ -456,6 +475,12 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
     } catch (e) {
       // A guideline PDF can only be attached in the app (review, Nov 24): say so plainly with the link instead of a dead end.
       if (((e as HttpsError).details as Json | undefined)?.problem === 'guideline') return { text: `Cliff 1 on ${day} is a priority day: booking it needs the filming guideline PDF, which is attached in the app. Book this one in the app (${APP_LINK}/schedule), or pick Cliff 2 or another day here.`, structured: { needs_guideline_in_app: true, app_link: `${APP_LINK}/schedule` } }
+      // Taken, held or blocked: work out a deal instead of a dead end (owner, Nov 24).
+      const prob = String(((e as HttpsError).details as Json | undefined)?.problem ?? '')
+      if (place !== 'offsite' && ['taken', 'held', 'blocked'].includes(prob)) {
+        const deal = await dealsFor(place as House, day, start, realEnd, u)
+        if (deal) return deal
+      }
       throw e
     }
   }
@@ -486,13 +511,13 @@ async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {
     try {
       await editReservation.run(asUser(u, { id: open.id, lines: [...merged].map(([itemId, qty]) => ({ itemId, qty })),
         builds: [...((open.get('builds') ?? []) as Json[]), ...builds] }))
-    } catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
+    } catch (e) { const why = await propsProblemWithSubs(e, sh.date, u); if (why) return { text: why }; throw e }
     return { text: `Added to your request "${open.get('title')}" for ${sh.date}. The arts department will see it.${builds.length ? ` ${CUSTOM_NOTE}` : ''}` }
   }
   const title = s(args.video_name, 120) || s(sh.title, 120) || 'Video'
   let r: Json
   try { r = await createReservation.run(asUser(u, { startDate: sh.date, endDate: sh.date, scheduleShootId: id, title, notes: s(args.notes, 500), lines, builds })) as Json }
-  catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
+  catch (e) { const why = await propsProblemWithSubs(e, sh.date, u); if (why) return { text: why }; throw e }
   return { text: `Sent: props request "${title}" for your ${sh.date} shoot (${lines.length} prop${lines.length === 1 ? '' : 's'}${builds.length ? `, ${builds.length} custom` : ''}${builds.some(b => b.refPhoto) ? ', with the reference picture' : ''}). The arts department packs it; you'll get a notification when it's ready.${builds.length ? ` ${CUSTOM_NOTE}` : ''}`, structured: { result: r } }
 }
 

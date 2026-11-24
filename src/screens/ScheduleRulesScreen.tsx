@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { useBookingSettings } from '../hooks/useBookings'
-import { useScheduleSettings, houseOpen, houseClose, BOOK_AHEAD_DAYS, MONTHLY_SLOTS_ON } from '../services/schedule'
+import { useScheduleSettings, houseOpen, houseClose, MONTHLY_SLOTS_ON } from '../services/schedule'
 
 const WEEKDAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
 const list = (xs: string[]) => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
@@ -26,7 +26,7 @@ export default function ScheduleRulesScreen() {
         <ul className="list-disc pl-5 space-y-2">
           <Li>Book <b>any free time</b> at a house from {fmtTime(houseOpen(s))} to {fmtTime(houseClose(s) % 1440)}, starting and ending on the quarter hour (1:15, 1:30…), at least 30 minutes. Each person on a booking gets up to <b>{s.slotMinutes / 60} hours</b>: filming 4 hours means adding one collaborator to the booking, 6 hours two. Collaborators don't have to confirm.</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
-          <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {BOOK_AHEAD_DAYS} days ahead. A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
+          <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {s.bookAheadDays} days ahead (so nobody grabs the best times weeks out). A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
           <Li>Filming with someone, or need longer? Tap a gold time on the <b>Calendar</b>, pick how long (2 h, 4 h, 6 h…), then say who films in each slot: you take one, a friend takes each other slot. It all goes in as one request (they don't need to confirm). Friend not on the app yet? Type their name and their slot is booked under it. Only book friends who will really be there.</Li>
         </ul>
 

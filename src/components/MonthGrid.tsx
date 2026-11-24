@@ -3,7 +3,7 @@
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
 import { useState, type ReactNode } from 'react'
-import { freeGaps, houseBookings, houseOpen, houseClose, priorityLocked, headsUps, HOUSES, BOOK_AHEAD_DAYS, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { freeGaps, houseBookings, houseOpen, houseClose, priorityLocked, headsUps, HOUSES, aheadDaysFor, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { Icon } from './Icon'
 
@@ -109,7 +109,8 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} />)}
         {list.map(date => {
           // Before today, or further ahead than anyone can book (audit, Nov 5: those days showed free slots the server refused).
-          const past = date < today || date > addDays(today, BOOK_AHEAD_DAYS)
+          // Creators book about 2 weeks ahead (owner, Nov 24); the team and instant bookers further (schedule.ts aheadDaysFor).
+          const past = date < today || date > addDays(today, aheadDaysFor(email, s, !!team))
           const c = countDay(days?.[date], date, houses, s, email, now, lockFree)
           // Your shoots and waiting requests show whichever house is picked; only the free spots follow the switch.
           const all = house === 'all' ? c : countDay(days?.[date], date, HOUSES, s, email, now, lockFree)

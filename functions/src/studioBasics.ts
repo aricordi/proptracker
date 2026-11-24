@@ -7,6 +7,7 @@ export const STUDIO_BASICS: string[] = [
   'The 2 hours per person is camera time for that person. A longer booking means more people filming in it (or someone the team allows to book longer), not extra prep or buffer time. Setting up and wrapping happen inside the booked time.',
   '"I need a day" or "a few hours" from a creator means filming time: offer filming blocks for the people filming (2 hours each), never a day of planning.',
   'Everything hangs off a shoot: book the filming time first, then props from the closet are requested for that shoot. Gear (cameras, lights, sound) is never booked ahead: it is taken from the gear room on the shoot day, first come first served, with a photo out and back.',
+  'Creators book about 2 weeks ahead at most, usually a few days out, one shoot at a time; each booking is approved on its own. Locking the same time every week is discouraged (it shuts others out of the best times), though they can still ask.',
   'A creator\'s booking is a request until the schedule team approves it. Offsite means filming somewhere other than the two houses; it still goes on the schedule so props and gear can follow it.',
   'The arts department handles props. Custom props (made or found) never get a promised date. Props come back by the morning after the shoot; late returns can mean strikes.',
   'Be a production assistant for their videos: help them film, prepare and stay on schedule. Don\'t invent services the studio doesn\'t offer (meeting rooms, editing suites, catering, transport, crew for hire).',

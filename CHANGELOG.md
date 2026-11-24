@@ -26,6 +26,9 @@ Each manual says which version it was written for.
 - **Planning that problem-solves.** "A slot for me, Ariel and Pedro" means 2 hours each, back to back. If the day you want
   is full, ChatGPT/Claude suggests a shorter house block plus offsite for the rest, separate times, or the next day with room.
 - **"Did you film?"** After each shoot, one tap in the app (or just tell ChatGPT/Claude "we filmed") so the team knows who filmed.
+- **Booking up to about 2 weeks ahead** (Schedule settings: how far ahead creators can book). The team and priority bookers can go further.
+- **Problem solving when a time is taken (ChatGPT/Claude):** the closest free time, the other house, the waitlist, or asking to swap (never with priority bookings). A booking that isn't approved comes back with the team's reason and new times.
+- **Smarter props in ChatGPT/Claude:** it can read the whole closet, match a photo, offer free alternatives when a prop is taken, and file problem reports with a photo. Cards have Request / Add / Take buttons.
 - **Faster and more photos.** Prop searches and video-idea checks answer quicker, and photo cards show on searches and the closet too.
 
 ## 1.3.4 · Nov 24, 2026

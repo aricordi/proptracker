@@ -27,6 +27,7 @@ export interface ScheduleSettings {
   longBookers: { email: string; name: string }[]
   priorityWeekdays: number[]   // 0 = Sunday … 6 = Saturday
   releaseMinute: number    // unclaimed priority slots open to everyone at this time on the Sunday before
+  bookAheadDays: number    // creators can book up to this many days ahead (owner, Nov 24: no booking 2 weeks out); team + instant bookers up to BOOK_AHEAD_DAYS
   noticeHours: number      // moving/cancelling with less notice than this counts as a no-show (unless it's a swap)
   slotsPerDay: number      // house slots a creator may book per day (Cliff 1 + Cliff 2 together); the team can add more
   googleCalendarId: string // the APP's own Google Calendar: every booking/block is copied there ('' = off)
@@ -65,6 +66,7 @@ export const DEFAULT_SCHEDULE: ScheduleSettings = {
   longBookers: [],
   priorityWeekdays: [4, 6],
   releaseMinute: 18 * 60,
+  bookAheadDays: 14,
   noticeHours: 48,
   slotsPerDay: 1,          // owner, Oct 18: one 2-hour house slot a day; more only when the team books it
   googleCalendarId: '',
@@ -119,6 +121,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
       : [],
     priorityWeekdays: days,
     releaseMinute: Number.isInteger(x.releaseMinute) && x.releaseMinute >= 0 && x.releaseMinute < 1440 && x.releaseMinute % 30 === 0 ? x.releaseMinute : D.releaseMinute,
+    bookAheadDays: Number.isInteger(x.bookAheadDays) && x.bookAheadDays >= 1 && x.bookAheadDays <= BOOK_AHEAD_DAYS ? x.bookAheadDays : D.bookAheadDays,
     noticeHours: Number.isInteger(x.noticeHours) && x.noticeHours >= 0 && x.noticeHours <= 336 ? x.noticeHours : D.noticeHours,
     slotsPerDay: int(x.slotsPerDay, 1, 9, D.slotsPerDay),
     googleCalendarId: str(x.googleCalendarId, 200),
@@ -413,7 +416,7 @@ export function findFree(days: Record<string, ScheduleDay>, fromDate: string, da
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start).slice(0, max)
 }
 
-export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice' | 'held' | 'day-limit'
+export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice' | 'held' | 'day-limit' | 'too-far-creator'
 export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'bad-date': 'Pick a day.',
   'bad-slot': 'Pick one of the 2-hour slots.',
@@ -427,6 +430,7 @@ export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'no-where': 'Say where the offsite shoot is.',
   'short-notice': 'Less than 48 hours to go. Swap with someone instead, or cancel (it counts as a no-show).',
   held: `That slot is held for someone's collab (up to ${INVITE_HOLD_MINUTES} minutes). Check back soon.`,
+  'too-far-creator': 'Bookings open up to about 2 weeks ahead. Pick a closer day, or ask again nearer the time.',
   'day-limit': "You already have a house booking that day. Creators can be on one house booking a day; ask the schedule team if you need more time.",
 }
 
@@ -446,6 +450,9 @@ export const offsiteHoursOk = (start: number, end: unknown): end is number =>
   Number.isInteger(end) && (end as number) > start && (end as number) % 30 === 0 && (end as number) <= start + 18 * 60
 
 // Less than the notice period (48 h) before the shoot starts? Moving or cancelling now counts as a no-show.
+/** How far ahead this person may book (owner, Nov 24: creators about 2 weeks; the team and instant bookers like Kyle further). */
+export const aheadDaysFor = (email: string, s: ScheduleSettings, team: boolean) =>
+  team || s.instantBookers.some(p => p.email === email) ? BOOK_AHEAD_DAYS : s.bookAheadDays
 export const isShortNotice = (from: string, now: string, s: ScheduleSettings) => from <= addMinutes(now, s.noticeHours * 60)
 
 // Just booked it by mistake? Cancelling within 10 minutes of booking is always free.

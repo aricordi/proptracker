@@ -10,7 +10,7 @@ import { knownMissingKeys } from '../../functions/src/gearBooking'
 import { GearArt, Pill, PieceChecklist, STATUS_LABEL, LateFeeNote, dueBackLabel } from '../components/GearUi'
 import { fmtMoney } from '../../functions/src/gearStock'
 import { lateFor, stampLabel } from '../lib/lateReturns'
-import ProofPhotos, { PhotoStamp } from '../components/ProofPhotos'
+import ProofPhotos, { PhotoStamp, PhotoStrip } from '../components/ProofPhotos'
 import ImageLightbox from '../components/ImageLightbox'
 import ShootLink from '../components/ShootLink'
 import ShootLine from '../components/ShootLine'
@@ -252,7 +252,7 @@ export default function GearBookingScreen() {
             {b.pickup?.missing?.map((m, i) => <p key={`p${i}`} className="text-pt-text">{m.qty}× {m.name} missing at pickup</p>)}
             {b.problems?.map((m, i) => <p key={`q${i}`} className="text-pt-text">{m.kind === 'damaged_at_return' ? `${m.name}: damage reported at the return${m.note ? ` ("${m.note}")` : ''}`
               : m.kind === 'reported' ? `${m.name}: reported while it was out${m.note ? ` ("${m.note}")` : ''}`
-              : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}</p>)}
+              : `${m.qty}× ${m.name} ${m.kind === 'missing_after' ? 'reported missing by the next person who picked it up' : 'missing at check-in'}`}{m.photos?.length ? <PhotoStrip urls={m.photos} title="Photos" /> : null}</p>)}
             {b.return && b.return.charging === false && <p className="text-pt-text">Charging case not confirmed at the return</p>}
           </div>
         ) : null}

@@ -8,11 +8,13 @@ import { todayInStudio, addDays, isDay, shootStartStamp, propsDeadline, lastDayT
 import { nowStamp } from '../gearBooking.js'
 import {
   HOUSES, freeGaps, priorityLocked, needsGuideline, houseSlotsOn, slotsPerDayFor, maxMinutesFor, isLongBooker,
-  TIME_STEP, type House, type ScheduleDay,
+  TIME_STEP, aheadDaysFor, type House, type ScheduleDay,
 } from '../schedule.js'
 import { loadScheduleSettings, filmingPeople, requestSwap, answerSwap } from '../scheduling.js'
 import { loadSettings, editReservation, cancelReservation, confirmPickup, startReturn } from '../reservations.js'
 import { savePhoto } from './refImage.js'
+import { toRebook, friendsFilming } from './followUp.js'
+import { propsProblemWithSubs } from './subs.js'
 import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
@@ -107,7 +109,8 @@ export const MORE_TOOLS = [
     inputSchema: obj({ swap_id: { type: 'string', description: 'Swap id from get_context or my_status (the asker\'s name also works)' }, accept: { type: 'boolean' } }, ['swap_id', 'accept']) },
   { name: 'report_problem', title: 'Report something broken or missing', annotations: WRITE_OUT,
     description: 'Tell the arts department (props) or the equipment team (gear) that something the person has out is broken or missing. Ids from my_status.',
-    inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request or gear booking id from my_status (can be left out when only one thing is out)' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' } }, ['note']) },
+    inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request or gear booking id from my_status (can be left out when only one thing is out)' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' },
+      photo: { type: 'object', properties: { download_url: { type: 'string' }, file_id: { type: 'string' } }, description: 'A photo of the damage they attached in this chat (ask for one)' } }, ['note']) },
   { name: 'app_link', title: 'Open the right screen in the app', annotations: READ,
     description: 'A link that opens the Prime Capitol app on the right screen: gear pick-up and returns, taking gear on the shoot day, the calendar, or props pick-up/returns when they prefer the app (pick_up_props and return_props do those here). Give it to the person to tap.',
     inputSchema: obj({ what: { type: 'string', enum: ['return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string', description: 'Shoot id from get_context or my_shoots (a short description also works)' } }, ['what']) },
@@ -136,7 +139,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       if ('problem' in pic) return { text: pic.problem }
       const builds = [...((r.builds ?? []) as Json[]), ...pic.builds]
       if (!lines.size && !builds.length) return { text: 'That would leave the request empty: cancel it instead (cancel_props_request).' }
-      try { await editReservation.run(asUser(u, { id, lines: [...lines].map(([itemId, qty]) => ({ itemId, qty })), builds })) } catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
+      try { await editReservation.run(asUser(u, { id, lines: [...lines].map(([itemId, qty]) => ({ itemId, qty })), builds })) } catch (e) { const why = await propsProblemWithSubs(e, String(r.startDate), u); if (why) return { text: why }; throw e }
       const names = new Map((await loadCloset()).map(p => [p.id, p.name]))
       return { text: `Changed "${r.title}": ${[...lines].map(([k, q]) => `${names.get(k) ?? k} x${q}`).join(', ')}${builds.length ? ` + ${builds.length} custom` : ''}.${pic.builds.length ? ` ${CUSTOM_NOTE}` : ''}` }
     }
@@ -199,8 +202,17 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: args.accept === true ? 'Swapped ✓ Both shoots changed.' : 'Declined.' }
     }
     case 'report_problem': {
-      await reportProblem.run(asUser(u, { kind: args.kind === 'props' ? 'props' : 'gear', id: s(args.id, 100), name: s(args.what, 80), note: s(args.note, 300) }))
-      return { text: `Reported ✓ The ${args.kind === 'props' ? 'arts department' : 'equipment team'} is told.` }
+      const kind = args.kind === 'props' ? 'props' : 'gear', rid = s(args.id, 100)
+      // A photo of the damage (owner, Nov 24): saved next to that booking's return photos, with its taken-date.
+      let photos: string[] = []
+      if (args.photo && rid && /^[\w-]{1,100}$/.test(rid)) {
+        const folder = kind === 'props' ? `reservation-photos/${rid}/return` : `gear-returns/${rid}`
+        const saved = await savePhoto(args.photo, folder, { keepDate: true, allowOwn: `${folder}/` })
+        if ('problem' in saved) return { text: `Couldn't use that photo (${saved.problem}). Send the report without it, or attach it again.` }
+        photos = [saved.url]
+      }
+      await reportProblem.run(asUser(u, { kind, id: rid, name: s(args.what, 80), note: s(args.note, 300), ...(photos.length ? { photos } : {}) }))
+      return { text: `Reported ✓ The ${kind === 'props' ? 'arts department' : 'equipment team'} is told${photos.length ? ', with the photo' : ''}.` }
     }
     case 'app_link': {
       const id = s(args.shoot_id, 100)
@@ -342,8 +354,9 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     .map(r => ({ id: r.id, video: r.title, day: r.startDate, status: PROPS_STATUS[String(r.status)] ?? r.status, issues: ((r.issues ?? []) as Json[]).length || undefined }))
   const gearOut = gear.docs.map(d => ({ id: d.id, ...d.data() } as Json & { id: string })).filter(g => g.status === 'out').map(g => ({ id: g.id, items: ((g.lines ?? []) as Json[]).map(l => String(l.name)), due: clock(String(g.to ?? '')) }))
   const st = status.data() ?? {}
-  const toConfirm = await shootsToConfirm(u)
+  const [toConfirm, rebook, friends] = await Promise.all([shootsToConfirm(u), toRebook(u), friendsFilming(u)])
   const data = {
+    did_not_go_through: rebook, friends_filming_soon: friends,
     shoots_to_confirm: toConfirm.map(x => ({ id: x.id, day: x.date, start: hm(Number(x.start)), place: PLACE[String(x.place)] ?? x.place })),
     today, now: clock(now),
     next_shoot: next ? { id: next.id, day: next.date, start: hm(Number(next.start)), end: hm(Number(next.end)), place: PLACE[String(next.place)] ?? next.place, status: STATUS[String(next.status)],
@@ -371,6 +384,8 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     next: next ? { day: String(next.date), label: `${next.date} ${PLACE[String(next.place)] ?? next.place}`, status: String(next.status), hasProps: nextReqs.length > 0,
       propsOpen: now <= deadline, propsDeadline: clock(deadline), withPeople: ((next.with ?? []) as unknown[]).length } : null,
     invites: data.video_invites_waiting.map(v => v.host), swaps: data.swap_requests_for_you.map(v => v.from),
+    rebook: rebook.map(r => `${r.place} ${r.day} ${r.start} (${r.why})`),
+    friends: friends.filter(f => f.free_after || f.free_before).map(f => `${f.name} films ${f.day} ${f.place} ${f.start}–${f.end}; free ${f.free_after ? `right after (${f.free_after})` : `right before (${f.free_before})`}`),
     toConfirm: toConfirm.map(x => `${PLACE[String(x.place)] ?? x.place} ${x.date} ${hm(Number(x.start))}`),
     toPickUp: out.filter(r => r.status === 'packed').map(r => ({ what: String(r.title), day: String(r.startDate) })),
     toReturn: toReturn.map(r => ({ what: String(r.video), due: r.due })), gearOut: gearOut.map(g => ({ what: g.items.join(', '), due: g.due })),
@@ -413,7 +428,9 @@ async function freeOptions(a: FreeAsk, u: McpUser) {
   const inTod = (m: number) => a.tod === 'any' || (a.tod === 'morning' ? m < 720 : a.tod === 'afternoon' ? m >= 720 && m < 1020 : a.tod === 'evening' ? m >= 1020 && m < 1260 : m >= 1260)
   const snaps = a.dates.length ? await db.getAll(...a.dates.map(d => db.doc(`schedule_days/${d}`))) : []
   const options: Json[] = [], busy: { day: string; who: string }[] = [], guideline = new Set<string>()
+  const lastDay = addDays(todayInStudio(), aheadDaysFor(u.email, sch, false))
   a.dates.forEach((date, i) => {
+    if (date > lastDay) return   // creators book about 2 weeks ahead (owner, Nov 24)
     const day = snaps[i].data() as ScheduleDay | undefined
     if (houseSlotsOn(day, u.email, now) >= slotsPerDayFor(u.email, sch)) { busy.push({ day: date, who: 'you' }); return }
     const taken = (a.crew ?? []).filter(e => !e.startsWith('guest:') && houseSlotsOn(day, e, now) >= slotsPerDayFor(e, sch))

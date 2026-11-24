@@ -219,13 +219,14 @@ export function qtyFrom(said: unknown): number | null {
 // ─── Guiding them from what we know (owner, Nov 24: "maybe guide them based on what we know") ────────────────────────
 export interface Situation {
   next?: { day: string; label: string; status: string; hasProps: boolean; propsOpen: boolean; propsDeadline: string; withPeople: number } | null
-  upcoming: number; invites: string[]; swaps: string[]; toPickUp?: { what: string; day: string }[]; toConfirm?: string[]; toReturn: { what: string; due: string }[]; gearOut: { what: string; due: string }[]
+  upcoming: number; invites: string[]; swaps: string[]; toPickUp?: { what: string; day: string }[]; toConfirm?: string[]; rebook?: string[]; friends?: string[]; toReturn: { what: string; due: string }[]; gearOut: { what: string; due: string }[]
   waitlistOffered: number; pausedUntil?: string | null; today: string
 }
 /** The few things worth doing next, most urgent first, in plain words (the assistant offers them; it never acts on its own). */
 export function suggestNext(x: Situation): { do: string; why: string; tool?: string }[] {
   const out: { do: string; why: string; tool?: string }[] = []
   const soon = (stamp: string) => stamp.slice(0, 10) <= x.today
+  for (const r of x.rebook ?? []) out.push({ do: `Their ${r.split(' (')[0]} booking didn't go through`, why: `${r.slice(r.indexOf('(') + 1, -1)}; explain kindly and offer other times (plan_shoot / find_free_times)`, tool: 'plan_shoot' })
   for (const c of x.toConfirm ?? []) out.push({ do: `Ask how the ${c} shoot went`, why: 'did they film? one word is enough; it tells the team they showed up', tool: 'shoot_done' })
   for (const r of x.toReturn) out.push({ do: `Bring back "${r.what}"`, why: `due ${r.due}${soon(r.due) ? ' (today or late: late returns can mean a strike)' : ''}; at drop-off take one photo of everything and return it here or in the app`, tool: 'return_props' })
   for (const r of x.toPickUp ?? []) out.push({ do: `Pick up "${r.what}"`, why: `packed & ready for ${r.day}; at the pick-up spot check the bag and sign for it here or in the app`, tool: 'pick_up_props' })
@@ -238,6 +239,7 @@ export function suggestNext(x: Situation): { do: string; why: string; tool?: str
     if (!x.next.hasProps && x.next.propsOpen) out.push({ do: `Props for the ${x.next.label} shoot?`, why: `nothing requested yet; closet props close ${x.next.propsDeadline}`, tool: 'props_for_idea' })
     if (!x.next.hasProps && !x.next.propsOpen) out.push({ do: `The props deadline for ${x.next.label} has passed`, why: 'they can still ask the arts department directly on Slack' })
   } else if (!x.upcoming) out.push({ do: 'Book a shoot?', why: 'nothing is booked; say who they film with and when', tool: 'plan_shoot' })
+  if (x.friends?.length && (!x.next || x.upcoming < 2)) out.push({ do: x.friends[0], why: 'they could film right next to a friend; only suggest it, never book without a yes', tool: 'book_shoot' })
   if (x.pausedUntil) out.push({ do: `Props requests are paused until ${x.pausedUntil}`, why: 'because of strikes; filming time can still be booked' })
   return out.slice(0, 5)
 }

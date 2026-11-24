@@ -126,7 +126,7 @@ export default function ReservationDetailScreen() {
         {res.issues?.length ? (
           <Banner tone="red" title={`Problem reported (${res.issues!.length})`}>
             {res.issues!.slice().sort((x, y) => y.at.localeCompare(x.at)).map((i, k) => (
-              <span key={k} className="block">{i.name !== 'Props' ? <strong>{i.name}: </strong> : null}{i.note} <span className="opacity-70">· {new Date(i.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></span>
+              <span key={k} className="block">{i.name !== 'Props' ? <strong>{i.name}: </strong> : null}{i.note} <span className="opacity-70">· {new Date(i.at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>{i.photos?.length ? <PhotoStrip urls={i.photos} title="Photos" /> : null}</span>
             ))}
           </Banner>
         ) : null}

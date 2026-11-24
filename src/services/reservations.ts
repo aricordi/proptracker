@@ -32,7 +32,7 @@ export interface Reservation {
   endDate: string
   status: ReservationStatus
   statusReason?: string
-  issues?: { name: string; note: string; at: string; by?: string }[]   // problems the creator reported (reportProblem)
+  issues?: { name: string; note: string; at: string; by?: string; photos?: string[] }[]   // problems the creator reported (reportProblem)
   lines: ReservationLine[]
   builds?: BuildLine[]
   packPhotos?: string[]

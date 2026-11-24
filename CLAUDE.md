@@ -3043,6 +3043,21 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       + "Said they didn't film (team to decide)" (missed-checkin kind); no answer = filmed (as before). Connector tool `shoot_done`
       (WRITE) + my_status shoots_to_confirm + suggestNext. Flag evidence shows the answer. Ideas NOT built (owner said no/not now):
       Slack bot, YouTube matching, perks, early cut-off date.
+    - CONNECTOR ROUND 2 (owner, Nov 24; part of 1.4.0, NOT deployed): booking several at once = optional (each its own
+      book_shoot = separate request, approved one by one); BOOK AHEAD LIMIT: schedule setting `bookAheadDays` (default 14,
+      Schedule settings) via schedule.ts aheadDaysFor (team + instantBookers = BOOK_AHEAD_DAYS 120) → scheduling.ts assertAhead
+      in bookShoot / moveShoot / bookWithFriends ('too-far-creator'), MonthGrid greys past it, freeOptions skips later days.
+      mcp/deals.ts dealsFor (book_shoot taken/held/blocked → nearest same-length time, other house, waitlist (+ notifications
+      tip), swap with their same-length approved shoot; NO swap with instantBookers). mcp/followUp.ts toRebook (denied with
+      deniedReason / expired / bumped, last 7 days, no other booking that day) + friendsFilming (usual partners' shoots in the
+      booking window with free time right before/after) → get_context + my_status + suggestNext. Repeating asks: INSTRUCTIONS +
+      STUDIO_BASICS say send it but mention mixing it up. closet_list (READ, pages of 400). mcp/subs.ts propsProblemWithSubs
+      (taken prop → free same-kind alternatives) in request_props + change_props_request. reportProblem takes `photos`
+      (storageLinks) on gear problems / props issues, shown on both pages; connector report_problem `photo` (file param,
+      saved next to that booking's return photos). Widget buttons send a chat message (openai sendFollowUpMessage /
+      MCP Apps ui/message): Request on time rows, + Add to my shoot on props, Take this on gear; plan_shoot now has the card.
+      Script → props and "make it look like this" = INSTRUCTIONS only (ChatGPT reads the closet/picture itself; custom request
+      with reference_image). TO DO LATER (owner): guideline template so creators build + submit guidelines through ChatGPT.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

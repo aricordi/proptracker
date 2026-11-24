@@ -18,6 +18,7 @@ beforeEach(async () => {
   await put(`users/${DEE}`, { email: DEE, role: 'creator', active: true, name: 'Dee', access: 'props' })
   await put(`users/${MAANIK}`, { email: MAANIK, role: 'equipment', active: true, name: 'Maanik' })
   await put('items/phone', { name: 'Red rotary phone', quantity: 2, condition: 'good', collection: 'company', archived: false, description: 'Vintage desk phone', photos: ['https://firebasestorage.googleapis.com/v0/b/x/o/items%2Fp.jpg?alt=media'] })
+  await put('items/phone2', { name: 'Black rotary phone', quantity: 1, condition: 'good', collection: 'company', archived: false, photos: [] })
   await put('items/mine', { name: 'Grandma lamp', quantity: 1, condition: 'good', collection: 'personal', archived: false })
 })
 
@@ -415,7 +416,7 @@ describe('connector tools', () => {
     const off = await tool(t.access_token, 'book_shoot', { place: 'offsite', day: FRI, start: '18:00', end: '20:00', with: ['Pedro'], where: 'Pedro\'s place' })
     expect(off.content[0].text, off.content[0].text).toMatch(/^Requested/)
     // Said they don't mind separate times: separate times come first.
-    const apart = (await tool(t.access_token, 'plan_shoot', { with: ['Ariel'], day: addDays(FRI, 7), back_to_back: false })).structuredContent
+    const apart = (await tool(t.access_token, 'plan_shoot', { with: ['Ariel'], day: addDays(today, 3), back_to_back: false })).structuredContent
     expect(apart.separate_times.length).toBeGreaterThan(0)
   })
 
@@ -439,6 +440,44 @@ describe('connector tools', () => {
     await put('shoots/later', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: FRI, start: 600, end: 720, from: `${FRI}T10:00`, to: `${FRI}T12:00`, kind: 'extra', history: [] })
     expect((await call('reportShootDone', { id: 'later', filmed: true }, ANA)).message).toMatch(/hasn't started/)
     expect((await call('reportShootDone', { id: 'past2', filmed: true }, MAANIK)).ok).toBe(false)
+  })
+
+  it('round 2: 2-week limit, deals when taken (no swap with priority), closet list, substitutes, report photo, why not approved', async () => {
+    const t = await connect(ANA)
+    // About 2 weeks ahead at most for creators.
+    const far = addDays(today, 20)
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: far, start: '13:00', end: '15:00' })).content[0].text).toMatch(/2 weeks ahead/)
+    // Taken: options instead of a dead end; a swap only when they have a same-length approved shoot and the holder isn't priority.
+    await put(`users/${'jo@example.com'}`, { email: 'jo@example.com', role: 'creator', active: true, name: 'Jo Park', access: 'full' })
+    await put('shoots/jo1', { creatorEmail: 'jo@example.com', creatorName: 'Jo Park', status: 'booked', place: 'cliff2', date: FRI, start: 780, end: 900, from: `${FRI}T13:00`, to: `${FRI}T15:00`, kind: 'extra', history: [] })
+    await put(`schedule_days/${FRI}`, { date: FRI, cliff2: { '780': { shootId: 'jo1', name: 'Jo Park', email: 'jo@example.com', kind: 'extra', time: { start: 780, end: 900 } } } })
+    const mine = addDays(today, 5)
+    await put('shoots/a1', { creatorEmail: ANA, creatorName: 'Ana Lopez', status: 'booked', place: 'cliff1', date: mine, start: 600, end: 720, from: `${mine}T10:00`, to: `${mine}T12:00`, kind: 'extra', history: [] })
+    const deal = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '15:00' })
+    const kinds = deal.structuredContent.options.map((o: { kind: string }) => o.kind)
+    expect(deal.content[0].text).toMatch(/Jo has Cliff 2/)
+    expect(kinds).toEqual(expect.arrayContaining(['nearest_time', 'other_house', 'waitlist', 'swap']))
+    await put('app_settings/schedule', { instantBookers: [{ email: 'jo@example.com', name: 'Jo Park' }] })
+    const prio = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '15:00' })
+    expect(prio.structuredContent.options.map((o: { kind: string }) => o.kind)).not.toContain('swap')
+    expect(prio.content[0].text).toMatch(/priority booking, so no swap/)
+    // The whole closet in one compact list (company props only).
+    const list = await tool(t.access_token, 'closet_list', {})
+    expect(list.content[0].text).toMatch(/phone \| Red rotary phone/)
+    expect(list.content[0].text).not.toMatch(/Grandma lamp/)
+    // Why a booking wasn't approved comes back with the reason.
+    await put('shoots/den', { creatorEmail: ANA, creatorName: 'Ana Lopez', status: 'denied', deniedReason: 'Cliff 2 is being cleaned', place: 'cliff2', date: addDays(today, 4), start: 600, end: 720, from: 'x', to: 'x', updatedAt: new Date().toISOString(), history: [] })
+    const ctx = await tool(t.access_token, 'get_context')
+    expect(ctx.structuredContent.did_not_go_through[0].why).toMatch(/Cliff 2 is being cleaned/)
+    // A taken prop comes back with free alternatives.
+    await put('item_bookings/phone', { entries: [{ reservationId: 'other', start: mine, end: mine, qty: 2 }] })
+    const sub = await tool(t.access_token, 'request_props', { shoot_id: 'a1', video_name: 'Ring', items: [{ id: 'phone', qty: 1 }] })
+    expect(sub.content[0].text).toMatch(/Instead of Red rotary phone: Black rotary phone/)
+    // A problem report with a photo of the damage.
+    await put('reservations/out1', { creatorEmail: ANA, creatorName: 'Ana Lopez', status: 'collected', title: 'X', startDate: mine, endDate: mine, lines: [], history: [] })
+    const photo = 'http://127.0.0.1:9199/v0/b/demo/o/reservation-photos%2Fout1%2Freturn%2Fd.jpg?alt=media'
+    expect((await tool(t.access_token, 'report_problem', { kind: 'props', id: 'out1', what: 'Lamp', note: 'shade torn', photo })).content[0].text).toMatch(/with the photo/)
+    expect((await getDoc('reservations/out1'))!.issues[0].photos).toEqual([photo])
   })
 
   it('answers OpenAI\'s domain check only once a token is saved', async () => {

@@ -123,6 +123,14 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
+          <h2 className="text-pt-text font-semibold">How far ahead creators can book</h2>
+          <label className="flex items-center gap-3 text-sm text-pt-muted"><input type="number" min={1} max={120} value={s.bookAheadDays}
+            onChange={e => set({ bookAheadDays: Math.max(1, Math.min(120, Math.round(Number(e.target.value) || 14))) })}
+            className="w-20 rounded-xl bg-pt-bg px-3 py-2 text-pt-text text-[16px]" /> days ahead</label>
+          <p className="text-pt-muted text-xs">So nobody grabs the best times weeks out. The schedule team and people who book without approval can book further.</p>
+        </section>
+
+        <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
           <h2 className="text-pt-text font-semibold">Moving and cancelling</h2>
           <HoursPicker value={s.noticeHours} min={0} max={336} onChange={v => set({ noticeHours: v })} label="hours' notice to move or cancel for free" />
           <p className="text-pt-muted text-xs">Closer than that, a creator can only swap with someone; cancelling counts as a no-show. Your own changes never count.</p>
