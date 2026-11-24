@@ -460,10 +460,9 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       {(open > houseStart || early) && (() => {
         const earlyFree = early ? [] : HOUSES.filter(h => freeGaps(day, date, h, s, now).some(g => g.start < open && Math.min(g.end, open) - g.start >= MIN_BOOKING_MINUTES))
         return (
-          <button onClick={() => setEarly(e => !e)} className={`w-full min-h-[40px] px-3 flex items-center justify-center gap-1.5 text-[13px] border-b border-white/[0.06] ${earlyFree.length ? 'text-pt-accent' : 'text-pt-muted'}`}>
-            {early ? <>Start at 9 AM ↓</>
-              : earlyFree.length ? <>Also free before 9 AM{earlyFree.length === 1 ? ` at ${s.houses[earlyFree[0]].name}` : ''} · <b>Show all times ↑</b></>
-              : <>Show all times ({fmtTime(houseStart)}–{fmtTime(close % 1440)}) ↑</>}
+          <button onClick={() => setEarly(e => !e)} className="w-full min-h-[40px] pl-[52px] pr-3 flex items-center justify-between gap-2 text-[13px] border-b border-white/[0.06]">
+            <span className={`truncate ${earlyFree.length && !early ? 'text-pt-accent' : 'text-pt-muted'}`}>{early ? `Showing ${fmtTime(houseStart)}–${fmtTime(close % 1440)}` : earlyFree.length ? `Also free before 9 AM${earlyFree.length === 1 ? ` at ${s.houses[earlyFree[0]].name}` : ''}` : 'Starts at 9 AM'}</span>
+            <span className="shrink-0 font-semibold text-pt-accent">{early ? 'From 9 AM' : 'Show all times'}</span>
           </button>
         )
       })()}
@@ -494,19 +493,26 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const videosHere = (useMyVideos(me.email) ?? []).filter(v => v.date === date && v.status === 'accepted' && isUpcoming(v))
   const today = now.slice(0, 10)
   // ONE compact header line (owner, Nov 24: the date, the day arrows and Offsite used three rows above the calendar).
+  // Apple-style header (owner, Nov 24): title left-aligned with a small grey line under it; controls grouped on the right
+  // (‹ › in one pill, then Offsite), all on one line.
   const offsiteBtn = (canBook || team) && !notOpen && (
-    <button onClick={onOffsite} aria-label="Book offsite (somewhere else)" className="shrink-0 inline-flex items-center gap-1 min-h-[40px] px-3 rounded-full bg-pt-raised shadow-hairline text-[13px] text-pt-text">
+    <button onClick={onOffsite} aria-label="Book offsite (somewhere else)" className="shrink-0 inline-flex items-center gap-1 h-9 px-3 rounded-full bg-pt-raised text-[14px] font-medium text-pt-text">
       <Icon name="pin" className="w-4 h-4 text-sky-300" />Offsite
     </button>
   )
   const dayNav = (
-    <div className="flex items-center gap-1.5 mb-2">
-      {onDay && <button onClick={() => onDay(addDays(date, -1))} disabled={date <= today} aria-label="Day before" className="w-10 h-10 shrink-0 rounded-full bg-pt-surface grid place-items-center text-xl disabled:opacity-30">‹</button>}
-      <span className="flex-1 min-w-0 text-center">
-        {!inline && <span className="block text-pt-text text-[17px] font-bold leading-tight truncate">{formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })}{isNoCrewDay(date) ? ' · no crew' : ''}</span>}
-        <span className="block text-pt-muted text-[12px] leading-tight">{whenLabel(date, today)}</span>
-      </span>
-      {onDay && <button onClick={() => onDay(addDays(date, 1))} aria-label="Next day" className="w-10 h-10 shrink-0 rounded-full bg-pt-surface grid place-items-center text-xl">›</button>}
+    <div className="flex items-center gap-2 mb-3">
+      <div className="flex-1 min-w-0">
+        {!inline && <h2 className="text-pt-text text-[22px] font-bold tracking-tight leading-tight truncate">{formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })}</h2>}
+        <p className="text-pt-muted text-[13px] leading-tight mt-0.5 truncate">{whenLabel(date, today)}{isNoCrewDay(date) ? ' · no crew' : ''}</p>
+      </div>
+      {onDay && (
+        <div className="shrink-0 flex h-9 rounded-full bg-pt-raised overflow-hidden">
+          <button onClick={() => onDay(addDays(date, -1))} disabled={date <= today} aria-label="Day before" className="w-10 grid place-items-center text-[20px] leading-none text-pt-text disabled:opacity-30">‹</button>
+          <span className="w-px my-2 bg-white/10" aria-hidden />
+          <button onClick={() => onDay(addDays(date, 1))} aria-label="Next day" className="w-10 grid place-items-center text-[20px] leading-none text-pt-text">›</button>
+        </div>
+      )}
       {offsiteBtn}
     </div>
   )
