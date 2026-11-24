@@ -3111,6 +3111,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       incomplete"), pick-up/return practise on the newest request when nothing is packed. ChatGPT only uses the connector when
       told: start with "Using Prime Capitol," (just "Prime Capitol" wasn't enough). cancel_shoot's one-time "Always allow" prompt is
       ChatGPT's own safety step for destructive tools (kept: the label must be honest).
+    - FASTER CONNECTOR SERVER (owner, Nov 24: slow even in voice mode; picked the faster machine only, ~$0-3/month, "with budget
+      constraints"; no always-awake copy): mcp onRequest = 2 GiB + 2 vCPU, concurrency 40, minInstances 0, maxInstances 3 (caps
+      worst-case spend). INSTRUCTIONS SPEED line: get_context once per conversation, no chained look-ups. Always-awake (minInstances 1,
+      ~$10/month) offered as the next step if still slow.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
