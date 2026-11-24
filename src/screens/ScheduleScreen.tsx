@@ -456,9 +456,17 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           </span>
         ))}
       </div>
-      {open > houseStart && (
-        <button onClick={() => setEarly(true)} className="w-full py-1.5 text-[12px] text-pt-muted border-b border-white/[0.06]">Show from {fmtTime(houseStart)} ↑</button>
-      )}
+      {/* Before 9 AM is folded away, not closed (owner, Nov 24): say when there's free time earlier, and show every hour on a tap. */}
+      {(open > houseStart || early) && (() => {
+        const earlyFree = early ? [] : HOUSES.filter(h => freeGaps(day, date, h, s, now).some(g => g.start < open && Math.min(g.end, open) - g.start >= MIN_BOOKING_MINUTES))
+        return (
+          <button onClick={() => setEarly(e => !e)} className={`w-full min-h-[40px] px-3 flex items-center justify-center gap-1.5 text-[13px] border-b border-white/[0.06] ${earlyFree.length ? 'text-pt-accent' : 'text-pt-muted'}`}>
+            {early ? <>Start at 9 AM ↓</>
+              : earlyFree.length ? <>Also free before 9 AM{earlyFree.length === 1 ? ` at ${s.houses[earlyFree[0]].name}` : ''} · <b>Show all times ↑</b></>
+              : <>Show all times ({fmtTime(houseStart)}–{fmtTime(close % 1440)}) ↑</>}
+          </button>
+        )
+      })()}
       <div className="grid grid-cols-[44px_1fr_1fr] relative mt-2 mb-2" style={{ height: y(close) }}>
         <div className="relative">
           {hours.map(m => <span key={m} style={{ top: y(m) - 7 }} className="absolute right-1.5 text-[12px] tabular-nums text-pt-muted leading-none">{fmtTime(m % 1440).replace(':00', '')}</span>)}
