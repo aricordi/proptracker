@@ -2883,6 +2883,37 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       writeOldCalendars = TRUE. Moe = knmohammed6@gmail.com (owner merged guest:moe). "Read server logs" has a `calendar` input
       (feed_dump.py: future imports from old calendars whose name contains it). NOTE Moe's Cliff 2 events are titled
       "Moe - Stromedy Talent Filming", so the Cliff 2 title style "{name} - Cliff 2 Filming" may not match the team's habit.
+    - VERSION 1.2.0 (owner, Nov 24; NOT deployed: backend (new functions mcp, calendarPush, calendarPinged + callables approveconnector
+      connectorrequestinfo myconnectors disconnectconnector in deploy/log lists) + FIRESTORE RULES (shoots readable by `people`,
+      app_settings/calendarLive for gear staff) + website, ask). Three parts:
+      (1) CHATGPT/CLAUDE CONNECTOR (MCP over HTTP, `functions/src/mcp/`): OAuth 2.1 + PKCE + dynamic registration (redirects allowed:
+      chatgpt.com, chat.openai.com, claude.ai, claude.com), discovery via Hosting rewrites (/mcp, /oauth/**, /.well-known/oauth-*),
+      Allow page /connect (App.tsx early return), More → ChatGPT & Claude (/ai, AiConnectorScreen). Tools run the app's own callables
+      AS the person (.run with their auth): look tools (get_rules, whoami, search_props, props_for_idea (brainstorm: needs per scene →
+      closet matches + missing), browse_props, list_categories, show_props (ChatGPT widget text/html+skybridge), get_prop,
+      get_schedule (bookings + free stretches), list_people, my_shoots (incl. as collaborator), my_props_requests) and do tools
+      (book_shoot (bookShoot with end + `with`), move_shoot, cancel_shoot, request_props). Props-only creators get look tools only.
+      400 requests/h per person (mcp_rate). Server collections mcp_* (no rules). ChatGPT: Developer mode (paid) now; directory
+      submission later (voice) = owner needs an OpenAI developer account.
+      (2) FREE-TIME BOOKING (owner: "remove slot bookings", 15-min steps, 2 h per person, one booking lists everyone, collaborators
+      don't confirm, Maanik still approves, gaps ignored): schedule.ts houseBookings / conflictAt / freeGaps / freeMinutesOn /
+      checkTimes / normalizeDay (legacy grid entries rekeyed) / maxMinutesFor; settings.slots now only define house hours
+      (houseOpen = first, houseClose = last + slotMinutes; Schedule settings "House hours" open/until). bookShoot takes `end` and
+      `with` (collaborators: emails or guest:Name; shoot.with/people/withNames; day limit counts collaborators); move keeps length;
+      swaps need equal length; waitlist/time finder interval-based (TimeOption.end). App: MonthGrid counts free hours (freeLabel
+      "5.5h"), DayPickSheet + approvals day sheet + DayLineup/SwapPreview + laptop week board = per-house timelines, BookSheet = start/
+      end selects + Who's filming (data-testid time-pick / who-films; free gaps data-testid free-gap data-house), GiveSlotSheet keeps
+      the holder's length, chat books one shared booking (bookShoot end/with). bookWithFriends kept for older app versions. Group
+      calendar imports still split into equal turns (splitHours), one shoot per person.
+      (3) LIVE CALENDAR SYNC (owner: real time + "automate the reauthentication"): `functions/src/calendarWatch.ts` = Google events.watch
+      channel per linked calendar (calendar_watches/{channelId} {token, resourceId, expiration}, 7-day TTL) → public onRequest
+      calendarPush (checks channel id + token, writes calendar_ping/{channel}) → trigger calendarPinged runs runCalendarCheck (one at a
+      time; pings during a run = one more run; lease in app_settings/calendarLive). ensureWatches (opens missing, renews < 24 h left,
+      closes unlinked) runs after every calendarCheck (now EVERY 30 MINUTES, the safety net) and checkCalendarNow; Google refusing →
+      one owner push a day ("Live calendar sync paused"). Status line on the Calendar tab / import screen (useCalendarLive, liveText).
+      Tests: tests/functions/mcp.test.ts, freeTime.test.ts, calendarWatch.test.ts, unit freeTime; e2e journey 01 rewritten (any
+      start/end, 3 people on one booking), 10 laptop timeline. Manuals (creator + equipment booking cards), CHANGELOG, owner guide
+      #freetime + #connector updated; manual SCREENSHOTS still show the old slot sheets (re-shoot before the website deploy).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

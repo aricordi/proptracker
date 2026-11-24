@@ -96,7 +96,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div><b>Follow, change, pick up and return props</b><a href="#track-request">See where my props request is</a><a href="#change-request">Change a request I already sent</a><a href="#pickup-props">Pick up my props</a><a href="#return-props">Return my props</a><a href="#return-everything">Return props and gear together</a></div>
     <div><b>Take and return gear</b><a href="#take-gear">Take gear for my shoot</a><a href="#gear-due">When is gear due back, and is there a late fee?</a><a href="#return-gear">Return gear</a><a href="#broken-gear">I broke or lost something (gear or props)</a><a href="#hand-over">Pass gear I have to another creator</a><a href="#shared-gear">Who's responsible for shared gear?</a></div>
     <div><b>On the shoot day</b><a href="#check-in">Check in</a><a href="#report-before">The people before me ran over or left a mess</a><a href="#wrap">Wrap my shoot</a><a href="#missed-checkin">I forgot to check in</a><a href="#running-late">I'm running late, or there's a problem at the house</a></div>
-    <div><b>Film with friends and video invites</b><a href="#book-friends">Film with friends, back to back</a><a href="#friend-not-on-app">Book a slot for a friend who isn't on the app</a><a href="#friend-booked-me">A friend booked a slot for me</a><a href="#invite-to-video">Tell people they're in my video</a><a href="#invited-to-video">Someone invited me into their video</a></div>
+    <div><b>Film with friends and video invites</b><a href="#book-friends">Film with friends on one booking</a><a href="#friend-not-on-app">Add a friend who isn't on the app</a><a href="#friend-booked-me">A friend put me on their booking</a><a href="#invite-to-video">Tell people they're in my video</a><a href="#invited-to-video">Someone invited me into their video</a></div>
     <div><b>Strikes, your profile and getting help</b><a href="#strikes">What gets me a strike, and what happens?</a><a href="#profile">Set up my profile (photo, channel, birthday)</a><a href="#report-problem">The app is broken or shows something wrong</a><a href="#help-page">Find an answer or the house rules</a></div>
     <div><b><a href="#g-faq" style="padding:0;color:inherit">Quick answers</a></b><a href="#g-faq">21 short answers</a></div>
   </nav>
@@ -186,7 +186,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>You can tap <span class="ui">Something wrong? Suggest an edit</span> on a prop.</li>
         <li>You can ask <span class="ui">✦ AI</span> which props fit a video idea (it suggests props to look at; no booking).</li>
         <li>You can say yes or no when someone invites you into their video: a blue link on Props ("… wants you in their video · say yes or no") opens <span class="ui">Videos you're in</span> (also in <span class="ui">Me</span>).</li>
-        <li>You can't book filming time or send prop requests yet. Friends can still book a slot for you.</li>
+        <li>You can't book filming time or send prop requests yet. Friends can still put you on their booking.</li>
       </ul>
     </div>
   </section>
@@ -302,7 +302,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
   <!-- ============ GROUP: BOOK ============ -->
   <h2 id="g-book">Book a time to film</h2>
-  <p class="group-intro">Houses are Cliff 1 (2375 Cliff Road) and Cliff 2 (2371 Cliff Road). They're booked in 2-hour slots from 7 AM to 1 AM, and a booking takes the whole house. Every booking is a request the equipment team (or an admin) approves, unless the team put you on "Books without approval".</p>
+  <p class="group-intro">Houses are Cliff 1 (2375 Cliff Road) and Cliff 2 (2371 Cliff Road). You book any start and end you like (quarter hours, e.g. 1:15–3:15) between 7 AM and 1 AM, up to 2 hours per person on the booking, and a booking takes the whole house. Every booking is a request the equipment team (or an admin) approves, unless the team put you on "Books without approval".</p>
 
   <section class="task" id="read-calendar" data-words="calendar month free spots how many free colours green amber grey lock gold">
     <div>
@@ -321,33 +321,33 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <figure class="shot"><img src="img/c-calendar.png" alt="The Calendar tab: a Cliff 1 / Cliff 2 / All switch above November 2026, with each day showing how many spots are free" loading="lazy"><figcaption>The month calendar</figcaption></figure>
   </section>
 
-  <section class="task" id="book-one-slot" data-words="reserve slot house cliff book a shoot request time 2 hours one slot">
+  <section class="task" id="book-one-slot" data-words="reserve slot house cliff book a shoot request time 2 hours free time start end quarter hour">
     <div>
       <div class="goal">I want to…</div>
-      <h3>Book a 2-hour slot at a house</h3>
+      <h3>Book time at a house</h3>
       <p class="why">Your time is held for you right away (dashed amber, "Waiting for approval") while the equipment team checks it. You get a notification when it's approved.</p>
       <ol>
         <li>Tap <span class="ui">Calendar</span>, then tap a day.</li>
-        <li>The day opens with both houses hour by hour. Tap a gold <span class="ui">Free</span> time.</li>
-        <li>Under <b>How long do you need?</b> leave <span class="ui">2 h · 1 slot</span>.</li>
-        <li>Tap <span class="ui">Request this time</span>.</li>
+        <li>The day opens with each house as a timeline. Tap a gold <span class="ui">Free</span> stretch.</li>
+        <li>Pick your <b>Start</b> and <b>End</b>: any quarter hour, like 1:15 to 3:15. Up to 2 hours on your own.</li>
+        <li>Tap the gold button, for example <span class="ui">Request 1:15 PM–3:15 PM</span>.</li>
       </ol>
-      <p class="say">Or just type in the chat: <q>Thursday at Cliff 1 at 5pm</q></p>
+      <p class="say">Or just type in the chat: <q>Thursday at Cliff 1, 1:15 to 3:15</q></p>
       <div class="tip"><b>Tip:</b> Booked by mistake? Cancelling within 10 minutes is always free.</div>
     </div>
-    <figure class="shot"><img src="img/c-book-1slot.png" alt="The Ask for this slot sheet: Friday Nov 27, Cliff 2, 11 AM to 1 PM, How long do you need chips, and a gold Request this time button" loading="lazy"><figcaption>Asking for one slot</figcaption></figure>
+    <figure class="shot"><img src="img/c-book-1slot.png" alt="The Ask for this slot sheet: Friday Nov 27, Cliff 2, 11 AM to 1 PM, How long do you need chips, and a gold Request this time button" loading="lazy"><figcaption>Asking for a time</figcaption></figure>
   </section>
 
   <section class="task" id="pick-a-day" data-words="day view both houses hour by hour times taken who films before after">
     <div>
       <div class="goal">I want to…</div>
       <h3>See every time on one day</h3>
-      <p class="why">Tapping a day shows Cliff 1 and Cliff 2 side by side, from 7 AM to 11 PM starts.</p>
+      <p class="why">Tapping a day shows Cliff 1 and Cliff 2 as timelines: every booking at its real time, in order.</p>
       <ul>
-        <li>Gold <span class="ui">Free</span> = you can ask for it.</li>
-        <li>A name = someone has it. Dashed amber = someone asked and is waiting for approval.</li>
+        <li>Gold <span class="ui">Free</span> with its hours (e.g. "Free · 3 h 30 min") = you can book any time inside it.</li>
+        <li>A name = someone has it (with "+ Kyle" when friends are on the booking). Dashed amber = someone asked and is waiting for approval.</li>
         <li>"Guideline required" = Cliff 1 on a priority day: you'll need a filming guideline PDF.</li>
-        <li>A small blue "from 2 PM" under <span class="ui">Free</span> = a short block before it (like cleaners) ends early, so you can start early.</li>
+        <li>Striped = blocked time (cleaners, maintenance).</li>
         <li>A bell next to a taken time = join its waitlist (see "Get a time that's already taken").</li>
         <li><span class="ui">Book Offsite</span> at the bottom = shooting somewhere else.</li>
       </ul>
@@ -364,7 +364,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Type in the <span class="ui">Chat</span>, or on <span class="ui">Calendar</span> tap <span class="ui">Or ask AI to find a time</span>.</li>
         <li>Tap <span class="ui">Request</span> on the time you want.</li>
       </ol>
-      <p class="say">Try: <q>2 hours next week, evenings</q> <q>soonest slot at Cliff 2</q> <q>next sat</q></p>
+      <p class="say">Try: <q>2 hours next week, evenings</q> <q>soonest 2 hours at Cliff 2</q> <q>next sat</q></p>
     </div>
   </section>
 
@@ -372,11 +372,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Film for longer than 2 hours</h3>
-      <p class="why">Each creator gets <b>one house slot a day</b> (Cliff 1 and Cliff 2 together). Longer blocks are for filming with friends: each person takes one slot, back to back.</p>
+      <p class="why">Each person on a booking adds up to 2 hours. 4 hours = you + 1 person filming with you, 6 hours = you + 2, all on the <b>same booking</b>.</p>
       <ul>
-        <li>Filming with friends? Book back to back (next section).</li>
-        <li>Really need more time yourself? Ask the schedule team (Maanik). They can book it for you, or put you on "Can book several slots in a row" so you can pick 4 h, 6 h… yourself (still a request).</li>
-        <li>Offsite shoots don't count toward the one-a-day limit.</li>
+        <li>Pick the longer end time, then add who's filming with you (next section). The button tells you how many people are still needed.</li>
+        <li>Really need more time on your own? Ask the schedule team (Maanik). They can book it for you, or let you book long times yourself (still a request).</li>
+        <li>One house booking a day each (being on a friend's booking counts). Offsite shoots don't count.</li>
       </ul>
     </div>
   </section>
@@ -403,9 +403,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Use both houses at once</h3>
       <p class="why">Possible for one hour only. It always goes to the equipment team for approval, and counts as your one booking that day.</p>
       <ol>
-        <li>Tap a free time on the day sheet.</li>
-        <li>Leave <span class="ui">2 h · 1 slot</span> picked and tap the small link <span class="ui">Need both houses at once? (1 hour)</span> under the button. (It only shows when the other house is free at that time too.)</li>
-        <li>Pick the first or second hour of that 2-hour time, then <span class="ui">Ask for both houses</span>.</li>
+        <li>Tap a free stretch on the day sheet.</li>
+        <li>Tap the small link <span class="ui">Need both houses at once? (1 hour)</span> under the button. (It only shows when the other house is free at that time too.)</li>
+        <li>Pick a start and end up to 1 hour apart, then tap the gold button.</li>
       </ol>
     </div>
   </section>
@@ -1020,35 +1020,33 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
   <!-- ============ GROUP: FRIENDS ============ -->
   <h2 id="g-friends">Film with friends and video invites</h2>
-  <p class="group-intro">Book back-to-back slots together, and tell people when they need to be in your video.</p>
+  <p class="group-intro">Put everyone filming on one booking, and tell people when they need to be in your video.</p>
 
-  <section class="task" id="book-friends" data-words="friends together back to back collab group two friends partner three people several slots">
+  <section class="task" id="book-friends" data-words="friends together collaborator collab group two friends partner three people longer booking">
     <div>
       <div class="goal">I want to…</div>
-      <h3>Film with friends, back to back</h3>
-      <p class="why">One slot per person, all requested together as one booking. Friends don't need to confirm, so only add people who will really be there. They're told.</p>
+      <h3>Film with friends on one booking</h3>
+      <p class="why">Everyone filming goes on the same booking, and each person adds up to 2 hours. Friends don't need to confirm, so only add people who will really be there. They're told, and it shows in their app.</p>
       <ol>
-        <li>Tap <span class="ui">Calendar</span>, a day, then a gold time.</li>
-        <li>Under <b>How long do you need?</b> pick one slot per person (3 people = <span class="ui">6 h · 3 slots</span>).</li>
-        <li>Tap each empty slot (<span class="ui">+ Add who's filming</span>) and search a friend by name or channel. People you often film with show as quick picks first.</li>
-        <li>You're in one slot. Tap <span class="ui">Change</span> → <span class="ui">Move me to this slot</span> to switch.</li>
-        <li>Leave <b>In each other's videos</b> ticked if you're on camera together.</li>
-        <li>Tap the button, for example <span class="ui">Request 6 hours · 3 people</span>.</li>
+        <li>Tap <span class="ui">Calendar</span>, a day, then a gold <span class="ui">Free</span> stretch.</li>
+        <li>Pick the start and end (3 people = up to 6 hours, e.g. 11 AM to 5 PM).</li>
+        <li>Under <b>Who's filming?</b> tap <span class="ui">+ Add someone filming with you</span> and search a friend by name or channel. People you often film with show as quick picks first.</li>
+        <li>Tap the button, for example <span class="ui">Request 11 AM–5 PM · 3 people</span>.</li>
       </ol>
       <p class="say">Or type: <q>Friday at Cliff 2 with Kyle and Alex</q></p>
-      <div class="tip"><b>Tip:</b> Each friend's slot is their own shoot: they cancel it from their app (a friend who isn't on the app: ask the schedule team). Each friend can only have one house slot that day too.</div>
+      <div class="tip"><b>Tip:</b> You booked it, so you can move or cancel it; your friends see it on their side. Each of you can be on one house booking that day.</div>
     </div>
-    <figure class="shot"><img src="img/c-book-3slots.png" alt="Ask for 3 slots in a row: 11 AM You, 1 PM Kyle, 3 PM Sam Guest not on the app, In each other's videos ticked, and Request 6 hours, 3 people" loading="lazy"><figcaption>Three people, three slots</figcaption></figure>
+    <figure class="shot"><img src="img/c-book-3slots.png" alt="Ask for this time: 11 AM to 5 PM, Who's filming: You, Kyle, and Bob Test not on the app, and Request 11 AM–5 PM, 3 people" loading="lazy"><figcaption>Three people, one booking</figcaption></figure>
   </section>
 
   <section class="task noshot" id="friend-not-on-app" data-words="friend not on the app guest no account add name outsider">
     <div>
       <div class="goal">I want to…</div>
-      <h3>Book a slot for a friend who isn't on the app</h3>
+      <h3>Add a friend who isn't on the app</h3>
       <ol>
-        <li>When picking who's filming in a slot, type their name.</li>
+        <li>Under <b>Who's filming?</b>, type their name.</li>
         <li>Tap <span class="ui">Add "Name"</span> (marked "Not on the app yet").</li>
-        <li>Their slot is booked under their name. They get no notifications, so tell them yourself.</li>
+        <li>They're on the booking under their name. They get no notifications, so tell them yourself.</li>
       </ol>
     </div>
   </section>
@@ -1056,11 +1054,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   <section class="task noshot" id="friend-booked-me" data-words="friend booked me a slot someone booked for me confirm">
     <div>
       <div class="goal">Someone booked me…</div>
-      <h3>A friend booked a slot for me</h3>
-      <p class="why">Nothing to do: it's already yours (or requested, if it's waiting for approval). You get a notification and it shows in your shoots.</p>
+      <h3>A friend put me on their booking</h3>
+      <p class="why">Nothing to do: you're on it (requested, if it's waiting for approval). You get a notification and it shows in your shoots.</p>
       <ul>
-        <li>Can't make it? Open the shoot and cancel it yourself (the usual 48-hour rule applies).</li>
-        <li>You still check in for your own slot.</li>
+        <li>Can't make it? Tell your friend: they booked it, so they change or cancel it.</li>
+        <li>It counts as your house booking for that day.</li>
       </ul>
     </div>
   </section>
@@ -1167,16 +1165,16 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   <!-- ============ FAQ ============ -->
   <h2 id="g-faq">Quick answers</h2>
   <div class="faq">
-    <details><summary>How long is a slot, and when can I film?</summary><p>2 hours. Starts at 7, 9 and 11 AM, 1, 3, 5, 7, 9 and 11 PM (the last one ends at 1 AM). A booking takes the whole house.</p></details>
+    <details><summary>How long can I book, and when can I film?</summary><p>Any start and end on the quarter hour between 7 AM and 1 AM, at least 30 minutes, up to 2 hours per person on the booking (4 hours = you + 1 friend). A booking takes the whole house.</p></details>
     <details><summary>Is my booking final when I tap Request?</summary><p>No. It's held for you and the equipment team or an admin approves it. You get a notification. If nobody decides before it starts, it's dropped.</p></details>
-    <details><summary>How many slots can I book a day?</summary><p>One house slot a day, Cliff 1 and Cliff 2 together (more only if you're filming with friends, each in their own slot). Offsite shoots don't count. Need more yourself? Ask the schedule team.</p></details>
+    <details><summary>How many bookings can I have a day?</summary><p>One house booking a day, Cliff 1 and Cliff 2 together (being on a friend's booking counts). Offsite shoots don't count. Need more? Ask the schedule team.</p></details>
     <details><summary>How far ahead do I need to ask for props?</summary><p>Props from the closet: usually 48 hours before your shoot starts (clock hours, Sundays count). Custom props to make or find: usually at least 4 open days (Sundays don't count), with no guaranteed date; sort the details with the arts department on Slack.</p></details>
     <details><summary>Can I book gear ahead?</summary><p>No. Gear is first come, first served. Once your shoot is approved, from an hour before it, take what's free with the Take gear card in the Chat.</p></details>
     <details><summary>When is gear late, and how much is the fee?</summary><p>At the houses gear is due when your shoot ends, offsite by midnight. It's late 30 minutes after that. The fee is 10% of the gear's value, on the last person who had it. Admins can excuse exceptions.</p></details>
     <details><summary>When are props late?</summary><p>From 10 AM on the next open day after your shoot. It's logged (no fee), and you can't send new props requests until they're back.</p></details>
     <details><summary>Can I cancel without a strike?</summary><p>Yes, with 48 hours' notice, within 10 minutes of booking, if it's still a request, if you booked it less than 24 hours ahead, or if the team moved it. Otherwise it counts as a no-show. A swap never counts.</p></details>
     <details><summary>How many strikes until I'm paused?</summary><p>Usually 2 strikes in 30 days pause your prop requests for 14 days. You can still book house time and take gear.</p></details>
-    <details><summary>Do my friends have to confirm a back-to-back booking?</summary><p>No. Their slots are requested with yours and they're told. Only add people who will really be there.</p></details>
+    <details><summary>Do my friends have to confirm?</summary><p>No. They're on your booking and they're told. Only add people who will really be there.</p></details>
     <details><summary>When does check-in open?</summary><p>Usually 15 minutes before your slot. Take one selfie on the card in the Chat.</p></details>
     <details><summary>I missed my check-in. How long do I have to explain?</summary><p>Usually 12 hours after your slot ends. Then the schedule team decides.</p></details>
     <details><summary>Do I need a guideline PDF?</summary><p>Only for Cliff 1 on Thursdays and Saturdays, if you're not in the priority group.</p></details>

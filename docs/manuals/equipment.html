@@ -111,7 +111,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <ol>
         <li><span class="ui">Requests</span>: booking requests to approve or deny, and the <span class="ui">Google Calendar</span> tab with events that need you.</li>
         <li><span class="ui">Gear log</span>: who has which gear, what is late, what is back and waiting for you to check in.</li>
-        <li><span class="ui">Schedule</span>: the month calendar of both houses. Tap a day to see every slot, block time or book for someone. The people icon at the top opens <span class="ui">Schedule team</span> (check-ins, reports, creators).</li>
+        <li><span class="ui">Schedule</span>: the month calendar of both houses. Tap a day to see each house as a timeline, block time or book for someone. The people icon at the top opens <span class="ui">Schedule team</span> (check-ins, reports, creators).</li>
         <li><span class="ui">All gear</span>: every piece you own, with values and who can book it.</li>
         <li><span class="ui">Admin</span>: three groups. <b>Gear</b>: Gear log, Bundles &amp; single items, All gear. <b>Schedule</b>: Schedule team, Google Calendar imports, What the app put in Google Calendar. <b>Help &amp; account</b>: Team guide, Equipment team tour, Help, Report a problem and <span class="ui">My account</span> (notifications, laptop layout, sign out).</li>
       </ol>
@@ -195,15 +195,15 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Go through requests fast on the laptop with the keyboard</h3>
-      <p class="why">On a laptop, Requests becomes a week board: 7 days, both houses, every 2-hour slot, with the waiting list on the right (oldest first) and a numbers strip on top (requests waiting, waiting over 12 h, shoots today, booked this week, house use this week, regular filming pairs).</p>
+      <p class="why">On a laptop, Requests becomes a week board: 7 days, both houses, each as a timeline with every booking at its real time (friends on it show as +1, +2), with the waiting list on the right (oldest first) and a numbers strip on top (requests waiting, waiting over 12 h, shoots today, booked this week, house use this week, regular filming pairs).</p>
       <ol>
         <li>Open Requests in the sidebar. The first waiting request is selected and its details show on the right.</li>
         <li>Press <b>A</b> to approve. The next request is selected by itself.</li>
         <li>Press <b>D</b> to deny: pick a reason or type one, press Enter to send, Esc to back out.</li>
         <li>Press <b>J</b> / <b>K</b> for the next / previous request without deciding.</li>
-        <li>Press <b>W</b> for the week board, <b>M</b> for the month, the left/right arrow keys to change week (or month), <b>T</b> to jump back to this week. Click a booked slot to open that booking.</li>
+        <li>Press <b>W</b> for the week board, <b>M</b> for the month, the left/right arrow keys to change week (or month), <b>T</b> to jump back to this week. Click a booking to open that booking.</li>
       </ol>
-      <div class="tip"><b>Tip:</b> On the board, dashed amber = request, blue = wants to move (the old slot is faded), gold = books without approval (Kyle), hatched = blocked, red dot = the creator had strikes or a no-show in the last 30 days.</div>
+      <div class="tip"><b>Tip:</b> On the board, dashed amber = request, blue = wants to move (the old time is faded), gold = books without approval (Kyle), hatched = blocked, red dot = the creator had strikes or a no-show in the last 30 days.</div>
       <div class="warn"><b>Bulk approve:</b> tick several requests in the waiting list on the right, then click <span class="ui">Approve N ticked</span>. Each creator gets a notification, so only tick the ones you checked.</div>
     </div>
   </section>
@@ -224,7 +224,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Deal with a "Cliff 1 + Cliff 2" request</h3>
-      <p class="why">A creator can ask for both houses at once for one hour (inside one 2-hour slot). These always come to you, even from people who normally book without approval.</p>
+      <p class="why">A creator can ask for both houses at once for up to one hour. These always come to you, even from people who normally book without approval.</p>
       <ol>
         <li>The card is marked "Cliff 1 + Cliff 2" with the exact hour.</li>
         <li><span class="ui">Approve</span> or <span class="ui">Deny</span> like any other request.</li>
@@ -307,7 +307,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Three lists in Schedule settings decide this. Only the owner can change them; ask the owner if someone needs adding.</p>
       <ol>
         <li><span class="ui">Books without approval</span>: bookings approved at once and can take any slot (Kyle).</li>
-        <li><span class="ui">Can book several slots in a row</span>: long shoots and more than one slot a day (Danny / Stromedy Studios). Still a request unless they are also on the first list.</li>
+        <li><span class="ui">Can book long times alone</span>: long shoots without adding collaborators, and more than one booking a day (Danny / Stromedy Studios). Still a request unless they are also on the first list.</li>
         <li>The priority group: who can book Cliff 1 on priority days (Thursday and Saturday) before the Sunday release.</li>
       </ol>
       <div class="tip"><b>Tip:</b> On the laptop board, bookings from "Books without approval" people are gold.</div>
@@ -322,7 +322,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <h3>Open a booking to see or change it</h3>
       <p class="why">Every change starts from the booking card.</p>
       <ol>
-        <li>On <span class="ui">Schedule</span> or <span class="ui">Requests</span>, tap the day, then tap the person's name. (On the laptop board, click a booked slot.)</li>
+        <li>On <span class="ui">Schedule</span> or <span class="ui">Requests</span>, tap the day, then tap the person's name. (On the laptop board, click the booking.)</li>
         <li>The card shows who, when, where and the status, then the team options: <span class="ui">Move to another day or time</span>, <span class="ui">Swap with another booking</span>, <span class="ui">Priority booking</span>, then <span class="ui">History</span> (tap to open) and <span class="ui">Cancel their shoot (no strike)</span>. Move, swap and priority only show for shoots that haven't started.</li>
       </ol>
       <div class="tip"><b>Tip:</b> <span class="ui">History</span> on the card lists every request, approval, move, swap, calendar change, check-in and report, with who and when. Useful when a creator says "I never cancelled that". Shoots that came from Google Calendar also have <span class="ui">Redo this import</span>.</div>
@@ -333,11 +333,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div>
       <div class="goal">I want to…</div>
       <h3>Move someone to another day or time</h3>
-      <p class="why">For example after a creator asks you on Slack. You can move to any free slot; the usual 48-hour notice does not apply to the team.</p>
+      <p class="why">For example after a creator asks you on Slack. You can move to any free time; the usual 48-hour notice does not apply to the team.</p>
       <ol>
         <li>Open the booking card.</li>
         <li>Tap <span class="ui">Move to another day or time</span>.</li>
-        <li>Choose <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">Either</span>, then a <span class="ui">From</span> date if you want a later day, and tap <span class="ui">Move here</span> on one of the free slots listed (<span class="ui">Show more times</span> for more).</li>
+        <li>Choose <span class="ui">Cliff 1</span>, <span class="ui">Cliff 2</span> or <span class="ui">Either</span>, then a <span class="ui">From</span> date if you want a later day, and tap <span class="ui">Move here</span> on one of the free times listed (it keeps the same length) (<span class="ui">Show more times</span> for more).</li>
         <li>The creator gets a notification. If the day changed, their props request moves with the shoot.</li>
       </ol>
       <div class="warn"><b>Watch out:</b> The list covers 60 days from the From date. Offsite shoots open the offsite sheet: change the day or hours and tap <span class="ui">Move it</span>. Both-houses bookings can't be moved.</div>
@@ -374,12 +374,12 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
   <section class="task" id="book-for" data-words="book for someone on behalf creator book slot team">
     <div>
       <div class="goal">I want to…</div>
-      <h3>Book a slot for a creator</h3>
+      <h3>Book time for a creator</h3>
       <p class="why">Bookings made by the team are approved at once, and you can book on priority days.</p>
       <ol>
-        <li>On <span class="ui">Schedule</span> tap the day, then tap a free time.</li>
-        <li>In the <span class="ui">Book or block</span> sheet tap <span class="ui">Book this slot…</span>.</li>
-        <li>Under <span class="ui">Book for</span> pick the creator (you must pick someone first), then tap <span class="ui">Book it</span>.</li>
+        <li>On <span class="ui">Schedule</span> tap the day, then tap a gold free stretch.</li>
+        <li>In the <span class="ui">Book or block</span> sheet tap <span class="ui">Book a time here…</span>.</li>
+        <li>Pick the start and end, then under <span class="ui">Book for</span> pick the creator (you must pick someone first), then tap the gold button. The team isn't limited to 2 hours per person.</li>
       </ol>
     </div>
     <figure class="shot"><img src="img/e-schedule.png" alt="The Schedule tab month view with free spots per day" loading="lazy"><figcaption>Schedule tab</figcaption></figure>

@@ -14,7 +14,9 @@ Each manual says which version it was written for.
 
 ## 1.2.0 · Nov 24, 2026
 
-- **Use Prime Capitol from ChatGPT or Claude.** More → **ChatGPT & Claude** has the link and the steps. Sign in with Google, tap Allow, then ask it to find props (with photos), check the schedule, book time, request props or check your shoots. It asks before changing anything, and the same rules and approvals apply.
+- **Book any time, not slots.** Pick your own start and end at a house in quarter hours (e.g. 1:15 to 3:15). Each person on a booking gets up to 2 hours: for 4 hours add one person filming with you, for 6 hours two, all on **one booking** that lists everyone. Friends don't have to confirm; it shows in their app too. The calendar shows **free hours** per day, and tapping a day shows each house as a timeline with the free stretches in gold.
+- **Google Calendar changes show up within seconds.** Google now tells the app the moment something changes in the linked calendars (it used to check every 15 minutes). A safety check still runs every 30 minutes and renews the live link by itself.
+- **Use Prime Capitol from ChatGPT or Claude.** More → **ChatGPT & Claude** has the link and the steps. Sign in with Google, tap Allow, then ask it to find props (with photos), check the schedule, book time, request props or check your shoots. While you brainstorm a video, it can check which props we already have for each scene. It asks before changing anything, and the same rules and approvals apply.
 
 ## 1.1.1 · Nov 23, 2026
 

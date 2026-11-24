@@ -59,7 +59,7 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
 </header>
 
 <nav class="toc" aria-label="Chapters">
-  <a href="#roles">Who's who</a><a href="#nov23">New Nov 23</a><a href="#nov8">New Nov 8</a><a href="#chat">Chat</a><a href="#nov21">New Nov 21</a><a href="#nov17">New Nov 17</a><a href="#kyle">Priority bookings</a><a href="#gear-go">Grab-and-go gear</a><a href="#book">Booking shoots</a><a href="#props">Props &amp; gear</a><a href="#day">On the day</a>
+  <a href="#roles">Who's who</a><a href="#freetime">Free-time booking</a><a href="#connector">ChatGPT &amp; Claude</a><a href="#nov23">New Nov 23</a><a href="#nov8">New Nov 8</a><a href="#chat">Chat</a><a href="#nov21">New Nov 21</a><a href="#nov17">New Nov 17</a><a href="#kyle">Priority bookings</a><a href="#gear-go">Grab-and-go gear</a><a href="#book">Booking shoots</a><a href="#props">Props &amp; gear</a><a href="#day">On the day</a>
   <a href="#calendar">Google Calendar</a><a href="#ai">AI helper</a><a href="#notify">Notifications</a><a href="#auto">Runs by itself</a>
   <a href="#settings">Where to change things</a><a href="#updates">Updates &amp; undo</a><a href="#todo">Your to-do list</a>
 </nav>
@@ -233,7 +233,19 @@ footer { margin-top: 40px; color: var(--muted); font-size: 13px; border-top: 1px
     <li><b>What it can do:</b> book a shoot, move or cancel it, and send props for a shoot, always after asking the person. Every change runs through exactly the same server checks as the app (approval by the schedule team, notice periods, 2 hours per person, priority days). It can't touch anyone else's shoot.</li>
     <li><b>What it never sees:</b> other people's emails, internal notes, costs and gear values, your personal props. Props-only creators can only search props. A person whose access is turned off loses the connector at once. Each person can make up to 400 requests an hour.</li>
     <li><b>Right now:</b> ChatGPT needs a paid plan and Developer mode, typed chat only; Claude works for anyone. <b>Later:</b> once OpenAI approves Prime Capitol in ChatGPT's app list (usually 2–4 weeks after submitting), everyone adds it in one tap and can talk to it by voice.</li>
+    <li><b>Brainstorming:</b> while someone writes a video idea in ChatGPT or Claude, the assistant is told to check the closet for each scene ("Check the closet for a video idea") and show what we already have, so ideas build on real props.</li>
     <li>Each person sees what's connected and can <b>Disconnect</b> on the same screen.</li>
+  </ul>
+</section>
+
+<section id="freetime">
+  <h2>Free-time booking and live calendar sync (version 1.2.0)</h2>
+  <ul>
+    <li><b>No more 2-hour slots.</b> Creators pick any start and end at a house, in quarter hours (1:15–3:15), inside the house hours (<span class="path">Schedule settings → House hours</span>, today 7 AM to 1 AM).</li>
+    <li><b>2 hours per person, one booking for the group.</b> Longer needs people filming with them: 4 hours = 2 people, 6 hours = 3, all on ONE booking that lists everyone. Collaborators don't confirm; it shows in their app and they're told. Maanik still approves every creator booking. People on "Can book long times alone" (Danny) aren't limited.</li>
+    <li><b>Gaps between bookings are allowed</b> for now (your choice). The calendar shows free <b>hours</b> per day; a day shows each house as a timeline with gold free stretches.</li>
+    <li><b>Old bookings keep working:</b> slot bookings already made stay at their times. Group events from the old calendars are still split into turns, one per person.</li>
+    <li><b>Live calendar sync:</b> Google tells the app the moment anything changes in the linked calendars, so the schedule follows within seconds. The app renews this link by itself every few days. If Google ever stops it (for example the company account got disconnected), you get one notification and the old 30-minute check keeps everything in step until it's fixed. The Requests → Google Calendar tab says "Live" when it's on.</li>
   </ul>
 </section>
 
