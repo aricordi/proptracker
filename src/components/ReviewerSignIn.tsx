@@ -1,3 +1,4 @@
+import { connectReq, clearConnectPending } from '../lib/connectPending'
 // OpenAI's app reviewers sign in here with the demo account the owner made (More → ChatGPT & Claude → Demo account).
 // Only shown on the ChatGPT/Claude sign-in link (/connect), under the Google button. The demo account sees a practice copy
 // of the studio: real props, made-up people and bookings; nothing it does reaches the studio team or the calendars.
@@ -6,14 +7,14 @@ import { approveConnectorReviewer } from '../services/connector'
 import { friendlyError } from '../lib/errors'
 
 export default function ReviewerSignIn() {
-  const req = new URLSearchParams(window.location.search).get('req') ?? ''
+  const req = connectReq()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState(''), [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false), [err, setErr] = useState('')
   if (!req) return null
   async function go(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setErr('')
-    try { window.location.href = (await approveConnectorReviewer({ req, email: email.trim(), password })).data.redirect }
+    try { const to = (await approveConnectorReviewer({ req, email: email.trim(), password })).data.redirect; clearConnectPending(); window.location.href = to }
     catch (e2) { setErr(friendlyError(e2)); setBusy(false) }
   }
   if (!open) return <button onClick={() => setOpen(true)} className="mt-8 text-pt-muted text-sm underline underline-offset-4">App reviewer? Use the demo account</button>

@@ -1,3 +1,4 @@
+import { connectPending } from './lib/connectPending'
 import { useState, useEffect, useMemo, lazy, Suspense, type ReactNode } from 'react'
 import { setActingAsCreator } from './services/schedule'
 import { refreshPush } from './services/push'
@@ -392,11 +393,15 @@ export default function App() {
 
   const booting = authLoading || profileLoading
   useEffect(() => { if (!booting) hideBoot() }, [booting])
+  // ChatGPT / Claude "Connect" (owner, Nov 24: "it takes me to the home page instead of authorizing"): the sign-in on the way
+  // (Google pop-up → redirect, a copied link, an app's built-in browser) could drop people on the home page and lose the
+  // request. The request is remembered on this browser for 15 minutes, so after signing in the Allow page comes back.
+  const connecting = connectPending()
   if (booting) return <Loading />
 
   if (!user) {
     // OpenAI's app reviewers (owner, Nov 24): on the ChatGPT sign-in link only, a demo account sign-in under Google.
-    if (window.location.pathname === '/connect') return <LoginScreen><Suspense fallback={null}><ReviewerSignIn /></Suspense></LoginScreen>
+    if (connecting) return <LoginScreen><Suspense fallback={null}><ReviewerSignIn /></Suspense></LoginScreen>
     return (
       <Routes>
         <Route path="*" element={<LoginScreen />} />
@@ -413,7 +418,7 @@ export default function App() {
   }
 
   // ChatGPT / Claude sign-in (owner, Nov 24): the "Allow?" page on its own, before tours or anything else.
-  if (window.location.pathname === '/connect') {
+  if (connecting) {
     return <SessionContext.Provider value={session}><Suspense fallback={<ScreenFallback />}><ConnectScreen /></Suspense></SessionContext.Provider>
   }
 

@@ -6,17 +6,21 @@ import BrandMark from '../components/BrandMark'
 import { useSession } from '../auth'
 import { connectorRequestInfo, approveConnector } from '../services/connector'
 import { friendlyError } from '../lib/errors'
+import { connectReq, clearConnectPending } from '../lib/connectPending'
 
 export default function ConnectScreen() {
   const { profile, demo, canBook } = useSession()
-  const req = new URLSearchParams(window.location.search).get('req') ?? ''
+  const req = connectReq()
   const [info, setInfo] = useState<{ ok: boolean; assistant?: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => { connectorRequestInfo({ req }).then(r => setInfo(r.data)).catch(e => setError(friendlyError(e))) }, [req])
+  useEffect(() => {
+    if (!req) { setInfo({ ok: false }); return }
+    connectorRequestInfo({ req }).then(r => { setInfo(r.data); if (!r.data.ok) clearConnectPending() }).catch(e => setError(friendlyError(e)))
+  }, [req])
   const go = async (deny = false) => {
     setBusy(true); setError('')
-    try { const r = await approveConnector({ req, deny }); window.location.href = r.data.redirect }
+    try { const r = await approveConnector({ req, deny }); clearConnectPending(); window.location.href = r.data.redirect }
     catch (e) { setError(friendlyError(e)); setBusy(false) }
   }
   const who = info?.assistant ?? 'your AI assistant'
@@ -28,6 +32,7 @@ export default function ConnectScreen() {
         {info && !info.ok && <>
           <h1 className="text-[22px] font-display">This link ran out</h1>
           <p className="text-pt-muted">Go back to ChatGPT or Claude and connect Prime Capitol again.</p>
+          <a href="/" className="block text-center min-h-[44px] leading-[44px] rounded-2xl bg-pt-raised text-pt-text">Open the app instead</a>
         </>}
         {info?.ok && <>
           <h1 className="text-[22px] font-display leading-tight">Let {who} use Prime Capitol as you?</h1>

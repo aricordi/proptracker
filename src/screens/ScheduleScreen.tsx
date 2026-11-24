@@ -373,7 +373,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
         <button key={`f${g.start}`} disabled={!can} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)}
           data-testid={can ? 'free-gap' : undefined} data-house={h}
           style={{ top: y(g.start) + 1, height: Math.max(tall - 2, 10) }}
-          className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'bg-emerald-400/[0.06] text-emerald-200/70' : 'bg-emerald-400/[0.16] text-emerald-200 shadow-[inset_0_0_0_1.5px_rgba(52,211,153,0.55)] active:opacity-80'}`}>
+          className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden flex flex-col justify-start ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'bg-emerald-400/[0.06] text-emerald-200/70' : 'bg-emerald-400/[0.16] text-emerald-200 shadow-[inset_0_0_0_1.5px_rgba(52,211,153,0.55)] active:opacity-80'}`}>
           {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `Free ${hoursText(g.end - g.start)}`}</span>}
           {tall >= 34 && !locked && <span className="block text-[12px] leading-tight opacity-80 truncate">{fmtTime(g.start % 1440)}–{fmtTime(g.end % 1440)}</span>}
           {tall >= 50 && guide && <span className="block text-[12px] text-amber-200 truncate">Guideline needed</span>}
@@ -386,7 +386,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       items.push(
         <button key={`k${bl.id}`} disabled={!team} onClick={() => onTap({ t: 'block', block: bl } as ReturnType<typeof slotState>, h, bl.start)}
           style={{ top: y(a) + 1, height: Math.max(tall - 2, 10) }}
-          className="absolute inset-x-1 rounded-lg px-2 text-left overflow-hidden text-pt-muted bg-[repeating-linear-gradient(135deg,#1C1C1E_0_6px,#2A2A2D_6px_12px)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+          className="absolute inset-x-1 rounded-lg px-2 text-left overflow-hidden flex flex-col justify-start text-pt-muted bg-[repeating-linear-gradient(135deg,#1C1C1E_0_6px,#2A2A2D_6px_12px)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
           {tall >= 18 && <span className="block text-[12px] font-semibold leading-tight pt-0.5 truncate">{bl.note || BLOCK_TYPES[bl.type]}</span>}
         </button>)
     }
@@ -410,7 +410,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
         <div key={`b${b.key}`} style={{ top: y(a) + 1, height: Math.max(tall - 2, 12), left: `calc(${lane * wPct}% + 4px)`, width: `calc(${wPct}% - 8px)` }}
           className={`absolute ${past ? 'opacity-45' : ''}`}>
           <button onClick={() => onTap(st, h, b.start)}
-            className={`w-full h-full rounded-lg px-2 text-left overflow-hidden ${e.pending || e.hold ? 'bg-amber-400/[0.14] border border-dashed border-amber-400/70 text-amber-100' : me ? 'bg-pt-accent text-stone-900' : 'bg-[#3A4A63] text-white'}`}>
+            className={`w-full h-full rounded-lg px-2 text-left overflow-hidden flex flex-col justify-start ${e.pending || e.hold ? 'bg-amber-400/[0.14] border border-dashed border-amber-400/70 text-amber-100' : me ? 'bg-pt-accent text-stone-900' : 'bg-[#3A4A63] text-white'}`}>
             <span className="block text-[13px] font-bold leading-tight pt-0.5 truncate">{e.hold ? `Held · ${who}` : `${who}${names}`}</span>
             {tall >= 34 && <span className="block text-[12px] leading-tight opacity-85 truncate">{fmtTime(b.start % 1440)}–{fmtTime(b.end % 1440)}{e.pending ? (e.move ? ' · move asked' : ' · waiting') : ''}{e.both ? ' · both' : ''}</span>}
           </button>
@@ -438,7 +438,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           </span>
         ))}
       </div>
-      <div className="grid grid-cols-[44px_1fr_1fr] relative" style={{ height: y(close) }}>
+      <div className="grid grid-cols-[44px_1fr_1fr] relative mt-2 mb-2" style={{ height: y(close) }}>
         <div className="relative">
           {hours.map(m => <span key={m} style={{ top: y(m) - 7 }} className="absolute right-1.5 text-[12px] tabular-nums text-pt-muted leading-none">{fmtTime(m % 1440).replace(':00', '')}</span>)}
         </div>
@@ -467,7 +467,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const dayNav = onDay && (
     <div className="flex items-center gap-2 mb-3">
       <button onClick={() => onDay(addDays(date, -1))} disabled={date <= today} aria-label="Day before" className="w-11 h-11 rounded-full bg-pt-surface grid place-items-center text-xl disabled:opacity-30">‹</button>
-      <span className="flex-1 text-center text-pt-text text-[15px] font-semibold">{formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · {whenLabel(date, today)}</span>
+      <span className="flex-1 text-center text-pt-text text-[15px] font-semibold">{whenLabel(date, today)}</span>
       <button onClick={() => onDay(addDays(date, 1))} aria-label="Next day" className="w-11 h-11 rounded-full bg-pt-surface grid place-items-center text-xl">›</button>
     </div>
   )

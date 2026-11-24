@@ -75,7 +75,7 @@ export default function LoginScreen({ children }: { children?: React.ReactNode }
   }
 
   const copyLink = async () => {
-    try { await navigator.clipboard.writeText(window.location.origin); setCopied(true) } catch { setCopied(false) }
+    try { await navigator.clipboard.writeText(window.location.pathname === '/connect' ? window.location.href : window.location.origin); setCopied(true) } catch { setCopied(false) }
   }
 
   return (

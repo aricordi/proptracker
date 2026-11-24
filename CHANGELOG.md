@@ -12,6 +12,15 @@ Each manual says which version it was written for.
 
 
 
+## 1.3.0 · Nov 24, 2026
+
+- **The day view looks like a Google Calendar day.** Tap a day: hours down the side, Cliff 1 and Cliff 2 side by side,
+  everyone's booking as a block at its real time with their name, and every free stretch in green with how long it is
+  (short gaps too, so nothing goes missing). Each house shows its free hours for the day at the top, the arrows flip to the
+  day before or after, and a red line shows the time now.
+- **Connecting ChatGPT or Claude no longer drops you on the home page.** If signing in takes you somewhere else, the
+  "Allow" page comes back by itself (for 15 minutes).
+
 ## 1.2.2 · Nov 24, 2026
 
 - New public support page (proptracker.arbcreative.co/support.html): how to reach us, connecting Prime Capitol in ChatGPT or
