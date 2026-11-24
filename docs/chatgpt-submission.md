@@ -12,7 +12,7 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 - **Company URL:** https://proptracker.arbcreative.co
 - **Privacy policy:** https://proptracker.arbcreative.co/privacy.html
 - **Terms:** https://proptracker.arbcreative.co/terms.html
-- **Support contact:** an @arbcreative.co address (owner to pick; then update privacy.html + terms.html contact lines)
+- **Support contact:** support@arbcreative.co (alias created by the owner, Nov 24)
 - **Logo:** docs/brand/prime-capitol-logo-120.png (use public/icons/icon-512.png for a larger square)
 - **MCP server URL:** https://proptracker.arbcreative.co/mcp
 - **Authentication:** OAuth 2.1 with PKCE and dynamic client registration (discovery at /.well-known/oauth-authorization-server). Sign-in is with Google on our own page; only invited Prime Capitol members get in.
