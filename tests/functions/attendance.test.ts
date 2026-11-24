@@ -54,21 +54,21 @@ describe('check in and wrap', () => {
 })
 
 describe('missed check-ins, strikes and pauses', () => {
-  it('a missed check-in can be explained; the team marks it filmed (no strike) or a no-show (strike)', async () => {
-    await shootAt('missed1', ANA, 'Ana', -150)
-    expect((await call('explainMissedCheckIn', { id: 'missed1', text: 'Phone died, we filmed' }, ANA)).ok).toBe(true)
-    const d = await call('decideShoot', { id: 'missed1', outcome: 'filmed' }, MAANIK)
+  it('no check-in (owner, Nov 24): once a shoot has started the team marks it filmed (no strike) or a no-show (strike), once', async () => {
+    await shootAt('done1', ANA, 'Ana', -150)
+    const d = await call('decideShoot', { id: 'done1', outcome: 'filmed' }, MAANIK)
     expect(d.result.strike).toBeNull()
-    expect((await call('decideShoot', { id: 'missed1', outcome: 'noshow' }, MAANIK)).message).toMatch(/already decided/)
+    expect((await call('decideShoot', { id: 'done1', outcome: 'noshow' }, MAANIK)).message).toMatch(/not decided yet/)
+    await shootAt('ns1', ANA, 'Ana', -150)
+    expect((await call('decideShoot', { id: 'ns1', outcome: 'noshow' }, MAANIK)).result.strike).toMatchObject({ strikes: 1 })
+    expect((await getDoc('shoots/ns1'))!.noShow).toBe('missed')
   })
 
-  it('No-show waits for the 12 hours to explain; "They filmed" and an explained shoot can be decided at once', async () => {
-    await shootAt('w1', ANA, 'Ana', -150)
-    const early = await call('decideShoot', { id: 'w1', outcome: 'noshow' }, MAANIK)
-    expect(early.message).toMatch(/can still explain until/)
-    expect((await getDoc('shoots/w1'))!.outcome).toBeUndefined()
-    await call('explainMissedCheckIn', { id: 'w1', text: 'Overslept' }, ANA)
-    expect((await call('decideShoot', { id: 'w1', outcome: 'noshow' }, MAANIK)).result.strike).toMatchObject({ strikes: 1 })
+  it('a shoot that has not started yet cannot be decided; creators cannot decide', async () => {
+    await shootAt('later1', ANA, 'Ana', 600)
+    expect((await call('decideShoot', { id: 'later1', outcome: 'noshow' }, MAANIK)).message).toMatch(/started/)
+    await shootAt('now1', ANA, 'Ana', -30)
+    expect((await call('decideShoot', { id: 'now1', outcome: 'noshow' }, ANA)).ok).toBe(false)
   })
 
   it('2 strikes in 30 days pause prop bookings (not gear); the team can lift it', async () => {

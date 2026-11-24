@@ -1,9 +1,8 @@
-// Journey 3 — shoot day, in the Chat: the creator checks in with one selfie, reports the slot before them
-// (house left a mess, with a photo and a note), wraps ("what did you film?"); then the equipment team sees the
-// check-in and the report in Schedule team.
+// Journey 3 — shoot day with NO check-in (owner, Nov 24): the creator just films (no selfie card, the chat says there's
+// nothing to do); the equipment team opens the shoot once it has started and marks it filmed (or a no-show, a strike).
 // The test data's own shoots only line up with "now" during the day, so this file writes a shoot that is on
 // RIGHT NOW (started 30 minutes ago) for Nia at Cliff 1, with Jana's shoot just before it, whatever the hour.
-import { test, expect, reseed, signIn, putDoc, getDoc, testPhoto, esc } from '../helpers'
+import { test, expect, reseed, signIn, putDoc, getDoc } from '../helpers'
 
 test.describe.configure({ mode: 'serial' })
 
@@ -16,7 +15,7 @@ function studio(ms: number) {
 const dayBefore = (date: string) => new Date(Date.parse(`${date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10)
 const MIN = 60_000
 
-const SHOOT = 'sh-now', BEFORE = 'sh-before', TITLE = 'Robot test: haunted house tour', NOTE = 'Dishes left in the sink'
+const SHOOT = 'sh-now', BEFORE = 'sh-before'
 
 async function putRunningShoots() {
   const fromMs = Date.now() - 30 * MIN
@@ -43,75 +42,25 @@ test.beforeAll(async () => {
   await putRunningShoots()
 })
 
-test('creator checks in with a selfie, reports the slot before, and wraps', async ({ page }) => {
+test('creator: no check-in card on shoot day; "I\'m here" says there is nothing to do', async ({ page }) => {
   await signIn(page, 'newbie')
-
-  await test.step('the Chat says "You\'re up" with one selfie button', async () => {
-    await expect(page.getByText("You're up · check in")).toBeVisible()
-    await expect(page.getByText(/^Cliff 1 · /).first()).toBeVisible()
-    await expect(page.getByText("One selfie with your camera and you're checked in.")).toBeVisible()
-  })
-
-  await test.step('take the selfie', async () => {
-    const chooser = page.waitForEvent('filechooser')
-    await page.getByRole('button', { name: 'Check-in selfie' }).click()
-    await (await chooser).setFiles(testPhoto('selfie.png'))
-  })
-
-  await test.step("someone filmed just before: report Jana's slot (mess + photo + a note)", async () => {
-    await expect(page.getByText("All good with Jana's slot?")).toBeVisible()
-    await page.getByRole('button', { name: 'Report it', exact: true }).click()
-    await page.getByRole('button', { name: 'House was a mess', exact: true }).click()
-    const send = page.getByRole('button', { name: /Check in and tell the team|Add a photo of the mess|Tap what happened/ })
-    await expect(send).toHaveText('Add a photo of the mess')
-    await expect(send).toBeDisabled()
-    const chooser = page.waitForEvent('filechooser')
-    await page.getByRole('button', { name: 'Photo of the mess', exact: true }).click()
-    await (await chooser).setFiles(testPhoto('mess.png'))
-    await page.getByPlaceholder('Anything to add? (optional)').fill(NOTE)
-    await expect(send).toHaveText('Check in and tell the team')
-    await send.click()
-  })
-
-  await test.step('checked in: "Filming now", then wrap with what was filmed', async () => {
-    await expect(page.getByText(/^Filming now · Cliff 1 · /)).toBeVisible()
-    const wrap = page.getByRole('button', { name: 'Wrap', exact: true })
-    await expect(wrap).toBeDisabled()
-    await page.getByRole('textbox', { name: 'What did you film?' }).fill(TITLE)
-    await wrap.click()
-    await expect(page.getByText(/^Filming now/)).toHaveCount(0)
-  })
-
-  await test.step('the shoot page shows the check-in, the set photo and the video', async () => {
-    await page.goto(`/schedule?shoot=${SHOOT}`)
-    await expect(page.getByText(new RegExp(`^Checked in .* · filmed “${esc(TITLE)}”$`))).toBeVisible()
-    await expect(page.getByText('Set photo').first()).toBeVisible()
-  })
+  await expect(page.getByText('Hi Nia.')).toBeVisible()
+  await expect(page.getByText(/You're up · check in/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Check-in selfie' })).toHaveCount(0)
+  const box = page.getByRole('textbox').last()
+  await box.fill("I'm here")
+  await box.press('Enter')
+  await expect(page.getByText(/no check-in needed, just film/)).toBeVisible()
+  await page.goto(`/schedule?shoot=${SHOOT}`)
+  await expect(page.getByText('Your shoot').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Check in/ })).toHaveCount(0)
 })
 
-test('equipment team sees the check-in and the report in Schedule team', async ({ page }) => {
+test('equipment team: marks the running shoot as filmed on its card', async ({ page }) => {
   await signIn(page, 'gear')
-  await page.goto('/schedule/team')
-  await expect(page.getByRole('heading', { level: 1, name: 'Schedule team' })).toBeVisible()
-
-  await test.step('Check-ins: Nia filmed, with the video name', async () => {
-    // The row: Nia's name, the slot line with the video name, and the "Filmed" pill.
-    const row = page.locator('div').filter({ has: page.getByText('Nia', { exact: true }) }).filter({ hasText: `“${TITLE}”` })
-      .filter({ has: page.getByText('Filmed', { exact: true }) }).last()
-    await expect(row).toBeVisible()
-  })
-
-  await test.step('Reports: Nia reported Jana, mess + note + photo, Dismiss / Strike', async () => {
-    await page.getByRole('button', { name: 'Reports (1)' }).click()
-    await expect(page.getByText('Nia reported Jana')).toBeVisible()
-    await expect(page.getByText('Left the house a mess')).toBeVisible()
-    await expect(page.getByText(`“${NOTE}”`)).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Dismiss' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Strike for Jana' })).toBeVisible()
-  })
-
-  await test.step('Dismiss it', async () => {
-    await page.getByRole('button', { name: 'Dismiss' }).click()
-    await expect(page.getByText('No reports to review.')).toBeVisible()
-  })
+  await page.goto(`/schedule?shoot=${SHOOT}`)
+  await expect(page.getByText('Did they film?')).toBeVisible()
+  await page.getByRole('button', { name: 'They filmed', exact: true }).click()
+  await expect(page.getByText('Marked as filmed ✓')).toBeVisible()
+  expect((await getDoc<Record<string, unknown>>(`shoots/${SHOOT}`))!.outcome).toBe('filmed')
 })
