@@ -37,6 +37,18 @@ section > p { color: var(--muted); margin: 0 0 12px; font-size: 15px; }
 .exp::before { content: "Expect  "; color: var(--ok); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
 .test.done .say { text-decoration: line-through; text-decoration-color: var(--muted); }
 .note { font-size: 14px; color: var(--warn); margin-top: 4px; }
+.prob-btn { margin-top: 8px; background: none; border: 1px dashed var(--line); color: var(--muted); border-radius: 99px;
+  padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; min-height: 40px; }
+.prob-btn.has { border-style: solid; border-color: var(--warn); color: var(--warn); font-weight: 600; }
+.prob { margin-top: 8px; }
+.prob textarea, .general textarea { width: 100%; box-sizing: border-box; min-height: 84px; font: inherit; font-size: 16px; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; resize: vertical; }
+.prob textarea:focus, .general textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+.saved { font-size: 13px; color: var(--muted); margin-top: 4px; min-height: 18px; }
+.general { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; margin-bottom: 20px; }
+.general h2 { font-family: var(--display); font-size: 17px; margin: 0 0 4px; }
+.general p { color: var(--muted); margin: 0 0 10px; font-size: 15px; }
+.offline { font-size: 14px; color: var(--warn); margin: 0 0 16px; }
 .check { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
 .check h2 { font-family: var(--display); font-size: 17px; margin: 0 0 8px; }
 .check ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
@@ -58,6 +70,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
       <li><b>Begin your first message with "Prime Capitol,"</b> (for example "Prime Capitol, who am I?"). Without the name, ChatGPT often answers from its own memory and never asks the app. Once it has used Prime Capitol in a chat, it usually keeps using it.</li>
     </ol>
   </div>
+
+  <p class="offline" id="offline" hidden>Notes can't be saved right now (open this page signed in to claude.ai). Ticks still work.</p>
 
   <div class="progress"><span id="count">0 of 0</span><div class="bar"><i id="fill"></i></div></div>
 
@@ -182,6 +196,13 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
     </div></div>
   </section>
 
+  <div class="general">
+    <h2>Anything else?</h2>
+    <p>Problems that don't fit one test, ideas, things that felt off. Claude can read this.</p>
+    <textarea id="general" placeholder="Type here…"></textarea>
+    <div class="saved" id="general-saved"></div>
+  </div>
+
   <div class="check">
     <h2>When you're done</h2>
     <ul>
@@ -221,5 +242,57 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
     update();
   });
   update();
+})();
+
+// Problem notes: one doc per test in the shared "notes" collection, so Claude can read them.
+(function () {
+  var db = null, timers = {}, last = {};
+  var tests = Array.prototype.slice.call(document.querySelectorAll('.test'));
+  var areas = {};
+  function stamp(el, txt) { if (el) el.textContent = txt; }
+  function save(id, text, savedEl) {
+    if (!db) { stamp(savedEl, 'Not saved (no connection to claude.ai)'); return; }
+    if (last[id] === text) return;
+    stamp(savedEl, 'Saving…');
+    db.doc('notes/' + id).set({ text: text, at: new Date().toISOString() })
+      .then(function () { last[id] = text; stamp(savedEl, text ? 'Saved' : ''); })
+      .catch(function () { stamp(savedEl, 'Couldn\'t save. Try again in a moment.'); });
+  }
+  function hook(id, ta, savedEl, btn) {
+    areas[id] = { ta: ta, btn: btn };
+    ta.addEventListener('input', function () {
+      if (btn) btn.classList.toggle('has', !!ta.value.trim());
+      clearTimeout(timers[id]);
+      timers[id] = setTimeout(function () { save(id, ta.value.trim(), savedEl); }, 800);
+    });
+    ta.addEventListener('blur', function () { clearTimeout(timers[id]); save(id, ta.value.trim(), savedEl); });
+  }
+  tests.forEach(function (t) {
+    var box = t.querySelector('input'); var id = box.id; var body = t.children[1];
+    var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'prob-btn'; btn.textContent = 'Problem? Type it';
+    var wrap = document.createElement('div'); wrap.className = 'prob'; wrap.hidden = true;
+    var ta = document.createElement('textarea'); ta.placeholder = 'What did it say or do instead?';
+    var sv = document.createElement('div'); sv.className = 'saved';
+    wrap.appendChild(ta); wrap.appendChild(sv); body.appendChild(btn); body.appendChild(wrap);
+    btn.addEventListener('click', function () { wrap.hidden = !wrap.hidden; if (!wrap.hidden) ta.focus(); });
+    hook(id, ta, sv, btn);
+  });
+  hook('general', document.getElementById('general'), document.getElementById('general-saved'), null);
+
+  var to = setTimeout(function () { if (!db) document.getElementById('offline').hidden = false; }, 10000);
+  if (!window.claude || !window.claude.use) return;
+  window.claude.use('db').then(function (d) {
+    if (!d) { clearTimeout(to); document.getElementById('offline').hidden = false; return; }
+    db = d; clearTimeout(to);
+    db.collection('notes').onSnapshot(function (snap) {
+      snap.docs.forEach(function (doc) {
+        var a = areas[doc.id]; if (!a) return;
+        var text = (doc.data() || {}).text || '';
+        last[doc.id] = text;
+        if (document.activeElement !== a.ta) a.ta.value = text;
+        if (a.btn) { a.btn.classList.toggle('has', !!text); if (text) { a.ta.parentNode.hidden = false; a.btn.textContent = 'Problem noted'; } }
+      });
+    }, function () { document.getElementById('offline').hidden = false; });
+  }).catch(function () { document.getElementById('offline').hidden = false; });
 })();
 </script>
