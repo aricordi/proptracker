@@ -7,7 +7,7 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions'
 import type { Request } from 'express'
 import { db, CALLABLE, requireRole, getCaller } from '../auth.js'
-import { Timestamp } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { scryptSync, timingSafeEqual, randomBytes } from 'node:crypto'
 import { REVIEWER_EMAIL } from './common.js'
 import { resetSandbox } from './reviewer.js'
@@ -44,12 +44,18 @@ const later = (seconds: number) => new Date(Date.now() + seconds * 1000).toISOSt
 const ttlIn = (seconds: number) => Timestamp.fromMillis(Date.now() + seconds * 1000)
 // Sign-up and sign-in pages: a few per minute per address is plenty for a real person (stops anyone filling the database).
 async function ipLimit(req: Request, kind: string, perMinute: number) {
-  const ip = String(req.headers['x-forwarded-for'] ?? req.ip ?? '').split(',')[0].trim().replace(/[^0-9a-fA-F:.]/g, '').slice(0, 45) || 'unknown'
-  const ref = db.doc(`mcp_rate/${kind}_${ip.replace(/[:.]/g, '-')}_${new Date().toISOString().slice(0, 16)}`)
+  // The LAST addresses in X-Forwarded-For are added by Google's front end; the first ones can be made up by the caller
+  // (review, Nov 24), so they're ignored. A cap across all addresses stops a flood that rotates through many.
+  const hops = String(req.headers['x-forwarded-for'] ?? req.ip ?? '').split(',').map(x => x.trim().replace(/[^0-9a-fA-F:.]/g, '').slice(0, 45)).filter(Boolean)
+  const ip = hops.slice(-2).join('_') || 'unknown'
+  const minute = new Date().toISOString().slice(0, 16)
+  const ref = db.doc(`mcp_rate/${kind}_${ip.replace(/[:.]/g, '-')}_${minute}`), all = db.doc(`mcp_rate/${kind}_all_${minute}`)
   return db.runTransaction(async tx => {
-    const n = Number((await tx.get(ref)).get('n') ?? 0)
-    if (n >= perMinute) return false
+    const [mine, every] = await Promise.all([tx.get(ref), tx.get(all)])
+    const n = Number(mine.get('n') ?? 0), total = Number(every.get('n') ?? 0)
+    if (n >= perMinute || total >= perMinute * 15) return false
     tx.set(ref, { n: n + 1, ttl: ttlIn(600) }, { merge: true })
+    tx.set(all, { n: total + 1, ttl: ttlIn(600) }, { merge: true })
     return true
   })
 }
@@ -58,15 +64,14 @@ const expired = (at: unknown) => typeof at !== 'string' || at < new Date().toISO
 // ─── HTTP entry point ───────────────────────────────────────────────────────────────────────────────────────────────
 // What the assistant is told about Prime Capitol (owner, Nov 24: "be part of their writing and brainstorming").
 const INSTRUCTIONS = [
-  'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. You act as the signed-in creator, with exactly their permissions. Be a warm, sharp production assistant: short answers, the person\'s own language.',
-  'START: get_rules once per conversation (today\'s date in studio time, the live rules). For "what do I have going on?" use my_status; for one shoot use get_shoot.',
-  'BRAINSTORMING: when the person is working on a Prime Capitol video idea and wants to know what props exist, props_for_idea checks the closet per scene and show_props shows photos. You may ask if they\'d like you to check the closet; only call the tools when they agree or ask. Things the closet lacks can be custom props (4+ days notice, no guaranteed date).',
-  'READ BETWEEN THE LINES: people talk casually ("wanna film w justin and rolly tmrw", "shoot with ari this weekend, evenings"). Do not ask for things you can work out. Pass names exactly as said (nicknames, short forms, typos) and their day words to plan_shoot: it resolves who is who, assumes 2 hours per person on ONE booking unless they said a length, and returns times free for everyone. Ask only what plan_shoot lists under questions (e.g. which Justin, "did you mean Roland?", someone not on the app); never guess a person. Then offer 2-3 good options in one short message (e.g. "Cliff 2 tomorrow 1:15-7:15, or Cliff 1 4-10 PM?"), and after they pick, confirm once and book. If nothing fits, offer the soonest alternatives it returns.',
-  'TIMES: find_free_times returns ready-to-book options that already respect their locks and limits; get_schedule is the raw picture (who films when, free stretches). Bookings are free-form (any quarter hour, e.g. 13:15-15:15), up to 2 hours per person; longer needs the people filming with them on the SAME booking (book_shoot `with`). Use judgement: next to a collaborator\'s shoot, the time of day they like, other house or day if one is locked. A taken time can be waited for (join_waitlist).',
-  'PROPS: request_props for a shoot (adds to a waiting request), change_props_request / cancel_props_request while still requested; prop_calendar shows which days a key prop is free. Closet props close about 48 hours before the shoot (get_shoot has the exact time).',
-  'PHONE-ONLY STEPS: picking up and returning props or gear (photos) and taking gear on the shoot day happen in the app: give the app_link. There is no check-in on the shoot day.',
-  'CHANGES: summarise and confirm with the person before any change (book, move, cancel, swap, props, invites). Creator bookings are requests the schedule team approves; never say a booking is confirmed unless the tool says "Booked". If a tool refuses, explain its reason simply and offer the next best option.',
-  'Never invent props, times, people or rules: use the tools. Other people\'s emails, internal notes and costs are never available.',
+  'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. These tools act as the signed-in person, with exactly their permissions in the Prime Capitol app.',
+  'get_rules returns today\'s date in studio time (America/Toronto) and the live rules. my_status summarises what the person has going on; get_shoot gives one shoot in detail.',
+  'Casual booking requests (e.g. "film with Justin and Rolly tomorrow"): plan_shoot takes the names as the person said them and their day words, and returns who each name matches, any questions to confirm (shared names, nicknames, typos, people not on the app), the length (2 hours per person on one booking unless a length was given) and times free for everyone. Confirm any name it lists under questions with the person before booking; it never books by itself.',
+  'Times: find_free_times returns bookable options for this person; get_schedule is the raw schedule. Bookings take any quarter-hour start and end, up to 2 hours per person; longer bookings list everyone filming in book_shoot `with`. Times after midnight are written 24:xx/25:xx. Cliff 1 on priority days needs a filming guideline PDF, which can only be attached in the app. A taken time can be waited for with join_waitlist.',
+  'Props: search_props, browse_props and show_props find closet props (with photos); props_for_idea checks the closet against the props a video idea needs; prop_calendar shows which days a prop is free. request_props adds props to one of the person\'s shoots; change_props_request and cancel_props_request work while a request is still "requested". Closet props close about 48 hours before the shoot (get_shoot has the exact time); custom props need 4+ days and have no guaranteed date.',
+  'Picking up and returning props or gear (photos) and taking gear on the shoot day are done in the app: app_link gives the right screen. There is no check-in on the shoot day.',
+  'Before any change (book, move, cancel, swap, props, invites, waitlist), summarise it and get the person\'s confirmation. A creator\'s booking is a request until the schedule team approves it: only say "booked" when the tool result says "Booked". When a tool refuses, pass on its reason.',
+  'Props, times, people and rules come only from these tools. Other people\'s email addresses, internal notes and costs are not available.',
 ].join(' ')
 
 export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, memory: '512MiB', cors: true, invoker: 'public' }, async (req, res) => {
@@ -109,7 +114,8 @@ async function register(req: Request, res: import('express').Response) {
   }
   const clientId = `pc_${randomToken(16)}`
   const name = String(b.client_name ?? '').slice(0, 80)
-  await db.doc(`mcp_clients/${clientId}`).set({ redirectUris: uris, name, createdAt: new Date().toISOString() })
+  // Registrations that never finish a sign-in are deleted after 30 days (the TTL is removed once one connects).
+  await db.doc(`mcp_clients/${clientId}`).set({ redirectUris: uris, name, createdAt: new Date().toISOString(), ttl: ttlIn(30 * 86400) })
   res.status(201).json({ client_id: clientId, client_name: name, redirect_uris: uris, token_endpoint_auth_method: 'none',
     grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], client_id_issued_at: Math.floor(Date.now() / 1000) })
 }
@@ -215,11 +221,11 @@ export const connectorRequestInfo = onCall(CALLABLE, async req => {
   return { ok: true, assistant: r.assistant }
 })
 
-async function issueTokens(email: string, name: string, clientId: string, assistant: string, reviewer = false) {
+async function issueTokens(email: string, name: string, clientId: string, assistant: string, reviewer = false, sandbox = '') {
   const access = randomToken(32), refresh = randomToken(32)
   const now = new Date().toISOString()
   const batch = db.batch()
-  const extra = reviewer ? { reviewer: true } : {}
+  const extra = reviewer ? { reviewer: true, sandbox: sandbox || clientId } : {}
   batch.set(db.doc(`mcp_tokens/${hashToken(access)}`), { kind: 'access', email, name, clientId, assistant, ...extra, expiresAt: later(ACCESS_TTL_SECONDS), ttl: ttlIn(ACCESS_TTL_SECONDS + 3600), createdAt: now })
   batch.set(db.doc(`mcp_tokens/${hashToken(refresh)}`), { kind: 'refresh', email, name, clientId, assistant, ...extra, expiresAt: later(REFRESH_TTL_DAYS * 86400), ttl: ttlIn(REFRESH_TTL_DAYS * 86400 + 3600), createdAt: now })
   batch.set(db.doc(`mcp_connections/${email}__${clientId}`), { email, clientId, assistant, lastUsed: now, connectedAt: now }, { merge: true })
@@ -235,15 +241,18 @@ async function token(req: Request, res: import('express').Response) {
     const c = await db.runTransaction(async tx => { const s = await tx.get(ref); if (s.exists) tx.delete(ref); return s.data() })   // one use only
     if (!c || expired(c.expiresAt) || c.clientId !== b.client_id || b.redirect_uri !== c.redirect) { bad('invalid_grant'); return }
     if (!pkceOk(b.code_verifier, c.challenge)) { bad('invalid_grant', 'PKCE check failed'); return }
-    if (c.reviewer) await resetSandbox(c.clientId)   // each reviewer connection gets its own practice data, fresh
-    res.json(await issueTokens(c.email, c.name, c.clientId, c.assistant, c.reviewer === true)); return
+    await db.doc(`mcp_clients/${c.clientId}`).update({ ttl: FieldValue.delete(), connectedAt: new Date().toISOString() }).catch(() => 0)
+    // Each reviewer SIGN-IN gets its own fresh practice copy (two reviewers on the same ChatGPT app don't share or wipe one).
+    const sandbox = c.reviewer ? `r_${randomToken(12)}` : ''
+    if (sandbox) await resetSandbox(sandbox)
+    res.json(await issueTokens(c.email, c.name, c.clientId, c.assistant, c.reviewer === true, sandbox)); return
   }
   if (b.grant_type === 'refresh_token') {
     const ref = db.doc(`mcp_tokens/${hashToken(String(b.refresh_token ?? ''))}`)
     const t = await db.runTransaction(async tx => { const s = await tx.get(ref); if (s.exists) tx.delete(ref); return s.data() })   // rotated
     if (!t || t.kind !== 'refresh' || expired(t.expiresAt) || (b.client_id && b.client_id !== t.clientId)) { bad('invalid_grant'); return }
     if (!(t.reviewer ? await reviewerEnabled() : await stillAllowed(t.email))) { bad('invalid_grant', 'Prime Capitol access was turned off'); return }
-    res.json(await issueTokens(t.email, t.name, t.clientId, t.assistant, t.reviewer === true)); return
+    res.json(await issueTokens(t.email, t.name, t.clientId, t.assistant, t.reviewer === true, String(t.sandbox ?? ''))); return
   }
   bad('unsupported_grant_type')
 }
@@ -268,12 +277,14 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
   if (!t || t.kind !== 'access' || expired(t.expiresAt) || !(t.reviewer ? await reviewerEnabled() : await stillAllowed(t.email))) {
     res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`).json({ error: 'invalid_token' }); return
   }
-  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true, sandboxKey: String(t.clientId) } : {}) }
+  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true, sandboxKey: String(t.sandbox ?? t.clientId) } : {}) }
   const raw = req.body
   if (raw === undefined || raw === null || raw === '' || (typeof raw === 'object' && !Array.isArray(raw) && !Buffer.isBuffer(raw) && !Object.keys(raw).length)) { res.status(400).json(rpcError(null, -32700, 'Parse error')); return }
   const msg = bodyOf(req) as { jsonrpc?: string; id?: string | number; method?: string; params?: Record<string, unknown> }
   if (Array.isArray(msg)) { res.status(400).json(rpcError(null, -32600, 'Batches are not supported')); return }
   const id = msg.id ?? null
+  // A reply from the client to something we asked (we never ask, but it's valid JSON-RPC): acknowledged, nothing to do.
+  if (msg.jsonrpc === '2.0' && msg.method === undefined && msg.id !== undefined && ('result' in msg || 'error' in msg)) { res.status(202).end(); return }
   if (msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') { res.status(400).json(rpcError(msg.id ?? null, -32600, 'Invalid request')); return }
   if (msg.id === undefined) { res.status(202).end(); return }   // a notification (e.g. notifications/initialized)
   switch (msg.method) {
@@ -332,8 +343,9 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
 // card template to draw (both the MCP Apps standard key and ChatGPT's older keys, so it works everywhere).
 const RESOURCE_DOMAINS = ['https://firebasestorage.googleapis.com']
 const WIDGET_RESOURCE_META = {
-  ui: { csp: { resourceDomains: RESOURCE_DOMAINS, connectDomains: [] }, prefersBorder: false },
+  ui: { csp: { resourceDomains: RESOURCE_DOMAINS, connectDomains: [] }, prefersBorder: false, domain: 'https://proptracker.arbcreative.co' },
   'openai/widgetCSP': { connect_domains: [], resource_domains: RESOURCE_DOMAINS },
+  'openai/widgetDomain': 'https://proptracker.arbcreative.co',
   'openai/widgetDescription': 'Prime Capitol cards: prop photos with availability, free filming times, and shoot details. Display only.',
   'openai/widgetPrefersBorder': false,
 }

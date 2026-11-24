@@ -10,14 +10,19 @@ export const CODE_TTL_SECONDS = 5 * 60               // the one-time sign-in cod
 export const REQUEST_TTL_SECONDS = 15 * 60           // time to finish signing in
 
 // Return addresses of the assistants we support (and localhost for the MCP Inspector during development only).
-const ALLOWED_REDIRECT_HOSTS = ['chatgpt.com', 'chat.openai.com', 'claude.ai', 'claude.com']
+// Exact hosts AND their connector callback paths (review, Nov 24): any other page on chatgpt.com (e.g. a third-party GPT's
+// /aip/… callback) is refused, so the "Allow ChatGPT?" page can't be borrowed by someone else's GPT.
+const ALLOWED_REDIRECTS: { host: string; path: RegExp }[] = [
+  { host: 'chatgpt.com', path: /^\/connector[_/]/ }, { host: 'chat.openai.com', path: /^\/connector[_/]/ },
+  { host: 'claude.ai', path: /^\/api\/mcp\/auth_callback$/ }, { host: 'claude.com', path: /^\/api\/mcp\/auth_callback$/ },
+]
 export function redirectAllowed(uri: unknown, dev = false): uri is string {
   if (typeof uri !== 'string' || uri.length > 500) return false
   let u: URL
   try { u = new URL(uri) } catch { return false }
-  if (u.hash) return false
+  if (u.hash || u.username || u.password) return false
   if (dev && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) return true
-  return u.protocol === 'https:' && ALLOWED_REDIRECT_HOSTS.some(h => u.hostname === h || u.hostname.endsWith(`.${h}`))
+  return u.protocol === 'https:' && !u.port && ALLOWED_REDIRECTS.some(r => u.hostname === r.host && r.path.test(u.pathname))
 }
 
 // Which assistant a return address belongs to (shown on the "Allow?" page).

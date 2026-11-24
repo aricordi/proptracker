@@ -56,12 +56,14 @@ export function resolvePerson<T extends Named>(people: T[], said: string, me: st
   const last = others.filter(p => { const w = parts(p); return w.length > 1 && w[w.length - 1] === n })
   if (last.length) return pick(last)
   // 2. Nicknames both ways ("Eddy" → Eduard, "Rolly" → Roland, "Mike" → Michael).
+  // Review (Nov 24): a nickname or the start of a name is only ever a "did you mean": "Sam" might be a friend who isn't on the
+  // app, not Samantha. The assistant confirms in one line ("Rolly = Roland, right?") before anyone is put on a booking.
   const nick = others.filter(p => { const f = parts(p)[0] ?? ''; return nicknamesOf(n).includes(f) || nicknamesOf(f).includes(n) })
-  if (nick.length) return pick(nick)
+  if (nick.length) return { status: nick.length === 1 ? 'maybe' : 'many', hits: nick }
   // 3. The start of a first name ("jus" → Justin, "ari" → Ariel): sure only when it fits one person.
   if (n.length >= 3 && words.length === 1) {
     const pre = others.filter(p => (parts(p)[0] ?? '').startsWith(n))
-    if (pre.length === 1) return { status: 'one', hits: pre }
+    if (pre.length === 1) return { status: 'maybe', hits: pre }
     if (pre.length > 1) return { status: 'many', hits: pre.slice(0, 6) }
   }
   // 4. A likely typo or a loose short form ("Justn", "Rolli", "Valentina"): only ever a suggestion to confirm.
@@ -89,14 +91,18 @@ export function resolveWhen(text: string, today: string): { days: string[]; labe
     const next = /\bnext weekend\b/.test(t)
     let sat = today; while (weekday(sat) !== 6) sat = addDays(sat, 1)
     if (wdNow === 0 && !next) return range(today, 1, 'this weekend')   // Sunday: what's left of it
-    if (next) sat = addDays(sat, 7)
+    if (next && wdNow !== 0) sat = addDays(sat, 7)   // said on a Sunday, "next weekend" is the coming one
     return range(sat, 2, next ? 'next weekend' : 'this weekend')
   }
   if (/\bnext week\b/.test(t)) {
     let mon = addDays(today, 1); while (weekday(mon) !== 1) mon = addDays(mon, 1)
     return range(mon, 7, 'next week')
   }
-  if (/\bthis week\b/.test(t)) { let n = 1; while (weekday(addDays(today, n)) !== 1 && n < 7) n++; return range(today, n, 'this week') }
+  if (/\bthis week\b/.test(t)) {
+    if (wdNow === 0) return range(today, 8, 'this week')   // said on a Sunday: today and the week ahead
+    let n = 1; while (weekday(addDays(today, n)) !== 1 && n < 7) n++
+    return range(today, n, 'this week')
+  }
   const named = namedDate(t, today)
   if (named && named !== 'bad') return range(named, 1, named)
   for (let i = 0; i < 7; i++) {

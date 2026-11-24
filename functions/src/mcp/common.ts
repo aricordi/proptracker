@@ -25,10 +25,21 @@ export async function callerOf(u: McpUser): Promise<Caller> {
 export const clampInt = (v: unknown, lo: number, hi: number, dflt: number) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v as number)) : dflt
 export const s = (v: unknown, max = 200) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 export const firstName = (n: string) => String(n || '').split(/\s+/)[0]
-export const hm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+/** How other people are named to the assistant (privacy policy): first name + last initial, enough to tell two Justins apart. */
+export const shortName = (n: string) => { const w = String(n || '').trim().split(/\s+/).filter(Boolean); return w.length > 1 ? `${w[0]} ${w[w.length - 1][0].toUpperCase()}.` : (w[0] ?? '') }
+// After midnight stays 24:xx / 25:xx (review, Nov 24): "00:15" would be read back as the START of that day and refused.
+export const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(((m % 60) + 60) % 60).padStart(2, '0')}`
+/** A house start before 6 AM is the night after (the houses open in the morning and run past midnight). */
+export const houseNight = (m: number) => m < 360 ? m + 1440 : m
 // "13:15", "1:15 pm", "1315" → minutes after midnight (null if unreadable). After-midnight times may be given as 24:00–25:59.
 export function parseClock(v: unknown): number | null {
-  if (typeof v === 'number' && Number.isInteger(v)) return v
+  // A number from a model that ignored "string": 9 or 13 = hours, 900 / 1315 = HHMM (never minutes: 900 ≠ 3 PM).
+  if (typeof v === 'number') {
+    if (!Number.isInteger(v) || v < 0) return null
+    if (v <= 25) return v * 60
+    const h = Math.floor(v / 100), m = v % 100
+    return v >= 100 && m <= 59 && h <= 25 ? h * 60 + m : null
+  }
   const t = s(v, 20).toLowerCase().replace(/\s+/g, '')
   const m = /^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/.exec(t)
   if (!m) return null
@@ -90,6 +101,8 @@ export const WRITE = { readOnlyHint: false, openWorldHint: false, destructiveHin
 export const WRITE_OUT = { readOnlyHint: false, openWorldHint: true, destructiveHint: false }
 export const DESTRUCTIVE_OUT = { readOnlyHint: false, openWorldHint: true, destructiveHint: true }
 export const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: true }
+/** A list of objects from the assistant, with blanks and odd entries dropped ([null], ["x"] never crash a tool). */
+export const objs = (v: unknown): Json[] => Array.isArray(v) ? v.filter((x): x is Json => !!x && typeof x === 'object' && !Array.isArray(x)).slice(0, 100) : []
 export const obj = (properties: Json, required: string[] = []) => ({ type: 'object', properties, required, additionalProperties: false })
 
 // People are named to the assistant by an anonymous id, never by email (privacy policy: "never other people's emails").
@@ -121,7 +134,7 @@ export function askWho(said: string, m: PersonMatch<{ email: string; name: strin
   if (m.status === 'maybe') return `Nobody is called exactly "${said}". Did they mean ${describePeople(m.hits)}? Ask, then pass the person id.`
   return `Nobody called "${said}" uses the app.`
 }
-export const describePeople = (hits: { email: string; name: string }[]) => hits.map(h => `${h.name} (${personId(h.email)})`).join(', ')
+export const describePeople = (hits: { email: string; name: string }[]) => hits.map(h => `${shortName(h.name)} (${personId(h.email)})`).join(', ')
 
 /** Read one doc by an id the assistant gave; a missing or odd id (empty, slashes) is simply "not found" instead of a crash. */
 export async function docById(col: string, id: unknown) {

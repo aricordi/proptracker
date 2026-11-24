@@ -19,26 +19,26 @@ describe('names as people say them', () => {
     expect(who('Petrov')).toEqual({ s: 'one', n: ['Eduard'] })
     expect(who('Ariél')).toEqual({ s: 'one', n: ['Ariel'] })
   })
-  it('nicknames both ways', () => {
-    expect(who('Rolly')).toEqual({ s: 'one', n: ['Roland'] })
-    expect(who('eddy')).toEqual({ s: 'one', n: ['Eduard'] })
-    expect(who('Val')).toEqual({ s: 'one', n: ['Valentyna'] })
+  it('nicknames both ways, always confirmed ("Sam" could be a friend not on the app)', () => {
+    expect(who('Rolly')).toEqual({ s: 'maybe', n: ['Roland'] })
+    expect(who('eddy')).toEqual({ s: 'maybe', n: ['Eduard'] })
+    expect(who('Val')).toEqual({ s: 'maybe', n: ['Valentyna'] })
   })
-  it('the start of a name only when it fits one person', () => {
-    expect(who('jus')).toEqual({ s: 'one', n: ['Justin'] })
-    expect(who('ari')).toEqual({ s: 'one', n: ['Ariel'] })
+  it('the start of a name: a likely match to confirm, several = which one', () => {
+    expect(who('jus')).toEqual({ s: 'maybe', n: ['Justin'] })
+    expect(who('ari')).toEqual({ s: 'maybe', n: ['Ariel'] })
     expect(who('ky').s).toBe('none')   // too short to guess
     expect(who('kyl')).toEqual({ s: 'many', n: ['Kyle', 'Kyla'] })
   })
   it('typos are only ever a "did you mean"', () => {
     expect(who('Justn')).toEqual({ s: 'maybe', n: ['Justin'] })
     expect(who('Rolnad')).toEqual({ s: 'maybe', n: ['Roland'] })
-    expect(who('Rolan')).toEqual({ s: 'one', n: ['Roland'] })   // the start of one name
+    expect(who('Rolan')).toEqual({ s: 'maybe', n: ['Roland'] })   // the start of one name
     expect(who('Arial')).toEqual({ s: 'maybe', n: ['Ariel'] })
   })
   it('shared names are asked, never guessed; Chris is exact', () => {
     expect(who('chris')).toEqual({ s: 'one', n: ['Chris'] })
-    expect(who('Christi')).toEqual({ s: 'one', n: ['Christian'] })
+    expect(who('Christi')).toEqual({ s: 'maybe', n: ['Christian'] })
     expect(who('chri')).toEqual({ s: 'many', n: ['Chris', 'Christian'] })
   })
   it('never by email, never yourself, nobody for strangers', () => {
@@ -76,5 +76,15 @@ describe('casual days', () => {
     expect(resolveWhen('the 30th', today)!.days).toEqual(['2026-11-30'])
     expect(resolveWhen('whenever', today)).toBeNull()
     expect(resolveWhen('', today)).toBeNull()
+  })
+})
+
+describe('casual days said on a Sunday', () => {
+  const sun = '2026-11-29'
+  it('this week = today + the week ahead; next weekend = the coming one', () => {
+    expect(resolveWhen('this week', sun)!.days).toHaveLength(8)
+    expect(resolveWhen('next weekend', sun)!.days).toEqual(['2026-12-05', '2026-12-06'])
+    expect(resolveWhen('this weekend', sun)!.days).toEqual([sun])
+    expect(resolveWhen('next week', sun)!.days[0]).toBe('2026-11-30')
   })
 })

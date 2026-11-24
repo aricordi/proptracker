@@ -51,7 +51,8 @@ account's security settings (Third-party connections).</p>
 until you sign in with Google and tap <b>Allow</b>.</p>
 <ul>
   <li><b>What the assistant can see:</b> the company props closet (names, descriptions, tags, photos, how many are free),
-  the shooting schedule (first names, times, houses), the studio rules, and your own shoots, props requests, status and
+  the shooting schedule (names as first name and last initial, times, houses), the list of people who film (same short names,
+  so you can say who you're filming with), the studio rules, and your own shoots, props requests, status and
   invites. It never gets other people's email addresses, internal notes, costs, gear values or anyone's private props.</li>
   <li><b>What it can do:</b> only what you can do in the app, after asking you: book, move or cancel your shoots, request or
   change props, answer invites and swaps, join waitlists and report problems. Every change goes through the same rules and
@@ -59,7 +60,13 @@ until you sign in with Google and tap <b>Allow</b>.</p>
   <li><b>Where the information goes:</b> to the assistant you connected (OpenAI for ChatGPT, Anthropic for Claude), which
   handles your conversation under its own privacy policy. We keep a record of which assistant you connected and when it was
   last used, plus short-lived sign-in codes (access codes last 1 hour, renewal codes up to 90 days) and an hourly request
-  count to prevent abuse. We don't keep your conversations.</li>
+  count to prevent abuse (kept about 10 minutes for sign-in pages, an hour for requests). A connection that is never
+  completed is deleted after 30 days; a connection record stays until you disconnect. We don't keep your conversations.</li>
+  <li><b>Smart search:</b> when the assistant searches the closet or checks props for a video idea, the search words it sends
+  (not your name or email) are turned into a search fingerprint by Google's AI service (Gemini), which our app already uses
+  for the in-app search.</li>
+  <li><b>App review demo account:</b> OpenAI's reviewers can be given a demo account that only sees a practice copy (the real
+  props closet, made-up people and bookings). Its practice data is deleted automatically after 14 days.</li>
   <li><b>Your controls:</b> disconnect any time in the app (More → ChatGPT &amp; Claude → Disconnect) or in your assistant's
   settings. If your Prime Capitol access is turned off, the connection stops working immediately.</li>
 </ul>

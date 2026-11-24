@@ -15,7 +15,7 @@ import {
 } from '../schedule.js'
 import { loadScheduleSettings } from '../scheduling.js'
 import { loadSettings } from '../reservations.js'
-import { s, clampInt, hm, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
+import { s, objs, clampInt, hm, houseNight, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
 import { resolvePerson, resolveWhen } from './understand.js'
 
 const demoMatch = (said: string) => resolvePerson(DEMO_PEOPLE, said, REVIEWER_EMAIL, (p, id) => personId(p.email) === id)
@@ -129,6 +129,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
             const starts = new Set<number>([g.start, g.end - need])
             if (around != null) starts.add(Math.min(Math.max(around, g.start), g.end - need))
             for (const at of [720, 1020, 1260]) if (at > g.start && at + need <= g.end) starts.add(at)
+            if (needsGuideline(date, h, REVIEWER_EMAIL, sch)) continue   // booked in the app (PDF), like the real tool
             for (const st of starts) if (st % TIME_STEP === 0 && st >= g.start && st + need <= g.end && inTod(st))
               options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, _s: st })
           }
@@ -192,7 +193,8 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
     }
     case 'book_shoot': {
       const place = s(a.place, 10), date = s(a.day, 10)
-      const start = parseClock(a.start), end0 = parseClock(a.end)
+      const s0 = parseClock(a.start), end0 = parseClock(a.end)
+      const start = s0 == null ? null : s(a.place, 10) === 'offsite' ? s0 : houseNight(s0)
       if (start == null || end0 == null) return { text: 'Give the place, day (YYYY-MM-DD) and start/end (HH:MM).' }
       const end = end0 <= start ? end0 + 1440 : end0
       const said = (Array.isArray(a.with) ? a.with : []).map(x => s(x, 80)).filter(Boolean).slice(0, 4)
@@ -209,6 +211,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       if (place !== 'offsite') {
         if (end - start > maxMinutesFor(1 + withNames.length, sch)) return { text: `Each person on a booking gets up to ${sch.slotMinutes / 60} hours: add ${Math.ceil((end - start) / sch.slotMinutes) - 1 - withNames.length} more collaborator(s) in \`with\`, or shorten it.` }
         if (priorityLocked(date, place as House, sch, REVIEWER_EMAIL, now)) return { text: 'That\'s a priority day at Cliff 1, locked until the Sunday release. Try Cliff 2 or another day.' }
+        if (needsGuideline(date, place as House, REVIEWER_EMAIL, sch)) return { text: `Cliff 1 on ${date} is a priority day: booking it needs the filming guideline PDF, which is attached in the app. Book this one in the app (${APP_URL}/schedule), or pick Cliff 2 or another day here.${NOTE}`, structured: { needs_guideline_in_app: true, app_link: `${APP_URL}/schedule` } }
         if (sb.shoots.some(x => x.date === date && x.place !== 'offsite' && ['booked', 'requested'].includes(x.status))) return { text: 'You already have a house booking that day (one a day each).' }
         const ds = await days([date], sb)
         const c = conflictAt(ds[date], place as House, start, end, sch, now)
@@ -216,7 +219,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       } else if (!s(a.where, 200)) return { text: 'Where is the offsite shoot? Pass `where`.' }
       const x: SShoot = { id: nextId(sb, 'shoot'), place, date, start, end, status: 'requested', with: withNames, ...(place === 'offsite' ? { where: s(a.where, 200) } : {}) }
       sb.shoots.push(x); await save(sb)
-      return { text: `Requested: ${PLACE[place]}, ${date} ${hm(start)}–${hm(end)}${withNames.length ? ` with ${withNames.join(', ')}` : ''}. The schedule team approves it; the time is held meanwhile.${needsGuideline(date, place as House, REVIEWER_EMAIL, sch) ? ' (Cliff 1 on a priority day also needs a filming guideline PDF in the app.)' : ''}${NOTE}`, structured: { result: shootRow(x, sb) } }
+      return { text: `Requested: ${PLACE[place]}, ${date} ${hm(start)}–${hm(end)}${withNames.length ? ` with ${withNames.join(', ')}` : ''}. The schedule team approves it; the time is held meanwhile.${NOTE}`, structured: { result: shootRow(x, sb) } }
     }
     case 'move_shoot': case 'cancel_shoot': {
       const x = sb.shoots.find(y => y.id === s(a.shoot_id, 100))
@@ -225,7 +228,8 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
         x.status = 'cancelled'; sb.requests.filter(r => r.shootId === x.id).forEach(r => { r.status = 'cancelled' }); await save(sb)
         return { text: `Cancelled your ${x.date} shoot (and its props requests).${NOTE}` }
       }
-      const start = parseClock(a.start), date = s(a.day, 10)
+      const s1 = parseClock(a.start), date = s(a.day, 10)
+      const start = s1 == null ? null : (s(a.place, 10) || x.place) === 'offsite' ? s1 : houseNight(s1)
       if (start == null || !isDay(date)) return { text: 'Give the new day (YYYY-MM-DD) and start time (HH:MM).' }
       const len = x.end - x.start
       const end0 = a.end != null ? parseClock(a.end) : null
@@ -250,7 +254,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
         r.status = 'cancelled'; await save(sb); return { text: `Cancelled the props request "${r.title}".${NOTE}` }
       }
       const closet = new Map((await loadCloset()).map(p => [p.id, p]))
-      const ask = ((Array.isArray(a.items) ? a.items : []) as Json[]).map(x => ({ itemId: s(x.id, 128), qty: Math.max(0, Math.floor(Number(x.qty) || 0)) })).filter(l => l.itemId)
+      const ask = (objs(a.items)).map(x => ({ itemId: s(x.id, 128), qty: Math.max(0, Math.floor(Number(x.qty) || 0)) })).filter(l => l.itemId)
       for (const l of ask) if (!closet.has(l.itemId)) return { text: `${l.itemId} isn't in the closet. Use ids from search_props.` }
       let r: SReq | undefined, x: SShoot | undefined
       if (name === 'change_props_request') {

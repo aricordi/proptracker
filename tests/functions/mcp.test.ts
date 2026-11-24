@@ -135,30 +135,41 @@ describe('connector tools', () => {
     // Two Justins: asked, never guessed. "Rolly" = Roland. Length = 2 h each for the 3 of them.
     const p1 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin', 'Rolly'], day: FRI })).structuredContent
     expect(p1.people[0]).toMatchObject({ said: 'Justin', status: 'which_one' })
-    expect(p1.people[0].candidates.map((c: { name: string }) => c.name).sort()).toEqual(['Justin Figs', 'Justin Moore'])
-    expect(p1.people[1]).toMatchObject({ status: 'found', name: 'Roland Price' })
-    expect(p1.people[1].person_id).toMatch(/^p_[0-9a-f]{12}$/)
+    expect(p1.people[0].candidates.map((c: { name: string }) => c.name).sort()).toEqual(['Justin F.', 'Justin M.'])
+    // A nickname is a quick confirmation, never booked silently ("Sam" might be a friend not on the app).
+    expect(p1.people[1]).toMatchObject({ status: 'did_you_mean', candidates: [{ name: 'Roland P.' }] })
+    expect(p1.people[1].candidates[0].person_id).toMatch(/^p_[0-9a-f]{12}$/)
+    expect(p1.questions.some((q: string) => /"Rolly" = Roland P\./.test(q))).toBe(true)
     expect(JSON.stringify(p1)).not.toContain('@example.com')
     expect(p1.length_hours).toBe(6)
     expect(p1.questions[0]).toMatch(/Justin/)
     // Casual days work ("tmrw").
-    const p2 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin F', 'Rolly'], when: 'tmrw' })).structuredContent
+    const p2 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin F', 'Roland'], when: 'tmrw' })).structuredContent
     expect(p2.days).toEqual([addDays(today, 1)])
     expect(p2.questions).toEqual([])
+    // "Justin and Justin Figs" is one person: 4 h, not 6.
+    expect((await tool(t.access_token, 'plan_shoot', { with: ['Justin Figs', 'justin figs'], day: FRI })).structuredContent.length_hours).toBe(4)
     // A day Roland already films is skipped for the group, with the soonest days after it offered.
     await put(`schedule_days/${FRI}`, { date: FRI, cliff1: { '600': { shootId: 'x', name: 'Roland Price', email: 'ro@example.com', kind: 'extra', time: { start: 600, end: 720 } } } })
     const p3 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin Figs', 'Rolly'], day: FRI })).structuredContent
     expect(p3.options).toEqual([])
-    expect(p3.busy[0]).toMatch(/Roland Price already films/)
+    expect(p3.busy[0]).toMatch(/Roland P\. already films/)
     expect(p3.soonest_after.length).toBeGreaterThan(0)
     const p4 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin Figs'], day: FRI, at: '5pm' })).structuredContent
     expect(p4.length_hours).toBe(4)
     expect(p4.options[0].start).toBe('17:00')
     // Booking: a typo is a question, a stranger needs not_on_app (after the person confirms).
-    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Justn Figs'] })).content[0].text).toMatch(/Did they mean Justin Figs/)
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Justn Figs'] })).content[0].text).toMatch(/Did they mean Justin F\./)
     expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Bobby Tables'] })).content[0].text).toMatch(/not_on_app/)
     const ok = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Bobby Tables'], not_on_app: ['Bobby Tables'] })
     expect(ok.content[0].text).toMatch(/^Requested/)
+    // After midnight is shown as 24:xx and can be booked back as given; a number time is HHMM, never minutes.
+    const late = (await tool(t.access_token, 'find_free_times', { from: addDays(FRI, 1), days: 1, houses: ['cliff2'], around: '23:30' })).structuredContent.options
+    expect(late.some((o: { end: string }) => o.end >= '24:00')).toBe(true)
+    const night = late.find((o: { start: string }) => o.start >= '23:00')
+    if (night) expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: addDays(FRI, 1), start: night.start, end: night.end })).content[0].text).toMatch(/^Requested/)
+    const nine = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: addDays(FRI, 2), start: 900, end: 1100 })
+    expect(nine.content[0].text).toMatch(/09:00–11:00/)
   })
 
   it('cannot touch someone else\'s shoot', async () => {

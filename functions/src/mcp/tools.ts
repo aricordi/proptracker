@@ -19,7 +19,7 @@ import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot 
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
-import { asUser, callerOf, docById, s, clampInt, firstName, hm, personId, ensurePeopleKey, matchPerson, askWho, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
+import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { runReviewerTool } from './reviewer.js'
@@ -67,7 +67,7 @@ function houseBookings(day: ScheduleDay | undefined, house: House, sch: Schedule
 
 export const TOOLS = [
   { name: 'get_rules', title: 'Studio rules', annotations: READ,
-    description: 'Read first. The live Prime Capitol rules (houses, booking hours, notice for props, priority days, approval, cancelling) and today\'s date in studio time (America/Toronto). Use these to reason about times and props yourself.',
+    description: 'The live Prime Capitol rules (houses, booking hours, notice for props, priority days, approval, cancelling) and today\'s date in studio time (America/Toronto). Use these to reason about times and props yourself.',
     inputSchema: obj({}) },
   { name: 'whoami', title: 'Who am I', annotations: READ,
     description: 'The signed-in person: name, role and whether they can book (some creators can only browse props for now).',
@@ -184,10 +184,13 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
         structured: { query, day: day || null, results: rows } }
     }
     case 'props_for_idea': {
-      const needs = (Array.isArray(args.needs) ? args.needs : []).map(x => ({ need: s((x as Json).need, 120), scene: s((x as Json).scene, 80) })).filter(x => x.need.length >= 2).slice(0, 15)
+      const needs = objs(args.needs).map(x => ({ need: s((x as Json).need, 120), scene: s((x as Json).scene, 80) })).filter(x => x.need.length >= 2).slice(0, 15)
       if (!needs.length) return { text: 'List the concrete things the idea needs (one per item), e.g. "police uniform", "old rotary phone".' }
       const day = isDay(args.day) ? args.day as string : ''
-      const per = await Promise.all(needs.map(async n => ({ ...n, found: (await findProps(n.need, '', 4, u)).found })))
+      // At most 5 smart searches at a time (review, Nov 24): 15 at once could run past the website's ~60-second limit.
+      const per: (typeof needs[number] & { found: Prop[] })[] = []
+      for (let i = 0; i < needs.length; i += 5)
+        per.push(...await Promise.all(needs.slice(i, i + 5).map(async n => ({ ...n, found: (await findProps(n.need, '', 4, u)).found }))))
       const ids = [...new Set(per.flatMap(x => x.found.map(p => p.id)))]
       const free = day ? await freeOn(day, ids) : {}
       const groups = per.map(x => ({ scene: x.scene || undefined, need: x.need,
@@ -254,8 +257,8 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
     case 'list_people': {
       const q = s(args.search, 60).toLowerCase()
       const people = (await filmingPeople({ includeDemo: true, offApp: true })).filter(p => p.email !== u.email && (!q || p.name.toLowerCase().includes(q)))
-      return { text: people.slice(0, 40).map(p => `${p.name} (${personId(p.email)})${p.email.startsWith('guest:') ? ' · not on the app' : ''}`).join('\n') || 'Nobody by that name. You can still add them by name.',
-        structured: { people: people.slice(0, 40).map(p => ({ name: p.name, person_id: personId(p.email), on_app: !p.email.startsWith('guest:') })) } }
+      return { text: people.slice(0, 40).map(p => `${shortName(p.name)} (${personId(p.email)})${p.email.startsWith('guest:') ? ' · not on the app' : ''}`).join('\n') || 'Nobody by that name. You can still add them by name.',
+        structured: { people: people.slice(0, 40).map(p => ({ name: shortName(p.name), person_id: personId(p.email), on_app: !p.email.startsWith('guest:') })) } }
     }
     case 'my_shoots': {
       const since = addDays(todayInStudio(), -14)
@@ -289,9 +292,10 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
 
     case 'book_shoot': return bookTool(args, u)
     case 'move_shoot': {
-      const start = parseClock(args.start)
-      if (start == null || !isDay(args.day)) return { text: 'Give the new day (YYYY-MM-DD) and start time (HH:MM).' }
+      const start0 = parseClock(args.start)
+      if (start0 == null || !isDay(args.day)) return { text: 'Give the new day (YYYY-MM-DD) and start time (HH:MM).' }
       const sh = await docById('shoots', args.shoot_id)
+      const start = (args.place ?? sh?.place) === 'offsite' ? start0 : houseNight(start0)
       if (!sh || sh.creatorEmail !== u.email) return { text: (sh?.people ?? []).includes(u.email) ? `${firstName(sh!.creatorName)} booked that one; only they (or the schedule team) can move it.` : 'That isn\'t one of your shoots. Check my_shoots for the id.' }
       const endRaw = args.end != null ? parseClock(args.end) : null
       const end = endRaw == null ? undefined : endRaw <= start ? endRaw + 1440 : endRaw
@@ -322,7 +326,8 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
 async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
   const sch = await loadScheduleSettings()
   const place = s(args.place, 10), day = s(args.day, 10)
-  const start = parseClock(args.start), end = parseClock(args.end)
+  const start0 = parseClock(args.start), end = parseClock(args.end)
+  const start = start0 == null ? null : place === 'offsite' ? start0 : houseNight(start0)
   if (!['cliff1', 'cliff2', 'offsite'].includes(place) || !isDay(day) || start == null || end == null) return { text: 'Give the place (cliff1, cliff2 or offsite), the day (YYYY-MM-DD) and start/end (HH:MM).' }
   const realEnd = end <= start ? end + 1440 : end
   const names = (Array.isArray(args.with) ? args.with : []).map(x => s(x, 120)).filter(Boolean).slice(0, 4)
@@ -353,7 +358,13 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
       const need = Math.ceil((realEnd - start) / sch.slotMinutes) - 1 - friends.length
       return { text: `That's ${(realEnd - start) / 60} hours: each person on a booking gets up to ${sch.slotMinutes / 60} hours, so add ${need} more collaborator${need === 1 ? '' : 's'} in \`with\` (who films with them?), or shorten it to end by ${hm(start + max)}.` }
     }
-    res = await bookShoot.run(asUser(u, { place, date: day, start, end: realEnd, ...(friends.length ? { with: friends } : {}) })) as Json
+    try {
+      res = await bookShoot.run(asUser(u, { place, date: day, start, end: realEnd, ...(friends.length ? { with: friends } : {}) })) as Json
+    } catch (e) {
+      // A guideline PDF can only be attached in the app (review, Nov 24): say so plainly with the link instead of a dead end.
+      if (((e as HttpsError).details as Json | undefined)?.problem === 'guideline') return { text: `Cliff 1 on ${day} is a priority day: booking it needs the filming guideline PDF, which is attached in the app. Book this one in the app (${APP_LINK}/schedule), or pick Cliff 2 or another day here.`, structured: { needs_guideline_in_app: true, app_link: `${APP_LINK}/schedule` } }
+      throw e
+    }
   }
   const requested = JSON.stringify(res).includes('"requested"') || res?.pending === true
   return { text: `${requested ? 'Requested' : 'Booked'}: ${place === 'offsite' ? 'offsite' : sch.houses[place as House].name}, ${day} ${hm(start)}–${hm(realEnd)}${friends.length ? ` with ${names.join(', ')}` : ''}.${requested ? ' The schedule team approves it; the time is held for them meanwhile.' : ''}`, structured: { result: res } }
@@ -363,8 +374,8 @@ async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {
   const id = s(args.shoot_id, 100)
   const sh = await docById('shoots', id)
   if (!sh || sh.creatorEmail !== u.email || !['booked', 'requested'].includes(sh.status)) return { text: 'Pick one of your upcoming shoots (my_shoots) to add props to.' }
-  const lines = (Array.isArray(args.items) ? args.items : []).map(x => ({ itemId: s((x as Json).id, 128), qty: Number((x as Json).qty) || 1 })).filter(l => l.itemId)
-  const builds = (Array.isArray(args.custom) ? args.custom : []).map(x => ({ description: s((x as Json).description, 200), qty: Number((x as Json).qty) || 1 })).filter(b => b.description)
+  const lines = objs(args.items).map(x => ({ itemId: s((x as Json).id, 128), qty: Math.min(99, Math.max(1, Math.floor(Number((x as Json).qty) || 1))) })).filter(l => l.itemId)
+  const builds = objs(args.custom).map(x => ({ description: s((x as Json).description, 200), qty: Math.min(99, Math.max(1, Math.floor(Number((x as Json).qty) || 1))) })).filter(b => b.description)
   if (!lines.length && !builds.length) return { text: 'Add at least one prop (ids from search_props) or a custom prop.' }
   // A request still waiting on this shoot gets the new props added; otherwise a new request.
   const open = (await db.collection('reservations').where('creatorEmail', '==', u.email).where('scheduleShootId', '==', id).get()).docs.find(d => d.get('status') === 'requested')
@@ -382,3 +393,4 @@ async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {
 }
 
 export const OWNER = OWNER_EMAIL
+const APP_LINK = 'https://proptracker.arbcreative.co'

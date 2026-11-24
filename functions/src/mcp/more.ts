@@ -16,7 +16,7 @@ import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
 import {
-  asUser, callerOf, docById, s, clampInt, firstName, hm, matchPerson, askWho, personId, parseClock, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj,
+  asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, matchPerson, askWho, personId, parseClock, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs,
   type Json, type McpUser, type ToolResult,
 } from './common.js'
 import { resolveWhen } from './understand.js'
@@ -25,6 +25,7 @@ export const APP_URL = 'https://proptracker.arbcreative.co'
 const PLACE: Record<string, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2', offsite: 'Offsite' }
 const STATUS: Record<string, string> = { booked: 'approved', requested: 'waiting for approval', denied: 'not approved', expired: 'ran out (not approved in time)', cancelled: 'cancelled' }
 const PROPS_STATUS: Record<string, string> = { requested: 'requested (can still be changed)', preparing: 'being prepared', packed: 'packed & ready to pick up', collected: 'picked up', return_pending: 'returned, being checked', returned: 'returned', cancelled: 'cancelled', declined: 'declined' }
+const GUIDELINE_TEXT = (where: string[]) => `Also free but not bookable from here: ${where.slice(0, 4).join(', ')} (Cliff 1 on a priority day needs a filming guideline PDF, attached in the app: ${APP_URL}/schedule).`
 const clock = (stamp: string) => stamp ? `${stamp.slice(0, 10)} ${stamp.slice(11, 16)}` : ''
 const toMin = (v: unknown) => { const m = /^(\d{1,2}):(\d{2})$/.exec(s(v, 6)); return m ? Number(m[1]) * 60 + Number(m[2]) : null }
 
@@ -43,7 +44,7 @@ export const MORE_TOOLS = [
     description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, and an app link.',
     inputSchema: obj({ shoot_id: { type: 'string' } }, ['shoot_id']) },
   { name: 'plan_shoot', title: 'Plan a shoot from a casual request', annotations: READ,
-    description: 'Start here when someone says something like "I want to film with Justin and Rolly tomorrow" or "shoot with Ari this weekend, evenings". Pass the names exactly as they said them (nicknames, short forms and typos are fine) and the day in their words or as a date. It works out who those people are (or asks which one / "did you mean"), the length (2 hours per person unless they said), the days, and returns times free for EVERYONE on the booking (skipping days a collaborator already films). Books nothing. Then ask only what is still unclear, offer 2–3 times, confirm one and call book_shoot.',
+    description: 'Turns a casual request to film with people (e.g. "film with Justin and Rolly tomorrow", "shoot with Ari this weekend, evenings") into a plan: who each name matches (names, nicknames, short forms and typos as said), questions to confirm (shared names, likely matches, people not on the app), the length (2 hours per person unless hours is given), the days, and times free for everyone on the booking (days a collaborator already films are skipped). Read only: books nothing. Book a chosen time with book_shoot.',
     inputSchema: obj({ with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'People filming with them, as they said the names' },
       when: { type: 'string', description: 'Their words: "tomorrow", "sat", "next friday", "this weekend", "next week", "nov 28"' },
       day: { type: 'string', description: 'Or an exact day YYYY-MM-DD' }, hours: { type: 'number', minimum: 0.5, maximum: 12, description: 'Only if they said a length' },
@@ -103,12 +104,12 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       if (!r || r.creatorEmail !== u.email) return { text: 'That isn\'t one of your props requests (my_status or my_props_requests has the ids).' }
       if (r.status !== 'requested') return { text: `That request is already ${PROPS_STATUS[r.status] ?? r.status}, so it can't be changed here. The arts department can help.` }
       const lines = new Map<string, number>(((r.lines ?? []) as { itemId: string; qty: number }[]).map(l => [l.itemId, l.qty]))
-      for (const x of (Array.isArray(args.items) ? args.items : []) as Json[]) {
+      for (const x of objs(args.items)) {
         const pid = s(x.id, 128), q = Math.max(0, Math.floor(Number(x.qty) || 0))
         if (!pid) continue
         if (q === 0) lines.delete(pid); else lines.set(pid, q)
       }
-      const builds = [...((r.builds ?? []) as Json[]), ...((Array.isArray(args.add_custom) ? args.add_custom : []) as Json[]).map(b => ({ description: s(b.description, 200), qty: Number(b.qty) || 1 })).filter(b => b.description)]
+      const builds = [...((r.builds ?? []) as Json[]), ...(objs(args.add_custom)).map(b => ({ description: s(b.description, 200), qty: Number(b.qty) || 1 })).filter(b => b.description)]
       if (!lines.size && !builds.length) return { text: 'That would leave the request empty: cancel it instead (cancel_props_request).' }
       await editReservation.run(asUser(u, { id, lines: [...lines].map(([itemId, qty]) => ({ itemId, qty })), builds }))
       const names = new Map((await loadCloset()).map(p => [p.id, p.name]))
@@ -128,6 +129,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: `You're on the waitlist for ${PLACE[house]} ${args.day} at ${hm(start)}${r.position ? ` (number ${r.position} in line)` : ''}. If it opens up, it's held for you for 20 minutes and you get a notification.`, structured: { result: r } }
     }
     case 'leave_waitlist': {
+      if (!/^[\w-]{1,300}$/.test(s(args.waitlist_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
       await leaveWaitlist.run(asUser(u, { id: s(args.waitlist_id, 300) }))
       return { text: 'Taken off that waitlist.' }
     }
@@ -147,6 +149,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: `Invited ${emails.length} ${emails.length === 1 ? 'person' : 'people'} into your ${own.sh.date} video. They'll say yes or no in the app.` }
     }
     case 'answer_video_invite': {
+      if (!/^[\w-]{1,300}$/.test(s(args.invite_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
       await answerVideoInvite.run(asUser(u, { id: s(args.invite_id, 300), accept: args.accept === true }))
       return { text: args.accept === true ? 'You\'re in ✓ It shows in your app with reminders.' : 'Declined. They\'ll see you can\'t make it.' }
     }
@@ -163,6 +166,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: 'Swap request sent. They accept or decline in the app; you get a notification.' }
     }
     case 'answer_swap': {
+      if (!/^[\w-]{1,300}$/.test(s(args.swap_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
       await answerSwap.run(asUser(u, { id: s(args.swap_id, 100), accept: args.accept === true }))
       return { text: args.accept === true ? 'Swapped ✓ Both shoots changed.' : 'Declined.' }
     }
@@ -265,7 +269,7 @@ async function freeOptions(a: FreeAsk, u: McpUser) {
   const now = nowStamp()
   const inTod = (m: number) => a.tod === 'any' || (a.tod === 'morning' ? m < 720 : a.tod === 'afternoon' ? m >= 720 && m < 1020 : a.tod === 'evening' ? m >= 1020 && m < 1260 : m >= 1260)
   const snaps = a.dates.length ? await db.getAll(...a.dates.map(d => db.doc(`schedule_days/${d}`))) : []
-  const options: Json[] = [], busy: { day: string; who: string }[] = []
+  const options: Json[] = [], busy: { day: string; who: string }[] = [], guideline = new Set<string>()
   a.dates.forEach((date, i) => {
     const day = snaps[i].data() as ScheduleDay | undefined
     if (houseSlotsOn(day, u.email, now) >= slotsPerDayFor(u.email, sch)) { busy.push({ day: date, who: 'you' }); return }
@@ -279,14 +283,16 @@ async function freeOptions(a: FreeAsk, u: McpUser) {
         for (const x of [720, 1020, 1260]) if (x > g.start && x + a.need <= g.end) starts.add(x)
         for (const st of starts) {
           if (st % TIME_STEP || st < g.start || st + a.need > g.end || !inTod(st)) continue
-          options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + a.need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, needs_guideline_pdf: needsGuideline(date, h, u.email, sch) || undefined, _s: st })
+          // A guideline PDF can't be attached from a chat (review, Nov 24): those times are booked in the app instead.
+          if (needsGuideline(date, h, u.email, sch)) { guideline.add(`${date} ${PLACE[h]}`); continue }
+          options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + a.need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, _s: st })
         }
       }
     }
   })
   const around = a.around
   options.sort((x, c) => around != null ? Math.abs(Number(x._s) - around) - Math.abs(Number(c._s) - around) || String(x.day).localeCompare(String(c.day)) : String(x.day).localeCompare(String(c.day)) || Number(x._s) - Number(c._s))
-  return { options: options.slice(0, a.limit).map(({ _s, ...o }) => o), busy }   // eslint-disable-line @typescript-eslint/no-unused-vars
+  return { options: options.slice(0, a.limit).map(({ _s, ...o }) => o), busy, guideline: [...guideline] }   // eslint-disable-line @typescript-eslint/no-unused-vars
 }
 const todOf = (v: unknown) => { const x = s(v, 10); return ['morning', 'afternoon', 'evening', 'night'].includes(x) ? x : 'any' }
 const housesOf = (v: unknown) => { const l = (Array.isArray(v) ? v : []).filter((h): h is House => HOUSES.includes(h as House)); return l.length ? l : [...HOUSES] }
@@ -302,9 +308,10 @@ async function findFreeTimes(args: Json, u: McpUser): Promise<ToolResult> {
     const more = Math.ceil(need / sch.slotMinutes) - people
     return { text: `${need / 60} hours needs ${more} more ${more === 1 ? 'person' : 'people'} on the booking (2 hours each). Ask who's filming with them, then use plan_shoot with their names.` }
   }
-  const { options: top } = await freeOptions({ dates: Array.from({ length: n }, (_, i) => addDays(from, i)), need, houses: housesOf(args.houses), tod: todOf(args.time_of_day), around: toMin(args.around), limit: clampInt(args.limit, 1, 30, 12) }, u)
-  return { text: top.length ? top.map(o => `${o.day} ${o.house} ${o.start}–${o.end}${o.needs_guideline_pdf ? ' (needs guideline PDF)' : ''}`).join('\n') + '\nBook one with book_shoot (add collaborators in `with` if more than 2 hours).' : 'Nothing free that fits. Try other days, a shorter time or the other house.',
-    structured: { length_hours: need / 60, people, options: top } }
+  const { options: top, guideline } = await freeOptions({ dates: Array.from({ length: n }, (_, i) => addDays(from, i)), need, houses: housesOf(args.houses), tod: todOf(args.time_of_day), around: toMin(args.around), limit: clampInt(args.limit, 1, 30, 12) }, u)
+  const gl = guideline.length ? `\n${GUIDELINE_TEXT(guideline)}` : ''
+  return { text: (top.length ? top.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`).join('\n') + '\nBook one with book_shoot (add collaborators in `with` if more than 2 hours).' : 'Nothing free that fits. Try other days, a shorter time or the other house.') + gl,
+    structured: { length_hours: need / 60, people, options: top, ...(guideline.length ? { needs_guideline_in_app: guideline, app_link: `${APP_URL}/schedule` } : {}) } }
 }
 
 // PLAN A SHOOT from how people talk (owner, Nov 24): "film with Justin and Rolly tomorrow" → who Justin and Rolly are (nicknames,
@@ -316,21 +323,29 @@ async function planShoot(args: Json, u: McpUser): Promise<ToolResult> {
   const people = await filmingPeople({ includeDemo: true, offApp: true })
   const said = (Array.isArray(args.with) ? args.with : []).map(x => s(x, 80)).filter(Boolean).slice(0, 4)
   const questions: string[] = [], resolved: Json[] = [], crew: string[] = [], names: string[] = []
+  let unsure = 0
   for (const n of said) {
     if (n.includes('@')) { questions.push('Use names, not email addresses.'); continue }
     const m = matchPerson(people, n, u.email)
+    const likely = m.status === 'one' || (m.status === 'maybe' && m.hits.length === 1) ? m.hits[0] : null
+    if (likely && crew.includes(likely.email)) continue   // "Justin and Jus" = one person
     if (m.status === 'one') {
-      const p = m.hits[0]
-      if (crew.includes(p.email)) continue
-      crew.push(p.email); names.push(p.name)
-      resolved.push({ said: n, status: 'found', name: p.name, person_id: personId(p.email), ...(p.email.startsWith('guest:') ? { on_app: false } : {}) })
+      crew.push(likely!.email); names.push(shortName(likely!.name))
+      resolved.push({ said: n, status: 'found', name: shortName(likely!.name), person_id: personId(likely!.email), ...(likely!.email.startsWith('guest:') ? { on_app: false } : {}) })
+      continue
+    }
+    resolved.push({ said: n, status: m.status === 'none' ? 'not_found' : m.status === 'many' ? 'which_one' : 'did_you_mean',
+      candidates: m.hits.map(h => ({ name: shortName(h.name), person_id: personId(h.email) })) })
+    if (likely) {
+      // A nickname / short form / typo with one likely person: times are found as if it's them; the assistant confirms in one line.
+      crew.push(likely.email); names.push(shortName(likely.name))
+      questions.push(`Check: "${n}" = ${shortName(likely.name)}? (person id ${personId(likely.email)})`)
     } else {
-      resolved.push({ said: n, status: m.status === 'none' ? 'not_found' : m.status === 'many' ? 'which_one' : 'did_you_mean',
-        candidates: m.hits.map(h => ({ name: h.name, person_id: personId(h.email) })) })
+      unsure++
       questions.push(m.status === 'none' ? `Is "${n}" someone who isn't on the app yet? (Then book_shoot can add them by name with not_on_app.)` : askWho(n, m)!)
     }
   }
-  const total = 1 + said.length   // everyone they named is filming, even while a name is still being cleared up
+  const total = 1 + crew.length + unsure   // one per person, duplicates counted once
   // Length: what they said, else 2 h per person (the studio's rule, and what people almost always mean).
   const saidHours = Number(args.hours)
   let need = saidHours > 0 ? Math.round(Math.min(12, Math.max(0.5, saidHours)) * 60 / TIME_STEP) * TIME_STEP : Math.min(maxMinutesFor(total, sch), 5 * sch.slotMinutes)
@@ -357,16 +372,17 @@ async function planShoot(args: Json, u: McpUser): Promise<ToolResult> {
     fallback = (await freeOptions({ dates: after, need, houses: housesOf(args.houses), tod: around != null ? 'any' : todOf(args.time_of_day), around, limit: 4, crew }, u)).options
   }
   const who = names.length ? `you + ${names.join(' + ')}` : said.length ? `you + ${said.length} more` : 'just you'
-  const lines = plan.options.map(o => `${o.day} ${o.house} ${o.start}–${o.end}${o.needs_guideline_pdf ? ' (needs guideline PDF)' : ''}`)
+  const lines = plan.options.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)
   const text = [
     `Plan: ${who}, ${need / 60} h, ${whenLabel}.`,
     ...resolved.filter(r => r.status === 'found').map(r => `"${r.said}" = ${r.name}${r.on_app === false ? ' (not on the app; booked by name)' : ''}`),
     ...(questions.length ? ['Ask first:', ...questions.map(q => `- ${q}`)] : []),
     ...(lines.length ? ['Times that fit everyone:', ...lines] : [`Nothing free ${whenLabel} for ${need / 60} h.${busyText.length ? ` (${busyText.join('; ')})` : ''}`]),
     ...(fallback.length ? ['Soonest after that:', ...fallback.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)] : []),
+    ...(plan.guideline.length ? [GUIDELINE_TEXT(plan.guideline)] : []),
     questions.length ? 'Clear up the questions, then confirm one time and book it with book_shoot.' : 'Offer 2–3 of these, confirm one, then book_shoot with these people in `with` (person ids).',
   ].join('\n')
-  return { text, structured: { people: resolved, everyone: total, length_hours: need / 60, when: whenLabel, days: dates, questions, options: plan.options, ...(fallback.length ? { soonest_after: fallback } : {}), ...(busyText.length ? { busy: busyText } : {}) } }
+  return { text, structured: { people: resolved, everyone: total, length_hours: need / 60, when: whenLabel, days: dates, questions, options: plan.options, ...(fallback.length ? { soonest_after: fallback } : {}), ...(busyText.length ? { busy: busyText } : {}), ...(plan.guideline.length ? { needs_guideline_in_app: plan.guideline } : {}) } }
 }
 
 async function propCalendar(args: Json): Promise<ToolResult> {

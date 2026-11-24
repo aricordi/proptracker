@@ -294,6 +294,12 @@
       "fieldPath": "ttl",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "collectionGroup": "mcp_clients",
+      "fieldPath": "ttl",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }

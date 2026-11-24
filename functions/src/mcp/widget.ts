@@ -52,13 +52,16 @@ function draw(){var o=data||{};var el=document.getElementById('r');var h='';
   (o.collaborators&&o.collaborators.length?'<div class="line muted">With '+o.collaborators.map(function(c){return esc(c.name)}).join(', ')+'</div>':'')+
   ((o.props_requests||[]).map(function(r){return '<div class="line">Props "'+esc(r.video)+'": <span class="muted">'+esc(r.status)+'</span><div class="m">'+esc((r.items||[]).join(', '))+'</div></div>'}).join(''))+
   (o.props_deadline?'<div class="line m">Add closet props by '+esc(o.props_deadline)+'</div>':'')+
-  (link(o.app_link)?'<a class="btn" target="_blank" rel="noopener" href="'+esc(o.app_link)+'">Open in the app</a>':'')+'</div>'}
+  (link(o.app_link)?'<a class="btn" data-open="'+esc(o.app_link)+'" target="_blank" rel="noopener" href="'+esc(o.app_link)+'">Open in the app</a>':'')+'</div>'}
  else{var list=o.props||(o.prop?[o.prop]:(o.id?[o]:[]));h+=cards(list)}
  el.innerHTML=h;
  try{var H=document.body.scrollHeight;parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/size-changed',params:{height:H}},'*')}catch(e){}}
 function fromOpenAI(){if(window.openai&&window.openai.toolOutput){data=window.openai.toolOutput;draw();return true}return false}
 window.addEventListener('openai:set_globals',fromOpenAI);
-window.addEventListener('message',function(ev){var m=ev.data;if(!m||m.jsonrpc!=='2.0')return;
+document.addEventListener('click',function(ev){var a=ev.target&&ev.target.closest&&ev.target.closest('a[data-open]');if(!a)return;var u=link(a.getAttribute('data-open'));if(!u)return;
+ if(window.openai&&window.openai.openExternal){ev.preventDefault();window.openai.openExternal({href:u});return}
+ try{parent.postMessage({jsonrpc:'2.0',id:2,method:'ui/open-link',params:{url:u}},'*')}catch(e){}});
+window.addEventListener('message',function(ev){if(ev.source!==window.parent)return;var m=ev.data;if(!m||m.jsonrpc!=='2.0')return;
  if(m.method==='ui/notifications/tool-result'&&m.params){data=m.params.structuredContent||data;draw()}
  if(m.id===1&&m.result){try{parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized'},'*')}catch(e){}}});
 if(!fromOpenAI()){try{parent.postMessage({jsonrpc:'2.0',id:1,method:'ui/initialize',params:{protocolVersion:'2025-06-18',appInfo:{name:'Prime Capitol',version:'2'},appCapabilities:{}}},'*')}catch(e){}draw()}
