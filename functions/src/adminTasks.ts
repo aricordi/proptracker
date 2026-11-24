@@ -186,6 +186,13 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       const r = await changeUserEmail.run(asOwner({ from: String(task.from ?? ''), to: String(task.to ?? ''), apply: task.apply === true }))
       say(JSON.stringify(r))
       await ref.update({ status: 'done', result: r, log, finishedAt: new Date().toISOString() })
+    } else if (task.kind === 'openaiChallenge') {
+      // OpenAI's domain check for submitting the ChatGPT app: served at /.well-known/openai-apps-challenge.
+      const token = String(task.token ?? '').trim().slice(0, 500)
+      if (!/^[\w.\-=:]{8,500}$/.test(token)) throw new Error('Paste the token OpenAI shows (letters and numbers).')
+      await db.doc('mcp_settings/openai').set({ challenge: token, at: new Date().toISOString() }, { merge: true })
+      say('Saved: https://proptracker.arbcreative.co/.well-known/openai-apps-challenge now answers with it.')
+      await ref.update({ status: 'done', log, finishedAt: new Date().toISOString() })
     } else if (task.kind === 'oldCalendars') {
       const acc = await checkCalendarAccess.run(asOwner({})) as { account: string; calendars: { id: string; name: string; role: string; canWrite: boolean; error?: string }[] }
       acc.calendars.forEach(c => say(`${c.name}: ${c.role}${c.canWrite ? ' (can write)' : ' (CANNOT write)'}${c.error ? ' · ' + c.error : ''}`))

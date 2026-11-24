@@ -13,7 +13,7 @@ import {
   ACCESS_TTL_SECONDS, REFRESH_TTL_DAYS, CODE_TTL_SECONDS, REQUEST_TTL_SECONDS,
 } from './oauth.js'
 import { toolsFor, runTool, type McpUser } from './tools.js'
-import { WIDGET_URI, WIDGET_HTML } from './widget.js'
+import { WIDGET_URI, WIDGET_URI_SKYBRIDGE, WIDGET_MIME, WIDGET_MIME_SKYBRIDGE, WIDGET_HTML, WIDGET_TOOLS } from './widget.js'
 
 const CANONICAL = 'https://proptracker.arbcreative.co'
 const OUR_HOSTS = ['proptracker.arbcreative.co', 'proptracker-9732e.web.app', 'proptracker-9732e.firebaseapp.com']
@@ -41,12 +41,14 @@ const expired = (at: unknown) => typeof at !== 'string' || at < new Date().toISO
 // ─── HTTP entry point ───────────────────────────────────────────────────────────────────────────────────────────────
 // What the assistant is told about Prime Capitol (owner, Nov 24: "be part of their writing and brainstorming").
 const INSTRUCTIONS = [
-  'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. You act as the signed-in creator, with exactly their permissions.',
-  'Start with get_rules (today\'s date, studio time, the live rules).',
-  'BRAINSTORMING: when the person is coming up with or writing a video idea, sketch or script, be a creative partner AND keep the closet in mind. As soon as scenes, characters or locations take shape, offer to check the props closet (props_for_idea with concrete needs per scene), show matches with show_props, and suggest ways to use what already exists. Mention the custom-prop option for things the closet lacks. Do this naturally, without derailing their writing.',
-  'TIMES: get_schedule gives the raw schedule with free stretches. Bookings are free-form (any quarter hour, e.g. 13:15–15:15), up to 2 hours per person; longer needs collaborators on the same booking. Use judgement: suggest times next to a collaborator\'s shoot, at the time of day they asked for, on non-priority days if a day is locked for them.',
-  'CHANGES: always confirm details with the person before book_shoot, move_shoot, cancel_shoot or request_props. Creator bookings are requests the schedule team approves; never say a booking is confirmed until the tool says "Booked". Props from the closet need about 48 hours notice; custom props 4+ days with no guaranteed date.',
-  'Never invent props, times or rules: use the tools. People\'s emails, internal notes and costs are not available.',
+  'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. You act as the signed-in creator, with exactly their permissions. Be a warm, sharp production assistant: short answers, the person\'s own language.',
+  'START: get_rules once per conversation (today\'s date in studio time, the live rules). For "what do I have going on?" use my_status; for one shoot use get_shoot.',
+  'BRAINSTORMING: when the person is coming up with or writing a video idea, sketch or script, be a creative partner AND keep the closet in mind. As soon as scenes, characters or locations take shape, offer to check the closet (props_for_idea with concrete needs per scene) and show matches (show_props). Suggest how to use what exists; things the closet lacks can be custom props (4+ days notice, no guaranteed date). Do this naturally, without derailing their writing.',
+  'TIMES: find_free_times returns ready-to-book options that already respect their locks and limits; get_schedule is the raw picture (who films when, free stretches). Bookings are free-form (any quarter hour, e.g. 13:15-15:15), up to 2 hours per person; longer needs the people filming with them on the SAME booking (book_shoot `with`). Use judgement: next to a collaborator\'s shoot, the time of day they like, other house or day if one is locked. A taken time can be waited for (join_waitlist).',
+  'PROPS: request_props for a shoot (adds to a waiting request), change_props_request / cancel_props_request while still requested; prop_calendar shows which days a key prop is free. Closet props close about 48 hours before the shoot (get_shoot has the exact time).',
+  'PHONE-ONLY STEPS: check-in (selfie), wrap, picking up and returning props or gear (photos) and taking gear happen in the app: give the app_link.',
+  'CHANGES: summarise and confirm with the person before any change (book, move, cancel, swap, props, invites). Creator bookings are requests the schedule team approves; never say a booking is confirmed unless the tool says "Booked". If a tool refuses, explain its reason simply and offer the next best option.',
+  'Never invent props, times, people or rules: use the tools. Other people\'s emails, internal notes and costs are never available.',
 ].join(' ')
 
 export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, memory: '512MiB', cors: true, invoker: 'public' }, async (req, res) => {
@@ -56,6 +58,12 @@ export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, m
   try {
     if (path.startsWith('/.well-known/oauth-protected-resource')) { res.json(resourceMetadata(base)); return }
     if (path.startsWith('/.well-known/oauth-authorization-server') || path.startsWith('/.well-known/openid-configuration')) { res.json(metadata(base)); return }
+    if (path.startsWith('/.well-known/openai-apps-challenge')) {
+      // OpenAI's domain check when submitting the app: the owner saves the token they're given (admin task openaiChallenge).
+      const t = String((await db.doc('mcp_settings/openai').get()).get('challenge') ?? '')
+      if (!t) { res.status(404).send('not set'); return }
+      res.type('text/plain').send(t); return
+    }
     if (path === '/oauth/register' && req.method === 'POST') { await register(req, res); return }
     if (path === '/oauth/authorize' && req.method === 'GET') { await authorize(req, res, base); return }
     if (path === '/oauth/token' && req.method === 'POST') { await token(req, res); return }
@@ -192,22 +200,28 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
       res.json(ok(id, {
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
-        serverInfo: { name: 'prime-capitol', title: 'Prime Capitol', version: '1.0.0' },
+        serverInfo: { name: 'prime-capitol', title: 'Prime Capitol', version: '1.2.0', websiteUrl: CANONICAL,
+          icons: [{ src: `${CANONICAL}/icons/icon-512.png`, mimeType: 'image/png', sizes: ['512x512'] }] },
         instructions: INSTRUCTIONS,
       })); return
     }
     case 'ping': res.json(ok(id, {})); return
     case 'tools/list': {
       const c = await getCaller({ data: {}, auth: { uid: 'mcp', token: { email: user.email, email_verified: true } }, rawRequest: {}, acceptsStreaming: false } as never)
-      res.json(ok(id, { tools: toolsFor(!!c?.demo).map(tl => ({ ...tl,
-        ...(tl.name === 'show_props' || tl.name === 'get_prop' ? { _meta: { 'openai/outputTemplate': WIDGET_URI, 'openai/toolInvocation/invoking': 'Getting the props…', 'openai/toolInvocation/invoked': 'Here they are' } } : {}) })) })); return
+      res.json(ok(id, { tools: toolsFor(!!c?.demo).map(tl => describeTool(tl)) })); return
     }
     case 'resources/list':
-      res.json(ok(id, { resources: [{ uri: WIDGET_URI, name: 'Prop cards', mimeType: 'text/html+skybridge' }] })); return
-    case 'resources/read':
-      if (msg.params?.uri !== WIDGET_URI) { res.json(rpcError(id, -32002, 'Resource not found')); return }
-      res.json(ok(id, { contents: [{ uri: WIDGET_URI, mimeType: 'text/html+skybridge', text: WIDGET_HTML,
-        _meta: { 'openai/widgetCSP': { connect_domains: [], resource_domains: ['https://firebasestorage.googleapis.com'] }, 'openai/widgetDescription': 'Prime Capitol prop cards with photos and availability.' } }] })); return
+      res.json(ok(id, { resources: [
+        { uri: WIDGET_URI, name: 'prime-capitol-cards', title: 'Prime Capitol cards', mimeType: WIDGET_MIME },
+        { uri: WIDGET_URI_SKYBRIDGE, name: 'prime-capitol-cards-chatgpt', title: 'Prime Capitol cards (ChatGPT)', mimeType: WIDGET_MIME_SKYBRIDGE },
+      ] })); return
+    case 'resources/templates/list': res.json(ok(id, { resourceTemplates: [] })); return
+    case 'prompts/list': res.json(ok(id, { prompts: [] })); return
+    case 'resources/read': {
+      const uri = String(msg.params?.uri ?? '')
+      if (uri !== WIDGET_URI && uri !== WIDGET_URI_SKYBRIDGE) { res.json(rpcError(id, -32002, 'Resource not found')); return }
+      res.json(ok(id, { contents: [{ uri, mimeType: uri === WIDGET_URI ? WIDGET_MIME : WIDGET_MIME_SKYBRIDGE, text: WIDGET_HTML, _meta: WIDGET_RESOURCE_META }] })); return
+    }
     case 'tools/call': {
       const name = String(msg.params?.name ?? '')
       const args = (msg.params?.arguments ?? {}) as Record<string, unknown>
@@ -229,6 +243,24 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
     }
   }
   res.json(rpcError(id, -32601, `Unknown method ${msg.method}`))
+}
+// Every tool says plainly what it does (annotations), that it needs the person signed in, and, for the visual ones, which
+// card template to draw (both the MCP Apps standard key and ChatGPT's older keys, so it works everywhere).
+const RESOURCE_DOMAINS = ['https://firebasestorage.googleapis.com']
+const WIDGET_RESOURCE_META = {
+  ui: { csp: { resourceDomains: RESOURCE_DOMAINS, connectDomains: [] }, prefersBorder: false },
+  'openai/widgetCSP': { connect_domains: [], resource_domains: RESOURCE_DOMAINS },
+  'openai/widgetDescription': 'Prime Capitol cards: prop photos with availability, free filming times, and shoot details. Display only.',
+  'openai/widgetPrefersBorder': false,
+}
+function describeTool(tl: { name: string; annotations: Record<string, boolean> } & Record<string, unknown>) {
+  const w = WIDGET_TOOLS[tl.name]
+  return { ...tl,
+    securitySchemes: [{ type: 'oauth2', scopes: ['primecapitol'] }],
+    _meta: {
+      securitySchemes: [{ type: 'oauth2', scopes: ['primecapitol'] }],
+      ...(w ? { ui: { resourceUri: WIDGET_URI }, 'openai/outputTemplate': WIDGET_URI_SKYBRIDGE, 'openai/toolInvocation/invoking': w.invoking, 'openai/toolInvocation/invoked': w.invoked, 'openai/widgetAccessible': false } : {}),
+    } }
 }
 const ok = (id: unknown, result: unknown) => ({ jsonrpc: '2.0', id, result })
 const rpcError = (id: unknown, code: number, message: string) => ({ jsonrpc: '2.0', id, error: { code, message } })

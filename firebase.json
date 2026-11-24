@@ -57,6 +57,13 @@
         }
       },
       {
+        "source": "/.well-known/openai-apps-challenge",
+        "function": {
+          "functionId": "mcp",
+          "region": "northamerica-northeast1"
+        }
+      },
+      {
         "source": "/.well-known/openid-configuration",
         "function": {
           "functionId": "mcp",

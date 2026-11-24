@@ -19,81 +19,9 @@ import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot 
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
-
-export interface McpUser { email: string; name: string; assistant: string }
-type Json = Record<string, unknown>
-export interface ToolResult { text: string; structured?: Json; images?: { url: string; caption: string }[]; widget?: boolean }
-
-// Run one of the app's own server functions AS this person.
-function asUser<T>(u: McpUser, data: T): CallableRequest<T> {
-  return { data, auth: { uid: `mcp:${u.email}`, token: { email: u.email, email_verified: true, name: u.name } }, rawRequest: {}, acceptsStreaming: false } as unknown as CallableRequest<T>
-}
-async function callerOf(u: McpUser): Promise<Caller> {
-  const c = await getCaller(asUser(u, {}))
-  if (!c) throw new HttpsError('permission-denied', 'Your Prime Capitol access is turned off. Ask the owner or an admin.')
-  return c
-}
-
-const s = (v: unknown, max = 200) => typeof v === 'string' ? v.trim().slice(0, max) : ''
-const firstName = (n: string) => String(n || '').split(/\s+/)[0]
-const hm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-// "13:15", "1:15 pm", "1315" → minutes after midnight (null if unreadable). After-midnight times may be given as 24:00–25:59.
-export function parseClock(v: unknown): number | null {
-  if (typeof v === 'number' && Number.isInteger(v)) return v
-  const t = s(v, 20).toLowerCase().replace(/\s+/g, '')
-  const m = /^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/.exec(t)
-  if (!m) return null
-  let h = Number(m[1]); const min = Number(m[2] ?? 0)
-  if (min > 59 || h > 25) return null
-  if (m[3] === 'pm' && h < 12) h += 12
-  if (m[3] === 'am' && h === 12) h = 0
-  return h * 60 + min
-}
-
-// ─── The props closet (company props only; cached a few minutes per server copy) ─────────────────────────────────────
-interface Prop { id: string; name: string; category: string; tags: string[]; description: string; words: string; quantity: number; missing: number; damaged: boolean; photo: string; photos: string[]; createdAt: string }
-let closet: { at: number; props: Prop[] } | null = null
-async function loadCloset(): Promise<Prop[]> {
-  if (closet && Date.now() - closet.at < 5 * 60_000) return closet.props
-  const [items, cats, tags] = await Promise.all([
-    db.collection('items').where('collection', '==', 'company').get(), db.collection('categories').get(), db.collection('tags').get(),
-  ])
-  const catLabel = new Map(cats.docs.map(d => [d.id, String(d.get('label') ?? d.id)]))
-  const tagLabel = new Map(tags.docs.map(d => [d.id, String(d.get('label') ?? d.id)]))
-  const props: Prop[] = []
-  for (const d of items.docs) {
-    const x = d.data()
-    if (x.archived || x.mergedInto || collectionOf(x) !== 'company') continue
-    const photos: string[] = Array.isArray(x.photos) ? x.photos.filter((p: unknown) => typeof p === 'string') : []
-    const thumbs = (x.thumbs ?? {}) as Record<string, string>
-    props.push({
-      id: d.id, name: String(x.name ?? 'Prop'), category: catLabel.get(x.categoryId ?? x.itemType) ?? '',
-      tags: (Array.isArray(x.tags) ? x.tags : []).map((t: string) => tagLabel.get(t) ?? t).slice(0, 12),
-      description: String(x.description ?? '').slice(0, 400), words: Array.isArray(x.searchWords) ? x.searchWords.join(', ').slice(0, 300) : '',
-      quantity: Number(x.quantity ?? 1), missing: Number(x.missingQty ?? 0), damaged: x.condition === 'damaged',
-      photo: photos[0] ? (thumbs[photos[0]] ?? photos[0]) : '', photos: photos.slice(0, 4), createdAt: String(x.createdAt ?? ''),
-    })
-  }
-  closet = { at: Date.now(), props }
-  return props
-}
-const short = (p: Prop) => ({ id: p.id, name: p.name, category: p.category, how_many: Math.max(0, p.quantity - p.missing), photo: p.photo || null })
-
-// How many of each prop are free on a day (props are booked by the day; one shoot day each).
-async function freeOn(day: string, ids: string[]): Promise<Record<string, number>> {
-  if (!ids.length) return {}
-  const settings = await loadSettings()
-  const books = await db.getAll(...ids.map(id => db.doc(`item_bookings/${id}`)))
-  const items = new Map((await loadCloset()).map(p => [p.id, p]))
-  const today = todayInStudio(), out: Record<string, number> = {}
-  ids.forEach((id, i) => {
-    const p = items.get(id)
-    if (!p) return
-    out[id] = freeForRange({ quantity: p.quantity, missingQty: p.missing, legacyCheckedOut: false },
-      (books[i].get('entries') ?? []) as BookingEntry[], day, day, today, settings.bufferDays, settings)
-  })
-  return out
-}
+import { asUser, callerOf, s, firstName, hm, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
+export type { McpUser, ToolResult, Json } from './common.js'
+import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 
 function wordScore(p: Prop, words: string[]) {
   const hay = `${p.name} ${p.category} ${p.tags.join(' ')} ${p.description} ${p.words}`.toLowerCase()
@@ -109,7 +37,7 @@ function wordScore(p: Prop, words: string[]) {
 }
 
 // Words first (names, tags, descriptions, hidden search words), then meaning ("president" → a Lincoln mask).
-async function findProps(query: string, cat: string, limit: number, u: McpUser): Promise<{ found: Prop[]; byWords: Prop[] }> {
+export async function findProps(query: string, cat: string, limit: number, u: McpUser): Promise<{ found: Prop[]; byWords: Prop[] }> {
   const props = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat))
   const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1)
   const byWords = props.map(p => ({ p, score: wordScore(p, words) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score).map(x => x.p)
@@ -134,10 +62,6 @@ function houseBookings(day: ScheduleDay | undefined, house: House, sch: Schedule
 }
 
 // ─── Tool definitions (shown to the assistant) ──────────────────────────────────────────────────────────────────────
-const READ = { readOnlyHint: true, openWorldHint: false, destructiveHint: false }
-const WRITE = { readOnlyHint: false, openWorldHint: false, destructiveHint: false }
-const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: true }
-const obj = (properties: Json, required: string[] = []) => ({ type: 'object', properties, required, additionalProperties: false })
 
 export const TOOLS = [
   { name: 'get_rules', title: 'Studio rules', annotations: READ,
@@ -200,8 +124,9 @@ export const TOOLS = [
       custom: { type: 'array', items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']), maxItems: 10 },
       notes: { type: 'string' } }, ['shoot_id']) },
 ]
-const BOOKING_TOOLS = new Set(['book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'my_shoots', 'my_props_requests', 'get_schedule', 'list_people'])
-export const toolsFor = (demo: boolean) => demo ? TOOLS.filter(t => !BOOKING_TOOLS.has(t.name)) : TOOLS
+const BOOKING_TOOLS = new Set(['book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'my_shoots', 'my_props_requests', 'get_schedule', 'list_people', ...MORE_BOOKING])
+const ALL_TOOLS = [...TOOLS, ...MORE_TOOLS]
+export const toolsFor = (demo: boolean) => demo ? ALL_TOOLS.filter(t => !BOOKING_TOOLS.has(t.name)) : ALL_TOOLS
 
 // ─── Running a tool ─────────────────────────────────────────────────────────────────────────────────────────────────
 export async function runTool(name: string, args: Json, u: McpUser): Promise<ToolResult> {
@@ -377,6 +302,8 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
     }
     case 'request_props': return propsTool(args, u)
   }
+  const more = await runMoreTool(name, args, u)
+  if (more) return more
   throw new HttpsError('not-found', `Unknown tool ${name}`)
 }
 

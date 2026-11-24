@@ -141,4 +141,59 @@ describe('connector tools', () => {
     const r = await tool(t.access_token, 'book_shoot', { place: 'cliff1', day: FRI, start: '13:00', end: '15:00' })
     expect(r.content[0].text).toMatch(/isn't open for you yet/)
   })
+
+  it('every tool is labelled (read-only / destructive / open world) and visual tools name their card template', async () => {
+    const t = await connect(ANA)
+    const tools = (await rpc(t.access_token, 'tools/list')).result.tools
+    for (const tl of tools) {
+      for (const k of ['readOnlyHint', 'destructiveHint', 'openWorldHint']) expect(typeof tl.annotations[k], `${tl.name}.${k}`).toBe('boolean')
+      expect(tl.description.length, tl.name).toBeGreaterThan(30)
+    }
+    const show = tools.find((x: { name: string }) => x.name === 'show_props')
+    expect(show._meta.ui.resourceUri).toMatch(/^ui:\/\//)
+    expect(show._meta['openai/outputTemplate']).toMatch(/^ui:\/\//)
+    const list = (await rpc(t.access_token, 'resources/list')).result.resources
+    expect(list.map((r: { mimeType: string }) => r.mimeType).sort()).toEqual(['text/html+skybridge', 'text/html;profile=mcp-app'])
+    const read = (await rpc(t.access_token, 'resources/read', { uri: show._meta.ui.resourceUri })).result.contents[0]
+    expect(read.text).toContain('PRIME CAPITOL')
+    expect(read._meta.ui.csp.resourceDomains).toEqual(['https://firebasestorage.googleapis.com'])
+  })
+
+  it('status, one shoot, free times, a prop calendar, changing and cancelling props, and app links', async () => {
+    const t = await connect(ANA)
+    const booked = await tool(t.access_token, 'book_shoot', { place: 'cliff1', day: FRI, start: '10:00', end: '12:00' })
+    expect(booked.isError).toBe(false)
+    const shoot = (await tool(t.access_token, 'my_shoots')).structuredContent.shoots[0]
+    const st = await tool(t.access_token, 'my_status')
+    expect(st.structuredContent.next_shoot).toMatchObject({ id: shoot.id, start: '10:00' })
+    const free = await tool(t.access_token, 'find_free_times', { from: FRI, days: 2, hours: 2, houses: ['cliff2'], around: '14:00' })
+    expect(free.structuredContent.options[0]).toMatchObject({ place: 'cliff2', start: '14:00', end: '16:00' })
+    // Same day as her Cliff 1 booking is skipped (one house booking a day).
+    expect(free.structuredContent.options.some((o: { day: string }) => o.day === FRI)).toBe(false)
+    const tooLong = await tool(t.access_token, 'find_free_times', { hours: 4 })
+    expect(tooLong.content[0].text).toMatch(/1 more person/)
+    const cal = await tool(t.access_token, 'prop_calendar', { id: 'phone', from: FRI, days: 3 })
+    expect(cal.structuredContent.days[0]).toEqual({ day: FRI, free: 2 })
+    await tool(t.access_token, 'request_props', { shoot_id: shoot.id, video_name: 'Ring ring', items: [{ id: 'phone', qty: 2 }] })
+    const req = (await tool(t.access_token, 'my_props_requests')).structuredContent.requests[0]
+    const ch = await tool(t.access_token, 'change_props_request', { request_id: req.id, items: [{ id: 'phone', qty: 1 }] })
+    expect(ch.content[0].text).toMatch(/Red rotary phone x1/)
+    const detail = await tool(t.access_token, 'get_shoot', { shoot_id: shoot.id })
+    expect(detail.structuredContent.props_requests[0].items).toEqual(['Red rotary phone x1'])
+    expect(detail.structuredContent.props_still_open).toBe(true)
+    const cancel = await tool(t.access_token, 'cancel_props_request', { request_id: req.id })
+    expect(cancel.content[0].text).toMatch(/^Cancelled/)
+    const link = await tool(t.access_token, 'app_link', { what: 'check_in', shoot_id: shoot.id })
+    expect(link.structuredContent.url).toBe(`https://proptracker.arbcreative.co/?shoot=${shoot.id}`)
+    // Someone else's props request is off limits.
+    await put('reservations/theirs', { creatorEmail: MAANIK, status: 'requested', title: 'X', lines: [] })
+    expect((await tool(t.access_token, 'cancel_props_request', { request_id: 'theirs' })).content[0].text).toMatch(/isn't one of your/)
+  })
+
+  it('answers OpenAI\'s domain check only once a token is saved', async () => {
+    expect((await fetch(`${BASE}/.well-known/openai-apps-challenge`)).status).toBe(404)
+    await put('mcp_settings/openai', { challenge: 'tok_12345678' })
+    expect(await (await fetch(`${BASE}/.well-known/openai-apps-challenge`)).text()).toBe('tok_12345678')
+  })
 })
+
