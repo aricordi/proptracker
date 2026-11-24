@@ -59,6 +59,7 @@ export function teamMenu(who: MenuWho): MenuGroup[] {
     ] },
     { key: 'more', title: 'Help & records', icon: 'help', items: [
       I('bugs', '/bugs', 'Problem reports', 'What people reported, with screenshots', 'alert'),
+      I('demand', '/demand', 'What creators ask for', 'Features and props people wanted from ChatGPT / Claude', 'chart'),
       I('teamlog', '/team-log', 'Team log', 'Every approval and schedule change, with Undo', 'note'),
       I('activity', '/activity', 'Activity', 'Everything that happened, who and when', 'note'),
       help, report,

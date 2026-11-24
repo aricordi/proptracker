@@ -132,6 +132,12 @@ service cloud.firestore {
     }
 
     // "Report a problem" (owner, Nov 5): written only by the server (reportBug / updateBugReport); the owner reads.
+    // What creators asked the AI connector for that the app can't do yet (owner, Nov 24): anonymous counts, no person in it.
+    // Written only by the server; the owner reads them on "What creators ask for".
+    match /mcp_demand/{id} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
     match /bug_reports/{id} {
       allow read: if isOwner();
       allow write: if false;
@@ -274,7 +280,8 @@ service cloud.firestore {
     // the owner and schedule team can tidy anyone's (e.g. remove a photo).
     function validProfile() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'tourDoneAt', 'updatedAt', 'birthday', 'name', 'appVersion', 'appVersionAt'])
+      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'tourDoneAt', 'updatedAt', 'birthday', 'name', 'appVersion', 'appVersionAt', 'shareSuggestions'])
+        && d.get('shareSuggestions', true) is bool
         && d.get('appVersion', '') is string && d.get('appVersion', '').size() <= 20
         && d.get('appVersionAt', '') is string && d.get('appVersionAt', '').size() <= 40
         && d.get('birthday', '') is string && (d.get('birthday', '') == '' || d.get('birthday', '').matches('^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'))

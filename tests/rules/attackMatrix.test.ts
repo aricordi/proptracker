@@ -47,7 +47,7 @@ const SEED: Record<string, Record<string, unknown>> = {
   private_google: { refreshToken: 'secret' }, private_google_states: {}, push_tokens: { token: 't', email: P.other },
   calendar_tokens: { email: P.other }, push_log: {}, calendar_sent: {}, calendar_mirror: {}, dup_verdicts: {},
   import_lists: {}, admin_tasks: {}, email_moves: {}, calendar_imports: {}, calendar_removed: {}, push_sent: {}, cleanup: {},
-  import_hashes: {}, users_extra: {},
+  import_hashes: {}, users_extra: {}, mcp_demand: { kind: 'feature', text: 'drone shots', count: 3 },
 }
 const docPath = (col: string) => col === 'personalitem' ? ['items', 'personal1']
   : col === 'profiles' || col === 'user_status' ? [col, P.other] : [col, 'd1']
@@ -56,10 +56,10 @@ const SERVER_ONLY = ['bug_reports', 'import_jobs', 'import_items', 'activity_per
   'monthly_draws', 'schedule_reports', 'strikes', 'flag_reviews', 'user_status', 'gear_bookings', 'item_vectors', 'prop_wants',
   'ai_usage', 'cleanup_runs', 'outbox', 'calendar_queue', 'reservations', 'item_bookings', 'private_google',
   'private_google_states', 'push_tokens', 'calendar_tokens', 'push_log', 'calendar_sent', 'calendar_mirror', 'dup_verdicts',
-  'import_lists', 'admin_tasks', 'email_moves', 'calendar_imports', 'calendar_removed', 'push_sent', 'import_hashes', 'users_extra']
+  'import_lists', 'admin_tasks', 'email_moves', 'calendar_imports', 'calendar_removed', 'push_sent', 'import_hashes', 'users_extra', 'mcp_demand']
 // Readable by nobody but the owner (money, secrets, private logs).
 const OWNER_ONLY = ['bug_reports', 'import_jobs', 'import_items', 'activity_personal', 'ai_usage', 'cleanup_runs',
-  'outbox', 'video_checklists', 'personalitem']
+  'outbox', 'video_checklists', 'personalitem', 'mcp_demand']
 const NOBODY = ['item_vectors', 'private_google', 'private_google_states', 'push_tokens', 'calendar_tokens', 'push_log',
   'calendar_sent', 'calendar_mirror', 'dup_verdicts', 'import_lists', 'admin_tasks', 'email_moves', 'push_sent', 'import_hashes']
 // Another creator's own records: a creator (or demo creator) must not read them.

@@ -14,10 +14,13 @@ import { normPlace, normHouses, clockPair, parseLength, resolveShootRef, resolve
   type ShootRef, type RequestRef, type Named } from './casual.js'
 import { hm, s, loadCloset, firstName, type Json, type McpUser, type ToolResult } from './common.js'
 import { sandboxContext } from './reviewer.js'
+import { noteDemand } from './demand.js'
 
 const PLACE: Record<string, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2', offsite: 'Offsite' }
 const ask = (text: string, field: string, options: Json[] = []): { ask: ToolResult } =>
   ({ ask: { text, structured: { needs_clarifying: true, field, ...(options.length ? { options } : {}) } } })
+// Which tool + field confused things most (no words the person used): helps decide what to make clearer.
+const askAndCount = async (u: McpUser, tool: string, r: { ask: ToolResult }) => { await noteDemand(u, 'unclear', `${tool}: ${String(r.ask.structured?.field ?? '')}`, tool); return r }
 
 export interface Known { shoots: ShootRef[]; requests: RequestRef[]; invites: Named[]; swaps: Named[]; waitlist: Named[]; out: (Named & { kind: 'props' | 'gear' })[] }
 /** What the person has, to make sense of "my saturday shoot" (real data, or the reviewer's practice copy). */
@@ -67,6 +70,10 @@ const SHOOT_FIELDS: Record<string, string> = { get_shoot: 'shoot_id', move_shoot
 const ONE_DAY_TOOLS = new Set(['book_shoot', 'move_shoot', 'join_waitlist', 'request_swap', 'search_props', 'props_for_idea', 'show_props', 'get_prop'])
 
 export async function understandArgs(name: string, input: Json, u: McpUser): Promise<{ args: Json } | { ask: ToolResult }> {
+  const r = await understandInner(name, input, u)
+  return 'ask' in r ? await askAndCount(u, name, r) : r
+}
+async function understandInner(name: string, input: Json, u: McpUser): Promise<{ args: Json } | { ask: ToolResult }> {
   const a: Json = { ...input }
   const today = todayInStudio()
   let known: Known | null = null
@@ -167,6 +174,7 @@ export async function understandArgs(name: string, input: Json, u: McpUser): Pro
       else unknown.push(said)
     }
     if (unclear.length) return ask(`Which one did they mean? ${unclear.map(u2 => `"${u2.said}": ${(u2.options as Json[]).map(o => o.name).join(' / ')}`).join('; ')}. Show them (show_props) if it helps.`, 'items', unclear)
+    for (const x of unknown) await noteDemand(u, 'prop_missing', x, name)
     if (unknown.length) return ask(`Not in the closet by those names: ${unknown.join(', ')}. Search for them (search_props), or ask for them as custom props (\`custom\`/\`add_custom\`, 4+ days notice, no guaranteed date).`, 'items', unknown.map(x => ({ said: x })))
     if (Array.isArray(a.items)) a.items = items
   }

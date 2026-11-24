@@ -24,6 +24,7 @@ import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, house
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { understandArgs, knownFor } from './lenient.js'
+import { noteDemand } from './demand.js'
 import { runReviewerTool } from './reviewer.js'
 
 function wordScore(p: Prop, words: string[]) {
@@ -71,6 +72,10 @@ export const TOOLS = [
   { name: 'get_rules', title: 'Studio rules', annotations: READ,
     description: 'The live Prime Capitol rules (houses, booking hours, notice for props, priority days, approval, cancelling) and today\'s date in studio time (America/Toronto). Use these to reason about times and props yourself.',
     inputSchema: obj({}) },
+  { name: 'note_feature_request', title: 'Pass on a suggestion', annotations: WRITE,
+    description: 'When the person wants something Prime Capitol can\'t do through these tools or the app (a feature, a service, a kind of prop or gear the studio doesn\'t have), save it as a short anonymous suggestion for the studio team: a few words about WHAT was wanted, no names or personal details. Tell the person you\'ve passed it on. Don\'t use it for things the tools already do, or for complaints about a specific person. The person can turn this off in the app (More → ChatGPT & Claude).',
+    inputSchema: obj({ request: { type: 'string', description: 'A few words, e.g. "book makeup artists", "drone footage", "rent a car for shoots"' },
+      kind: { type: 'string', enum: ['feature', 'prop_or_costume', 'gear', 'other'] } }, ['request']) },
   { name: 'get_context', title: 'My context', annotations: READ,
     description: 'Everything needed to understand this person\'s requests in one call: who they are and whether they can book, today\'s date and time in studio time, the next 14 days with weekday names, their upcoming shoots (ids, labels, collaborators, video names, props deadline), their open props requests, invites and swap requests waiting for them, the people they filmed with lately (person ids), and short house and booking rules. Use it at the start of a conversation and whenever you need to work out which day, shoot or person the person means.',
     inputSchema: obj({}) },
@@ -176,6 +181,14 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const entries = hits.map(e => ({ title: e.title, about: e.about.replace(/\s*\((?:owner|admin)[^)]*\b(?:Oct|Nov|Dec)\b[^)]*\)/g, '').slice(0, 900), ...(e.path && !e.path.includes(':') ? { app_link: `${APP_LINK}${e.path}` } : {}) }))
       return { text: entries.map(e => `${e.title}: ${e.about}${e.app_link ? ` (Open: ${e.app_link})` : ''}`).join('\n\n'), structured: { entries } }
     }
+    case 'note_feature_request': {
+      const what = s(args.request, 200)
+      if (what.length < 3) return { text: 'What should be passed on? A few words about what they wanted.' }
+      if (u.reviewer) return { text: 'Passed on to the Prime Capitol team as an anonymous suggestion. (Demo account: nothing is saved.)', structured: { saved: false, demo_account: true } }
+      const kind = args.kind === 'prop_or_costume' ? 'prop_missing' : 'feature'
+      const saved = await noteDemand(u, kind, `${args.kind === 'gear' ? 'gear: ' : ''}${what}`, 'note_feature_request')
+      return { text: saved ? 'Passed on to the Prime Capitol team as an anonymous suggestion (no names attached).' : 'Not saved: they have turned off sharing suggestions in the app (More → ChatGPT & Claude), or it was too short.', structured: { saved } }
+    }
     case 'get_context': {
       const today = todayInStudio(), now = nowStamp()
       const [known, b, sch] = await Promise.all([knownFor(u), loadSettings(), loadScheduleSettings()])
@@ -235,6 +248,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const day = isDay(args.day) ? args.day as string : ''
       const { found, byWords } = await findProps(query, cat, limit, u)
       const free = day ? await freeOn(day, found.map(p => p.id)) : {}
+      if (!byWords.length) await noteDemand(u, 'prop_missing', query, 'search_props')   // nothing by name: an anonymous "wanted" count
       const rows = found.map(p => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 160), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: byWords.includes(p) ? 'words' : 'similar meaning' }))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}`).join('\n') : `Nothing in the closet matches "${query}". Try other words, or ask for it as a custom prop.`,
         structured: { query, day: day || null, results: rows } }
@@ -252,6 +266,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const groups = per.map(x => ({ scene: x.scene || undefined, need: x.need,
         matches: x.found.map(p => ({ ...short(p), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined })) }))
       const missing = groups.filter(g => !g.matches.length).map(g => g.need)
+      for (const m of missing) await noteDemand(u, 'prop_missing', m, 'props_for_idea')
       const top = per.flatMap(x => x.found.slice(0, 2)).filter((p, i, a) => a.findIndex(q => q.id === p.id) === i).slice(0, 12)
       const text = groups.map(g => `${g.scene ? `[${g.scene}] ` : ''}${g.need}: ${g.matches.length ? g.matches.map(m => `${m.name} (${m.id}, x${m.how_many}${day ? `, ${m.free_that_day} free` : ''})`).join('; ') : 'nothing in the closet (could be a custom prop)'}`).join('\n')
       return { text: `${text}\n\nOffer to show these with show_props, tweak the idea around what exists, or request them for one of their shoots.`,

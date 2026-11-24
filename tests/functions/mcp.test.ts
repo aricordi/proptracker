@@ -217,6 +217,25 @@ describe('connector tools', () => {
     expect(st.content[0].text).toMatch(/Worth doing next/)
   })
 
+  it('passes on what creators want anonymously, respects the off switch, and the demo account never saves', async () => {
+    const t = await connect(ANA)
+    const key = (kind: string, text: string) => `mcp_demand/${createHash('sha1').update(`${kind}|${text}`).digest('hex').slice(0, 32)}`
+    const r = await tool(t.access_token, 'note_feature_request', { request: 'Book a makeup artist (ana@example.com)', kind: 'feature' })
+    expect(r.structuredContent.saved).toBe(true)
+    await tool(t.access_token, 'note_feature_request', { request: 'book a makeup artist', kind: 'feature' })
+    const d = (await getDoc(key('feature', 'book a makeup artist (')))
+    const d2 = d ?? (await getDoc(key('feature', 'book a makeup artist')))
+    expect(d2).toBeTruthy()
+    expect(JSON.stringify(d2)).not.toMatch(/ana|example\.com|Lopez/i)
+    // A prop searched for by name that the closet doesn't have is counted too.
+    await tool(t.access_token, 'search_props', { query: 'pirate ship' })
+    expect((await getDoc(key('prop_missing', 'pirate ship')))?.count).toBe(1)
+    // Off switch: nothing more is saved.
+    await put(`profiles/${ANA}`, { shareSuggestions: false })
+    expect((await tool(t.access_token, 'note_feature_request', { request: 'drone footage' })).structuredContent.saved).toBe(false)
+    expect(await getDoc(key('feature', 'drone footage'))).toBeNull()
+  })
+
   it('cannot touch someone else\'s shoot', async () => {
     const t = await connect(ANA)
     await put('shoots/other', { creatorEmail: MAANIK, status: 'booked', date: FRI, place: 'cliff2', start: 780, end: 900 })

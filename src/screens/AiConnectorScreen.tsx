@@ -4,6 +4,7 @@ import { PageHeader } from '../components/PageHeader'
 import { CONNECTOR_URL, myConnectors, disconnectConnector, reviewerAccount, type Connection } from '../services/connector'
 import { useSession } from '../auth'
 import { friendlyError } from '../lib/errors'
+import { useProfiles, saveProfile } from '../services/profiles'
 
 const ago = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : ''
 
@@ -58,6 +59,7 @@ export default function AiConnectorScreen() {
           ))}
           {error && <p className="text-amber-300 text-sm px-1">{error}</p>}
         </section>
+        <SuggestionsCard />
         <ReviewerCard />
       </div>
     </div>
@@ -81,6 +83,35 @@ function ReviewerCard() {
       <div className="flex gap-2">
         <button disabled={busy} onClick={() => run('create')} className="flex-1 min-h-[44px] rounded-xl bg-pt-accent text-stone-900 font-semibold disabled:opacity-40">{st?.enabled ? 'Make a new password' : 'Turn on'}</button>
         {st?.enabled && <button disabled={busy} onClick={() => run('disable')} className="flex-1 min-h-[44px] rounded-xl bg-white/10 disabled:opacity-40">Turn off</button>}
+      </div>
+      {err && <p className="text-amber-300 text-sm">{err}</p>}
+    </section>
+  )
+}
+
+// Anonymous suggestions (owner, Nov 24; OpenAI: disclosed + under the person's control). On by default; off = nothing is saved.
+function SuggestionsCard() {
+  const { profile } = useSession()
+  const mine = useProfiles()[profile.email]
+  const [on, setOn] = useState<boolean | null>(null)
+  const [err, setErr] = useState('')
+  const value = on ?? (mine?.shareSuggestions !== false)
+  const flip = async () => {
+    const next = !value
+    setOn(next); setErr('')
+    try { await saveProfile(profile.email, { shareSuggestions: next }) } catch (e) { setOn(!next); setErr(friendlyError(e)) }
+  }
+  return (
+    <section className="bg-pt-surface rounded-[20px] shadow-card p-5 space-y-2">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[18px] font-semibold">Share anonymous suggestions</h2>
+          <p className="text-pt-muted text-[14px] mt-1">When you ask your AI for something the app can't do yet (a feature, a prop we don't have), it can pass a few words on to the team so they know what to add. Your name is never attached. The AI tells you when it does.</p>
+        </div>
+        <button role="switch" aria-checked={value} aria-label="Share anonymous suggestions" onClick={flip}
+          className={`shrink-0 w-[52px] h-[32px] rounded-full relative transition-colors ${value ? 'bg-pt-accent' : 'bg-white/15'}`}>
+          <span className={`absolute top-[3px] w-[26px] h-[26px] rounded-full bg-white shadow transition-[left] ${value ? 'left-[23px]' : 'left-[3px]'}`} />
+        </button>
       </div>
       {err && <p className="text-amber-300 text-sm">{err}</p>}
     </section>
