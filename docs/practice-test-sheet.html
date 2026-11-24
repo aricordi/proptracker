@@ -1,0 +1,224 @@
+<title>Practice Mode Test Sheet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Layout: one narrow reading column; each test = a row with "Say" on top and "Expect" under it, a tick on the left. */
+:root {
+  --bg: #f6f4ef; --surface: #ffffff; --fg: #1a1814; --muted: #6b665c; --line: #e4dfd4;
+  --gold: #9a7a2e; --gold-soft: #f3ead2; --ok: #2f7d4f; --warn: #a2551b;
+  --display: "Space Grotesk", system-ui, sans-serif; --body: "Inter", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0b0b0c; --surface: #17171a; --fg: #f3f1ec; --muted: #9a958a; --line: #2a2a2e;
+  --gold: #c9a961; --gold-soft: #2a2416; --ok: #6fcf97; --warn: #e8a35c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0b0b0c; --surface: #17171a; --fg: #f3f1ec; --muted: #9a958a; --line: #2a2a2e;
+  --gold: #c9a961; --gold-soft: #2a2416; --ok: #6fcf97; --warn: #e8a35c; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 720px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--display); font-size: 30px; line-height: 1.15; margin: 0 0 6px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+.setup { background: var(--gold-soft); border-radius: 14px; padding: 16px 18px; margin-bottom: 28px; }
+.setup h2 { font-family: var(--display); font-size: 17px; margin: 0 0 8px; }
+.setup ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.progress { display: flex; align-items: center; gap: 12px; margin: 0 0 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { flex: 1; height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .3s; }
+section { margin-bottom: 30px; }
+section h2 { font-family: var(--display); font-size: 20px; margin: 0 0 4px; }
+section > p { color: var(--muted); margin: 0 0 12px; font-size: 15px; }
+.test { display: grid; grid-template-columns: 32px 1fr; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
+.test input { width: 22px; height: 22px; margin-top: 2px; accent-color: var(--gold); cursor: pointer; }
+.test > div { min-width: 0; }
+.say { font-weight: 600; font-size: 17px; }
+.say::before { content: "Say  "; color: var(--gold); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.exp { color: var(--muted); margin-top: 4px; }
+.exp::before { content: "Expect  "; color: var(--ok); font-weight: 700; font-size: 13px; letter-spacing: .04em; }
+.test.done .say { text-decoration: line-through; text-decoration-color: var(--muted); }
+.note { font-size: 14px; color: var(--warn); margin-top: 4px; }
+.check { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+.check h2 { font-family: var(--display); font-size: 17px; margin: 0 0 8px; }
+.check ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+button.reset { margin-top: 18px; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 10px;
+  padding: 10px 14px; font: inherit; cursor: pointer; min-height: 44px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <h1>Practice Mode Test Sheet</h1>
+  <p class="sub">Say each line to ChatGPT (voice mode) or Claude. Tick it when the answer matches. Nothing you do here reaches the arts or equipment teams.</p>
+
+  <div class="setup">
+    <h2>Before you start</h2>
+    <ol>
+      <li>Open the app. If a bar says "Version 1.5.0 is ready", tap <b>Update</b>.</li>
+      <li>Go to <b>More → ChatGPT &amp; Claude</b> and turn on <b>Practice mode</b>. The card turns amber.</li>
+      <li>Start a new chat in ChatGPT or Claude with Prime Capitol turned on.</li>
+    </ol>
+  </div>
+
+  <div class="progress"><span id="count">0 of 0</span><div class="bar"><i id="fill"></i></div></div>
+
+  <section>
+    <h2>1. Is practice mode on?</h2>
+    <div class="test"><input type="checkbox" id="t1" aria-label="Done"><div>
+      <div class="say">Who am I?</div>
+      <div class="exp">Your name and the words PRACTICE MODE. If it doesn't mention practice, stop and turn it on in the app first.</div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>2. Looking around</h2>
+    <p>These read real information. Nothing changes.</p>
+    <div class="test"><input type="checkbox" id="t2" aria-label="Done"><div>
+      <div class="say">What do I have going on?</div>
+      <div class="exp">Your real upcoming shoots and props requests (the practice copy started from them).</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t3" aria-label="Done"><div>
+      <div class="say">Who's filming at Cliff 2 this Saturday?</div>
+      <div class="exp">Real people's names and times for that day.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t4" aria-label="Done"><div>
+      <div class="say">Find me two hours at either house next week, evenings.</div>
+      <div class="exp">A short list of real free times, evenings only.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t5" aria-label="Done"><div>
+      <div class="say">Show me props for a haunted diner video.</div>
+      <div class="exp">Real props from the closet, with photos.</div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>3. Booking</h2>
+    <p>Maanik should get nothing for any of these.</p>
+    <div class="test"><input type="checkbox" id="t6" aria-label="Done"><div>
+      <div class="say">Book Cliff 1 Thursday from 5 to 7.</div>
+      <div class="exp">It asks you to confirm, then says it's requested and ends with "Practice mode: nothing was sent".</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t7" aria-label="Done"><div>
+      <div class="say">Me, Kyle and Ariel want to film back to back on Saturday.</div>
+      <div class="exp">It finds Kyle and Ariel by name, plans 6 hours (2 each) and offers times free for all three.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t8" aria-label="Done"><div>
+      <div class="say">Book Cliff 2 at a time you saw someone else has.</div>
+      <div class="exp">It doesn't just fail: it offers the closest free time, the other house, or the waitlist.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t9" aria-label="Done"><div>
+      <div class="say">Move my Thursday shoot to 7 PM.</div>
+      <div class="exp">Says it's moved and waiting for approval, plus the practice note.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t10" aria-label="Done"><div>
+      <div class="say">Actually, cancel it.</div>
+      <div class="exp">Says it's cancelled, plus the practice note.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t11" aria-label="Done"><div>
+      <div class="say">Book c2 tomorrow at 5-ish.</div>
+      <div class="exp">It understands "c2" (Cliff 2), tomorrow and 5 PM, and asks to confirm the time.</div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>4. Props</h2>
+    <p>The arts team should get nothing.</p>
+    <div class="test"><input type="checkbox" id="t12" aria-label="Done"><div>
+      <div class="say">Add the red rotary phone to my Saturday shoot.</div>
+      <div class="exp">Finds the phone, adds it to that shoot's request, plus the practice note.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t13" aria-label="Done"><div>
+      <div class="say">I need a custom neon sign that says OPEN.</div>
+      <div class="exp">Adds it as a custom request and says there's no guaranteed date (the arts team follows up). No date promised.</div>
+      <div class="note">Typing works best for this one: you can attach a picture too.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t14" aria-label="Done"><div>
+      <div class="say">I'm picking up my props.</div>
+      <div class="exp">Shows the list to check against, then asks if everything is there.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t15" aria-label="Done"><div>
+      <div class="say">I'm returning my props.</div>
+      <div class="exp">Asks for one photo of everything. After the photo: returned, plus the practice note.</div>
+      <div class="note">The photo has to be attached in the typed chat.</div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>5. Gear and after the shoot</h2>
+    <div class="test"><input type="checkbox" id="t16" aria-label="Done"><div>
+      <div class="say">Is there a camera free for my shoot?</div>
+      <div class="exp">A real answer: which kits are free, or when you can take one.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t17" aria-label="Done"><div>
+      <div class="say">Take the FX3 kit.</div>
+      <div class="exp">"Practice mode: gear would be taken here… nothing was recorded."</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t18" aria-label="Done"><div>
+      <div class="say">We filmed my Thursday shoot.</div>
+      <div class="exp">Noted as filmed, with "nothing is sent to the studio team".</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t19" aria-label="Done"><div>
+      <div class="say">Something's broken in the camera kit.</div>
+      <div class="exp">Takes the report and says the equipment team would be told, plus the practice note.</div>
+    </div></div>
+  </section>
+
+  <section>
+    <h2>6. Tricky ones</h2>
+    <div class="test"><input type="checkbox" id="t20" aria-label="Done"><div>
+      <div class="say">Book me with Zorblax on Friday.</div>
+      <div class="exp">Says nobody by that name uses the app and asks if they're someone new. It doesn't guess.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t21" aria-label="Done"><div>
+      <div class="say">Book with Kyel on Friday (misspell a real name).</div>
+      <div class="exp">Asks "did you mean Kyle?" before doing anything.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t22" aria-label="Done"><div>
+      <div class="say">Book Cliff 1 for a team meeting.</div>
+      <div class="exp">Says the houses are booked for filming only.</div>
+    </div></div>
+    <div class="test"><input type="checkbox" id="t23" aria-label="Done"><div>
+      <div class="say">Book Cliff 2 a month from now.</div>
+      <div class="exp">Says creators can book about 2 weeks ahead, and offers something sooner.</div>
+    </div></div>
+  </section>
+
+  <div class="check">
+    <h2>When you're done</h2>
+    <ul>
+      <li>In the app, check My shoots and My requests: nothing new from your test should be there.</li>
+      <li>Ask Maanik and the arts team: they should have had no notifications.</li>
+      <li>Turn <b>Practice mode off</b> (More → ChatGPT &amp; Claude).</li>
+      <li>Say "Who am I?" again: it should no longer mention practice.</li>
+    </ul>
+  </div>
+
+  <button class="reset" id="reset" type="button">Clear all ticks</button>
+</div>
+
+<script>
+(function () {
+  var KEY = 'practiceSheet.v1';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.test input'));
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { saved = {}; }
+  function update() {
+    var n = 0;
+    boxes.forEach(function (b) { b.closest('.test').classList.toggle('done', b.checked); if (b.checked) n++; });
+    document.getElementById('count').textContent = n + ' of ' + boxes.length;
+    document.getElementById('fill').style.width = (boxes.length ? n / boxes.length * 100 : 0) + '%';
+  }
+  boxes.forEach(function (b) {
+    b.checked = !!saved[b.id];
+    b.addEventListener('change', function () {
+      saved[b.id] = b.checked;
+      try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      update();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    saved = {}; boxes.forEach(function (b) { b.checked = false; });
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    update();
+  });
+  update();
+})();
+</script>
