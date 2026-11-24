@@ -20,21 +20,25 @@ import { loadSettings, createReservation, editReservation } from '../reservation
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
 import { guideFor, searchGuide, type GuideRole } from '../appGuide.js'
-import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
+import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, propsProblem, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { understandArgs, knownFor } from './lenient.js'
 import { noteDemand } from './demand.js'
 import { runReviewerTool } from './reviewer.js'
 
+// Words people add that say nothing about the prop ("cop stuff", "some kind of chair", "any props for a diner").
+const FILLER = new Set(['stuff', 'things', 'thing', 'something', 'some', 'any', 'anything', 'like', 'kinda', 'kind', 'sort', 'type', 'of', 'for', 'the', 'an',
+  'props', 'prop', 'item', 'items', 'got', 'have', 'we', 'you', 'do', 'any', 'u', 'ur', 'pls', 'please', 'maybe', 'stuffs', 'with', 'and', 'or', 'in', 'my', 'need', 'want'])
 function wordScore(p: Prop, words: string[]) {
   const hay = `${p.name} ${p.category} ${p.tags.join(' ')} ${p.description} ${p.words}`.toLowerCase()
   const name = p.name.toLowerCase()
   let score = 0
   for (const w of words) {
-    const stem = w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w
-    if (name.includes(stem)) score += 3
-    else if (hay.includes(stem)) score += 1
+    // Plural or not: "glasses" ~ glass, "boxes" ~ box, "phones" ~ phone, "candies" ~ candy.
+    const forms = [w, ...(w.length > 3 && w.endsWith('s') ? [w.slice(0, -1)] : []), ...(w.length > 4 && /(ses|xes|ches|shes|zes)$/.test(w) ? [w.slice(0, -2)] : []), ...(w.length > 4 && w.endsWith('ies') ? [`${w.slice(0, -3)}y`] : [])]
+    if (forms.some(f => name.includes(f))) score += 3
+    else if (forms.some(f => hay.includes(f))) score += 1
     else return 0
   }
   return score
@@ -43,7 +47,7 @@ function wordScore(p: Prop, words: string[]) {
 // Words first (names, tags, descriptions, hidden search words), then meaning ("president" → a Lincoln mask).
 export async function findProps(query: string, cat: string, limit: number, u: McpUser): Promise<{ found: Prop[]; byWords: Prop[] }> {
   const props = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat))
-  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1)
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1 && !FILLER.has(w))
   const byWords = props.map(p => ({ p, score: wordScore(p, words) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score).map(x => x.p)
   let similar: Prop[] = []
   if (query.length >= 3) {
@@ -176,8 +180,15 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
     }
     case 'how_to': {
       const role: GuideRole = caller.demo ? 'demo' : (caller.role as GuideRole)
-      const hits = searchGuide(s(args.question, 300), guideFor(role), 3)
-      if (!hits.length) return { text: 'Nothing in the app guide matches that. Try other words, or get_rules for the studio rules.', structured: { entries: [] } }
+      // Only real matches (review of my own test chat, Nov 24): "book a makeup artist" must not return the prop page because of
+      // the word "book". Most of the question's meaningful words have to appear in the entry.
+      const q = s(args.question, 300)
+      const words = q.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(w => w.length > 2 && !HOW_STOP.has(w)).map(w => w.replace(/s$/, ''))
+      const hits = searchGuide(q, guideFor(role), 6).filter(e => {
+        const hay = `${e.title} ${e.words ?? ''} ${e.about}`.toLowerCase()
+        return words.length > 0 && words.filter(w => hay.includes(w)).length >= Math.ceil(words.length / 2)
+      }).slice(0, 3)
+      if (!hits.length) return { text: 'The app guide has nothing on that, so it\'s probably not something Prime Capitol does yet. If they want it, note_feature_request can pass it on to the team (tell them).', structured: { entries: [], not_in_app: true } }
       const entries = hits.map(e => ({ title: e.title, about: e.about.replace(/\s*\((?:owner|admin)[^)]*\b(?:Oct|Nov|Dec)\b[^)]*\)/g, '').slice(0, 900), ...(e.path && !e.path.includes(':') ? { app_link: `${APP_LINK}${e.path}` } : {}) }))
       return { text: entries.map(e => `${e.title}: ${e.about}${e.app_link ? ` (Open: ${e.app_link})` : ''}`).join('\n\n'), structured: { entries } }
     }
@@ -248,7 +259,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const day = isDay(args.day) ? args.day as string : ''
       const { found, byWords } = await findProps(query, cat, limit, u)
       const free = day ? await freeOn(day, found.map(p => p.id)) : {}
-      if (!byWords.length) await noteDemand(u, 'prop_missing', query, 'search_props')   // nothing by name: an anonymous "wanted" count
+      if (!byWords.length) await noteDemand(u, 'prop_missing', query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1 && !FILLER.has(w)).join(' '), 'search_props')   // nothing by name: an anonymous "wanted" count
       const rows = found.map(p => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 160), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: byWords.includes(p) ? 'words' : 'similar meaning' }))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}`).join('\n') : `Nothing in the closet matches "${query}". Try other words, or ask for it as a custom prop.`,
         structured: { query, day: day || null, results: rows } }
@@ -458,14 +469,19 @@ async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {
     const old = (open.get('lines') ?? []) as { itemId: string; qty: number }[]
     const merged = new Map(old.map(l => [l.itemId, l.qty]))
     for (const l of lines) merged.set(l.itemId, (merged.get(l.itemId) ?? 0) + l.qty)
-    await editReservation.run(asUser(u, { id: open.id, lines: [...merged].map(([itemId, qty]) => ({ itemId, qty })),
-      builds: [...((open.get('builds') ?? []) as Json[]), ...builds] }))
+    try {
+      await editReservation.run(asUser(u, { id: open.id, lines: [...merged].map(([itemId, qty]) => ({ itemId, qty })),
+        builds: [...((open.get('builds') ?? []) as Json[]), ...builds] }))
+    } catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
     return { text: `Added to your request "${open.get('title')}" for ${sh.date}. The arts department will see it.` }
   }
   const title = s(args.video_name, 120) || s(sh.title, 120) || 'Video'
-  const r = await createReservation.run(asUser(u, { startDate: sh.date, endDate: sh.date, scheduleShootId: id, title, notes: s(args.notes, 500), lines, builds })) as Json
+  let r: Json
+  try { r = await createReservation.run(asUser(u, { startDate: sh.date, endDate: sh.date, scheduleShootId: id, title, notes: s(args.notes, 500), lines, builds })) as Json }
+  catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
   return { text: `Sent: props request "${title}" for your ${sh.date} shoot (${lines.length} prop${lines.length === 1 ? '' : 's'}${builds.length ? `, ${builds.length} custom` : ''}). The arts department packs it; you'll get a notification when it's ready.${builds.length ? ' Custom props have no guaranteed date: sort details with the arts department on Slack.' : ''}`, structured: { result: r } }
 }
 
 export const OWNER = OWNER_EMAIL
 const APP_LINK = 'https://proptracker.arbcreative.co'
+const HOW_STOP = new Set(['how', 'the', 'and', 'can', 'what', 'where', 'when', 'does', 'this', 'that', 'with', 'for', 'you', 'your', 'are', 'there', 'want', 'need', 'use', 'get', 'app', 'way', 'have', 'from', 'into', 'its', 'not', 'any', 'why', 'book', 'booking', 'make', 'happen', 'happens', 'work', 'works', 'doe', 'did', 'will', 'should', 'could', 'would', 'just', 'like', 'my', 'me'])

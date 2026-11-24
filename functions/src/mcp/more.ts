@@ -16,7 +16,7 @@ import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
 import {
-  asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, matchPerson, askWho, personId, parseClock, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs,
+  asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, niceRange, matchPerson, askWho, personId, parseClock, propsProblem, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs,
   type Json, type McpUser, type ToolResult,
 } from './common.js'
 import { resolveWhen } from './understand.js'
@@ -112,7 +112,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       }
       const builds = [...((r.builds ?? []) as Json[]), ...(objs(args.add_custom)).map(b => ({ description: s(b.description, 200), qty: Number(b.qty) || 1 })).filter(b => b.description)]
       if (!lines.size && !builds.length) return { text: 'That would leave the request empty: cancel it instead (cancel_props_request).' }
-      await editReservation.run(asUser(u, { id, lines: [...lines].map(([itemId, qty]) => ({ itemId, qty })), builds }))
+      try { await editReservation.run(asUser(u, { id, lines: [...lines].map(([itemId, qty]) => ({ itemId, qty })), builds })) } catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
       const names = new Map((await loadCloset()).map(p => [p.id, p.name]))
       return { text: `Changed "${r.title}": ${[...lines].map(([k, q]) => `${names.get(k) ?? k} x${q}`).join(', ')}${builds.length ? ` + ${builds.length} custom` : ''}.` }
     }
@@ -130,7 +130,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: `You're on the waitlist for ${PLACE[house]} ${args.day} at ${hm(start)}${r.position ? ` (number ${r.position} in line)` : ''}. If it opens up, it's held for you for 20 minutes and you get a notification.`, structured: { result: r } }
     }
     case 'leave_waitlist': {
-      if (!/^[\w-]{1,300}$/.test(s(args.waitlist_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
+      if (!/^[\w@.+-]{1,300}$/.test(s(args.waitlist_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
       await leaveWaitlist.run(asUser(u, { id: s(args.waitlist_id, 300) }))
       return { text: 'Taken off that waitlist.' }
     }
@@ -150,7 +150,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: `Invited ${emails.length} ${emails.length === 1 ? 'person' : 'people'} into your ${own.sh.date} video. They'll say yes or no in the app.` }
     }
     case 'answer_video_invite': {
-      if (!/^[\w-]{1,300}$/.test(s(args.invite_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
+      if (!/^[\w@.+-]{1,300}$/.test(s(args.invite_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
       await answerVideoInvite.run(asUser(u, { id: s(args.invite_id, 300), accept: args.accept === true }))
       return { text: args.accept === true ? 'You\'re in ✓ It shows in your app with reminders.' : 'Declined. They\'ll see you can\'t make it.' }
     }
@@ -167,7 +167,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: 'Swap request sent. They accept or decline in the app; you get a notification.' }
     }
     case 'answer_swap': {
-      if (!/^[\w-]{1,300}$/.test(s(args.swap_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
+      if (!/^[\w@.+-]{1,300}$/.test(s(args.swap_id, 300))) return { text: 'That id isn\'t right: my_status has the ids.' }
       await answerSwap.run(asUser(u, { id: s(args.swap_id, 100), accept: args.accept === true }))
       return { text: args.accept === true ? 'Swapped ✓ Both shoots changed.' : 'Declined.' }
     }
@@ -294,7 +294,7 @@ async function freeOptions(a: FreeAsk, u: McpUser) {
           if (st % TIME_STEP || st < g.start || st + a.need > g.end || !inTod(st)) continue
           // A guideline PDF can't be attached from a chat (review, Nov 24): those times are booked in the app instead.
           if (needsGuideline(date, h, u.email, sch)) { guideline.add(`${date} ${PLACE[h]}`); continue }
-          options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + a.need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, _s: st })
+          options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + a.need), label: `${niceRange(date, st, st + a.need)} · ${PLACE[h]}`, free_stretch: `${hm(g.start)}–${hm(g.end)}`, _s: st })
         }
       }
     }
@@ -319,7 +319,7 @@ async function findFreeTimes(args: Json, u: McpUser): Promise<ToolResult> {
   }
   const { options: top, guideline } = await freeOptions({ dates: Array.from({ length: n }, (_, i) => addDays(from, i)), need, houses: housesOf(args.houses), tod: todOf(args.time_of_day), around: toMin(args.around), limit: clampInt(args.limit, 1, 30, 12) }, u)
   const gl = guideline.length ? `\n${GUIDELINE_TEXT(guideline)}` : ''
-  return { text: (top.length ? top.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`).join('\n') + '\nBook one with book_shoot (add collaborators in `with` if more than 2 hours).' : 'Nothing free that fits. Try other days, a shorter time or the other house.') + gl,
+  return { text: (top.length ? top.map(o => `${o.label} (book: ${o.place} ${o.day} ${o.start}–${o.end})`).join('\n') + '\nBook one with book_shoot (add collaborators in `with` if more than 2 hours).' : 'Nothing free that fits. Try other days, a shorter time or the other house.') + gl,
     structured: { length_hours: need / 60, people, options: top, ...(guideline.length ? { needs_guideline_in_app: guideline, app_link: `${APP_URL}/schedule` } : {}) } }
 }
 
@@ -381,10 +381,10 @@ async function planShoot(args: Json, u: McpUser): Promise<ToolResult> {
     fallback = (await freeOptions({ dates: after, need, houses: housesOf(args.houses), tod: around != null ? 'any' : todOf(args.time_of_day), around, limit: 4, crew }, u)).options
   }
   const who = names.length ? `you + ${names.join(' + ')}` : said.length ? `you + ${said.length} more` : 'just you'
-  const lines = plan.options.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)
+  const lines = plan.options.map(o => `${o.label} (book: ${o.place} ${o.day} ${o.start}–${o.end})`)
   const text = [
     `Plan: ${who}, ${need / 60} h, ${whenLabel}.`,
-    ...resolved.filter(r => r.status === 'found').map(r => `"${r.said}" = ${r.name}${r.on_app === false ? ' (not on the app; booked by name)' : ''}`),
+    ...resolved.filter(r => r.status === 'found').map(r => `"${r.said}" = ${r.name} (${r.person_id})${r.on_app === false ? ', not on the app; booked by name' : ''}`),
     ...(questions.length ? ['Ask first:', ...questions.map(q => `- ${q}`)] : []),
     ...(lines.length ? ['Times that fit everyone:', ...lines] : [`Nothing free ${whenLabel} for ${need / 60} h.${busyText.length ? ` (${busyText.join('; ')})` : ''}`]),
     ...(fallback.length ? ['Soonest after that:', ...fallback.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)] : []),
@@ -402,6 +402,6 @@ async function propCalendar(args: Json): Promise<ToolResult> {
   const from = isDay(args.from) && String(args.from) >= today ? String(args.from) : today
   const n = Math.min(28, Math.max(1, Number.isInteger(args.days) ? Number(args.days) : 14))
   const entries = ((await db.doc(`item_bookings/${p.id}`).get()).get('entries') ?? []) as BookingEntry[]
-  const days = Array.from({ length: n }, (_, i) => addDays(from, i)).map(day => ({ day, free: freeForRange({ quantity: p.quantity, missingQty: p.missing, legacyCheckedOut: false }, entries, day, day, today, b.bufferDays, b) }))
+  const days = Array.from({ length: n }, (_, i) => addDays(from, i)).map(day => ({ day, free: p.damaged ? 0 : freeForRange({ quantity: p.quantity, missingQty: p.missing, legacyCheckedOut: p.out }, entries, day, day, today, b.bufferDays, b) }))
   return { text: `${p.name} (x${short(p).how_many}): ` + days.map(d => `${d.day.slice(5)} ${d.free}`).join(', '), structured: { prop: short(p), days } }
 }

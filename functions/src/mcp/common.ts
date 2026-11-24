@@ -51,7 +51,7 @@ export function parseClock(v: unknown): number | null {
 }
 
 // ─── The props closet (company props only; cached a few minutes per server copy) ─────────────────────────────────────
-export interface Prop { id: string; name: string; category: string; tags: string[]; description: string; words: string; quantity: number; missing: number; damaged: boolean; photo: string; photos: string[]; createdAt: string }
+export interface Prop { id: string; name: string; category: string; tags: string[]; description: string; words: string; quantity: number; missing: number; damaged: boolean; out: boolean; photo: string; photos: string[]; createdAt: string }
 let closet: { at: number; props: Prop[] } | null = null
 export async function loadCloset(): Promise<Prop[]> {
   if (closet && Date.now() - closet.at < 5 * 60_000) return closet.props
@@ -70,7 +70,7 @@ export async function loadCloset(): Promise<Prop[]> {
       id: d.id, name: String(x.name ?? 'Prop'), category: catLabel.get(x.categoryId ?? x.itemType) ?? '',
       tags: (Array.isArray(x.tags) ? x.tags : []).map((t: string) => tagLabel.get(t) ?? t).slice(0, 12),
       description: String(x.description ?? '').slice(0, 400), words: Array.isArray(x.searchWords) ? x.searchWords.join(', ').slice(0, 300) : '',
-      quantity: Number(x.quantity ?? 1), missing: Number(x.missingQty ?? 0), damaged: x.condition === 'damaged',
+      quantity: Number(x.quantity ?? 1), missing: Number(x.missingQty ?? 0), damaged: x.condition === 'damaged' || x.status === 'damaged', out: x.status === 'checked-out',
       photo: photos[0] ? (thumbs[photos[0]] ?? photos[0]) : '', photos: photos.slice(0, 4), createdAt: String(x.createdAt ?? ''),
     })
   }
@@ -89,7 +89,7 @@ export async function freeOn(day: string, ids: string[]): Promise<Record<string,
   ids.forEach((id, i) => {
     const p = items.get(id)
     if (!p) return
-    out[id] = freeForRange({ quantity: p.quantity, missingQty: p.missing, legacyCheckedOut: false },
+    out[id] = p.damaged ? 0 : freeForRange({ quantity: p.quantity, missingQty: p.missing, legacyCheckedOut: p.out },
       (books[i].get('entries') ?? []) as BookingEntry[], day, day, today, settings.bufferDays, settings)
   })
   return out
@@ -141,4 +141,20 @@ export async function docById(col: string, id: unknown) {
   const v = typeof id === 'string' ? id.trim() : ''
   if (!/^[\w-]{1,100}$/.test(v)) return undefined
   return (await db.doc(`${col}/${v}`).get()).data()
+}
+
+/** A refusal from the props server functions in plain words, naming each prop that can't go and why (instead of
+ *  "Some props are no longer available"). null when it isn't that kind of refusal. */
+export function propsProblem(e: unknown): string | null {
+  const d = (e as { details?: { conflicts?: { name: string; requested: number; free: number; reason: string }[] } })?.details
+  if (!d?.conflicts?.length) return null
+  return `These can't go on that day: ${d.conflicts.map(c => `${c.name} (${c.reason === 'not enough free for those dates' ? `${c.free} of ${c.requested} free` : c.reason})`).join(', ')}. Leave them out, pick something similar (search_props), or ask for them as custom props.`
+}
+
+/** "Sat Nov 28, 7 PM–1 AM" (people read this; the 24:xx values stay in start/end for booking). */
+export function niceRange(day: string, start: number, end: number): string {
+  const d = new Date(`${day}T12:00:00Z`)
+  const wd = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' }), md = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+  const t12 = (m: number) => { const h = Math.floor(m / 60) % 24, mm = m % 60; return `${h % 12 || 12}${mm ? `:${String(mm).padStart(2, '0')}` : ''} ${h < 12 ? 'AM' : 'PM'}` }
+  return `${wd} ${md}, ${t12(start)}–${t12(end)}`
 }
