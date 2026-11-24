@@ -223,6 +223,7 @@ describe('swaps', () => {
   it('ask, accept, and both shoots trade places in one step (even inside 48 hours)', async () => {
     const a = await book(ANA, { date: SOON, start: SOON_AT, kind: 'extra' })
     const b = await book(BEN, { start: 900 })
+    await put('app_settings/schedule', { priority: [{ email: JANA, name: 'Jana' }], instantBookers: [{ email: ANA, name: ANA }] })   // Ben's booking is the one asked for: not a priority one
     const req = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
     expect(req.ok, req.message).toBe(true)
     expect((await call('answerSwap', { id: req.result.id, accept: true }, ANA)).error).toBe('PERMISSION_DENIED')   // can't accept your own
@@ -236,6 +237,7 @@ describe('swaps', () => {
 
   it('declined swaps change nothing; one open request per shoot; stale requests expire', async () => {
     const a = await book(ANA, {}), b = await book(BEN, { start: 900 })
+    await put('app_settings/schedule', { priority: [{ email: JANA, name: 'Jana' }], instantBookers: [{ email: ANA, name: ANA }] })   // Ben's booking is the one asked for: not a priority one
     const req = await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)
     expect((await call('requestSwap', { myShootId: a.result.id, theirShootId: b.result.id }, ANA)).message).toMatch(/already asked/)
     expect((await call('answerSwap', { id: req.result.id, accept: false }, BEN)).ok).toBe(true)

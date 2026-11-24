@@ -52,6 +52,7 @@ describe('one house slot a day', () => {
   it('a swap that would give someone two slots on one day is refused', async () => {
     const mine = await book(ANA, {}), mine2 = await book(ANA, { date: SAT })
     const bens = await book(BEN, { start: 1140 })
+    await put('app_settings/schedule', { instantBookers: [{ email: ANA, name: 'Ana' }] })   // Ben's booking isn't a priority one
     const req = await call('requestSwap', { myShootId: mine2.result.id, theirShootId: bens.result.id }, ANA)
     expect(req.ok).toBe(true)
     expect((await call('answerSwap', { id: req.result.id, accept: true }, BEN)).message).toMatch(/Ana already has a house (slot|booking)/)
