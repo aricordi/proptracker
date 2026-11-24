@@ -361,7 +361,12 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   // DAY GRID (owner, Nov 24: "people go on the Google Calendar app because it's easy to see gaps and who's filming… too neat"):
   // like a Google Calendar day: hours down the side, Cliff 1 and Cliff 2 side by side, every booking a block sized by its real
   // hours with the person's name, and every free stretch (even 15 minutes) a gold space you can tap to book inside it.
-  const open = houseOpen(s), close = houseClose(s)
+  // The day starts at 9 AM (owner, Nov 24: "people don't film before 9"), earlier only when something is booked before 9,
+  // or after a tap on "Show from 7 AM".
+  const [early, setEarly] = useState(false)
+  const houseStart = houseOpen(s), close = houseClose(s)
+  const firstThing = Math.min(...HOUSES.flatMap(h => [...houseBookings(day, h, s, now).map(b => b.start), ...hardBlocks(day).filter(b => b.house === h).map(b => b.start)]), 24 * 60)
+  const open = early ? houseStart : Math.max(houseStart, Math.min(9 * 60, Math.floor(firstThing / 60) * 60))
   const PX = 44                                              // pixels per hour
   const y = (m: number) => ((m - open) / 60) * PX
   const nowDay = now.slice(0, 10), nowMin = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
@@ -376,7 +381,9 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     const locked = !lockFree && priorityLocked(date, h, s, email, now)
     const items: React.ReactNode[] = []
     // Free stretches first (underneath). Shorter than the 30-minute minimum still shows, so nobody wonders where it went.
-    for (const g of freeGaps(day, date, h, s, now, TIME_STEP)) {
+    for (const g0 of freeGaps(day, date, h, s, now, TIME_STEP)) {
+      if (g0.end <= open) continue
+      const g = { start: Math.max(g0.start, open), end: g0.end }   // the part from where the view starts
       const tall = y(g.end) - y(g.start), short = g.end - g.start < MIN_BOOKING_MINUTES
       const guide = !locked && !skipG && canBook && needsGuideline(date, h, email, s)
       const can = !locked && !short && !notOpen && (canBook || team)
@@ -397,7 +404,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       items.push(
         <button key={`k${bl.id}`} disabled={!team} onClick={() => onTap({ t: 'block', block: bl } as ReturnType<typeof slotState>, h, bl.start)}
           style={{ top: y(a) + 1, height: Math.max(tall - 2, 10) }}
-          className="absolute inset-x-1 rounded-lg px-2 text-left overflow-hidden flex flex-col justify-start text-pt-muted bg-[repeating-linear-gradient(135deg,#1C1C1E_0_6px,#2A2A2D_6px_12px)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+          className="absolute inset-x-1 rounded-lg px-2 text-left overflow-hidden flex flex-col justify-start text-violet-100 bg-[repeating-linear-gradient(135deg,#2A2140_0_6px,#3A2D5C_6px_12px)] shadow-[inset_0_0_0_1px_rgba(167,139,250,0.35)]">
           {tall >= 18 && <span className="block text-[12px] font-semibold leading-tight pt-0.5 truncate">{bl.note || BLOCK_TYPES[bl.type]}</span>}
         </button>)
     }
@@ -449,6 +456,9 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           </span>
         ))}
       </div>
+      {open > houseStart && (
+        <button onClick={() => setEarly(true)} className="w-full py-1.5 text-[12px] text-pt-muted border-b border-white/[0.06]">Show from {fmtTime(houseStart)} ↑</button>
+      )}
       <div className="grid grid-cols-[44px_1fr_1fr] relative mt-2 mb-2" style={{ height: y(close) }}>
         <div className="relative">
           {hours.map(m => <span key={m} style={{ top: y(m) - 7 }} className="absolute right-1.5 text-[12px] tabular-nums text-pt-muted leading-none">{fmtTime(m % 1440).replace(':00', '')}</span>)}
@@ -475,22 +485,31 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const { profile: me } = useSession()
   const videosHere = (useMyVideos(me.email) ?? []).filter(v => v.date === date && v.status === 'accepted' && isUpcoming(v))
   const today = now.slice(0, 10)
-  const dayNav = onDay && (
-    <div className="flex items-center gap-2 mb-3">
-      <button onClick={() => onDay(addDays(date, -1))} disabled={date <= today} aria-label="Day before" className="w-11 h-11 rounded-full bg-pt-surface grid place-items-center text-xl disabled:opacity-30">‹</button>
-      <span className="flex-1 text-center text-pt-text text-[15px] font-semibold">{whenLabel(date, today)}</span>
-      <button onClick={() => onDay(addDays(date, 1))} aria-label="Next day" className="w-11 h-11 rounded-full bg-pt-surface grid place-items-center text-xl">›</button>
+  // ONE compact header line (owner, Nov 24: the date, the day arrows and Offsite used three rows above the calendar).
+  const offsiteBtn = (canBook || team) && !notOpen && (
+    <button onClick={onOffsite} aria-label="Book offsite (somewhere else)" className="shrink-0 inline-flex items-center gap-1 min-h-[40px] px-3 rounded-full bg-pt-raised shadow-hairline text-[13px] text-pt-text">
+      <Icon name="pin" className="w-4 h-4 text-sky-300" />Offsite
+    </button>
+  )
+  const dayNav = (
+    <div className="flex items-center gap-1.5 mb-2">
+      {onDay && <button onClick={() => onDay(addDays(date, -1))} disabled={date <= today} aria-label="Day before" className="w-10 h-10 shrink-0 rounded-full bg-pt-surface grid place-items-center text-xl disabled:opacity-30">‹</button>}
+      <span className="flex-1 min-w-0 text-center">
+        {!inline && <span className="block text-pt-text text-[17px] font-bold leading-tight truncate">{formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })}{isNoCrewDay(date) ? ' · no crew' : ''}</span>}
+        <span className="block text-pt-muted text-[12px] leading-tight">{whenLabel(date, today)}</span>
+      </span>
+      {onDay && <button onClick={() => onDay(addDays(date, 1))} aria-label="Next day" className="w-10 h-10 shrink-0 rounded-full bg-pt-surface grid place-items-center text-xl">›</button>}
+      {offsiteBtn}
     </div>
   )
   const body = (<>
       {dayNav}
       {videosHere.length > 0 && (
-        <div className="mb-3 space-y-1.5" data-testid="day-videos">
+        <div className="mb-2 space-y-1.5" data-testid="day-videos">
           {videosHere.map(v => (
-            <div key={v.id} className="flex items-start gap-2.5 p-3 rounded-xl bg-sky-400/[0.10]">
-              <Icon name="video" className="w-4 h-4 mt-0.5 shrink-0 text-sky-300" />
-              <span className="min-w-0"><span className="block text-pt-text text-sm font-semibold">You're in {v.hostName.split(' ')[0]}'s video · be there {fmtTime(v.start)}</span>
-                <span className="block text-pt-muted text-xs">{v.placeName} · {fmtTime(v.start)}–{fmtTime(v.end)}</span></span>
+            <div key={v.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-400/[0.10] text-[13px]">
+              <Icon name="video" className="w-4 h-4 shrink-0 text-sky-300" />
+              <span className="min-w-0 truncate"><b className="text-pt-text">In {v.hostName.split(' ')[0]}'s video</b> <span className="text-pt-muted">· {v.placeName} {fmtTime(v.start)}</span></span>
             </div>
           ))}
         </div>
@@ -510,13 +529,6 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       {notOpen && canBook && (
         <p className="rounded-xl bg-white/[0.05] px-3 py-2.5 mb-2 text-[13px] text-pt-muted">Requests for this day open on <b className="text-pt-text">{formatDay(opensOn, { weekday: 'short', month: 'short', day: 'numeric' })}</b> (bookings open {aheadDays} days ahead). You can see who's booked.</p>
       )}
-      {(canBook || team) && !notOpen && (
-        <div className="flex justify-end -mt-1 mb-2">
-          <button onClick={onOffsite} className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full bg-pt-raised shadow-hairline text-[13px] text-pt-text">
-            <Icon name="pin" className="w-4 h-4 text-sky-300" />Somewhere else? Book offsite
-          </button>
-        </div>
-      )}
       {grid}
       {waitInfo && <p role="status" onClick={() => setWaitInfo('')} className="fixed inset-x-4 bottom-6 z-[60] mx-auto max-w-md rounded-2xl bg-pt-raised shadow-float px-4 py-3 text-[14px] text-pt-text"><Icon name="bell" className="inline w-4 h-4 mr-1.5 text-pt-accent" />{waitInfo}</p>}
       <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-[12px] text-pt-muted">
@@ -524,6 +536,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-[#3A4A63]" />Filming</span>
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-pt-accent" />You</span>
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border border-dashed border-amber-400" />Waiting for OK</span>
+        <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-[repeating-linear-gradient(135deg,#2A2140_0_3px,#3A2D5C_3px_6px)] shadow-[inset_0_0_0_1px_rgba(167,139,250,0.5)]" />Blocked (cleaners, events…)</span>
       </div>
       {!team && canBook && (
         <p className="flex items-start gap-2 mt-3 text-[12px] text-pt-muted">
@@ -546,7 +559,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   </>)
   // Laptop: the day sits next to the month instead of sliding up.
   if (inline) return <section className="rounded-[20px] shadow-hairline p-4"><h2 className="text-pt-text text-[20px] font-semibold mb-3">{title}</h2>{body}</section>
-  return <BottomSheet open onClose={onClose} title={title}>{body}</BottomSheet>
+  return <BottomSheet open onClose={onClose}>{body}</BottomSheet>
 }
 
 // Offsite or location shoot: any start and end time (half hours) + where. Also used to move one.
