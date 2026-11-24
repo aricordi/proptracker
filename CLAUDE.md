@@ -3073,6 +3073,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       photos), studio basics, speed, photo cards + buttons, deals, 2-week limit, denial follow-up, friends filming, closet_list,
       substitutes, report photos, Did you film?, option A (✦ AI = ChatGPT/Claude, app chat = how-to), day view polish, review
       fixes (team decision beats "we filmed", no swaps with priority/past the limit, swaps only after agreeing).
+    - ONE DAY VIEW FOR EVERYONE (owner, Nov 24: "Maanik said it looked the same as the old one"; version 1.4.1; app only, NO server
+      change except appGuide text): the day grid moved to `src/components/DayGrid.tsx` (DayPickSheet + useSkipsGuideline, optional
+      `note`) and is used by Schedule, the phone Requests month (ApprovalsScreen, replaced the old list DaySheet; booking → open /
+      the request, free → /schedule?day=<d>&tap=<house>.<start>.<end> which opens Book or Block straight away) and the laptop
+      Requests (DeskApprovals: month day or a week heading → the day view). `MiniDayGrid` (read only, same colours) = shoot "See in
+      calendar" (DayLineup), swap preview, arts Calendar "Who's filming this day" (pc.artsDayGrid). Week board = same palette
+      (#3A4A63 bookings, purple blocks, dashed amber requests, dashed gold free clickable by gear staff), 9 AM start + Show all times.
+      Admins (can't book) see "Free" without "+". NEW DAY/CALENDAR VIEWS: build on DayGrid, never a new list style.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

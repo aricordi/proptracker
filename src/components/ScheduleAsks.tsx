@@ -4,8 +4,9 @@ import Avatar from './Avatar'
 import { Icon } from './Icon'
 import { ChatCard, SlotTile, primaryBtn, secondaryBtn } from './ChatCard'
 import { formatDay } from '../lib/dates'
-import { fmtTime, nowStamp } from '../../functions/src/gearBooking'
-import { useScheduleSettings, useScheduleDays, answerSwap, answerInvite, fmtSlot, errorText, HOUSES, houseBookings, hardBlocks, freeGaps, type DayBooking, type House, type ScheduleDay, type SwapRequest, type ScheduleInvite } from '../services/schedule'
+import { fmtTime } from '../../functions/src/gearBooking'
+import { useScheduleSettings, useScheduleDays, answerSwap, answerInvite, fmtSlot, errorText, type DayBooking, type SwapRequest, type ScheduleInvite } from '../services/schedule'
+import { MiniDayGrid, type GridTone } from './DayGrid'
 
 // Same card anatomy as the rest of the chat (ChatCard): icon/avatar, coloured label, the key fact big, time tiles
 // instead of sentences, one big button (owner, Nov 3: guide the eye with the design, not with paragraphs).
@@ -75,29 +76,6 @@ export function InviteAsk({ inv, now }: { inv: ScheduleInvite; now: string; urge
   )
 }
 
-// One house's day as a timeline (free time, Nov 24): every booking at its real hours, blocks, and the free stretches in between.
-type LineRow = { start: number; end: number; text: string; cls: string }
-function HouseTimeline({ day, date, house, label }: { day: ScheduleDay | undefined; date: string; house: House; label: (b: DayBooking) => { text: string; cls: string } }) {
-  const s = useScheduleSettings()
-  const rows: LineRow[] = [
-    ...houseBookings(day, house, s, nowStamp()).map(b => ({ start: b.start, end: b.end, ...label(b) })),
-    ...hardBlocks(day).filter(b => b.house === house).map(b => ({ start: b.start, end: b.end, text: b.note || 'Blocked', cls: 'bg-pt-surface text-pt-muted' })),
-    ...freeGaps(day, date, house, s, nowStamp()).map(g => ({ start: g.start, end: g.end, text: 'Free', cls: 'text-pt-accent border border-dashed border-pt-accent/60' })),
-  ].sort((x, y) => x.start - y.start)
-  return (
-    <div className="space-y-1">
-      <p className="text-[12px] text-pt-muted px-1">{s.houses[house].name}</p>
-      {rows.length === 0 && <p className="text-[14px] text-pt-muted/60 px-1">Nothing left that day</p>}
-      {rows.map((r, i) => (
-        <div key={i} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[14px] ${r.cls}`}>
-          <span className="w-[112px] shrink-0 tabular-nums text-[13px] opacity-80">{fmtTime(r.start)}–{fmtTime(r.end % 1440)}</span>
-          <span className="min-w-0 truncate">{r.text}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 // "See in calendar" on Your shoot (owner, Nov 4): the whole day at both houses, your shoot in gold, so you can see who
 // films before and after you. Names only (the schedule is visible to every creator anyway).
 export function DayLineup({ date, shootId }: { date: string; shootId: string }) {
@@ -106,14 +84,14 @@ export function DayLineup({ date, shootId }: { date: string; shootId: string }) 
   if (days === null) return <p className="text-pt-muted text-sm">Loading the day…</p>
   const label = (b: DayBooking) => {
     const e = b.entry, you = !!e.shootId && e.shootId === shootId
-    return you ? { text: 'You', cls: 'bg-pt-accent text-stone-900 font-bold' }
-      : { text: e.shootId ? `${e.name}${e.withNames?.length ? ` + ${e.withNames.join(', ')}` : ''}${e.pending ? ' (asked)' : ''}` : `Held · ${e.name}`, cls: 'bg-pt-surface text-pt-text' }
+    return you ? { text: 'You', tone: 'you' as GridTone }
+      : { text: e.shootId ? `${e.name.split(' ')[0]}${e.withNames?.length ? ` + ${e.withNames.map(n => n.split(' ')[0]).join(', ')}` : ''}` : `Held · ${e.name.split(' ')[0]}`, tone: (e.pending || !e.shootId ? 'waiting' : 'other') as GridTone }
   }
   const offsite = day?.offsite ?? []
   return (
     <div className="rounded-xl bg-pt-bg/60 p-2 space-y-3">
       <p className="text-[14px] text-pt-muted px-1">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} at the houses</p>
-      {HOUSES.map(h => <HouseTimeline key={h} day={day} date={date} house={h} label={label} />)}
+      <MiniDayGrid date={date} day={day} label={label} />
       {offsite.length > 0 && <p className="text-[12px] text-pt-muted px-1">Offsite that day: {offsite.map(o => o.shootId === shootId ? 'You' : o.name).join(', ')}</p>}
     </div>
   )
@@ -128,15 +106,15 @@ function SwapPreview({ r }: { r: SwapRequest }) {
   if (days === null) return <p className="text-pt-muted text-sm">Loading the day…</p>
   const label = (b: DayBooking) => {
     const e = b.entry
-    if (e.shootId && e.shootId === r.fromShootId) return { text: 'You (after swap)', cls: 'bg-pt-accent text-stone-900 font-bold' }
-    if (e.shootId && e.shootId === r.toShootId) return { text: `${r.fromName.split(' ')[0]} (after swap)`, cls: 'bg-sky-400/20 text-sky-100' }
-    return { text: e.shootId ? e.name : `Held · ${e.name}`, cls: 'bg-pt-surface text-pt-text' }
+    if (e.shootId && e.shootId === r.fromShootId) return { text: 'You (after swap)', tone: 'you' as GridTone }
+    if (e.shootId && e.shootId === r.toShootId) return { text: `${r.fromName.split(' ')[0]} (after swap)`, tone: 'sky' as GridTone }
+    return { text: e.shootId ? e.name.split(' ')[0] : `Held · ${e.name.split(' ')[0]}`, tone: (e.pending || !e.shootId ? 'waiting' : 'other') as GridTone }
   }
   const offsite = day?.offsite ?? []
   return (
     <div className="rounded-xl bg-pt-bg/60 p-2 space-y-3">
       <p className="text-[14px] text-pt-muted px-1">{formatDay(d, { weekday: 'long', month: 'short', day: 'numeric' })} after the swap</p>
-      {HOUSES.map(h => <HouseTimeline key={h} day={day} date={d} house={h} label={label} />)}
+      <MiniDayGrid date={d} day={day} label={label} />
       {offsite.length > 0 && <p className="text-[12px] text-pt-muted px-1">Offsite that day: {offsite.map(o => o.name).join(', ')}</p>}
     </div>
   )

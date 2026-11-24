@@ -13,7 +13,7 @@ import { formatDay } from '../lib/dates'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, decideBooking, fmtSlot, houseBookings, hardBlocks, houseOpen, houseClose, BLOCK_TYPES, HOUSES,
+  useScheduleSettings, decideBooking, fmtSlot, houseBookings, hardBlocks, freeGaps, houseOpen, houseClose, BLOCK_TYPES, HOUSES, MIN_BOOKING_MINUTES,
   type House, type Shoot, type ScheduleDay, type UserStatus,
 } from '../services/schedule'
 import { factsFor, reqKey, placeName, reqHours, ago, hoursWaiting, REASONS, type Req } from './requestFacts'
@@ -21,6 +21,7 @@ import type { Pair } from '../lib/collabs'
 import { useKeys } from './desk'
 import { GiveSlotSheet, ClashList, type GiveTarget } from '../components/GiveSlotSheet'
 import { isOwnFileLink } from '../lib/safeLink'
+import { DayPickSheet } from '../components/DayGrid'
 
 const TONE: Record<string, string> = { red: 'bg-red-400/15 text-red-300', amber: 'bg-amber-400/15 text-amber-200', green: 'bg-green-400/10 text-green-300',
   gold: 'bg-pt-accent/15 text-pt-accent', muted: 'bg-pt-raised text-pt-muted' }
@@ -31,7 +32,9 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
 }) {
   const [give, setGive] = useState<GiveTarget | null>(null)
   const navigate = useNavigate()
-  const { profile, canSeeStaff } = useSession()
+  const { profile, canSeeStaff, isGearStaff } = useSession()
+  // The day view (same as Schedule and the phone's Requests): from a month day or a day heading on the week board.
+  const [dayOpen, setDayOpen] = useState<string | null>(null)
   const s = useScheduleSettings()
   const today = todayInStudio()
   const [now, setNow] = useState(nowStamp())
@@ -138,12 +141,13 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
         <div className="flex-1 min-h-0 overflow-auto px-4 py-4">
           {days === null ? <p className="text-pt-muted text-sm">Loading…</p> : view === 'month' ? (
             <div className="max-w-[900px]">
-              <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team onPick={d => { setWeek(mondayOf(d)); setView('week') }} />
-              <p className="text-pt-muted text-xs mt-3">Tap a day to open its week.</p>
+              <MonthGrid month={month} days={days} s={s} email={profile.email} now={now} today={today} team onPick={d => { setWeek(mondayOf(d)); setDayOpen(d) }} />
+              <p className="text-pt-muted text-xs mt-3">Click a day to see it hour by hour.</p>
             </div>
           ) : (
             <WeekBoard weekDays={weekDays} days={days} today={today} now={now} sel={cur} byId={byId} instant={instant} flagged={flagged} reqs={queue}
-              onReq={select} onShoot={id => navigate(`/schedule?shoot=${encodeURIComponent(id)}`)} />
+              onReq={select} onShoot={id => navigate(`/schedule?shoot=${encodeURIComponent(id)}`)} onDay={setDayOpen}
+              onFree={isGearStaff ? (d, h, st, en) => navigate(`/schedule?day=${d}&tap=${h}.${st}.${en}`) : undefined} />
           )}
         </div>
       </div>
@@ -183,6 +187,21 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
           : <div className="flex-1" />}
       </aside>
       {give && <GiveSlotSheet t={give} onClose={() => setGive(null)} />}
+      {dayOpen && days && <DayPickSheet date={dayOpen} day={days[dayOpen]} team={isGearStaff} lockFree teamView canBook={false} now={now}
+        note={queue.some(r => r.date === dayOpen) ? `${queue.filter(r => r.date === dayOpen).length} waiting for a yes or no this day (dashed). Click one to decide it.` : undefined}
+        onClose={() => setDayOpen(null)} onDay={setDayOpen}
+        onTap={(st, h, start, end) => {
+          if (st.t === 'booked' || st.t === 'held') {
+            const r = queue.find(x => x.date === dayOpen && x.shoot.id === st.entry.shootId)
+            setDayOpen(null)
+            if (r) select(r); else if (st.entry.shootId) navigate(`/schedule?shoot=${encodeURIComponent(st.entry.shootId)}`)
+            return
+          }
+          if (!isGearStaff) return
+          setDayOpen(null); navigate(`/schedule?day=${dayOpen}${st.t === 'free' ? `&tap=${h}.${start}${end ? `.${end}` : ''}` : ''}`)
+        }}
+        onShoot={id => { setDayOpen(null); navigate(`/schedule?shoot=${encodeURIComponent(id)}`) }}
+        onOffsite={() => { setDayOpen(null); navigate(`/schedule?offsite=${dayOpen}`) }} />}
       {toast && <div role="status" className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-50 px-4 py-2.5 rounded-xl shadow-float text-[14px] font-semibold ${toast.ok ? 'bg-pt-raised text-pt-text' : 'bg-red-600 text-white'}`}>{toast.text}</div>}
     </div>
   )
@@ -190,15 +209,21 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
 
 const Kbd = ({ children }: { children: React.ReactNode }) => <kbd className="mx-0.5 px-1.5 py-px rounded bg-pt-raised text-pt-text font-mono text-xs">{children}</kbd>
 
-function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, reqs, onReq, onShoot }: {
+function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, reqs, onReq, onShoot, onDay, onFree }: {
   weekDays: string[]; days: Record<string, ScheduleDay>; today: string; now: string; sel: Req | null; byId: Map<string, Shoot>; instant: Set<string>
   flagged: (email: string) => boolean; reqs: Req[]; onReq: (r: Req) => void; onShoot: (id: string) => void
+  onDay: (d: string) => void; onFree?: (d: string, h: House, start: number, end: number) => void
 }) {
   const s = useScheduleSettings()
   const reqAt = (date: string, h: House, st: number) => reqs.find(r => r.date === date && r.place === h && r.start === st)
   const cols = `56px repeat(${weekDays.length * HOUSES.length}, minmax(42px, 1fr))`
   // Free time (Nov 24): each house-day is a timeline, bookings sit at their real hours (28 px an hour).
-  const PX = 28, open = houseOpen(s), close = houseClose(s), H = (close - open) / 60 * PX
+  // Same look as the day view (owner, Nov 24): starts at 9 AM unless something this week is earlier; "Show all times" for the rest.
+  const [early, setEarly] = useState(false)
+  const houseStart = houseOpen(s), close = houseClose(s)
+  const firstThing = Math.min(...weekDays.flatMap(d => HOUSES.flatMap(h => [...houseBookings(days[d], h, s, now).map(b => b.start), ...hardBlocks(days[d]).filter(b => b.house === h).map(b => b.start)])), 24 * 60)
+  const open = early ? houseStart : Math.max(houseStart, Math.min(9 * 60, Math.floor(firstThing / 60) * 60))
+  const PX = 28, H = (close - open) / 60 * PX
   const y = (m: number) => Math.max(0, Math.min(H, (m - open) / 60 * PX))
   const hours: number[] = []; for (let m = Math.ceil(open / 60) * 60; m < close; m += 60) hours.push(m)
   const nowMin = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
@@ -208,26 +233,35 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
     const items = [
       ...hardBlocks(day).filter(b => b.house === h).map(block => {
         const who = block.note || BLOCK_TYPES[block.type]
-        return { key: `b${block.id}`, start: block.start, end: block.end, cls: 'bg-[repeating-linear-gradient(135deg,#161618_0_7px,#1F1F22_7px_14px)] text-pt-muted', who, sub: 'blocked', title: who, click: undefined as (() => void) | undefined, dot: false, on: false, faded: false }
+        return { key: `b${block.id}`, start: block.start, end: block.end, cls: 'bg-[repeating-linear-gradient(135deg,#2A2140_0_6px,#3A2D5C_6px_12px)] shadow-[inset_0_0_0_1px_rgba(167,139,250,0.35)] text-violet-100', who, sub: 'blocked', title: who, click: undefined as (() => void) | undefined, dot: false, on: false, faded: false }
       }),
       ...houseBookings(day, h, s, now).map(bk => {
         const e = bk.entry, r = reqAt(date, h, bk.start)
-        let cls = 'bg-pt-surface text-pt-text', sub = '', click: (() => void) | undefined, title = e.name
+        let cls = 'bg-[#3A4A63] text-white', sub = '', click: (() => void) | undefined, title = e.name
         const sh = e.shootId ? byId.get(e.shootId) : undefined
         const who = `${e.name.split(' ')[0]}${e.withNames?.length ? ` +${e.withNames.length}` : ''}`
-        if (e.hold) { cls = 'bg-amber-400/[0.06] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.4)]'; sub = 'held'; title = `Held for ${e.name}` }
+        if (e.hold) { cls = 'bg-amber-400/[0.14] border border-dashed border-amber-400/70 text-amber-100'; sub = 'held'; title = `Held for ${e.name}` }
         else if (e.pending && e.move) { cls = 'bg-sky-400/[0.08] shadow-[inset_0_0_0_1px_rgba(124,196,250,0.6)] text-sky-200'; sub = 'wants to move here'; if (r) click = () => onReq(r) }
-        else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'waiting'; if (r) click = () => onReq(r) }
+        else if (e.pending) { cls = 'bg-amber-400/[0.14] border border-dashed border-amber-400/70 text-amber-100'; sub = 'waiting'; if (r) click = () => onReq(r) }
         else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; title = `${e.name} (priority)`; click = () => onShoot(e.shootId) }
         else { sub = sh?.moveRequest ? 'moving…' : sh?.checkin ? 'checked in' : ''; click = () => onShoot(e.shootId) }
         if (e.withNames?.length) title += ` with ${e.withNames.join(', ')}`
         return { key: bk.key, start: bk.start, end: bk.end, cls, who, sub, title, click, dot: !!e.email && flagged(e.email), on: !!(sel && r && reqKey(sel) === reqKey(r)), faded: !!(sh?.moveRequest && !e.pending) }
       }),
     ]
+    // Free stretches (30 min or more): gold dashed outline like the day view; the team can click one to book or block it.
+    const free = date < today ? [] : freeGaps(day, date, h, s, now, MIN_BOOKING_MINUTES).filter(g => g.end > open)
     return (
       <div key={`${date}${h}`} className={`relative rounded-[7px] bg-white/[0.025] ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`} style={{ height: H }}>
         {hours.map(m => <i key={m} className="absolute left-0 right-0 border-t border-white/[0.04]" style={{ top: y(m) }} />)}
         {pastTo > 0 && <i className="absolute left-0 right-0 top-0 bg-pt-bg/60 rounded-t-[7px] z-[1] pointer-events-none" style={{ height: pastTo }} />}
+        {free.map(g => {
+          const a = Math.max(g.start, open), tall = y(g.end) - y(a)
+          return <button key={`f${g.start}`} disabled={!onFree} onClick={() => onFree?.(date, h, a, g.end)}
+            title={`${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · free ${fmtTime(g.start % 1440)}–${fmtTime(g.end % 1440)}`}
+            className={`absolute left-[2px] right-[2px] rounded-[6px] border border-dashed border-pt-accent/45 text-pt-accent text-[12px] leading-tight px-1 text-left overflow-hidden ${onFree ? 'hover:bg-pt-accent/10' : ''}`}
+            style={{ top: y(a) + 1, height: Math.max(10, tall - 2) }}>{tall >= 18 ? 'Free' : ''}</button>
+        })}
         {items.map(it => (
           <button key={it.key} disabled={!it.click} onClick={it.click}
             title={`${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtTime(it.start)}–${fmtTime(it.end % 1440)} · ${it.title}`}
@@ -246,13 +280,19 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: cols }}>
         <span />
         {weekDays.map(d => (
-          <div key={d} className={`text-center pb-0.5 font-semibold text-[13px] ${d === today ? 'text-pt-accent' : 'text-pt-text'}`} style={{ gridColumn: `span ${HOUSES.length}` }}>
+          <button key={d} onClick={() => onDay(d)} title="See this day hour by hour" className={`text-center pb-0.5 font-semibold text-[13px] rounded-lg hover:bg-white/[0.05] ${d === today ? 'text-pt-accent' : 'text-pt-text'}`} style={{ gridColumn: `span ${HOUSES.length}` }}>
             {formatDay(d, { weekday: 'short' })} {Number(d.slice(8))}
             <span className="block text-xs font-normal text-pt-muted">{d === today ? 'today' : weekday(d) === 0 ? 'no crew' : (s.priorityWeekdays.includes(weekday(d)) ? 'priority' : ' ')}</span>
-          </div>
+          </button>
         ))}
         <span />
         {weekDays.map(d => HOUSES.map(h => <div key={`${d}${h}`} className={`text-center text-xs text-pt-muted pb-1 border-b border-white/[0.06] ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`}>{s.houses[h].name}</div>))}
+        {(open > houseStart || early) && (
+          <button onClick={() => setEarly(e => !e)} className="text-left text-[13px] py-1.5 flex items-center gap-3" style={{ gridColumn: '1 / -1' }}>
+            <span className="text-pt-muted">{early ? `Showing ${fmtTime(houseStart)}–${fmtTime(close % 1440)}` : 'Starts at 9 AM'}</span>
+            <span className="font-semibold text-pt-accent">{early ? 'From 9 AM' : 'Show all times'}</span>
+          </button>
+        )}
         <div className="relative" style={{ height: H }}>
           {hours.map(m => <span key={m} className="absolute right-2 -translate-y-1/2 text-pt-muted text-xs tabular-nums" style={{ top: y(m) }}>{fmtTime(m % 1440)}</span>)}
         </div>
@@ -271,11 +311,12 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
         ))}
       </div>
       <div className="flex flex-wrap gap-4 mt-4 text-pt-muted text-xs">
-        <Key c="bg-pt-surface">Approved</Key>
-        <Key c="bg-amber-400/20 shadow-[inset_0_0_0_1px_rgba(245,184,61,0.7)]">Request waiting</Key>
+        <Key c="border border-dashed border-pt-accent/70">Free</Key>
+        <Key c="bg-[#3A4A63]">Approved</Key>
+        <Key c="bg-amber-400/20 border border-dashed border-amber-400">Request waiting</Key>
         <Key c="bg-sky-400/20 shadow-[inset_0_0_0_1px_rgba(124,196,250,0.7)]">Wants to move (old time faded)</Key>
         <Key c="bg-pt-accent/25 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.7)]">Books without approval (Kyle)</Key>
-        <Key c="bg-[repeating-linear-gradient(135deg,#161618_0_3px,#2a2a2e_3px_6px)]">Blocked</Key>
+        <Key c="bg-[repeating-linear-gradient(135deg,#2A2140_0_3px,#3A2D5C_3px_6px)] shadow-[inset_0_0_0_1px_rgba(167,139,250,0.5)]">Blocked (cleaners, events…)</Key>
         <span className="flex items-center gap-1.5"><i className="w-2 h-2 rounded-full bg-red-400" />Strikes or a no-show (30 days)</span>
       </div>
     </div>

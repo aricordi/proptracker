@@ -12,6 +12,7 @@ import { STATUS_STYLES, statusLabel } from '../lib/reservationLabels'
 import { Icon } from '../components/Icon'
 import { PageHeader, EmptyState } from '../components/PageHeader'
 import { useSession } from '../auth'
+import { MiniDayGrid, type GridTone } from '../components/DayGrid'
 
 const BEFORE = 7, AFTER = 42
 
@@ -33,6 +34,11 @@ export default function RequestsCalendarScreen() {
     return m
   }, [live])
   const shown = byDay[day] ?? []
+  // Who's filming that day (owner, Nov 24: every team sees the same day view): the read-only day grid, shoots with a
+  // props request in gold. Folded or open is remembered on this device.
+  const [grid, setGrid] = useState(() => { try { return localStorage.getItem('pc.artsDayGrid') !== '0' } catch { return true } })
+  const toggleGrid = () => setGrid(g => { try { localStorage.setItem('pc.artsDayGrid', g ? '0' : '1') } catch { /* private mode */ } return !g })
+  const withProps = new Set(shown.map(r => r.scheduleShootId).filter(Boolean) as string[])
   const stripRef = useRef<HTMLDivElement>(null)
   // Today in the middle of the strip, without scrolling the page itself.
   useEffect(() => {
@@ -69,6 +75,19 @@ export default function RequestsCalendarScreen() {
       <div className="px-4 space-y-3">
         <p className="text-pt-text text-[20px] font-semibold tracking-heading">{day === today ? 'Today' : formatDay(day, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         {pickup !== day && shown.length > 0 && <p className="text-amber-300 text-sm -mt-2">The prop room is closed that day: these are picked up {formatDay(pickup, { weekday: 'long' })}.</p>}
+        <div className="rounded-2xl bg-pt-surface/40">
+          <button onClick={toggleGrid} aria-expanded={grid} className="w-full min-h-[44px] px-3 flex items-center justify-between text-[15px]">
+            <span className="text-pt-text font-semibold">Who's filming this day</span>
+            <span className="text-pt-accent text-[14px] font-semibold">{grid ? 'Hide' : 'Show'}</span>
+          </button>
+          {grid && (days === null ? <p className="text-pt-muted text-sm px-3 pb-3">Loading the day…</p> : (
+            <div className="px-2 pb-2">
+              <MiniDayGrid date={day} day={days?.[day]} label={b => ({ text: `${b.entry.name.split(' ')[0]}${b.entry.withNames?.length ? ` + ${b.entry.withNames.length}` : ''}`,
+                tone: (b.entry.pending || b.entry.hold ? 'waiting' : withProps.has(b.entry.shootId) ? 'you' : 'other') as GridTone })} />
+              <p className="text-pt-muted text-[12px] mt-2 px-1">Gold = has a props request below. Dashed = waiting for the schedule team's OK. Purple = blocked.</p>
+            </div>
+          ))}
+        </div>
         {list === null && <p className="text-pt-muted text-sm">Loading…</p>}
         {list !== null && shown.length === 0 && <EmptyState icon="calendar" title="No props requests this day" line="Pick another day above. Days with requests show a number." />}
         {shown.map(r => {

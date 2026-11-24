@@ -81,7 +81,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
     <div class="eyebrow">Prime Capitol app · Equipment team manual</div>
     <h1>Running the schedule and the gear</h1>
     <p class="lede">For the equipment team: approve bookings, keep the calendars straight, block time, and look after the gear. Find what you want to do and follow the steps. Every card works on its own.</p>
-    <div class="meta"><span class="chip">For app version 1.4.0</span><span class="chip">Updated Nov 24, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
+    <div class="meta"><span class="chip">For app version 1.4.1</span><span class="chip">Updated Nov 24, 2026</span><span class="chip">proptracker.arbcreative.co</span><span class="chip">Phone and laptop</span></div>
   </header>
 
   <div class="search"><input id="q" type="search" placeholder="What do you want to do? Try “approve”, “clash”, “missing”…" aria-label="Search this manual"><div class="count" id="count"></div></div>
@@ -201,9 +201,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
         <li>Press <b>A</b> to approve. The next request is selected by itself.</li>
         <li>Press <b>D</b> to deny: pick a reason or type one, press Enter to send, Esc to back out.</li>
         <li>Press <b>J</b> / <b>K</b> for the next / previous request without deciding.</li>
-        <li>Press <b>W</b> for the week board, <b>M</b> for the month, the left/right arrow keys to change week (or month), <b>T</b> to jump back to this week. Click a booking to open that booking.</li>
+        <li>Press <b>W</b> for the week board, <b>M</b> for the month, the left/right arrow keys to change week (or month), <b>T</b> to jump back to this week. Click a booking to open that booking. Click a day's heading (or a day in Month) to see it hour by hour.</li>
       </ol>
-      <div class="tip"><b>Tip:</b> On the board, dashed amber = request, blue = wants to move (the old time is faded), gold = books without approval (Kyle), hatched = blocked, red dot = the creator had strikes or a no-show in the last 30 days.</div>
+      <div class="tip"><b>Tip:</b> The board uses the day view's colours and starts at 9 AM (<span class="ui">Show all times</span> for earlier): blue-grey = approved, dashed amber = request, blue = wants to move (the old time is faded), gold = books without approval (Kyle), purple = blocked, dashed gold = free (click to book or block), red dot = the creator had strikes or a no-show in the last 30 days.</div>
       <div class="warn"><b>Bulk approve:</b> tick several requests in the waiting list on the right, then click <span class="ui">Approve N ticked</span>. Each creator gets a notification, so only tick the ones you checked.</div>
     </div>
   </section>
@@ -263,11 +263,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
       <p class="why">Fastest way to answer "who is in Cliff 2 on Friday?"</p>
       <ol>
         <li>On <span class="ui">Schedule</span> tap the day in the month calendar.</li>
-        <li>The day sheet shows Cliff 1 and Cliff 2 as timelines, every booking at its real time, with free stretches in gold: names, requests (dashed amber, "asked"), blocks, heads-ups (amber note at the top) and offsite shoots (underneath).</li>
-        <li>Tap a name to open that booking. Tap a free time to book or block it.</li>
+        <li>The day opens like a Google Calendar day: Cliff 1 and Cliff 2 side by side, hours down the side from 9 AM, every booking a block at its real time (blue-grey; dashed amber = waiting for OK), blocked time purple, free time a dashed gold outline. Heads-ups sit at the top, offsite shoots underneath. <span class="ui">Show all times</span> shows the hours before 9 AM; ‹ › change day.</li>
+        <li>Tap a booking to open it. Tap a free time to book or block it.</li>
       </ol>
       <div class="tip"><b>Tip:</b> Use the <span class="ui">Cliff 1</span> / <span class="ui">Cliff 2</span> / <span class="ui">All</span> switch above the month. Under each day a bar shows how free the house is (bright = free, faded = partly free; "Full" when nothing is free). All shows a bar for each house (C1 and C2). Priority days count as free for you, because you can book them for anyone.</div>
-      <div class="warn"><b>Watch out:</b> Tapping a day on the <span class="ui">Requests</span> month shows that day at both houses, with any heads-up at the top: tap a name to open the booking. To book or block a free time, tap the <span class="ui">Schedule</span> link there (it opens the same day).</div>
+      <div class="warn"><b>Watch out:</b> Tapping a day on the <span class="ui">Requests</span> month opens the same day view. Tap a dashed amber booking to open the request, or a free time to go straight to Book or Block.</div>
     </div>
   </section>
 

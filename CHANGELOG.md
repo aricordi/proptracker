@@ -12,6 +12,18 @@ Each manual says which version it was written for.
 
 
 
+## 1.4.1 · Nov 24, 2026
+
+- **Every team sees the new day view.** Tapping a day on **Requests** (equipment team, admins, owner) now opens the same
+  Google-Calendar-style day as the Schedule: both houses side by side, hours down the side from 9 AM ("Show all times" for
+  earlier), bookings as blocks at their real times, blocked time in purple, free time as a dashed gold outline. Tap a request
+  to open it, or a free time to book or block it.
+- **Laptop week board in the same colours**, starting at 9 AM, with free time shown and clickable. Click a day's heading
+  (or a day in Month) to see it hour by hour.
+- **Arts department:** the Calendar now has "Who's filming this day" under each day (same view, shoots with a props
+  request in gold).
+- "See in calendar" on a shoot and the swap preview show the same day view (smaller) instead of a list.
+
 ## 1.4.0 · Nov 24, 2026
 
 - **Pick up and return props from ChatGPT or Claude.** The assistant now follows up on props requests: it says what is
