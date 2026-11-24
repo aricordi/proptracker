@@ -10,7 +10,7 @@ import { PageHeader, EmptyState } from '../components/PageHeader'
 
 const KINDS = [
   { k: 'all', label: 'Everything' }, { k: 'approvals', label: 'Approvals' }, { k: 'changes', label: 'Moves & changes' },
-  { k: 'calendar', label: 'Google Calendar' }, { k: 'checkins', label: 'Check-ins & reports' },
+  { k: 'calendar', label: 'Google Calendar' }, { k: 'checkins', label: 'No-shows & reports' },
 ] as const
 const UNDO_WORDS: Record<string, string> = {
   unapprove: 'Puts it back to "waiting for approval".', rebook: 'Books the same time for them again, if it is still free.',
