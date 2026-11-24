@@ -17,7 +17,7 @@
 //   kind 'offAppPeople' {names: [string]} → owner, Nov 23: adds people who aren't on the app yet (no access), like People → Add.
 //   kind 'mergePerson' {from, to, apply?} → owner, Nov 23: People → Change their email (preview without apply; apply moves everything).
 //   kind 'oldCalendars' {on} → owner, Nov 23: checks the app can write to each calendar, then turns "Write app bookings into the
-//                       old calendars" on (only when every old calendar is writable) or off. Only that one setting is written.
+//                       old calendars" on (only when the calendars it writes new bookings to are writable) or off. Only that one setting is written.
 // Long imports continue in a fresh task (continues: <id>, round n) so no run hits the 9-minute limit.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore'
 import { logger } from 'firebase-functions'
@@ -30,6 +30,7 @@ import { folderIdFrom, listSubfolders, listShortcuts, listImages } from './drive
 import { moveShoot, addOffAppPerson } from './scheduling.js'
 import { changeUserEmail } from './emailMove.js'
 import { checkCalendarAccess } from './calendar.js'
+import { cleanScheduleSettings, oldCalendarFor } from './schedule.js'
 
 const BUDGET_MS = 470_000
 const MAX_ROUNDS = 40
@@ -189,7 +190,12 @@ export const runAdminTask = onDocumentCreated({ document: 'admin_tasks/{id}', se
       const acc = await checkCalendarAccess.run(asOwner({})) as { account: string; calendars: { id: string; name: string; role: string; canWrite: boolean; error?: string }[] }
       acc.calendars.forEach(c => say(`${c.name}: ${c.role}${c.canWrite ? ' (can write)' : ' (CANNOT write)'}${c.error ? ' · ' + c.error : ''}`))
       const on = task.on !== false
-      const blocked = acc.calendars.filter(c => !c.canWrite)
+      // Only the calendars the app writes NEW bookings to must be writable (owner, Nov 24): the app calendar + the old
+      // calendar for Cliff 1, Cliff 2 and offsite. Read-only others are reported; edits to shoots from them just stay app-side.
+      const ss = cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data() ?? {})
+      const needed = new Set([ss.googleCalendarId, ...(['cliff1', 'cliff2', 'offsite'] as const).map(p => oldCalendarFor(ss, p)?.id ?? '')].filter(Boolean))
+      const blocked = acc.calendars.filter(c => !c.canWrite && needed.has(c.id))
+      acc.calendars.filter(c => !c.canWrite && !needed.has(c.id)).forEach(c => say(`${c.name}: read only, not needed for new bookings (left as is)`))
       if (on && blocked.length) {
         say(`Not turned on: the app can't write to ${blocked.map(c => c.name).join(', ')} (account ${acc.account || '?'})`)
         await ref.update({ status: 'done', result: { turnedOn: false, access: acc }, log, finishedAt: new Date().toISOString() })
