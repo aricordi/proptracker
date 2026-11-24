@@ -21,7 +21,7 @@ const ask = (text: string, field: string, options: Json[] = []): { ask: ToolResu
 
 export interface Known { shoots: ShootRef[]; requests: RequestRef[]; invites: Named[]; swaps: Named[]; waitlist: Named[]; out: (Named & { kind: 'props' | 'gear' })[] }
 /** What the person has, to make sense of "my saturday shoot" (real data, or the reviewer's practice copy). */
-async function knownFor(u: McpUser): Promise<Known> {
+export async function knownFor(u: McpUser): Promise<Known> {
   if (u.reviewer) return sandboxContext(u.sandboxKey ?? 'default')
   const since = addDays(todayInStudio(), -30)
   const [own, crew, res, casts, swaps, waits, gear] = await Promise.all([

@@ -199,6 +199,16 @@ describe('connector tools', () => {
     expect((await tool(t.access_token, 'get_prop', { id: 'red phone' })).structuredContent.id).toBe('phone')
     // A day word that covers several days asks which.
     expect((await tool(t.access_token, 'book_shoot', { place: 'c2', day: 'this weekend', start: '1' })).structuredContent.needs_clarifying).toBe(true)
+    // The context pack: dates with weekdays, their shoots with ids and labels, so the AI resolves words itself.
+    const ctx = (await tool(t.access_token, 'get_context')).structuredContent
+    expect(ctx.days).toHaveLength(14)
+    expect(ctx.days[0]).toMatchObject({ date: today, is: 'today' })
+    expect(ctx.upcoming_shoots.map((x: { day: string }) => x.day)).toEqual([FRI, SAT])
+    expect(ctx.upcoming_shoots[0]).toMatchObject({ weekday: 'Friday', place: 'Cliff 2', start: '13:00', videos: ['Ring Ring'] })
+    expect(ctx.props_requests_open[0]).toMatchObject({ video: 'Ring Ring' })
+    expect(JSON.stringify(ctx)).not.toContain('@example.com')
+    // Exact values are never reinterpreted by the safety net.
+    expect((await tool(t.access_token, 'find_free_times', { from: addDays(FRI, 4), days: 1, houses: ['cliff2'], around: '09:00' })).structuredContent.options[0].start).toBe('09:00')
     // "how do I…" answers from the app guide; my_status suggests what to do next.
     const how = await tool(t.access_token, 'how_to', { question: 'how do i return my props' })
     expect(how.structuredContent.entries.length).toBeGreaterThan(0)
@@ -317,6 +327,7 @@ describe('connector tools', () => {
     const plan = (await tool(T, 'plan_shoot', { with: ['Jordan', 'Kai'], day: FRI })).structuredContent
     expect(plan.length_hours).toBe(6)
     expect(plan.people.map((p: { status: string }) => p.status)).toEqual(['found', 'found'])
+    expect((await tool(T, 'get_context')).structuredContent.upcoming_shoots.length).toBeGreaterThan(0)
     // Turning it off cuts the reviewer off at once.
     await call('reviewerAccount', { action: 'disable' }, OWNER)
     expect((await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: `Bearer ${T}` })).status).toBe(401)

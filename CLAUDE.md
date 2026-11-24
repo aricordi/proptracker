@@ -2944,6 +2944,14 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       id of someone else's shoot/request → "isn't one of your…". New READ tool `how_to` (appGuide searchGuide for the role, links).
       my_status (and the reviewer's) returns `suggestions`; book_shoot results add the props deadline as the next step. Tests: mcp.test.ts
       "understands casual words in every tool…" + reviewer casual checks.
+    - LET THE AI DO THE UNDERSTANDING (owner, Nov 24: "ChatGPT is already really good at reading between the lines… leverage that
+      without hard coding too much"; owner picked steps 1–3): (1) new READ tool `get_context` (tools.ts; lenient.ts knownFor, reviewer
+      sandboxContext): first name/role/can_book, now, next 14 days with weekday names, upcoming shoots (ids, weekday, place, with,
+      videos, props deadline), open props requests, invites/swaps waiting, people filmed with lately (short names + person ids), short
+      rules. INSTRUCTIONS put it first: the AI resolves days/shoots/people itself and passes exact values. (2) lenient.ts stays as a
+      quiet SAFETY NET only for plain words; exact values (YYYY-MM-DD, cliff1, HH:MM with 13+/leading zero, ids) pass through unchanged
+      (tested). (3) Tool/param descriptions say purpose + rules (no phrase lists). NOT done (needs owner OK, costs AI money): a
+      real-model test button running messy creator messages through ChatGPT/Claude on the practice site.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
