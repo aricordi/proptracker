@@ -2974,6 +2974,12 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       ONLY from ChatGPT file hosts (*.oaiusercontent.com, *.openai.com, chatgpt.com) or the creator's own request-photos folder,
       https, ≤12 MB, decodes with sharp, saves request-photos/{email}/ai-*.jpg → build.refPhoto (arts sees it on the request).
       custom.ts CUSTOM_NOTE on every custom reply + INSTRUCTIONS: never give a date; the arts department follows up separately (Slack).
+    - LIVE Nov 24 (owner "ok to everything publish please"): backend run 45344734910 (every function updated; quota retries all
+      succeeded; new mcp, calendarPush, calendarPinged, approveConnector created; Firestore rules + indexes incl. mcp_demand /
+      connector_prefs) + website run 45347690044 = VERSION 1.2.0: ChatGPT/Claude connector (reads casual words, get_context, plan_shoot,
+      how_to, multi-term prop search, custom-prop pictures, anonymous suggestions with a yes), free-time booking, live calendar sync,
+      no check-in. Connector address: https://proptracker.arbcreative.co/mcp. Before an OpenAI directory submission: verified
+      publisher account + support email, turn on the reviewer demo account (More → ChatGPT & Claude).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
