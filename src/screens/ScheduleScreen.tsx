@@ -39,6 +39,7 @@ import {
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive, swapShootsAsTeam,
   freeGaps, conflictAt, houseClose, houseOpen, houseBookings, maxMinutesFor, hardBlocks, priorityLocked, TIME_STEP, MIN_BOOKING_MINUTES,
+  aheadDaysFor,
 } from '../services/schedule'
 import { GiveSlotSheet, type GiveTarget } from '../components/GiveSlotSheet'
 
@@ -367,6 +368,10 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const nowAt = date === nowDay ? (nowMin < open && nowMin + 1440 < close ? nowMin + 1440 : nowMin) : date < nowDay ? close : -1
   const hours: number[] = []
   for (let m = Math.ceil(open / 60) * 60; m < close; m += 60) hours.push(m)
+  // Creators can request about 2 weeks ahead (owner, Nov 24): later days still show every booking, but free time can't be asked for yet.
+  const aheadDays = aheadDaysFor(email, s, team)
+  const notOpen = !team && date > addDays(nowDay, aheadDays)
+  const opensOn = addDays(date, -aheadDays)
   const col = (h: House) => {
     const locked = !lockFree && priorityLocked(date, h, s, email, now)
     const items: React.ReactNode[] = []
@@ -374,13 +379,13 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     for (const g of freeGaps(day, date, h, s, now, TIME_STEP)) {
       const tall = y(g.end) - y(g.start), short = g.end - g.start < MIN_BOOKING_MINUTES
       const guide = !locked && !skipG && canBook && needsGuideline(date, h, email, s)
-      const can = !locked && !short && (canBook || team)
+      const can = !locked && !short && !notOpen && (canBook || team)
       items.push(
         <button key={`f${g.start}`} disabled={!can} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)}
           data-testid={can ? 'free-gap' : undefined} data-house={h}
           style={{ top: y(g.start) + 1, height: Math.max(tall - 2, 10) }}
           className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden flex flex-col justify-start ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'border border-dashed border-white/15 text-pt-muted' : 'border-2 border-dashed border-pt-accent/70 text-pt-accent active:bg-pt-accent/10'}`}>
-          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `+ Free ${hoursText(g.end - g.start)}`}</span>}
+          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{notOpen ? `Free ${hoursText(g.end - g.start)}` : locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `+ Free ${hoursText(g.end - g.start)}`}</span>}
           {tall >= 34 && !locked && <span className="block text-[12px] leading-tight opacity-80 truncate">{fmtTime(g.start % 1440)}–{fmtTime(g.end % 1440)}</span>}
           {tall >= 50 && guide && <span className="block text-[12px] text-amber-200 truncate">Guideline needed</span>}
         </button>)
@@ -502,7 +507,10 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           ))}
         </div>
       )}
-      {(canBook || team) && (
+      {notOpen && canBook && (
+        <p className="rounded-xl bg-white/[0.05] px-3 py-2.5 mb-2 text-[13px] text-pt-muted">Requests for this day open on <b className="text-pt-text">{formatDay(opensOn, { weekday: 'short', month: 'short', day: 'numeric' })}</b> (bookings open {aheadDays} days ahead). You can see who's booked.</p>
+      )}
+      {(canBook || team) && !notOpen && (
         <div className="flex justify-end -mt-1 mb-2">
           <button onClick={onOffsite} className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full bg-pt-raised shadow-hairline text-[13px] text-pt-text">
             <Icon name="pin" className="w-4 h-4 text-sky-300" />Somewhere else? Book offsite

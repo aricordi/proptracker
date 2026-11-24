@@ -3,7 +3,7 @@
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
 import { useState, type ReactNode } from 'react'
-import { freeGaps, houseBookings, houseOpen, houseClose, priorityLocked, headsUps, HOUSES, aheadDaysFor, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { freeGaps, houseBookings, houseOpen, houseClose, priorityLocked, headsUps, HOUSES, aheadDaysFor, BOOK_AHEAD_DAYS, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { Icon } from './Icon'
 
@@ -109,21 +109,24 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
         {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} />)}
         {list.map(date => {
           // Before today, or further ahead than anyone can book (audit, Nov 5: those days showed free slots the server refused).
-          // Creators book about 2 weeks ahead (owner, Nov 24); the team and instant bookers further (schedule.ts aheadDaysFor).
-          const past = date < today || date > addDays(today, aheadDaysFor(email, s, !!team))
+          // Before today (or past the far limit): greyed out. Creators can only REQUEST about 2 weeks ahead (owner, Nov 24), but the
+          // team books further, so later days stay visible and tappable (bookings show) with "Opens …" instead of free time.
+          const past = date < today || date > addDays(today, BOOK_AHEAD_DAYS)
+          const beyond = !past && date > addDays(today, aheadDaysFor(email, s, !!team))
+          const noFree = past || beyond
           const c = countDay(days?.[date], date, houses, s, email, now, lockFree)
           // Your shoots and waiting requests show whichever house is picked; only the free spots follow the switch.
           const all = house === 'all' ? c : countDay(days?.[date], date, HOUSES, s, email, now, lockFree)
           c.mine = all.mine; c.requested = all.requested
           // Full here but the other house has room (owner, Nov 7: one line, in place of "Full", so the day never grows taller) → a small hint so nobody gives up on the day.
-          const alt = other && !past && c.free === 0 ? countDay(days?.[date], date, [other], s, email, now, lockFree).free : 0
+          const alt = other && !noFree && c.free === 0 ? countDay(days?.[date], date, [other], s, email, now, lockFree).free : 0
           // Nothing free only because it's a priority day (audit, Nov 7: it read "Full" though the slots are empty and open to
           // everyone on Sunday): say "Priority" with a lock instead of "Full" or the other-house hint.
-          const prio = !past && c.free === 0 && c.locked > 0
+          const prio = !noFree && c.free === 0 && c.locked > 0
           // Owner, Nov 9: a locked priority day still says when the other house has room ("C2: 3" next to the lock), on the same line.
           const hint = alt > c.free ? alt : 0
           const n = Number(date.slice(8))
-          const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= FEW_MINUTES ? 'few' : 'lots'
+          const level = noFree ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= FEW_MINUTES ? 'few' : 'lots'
           const bar = level === 'few' ? 'bg-amber-300' : 'bg-green-400'
           // Owner, Nov 4: your filming days stand out (gold tint + gold edge), and today is a white circle on the date.
           const mine = !!myDates?.has(date) || (c.mine && !team)
@@ -131,7 +134,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : inVideo ? 'shadow-[inset_0_0_0_2px_#7DD3FC]' : ''
           return (
             <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}${inVideo ? ", you're in someone's video" : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : amount(x.free)}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${amount(c.free)} at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has time` : ''}`}
-              className={`relative ${house === 'all' ? 'aspect-[0.7] lg:aspect-[0.95] pt-1 pb-1.5' : 'aspect-[0.82] pt-1.5 pb-2'} rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
+              className={`relative ${house === 'all' ? 'aspect-[0.7] lg:aspect-[0.95] pt-1 pb-1.5' : 'aspect-[0.82] pt-1.5 pb-2'} rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : beyond ? 'opacity-70 active:opacity-60' : 'active:opacity-80'} ${ring}`}>
               {/* Nov 13 polish: corner dots sit 7px in, clear of the rounded corner and the gold edge; the heads-up dot moves left when the request badge takes the right corner. */}
               {!past && headsUps(days?.[date]).length > 0 && <i className={`absolute top-[7px] lg:top-2.5 ${team && c.requested > 0 ? 'left-[7px] lg:left-2.5' : 'right-[7px] lg:right-2.5'} w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full ring-[1.5px] ring-amber-300 bg-transparent`} aria-label="Heads-up that day" />}
               {/* Requests waiting sit in the corner (owner, Nov 9: nothing may make a square taller). */}
@@ -146,10 +149,10 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
               <span className="h-8 lg:h-10 shrink-0 flex items-center justify-center">
                 <span className={`font-bold leading-none ${date === today ? `text-[16px] lg:text-[19px] w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-white text-stone-900 flex items-center justify-center ${mine ? 'ring-2 ring-pt-accent' : ''}` : `text-[18px] lg:text-[22px] ${mine ? 'text-pt-accent' : 'text-pt-text'}`}`}>{n}</span>
               </span>
-              {house === 'all' ? <AllCell days={days?.[date]} date={date} s={s} email={email} now={now} lockFree={lockFree} past={past} /> : <>
+              {house === 'all' ? <AllCell days={days?.[date]} date={date} s={s} email={email} now={now} lockFree={lockFree} past={noFree} beyond={beyond} /> : <>
               {/* Owner, Nov 24: no hour counts, just the bar; words only when it matters (full, priority, the other house has time). */}
               <span className="h-4 lg:h-5 flex items-center leading-none">
-                {!past && (prio
+                {beyond ? <span className="text-[11px] lg:text-xs text-pt-muted whitespace-nowrap">Not open yet</span> : !past && (prio
                   ? <span className="inline-flex items-center gap-1 text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap"><Icon name="lock" className="w-3 h-3 lg:w-3.5 lg:h-3.5" />{hint > 0 ? <span className="text-sky-300">{other === 'cliff2' ? 'C2' : 'C1'}</span> : <span className="hidden lg:inline">Priority</span>}</span>
                   : hint > 0
                   ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'} open</span>
@@ -157,7 +160,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
                   ? <span className="text-xs font-semibold text-pt-muted">Full</span>
                   : null)}
               </span>
-              <DayBar c={c} past={past} tone={bar} />
+              <DayBar c={c} past={noFree} tone={bar} />
               </>}
             </button>
           )
@@ -185,9 +188,10 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
 
 // One day in the ALL view (owner, Nov 9: "tough to see what's free on Cliff 1 versus Cliff 2"; Nov 24: bars, not hour counts):
 // a small bar per house, same colours as the single-house view (green lots, amber a little; Full; lock = priority day).
-function AllCell({ days, date, s, email, now, lockFree, past }: {
-  days: ScheduleDay | undefined; date: string; s: ScheduleSettings; email: string; now: string; lockFree: boolean; past: boolean
+function AllCell({ days, date, s, email, now, lockFree, past, beyond }: {
+  days: ScheduleDay | undefined; date: string; s: ScheduleSettings; email: string; now: string; lockFree: boolean; past: boolean; beyond?: boolean
 }) {
+  if (beyond) return <span className="h-[18px] text-[11px] text-pt-muted leading-[18px]">Not open yet</span>
   if (past) return <span className="h-[18px]" />
   return (
     <span className="w-[86%] flex flex-col gap-1.5 lg:gap-2">
