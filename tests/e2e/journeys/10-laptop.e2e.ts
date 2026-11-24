@@ -16,9 +16,9 @@ test('equipment team on a laptop: the Requests week board', async ({ page }) => 
     await expect(page.getByRole('button', { name: 'Week', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Month', exact: true })).toBeVisible()
     await expect(page.getByText('Requests waiting')).toBeVisible()
-    // 7 days × 2 houses of 7 AM cells (a few may be blocked or booked).
-    const cells = page.getByRole('button', { name: /· Cliff [12] · 7 AM–9 AM ·/ })
-    await expect.poll(() => cells.count(), { message: 'free 7 AM cells on the week board' }).toBeGreaterThanOrEqual(10)
+    // Free time (Nov 24): each house-day is a timeline; bookings sit at their real hours with the time in the tooltip.
+    const items = page.getByTitle(/· Cliff [12] · \d{1,2}(:\d\d)? [AP]M–\d{1,2}(:\d\d)? [AP]M ·/)
+    await expect.poll(() => items.count(), { message: 'bookings on the week board' }).toBeGreaterThanOrEqual(1)
     await expect(page.getByText('Request waiting', { exact: true })).toBeVisible()   // the colour key
   })
 

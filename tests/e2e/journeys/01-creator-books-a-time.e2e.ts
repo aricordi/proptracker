@@ -1,5 +1,5 @@
 // Journey 1 — a creator on the Full app asks for a filming time from the month calendar.
-import { test, expect, reseed, signIn, openTab, plainDayAhead, sheet, slotRow } from '../helpers'
+import { test, expect, reseed, signIn, openTab, plainDayAhead, sheet } from '../helpers'
 
 test.beforeAll(() => reseed())
 
@@ -28,24 +28,26 @@ test('creator lands on the chat, picks a free time on the calendar and it waits 
     const heading = page.getByRole('heading', { level: 2, name: new RegExp(`${monthName} ${y}`) })
     if (!(await heading.isVisible())) await page.getByRole('button', { name: 'Next month' }).click()
     await expect(heading).toBeVisible()
-    await expect(page.getByRole('button', { name: new RegExp(`^${date}: \\d+ free`) })).toBeEnabled()
+    await expect(page.getByRole('button', { name: new RegExp(`^${date}: [\\d.]+h free`) })).toBeEnabled()
   })
 
-  await test.step('tap the day, then a free time at Cliff 2', async () => {
+  await test.step('tap the day, then a free stretch at Cliff 2', async () => {
     await page.getByRole('button', { name: new RegExp(`^${date}:`) }).click()
     const day = sheet(page)
     await expect(day).toBeVisible()
-    const cliff2 = slotRow(day, '3 PM').getByRole('button').nth(1)
-    await expect(cliff2).toHaveText('Free')
-    await cliff2.click()
+    const free = day.locator('[data-testid="free-gap"][data-house="cliff2"]').first()
+    await expect(free).toContainText('Free')
+    await free.click()
   })
 
-  await test.step('request it', async () => {
-    const ask = sheet(page, 'Ask for this slot')
+  await test.step('pick any start and end, then request it', async () => {
+    const ask = sheet(page, 'Ask for this time')
     await expect(ask).toBeVisible()
-    await expect(ask.getByText(/Cliff 2 · 3 PM–5 PM/)).toBeVisible()
-    await expect(ask.getByRole('button', { name: /2 h · 1 slot/ })).toBeVisible()
-    await ask.getByRole('button', { name: 'Request this time' }).click()
+    const pick = ask.getByTestId('time-pick')
+    await pick.getByRole('combobox').first().selectOption({ label: '3:15 PM' })
+    await pick.getByRole('combobox').nth(1).selectOption({ label: '5:15 PM' })
+    await expect(ask.getByText('Up to 2 h with just you')).toBeVisible()
+    await ask.getByRole('button', { name: /^Request 3:15 PM–5:15 PM/ }).click()
   })
 
   await test.step('the shoot is waiting for the equipment team', async () => {
@@ -59,36 +61,40 @@ test('creator lands on the chat, picks a free time on the calendar and it waits 
     await page.keyboard.press('Escape')
     await openTab(page, 'Chat')
     await expect(page.getByText(/Your next 1 shoot|Your next shoot/)).toBeVisible()
-    await expect(page.getByText(/Cliff 2 · 3 PM–5 PM/)).toBeVisible()
+    await expect(page.getByText(/Cliff 2 · 3:15 PM–5:15 PM/)).toBeVisible()
     await expect(page.getByText(/Waiting for approval/)).toBeVisible()
   })
 })
 
-test('slots first: a creator asks for 6 hours and says who films in each slot (Nov 23)', async ({ page }) => {
+test('free time: a creator asks for 6 hours with two people on the same booking (Nov 24)', async ({ page }) => {
   await signIn(page, 'newbie')
-  const date = plainDayAhead(4)
+  // Not the first test's day (one house booking a day, and that day's label says "you film this day").
+  const date = plainDayAhead(5)
   await openTab(page, 'Calendar')
   const [y, m] = date.split('-').map(Number)
   const monthName = new Date(Date.UTC(y, m - 1, 15)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' })
   await expect(page.getByRole('heading', { level: 2, name: /^[A-Z][a-z]+ \d{4}$/ })).toBeVisible()
   const heading = page.getByRole('heading', { level: 2, name: new RegExp(`${monthName} ${y}`) })
   if (!(await heading.isVisible())) await page.getByRole('button', { name: 'Next month' }).click()
-  await expect(page.getByRole('button', { name: new RegExp(`^${date}: \\d+ free`) })).toBeEnabled()
+  await expect(page.getByRole('button', { name: new RegExp(`^${date}: [\\d.]+h free`) })).toBeEnabled()
   await page.getByRole('button', { name: new RegExp(`^${date}:`) }).click()
   const day = sheet(page)
-  await slotRow(day, '11 AM').getByRole('button').nth(1).click()
-  const ask = sheet(page, 'Ask for this slot')
-  await ask.getByRole('button', { name: /6 h · 3 slots/ }).click()
-  const lineup = page.getByTestId('slot-lineup')
-  await expect(lineup.getByText('You', { exact: true })).toBeVisible()
-  // Not ready until every slot has someone.
-  await expect(page.getByRole('button', { name: /Add who's filming in the 2 empty slots/ })).toBeDisabled()
-  await lineup.getByRole('button', { name: /\+ Add who's filming/ }).first().click()
-  await lineup.getByPlaceholder('Search by name or channel').fill('Kyle')
-  await lineup.getByRole('button', { name: /^Kyle/ }).first().click()
-  await lineup.getByRole('button', { name: /\+ Add who's filming/ }).first().click()
-  await lineup.getByPlaceholder('Search by name or channel').fill('Bob Test')
-  await lineup.getByRole('button', { name: /Add "Bob Test"/ }).click()
-  await page.getByRole('button', { name: /Request 6 hours · 3 people/ }).click()
-  await expect(sheet(page, 'Your shoot').getByText('Waiting for approval')).toBeVisible()
+  await day.locator('[data-testid="free-gap"][data-house="cliff2"]').first().click()
+  const ask = sheet(page, 'Ask for this time')
+  const pick = ask.getByTestId('time-pick')
+  await pick.getByRole('combobox').first().selectOption('660')
+  await pick.getByRole('combobox').nth(1).selectOption('1020')   // 5 PM (shown as "5 PM · add people" until there are 3)
+  // 6 hours alone is too long: it says how many people to add.
+  await expect(ask.getByRole('button', { name: /Add 2 more people or shorten it/ })).toBeDisabled()
+  const who = ask.getByTestId('who-films')
+  await who.getByRole('button', { name: /\+ Add someone filming with you/ }).click()
+  await who.getByPlaceholder('Search by name or channel').fill('Kyle')
+  await who.getByRole('button', { name: /^Kyle/ }).first().click()
+  await who.getByRole('button', { name: /\+ Add someone filming with you/ }).click()
+  await who.getByPlaceholder('Search by name or channel').fill('Bob Test')
+  await who.getByRole('button', { name: /Add "Bob Test"/ }).click()
+  await ask.getByRole('button', { name: /^Request 11 AM–5 PM · 3 people/ }).click()
+  const shoot = sheet(page, 'Your shoot')
+  await expect(shoot.getByText('Waiting for approval')).toBeVisible()
+  await expect(shoot.getByText(/Filming on this booking · 3 people/)).toBeVisible()
 })

@@ -394,7 +394,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           <span className="inline-flex items-center gap-1 text-[14px]"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority day</span>
         </div>
       ) : (
-        <button key={`f${g.start}`} disabled={!(canBook || team)} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)} data-testid="free-gap"
+        <button key={`f${g.start}`} disabled={!(canBook || team)} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)} data-testid="free-gap" data-house={h}
           className="w-full flex items-center gap-3 rounded-xl px-3 min-h-[52px] text-left bg-pt-accent/[0.12] shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)] active:opacity-80">
           <span className="w-[92px] shrink-0 text-[13px] tabular-nums text-pt-accent leading-tight">{fmtTime(g.start % 1440)}<br />{fmtTime(g.end % 1440)}</span>
           <span className="flex-1 min-w-0"><span className="block text-pt-accent font-semibold text-[14px]">Free · {hoursText(g.end - g.start)}</span>
