@@ -38,7 +38,7 @@ import {
   monthOf, isShortNotice, withinUndo, bookedLate, cancelCountsAsNoShow, timeSetByTeam, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive, swapShootsAsTeam,
-  freeGaps, conflictAt, houseClose, houseOpen, houseBookings, maxMinutesFor, hardBlocks, priorityLocked,
+  freeGaps, conflictAt, houseClose, houseOpen, houseBookings, maxMinutesFor, hardBlocks, priorityLocked, TIME_STEP, MIN_BOOKING_MINUTES,
 } from '../services/schedule'
 import { GiveSlotSheet, type GiveTarget } from '../components/GiveSlotSheet'
 
@@ -239,7 +239,8 @@ export default function ScheduleScreen() {
         <div className="sticky top-4 pt-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
           <DayPickSheet inline date={date} day={days?.[date]} team={team} lockFree={role === 'equipment'} teamView={teamView} canBook={canBook} now={now}
             onClose={() => {}} onTap={(st, h, start, end) => tapSlot(st, date, h, start, end)}
-            onShoot={id => setSheet({ kind: 'shoot', id })} onOffsite={() => setSheet({ kind: 'offsite', date })} />
+            onShoot={id => setSheet({ kind: 'shoot', id })} onOffsite={() => setSheet({ kind: 'offsite', date })}
+            onDay={d => { setDate(d); setMonth(d.slice(0, 7)) }} />
         </div>
       )}
       </div>
@@ -247,7 +248,8 @@ export default function ScheduleScreen() {
       {sheet?.kind === 'day' && <DayPickSheet date={sheet.date} day={days?.[sheet.date]} team={team} lockFree={role === 'equipment'} teamView={teamView} canBook={canBook} now={now}
         onClose={() => setSheet(null)} onTap={(st, h, start, end) => tapSlot(st, sheet.date, h, start, end)}
         onShoot={id => setSheet({ kind: 'shoot', id })}
-        onOffsite={() => setSheet({ kind: 'offsite', date: sheet.date })} />}
+        onOffsite={() => setSheet({ kind: 'offsite', date: sheet.date })}
+        onDay={d => { setDate(d); setMonth(d.slice(0, 7)); setSheet({ kind: 'day', date: d }) }} />}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'book' && <BookSheet {...sheet} team={team} mine={mine ?? []} day={days?.[sheet.date]} now={now}
         dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= slotsPerDayFor(profile.email, s)} onClose={() => setSheet(null)} onBooked={booked} />}
@@ -331,8 +333,8 @@ function useSkipsGuideline(team: boolean) {
   return team || realRole === 'owner' || realRole === 'equipment'
 }
 
-function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
-  date: string; day?: ScheduleDay; team: boolean; lockFree?: boolean; teamView: boolean; canBook: boolean; now: string
+function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, onDay, inline = false }: {
+  date: string; day?: ScheduleDay; team: boolean; lockFree?: boolean; teamView: boolean; canBook: boolean; now: string; onDay?: (d: string) => void
   onClose: () => void; onTap: (st: ReturnType<typeof slotState>, h: House, start: number, end?: number) => void
   onShoot: (id: string) => void; onOffsite: () => void; inline?: boolean
 }) {
@@ -349,74 +351,128 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     setWaitBusy(k); setWaitErr('')
     try { if (w) await waits.leave(w); else await waits.join(date, h, start) } catch (e) { setWaitErr(errorText(e)) } finally { setWaitBusy('') }
   }
-  // FREE TIME (owner, Nov 24): each house is a timeline: bookings and blocks in time order, and the free stretches between
-  // them in gold. Tap a free stretch to book any time inside it; tap a booking to open it (or wait for it, with the bell).
-  const tl = (h: House) => {
+  // DAY GRID (owner, Nov 24: "people go on the Google Calendar app because it's easy to see gaps and who's filming… too neat"):
+  // like a Google Calendar day: hours down the side, Cliff 1 and Cliff 2 side by side, every booking a block sized by its real
+  // hours with the person's name, and every free stretch (even 15 minutes) a gold space you can tap to book inside it.
+  const open = houseOpen(s), close = houseClose(s)
+  const PX = 44                                              // pixels per hour
+  const y = (m: number) => ((m - open) / 60) * PX
+  const nowDay = now.slice(0, 10), nowMin = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+  const nowAt = date === nowDay ? (nowMin < open && nowMin + 1440 < close ? nowMin + 1440 : nowMin) : date < nowDay ? close : -1
+  const hours: number[] = []
+  for (let m = Math.ceil(open / 60) * 60; m < close; m += 60) hours.push(m)
+  const col = (h: House) => {
     const locked = !lockFree && priorityLocked(date, h, s, email, now)
-    const rows: { start: number; end: number; el: React.ReactNode }[] = []
-    for (const b of houseBookings(day, h, s, now)) {
+    const items: React.ReactNode[] = []
+    // Free stretches first (underneath). Shorter than the 30-minute minimum still shows, so nobody wonders where it went.
+    for (const g of freeGaps(day, date, h, s, now, TIME_STEP)) {
+      const tall = y(g.end) - y(g.start), short = g.end - g.start < MIN_BOOKING_MINUTES
+      const guide = !locked && !skipG && canBook && needsGuideline(date, h, email, s)
+      const can = !locked && !short && (canBook || team)
+      items.push(
+        <button key={`f${g.start}`} disabled={!can} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)}
+          data-testid={can ? 'free-gap' : undefined} data-house={h}
+          style={{ top: y(g.start) + 1, height: Math.max(tall - 2, 10) }}
+          className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'bg-emerald-400/[0.06] text-emerald-200/70' : 'bg-emerald-400/[0.16] text-emerald-200 shadow-[inset_0_0_0_1.5px_rgba(52,211,153,0.55)] active:opacity-80'}`}>
+          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `Free ${hoursText(g.end - g.start)}`}</span>}
+          {tall >= 34 && !locked && <span className="block text-[12px] leading-tight opacity-80 truncate">{fmtTime(g.start % 1440)}–{fmtTime(g.end % 1440)}</span>}
+          {tall >= 50 && guide && <span className="block text-[12px] text-amber-200 truncate">Guideline needed</span>}
+        </button>)
+    }
+    for (const bl of hardBlocks(day).filter(x => x.house === h)) {
+      const a = Math.max(bl.start, open), b = Math.min(bl.end, close)
+      if (b <= a) continue
+      const tall = y(b) - y(a)
+      items.push(
+        <button key={`k${bl.id}`} disabled={!team} onClick={() => onTap({ t: 'block', block: bl } as ReturnType<typeof slotState>, h, bl.start)}
+          style={{ top: y(a) + 1, height: Math.max(tall - 2, 10) }}
+          className="absolute inset-x-1 rounded-lg px-2 text-left overflow-hidden text-pt-muted bg-[repeating-linear-gradient(135deg,#1C1C1E_0_6px,#2A2A2D_6px_12px)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]">
+          {tall >= 18 && <span className="block text-[12px] font-semibold leading-tight pt-0.5 truncate">{bl.note || BLOCK_TYPES[bl.type]}</span>}
+        </button>)
+    }
+    // Bookings: overlapping ones (a real clash) sit side by side.
+    const bs = houseBookings(day, h, s, now)
+    const lanes: number[] = [], laneOf = new Map<string, number>()
+    for (const b of bs) { let l = lanes.findIndex(endAt => endAt <= b.start); if (l < 0) { l = lanes.length; lanes.push(0) } lanes[l] = b.end; laneOf.set(b.key, l) }
+    const nLanes = Math.max(1, lanes.length)
+    for (const b of bs) {
       const e = b.entry, me = e.email === email || (e.people ?? []).includes(email)
       const st = { t: e.hold ? 'held' : 'booked', entry: e, ...(e.hold ? { until: e.hold.until } : {}) } as ReturnType<typeof slotState>
-      const who = me ? 'You' : e.name
-      const names = e.withNames?.length ? ` + ${e.withNames.join(', ')}` : ''
+      const who = me ? 'You' : e.name.split(' ')[0]
+      const names = e.withNames?.length ? ` + ${e.withNames.map(n => n.split(' ')[0]).join(', ')}` : ''
       const k = waitKey(date, h, b.start), w = waits.entries[k]
       const why = !me && canBook && !team ? waitRefusal(day, date, h, b.start, s, email, now) : 'past'
       const bellOk = !me && canBook && !team && why !== 'past' && (!!w || !why)
       const past = slotWindow(date, b.start, b.end - b.start).to <= now
-      rows.push({ start: b.start, end: b.end, el: (
-        <div key={`b${b.key}`} className={`flex gap-1 ${past ? 'opacity-40' : ''}`}>
-          <button onClick={() => onTap(st, h, b.start)} className={`flex-1 min-w-0 flex items-center gap-3 rounded-xl px-3 min-h-[52px] text-left ${e.pending || e.hold ? 'bg-amber-400/[0.07] border border-dashed border-amber-400/50' : me ? 'bg-pt-accent/10' : 'bg-pt-surface'}`}>
-            <span className="w-[92px] shrink-0 text-[13px] tabular-nums text-pt-muted leading-tight">{fmtTime(b.start % 1440)}<br />{fmtTime(b.end % 1440)}</span>
-            {!e.hold && <Avatar email={e.email ?? ''} name={e.name} size={28} />}
-            <span className="flex-1 min-w-0"><span className={`block truncate text-[14px] ${me ? 'text-pt-text font-semibold' : 'text-pt-text'}`}>{e.hold ? `Held · ${e.name}` : `${who}${names}`}</span>
-              {(e.pending || e.both) && <span className="block text-xs text-amber-300/80 truncate">{e.pending ? (e.move ? 'move asked' : 'waiting for approval') : ''}{e.both ? `${e.pending ? ' · ' : ''}both houses` : ''}</span>}</span>
+      const a = Math.max(b.start, open), z = Math.min(b.end, close), tall = y(z) - y(a)
+      const lane = laneOf.get(b.key) ?? 0, wPct = 100 / nLanes
+      items.push(
+        <div key={`b${b.key}`} style={{ top: y(a) + 1, height: Math.max(tall - 2, 12), left: `calc(${lane * wPct}% + 4px)`, width: `calc(${wPct}% - 8px)` }}
+          className={`absolute ${past ? 'opacity-45' : ''}`}>
+          <button onClick={() => onTap(st, h, b.start)}
+            className={`w-full h-full rounded-lg px-2 text-left overflow-hidden ${e.pending || e.hold ? 'bg-amber-400/[0.14] border border-dashed border-amber-400/70 text-amber-100' : me ? 'bg-pt-accent text-stone-900' : 'bg-[#3A4A63] text-white'}`}>
+            <span className="block text-[13px] font-bold leading-tight pt-0.5 truncate">{e.hold ? `Held · ${who}` : `${who}${names}`}</span>
+            {tall >= 34 && <span className="block text-[12px] leading-tight opacity-85 truncate">{fmtTime(b.start % 1440)}–{fmtTime(b.end % 1440)}{e.pending ? (e.move ? ' · move asked' : ' · waiting') : ''}{e.both ? ' · both' : ''}</span>}
           </button>
-          {bellOk && (
+          {bellOk && tall >= 28 && (
             <button onClick={() => bell(h, b.start)} disabled={waitBusy === k || w?.status === 'offered'}
               aria-label={w ? `On the list, number ${w.position}. Tap to leave the list` : 'Notify me if it opens'}
-              className={`shrink-0 w-11 min-h-[52px] rounded-xl grid place-items-center text-[12px] font-bold disabled:opacity-50 ${w ? 'bg-pt-accent/[0.16] text-pt-accent shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' : 'bg-pt-surface text-pt-muted'}`}>
-              {w ? <span className="flex flex-col items-center leading-none"><Icon name="bell" className="w-4 h-4" />{w.position > 0 && <span className="mt-0.5">#{w.position}</span>}</span> : <Icon name="bell" className="w-5 h-5" />}
+              className={`absolute top-0.5 right-0.5 w-7 h-7 rounded-md grid place-items-center disabled:opacity-50 ${w ? 'bg-pt-accent text-stone-900' : 'bg-black/30 text-white/80'}`}>
+              <Icon name="bell" className="w-3.5 h-3.5" />
             </button>
           )}
-        </div>) })
+        </div>)
     }
-    for (const bl of hardBlocks(day).filter(x => x.house === h)) rows.push({ start: bl.start, end: bl.end, el: (
-      <button key={`k${bl.id}`} disabled={!team} onClick={() => onTap({ t: 'block', block: bl } as ReturnType<typeof slotState>, h, bl.start)}
-        className="w-full flex items-center gap-3 rounded-xl px-3 min-h-[48px] text-left bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted">
-        <span className="w-[92px] shrink-0 text-[13px] tabular-nums leading-tight">{fmtTime(bl.start % 1440)}<br />{fmtTime(bl.end % 1440)}</span>
-        <span className="flex-1 min-w-0 truncate text-[14px]">{bl.note || BLOCK_TYPES[bl.type]}</span>
-      </button>) })
-    for (const g of freeGaps(day, date, h, s, now)) {
-      const guide = !skipG && canBook && needsGuideline(date, h, email, s)
-      rows.push({ start: g.start, end: g.end, el: locked ? (
-        <div key={`f${g.start}`} className="flex items-center gap-3 rounded-xl px-3 min-h-[48px] bg-pt-surface text-pt-muted">
-          <span className="w-[92px] shrink-0 text-[13px] tabular-nums leading-tight">{fmtTime(g.start % 1440)}<br />{fmtTime(g.end % 1440)}</span>
-          <span className="inline-flex items-center gap-1 text-[14px]"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority day</span>
-        </div>
-      ) : (
-        <button key={`f${g.start}`} disabled={!(canBook || team)} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)} data-testid="free-gap" data-house={h}
-          className="w-full flex items-center gap-3 rounded-xl px-3 min-h-[52px] text-left bg-pt-accent/[0.12] shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)] active:opacity-80">
-          <span className="w-[92px] shrink-0 text-[13px] tabular-nums text-pt-accent leading-tight">{fmtTime(g.start % 1440)}<br />{fmtTime(g.end % 1440)}</span>
-          <span className="flex-1 min-w-0"><span className="block text-pt-accent font-semibold text-[14px]">Free · {hoursText(g.end - g.start)}</span>
-            {guide && <span className="block text-xs text-amber-200">Guideline required</span>}</span>
-          {(canBook || team) && <span className="text-pt-accent text-sm font-semibold">Book ›</span>}
-        </button>) })
-    }
-    rows.sort((a, b) => a.start - b.start)
-    return (
-      <div key={h} className="space-y-1.5">
-        <p className="text-pt-text text-[15px] font-semibold flex items-baseline justify-between"><span>{s.houses[h].name}</span><span className="text-pt-muted text-xs font-normal">{fmtTime(houseOpen(s))}–{fmtTime(houseClose(s) % 1440)}</span></p>
-        {rows.length ? rows.map(r => r.el) : <p className="text-pt-muted text-sm">Nothing free left today.</p>}
-      </div>
-    )
+    return { items, locked }
   }
+  const cols = HOUSES.map(h => ({ h, ...col(h) }))
+  const freeTotal = (h: House) => freeGaps(day, date, h, s, now).reduce((n, g) => n + g.end - g.start, 0)
+  const grid = (
+    <div className="rounded-2xl bg-pt-surface/60 shadow-hairline overflow-hidden">
+      <div className="grid grid-cols-[44px_1fr_1fr] sticky top-0 z-10 bg-pt-raised border-b border-white/[0.08]">
+        <span />
+        {HOUSES.map(h => (
+          <span key={h} className="px-2 py-2 border-l border-white/[0.06]">
+            <span className="block text-pt-text text-[14px] font-bold leading-tight">{s.houses[h].name}</span>
+            <span className={`block text-[12px] leading-tight ${freeTotal(h) ? 'text-emerald-300' : 'text-pt-muted'}`}>{freeTotal(h) ? `${hoursText(freeTotal(h))} free` : 'Full'}</span>
+          </span>
+        ))}
+      </div>
+      <div className="grid grid-cols-[44px_1fr_1fr] relative" style={{ height: y(close) }}>
+        <div className="relative">
+          {hours.map(m => <span key={m} style={{ top: y(m) - 7 }} className="absolute right-1.5 text-[12px] tabular-nums text-pt-muted leading-none">{fmtTime(m % 1440).replace(':00', '')}</span>)}
+        </div>
+        {cols.map(c => (
+          <div key={c.h} className="relative border-l border-white/[0.06]">
+            {hours.map(m => <span key={m} style={{ top: y(m) }} className="absolute inset-x-0 border-t border-white/[0.07]" />)}
+            {c.items}
+          </div>
+        ))}
+        {nowAt > open && nowAt < close && (
+          <>
+            <span aria-hidden style={{ height: y(nowAt) }} className="absolute left-[44px] right-0 top-0 bg-black/35 pointer-events-none" />
+            <span aria-hidden style={{ top: y(nowAt) }} className="absolute left-[40px] right-0 border-t-2 border-red-500 pointer-events-none"><span className="absolute -left-1 -top-[5px] w-2 h-2 rounded-full bg-red-500" /></span>
+          </>
+        )}
+      </div>
+    </div>
+  )
   const offsite = (day?.offsite ?? []).slice().sort((a, b) => a.start - b.start)
   const title = `${formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}${isNoCrewDay(date) ? ' · no crew' : ''}`
   // Heads-ups (owner, Nov 4): things happening at a house that don't stop filming (e.g. chargers being installed).
   const notes = headsUps(day).slice().sort((a, b) => a.start - b.start)
   const { profile: me } = useSession()
   const videosHere = (useMyVideos(me.email) ?? []).filter(v => v.date === date && v.status === 'accepted' && isUpcoming(v))
+  const today = now.slice(0, 10)
+  const dayNav = onDay && (
+    <div className="flex items-center gap-2 mb-3">
+      <button onClick={() => onDay(addDays(date, -1))} disabled={date <= today} aria-label="Day before" className="w-11 h-11 rounded-full bg-pt-surface grid place-items-center text-xl disabled:opacity-30">‹</button>
+      <span className="flex-1 text-center text-pt-text text-[15px] font-semibold">{formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · {whenLabel(date, today)}</span>
+      <button onClick={() => onDay(addDays(date, 1))} aria-label="Next day" className="w-11 h-11 rounded-full bg-pt-surface grid place-items-center text-xl">›</button>
+    </div>
+  )
   const body = (<>
+      {dayNav}
       {videosHere.length > 0 && (
         <div className="mb-3 space-y-1.5" data-testid="day-videos">
           {videosHere.map(v => (
@@ -440,7 +496,8 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           ))}
         </div>
       )}
-      <div className="space-y-5">{HOUSES.map(h => tl(h))}</div>
+      {grid}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[12px] text-pt-muted"><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-400/40" />Free</span><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#3A4A63]" />Filming</span><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-pt-accent" />You</span><span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded border border-dashed border-amber-400" />Waiting for OK</span></div>
       {waitErr && <p className="text-red-300 text-sm mt-3">{waitErr}</p>}
       {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold free time and pick any start and end inside it (up to {s.slotMinutes / 60} hours each person; add the people filming with you for longer). The equipment team approves it, and it's held for you while you wait.
         {' '}Want a taken time? If it has a bell, tap it: if it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes{Object.keys(waits.entries).some(k => k.startsWith(date)) ? '. Tap a gold bell to leave the list.' : '.'}</p>}

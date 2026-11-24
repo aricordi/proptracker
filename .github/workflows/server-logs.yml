@@ -102,6 +102,9 @@ jobs:
           gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mcp" AND httpRequest.requestUrl:*' \
             --project proptracker-9732e --freshness 24h --limit 60 \
             --format='table(timestamp, httpRequest.status, httpRequest.requestMethod, httpRequest.requestUrl.slice(0:70), httpRequest.userAgent.slice(0:40))' || true
+          echo "--- the Allow page's calls (connectorRequestInfo / approveConnector), last 24 hours"
+          gcloud logging read 'resource.type="cloud_run_revision" AND (resource.labels.service_name="connectorrequestinfo" OR resource.labels.service_name="approveconnector") AND httpRequest.status:*' \
+            --project proptracker-9732e --freshness 24h --limit 20 --format='table(timestamp, resource.labels.service_name, httpRequest.status)' || true
           echo "--- connector sign-in requests waiting / finished (no codes shown)"
           gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mcp" AND textPayload:*' \
             --project proptracker-9732e --freshness 24h --limit 30 --format='table(timestamp, severity, textPayload.slice(0:160))' || true
