@@ -205,7 +205,12 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       const kind = args.kind === 'props' ? 'props' : 'gear', rid = s(args.id, 100)
       // A photo of the damage (owner, Nov 24): saved next to that booking's return photos, with its taken-date.
       let photos: string[] = []
+      if (args.photo && !rid) return { text: 'Which props request or gear booking is it? (my_status has the ids.) The photo goes with that one.' }
       if (args.photo && rid && /^[\w-]{1,100}$/.test(rid)) {
+        // Only into their own booking's folder (review, Nov 24): check it's theirs before saving anything.
+        const b = await docById(kind === 'props' ? 'reservations' : 'gear_bookings', rid)
+        const theirs = !!b && (kind === 'props' ? b.creatorEmail === u.email : b.creatorEmail === u.email || ((b.crewEmails ?? []) as string[]).includes(u.email) || b.pickup?.by === u.email)
+        if (!theirs) return { text: kind === 'props' ? 'That isn\'t one of your props requests.' : 'That isn\'t gear you have.' }
         const folder = kind === 'props' ? `reservation-photos/${rid}/return` : `gear-returns/${rid}`
         const saved = await savePhoto(args.photo, folder, { keepDate: true, allowOwn: `${folder}/` })
         if ('problem' in saved) return { text: `Couldn't use that photo (${saved.problem}). Send the report without it, or attach it again.` }

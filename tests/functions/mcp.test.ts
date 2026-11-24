@@ -440,6 +440,9 @@ describe('connector tools', () => {
     await put('shoots/later', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: FRI, start: 600, end: 720, from: `${FRI}T10:00`, to: `${FRI}T12:00`, kind: 'extra', history: [] })
     expect((await call('reportShootDone', { id: 'later', filmed: true }, ANA)).message).toMatch(/hasn't started/)
     expect((await call('reportShootDone', { id: 'past2', filmed: true }, MAANIK)).ok).toBe(false)
+    // The team's decision stands: an answer can't undo a no-show.
+    await put('shoots/past3', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', noShow: 'missed', place: 'cliff1', date: y, start: 1080, end: 1200, from: `${y}T18:00`, to: `${y}T20:00`, kind: 'extra', history: [] })
+    expect((await call('reportShootDone', { id: 'past3', filmed: true }, ANA)).message).toMatch(/already decided/)
   })
 
   it('round 2: 2-week limit, deals when taken (no swap with priority), closet list, substitutes, report photo, why not approved', async () => {
@@ -461,6 +464,7 @@ describe('connector tools', () => {
     const prio = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '15:00' })
     expect(prio.structuredContent.options.map((o: { kind: string }) => o.kind)).not.toContain('swap')
     expect(prio.content[0].text).toMatch(/priority booking, so no swap/)
+    expect((await call('requestSwap', { myShootId: 'a1', theirShootId: 'jo1' }, ANA)).message).toMatch(/priority booking/)
     // The whole closet in one compact list (company props only).
     const list = await tool(t.access_token, 'closet_list', {})
     expect(list.content[0].text).toMatch(/phone \| Red rotary phone/)

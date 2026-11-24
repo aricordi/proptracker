@@ -27,7 +27,7 @@ export const GEAR_TOOLS = [
     inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id (left out = their shoot happening now)' },
       items: { type: 'array', maxItems: 12, items: obj({ gear: { type: 'string', description: 'Kit or piece name (or id) from gear_available' }, qty: { type: 'integer', minimum: 1 } }, ['gear']) },
       all_pieces_there: { type: 'boolean', description: 'true once they checked every piece' },
-      missing: { type: 'array', maxItems: 30, items: { type: 'string' }, description: 'Pieces that are NOT there (names as listed)' },
+      missing: { type: 'array', maxItems: 30, items: { type: 'string' }, description: 'Pieces that are NOT there (names as listed; "2 battery" for two of the same piece)' },
       photo: { ...PHOTO, description: 'The photo of the gear they attached in this chat' } }, ['items', 'photo']) },
   { name: 'return_gear', title: 'Return gear (with a photo)', annotations: WRITE_OUT,
     description: 'Return gear that is out with the person: ONE photo of everything back in the case with the batteries charging, taken now and attached in this chat. Ask if anything broke (damage) and whether the batteries / charging case are plugged in. Confirm, then call.',
@@ -117,9 +117,12 @@ export async function runGearTool(name: string, a: Json, u: McpUser): Promise<To
   const missingSaid = (Array.isArray(a.missing) ? a.missing : []).map(x => plain(String(x))).filter(Boolean)
   const missing: string[] = []
   for (const m of missingSaid) {
-    const k = checks.find(c => plain(c.name).includes(m) || m.includes(plain(c.name)))
-    if (!k) return { text: `"${m}" isn't one of the pieces. The pieces are: ${checks.map(c => c.name).join(', ')}.` }
-    if (!missing.includes(k.key)) missing.push(k.key)
+    // "2 batteries" = two units of that piece (review, Nov 24): the next unit not marked yet each time.
+    const count = Math.max(1, Math.min(20, Number(/^(\d+)\s/.exec(m)?.[1] ?? 1)))
+    const name = m.replace(/^\d+\s+/, '')
+    const match = (c: { name: string }) => plain(c.name).includes(name.replace(/s$/, '')) || name.includes(plain(c.name))
+    if (!checks.some(match)) return { text: `"${m}" isn't one of the pieces. The pieces are: ${checks.map(c => c.name).join(', ')}.` }
+    for (let n = 0; n < count; n++) { const k = checks.find(c => match(c) && !missing.includes(c.key)); if (k) missing.push(k.key) }
   }
   if (a.all_pieces_there !== true && !missing.length) return { text: `Ask them to check every piece is in the bag first: ${checks.map(c => `${c.name}${c.of > 1 ? ` (${c.unit} of ${c.of})` : ''}`).join(', ')}. Then all_pieces_there, or say what is missing.` }
   if (!a.photo) return { text: 'Ask for ONE photo of the gear they are taking, taken now and attached here. It protects them if something was already missing or broken.' }

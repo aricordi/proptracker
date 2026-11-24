@@ -122,7 +122,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     const trusted = !expectsCheckIn(x as never, o.checksIn)
     // "Did you film?" (Nov 24): a yes counts as filmed; a no counts as not filmed until the team decides.
     const saidNo = x.said?.filmed === false && x.outcome !== 'filmed'
-    const filmed = !!x.checkin || x.outcome === 'filmed' || x.said?.filmed === true || (trusted && !decidedNo && !saidNo)
+    const filmed = !decidedNo && (!!x.checkin || x.outcome === 'filmed' || x.said?.filmed === true || (trusted && !saidNo))
     facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed, title: x.wrap?.title ?? x.said?.title, to })
     if (x.checkin) {
       const late = minutesLocal(x.from, local(x.checkin.at))

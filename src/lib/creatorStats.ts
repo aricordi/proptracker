@@ -84,7 +84,7 @@ export function creatorStats(opts: {
     const decidedNo = !!x.noShow || x.outcome === 'noshow'
     const trusted = !expectsCheckIn(x as never, opts.checksIn)   // same rule as Analytics (schedule.ts)
     const saidNo = x.said?.filmed === false && x.outcome !== 'filmed'
-    if (x.checkin || x.outcome === 'filmed' || x.said?.filmed === true || (trusted && !decidedNo && !saidNo)) {
+    if (!decidedNo && (x.checkin || x.outcome === 'filmed' || x.said?.filmed === true || (trusted && !saidNo))) {
       c.filmed++
       // Check-ins are saved in UTC; shoot times are studio (Toronto) time.
       const late = x.checkin ? minutesBetween(x.from, nowStamp(new Date(x.checkin.at))) : 0

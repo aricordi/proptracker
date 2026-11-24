@@ -37,7 +37,7 @@ export async function dealsFor(place: House, day: string, start: number, end: nu
     : `${firstName(String(holder?.name ?? 'Someone'))} has ${NAME[place]} ${hm(c.b.start)}–${hm(c.b.end)}`
   // Their own approved house shoots of the same length could be offered in a swap (only for ordinary bookings, never priority).
   let mine: Json[] = []
-  if (c.t === 'booking' && !priority && holderEmail !== u.email) {
+  if (c.t === 'booking' && !c.b.entry.pending && !priority && holderEmail !== u.email) {
     const snap = await db.collection('shoots').where('creatorEmail', '==', u.email).where('status', '==', 'booked').get()
     mine = snap.docs.map(d => ({ id: d.id, ...d.data() } as Json & { id: string }))
       .filter(x => x.place !== 'offsite' && String(x.from) > now && Number(x.end) - Number(x.start) === Number(c.b.end) - Number(c.b.start))

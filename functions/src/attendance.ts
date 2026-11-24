@@ -86,6 +86,8 @@ export const reportShootDone = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
   const { ref, sh } = await ownShoot(str(req.data?.id, 100), caller.email)
   if (sh.status !== 'booked') throw new HttpsError('failed-precondition', 'Only an approved shoot can be marked as filmed.')
+  // The team's decision stands (review, Nov 24): an answer can't undo a no-show or a "they filmed".
+  if (sh.outcome || sh.noShow) throw new HttpsError('failed-precondition', 'The schedule team already decided on this shoot. Talk to them if it\'s wrong.')
   const now = nowStamp()
   if (now < String(sh.from)) throw new HttpsError('failed-precondition', 'This shoot hasn\'t started yet.')
   const lateBy = new Date(Date.parse(`${String(sh.to)}:00Z`) + SAID_HOURS * 3600_000).toISOString().slice(0, 16)

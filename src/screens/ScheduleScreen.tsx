@@ -383,17 +383,19 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     // Free stretches first (underneath). Shorter than the 30-minute minimum still shows, so nobody wonders where it went.
     for (const g0 of freeGaps(day, date, h, s, now, TIME_STEP)) {
       if (g0.end <= open) continue
-      const g = { start: Math.max(g0.start, open), end: g0.end }   // the part from where the view starts
-      const tall = y(g.end) - y(g.start), short = g.end - g.start < MIN_BOOKING_MINUTES
+      const g = { start: Math.max(g0.start, open), end: g0.end }   // the part from where the view starts (drawing only)
+      // Booking starts where the view starts (9 AM) when there's room after it; otherwise the whole stretch (e.g. 8:00–9:20).
+      const tapFrom = g.end - g.start >= MIN_BOOKING_MINUTES ? g.start : g0.start
+      const tall = y(g.end) - y(g.start), short = g0.end - g0.start < MIN_BOOKING_MINUTES
       const guide = !locked && !skipG && canBook && needsGuideline(date, h, email, s)
       const can = !locked && !short && !notOpen && (canBook || team)
       items.push(
-        <button key={`f${g.start}`} disabled={!can} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)}
+        <button key={`f${g.start}`} disabled={!can} onClick={() => onTap({ t: 'free' }, h, tapFrom, g0.end)}
           data-testid={can ? 'free-gap' : undefined} data-house={h}
           style={{ top: y(g.start) + 1, height: Math.max(tall - 2, 10) }}
           className={`absolute inset-x-1 rounded-lg text-left px-2 overflow-hidden flex flex-col justify-start ${locked ? 'bg-white/[0.04] text-pt-muted' : short ? 'border border-dashed border-white/15 text-pt-muted' : 'border-2 border-dashed border-pt-accent/70 text-pt-accent active:bg-pt-accent/10'}`}>
-          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{notOpen ? `Free ${hoursText(g.end - g.start)}` : locked ? 'Priority day' : short ? `${g.end - g.start} min gap` : `+ Free ${hoursText(g.end - g.start)}`}</span>}
-          {tall >= 34 && !locked && <span className="block text-[12px] leading-tight opacity-80 truncate">{fmtTime(g.start % 1440)}–{fmtTime(g.end % 1440)}</span>}
+          {tall >= 18 && <span className="block text-[12px] font-bold leading-tight pt-0.5 truncate">{notOpen ? `Free ${hoursText(g0.end - tapFrom)}` : locked ? 'Priority day' : short ? `${g0.end - g0.start} min gap` : `+ Free ${hoursText(g0.end - tapFrom)}`}</span>}
+          {tall >= 34 && !locked && <span className="block text-[12px] leading-tight opacity-80 truncate">{fmtTime(tapFrom % 1440)}–{fmtTime(g0.end % 1440)}</span>}
           {tall >= 50 && guide && <span className="block text-[12px] text-amber-200 truncate">Guideline needed</span>}
         </button>)
     }
@@ -420,7 +422,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
       const names = e.withNames?.length ? ` + ${e.withNames.map(n => n.split(' ')[0]).join(', ')}` : ''
       const k = waitKey(date, h, b.start), w = waits.entries[k]
       const why = !me && canBook && !team ? waitRefusal(day, date, h, b.start, s, email, now) : 'past'
-      const bellOk = !me && canBook && !team && why !== 'past' && (!!w || !why)
+      const bellOk = !me && canBook && !team && !notOpen && why !== 'past' && (!!w || !why)
       const past = slotWindow(date, b.start, b.end - b.start).to <= now
       const a = Math.max(b.start, open), z = Math.min(b.end, close), tall = y(z) - y(a)
       const lane = laneOf.get(b.key) ?? 0, wPct = 100 / nLanes
@@ -1031,8 +1033,10 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   const results = useMemo(() => {
     const out: { date: string; house: House; start: number; end: number }[] = []
     const start0 = from < today ? today : from
+    const lastDay = addDays(today, aheadDaysFor(shoot.creatorEmail, s, team))   // creators: about 2 weeks ahead (Nov 24)
     for (let k = 0; k < 60 && out.length <= limit; k++) {
       const d = addDays(start0, k)
+      if (d > lastDay) break
       if (!team && houseSlotsOn(days[d], shoot.creatorEmail, now, [shoot.id]) >= slotsPerDayFor(shoot.creatorEmail, s)) continue
       for (const h of where === 'any' ? HOUSES : [where]) {
         if (!lockFree && priorityLocked(d, h, s, shoot.creatorEmail, now)) continue
@@ -1261,7 +1265,10 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
   // so people pick the house themselves (no default).
   const results = useMemo(() => {
     // The owner booking for themselves follows the priority lock (owner, Oct 27); only equipment overrides it here.
-    const found = findFree(days, from, 60, count, where === 'any' ? HOUSES : [where], s, email, now, team && role !== 'owner', 2000)
+    // Creators: only days they can request (about 2 weeks ahead, Nov 24).
+    const lastDay = addDays(todayInStudio(), aheadDaysFor(email, s, team))
+    const span = Math.max(0, Math.min(60, Math.round((Date.parse(`${lastDay}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86400000) + 1))
+    const found = findFree(days, from, span, count, where === 'any' ? HOUSES : [where], s, email, now, team && role !== 'owner', 2000)
       // Skip days a picked friend already films at a house (they get one slot a day too).
       .filter(r => team || chosen.every(f => houseSlotsOn(days[r.date], f.email, now) < slotsPerDayFor(f.email, s)))
     const byTime = new Map<string, { date: string; start: number; houses: House[] }>()

@@ -398,7 +398,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
   // Free time: a move keeps the shoot's length unless a new end is given.
   const keepLen = Number.isInteger(d.start) && !Number.isInteger(d.end) ? { end: (d.start as number) + (Number(pre.end) - Number(pre.start)) } : {}
   const spot = readSpot({ ...d, ...keepLen, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
-  assertAhead(spot, caller, String(pre.creatorEmail), s)
+  if (spot.date > String(pre.date)) assertAhead(spot, caller, String(pre.creatorEmail), s)   // same day or earlier: always fine
   assertLength(spot, 1 + (Array.isArray(pre.with) ? pre.with.length : 0), caller, pre.creatorEmail, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
   // The team moving a shoot to another day takes its props along (owner, Nov 15); creators still sort their props first
@@ -594,6 +594,9 @@ function assertSwapRules(a: FirebaseFirestore.DocumentData, b: FirebaseFirestore
     if (spot.place === 'offsite') continue
     if (priorityLocked(spot.date, spot.place, s, who.creatorEmail, now)) throw new HttpsError('failed-precondition', `${who.creatorName} isn't in the priority group, so they can't take that priority-day slot before it opens to everyone.`, { problem: 'locked' })
     if (needsGuideline(spot.date, spot.place, who.creatorEmail, s) && !who.guideline) throw new HttpsError('failed-precondition', `That priority-day slot needs a filming guideline, and ${who.creatorName}'s shoot doesn't have one.`, { problem: 'guideline' })
+    // Neither creator ends up further ahead than they could book themselves (review, Nov 24), unless it's no later than now.
+    if (spot.date > who.date && spot.date > addDays(todayInStudio(), aheadDaysFor(String(who.creatorEmail), s, false)))
+      throw new HttpsError('failed-precondition', `That would put ${who.creatorName}'s shoot more than ${s.bookAheadDays} days ahead.`, { problem: 'too-far-creator' })
   }
 }
 
@@ -616,7 +619,10 @@ export const requestSwap = onCall(CALLABLE, async req => {
   if (mine.bothHouses || theirs.bothHouses) throw new HttpsError('failed-precondition', 'Both-houses bookings can\'t be swapped.')
   if (mine.from <= now || theirs.from <= now) throw new HttpsError('failed-precondition', 'One of these shoots has already started.')
   await assertNoLinksForDayChange(mineId, mine.date, theirs.date)
-  assertSwapRules(mine, theirs, await loadScheduleSettings(), now)
+  const swapS = await loadScheduleSettings()
+  // Priority bookings (Kyle) are theirs: nobody asks them to swap (owner, Nov 24).
+  if (swapS.instantBookers.some(p => p.email === theirs.creatorEmail)) throw new HttpsError('failed-precondition', 'That\'s a priority booking, so it can\'t be swapped. Try the waitlist or another time.', { problem: 'priority' })
+  assertSwapRules(mine, theirs, swapS, now)
   const open = await db.collection('swap_requests').where('fromShootId', '==', mineId).where('status', '==', 'pending').get()
   if (!open.empty) throw new HttpsError('failed-precondition', 'You already asked someone to swap this shoot. Wait for their answer or withdraw it first.')
   const ref = db.collection('swap_requests').doc()
