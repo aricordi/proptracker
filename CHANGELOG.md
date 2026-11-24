@@ -23,6 +23,9 @@ Each manual says which version it was written for.
   same way (one photo of everything in the case, batteries charging).
 - **It understands the studio better.** Houses are booked only for filming, never for meetings or planning; "I need a day"
   means filming time.
+- **Planning that problem-solves.** "A slot for me, Ariel and Pedro" means 2 hours each, back to back. If the day you want
+  is full, ChatGPT/Claude suggests a shorter house block plus offsite for the rest, separate times, or the next day with room.
+- **"Did you film?"** After each shoot, one tap in the app (or just tell ChatGPT/Claude "we filmed") so the team knows who filmed.
 - **Faster and more photos.** Prop searches and video-idea checks answer quicker, and photo cards show on searches and the closet too.
 
 ## 1.3.4 · Nov 24, 2026

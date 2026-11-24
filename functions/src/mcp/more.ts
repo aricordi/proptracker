@@ -16,6 +16,7 @@ import { savePhoto } from './refImage.js'
 import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
+import { reportShootDone } from '../attendance.js'
 import {
   asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, niceRange, matchPerson, askWho, personId, parseClock, propsProblem, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs,
   type Json, type McpUser, type ToolResult,
@@ -47,12 +48,13 @@ export const MORE_TOOLS = [
     description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, and an app link.',
     inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id from get_context or my_shoots (a short description also works)' } }, ['shoot_id']) },
   { name: 'plan_shoot', title: 'Plan a shoot from a casual request', annotations: READ,
-    description: 'Plans a shoot with other people: matches the names to people on the app (asking when a name is shared, a nickname or a likely typo, or the person isn\'t on the app), sets the length (2 hours per person unless hours is given), and returns times free for everyone on the booking, skipping days a collaborator already films. Read only: books nothing. Book the chosen time with book_shoot.',
+    description: 'Plans a shoot with other people: matches the names to people on the app (asking when a name is shared, a nickname or a likely typo, or the person isn\'t on the app), sets the length (2 hours per person unless hours is given), and returns back-to-back times free for everyone, skipping days a collaborator already films. When the day they want has no full block it problem-solves: a shorter house block plus offsite for the rest, separate times that day, and the soonest days with the full block. "I need a day/slot for me, A and B" = 2 hours each, back to back. Read only: books nothing. Book the chosen time with book_shoot.',
     inputSchema: obj({ with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'People filming with them, as they said the names' },
       when: { type: 'string', description: 'Their words: "tomorrow", "sat", "next friday", "this weekend", "next week", "nov 28"' },
       day: { type: 'string', description: 'Or an exact day YYYY-MM-DD' }, hours: { type: 'number', minimum: 0.5, maximum: 12, description: 'Only if they said a length' },
       at: { type: 'string', description: 'A start they asked for, e.g. "17:00" or "5pm"' }, time_of_day: { type: 'string', enum: ['any', 'morning', 'afternoon', 'evening', 'night'] },
-      houses: { type: 'array', items: { type: 'string', enum: ['cliff1', 'cliff2'] } }, limit: { type: 'integer', minimum: 1, maximum: 12, description: 'Default 6' } }) },
+      houses: { type: 'array', items: { type: 'string', enum: ['cliff1', 'cliff2'] } }, limit: { type: 'integer', minimum: 1, maximum: 12, description: 'Default 6' },
+      back_to_back: { type: 'boolean', description: 'Leave out (back to back is what people want). false only when they said they don\'t mind separate times' } }) },
   { name: 'find_free_times', title: 'Find free filming times', annotations: READ,
     description: 'Search the schedule for times that fit: how long, how many people (2 h per person; longer needs collaborators), which houses, time of day or a preferred start. Returns ready-to-book options that respect this person\'s priority-day locks and one-booking-a-day limit, with notes like "needs a guideline PDF". Use your own judgement to pick or suggest between them; get_schedule has the full raw picture.',
     inputSchema: obj({ from: { type: 'string', description: 'First day (default today): '+'YYYY-MM-DD (resolve it yourself with get_context; plain words are also understood)' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' },
@@ -83,6 +85,10 @@ export const MORE_TOOLS = [
       photo: { type: 'object', properties: { download_url: { type: 'string' }, file_id: { type: 'string' } }, description: 'The drop-off photo the person attached in this chat' },
       damaged: { type: 'array', maxItems: 30, items: obj({ item: { type: 'string', description: 'Prop name as listed on the request (or its id)' }, note: { type: 'string', description: 'What is wrong' } }, ['item']) },
       note: { type: 'string', description: 'Optional note for the arts department' } }, ['photo']) },
+  { name: 'shoot_done', title: 'Say whether a shoot happened', annotations: WRITE,
+    description: 'Records whether one of the person\'s shoots actually happened (the studio has no check-in, so this is how the team knows who filmed). Use it when they mention it ("we wrapped", "just finished filming the prank video", "it didn\'t happen, Ariel was sick"), or ask after a shoot that just ended (my_status lists shoots waiting for an answer). Works from the start of the shoot until 48 hours after.',
+    inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id (left out = their shoot that just ended)' }, filmed: { type: 'boolean' },
+      title: { type: 'string', description: 'What they filmed, if they said (video name)' }, note: { type: 'string', description: 'If it didn\'t happen: what happened, in their words' } }, ['filmed']) },
   { name: 'join_waitlist', title: 'Wait for a taken time', annotations: WRITE,
     description: 'Put the person on the waitlist for a booking someone else has (give the house, day and that booking\'s start time). If it opens up they get it held for 20 minutes and a notification. Up to 5 at once.',
     inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2'] }, day: { type: 'string', description: 'YYYY-MM-DD (resolve it yourself with get_context; plain words are also understood)' }, start: { type: 'string', description: 'Start of the taken booking, HH:MM' } }, ['place', 'day', 'start']) },
@@ -135,6 +141,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       return { text: `Changed "${r.title}": ${[...lines].map(([k, q]) => `${names.get(k) ?? k} x${q}`).join(', ')}${builds.length ? ` + ${builds.length} custom` : ''}.${pic.builds.length ? ` ${CUSTOM_NOTE}` : ''}` }
     }
     case 'pick_up_props': return pickUpProps(args, u)
+    case 'shoot_done': return shootDone(args, u)
     case 'return_props': return returnProps(args, u)
     case 'cancel_props_request': {
       const id = s(args.request_id, 100)
@@ -280,6 +287,37 @@ async function returnProps(args: Json, u: McpUser): Promise<ToolResult> {
     structured: { request_id: id, status: 'returned, being checked', photo_taken_at: saved.takenAt ?? null } }
 }
 
+/** Their approved shoots that started and ended less than 48 hours ago with no "did you film?" answer yet. */
+async function shootsToConfirm(u: McpUser): Promise<(Json & { id: string })[]> {
+  const now = nowStamp(), from = addDays(todayInStudio(), -3)
+  const [own, crew] = await Promise.all([
+    db.collection('shoots').where('creatorEmail', '==', u.email).where('date', '>=', from).get(),
+    db.collection('shoots').where('people', 'array-contains', u.email).get()])
+  const seen = new Set<string>()
+  return [...own.docs, ...crew.docs].filter(d => !seen.has(d.id) && seen.add(d.id)).map(d => ({ id: d.id, ...d.data() } as Json & { id: string }))
+    .filter(x => x.status === 'booked' && !x.toCheck && !x.said && !x.checkin && !x.outcome && !x.noShow && String(x.from) <= now
+      && now < new Date(Date.parse(`${String(x.to)}:00Z`) + 48 * 3600_000).toISOString().slice(0, 16))
+    .sort((a, b) => String(b.from).localeCompare(String(a.from)))
+}
+
+async function shootDone(args: Json, u: McpUser): Promise<ToolResult> {
+  if (typeof args.filmed !== 'boolean') return { text: 'Did they film or not? (filmed: true or false)' }
+  if (u.reviewer) return { text: `Noted: ${args.filmed ? 'filmed' : 'didn\'t film'}. (Demo account: this is a practice copy, so nothing is sent to the studio team.)` }
+  let id = s(args.shoot_id, 100)
+  if (!id) {
+    const open = await shootsToConfirm(u)
+    if (!open.length) return { text: 'There is no recent shoot of theirs waiting for an answer (it works from the start of a shoot until 48 hours after).' }
+    if (open.length > 1) return { text: `Which shoot? ${open.map(x => `${x.id}: ${PLACE[String(x.place)] ?? x.place} ${x.date} ${hm(Number(x.start))}`).join('; ')}`, structured: { needs_clarifying: true, field: 'shoot_id' } }
+    id = open[0].id
+  }
+  const own = await ownShoot(id, u)
+  if (!own) return { text: 'That isn\'t one of your shoots.' }
+  await reportShootDone.run(asUser(u, { id, filmed: args.filmed, title: s(args.title, 140), note: s(args.note, 500), via: 'assistant' }))
+  const sh = own.sh
+  return { text: args.filmed ? `Noted ✓ ${PLACE[String(sh.place)] ?? sh.place} ${sh.date} is marked as filmed${s(args.title, 140) ? ` ("${s(args.title, 140)}")` : ''}. Remember props and gear go back (my_status).` : 'Noted. The schedule team will see it didn\'t happen.' ,
+    structured: { shoot_id: id, filmed: args.filmed } }
+}
+
 async function myStatus(u: McpUser): Promise<ToolResult> {
   const today = todayInStudio(), now = nowStamp()
   const [sch, b, shootsOwn, shootsCrew, res, gear, swaps, casts, waits, status] = await Promise.all([
@@ -304,7 +342,9 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     .map(r => ({ id: r.id, video: r.title, day: r.startDate, status: PROPS_STATUS[String(r.status)] ?? r.status, issues: ((r.issues ?? []) as Json[]).length || undefined }))
   const gearOut = gear.docs.map(d => ({ id: d.id, ...d.data() } as Json & { id: string })).filter(g => g.status === 'out').map(g => ({ id: g.id, items: ((g.lines ?? []) as Json[]).map(l => String(l.name)), due: clock(String(g.to ?? '')) }))
   const st = status.data() ?? {}
+  const toConfirm = await shootsToConfirm(u)
   const data = {
+    shoots_to_confirm: toConfirm.map(x => ({ id: x.id, day: x.date, start: hm(Number(x.start)), place: PLACE[String(x.place)] ?? x.place })),
     today, now: clock(now),
     next_shoot: next ? { id: next.id, day: next.date, start: hm(Number(next.start)), end: hm(Number(next.end)), place: PLACE[String(next.place)] ?? next.place, status: STATUS[String(next.status)],
       props_deadline: clock(propsDeadline(shootStartStamp(String(next.date), Number(next.start)), b.leadTimeHours ?? 48)) } : null,
@@ -331,6 +371,7 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     next: next ? { day: String(next.date), label: `${next.date} ${PLACE[String(next.place)] ?? next.place}`, status: String(next.status), hasProps: nextReqs.length > 0,
       propsOpen: now <= deadline, propsDeadline: clock(deadline), withPeople: ((next.with ?? []) as unknown[]).length } : null,
     invites: data.video_invites_waiting.map(v => v.host), swaps: data.swap_requests_for_you.map(v => v.from),
+    toConfirm: toConfirm.map(x => `${PLACE[String(x.place)] ?? x.place} ${x.date} ${hm(Number(x.start))}`),
     toPickUp: out.filter(r => r.status === 'packed').map(r => ({ what: String(r.title), day: String(r.startDate) })),
     toReturn: toReturn.map(r => ({ what: String(r.video), due: r.due })), gearOut: gearOut.map(g => ({ what: g.items.join(', '), due: g.due })),
     waitlistOffered: data.waitlist.filter(w => w.status === 'offered').length })
@@ -473,6 +514,30 @@ async function planShoot(args: Json, u: McpUser): Promise<ToolResult> {
     const after = Array.from({ length: 7 }, (_, i) => addDays(dates[dates.length - 1] ?? today, i + 1))
     fallback = (await freeOptions({ dates: after, need, houses: housesOf(args.houses), tod: around != null ? 'any' : todOf(args.time_of_day), around, limit: 4, crew }, u)).options
   }
+  // PROBLEM SOLVING on the day they want (owner, Nov 24: "there's no 6-hour slot on the 20th… there's a 4-hour slot, and you
+  // could film offsite for the rest… or if you don't care if they're back to back…"). Back to back stays first choice.
+  const houses = housesOf(args.houses), tod = around != null ? 'any' : todOf(args.time_of_day)
+  const meBusy = plan.busy.some(b => b.who === 'you'), crewBusy = plan.busy.some(b => b.who !== 'you')
+  const apart = args.back_to_back === false
+  let split: Json | null = null, separate: Json[] = []
+  if (total > 1 && dates.length <= 2 && !meBusy && !crewBusy && (!plan.options.length || apart)) {
+    if (!apart) for (let k = total - 1; k >= 1; k--) {
+      const part = await freeOptions({ dates, need: k * sch.slotMinutes, houses, tod, around, limit: 3, crew }, u)
+      if (part.options.length) {
+        split = { house_hours: k * sch.slotMinutes / 60, house_people: k, offsite_people: total - k, offsite_hours: (total - k) * sch.slotMinutes / 60, at_house: part.options }
+        break
+      }
+    }
+    // Not back to back: separate 2-hour times that day (different times or houses), one per person.
+    const singles = (await freeOptions({ dates, need: sch.slotMinutes, houses, tod: 'any', around: null, limit: 30, crew }, u)).options
+    const picked: Json[] = []
+    for (const o of singles) {
+      if (picked.some(p => p.day === o.day && p.place === o.place && !(String(o.end) <= String(p.start) || String(o.start) >= String(p.end)))) continue
+      picked.push(o)
+      if (picked.length >= Math.max(total + 2, 4)) break
+    }
+    separate = picked
+  }
   const who = names.length ? `you + ${names.join(' + ')}` : said.length ? `you + ${said.length} more` : 'just you'
   const lines = plan.options.map(o => `${o.label} (book: ${o.place} ${o.day} ${o.start}–${o.end})`)
   const text = [
@@ -480,11 +545,13 @@ async function planShoot(args: Json, u: McpUser): Promise<ToolResult> {
     ...resolved.filter(r => r.status === 'found').map(r => `"${r.said}" = ${r.name} (${r.person_id})${r.on_app === false ? ', not on the app; booked by name' : ''}`),
     ...(questions.length ? ['Ask first:', ...questions.map(q => `- ${q}`)] : []),
     ...(lines.length ? ['Times that fit everyone:', ...lines] : [`Nothing free ${whenLabel} for ${need / 60} h.${busyText.length ? ` (${busyText.join('; ')})` : ''}`]),
-    ...(fallback.length ? ['Soonest after that:', ...fallback.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)] : []),
+    ...(split ? [`Same day, problem-solved: ${split.house_hours} h back to back at a house for ${split.house_people === 1 ? 'one of you' : `${split.house_people} of you`}, and the other ${split.offsite_people === 1 ? 'person films' : `${split.offsite_people} film`} offsite (${split.offsite_hours} h, any hours, a second booking with place offsite + where). House times: ${(split.at_house as Json[]).map(o => `${o.place} ${o.start}–${o.end}`).join(', ')}.`] : []),
+    ...(separate.length ? [`${apart ? 'Separate times that day (not back to back):' : 'If they don\'t mind not being back to back, separate 2-hour times that day:'} ${separate.map(o => `${o.place} ${o.start}–${o.end}`).join(', ')}. The person books their own; each friend books theirs (in their app or ChatGPT), or the schedule team can.`] : []),
+    ...(fallback.length ? ['Soonest days with the whole block back to back:', ...fallback.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)] : []),
     ...(plan.guideline.length ? [GUIDELINE_TEXT(plan.guideline)] : []),
-    questions.length ? 'Clear up the questions, then confirm one time and book it with book_shoot.' : 'Offer 2–3 of these, confirm one, then book_shoot with these people in `with` (person ids).',
+    questions.length ? 'Clear up the questions, then confirm one time and book it with book_shoot.' : lines.length ? 'Offer 2–3 of these, confirm one, then book_shoot with these people in `with` (person ids).' : 'Explain there is no back-to-back block that day and offer these ways to still film that day (and the soonest full block); book what they pick (a split = two book_shoot calls: the house block with those people in `with`, then the offsite one with the others and where).',
   ].join('\n')
-  return { text, structured: { people: resolved, everyone: total, length_hours: need / 60, when: whenLabel, days: dates, questions, options: plan.options, ...(fallback.length ? { soonest_after: fallback } : {}), ...(busyText.length ? { busy: busyText } : {}), ...(plan.guideline.length ? { needs_guideline_in_app: plan.guideline } : {}) } }
+  return { text, structured: { people: resolved, everyone: total, length_hours: need / 60, when: whenLabel, days: dates, questions, options: plan.options, ...(split ? { same_day_split: split } : {}), ...(separate.length ? { separate_times: separate } : {}), ...(fallback.length ? { soonest_after: fallback } : {}), ...(busyText.length ? { busy: busyText } : {}), ...(plan.guideline.length ? { needs_guideline_in_app: plan.guideline } : {}) } }
 }
 
 async function propCalendar(args: Json): Promise<ToolResult> {

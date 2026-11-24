@@ -78,6 +78,28 @@ export const wrapShoot = onCall(CALLABLE, async req => {
   return { ok: true }
 })
 
+// "Did you film?" (owner, Nov 24: no check-in, but ops needs to know who showed up): after a shoot the creator (or anyone on the
+// booking) answers in one tap, in the app or through ChatGPT/Claude. Saved on the shoot as `said`; Analytics counts a "no" as not
+// filmed (the team still decides on any strike). Open from the start of the shoot until 48 hours after it ends.
+export const SAID_HOURS = 48
+export const reportShootDone = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, [...ANYONE])
+  const { ref, sh } = await ownShoot(str(req.data?.id, 100), caller.email)
+  if (sh.status !== 'booked') throw new HttpsError('failed-precondition', 'Only an approved shoot can be marked as filmed.')
+  const now = nowStamp()
+  if (now < String(sh.from)) throw new HttpsError('failed-precondition', 'This shoot hasn\'t started yet.')
+  const lateBy = new Date(Date.parse(`${String(sh.to)}:00Z`) + SAID_HOURS * 3600_000).toISOString().slice(0, 16)
+  if (now > lateBy) throw new HttpsError('failed-precondition', `That was more than ${SAID_HOURS} hours ago. The schedule team will sort it out.`)
+  if (typeof req.data?.filmed !== 'boolean') throw new HttpsError('invalid-argument', 'Say yes or no: did you film?')
+  const filmed = req.data.filmed as boolean, title = str(req.data?.title, 140), note = str(req.data?.note, 500)
+  const via = req.data?.via === 'assistant' ? 'assistant' : 'app'
+  const at = new Date().toISOString()
+  await ref.update({ said: { filmed, at, by: caller.email, via, ...(title ? { title } : {}), ...(note ? { note } : {}) },
+    ...(filmed && title && !sh.wrap ? { wrap: { at, title } } : {}), updatedAt: at,
+    history: FieldValue.arrayUnion({ at, by: caller.email, action: filmed ? 'said-filmed' : 'said-not-filmed', note: [filmed ? 'Said they filmed' : 'Said they didn\'t film', title ? `“${title}”` : '', note, via === 'assistant' ? '(through their AI assistant)' : ''].filter(Boolean).join(' · ') }) })
+  return { ok: true }
+})
+
 export const explainMissedCheckIn = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, [...ANYONE])
   const { ref, sh } = await ownShoot(str(req.data?.id, 100), caller.email)

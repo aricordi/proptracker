@@ -25,7 +25,7 @@ import { friendlyError } from '../lib/errors'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime, addMinutes } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, useScheduleDays, useMyShoots, useMySwaps, useMyInvites, useMyStatus, checkInShoot, wrapShoot,
+  useScheduleSettings, useScheduleDays, useMyShoots, useMySwaps, useMyInvites, useMyStatus, checkInShoot, wrapShoot, reportShootDone,
   checkinWindow, isMissed, explainUntil, houseBookings, CHECKIN_ON, fmtSlot, houseFreeFrom, type Shoot,
 } from '../services/schedule'
 
@@ -79,6 +79,9 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
   const justWrapped = (x: Shoot) => !!x.wrap && Date.now() - Date.parse(x.wrap.at) < 10 * 60_000
   const onNow = !CHECKIN_ON ? [] : live.filter(x => (!x.wrap || justWrapped(x)) && x.date >= addDays(today, -1) && ((!x.checkin && checkinWindow(x, now, s) === 'open') || (x.checkin && x.from <= now && now < addMinutes(x.to, 180))))
   const missed = live.filter(x => isMissed(x, now) && !x.explanation && now < explainUntil(x, s))
+  // "Did you film?" (owner, Nov 24; no check-in): approved shoots that ended in the last 48 hours with no answer yet.
+  const askFilmed = !CHECKIN_ON ? (recent ?? []).filter(x => x.status === 'booked' && !(x as { toCheck?: boolean }).toCheck && !x.said && !x.checkin && !x.outcome && !x.noShow
+    && x.to <= now && now < addMinutes(x.to, 48 * 60)) : []
   const ahead = upcoming.filter(x => !onNow.some(y => y.id === x.id)).sort((a, b) => a.from.localeCompare(b.from))
   // Only the next 3 here (owner, Nov 5: say so, so nobody thinks it's everything they're booked for); the rest on My shoots.
   // Videos you're in (owner, Nov 21): mixed into Coming up at their time, so "Ariel's video at 1" sits above your own 3 PM shoot.
@@ -124,6 +127,7 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
             actions={<button onClick={() => navigate(`/schedule?shoot=${x.id}`)} className={alertBtn}>Explain what happened</button>} />
         )
       })}
+      {askFilmed.map(x => <DidYouFilm key={x.id} shoot={x} label={label(x)} />)}
       {(returns ?? []).length > 0 && <ReturnCard groups={returns!} count={backCount} label={label} />}
       {packed.map(r => <PickupCard key={r.id} r={r} onDone={m => setPicked(p => ({ ...p, [r.id]: m }))} />)}
       <PickedUp picked={picked} still={packed} onClose={id => setPicked(p => { const n = { ...p }; delete n[id]; return n })} />
@@ -224,6 +228,31 @@ export default function ChatNow({ onAsk, onProps, chatting = false }: { onAsk: (
 // Check in and wrap, right here (owner, Nov 3: "smaller, just a selfie of them with their camera, nothing crazy").
 // One line + a selfie button. The photo is the check-in. Only when someone filmed right before you: one optional
 // "All good / Report it" question (mess and/or ran over). Later, one line: what did you film?
+// One tap after a shoot: did you film? (and, optionally, what). Ops sees the answer on the shoot and in Analytics.
+function DidYouFilm({ shoot, label }: { shoot: Shoot; label: string }) {
+  const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [done, setDone] = useState(''), [title, setTitle] = useState(''), [no, setNo] = useState(false), [why, setWhy] = useState('')
+  const send = async (filmed: boolean) => {
+    setBusy(true); setErr('')
+    try { await reportShootDone({ id: shoot.id, filmed, ...(filmed && title.trim() ? { title: title.trim() } : {}), ...(!filmed && why.trim() ? { note: why.trim() } : {}) }); setDone(filmed ? 'Thanks! Marked as filmed ✓' : 'Thanks for letting us know.') }
+    catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
+  }
+  if (done) return <NoticeRow tone="info" icon="check" title={done} />
+  return (
+    <ChatCard tone="act" icon="camera" label="Quick question" title="Did you film?" sub={label}
+      actions={no ? <>
+        <input value={why} onChange={e => setWhy(e.target.value)} placeholder="What happened? (optional)" className="w-full rounded-2xl bg-pt-bg px-4 py-3 text-[16px] mb-2" />
+        <button disabled={busy} onClick={() => send(false)} className={primaryBtn}>{busy ? 'Sending…' : "Send: we didn't film"}</button>
+        <button disabled={busy} onClick={() => setNo(false)} className={secondaryBtn}>Back</button>
+      </> : <>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="What did you film? (optional)" className="w-full rounded-2xl bg-pt-bg px-4 py-3 text-[16px] mb-2" />
+        <button disabled={busy} onClick={() => send(true)} className={primaryBtn}>{busy ? 'Sending…' : 'Yes, we filmed'}</button>
+        <button disabled={busy} onClick={() => setNo(true)} className={secondaryBtn}>No, we didn't</button>
+      </>}>
+      {err && <p className="text-red-300 text-sm mt-2">{err}</p>}
+    </ChatCard>
+  )
+}
+
 export function ShootNow({ shoot }: { shoot: Shoot; label?: string }) {
   const s = useScheduleSettings()
   const shootPlace = shoot.place === 'offsite' ? (shoot.where || 'Offsite') : s.houses[shoot.place].name

@@ -10,7 +10,7 @@ export const LATE_START_MINUTES = 15   // checked in more than 15 min after the 
 
 export interface StatShoot {
   id: string; creatorEmail: string; creatorName: string; date: string; from: string; to: string; place: string; where?: string
-  status: string; checkin?: { at: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean; toCheck?: boolean
+  status: string; checkin?: { at: string } | null; said?: { filmed: boolean } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean; toCheck?: boolean
 }
 export interface StatProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; endDate: string; returnInfo?: { at: string } | null; checkedInAt?: string }
 export interface StatGear { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; to: string; date: string; returnedLate?: boolean; usedBy?: string[]; crewEmails?: string[]; pickup?: { by: string } | null; late?: { by: string } | null }
@@ -83,13 +83,14 @@ export function creatorStats(opts: {
     c.booked++
     const decidedNo = !!x.noShow || x.outcome === 'noshow'
     const trusted = !expectsCheckIn(x as never, opts.checksIn)   // same rule as Analytics (schedule.ts)
-    if (x.checkin || x.outcome === 'filmed' || (trusted && !decidedNo)) {
+    const saidNo = x.said?.filmed === false && x.outcome !== 'filmed'
+    if (x.checkin || x.outcome === 'filmed' || x.said?.filmed === true || (trusted && !decidedNo && !saidNo)) {
       c.filmed++
       // Check-ins are saved in UTC; shoot times are studio (Toronto) time.
       const late = x.checkin ? minutesBetween(x.from, nowStamp(new Date(x.checkin.at))) : 0
       if (late > LATE_START_MINUTES) flag(c, { id: `late-start:${x.id}`, kind: 'late-start', date: x.date, text: `Checked in ${Math.round(late)} min after the start at ${place(x)}`, to })
     } else if (x.noShow || x.outcome === 'noshow') flag(c, { id: `no-show:${x.id}`, strikeId: strikeFor('no-show', x.id), kind: 'no-show', date: x.date, text: `No-show at ${place(x)}`, to })
-    else flag(c, { id: `missed-checkin:${x.id}`, kind: 'missed-checkin', date: x.date, text: `No check-in at ${place(x)} (waiting for a decision)`, to, open: true })
+    else flag(c, { id: `missed-checkin:${x.id}`, kind: 'missed-checkin', date: x.date, text: saidNo ? `Said they didn't film at ${place(x)} (waiting for a decision)` : `No check-in at ${place(x)} (waiting for a decision)`, to, open: true })
   }
 
   for (const r of opts.reports) {

@@ -395,6 +395,52 @@ describe('connector tools', () => {
     expect((await getDoc(`gear_bookings/${took.structuredContent.booking_id}`))!).toMatchObject({ status: 'returned', return: { charging: true } })
   })
 
+  it('problem-solves a day with no full back-to-back block: shorter house block + offsite, or separate times', async () => {
+    const t = await connect(ANA)
+    for (const [e, n] of [['ari@example.com', 'Ariel Stone'], ['pedro@example.com', 'Pedro Diaz']]) await put(`users/${e}`, { email: e, role: 'creator', active: true, name: n, access: 'full' })
+    // FRI: Cliff 1 closed all day; Cliff 2 only free 1–5 PM and 7–9 PM (no 6 hours in a row).
+    await put(`schedule_days/${FRI}`, { date: FRI, blocks: [
+      { id: 'b1', house: 'cliff1', start: 0, end: 1560, type: 'event', note: 'Event' },
+      { id: 'b2', house: 'cliff2', start: 0, end: 780, type: 'cleaning', note: 'x' },
+      { id: 'b3', house: 'cliff2', start: 1020, end: 1140, type: 'cleaning', note: 'x' },
+      { id: 'b4', house: 'cliff2', start: 1260, end: 1560, type: 'cleaning', note: 'x' }] })
+    const plan = (await tool(t.access_token, 'plan_shoot', { with: ['Ariel', 'Pedro'], day: FRI })).structuredContent
+    expect(plan.length_hours).toBe(6)
+    expect(plan.options).toHaveLength(0)
+    expect(plan.same_day_split).toMatchObject({ house_hours: 4, house_people: 2, offsite_people: 1 })
+    expect(plan.same_day_split.at_house[0]).toMatchObject({ place: 'cliff2', start: '13:00', end: '17:00' })
+    expect(plan.separate_times.length).toBeGreaterThanOrEqual(2)
+    // Book the split: the house block with Ariel, then Pedro offsite.
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Ariel'] })).content[0].text).toMatch(/^Requested/)
+    const off = await tool(t.access_token, 'book_shoot', { place: 'offsite', day: FRI, start: '18:00', end: '20:00', with: ['Pedro'], where: 'Pedro\'s place' })
+    expect(off.content[0].text, off.content[0].text).toMatch(/^Requested/)
+    // Said they don't mind separate times: separate times come first.
+    const apart = (await tool(t.access_token, 'plan_shoot', { with: ['Ariel'], day: addDays(FRI, 7), back_to_back: false })).structuredContent
+    expect(apart.separate_times.length).toBeGreaterThan(0)
+  })
+
+  it('"did you film?": recorded from the chat after a shoot, shows in my_status until answered', async () => {
+    const t = await connect(ANA)
+    const y = addDays(today, -1)
+    await put('shoots/past', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff2', date: y, start: 600, end: 720, from: `${y}T10:00`, to: `${y}T12:00`, kind: 'extra', history: [] })
+    const st = await tool(t.access_token, 'my_status')
+    expect(st.structuredContent.shoots_to_confirm[0].id).toBe('past')
+    expect(st.structuredContent.suggestions.some((x: { tool?: string }) => x.tool === 'shoot_done')).toBe(true)
+    const r = await tool(t.access_token, 'shoot_done', { filmed: true, title: 'Prank call' })
+    expect(r.content[0].text).toMatch(/^Noted ✓.*filmed.*Prank call/)
+    const sh = (await getDoc('shoots/past'))!
+    expect(sh.said).toMatchObject({ filmed: true, title: 'Prank call', via: 'assistant' })
+    expect(sh.wrap.title).toBe('Prank call')
+    expect((await tool(t.access_token, 'my_status')).structuredContent.shoots_to_confirm).toHaveLength(0)
+    // The app's one tap: a "no" with what happened; future shoots can't be answered yet.
+    await put('shoots/past2', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: y, start: 900, end: 1020, from: `${y}T15:00`, to: `${y}T17:00`, kind: 'extra', history: [] })
+    expect((await call('reportShootDone', { id: 'past2', filmed: false, note: 'Ariel was sick' }, ANA)).ok).toBe(true)
+    expect((await getDoc('shoots/past2'))!.said).toMatchObject({ filmed: false, note: 'Ariel was sick', via: 'app' })
+    await put('shoots/later', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: FRI, start: 600, end: 720, from: `${FRI}T10:00`, to: `${FRI}T12:00`, kind: 'extra', history: [] })
+    expect((await call('reportShootDone', { id: 'later', filmed: true }, ANA)).message).toMatch(/hasn't started/)
+    expect((await call('reportShootDone', { id: 'past2', filmed: true }, MAANIK)).ok).toBe(false)
+  })
+
   it('answers OpenAI\'s domain check only once a token is saved', async () => {
     expect((await fetch(`${BASE}/.well-known/openai-apps-challenge`)).status).toBe(404)
     await put('mcp_settings/openai', { challenge: 'tok_12345678' })

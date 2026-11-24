@@ -28,6 +28,7 @@ export interface Shoot {
   history: { at: string; by: string; action: string; note?: string }[]
   checkin?: { at: string; photos: string[] }
   wrap?: { at: string; title: string }
+  said?: { filmed: boolean; at: string; title?: string; note?: string; via?: string }
   explanation?: { at: string; text: string }
   outcome?: 'filmed' | 'noshow'
   noShow?: 'late-cancel' | 'missed'
@@ -207,6 +208,7 @@ export const testCalendarLink = httpsCallable<Record<string, never>, { ok: boole
 
 export const checkInShoot = httpsCallable<{ id: string; photos: string[]; report?: { overMinutes?: number; mess?: boolean; photos?: string[]; note?: string } }, { ok: boolean; reported: string | null }>(functions, 'checkInShoot')
 export const wrapShoot = httpsCallable<{ id: string; title: string }, { ok: boolean }>(functions, 'wrapShoot')
+export const reportShootDone = httpsCallable<{ id: string; filmed: boolean; title?: string; note?: string; via?: string }, { ok: boolean }>(functions, 'reportShootDone')
 export const explainMissedCheckIn = httpsCallable<{ id: string; text: string }, { ok: boolean }>(functions, 'explainMissedCheckIn')
 export const giveSlot = httpsCallable<{ date: string; house: House; start: number; toEmail?: string; clashShootId?: string; moveTo?: { house: House; start: number } | null; note?: string },
   { ok: boolean; holderName: string; moved: boolean; toName: string }>(functions, 'giveSlot')

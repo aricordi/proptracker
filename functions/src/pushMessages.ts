@@ -306,6 +306,9 @@ export function shootReminders(id: string, sh: Doc, now: string, s: ScheduleSett
   // Checked in and the slot is over: one nudge to wrap ("what did you film?"), within 3 hours.
   if (sh.checkin && !sh.wrap && now >= (sh.to as string) && now < addMinutes(sh.to as string, 180))
     out.push({ key: `wrap_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'That\'s a wrap? 🎬', body: 'Tell us what you filmed. One line is enough.' } })
+  // No check-in (owner, Nov 24): one "Did you film?" after the shoot, answered in one tap (app) or by telling their AI assistant.
+  if (!CHECKIN_ON && !sh.said && !sh.checkin && !sh.outcome && !sh.noShow && !sh.guest && now >= (sh.to as string) && now < addMinutes(sh.to as string, 180))
+    out.push({ key: `didfilm_${id}`, push: { to, url: `/?shoot=${id}`, tag: `shoot-${id}`, title: 'Did you film? 🎬', body: 'One tap to say yes (and what you filmed), so the team knows.' } })
   // Missed check-in: a chance to explain.
   if (house && isMissed(sh as any, now) && now < explainUntil(sh as { to: string }, s)) out.push({ key: `missed_${id}`, push: { to, url, tag: `shoot-${id}`, title: 'Missed your check-in?', body: `Tell the schedule team what happened by ${stampTime(explainUntil(sh as { to: string }, s))}.` } })
   // Last day to add props + gear (from 9 AM), only if nothing is added yet.

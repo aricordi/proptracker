@@ -43,7 +43,7 @@ export const SERIOUS_KINDS: Kind[] = ['no-show', 'late-cancel', 'strike', 'props
 
 // ── Inputs (only the fields used) ──
 export interface AShoot { id: string; creatorEmail: string; creatorName: string; date: string; from: string; to: string; place: string; where?: string
-  status: string; checkin?: { at: string } | null; wrap?: { at: string; title: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
+  status: string; checkin?: { at: string } | null; wrap?: { at: string; title: string } | null; said?: { filmed: boolean; title?: string } | null; outcome?: string | null; noShow?: string | null; lateCancel?: boolean
   toCheck?: boolean; calendarEventId?: string; importedFrom?: string; approvedAt?: string; createdAt?: string; explanation?: { at: string } | null }
 interface Hist { at: string; by?: string; status?: string; action?: string }
 export interface AProps { id: string; creatorEmail: string; creatorName?: string; title: string; status: string; startDate: string; endDate: string
@@ -120,8 +120,10 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     // No check-in expected: offsite shoots (the app only checks in at the houses), people who couldn't use check-in at the time
     // (stamped on the shoot when check-in opened), and calendar imports from before that stamp (schedule.ts expectsCheckIn).
     const trusted = !expectsCheckIn(x as never, o.checksIn)
-    const filmed = !!x.checkin || x.outcome === 'filmed' || (trusted && !decidedNo)
-    facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed, title: x.wrap?.title, to })
+    // "Did you film?" (Nov 24): a yes counts as filmed; a no counts as not filmed until the team decides.
+    const saidNo = x.said?.filmed === false && x.outcome !== 'filmed'
+    const filmed = !!x.checkin || x.outcome === 'filmed' || x.said?.filmed === true || (trusted && !decidedNo && !saidNo)
+    facts.push({ id: x.id, email: x.creatorEmail, name: name(x.creatorEmail), date: x.date, house, filmed, title: x.wrap?.title ?? x.said?.title, to })
     if (x.checkin) {
       const late = minutesLocal(x.from, local(x.checkin.at))
       if (late > LATE_START_MIN) add({ ...sh('late-start', x.id), kind: 'late-start', email: x.creatorEmail, date: x.date, house, text: `Checked in ${Math.round(late)} min late`, to })
@@ -129,6 +131,7 @@ export function analyze(o: { now: string; closed: ClosedDays; shoots: AShoot[]; 
     }
     if (filmed) continue
     if (decidedNo) add({ ...sh('no-show', x.id), strikeId: strikeFor('no-show', x.id), kind: 'no-show', email: x.creatorEmail, date: x.date, house, text: 'No-show', to })
+    else if (saidNo) add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'Said they didn\'t film (team to decide)', to, open: true })
     else add({ ...sh('missed-checkin', x.id), kind: 'missed-checkin', email: x.creatorEmail, date: x.date, house, text: 'No check-in, waiting for a decision', to, open: true,
       ...(x.explanation ? {} : { decideFrom: addMinutes(x.to, (o.explainHours ?? 12) * 60) }) })   // explained = decide now
   }

@@ -3031,6 +3031,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
     - CHATGPT FACTS (owner, Nov 24): a custom MCP server added in ChatGPT (Plugins → + → Add custom MCP server) works in typed
       chat AND VOICE MODE with NO OpenAI approval/submission. Older notes saying "typed chat only / voice after approval /
       Developer mode / Plus-Pro plan" are WRONG; app screen, appGuide, manuals and owner guide corrected. Directory listing = optional.
+    - FLEXIBLE PLANNING + "DID YOU FILM?" (owner, Nov 24: "I need a day" = the 2-hour slots, back to back for everyone named;
+      no full block that day → problem-solve (shorter house block + offsite for the rest, or separate times if they don't mind);
+      adoption must come from ease, not force; no check-in; one-tap "what did you film?" OK; part of 1.4.0, NOT deployed).
+      plan_shoot (mcp/more.ts): `back_to_back` (default true); when the asked day(s) have no full block: same_day_split (largest
+      k×2h house block found + offsite for the rest, booked as 2 book_shoot calls) + separate_times (non-overlapping 2-h times that
+      day; each friend books their own) + soonest full-block days. attendance.ts `reportShootDone` {id, filmed, title?, note?, via}
+      (anyone on the booking, approved shoot, from start to 48 h after the end) → shoot.said (+ wrap title, history said-filmed /
+      said-not-filmed); in deploy/log lists. Push `didfilm_<id>` after the shoot (CHECKIN_ON false, ≤3 h). App: ChatNow
+      DidYouFilm card (shoots ended in the last 48 h, no answer). Analytics/creatorStats: said yes = filmed, said no = not filmed
+      + "Said they didn't film (team to decide)" (missed-checkin kind); no answer = filmed (as before). Connector tool `shoot_done`
+      (WRITE) + my_status shoots_to_confirm + suggestNext. Flag evidence shows the answer. Ideas NOT built (owner said no/not now):
+      Slack bot, YouTube matching, perks, early cut-off date.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

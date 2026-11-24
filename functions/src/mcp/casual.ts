@@ -219,13 +219,14 @@ export function qtyFrom(said: unknown): number | null {
 // ─── Guiding them from what we know (owner, Nov 24: "maybe guide them based on what we know") ────────────────────────
 export interface Situation {
   next?: { day: string; label: string; status: string; hasProps: boolean; propsOpen: boolean; propsDeadline: string; withPeople: number } | null
-  upcoming: number; invites: string[]; swaps: string[]; toPickUp?: { what: string; day: string }[]; toReturn: { what: string; due: string }[]; gearOut: { what: string; due: string }[]
+  upcoming: number; invites: string[]; swaps: string[]; toPickUp?: { what: string; day: string }[]; toConfirm?: string[]; toReturn: { what: string; due: string }[]; gearOut: { what: string; due: string }[]
   waitlistOffered: number; pausedUntil?: string | null; today: string
 }
 /** The few things worth doing next, most urgent first, in plain words (the assistant offers them; it never acts on its own). */
 export function suggestNext(x: Situation): { do: string; why: string; tool?: string }[] {
   const out: { do: string; why: string; tool?: string }[] = []
   const soon = (stamp: string) => stamp.slice(0, 10) <= x.today
+  for (const c of x.toConfirm ?? []) out.push({ do: `Ask how the ${c} shoot went`, why: 'did they film? one word is enough; it tells the team they showed up', tool: 'shoot_done' })
   for (const r of x.toReturn) out.push({ do: `Bring back "${r.what}"`, why: `due ${r.due}${soon(r.due) ? ' (today or late: late returns can mean a strike)' : ''}; at drop-off take one photo of everything and return it here or in the app`, tool: 'return_props' })
   for (const r of x.toPickUp ?? []) out.push({ do: `Pick up "${r.what}"`, why: `packed & ready for ${r.day}; at the pick-up spot check the bag and sign for it here or in the app`, tool: 'pick_up_props' })
   for (const g of x.gearOut) out.push({ do: `Return the gear (${g.what})`, why: `due ${g.due}; one photo of everything in the case with batteries charging, here or in the app`, tool: 'return_gear' })

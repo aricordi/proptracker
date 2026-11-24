@@ -231,6 +231,8 @@ function Evidence({ i, ctx }: { i: Incident; ctx: FlagCtx }) {
     if (shoot.checkin) { rows.push(['Checked in', when(shoot.checkin.at)]); photos.push({ urls: shoot.checkin.photos, title: 'Set photo' }) }
     if (shoot.wrap) rows.push(['Filmed', `“${shoot.wrap.title}”`])
     if (shoot.explanation) rows.push(['They explained', `“${shoot.explanation.text}”`])
+    const said = (shoot as { said?: { filmed: boolean; at: string; note?: string; via?: string } }).said
+    if (said) rows.push([said.filmed ? 'Said they filmed' : 'Said they didn\'t film', `${when(said.at)}${said.note ? ` · “${said.note}”` : ''}${said.via === 'assistant' ? ' (through ChatGPT/Claude)' : ''}`])
     const cancel = shoot.history?.find(h => h.action === 'cancelled')
     if (shoot.status === 'cancelled' && cancel) rows.push(['Cancelled', when(cancel.at)])
     const decided = shoot.history?.find(h => h.action === 'no-show')

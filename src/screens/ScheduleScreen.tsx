@@ -815,7 +815,7 @@ function ShootSheet({ id, team, sent, castAsk, onClose, onMove, onSwap, onGive }
     setBusy(true); setErr('')
     try { await cancelShoot({ id, ...(noShow ? { confirmNoShow: true } : {}) }); onClose() } catch (e) { setErr(errorText(e)); setBusy(false) }
   }
-  const actionLabel: Record<string, string> = { booked: 'Booked', cancelled: 'Cancelled', moved: 'Moved', swapped: 'Swapped', 'checked-in': 'Checked in', wrapped: 'Wrapped', reported: 'Reported', report: 'Sent a report', explained: 'Explained a missed check-in', 'no-show': 'No-show', 'marked-filmed': 'Marked as filmed', 'props-added': 'Props requested', 'gear-added': 'Gear held', requested: 'Requested', approved: 'Approved', denied: 'Not approved', expired: 'Ran out (nobody approved it in time)', 'move-requested': 'Asked to move', 'move-approved': 'Move approved', 'move-denied': 'Move not approved', 'move-expired': 'Move ran out' }
+  const actionLabel: Record<string, string> = { booked: 'Booked', cancelled: 'Cancelled', moved: 'Moved', swapped: 'Swapped', 'checked-in': 'Checked in', wrapped: 'Wrapped', reported: 'Reported', report: 'Sent a report', explained: 'Explained a missed check-in', 'no-show': 'No-show', 'marked-filmed': 'Marked as filmed', 'said-filmed': 'Said they filmed', 'said-not-filmed': 'Said they didn\'t film', 'props-added': 'Props requested', 'gear-added': 'Gear held', requested: 'Requested', approved: 'Approved', denied: 'Not approved', expired: 'Ran out (nobody approved it in time)', 'move-requested': 'Asked to move', 'move-approved': 'Move approved', 'move-denied': 'Move not approved', 'move-expired': 'Move ran out' }
   return (
     <BottomSheet open onClose={onClose} title={mine ? 'Your shoot' : shoot.creatorName}>
       <div className="space-y-3">
