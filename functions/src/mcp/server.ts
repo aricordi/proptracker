@@ -6,10 +6,11 @@
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions'
 import type { Request } from 'express'
-import { db, CALLABLE, requireRole, getCaller } from '../auth.js'
+import { db, CALLABLE, requireRole, getCaller, requestMemo } from '../auth.js'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { scryptSync, timingSafeEqual, randomBytes } from 'node:crypto'
-import { REVIEWER_EMAIL } from './common.js'
+import { REVIEWER_EMAIL, loadCloset } from './common.js'
+import { studioBasicsText } from '../studioBasics.js'
 import { resetSandbox } from './reviewer.js'
 import { GEMINI_API_KEY } from '../gemini.js'
 import {
@@ -70,13 +71,14 @@ const expired = (at: unknown) => typeof at !== 'string' || at < new Date().toISO
 // What the assistant is told about Prime Capitol (owner, Nov 24: "be part of their writing and brainstorming").
 const INSTRUCTIONS = [
   'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. These tools act as the signed-in person, with exactly their permissions in the Prime Capitol app.',
+  `HOW THE STUDIO WORKS (always apply):\n${studioBasicsText()}`,
   'get_context returns the person\'s situation (today and the next 14 days with weekday names, their upcoming shoots, open requests, invites and swaps waiting, people they filmed with lately, short rules): use it to resolve which day, shoot or person they mean and pass exact values to the other tools. If a tool still gets plain words it tries to understand them; when they fit several things or nothing it returns needs_clarifying with the options instead of acting, so ask the person.',
   'get_rules has the full live rules; my_status summarises what the person has going on with suggestions; get_shoot gives one shoot in detail.',
   'Filming with other people: plan_shoot matches the names they used to people on the app, sets the length and finds times free for everyone. Before booking, confirm any name it lists under questions; it never guesses a person and books nothing itself.',
   'my_status gives suggestions for what is worth doing next (things due back, answers people are waiting for, props not yet requested before the deadline). how_to answers how-do-I questions from the app\'s own guide, with a link.',
   'Times: find_free_times returns bookable options for this person; get_schedule is the raw schedule. Bookings take any quarter-hour start and end, up to 2 hours per person; longer bookings list everyone filming in book_shoot `with`. Times after midnight are written 24:xx/25:xx. Cliff 1 on priority days needs a filming guideline PDF, which can only be attached in the app. A taken time can be waited for with join_waitlist.',
   'Props: search_props, browse_props and show_props find closet props (with photos); props_for_idea checks the closet against the props a video idea needs; prop_calendar shows which days a prop is free. request_props adds props to one of the person\'s shoots; change_props_request and cancel_props_request work while a request is still "requested". Closet props close about 48 hours before the shoot (get_shoot has the exact time). Custom props (things to make or find) need 4+ days\' notice and have no guaranteed date: if the person wants, help them describe it and, where the assistant can make images, create a reference picture with them and send it with the request (reference_image). Never give or suggest a date for a custom prop; the arts department contacts the person separately (e.g. on Slack) about details and timing.',
-  'Props pick-up and return can be done here. Follow up on props requests: my_status and get_context say what is packed & ready, what is out and when it is due back; offer the next step (never act without a yes). At pick-up, ask them to check the bag against the list, then pick_up_props (all received, or what is missing). At drop-off, ask for ONE photo of everything taken right then and attached in this chat, ask if anything broke, then return_props. Gear pick-up and returns, and taking gear on the shoot day, are done in the app: app_link gives the right screen. There is no check-in on the shoot day.',
+  'Gear: gear_available says what is free for their shoot (with photos); gear is never booked ahead, it is taken on the shoot day from an hour before an approved shoot, first come first served. Act like the gear room\'s helper: before take_gear list every piece and ask them to check each one, then ask for ONE photo of the gear right then; at return ask for one photo of everything in the case with batteries charging, and whether anything broke, then return_gear. Props pick-up and return can be done here. Follow up on props requests: my_status and get_context say what is packed & ready, what is out and when it is due back; offer the next step (never act without a yes). At pick-up, ask them to check the bag against the list, then pick_up_props (all received, or what is missing). At drop-off, ask for ONE photo of everything taken right then and attached in this chat, ask if anything broke, then return_props. Handing gear over to someone else is done in the app (app_link). There is no check-in on the shoot day.',
   'Before any change (book, move, cancel, swap, props, invites, waitlist), summarise it and get the person\'s confirmation. A creator\'s booking is a request until the schedule team approves it: only say "booked" when the tool result says "Booked". When a tool refuses, pass on its reason.',
   'When the person wants something Prime Capitol doesn\'t offer, say so plainly; you may offer to pass it on as an anonymous suggestion (note_feature_request) and call it only if they agree.',
   'Props, times, people and rules come only from these tools. Other people\'s email addresses, internal notes and costs are not available.',
@@ -103,7 +105,7 @@ export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, m
     if (path === '/mcp' || path === '/') {
       if (req.method === 'GET') { res.status(405).set('Allow', 'POST').send('Use POST'); return }
       if (req.method === 'DELETE') { res.status(204).end(); return }
-      if (req.method === 'POST') { await rpc(req, res, base); return }
+      if (req.method === 'POST') { await requestMemo.run(new Map(), () => rpc(req, res, base)); return }
     }
     res.status(404).json({ error: 'not_found' })
   } catch (e) {
@@ -281,8 +283,15 @@ async function stillAllowed(email: string) {
 async function rpc(req: Request, res: import('express').Response, base: string) {
   const auth = String(req.headers.authorization ?? '')
   const tok = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+  // Warm the closet while the token is checked (speed: a cold server otherwise reads 1,200+ props after the checks).
+  if (tok) void loadCloset().catch(() => undefined)
   const t = tok ? (await db.doc(`mcp_tokens/${hashToken(tok)}`).get()).data() : undefined
-  if (!t || t.kind !== 'access' || expired(t.expiresAt) || !(t.reviewer ? await reviewerEnabled() : await stillAllowed(t.email))) {
+  // The access check and the hourly limit run together (they used to run one after the other on every message).
+  const isCall = (bodyOf(req) as { method?: string })?.method === 'tools/call'
+  const [allowed, limitOk] = t && t.kind === 'access' && !expired(t.expiresAt)
+    ? await Promise.all([t.reviewer ? reviewerEnabled() : stillAllowed(t.email), isCall ? underLimit(t.email) : Promise.resolve(true)])
+    : [false, true]
+  if (!t || !allowed) {
     res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`).json({ error: 'invalid_token' }); return
   }
   const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true, sandboxKey: String(t.sandbox ?? t.clientId) } : {}) }
@@ -328,7 +337,7 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
     case 'tools/call': {
       const name = String(msg.params?.name ?? '')
       const args = (msg.params?.arguments ?? {}) as Record<string, unknown>
-      if (!(await underLimit(user.email))) { res.json(ok(id, toolError('Too many requests this hour. Try again a bit later.'))); return }
+      if (!limitOk) { res.json(ok(id, toolError('Too many requests this hour. Try again a bit later.'))); return }
       try {
         const r = await runTool(name, args, user)
         const content: unknown[] = [{ type: 'text', text: r.text }]
@@ -357,7 +366,7 @@ const WIDGET_RESOURCE_META = {
   'openai/widgetDescription': 'Prime Capitol cards: prop photos with availability, free filming times, and shoot details. Display only.',
   'openai/widgetPrefersBorder': false,
 }
-const FILE_PARAMS: Record<string, string[]> = { request_props: ['reference_image'], change_props_request: ['reference_image'], return_props: ['photo'] }
+const FILE_PARAMS: Record<string, string[]> = { request_props: ['reference_image'], change_props_request: ['reference_image'], return_props: ['photo'], take_gear: ['photo'], return_gear: ['photo'] }
 function describeTool(tl: { name: string; annotations: Record<string, boolean> } & Record<string, unknown>) {
   const w = WIDGET_TOOLS[tl.name]
   return { ...tl,

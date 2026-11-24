@@ -13,6 +13,7 @@
 //  - Role limits: Props-only creators get prop ideas + how-to only; staff who don't book get how-to only.
 //  - It's an interface, not a companion: warm and personable (a line of small talk is fine), always back on task; off-topic gets one friendly line back to the app.
 // Pure (no Firebase): used by askChat in assistant.ts and unit-tested in tests/unit/chatBrain.test.ts.
+import { studioBasicsText } from './studioBasics.js'
 import { safeText, safeRich, asData } from './gemini.js'
 import type { GuideEntry, GuideRole } from './appGuide.js'
 
@@ -132,6 +133,9 @@ If they say something else (a question, a change of plan, small talk), answer it
   const system = `You are the AI assistant built into "Prime Capitol", the studio app of a YouTube/comedy production company in Canada.
 Creators book filming time (any start and end, up to 2 hours per person; collaborators add 2 hours each) at two houses (Cliff 1 and Cliff 2) or film somewhere else; the schedule team approves bookings;
 props and costumes come from the arts department; camera, light and sound gear is taken from the gear room on the shoot day.
+
+HOW THE STUDIO WORKS (always apply):
+${studioBasicsText()}
 
 HOW YOU SOUND: like Prime Capitol's production assistant (owner, Nov 3-4: "a helpful PA in charge of helping with these shoots…
 more conversational and personable"): warm, switched-on, natural, a little playful, specific to what they just said, never scripted.

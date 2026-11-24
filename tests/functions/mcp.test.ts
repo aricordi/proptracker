@@ -4,6 +4,7 @@ import { beforeEach, describe, it, expect } from 'vitest'
 import { createHash, randomBytes } from 'node:crypto'
 import { put, call, getDoc, clearDatabase } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
+import { nowStamp } from '../../functions/src/gearBooking'
 
 const BASE = 'http://127.0.0.1:5001/demo-proptracker/northamerica-northeast1/mcp'
 const ANA = 'ana@example.com', DEE = 'dee@example.com', MAANIK = 'maanik@example.com'
@@ -362,6 +363,36 @@ describe('connector tools', () => {
     // Someone else's request is off limits.
     await put('reservations/theirs2', { creatorEmail: MAANIK, status: 'packed', title: 'X', lines: [] })
     expect((await tool(t.access_token, 'pick_up_props', { request_id: 'theirs2', all_received: true })).content[0].text).toMatch(/isn't one of your/)
+  })
+
+  it('gear: what is free for my shoot, take it (check every piece + photo), return it (photo); never booked ahead', async () => {
+    const t = await connect(ANA)
+    await put('gear_bundles/fx3', { name: 'FX3 kit', kind: 'bundle', category: 'Camera', archived: false, photos: [],
+      pieces: [{ itemId: 'cam', qty: 1, name: 'Sony FX3 body' }, { itemId: 'bat', qty: 2, name: 'Battery' }] })
+    // No shoot today → it says gear is only taken for an approved shoot on its day.
+    const none = await tool(t.access_token, 'gear_available', { search: 'camera' })
+    expect(none.content[0].text).toMatch(/no approved shoot/)
+    expect(none.structuredContent.props[0]).toMatchObject({ name: 'FX3 kit', kind: 'kit', free_that_day: 1 })
+    const now = nowStamp(), today = now.slice(0, 10), min = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+    if (min < 360 || min >= 1350) return   // outside gear hours: nothing more to check
+    const start = Math.floor(min / 60) * 60, end = Math.min(1440, start + 120)
+    const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:00`
+    await put('shoots/now', { creatorEmail: ANA, creatorName: 'Ana', status: 'booked', place: 'cliff1', date: today, start, end,
+      from: `${today}T${hh(start)}`, to: end === 1440 ? `${today}T23:59` : `${today}T${hh(end)}`, kind: 'extra', history: [] })
+    expect((await tool(t.access_token, 'gear_available', {})).content[0].text).toMatch(/can take it now/)
+    // Asks them to check every piece first; then a missing piece is noted by name.
+    expect((await tool(t.access_token, 'take_gear', { items: [{ gear: 'fx3' }], photo: 'x' })).content[0].text).toMatch(/check every piece/)
+    const photo = 'http://127.0.0.1:9199/v0/b/demo/o/shoot-photos%2Fnow%2Fp.jpg?alt=media'
+    const took = await tool(t.access_token, 'take_gear', { items: [{ gear: 'the fx3' }], missing: ['battery'], photo })
+    expect(took.content[0].text).toMatch(/^Taken ✓ FX3 kit.*missing: 1 piece.*Due back/)
+    const b = (await getDoc(`gear_bookings/${took.structuredContent.booking_id}`))!
+    expect(b).toMatchObject({ status: 'out', grab: true, scheduleShootId: 'now' })
+    expect(b.pickup.missing).toHaveLength(1)
+    expect((await tool(t.access_token, 'my_status')).structuredContent.suggestions.some((x: { tool?: string }) => x.tool === 'return_gear')).toBe(true)
+    // Return: photo from their own return folder; damage by piece name.
+    const back = await tool(t.access_token, 'return_gear', { photo: `http://127.0.0.1:9199/v0/b/demo/o/gear-returns%2F${b.id ?? took.structuredContent.booking_id}%2Fp.jpg?alt=media`, charging: true, damage: [{ piece: 'fx3 body', note: 'scratch on screen' }] })
+    expect(back.content[0].text).toMatch(/^Returned ✓.*Damage noted: Sony FX3 body/)
+    expect((await getDoc(`gear_bookings/${took.structuredContent.booking_id}`))!).toMatchObject({ status: 'returned', return: { charging: true } })
   })
 
   it('answers OpenAI\'s domain check only once a token is saved', async () => {

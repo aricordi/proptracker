@@ -17,7 +17,13 @@ Each manual says which version it was written for.
 - **Pick up and return props from ChatGPT or Claude.** The assistant now follows up on props requests: it says what is
   packed & ready and what is due back, and offers the next step. At the pick-up spot you can sign for the props in the chat
   (or say what's missing, and the arts department is told). To return, take one photo of everything and attach it in the
-  chat, say if anything broke, and it's returned. The arts department still sees when the photo was taken. Gear stays in the app.
+  chat, say if anything broke, and it's returned. The arts department still sees when the photo was taken.
+- **Gear from ChatGPT or Claude too.** Ask "is there a camera free?" and it shows what's free for your shoot, with photos.
+  On the shoot day it lists every piece for you to check, asks for one photo, and takes it out for you; returning works the
+  same way (one photo of everything in the case, batteries charging).
+- **It understands the studio better.** Houses are booked only for filming, never for meetings or planning; "I need a day"
+  means filming time.
+- **Faster and more photos.** Prop searches and video-idea checks answer quicker, and photo cards show on searches and the closet too.
 
 ## 1.3.4 · Nov 24, 2026
 

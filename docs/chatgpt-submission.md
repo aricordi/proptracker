@@ -73,11 +73,11 @@ demo account (link under the Google button): it is a practice copy with the real
 ## Safety labels per tool (why each one is set the way it is)
 | Tool | Read only | Destructive | Reaches others / outside | Why |
 |---|---|---|---|---|
-| get_context, get_rules, whoami, how_to, search_props, props_for_idea, browse_props, list_categories, show_props, get_prop, get_schedule, list_people, my_shoots, my_props_requests, my_status, get_shoot, plan_shoot, find_free_times, prop_calendar, app_link | yes | no | no | Only read the person's own data, the closet and the schedule; nothing is saved. |
+| get_context, get_rules, whoami, how_to, search_props, props_for_idea, browse_props, list_categories, show_props, get_prop, get_schedule, list_people, my_shoots, my_props_requests, my_status, get_shoot, plan_shoot, find_free_times, prop_calendar, app_link, gear_available | yes | no | no | Only read the person's own data, the closet and the schedule; nothing is saved. |
 | note_feature_request | no | no | no | Saves an anonymous suggestion (after the person agrees); nobody is notified. |
 | join_waitlist | no | no | no | Adds the person to a waitlist; nothing changes for anyone else until a time opens. |
 | leave_waitlist | no | yes | no | Removes their waitlist spot. |
-| book_shoot, request_props, invite_to_video, answer_video_invite, request_swap, report_problem, pick_up_props, return_props | no | no | yes | Create something the studio team or other creators are notified about (and that reaches Google Calendar). |
+| book_shoot, request_props, invite_to_video, answer_video_invite, request_swap, report_problem, pick_up_props, return_props, take_gear, return_gear | no | no | yes | Create something the studio team or other creators are notified about (and that reaches Google Calendar). |
 | move_shoot, cancel_shoot, change_props_request, cancel_props_request, answer_swap | no | yes | yes | Change or remove an existing booking or request; the team / the other creator is notified. |
 
 ## Data practices (for the form)

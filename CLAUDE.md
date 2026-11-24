@@ -3012,6 +3012,22 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       requests (blank id = their only one). Follow-up: my_status "Ready to pick up", suggestNext pick_up_props / return_props,
       get_context props_ready_to_pick_up + props_to_bring_back, INSTRUCTIONS. Reviewer sandbox has demo-props-2 (packed) for both.
       Gear pick-up/returns stay in the app (app_link). ChatGPT setup text now = Plugins → + → Add custom MCP server (Developer mode gone).
+    - CONNECTOR: STUDIO BASICS + SPEED + PHOTOS + GEAR (owner, Nov 24: "bookings are strictly for filming… not meetings";
+      "slow… speed it up without losing intelligence" (owner picked FREE fixes only, no always-on server); "serve the pictures";
+      "full functionality, creators first"; gear take/return in chat "act like our agent"; part of 1.4.0, NOT deployed).
+      `functions/src/studioBasics.ts` STUDIO_BASICS (filming only, 2 h = camera time per person, "I need a day" = filming time,
+      shoot first then props, gear never booked ahead, request until approved, no invented services) → connector INSTRUCTIONS
+      and the in-app chat brain (chatBrain.ts). Change the basics THERE only. SPEED: auth.ts requestMemo (AsyncLocalStorage) +
+      memo(): within one connector request the person's record and booking/schedule settings are read once (getCaller,
+      loadSettings, loadScheduleSettings); access check + hourly limit run together; closet warmed while the token is checked;
+      loadCloset shares one load and serves a ≤30-min-old copy while refreshing; mcp/similar.ts similarFor = ONE batch
+      embedding call for every search term/need (vectors kept 30 min) + parallel findNearest (replaced searchSimilar.run per
+      need). PHOTOS: widget cards also on search_props + browse_props (+ gear_available). GEAR (mcp/gear.ts): gear_available
+      (READ: offers free for their next approved shoot / when they can take it, kit contents, houses-only, known missing),
+      take_gear (WRITE_OUT: items by casual name (offerFor), all_pieces_there or missing piece names → missing keys, photo →
+      shoot-photos/<shootId>/ with taken-date → takeGear), return_gear (WRITE_OUT: their only out booking by default, photo →
+      gear-returns/<id>/, damage by piece name, charging → returnGear). Reviewer demo: gear tools answer "no gear room".
+      Hand-over stays in the app. Owner still to answer: what "I need a day" means; does ChatGPT show the photo cards.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

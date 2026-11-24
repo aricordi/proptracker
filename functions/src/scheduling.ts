@@ -7,7 +7,7 @@ import { logger } from 'firebase-functions'
 import { onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { FieldValue, FieldPath, type Transaction } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
-import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, type Caller } from './auth.js'
+import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator, memo, type Caller } from './auth.js'
 import { teamLog } from './teamLog.js'
 import { todayInStudio, isDay, addDays } from './booking.js'
 import { nowStamp, fmtTime, addMinutes } from './gearBooking.js'
@@ -58,7 +58,7 @@ export const needsApproval = (caller: Caller, forEmail: string, s: ScheduleSetti
   || (!isTeam(caller) && !s.instantBookers.some(p => p.email === forEmail.toLowerCase()))
 
 export async function loadScheduleSettings(): Promise<ScheduleSettings> {
-  return cleanScheduleSettings((await db.doc('app_settings/schedule').get()).data())
+  return cleanScheduleSettings(await memo('settings:schedule', async () => (await db.doc('app_settings/schedule').get()).data()))
 }
 
 // Who the shoot is for: yourself, or (schedule team only) anyone with an active account.

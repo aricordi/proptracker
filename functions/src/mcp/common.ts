@@ -53,8 +53,17 @@ export function parseClock(v: unknown): number | null {
 // ─── The props closet (company props only; cached a few minutes per server copy) ─────────────────────────────────────
 export interface Prop { id: string; name: string; category: string; tags: string[]; description: string; words: string; quantity: number; missing: number; damaged: boolean; out: boolean; photo: string; photos: string[]; createdAt: string }
 let closet: { at: number; props: Prop[] } | null = null
+// Speed (Nov 24): one load at a time is shared by everyone waiting; a copy up to 30 minutes old is answered at once while a
+// fresh one loads in the background (props change rarely; the AI's search and the booking checks read live data anyway).
+let closetLoading: Promise<Prop[]> | null = null
 export async function loadCloset(): Promise<Prop[]> {
-  if (closet && Date.now() - closet.at < 5 * 60_000) return closet.props
+  const age = closet ? Date.now() - closet.at : Infinity
+  if (age < 5 * 60_000) return closet!.props
+  if (!closetLoading) closetLoading = readCloset().finally(() => { closetLoading = null })
+  if (age < 30 * 60_000) { closetLoading.catch(() => undefined); return closet!.props }
+  return closetLoading
+}
+async function readCloset(): Promise<Prop[]> {
   const [items, cats, tags] = await Promise.all([
     db.collection('items').where('collection', '==', 'company').get(), db.collection('categories').get(), db.collection('tags').get(),
   ])

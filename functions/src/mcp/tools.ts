@@ -17,12 +17,13 @@ import {
 } from '../schedule.js'
 import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot } from '../scheduling.js'
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
-import { searchSimilar } from '../index.js'
+import { similarFor } from './similar.js'
 import { rulesText } from '../assistant.js'
 import { guideFor, searchGuide, type GuideRole } from '../appGuide.js'
 import { asUser, callerOf, docById, s, clampInt, firstName, shortName, hm, houseNight, personId, ensurePeopleKey, matchPerson, askWho, parseClock, propsProblem, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, objs, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
+import { GEAR_TOOLS, GEAR_TOOL_NAMES, runGearTool } from './gear.js'
 import { understandArgs, knownFor } from './lenient.js'
 import { noteDemand } from './demand.js'
 import { attachRefImage, CUSTOM_NOTE } from './custom.js'
@@ -46,19 +47,18 @@ function wordScore(p: Prop, words: string[]) {
 }
 
 // Words first (names, tags, descriptions, hidden search words), then meaning ("president" → a Lincoln mask).
-export async function findProps(query: string, cat: string, limit: number, u: McpUser): Promise<{ found: Prop[]; byWords: Prop[] }> {
+export async function findProps(query: string, cat: string, limit: number, u: McpUser, near?: { id: string; score: number }[]): Promise<{ found: Prop[]; byWords: Prop[] }> {
   const props = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat))
   const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1 && !FILLER.has(w))
   const byWords = props.map(p => ({ p, score: wordScore(p, words) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score).map(x => x.p)
   let similar: Prop[] = []
   if (query.length >= 3) {
-    try {
-      // The reviewers' demo account has no app record: search as the owner, then keep company props only (the map below).
-      const r = await searchSimilar.run(asUser(u.reviewer ? { email: OWNER, name: 'Search', assistant: u.assistant } : u, { query })) as { results: { id: string; score: number }[] }
-      const map = new Map(props.map(p => [p.id, p]))
-      similar = r.results.filter(x => x.score >= 0.55).map(x => map.get(x.id)).filter((p): p is Prop => !!p && !byWords.includes(p))
-    } catch { /* meaning search is a bonus; words still work */ }
+    // Meaning matches (one shared AI request for every search in the message: similar.ts). Company props only (the map).
+    const hits = near ?? (await similarFor([query])).get(query) ?? []
+    const map = new Map(props.map(p => [p.id, p]))
+    similar = hits.filter(x => x.score >= 0.55).map(x => map.get(x.id)).filter((p): p is Prop => !!p && !byWords.includes(p))
   }
+  void u
   return { found: [...byWords.slice(0, limit), ...similar].slice(0, limit), byWords }
 }
 
@@ -149,8 +149,8 @@ export const TOOLS = [
       reference_for: { type: 'string', description: 'Which custom prop the picture is for (its description)' },
       notes: { type: 'string' } }, ['shoot_id']) },
 ]
-const BOOKING_TOOLS = new Set(['book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'my_shoots', 'my_props_requests', 'get_schedule', 'list_people', ...MORE_BOOKING])
-const ALL_TOOLS = [...TOOLS, ...MORE_TOOLS]
+const BOOKING_TOOLS = new Set(['book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'my_shoots', 'my_props_requests', 'get_schedule', 'list_people', ...MORE_BOOKING, ...GEAR_TOOL_NAMES])
+const ALL_TOOLS = [...TOOLS, ...MORE_TOOLS, ...GEAR_TOOLS]
 export const toolsFor = (demo: boolean) => demo ? ALL_TOOLS.filter(t => !BOOKING_TOOLS.has(t.name)) : ALL_TOOLS
 
 // ─── Running a tool ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -255,7 +255,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const all = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat)).sort((a, b) => a.name.localeCompare(b.name))
       const rows = all.slice((page - 1) * 150, page * 150)
       return { text: `${all.length} props${cat ? ` in "${args.category}"` : ''}, page ${page} of ${Math.max(1, Math.ceil(all.length / 150))}:\n` + rows.map(p => `${p.id} | ${p.name} | ${p.category} | ${p.tags.slice(0, 5).join(', ')} | x${Math.max(0, p.quantity - p.missing)}`).join('\n'),
-        structured: { total: all.length, page, props: rows.map(p => ({ id: p.id, name: p.name, category: p.category, tags: p.tags, how_many: Math.max(0, p.quantity - p.missing) })) } }
+        structured: { total: all.length, page, props: rows.map(p => ({ id: p.id, name: p.name, category: p.category, tags: p.tags, how_many: Math.max(0, p.quantity - p.missing), photo: p.photo || null })) }, widget: true }
     }
     case 'search_props': {
       // Several search terms in one go (owner OK, Nov 24): the assistant works out what to look for ("cop stuff" → police uniform,
@@ -265,23 +265,23 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const cat = s(args.category, 60).toLowerCase()
       const limit = clampInt(args.limit, 1, 50, 20)
       const day = isDay(args.day) ? args.day as string : ''
-      const per = await Promise.all(terms.map(q => findProps(q, cat, terms.length > 1 ? Math.max(6, Math.ceil(limit / terms.length) + 2) : limit, u)))
+      const near = await similarFor(terms)
+      const per = await Promise.all(terms.map(q => findProps(q, cat, terms.length > 1 ? Math.max(6, Math.ceil(limit / terms.length) + 2) : limit, u, near.get(q))))
       const seen = new Map<string, { p: Prop; term: string; words: boolean }>()
       per.forEach((r, i) => r.found.forEach(p => { if (!seen.has(p.id)) seen.set(p.id, { p, term: terms[i], words: r.byWords.includes(p) }) }))
       const found = [...seen.values()].slice(0, limit)
       const free = day ? await freeOn(day, found.map(x => x.p.id)) : {}
       const rows = found.map(({ p, term, words }) => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 200), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: words ? 'words' : 'similar meaning', ...(terms.length > 1 ? { for: term } : {}) }))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}${r.for ? ` | for "${r.for}"` : ''} | ${r.description.slice(0, 90)}`).join('\n') : `Nothing in the closet matches ${terms.map(x => `"${x}"`).join(', ')}. Try other words, or ask for it as a custom prop.`,
-        structured: { query: terms[0], ...(terms.length > 1 ? { also: terms.slice(1) } : {}), day: day || null, results: rows } }
+        structured: { query: terms[0], ...(terms.length > 1 ? { also: terms.slice(1) } : {}), day: day || null, results: rows, props: rows.slice(0, 12) }, widget: true }
     }
     case 'props_for_idea': {
       const needs = objs(args.needs).map(x => ({ need: s((x as Json).need, 120), scene: s((x as Json).scene, 80) })).filter(x => x.need.length >= 2).slice(0, 15)
       if (!needs.length) return { text: 'List the concrete things the idea needs (one per item), e.g. "police uniform", "old rotary phone".' }
       const day = isDay(args.day) ? args.day as string : ''
-      // At most 5 smart searches at a time (review, Nov 24): 15 at once could run past the website's ~60-second limit.
-      const per: (typeof needs[number] & { found: Prop[] })[] = []
-      for (let i = 0; i < needs.length; i += 5)
-        per.push(...await Promise.all(needs.slice(i, i + 5).map(async n => ({ ...n, found: (await findProps(n.need, '', 4, u)).found }))))
+      // Every need in ONE AI request, then side-by-side lookups (speed, Nov 24; similar.ts).
+      const near = await similarFor(needs.map(n => n.need))
+      const per = await Promise.all(needs.map(async n => ({ ...n, found: (await findProps(n.need, '', 4, u, near.get(n.need))).found })))
       const ids = [...new Set(per.flatMap(x => x.found.map(p => p.id)))]
       const free = day ? await freeOn(day, ids) : {}
       const groups = per.map(x => ({ scene: x.scene || undefined, need: x.need,
@@ -410,6 +410,8 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
   }
   const more = await runMoreTool(name, args, u)
   if (more) return more
+  const gear = await runGearTool(name, args, u)
+  if (gear) return gear
   throw new HttpsError('not-found', `Unknown tool ${name}`)
 }
 

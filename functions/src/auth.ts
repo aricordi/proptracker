@@ -3,6 +3,7 @@ import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { HttpsError, type CallableRequest } from 'firebase-functions/v2/https'
 import { setGlobalOptions } from 'firebase-functions/v2'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 // Every function runs in Montréal. Set here because every module imports this one first.
 // maxInstances 20 (was 5): at 5, bursts got instant 500s with no log ("no available instance"), Oct 22. Idle copies cost nothing.
@@ -31,15 +32,26 @@ export interface Caller {
 export const isDemoCreator = (role: unknown, access: unknown) => role === 'creator' && access !== 'full'
 export const DEMO_MESSAGE = "Booking isn't open for you yet. For now you can search and browse the props."
 
+// One request = one read of the same thing (speed, Nov 24): the ChatGPT connector runs several of our functions for one
+// message, and each used to read the person's record and the settings again. Inside requestMemo.run(...) the first read is
+// shared for the rest of that request only (nothing is kept between requests, so turning someone off still works at once).
+export const requestMemo = new AsyncLocalStorage<Map<string, Promise<unknown>>>()
+export function memo<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const m = requestMemo.getStore()
+  if (!m) return load()
+  let p = m.get(key) as Promise<T> | undefined
+  if (!p) { p = load(); m.set(key, p); p.catch(() => m.delete(key)) }
+  return p
+}
+
 export async function getCaller(req: CallableRequest): Promise<Caller | null> {
   const token = req.auth?.token
   if (!token?.email || token.email_verified !== true) return null
   const email = token.email.toLowerCase()
   const fallbackName = typeof token.name === 'string' ? token.name : email
   if (email === OWNER_EMAIL) return { email, name: fallbackName, role: 'owner', isStaff: true }
-  const snap = await db.doc(`users/${email}`).get()
-  const data = snap.data()
-  if (!snap.exists || data?.active !== true) return null
+  const data = await memo(`user:${email}`, async () => (await db.doc(`users/${email}`).get()).data())
+  if (!data || data.active !== true) return null
   const role = data.role as Role
   return { email, name: data.name || fallbackName, role, isStaff: role === 'owner' || role === 'arts', demo: isDemoCreator(role, data.access) }
 }

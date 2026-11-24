@@ -15,6 +15,9 @@ export const WIDGET_TOOLS: Record<string, { invoking: string; invoked: string }>
   props_for_idea: { invoking: 'Checking the closet…', invoked: 'What the closet has' },
   find_free_times: { invoking: 'Checking the schedule…', invoked: 'Free times' },
   get_shoot: { invoking: 'Getting your shoot…', invoked: 'Your shoot' },
+  search_props: { invoking: 'Searching the closet…', invoked: 'From the closet' },
+  browse_props: { invoking: 'Opening the closet…', invoked: 'The closet' },
+  gear_available: { invoking: 'Checking the gear room…', invoked: 'Gear for your shoot' },
 }
 
 export const WIDGET_HTML = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

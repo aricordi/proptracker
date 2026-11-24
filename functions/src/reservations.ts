@@ -15,7 +15,7 @@ import { shootToAddTo, noteOnShoot } from './shootLinks.js'
 import { nowStamp } from './gearBooking.js'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { FieldValue, type Transaction, type DocumentSnapshot, type DocumentData } from 'firebase-admin/firestore'
-import { db, requireRole, CALLABLE, booksLikeCreator, type Caller } from './auth.js'
+import { db, requireRole, CALLABLE, booksLikeCreator, memo, type Caller } from './auth.js'
 import { collectionOf } from './collections.js'
 import {
   checkDates, freeForRange, todayInStudio, earliestStart, addOpenDays, propsStillOpen, shootStartStamp, turnaroundFor, cleanClosedDays, isLate,
@@ -56,8 +56,7 @@ const STATUS_WORDS: Record<ReservationStatus, string> = {
 // ─── Small helpers ───────────────────────────────────────────────────────────
 
 export async function loadSettings(): Promise<BookingSettings> {
-  const snap = await db.doc('app_settings/booking').get()
-  const d = snap.data() ?? {}
+  const d = (await memo('settings:booking', async () => (await db.doc('app_settings/booking').get()).data())) ?? {}
   const num = (v: unknown, fallback: number) => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 60 ? v as number : fallback
   return {
     leadTimeDays: num(d.leadTimeDays, DEFAULT_BOOKING_SETTINGS.leadTimeDays),
