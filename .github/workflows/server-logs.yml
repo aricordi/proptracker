@@ -96,6 +96,15 @@ jobs:
             --project proptracker-9732e --freshness 6h --limit 40 \
             --format='table(timestamp, resource.labels.service_name, httpRequest.status, httpRequest.requestMethod)'
 
+      - name: "ChatGPT / Claude connector: every request in the last 24 hours (read only)"
+        continue-on-error: true
+        run: |
+          gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mcp" AND httpRequest.requestUrl:*' \
+            --project proptracker-9732e --freshness 24h --limit 60 \
+            --format='table(timestamp, httpRequest.status, httpRequest.requestMethod, httpRequest.requestUrl.segment(3).sub("[?].*",""), httpRequest.userAgent.slice(0:40))' || true
+          echo "--- connector sign-in requests waiting / finished (no codes shown)"
+          gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mcp" AND textPayload:*' \
+            --project proptracker-9732e --freshness 24h --limit 30 --format='table(timestamp, severity, textPayload.slice(0:160))' || true
       - name: Everything logged around each failed request (last 24 hours, 20 s either side)
         continue-on-error: true
         run: |
