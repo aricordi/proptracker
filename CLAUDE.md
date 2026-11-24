@@ -2952,6 +2952,15 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       quiet SAFETY NET only for plain words; exact values (YYYY-MM-DD, cliff1, HH:MM with 13+/leading zero, ids) pass through unchanged
       (tested). (3) Tool/param descriptions say purpose + rules (no phrase lists). NOT done (needs owner OK, costs AI money): a
       real-model test button running messy creator messages through ChatGPT/Claude on the practice site.
+    - WHAT CREATORS ASK FOR (owner, Nov 24: "learn what creators ask for that it can't answer… within OpenAI's guidelines"; OpenAI
+      plugin guidelines: no tracking/profiling incl. query patterns unless disclosed, narrowly scoped, under user control):
+      `functions/src/mcp/demand.ts` noteDemand(u, kind feature|prop_missing|unclear, text) → mcp_demand/{sha1(kind|text)} {kind, text
+      (cleanDemand: emails/links/phones/handles/person ids stripped, ≤120), tool, count, last, ttl 365 d}; NO email/person; skipped
+      when profiles/{email}.shareSuggestions === false (rules validProfile allows it; More → ChatGPT & Claude switch) and for the
+      reviewer. Fed by new tool `note_feature_request` (WRITE; AI tells the person), search_props with no name match, props_for_idea
+      missing needs, unknown prop names in request_props/change, and every needs_clarifying (tool: field only). Awaited, never thrown
+      (fire-and-forget after the response can be frozen by Cloud Run). Rules: mcp_demand owner read only. Owner screen /demand
+      (DemandScreen, Team → Help & records). Privacy policy section "Anonymous suggestions". Tests unit demand, mcp, attack matrix.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
