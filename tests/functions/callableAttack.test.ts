@@ -11,13 +11,17 @@ const OWNER = 'alexisricordi@gmail.com'
 
 // Functions that Props-only creators may use (searching props, the AI helpers, push, problem reports).
 const DEMO_OK = new Set(['searchSimilar', 'photoSearch', 'propsLike', 'hotProps', 'ideaToProps', 'askApp', 'askChat', 'reportBug',
-  'registerPush', 'unregisterPush', 'testPush', 'answerVideoInvite'])
+  'registerPush', 'unregisterPush', 'testPush', 'answerVideoInvite',
+  // The ChatGPT/Claude connector's sign-in page and settings (Props-only creators may connect to search props).
+  'approveConnector', 'connectorRequestInfo', 'myConnectors', 'disconnectConnector'])
 // Owner-only maintenance and money: everyone else must be refused.
 const OWNER_ONLY = ['changeUserEmail', 'saveScheduleSettings', 'saveGoogleClient', 'googleConnectStart', 'googleDisconnect',
   'googleAccountStatus', 'cleanUpPhotos', 'costReport', 'undoImport', 'startImport', 'processImport', 'rebuildSearchIndex',
   'improveSearchWords', 'updateBugReport', 'testCalendarLink', 'makeMissingThumbs', 'sendTestEmail', 'checkNoticesNow']
 
-const callables = readdirSync(SRC).filter(f => f.endsWith('.ts')).flatMap(f =>
+// Top-level files and the connector folder (mcp/).
+const files = [...readdirSync(SRC).filter(f => f.endsWith('.ts')), ...readdirSync(`${SRC}/mcp`).filter(f => f.endsWith('.ts')).map(f => `mcp/${f}`)]
+const callables = files.flatMap(f =>
   [...readFileSync(`${SRC}/${f}`, 'utf8').matchAll(/export const (\w+)\s*=\s*onCall\(/g)].map(m => m[1]))
 
 async function unverifiedToken(email: string) {

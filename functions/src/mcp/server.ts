@@ -132,6 +132,7 @@ export const approveConnector = onCall(CALLABLE, async req => {
 })
 // What the /connect page shows before Allow.
 export const connectorRequestInfo = onCall(CALLABLE, async req => {
+  await requireRole(req, ['owner', 'admin', 'arts', 'equipment', 'creator'], { demoOk: true })
   const id = String(req.data?.req ?? '')
   const r = /^[\w-]{10,40}$/.test(id) ? (await db.doc(`mcp_auth_requests/${id}`).get()).data() : undefined
   if (!r || expired(r.expiresAt)) return { ok: false }
