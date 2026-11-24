@@ -5,7 +5,7 @@ import { collectionOf } from '../collections.js'
 import { freeForRange, todayInStudio, type BookingEntry } from '../booking.js'
 import { loadSettings } from '../reservations.js'
 
-export interface McpUser { email: string; name: string; assistant: string; reviewer?: boolean }
+export interface McpUser { email: string; name: string; assistant: string; reviewer?: boolean; sandboxKey?: string }
 /** OpenAI's app reviewers' demo account (practice copy of the studio; never a real person). */
 export const REVIEWER_EMAIL = 'reviewer@demo.primecapitol.app'
 export type Json = Record<string, unknown>
@@ -21,6 +21,8 @@ export async function callerOf(u: McpUser): Promise<Caller> {
   return c
 }
 
+/** A whole number from the assistant, kept between lo and hi (anything odd → the default). */
+export const clampInt = (v: unknown, lo: number, hi: number, dflt: number) => Number.isInteger(v) ? Math.min(hi, Math.max(lo, v as number)) : dflt
 export const s = (v: unknown, max = 200) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 export const firstName = (n: string) => String(n || '').split(/\s+/)[0]
 export const hm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
@@ -84,19 +86,42 @@ export async function freeOn(day: string, ids: string[]): Promise<Record<string,
 
 export const READ = { readOnlyHint: true, openWorldHint: false, destructiveHint: false }
 export const WRITE = { readOnlyHint: false, openWorldHint: false, destructiveHint: false }
+// Writes that also reach other people or outside systems (notifications to the team or friends, Google Calendar).
+export const WRITE_OUT = { readOnlyHint: false, openWorldHint: true, destructiveHint: false }
+export const DESTRUCTIVE_OUT = { readOnlyHint: false, openWorldHint: true, destructiveHint: true }
 export const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: true }
 export const obj = (properties: Json, required: string[] = []) => ({ type: 'object', properties, required, additionalProperties: false })
 
 // People are named to the assistant by an anonymous id, never by email (privacy policy: "never other people's emails").
-import { createHash } from 'node:crypto'
-export const personId = (email: string) => `p_${createHash('sha256').update(`pc-person|${email.toLowerCase()}`).digest('hex').slice(0, 10)}`
-/** A name, a person id, or (the person's own words) an email → the people it could mean (excluding the asker). */
+import { createHmac, randomBytes } from 'node:crypto'
+// A secret kept on the server (mcp_settings/people), so nobody can work out a person id from an email list.
+let PEOPLE_KEY = ''
+export async function ensurePeopleKey() {
+  if (PEOPLE_KEY) return
+  const ref = db.doc('mcp_settings/people')
+  PEOPLE_KEY = await db.runTransaction(async tx => {
+    const k = String((await tx.get(ref)).get('key') ?? '')
+    if (k) return k
+    const fresh = randomBytes(24).toString('hex')
+    tx.set(ref, { key: fresh, at: new Date().toISOString() })
+    return fresh
+  })
+}
+export const personId = (email: string) => `p_${createHmac('sha256', PEOPLE_KEY || 'unset').update(email.toLowerCase()).digest('hex').slice(0, 12)}`
+/** A name or a person id → the people it could mean (excluding the asker). Email addresses are refused. */
 export function matchPerson<T extends { email: string; name: string }>(people: T[], said: string, me: string): T[] {
   const n = said.trim().toLowerCase()
   const others = people.filter(p => p.email !== me)
-  if (/^p_[0-9a-f]{10}$/.test(n)) return others.filter(p => personId(p.email) === n)
-  if (n.includes('@')) return others.filter(p => p.email.toLowerCase() === n)
+  if (/^p_[0-9a-f]{12}$/.test(n)) return others.filter(p => personId(p.email) === n)
+  if (n.includes('@')) return []   // the assistant names people, never by email address
   const full = others.filter(p => p.name.toLowerCase() === n)
   return full.length ? full : others.filter(p => firstName(p.name).toLowerCase() === n)
 }
 export const describePeople = (hits: { email: string; name: string }[]) => hits.map(h => `${h.name} (${personId(h.email)})`).join(', ')
+
+/** Read one doc by an id the assistant gave; a missing or odd id (empty, slashes) is simply "not found" instead of a crash. */
+export async function docById(col: string, id: unknown) {
+  const v = typeof id === 'string' ? id.trim() : ''
+  if (!/^[\w-]{1,100}$/.test(v)) return undefined
+  return (await db.doc(`${col}/${v}`).get()).data()
+}

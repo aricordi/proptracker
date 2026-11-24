@@ -16,7 +16,7 @@ import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
 import {
-  asUser, callerOf, s, firstName, hm, matchPerson, describePeople, loadCloset, short, READ, WRITE, DESTRUCTIVE, obj,
+  asUser, callerOf, docById, s, clampInt, firstName, hm, matchPerson, describePeople, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj,
   type Json, type McpUser, type ToolResult,
 } from './common.js'
 
@@ -28,7 +28,7 @@ const clock = (stamp: string) => stamp ? `${stamp.slice(0, 10)} ${stamp.slice(11
 const toMin = (v: unknown) => { const m = /^(\d{1,2}):(\d{2})$/.exec(s(v, 6)); return m ? Number(m[1]) * 60 + Number(m[2]) : null }
 
 async function ownShoot(id: string, u: McpUser, allowCrew = true) {
-  const sh = (await db.doc(`shoots/${s(id, 100)}`).get()).data()
+  const sh = await docById('shoots', id)
   if (!sh) return null
   const mine = sh.creatorEmail === u.email, crew = allowCrew && (sh.people ?? []).includes(u.email)
   return mine || crew ? { sh, mine } : null
@@ -50,30 +50,30 @@ export const MORE_TOOLS = [
   { name: 'prop_calendar', title: 'When a prop is free', annotations: READ,
     description: 'How many units of one prop are free on each day over a range (up to 28 days). Use it to pick a shoot day around a key prop.',
     inputSchema: obj({ id: { type: 'string' }, from: { type: 'string' }, days: { type: 'integer', minimum: 1, maximum: 28 } }, ['id']) },
-  { name: 'change_props_request', title: 'Change a props request', annotations: WRITE,
+  { name: 'change_props_request', title: 'Change a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Change one of the person\'s props requests while it is still "requested": set the quantity of props (0 removes one; new ids add them) and/or add custom props. Additions must still be within the props notice. Confirm the new list with the person first.',
     inputSchema: obj({ request_id: { type: 'string' }, items: { type: 'array', maxItems: 60, items: obj({ id: { type: 'string' }, qty: { type: 'integer', minimum: 0 } }, ['id', 'qty']) },
       add_custom: { type: 'array', maxItems: 10, items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']) } }, ['request_id']) },
-  { name: 'cancel_props_request', title: 'Cancel a props request', annotations: DESTRUCTIVE,
+  { name: 'cancel_props_request', title: 'Cancel a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Cancel one of the person\'s props requests (only before pick-up). Confirm first.',
     inputSchema: obj({ request_id: { type: 'string' } }, ['request_id']) },
   { name: 'join_waitlist', title: 'Wait for a taken time', annotations: WRITE,
     description: 'Put the person on the waitlist for a booking someone else has (give the house, day and that booking\'s start time). If it opens up they get it held for 20 minutes and a notification. Up to 5 at once.',
     inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2'] }, day: { type: 'string' }, start: { type: 'string', description: 'HH:MM, the start of the taken booking' } }, ['place', 'day', 'start']) },
-  { name: 'leave_waitlist', title: 'Leave a waitlist', annotations: WRITE,
+  { name: 'leave_waitlist', title: 'Leave a waitlist', annotations: DESTRUCTIVE,
     description: 'Take the person off a waitlist (ids from my_status).', inputSchema: obj({ waitlist_id: { type: 'string' } }, ['waitlist_id']) },
-  { name: 'invite_to_video', title: 'Invite people into my video', annotations: WRITE,
+  { name: 'invite_to_video', title: 'Invite people into my video', annotations: WRITE_OUT,
     description: 'Tell people they are on camera in one of the person\'s shoots (names or person ids from list_people, people on the app). Each gets a notification to say yes or no; once they accept, the shoot shows in their app with reminders. Different from collaborators on the booking. Confirm first.',
     inputSchema: obj({ shoot_id: { type: 'string' }, people: { type: 'array', items: { type: 'string' }, maxItems: 12 } }, ['shoot_id', 'people']) },
-  { name: 'answer_video_invite', title: 'Answer a video invite', annotations: WRITE,
+  { name: 'answer_video_invite', title: 'Answer a video invite', annotations: WRITE_OUT,
     description: 'Say yes or no to being in someone\'s video (invite ids from my_status).', inputSchema: obj({ invite_id: { type: 'string' }, accept: { type: 'boolean' } }, ['invite_id', 'accept']) },
-  { name: 'request_swap', title: 'Ask someone to swap times', annotations: WRITE,
+  { name: 'request_swap', title: 'Ask someone to swap times', annotations: WRITE_OUT,
     description: 'Ask another creator to trade times: one of the person\'s approved house shoots for theirs (same length). They accept or decline in the app. The only no-penalty way to change inside the notice period. Confirm first.',
     inputSchema: obj({ my_shoot_id: { type: 'string' }, their_day: { type: 'string' }, their_place: { type: 'string', enum: ['cliff1', 'cliff2'] }, their_start: { type: 'string', description: 'HH:MM of their booking' } }, ['my_shoot_id', 'their_day', 'their_place', 'their_start']) },
-  { name: 'answer_swap', title: 'Answer a swap request', annotations: WRITE,
+  { name: 'answer_swap', title: 'Answer a swap request', annotations: DESTRUCTIVE_OUT,
     description: 'Accept or decline a swap someone asked for (ids from my_status). Accepting trades both shoots at once. Confirm first.',
     inputSchema: obj({ swap_id: { type: 'string' }, accept: { type: 'boolean' } }, ['swap_id', 'accept']) },
-  { name: 'report_problem', title: 'Report something broken or missing', annotations: WRITE,
+  { name: 'report_problem', title: 'Report something broken or missing', annotations: WRITE_OUT,
     description: 'Tell the arts department (props) or the equipment team (gear) that something the person has out is broken or missing. Ids from my_status.',
     inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request id or gear booking id' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' } }, ['kind', 'id', 'note']) },
   { name: 'app_link', title: 'Open the right screen in the app', annotations: READ,
@@ -90,7 +90,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
     case 'prop_calendar': return propCalendar(args)
     case 'change_props_request': {
       const id = s(args.request_id, 100)
-      const r = (await db.doc(`reservations/${id}`).get()).data()
+      const r = await docById('reservations', id)
       if (!r || r.creatorEmail !== u.email) return { text: 'That isn\'t one of your props requests (my_status or my_props_requests has the ids).' }
       if (r.status !== 'requested') return { text: `That request is already ${PROPS_STATUS[r.status] ?? r.status}, so it can't be changed here. The arts department can help.` }
       const lines = new Map<string, number>(((r.lines ?? []) as { itemId: string; qty: number }[]).map(l => [l.itemId, l.qty]))
@@ -107,7 +107,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
     }
     case 'cancel_props_request': {
       const id = s(args.request_id, 100)
-      const r = (await db.doc(`reservations/${id}`).get()).data()
+      const r = await docById('reservations', id)
       if (!r || r.creatorEmail !== u.email) return { text: 'That isn\'t one of your props requests.' }
       await cancelReservation.run(asUser(u, { id }))
       return { text: `Cancelled the props request "${r.title}" for ${r.startDate}.` }
@@ -263,7 +263,7 @@ async function findFreeTimes(args: Json, u: McpUser): Promise<ToolResult> {
   const houses = (Array.isArray(args.houses) && args.houses.length ? args.houses : HOUSES).filter((h): h is House => HOUSES.includes(h as House))
   const tod = s(args.time_of_day, 10) || 'any', around = toMin(args.around)
   const inTod = (m: number) => tod === 'any' || (tod === 'morning' ? m < 720 : tod === 'afternoon' ? m >= 720 && m < 1020 : tod === 'evening' ? m >= 1020 && m < 1260 : m >= 1260)
-  const limit = Math.min(30, Number.isInteger(args.limit) ? Number(args.limit) : 12)
+  const limit = clampInt(args.limit, 1, 30, 12)
   const dates = Array.from({ length: n }, (_, i) => addDays(from, i))
   const snaps = await db.getAll(...dates.map(d => db.doc(`schedule_days/${d}`)))
   const options: Json[] = []

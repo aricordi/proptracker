@@ -1,11 +1,12 @@
 // The practice copy of the studio for OpenAI's app reviewers (owner, Nov 24: "we would have to build that in the thing for
 // reviewers"). The demo account sees the REAL props closet (company props only) and the real house hours and rules, but:
 //   • other people's bookings show as "Another creator" (no real names),
-//   • its own shoots, props requests, invites, swaps and waitlist live in ONE document, mcp_sandbox/reviewer,
+//   • its own shoots, props requests, invites, swaps and waitlist live in ONE document per connection, mcp_sandbox/{clientId},
 //   • every change is checked with the same rules as the app (times, 2 h per person, free time, props notice and stock)
 //     and then saved only there: nothing reaches the studio team, the schedule, notifications or Google Calendar.
 // Each new reviewer connection resets it to the same sample data (resetSandbox).
 import { db } from '../auth.js'
+import { Timestamp } from 'firebase-admin/firestore'
 import { todayInStudio, addDays, isDay, weekday, shootStartStamp, propsDeadline, lastDayToBook } from '../booking.js'
 import { nowStamp } from '../gearBooking.js'
 import {
@@ -14,9 +15,10 @@ import {
 } from '../schedule.js'
 import { loadScheduleSettings } from '../scheduling.js'
 import { loadSettings } from '../reservations.js'
-import { s, hm, parseClock, loadCloset, freeOn, personId, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
+import { s, clampInt, hm, parseClock, loadCloset, freeOn, personId, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
 
-const SANDBOX = 'mcp_sandbox/reviewer'
+// One practice copy per reviewer connection (two reviewers testing at once don't overwrite each other).
+const sandboxRef = (key: string) => db.doc(`mcp_sandbox/${String(key || 'default').replace(/[^\w-]/g, '').slice(0, 60) || 'default'}`)
 const APP_URL = 'https://proptracker.arbcreative.co'
 const NOTE = ' (Demo account: this is a practice copy, so nothing is sent to the studio team.)'
 const PLACE: Record<string, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2', offsite: 'Offsite' }
@@ -30,7 +32,7 @@ interface Sandbox { shoots: SShoot[]; requests: SReq[]; invites: Json[]; swaps: 
 
 const plainDay = (from: number) => { let d = addDays(todayInStudio(), from); while ([0, 4, 6].includes(weekday(d))) d = addDays(d, 1); return d }
 
-export async function resetSandbox() {
+export async function resetSandbox(key = 'default') {
   const props = (await loadCloset()).filter(p => !p.damaged && p.quantity - p.missing > 0).slice(0, 2)
   const d1 = plainDay(3), d2 = plainDay(5), d3 = plainDay(7)
   const sb: Sandbox = {
@@ -42,15 +44,14 @@ export async function resetSandbox() {
     swaps: [{ id: 'demo-swap-1', from: 'Sam', mine: 'demo-shoot-1', theirs: { date: d3, place: 'cliff2', start: 10 * 60, end: 12 * 60 }, status: 'pending' }],
     waitlist: [],
   }
-  await db.doc(SANDBOX).set({ ...sb, resetAt: new Date().toISOString() })
+  await sandboxRef(key).set({ ...sb, resetAt: new Date().toISOString(), ttl: Timestamp.fromMillis(Date.now() + 14 * 86400_000) })
 }
-async function load(): Promise<Sandbox> {
-  const d = (await db.doc(SANDBOX).get()).data() as Sandbox | undefined
+async function load(key: string): Promise<Sandbox> {
+  const d = (await sandboxRef(key).get()).data() as Sandbox | undefined
   if (d?.shoots) return d
-  await resetSandbox()
-  return (await db.doc(SANDBOX).get()).data() as Sandbox
+  await resetSandbox(key)
+  return (await sandboxRef(key).get()).data() as Sandbox
 }
-const save = (sb: Sandbox) => db.doc(SANDBOX).set(sb, { merge: false })
 const nextId = (sb: Sandbox, kind: string) => `demo-${kind}-${++sb.n}`
 
 // Real day + the demo account's own shoots on top, every real name hidden.
@@ -81,7 +82,9 @@ const REVIEWER_TOOLS = new Set(['whoami', 'get_schedule', 'find_free_times', 'li
 /** null = not a sandbox tool (the closet tools, rules and app links run as normal: they only read company props and rules). */
 export async function runReviewerTool(name: string, a: Json, u: McpUser): Promise<ToolResult | null> {
   if (!REVIEWER_TOOLS.has(name)) return null
-  const sb = await load()
+  const key = u.sandboxKey ?? 'default'
+  const sb = await load(key)
+  const save = (x: Sandbox) => sandboxRef(key).set(x, { merge: true })
   const sch = await loadScheduleSettings()
   const now = nowStamp(), today = todayInStudio()
   switch (name) {
@@ -93,7 +96,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
     }
     case 'get_schedule': {
       const from = isDay(a.from) && String(a.from) >= today ? String(a.from) : today
-      const n = Math.min(21, Number.isInteger(a.days) ? Number(a.days) : 7)
+      const n = clampInt(a.days, 1, 21, 7)
       const dates = Array.from({ length: n }, (_, i) => addDays(from, i))
       const ds = await days(dates, sb)
       const out = dates.map(date => ({ date, houses: Object.fromEntries(HOUSES.map(h => [h, {
@@ -105,18 +108,31 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
     }
     case 'find_free_times': {
       const from = isDay(a.from) && String(a.from) >= today ? String(a.from) : today
-      const n = Math.min(21, Number.isInteger(a.days) ? Number(a.days) : 7)
+      const n = clampInt(a.days, 1, 21, 7)
       const people = Math.min(5, Math.max(1, Number.isInteger(a.people) ? Number(a.people) : 1))
       const need = Math.round(Math.min(12, Math.max(0.5, Number(a.hours) || 2)) * 60 / TIME_STEP) * TIME_STEP
       if (need > maxMinutesFor(people, sch)) return { text: `${need / 60} hours needs ${Math.ceil(need / sch.slotMinutes) - people} more people on the booking (2 hours each).` }
       const dates = Array.from({ length: n }, (_, i) => addDays(from, i))
       const ds = await days(dates, sb)
-      const options: Json[] = []
-      for (const date of dates) for (const h of HOUSES) {
-        if (priorityLocked(date, h, sch, REVIEWER_EMAIL, now)) continue
-        for (const g of freeGaps(ds[date], date, h, sch, now, need)) options.push({ day: date, place: h, house: PLACE[h], start: hm(g.start), end: hm(g.start + need), free_stretch: `${hm(g.start)}–${hm(g.end)}` })
+      const houses = (Array.isArray(a.houses) && a.houses.length ? a.houses : HOUSES).filter((h): h is House => HOUSES.includes(h as House))
+      const tod = s(a.time_of_day, 10) || 'any', around = parseClock(a.around)
+      const inTod = (m: number) => tod === 'any' || (tod === 'morning' ? m < 720 : tod === 'afternoon' ? m >= 720 && m < 1020 : tod === 'evening' ? m >= 1020 && m < 1260 : m >= 1260)
+      const options: (Json & { _s: number })[] = []
+      for (const date of dates) {
+        if (sb.shoots.some(x => x.date === date && x.place !== 'offsite' && ['booked', 'requested'].includes(x.status))) continue   // one a day
+        for (const h of houses) {
+          if (priorityLocked(date, h, sch, REVIEWER_EMAIL, now)) continue
+          for (const g of freeGaps(ds[date], date, h, sch, now, need)) {
+            const starts = new Set<number>([g.start, g.end - need])
+            if (around != null) starts.add(Math.min(Math.max(around, g.start), g.end - need))
+            for (const at of [720, 1020, 1260]) if (at > g.start && at + need <= g.end) starts.add(at)
+            for (const st of starts) if (st % TIME_STEP === 0 && st >= g.start && st + need <= g.end && inTod(st))
+              options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, _s: st })
+          }
+        }
       }
-      const top = options.slice(0, Math.min(30, Number(a.limit) || 12))
+      options.sort((x, y) => around != null ? Math.abs(x._s - around) - Math.abs(y._s - around) || String(x.day).localeCompare(String(y.day)) : String(x.day).localeCompare(String(y.day)) || x._s - y._s)
+      const top = options.slice(0, clampInt(a.limit, 1, 30, 12)).map(({ _s, ...o }) => o)   // eslint-disable-line @typescript-eslint/no-unused-vars
       return { text: top.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`).join('\n') || 'Nothing free that fits.', structured: { length_hours: need / 60, people, options: top } }
     }
     case 'my_shoots': {
@@ -175,8 +191,13 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       }
       const start = parseClock(a.start), date = s(a.day, 10)
       if (start == null || !isDay(date)) return { text: 'Give the new day (YYYY-MM-DD) and start time (HH:MM).' }
-      const len = x.end - x.start, end = a.end != null ? (parseClock(a.end) ?? start + len) : start + len
+      const len = x.end - x.start
+      const end0 = a.end != null ? parseClock(a.end) : null
+      const end = end0 == null ? start + len : end0 <= start ? end0 + 1440 : end0
       const place = s(a.place, 10) || x.place
+      if ((place === 'offsite') !== (x.place === 'offsite')) return { text: 'A house shoot can\'t become offsite (or the other way): cancel it and book again.' }
+      if (place !== 'offsite' && date !== x.date && sb.shoots.some(y => y.id !== x.id && y.date === date && y.place !== 'offsite' && ['booked', 'requested'].includes(y.status))) return { text: 'You already have a house booking that day (one a day each).' }
+      if (place !== 'offsite' && end - start > maxMinutesFor(1 + x.with.length, sch)) return { text: `That's longer than ${sch.slotMinutes / 60} hours per person on the booking.` }
       const bad = checkTimes(place, date, start, end, sch, today, now)
       if (bad) return { text: SCHEDULE_MESSAGES[bad] }
       if (place !== 'offsite') {

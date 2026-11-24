@@ -210,7 +210,7 @@ describe('connector tools', () => {
     expect(ok.ok, ok.message).toBe(true)
     const code = new URL(ok.result.redirect).searchParams.get('code')!
     const tok = await (await fetch(`${BASE}/oauth/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: reg.client_id }) })).json()
+      body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: reg.client_id, redirect_uri: 'https://chatgpt.com/connector_platform_oauth_redirect' }) })).json()
     const T = tok.access_token
     const tools = (await rpc(T, 'tools/list')).result.tools.map((x: { name: string }) => x.name)
     expect(tools).toContain('book_shoot')
@@ -232,6 +232,26 @@ describe('connector tools', () => {
     // Turning it off cuts the reviewer off at once.
     await call('reviewerAccount', { action: 'disable' }, OWNER)
     expect((await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: `Bearer ${T}` })).status).toBe(401)
+  })
+
+  it('safety labels are accurate, staff only get look tools, people never come with emails, odd input never crashes', async () => {
+    const t = await connect(ANA)
+    const tools = (await rpc(t.access_token, 'tools/list')).result.tools
+    const hint = (n: string) => tools.find((x: { name: string }) => x.name === n).annotations
+    for (const n of ['move_shoot', 'cancel_shoot', 'change_props_request', 'cancel_props_request', 'answer_swap', 'leave_waitlist']) expect(hint(n).destructiveHint, n).toBe(true)
+    for (const n of ['book_shoot', 'request_props', 'invite_to_video', 'report_problem']) expect(hint(n).openWorldHint, n).toBe(true)
+    for (const n of ['search_props', 'get_schedule', 'my_status']) expect(hint(n).readOnlyHint, n).toBe(true)
+    const people = await tool(t.access_token, 'list_people')
+    expect(JSON.stringify(people)).not.toMatch(/@/)
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: [MAANIK] })).content[0].text).toMatch(/not an email/)
+    for (const [n, a] of [['get_schedule', { days: 0 }], ['get_schedule', { days: -3 }], ['search_props', { query: 'phone', limit: -5 }], ['find_free_times', { limit: -1 }], ['prop_calendar', { id: 'nope' }], ['get_shoot', {}], ['book_shoot', { place: 'cliff9' }]] as const) {
+      const r = await rpc(t.access_token, 'tools/call', { name: n, arguments: a })
+      expect(r.result.content[0].text, n).not.toMatch(/Something went wrong/)
+    }
+    const m = await connect(MAANIK)
+    const staff = (await rpc(m.access_token, 'tools/list')).result.tools.map((x: { name: string }) => x.name)
+    expect(staff).toContain('search_props')
+    expect(staff).not.toContain('book_shoot')
   })
 })
 

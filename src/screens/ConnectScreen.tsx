@@ -8,7 +8,7 @@ import { connectorRequestInfo, approveConnector } from '../services/connector'
 import { friendlyError } from '../lib/errors'
 
 export default function ConnectScreen() {
-  const { profile, demo } = useSession()
+  const { profile, demo, canBook } = useSession()
   const req = new URLSearchParams(window.location.search).get('req') ?? ''
   const [info, setInfo] = useState<{ ok: boolean; assistant?: string } | null>(null)
   const [busy, setBusy] = useState(false)
@@ -34,11 +34,11 @@ export default function ConnectScreen() {
           <p className="text-pt-muted">Signed in as <b className="text-pt-text">{profile.name}</b> ({profile.email}).</p>
           <ul className="space-y-2 text-[15px]">
             <li>✓ Search the props closet and show photos</li>
-            {!demo && <>
+            {!demo && canBook && <>
               <li>✓ See the schedule and your own shoots</li>
               <li>✓ Book, move or cancel your shoots and request props, after asking you</li>
             </>}
-            <li className="text-pt-muted">Same rules as the app: your bookings still go to the schedule team for approval. It never sees other people's emails, internal notes or costs.</li>
+            <li className="text-pt-muted">Same rules as the app: your bookings still go to the schedule team for approval. It never sees other people's emails, internal notes or costs. It only does what you ask.</li>
           </ul>
           <div className="space-y-2 pt-1">
             <button disabled={busy} onClick={() => go(false)} className="w-full min-h-[52px] rounded-2xl bg-pt-accent text-stone-900 font-semibold shadow-gold">{busy ? 'Connecting…' : `Allow ${who}`}</button>

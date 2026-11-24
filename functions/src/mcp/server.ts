@@ -7,6 +7,7 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https'
 import { logger } from 'firebase-functions'
 import type { Request } from 'express'
 import { db, CALLABLE, requireRole, getCaller } from '../auth.js'
+import { Timestamp } from 'firebase-admin/firestore'
 import { scryptSync, timingSafeEqual, randomBytes } from 'node:crypto'
 import { REVIEWER_EMAIL } from './common.js'
 import { resetSandbox } from './reviewer.js'
@@ -39,6 +40,19 @@ function bodyOf(req: Request): Record<string, unknown> {
   try { return Object.fromEntries(new URLSearchParams(raw)) } catch { return {} }
 }
 const later = (seconds: number) => new Date(Date.now() + seconds * 1000).toISOString()
+// Firestore deletes these docs by itself once this moment passes (TTL policy on `ttl`, firestore.indexes.json).
+const ttlIn = (seconds: number) => Timestamp.fromMillis(Date.now() + seconds * 1000)
+// Sign-up and sign-in pages: a few per minute per address is plenty for a real person (stops anyone filling the database).
+async function ipLimit(req: Request, kind: string, perMinute: number) {
+  const ip = String(req.headers['x-forwarded-for'] ?? req.ip ?? '').split(',')[0].trim().replace(/[^0-9a-fA-F:.]/g, '').slice(0, 45) || 'unknown'
+  const ref = db.doc(`mcp_rate/${kind}_${ip.replace(/[:.]/g, '-')}_${new Date().toISOString().slice(0, 16)}`)
+  return db.runTransaction(async tx => {
+    const n = Number((await tx.get(ref)).get('n') ?? 0)
+    if (n >= perMinute) return false
+    tx.set(ref, { n: n + 1, ttl: ttlIn(600) }, { merge: true })
+    return true
+  })
+}
 const expired = (at: unknown) => typeof at !== 'string' || at < new Date().toISOString()
 
 // ─── HTTP entry point ───────────────────────────────────────────────────────────────────────────────────────────────
@@ -46,7 +60,7 @@ const expired = (at: unknown) => typeof at !== 'string' || at < new Date().toISO
 const INSTRUCTIONS = [
   'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. You act as the signed-in creator, with exactly their permissions. Be a warm, sharp production assistant: short answers, the person\'s own language.',
   'START: get_rules once per conversation (today\'s date in studio time, the live rules). For "what do I have going on?" use my_status; for one shoot use get_shoot.',
-  'BRAINSTORMING: when the person is coming up with or writing a video idea, sketch or script, be a creative partner AND keep the closet in mind. As soon as scenes, characters or locations take shape, offer to check the closet (props_for_idea with concrete needs per scene) and show matches (show_props). Suggest how to use what exists; things the closet lacks can be custom props (4+ days notice, no guaranteed date). Do this naturally, without derailing their writing.',
+  'BRAINSTORMING: when the person is working on a Prime Capitol video idea and wants to know what props exist, props_for_idea checks the closet per scene and show_props shows photos. You may ask if they\'d like you to check the closet; only call the tools when they agree or ask. Things the closet lacks can be custom props (4+ days notice, no guaranteed date).',
   'TIMES: find_free_times returns ready-to-book options that already respect their locks and limits; get_schedule is the raw picture (who films when, free stretches). Bookings are free-form (any quarter hour, e.g. 13:15-15:15), up to 2 hours per person; longer needs the people filming with them on the SAME booking (book_shoot `with`). Use judgement: next to a collaborator\'s shoot, the time of day they like, other house or day if one is locked. A taken time can be waited for (join_waitlist).',
   'PROPS: request_props for a shoot (adds to a waiting request), change_props_request / cancel_props_request while still requested; prop_calendar shows which days a key prop is free. Closet props close about 48 hours before the shoot (get_shoot has the exact time).',
   'PHONE-ONLY STEPS: picking up and returning props or gear (photos) and taking gear on the shoot day happen in the app: give the app_link. There is no check-in on the shoot day.',
@@ -58,6 +72,7 @@ export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, m
   const base = baseOf(req)
   const path = req.path.replace(/^\/mcp(?=\/(oauth|\.well-known|mcp)\b)/, '') || '/'   // emulator URLs keep the function name in front
   res.set('Cache-Control', 'no-store')
+  res.set('Access-Control-Expose-Headers', 'WWW-Authenticate, Mcp-Session-Id')
   try {
     if (path.startsWith('/.well-known/oauth-protected-resource')) { res.json(resourceMetadata(base)); return }
     if (path.startsWith('/.well-known/oauth-authorization-server') || path.startsWith('/.well-known/openid-configuration')) { res.json(metadata(base)); return }
@@ -86,8 +101,9 @@ export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, m
 // ─── OAuth ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 async function register(req: Request, res: import('express').Response) {
   const b = bodyOf(req)
+  if (!(await ipLimit(req, 'reg', 20))) { res.status(429).json({ error: 'slow_down' }); return }
   const uris = (Array.isArray(b.redirect_uris) ? b.redirect_uris : []) as unknown[]
-  if (!uris.length || !uris.every(u => redirectAllowed(u, emulator()))) {
+  if (!uris.length || uris.length > 5 || !uris.every(u => redirectAllowed(u, emulator()))) {
     res.status(400).json({ error: 'invalid_redirect_uri', error_description: 'Only ChatGPT and Claude can connect to Prime Capitol.' }); return
   }
   const clientId = `pc_${randomToken(16)}`
@@ -99,7 +115,8 @@ async function register(req: Request, res: import('express').Response) {
 
 async function authorize(req: Request, res: import('express').Response, base: string) {
   const q = req.query as Record<string, string>
-  const client = q.client_id ? (await db.doc(`mcp_clients/${q.client_id}`).get()).data() : undefined
+  if (!(await ipLimit(req, 'auth', 30))) { res.status(429).send('Too many sign-in attempts. Wait a minute and try again.'); return }
+  const client = /^pc_[\w-]{10,40}$/.test(String(q.client_id ?? '')) ? (await db.doc(`mcp_clients/${q.client_id}`).get()).data() : undefined
   const redirect = q.redirect_uri
   if (!client || !redirectAllowed(redirect, emulator()) || !(client.redirectUris as string[]).includes(redirect)) {
     res.status(400).send('This sign-in link is not valid. Start again from ChatGPT or Claude.'); return
@@ -110,7 +127,7 @@ async function authorize(req: Request, res: import('express').Response, base: st
   }
   const id = randomToken(18)
   await db.doc(`mcp_auth_requests/${id}`).set({ clientId: q.client_id, redirect, state: q.state ?? '', challenge: q.code_challenge,
-    assistant: assistantName(redirect, client.name), expiresAt: later(REQUEST_TTL_SECONDS), createdAt: new Date().toISOString() })
+    assistant: assistantName(redirect, client.name), expiresAt: later(REQUEST_TTL_SECONDS), ttl: ttlIn(REQUEST_TTL_SECONDS + 3600), createdAt: new Date().toISOString() })
   res.redirect(`${appBase(base)}/connect?req=${id}`)
 }
 
@@ -128,7 +145,7 @@ export const approveConnector = onCall(CALLABLE, async req => {
   }
   const code = randomToken(32)
   await db.doc(`mcp_codes/${hashToken(code)}`).set({ clientId: r.clientId, redirect: r.redirect, challenge: r.challenge, email: caller.email,
-    name: caller.name, assistant: r.assistant, expiresAt: later(CODE_TTL_SECONDS) })
+    name: caller.name, assistant: r.assistant, expiresAt: later(CODE_TTL_SECONDS), ttl: ttlIn(CODE_TTL_SECONDS + 3600) })
   await ref.delete()
   const u = new URL(r.redirect); u.searchParams.set('code', code); if (r.state) u.searchParams.set('state', r.state)
   return { redirect: u.toString(), assistant: r.assistant }
@@ -147,7 +164,9 @@ export const reviewerAccount = onCall(CALLABLE, async req => {
     const password = randomToken(9).replace(/[^A-Za-z0-9]/g, 'x').slice(0, 12) + '-' + randomBytes(2).toString('hex')
     const salt = randomBytes(16).toString('hex')
     await ref.set({ email: REVIEWER_EMAIL, salt, hash: hashPassword(password, salt), enabled: true, createdAt: new Date().toISOString(), createdBy: caller.email, failures: 0 })
-    await resetSandbox()
+    // A new password signs out everyone using the old one.
+    const old = await db.collection('mcp_tokens').where('email', '==', REVIEWER_EMAIL).get()
+    await Promise.all(old.docs.map(d => d.ref.delete()))
     return { enabled: true, email: REVIEWER_EMAIL, password }
   }
   if (action === 'disable') {
@@ -165,9 +184,14 @@ export const approveConnectorReviewer = onCall(CALLABLE, async req => {
   const r = (await ref.get()).data()
   if (!r || expired(r.expiresAt)) throw new HttpsError('not-found', 'This sign-in link ran out. Start again from ChatGPT or Claude.')
   // A few tries per sign-in link, then it closes (no guessing the password).
-  const tries = Number(r.reviewerTries ?? 0)
-  if (tries >= 5) { await ref.delete(); throw new HttpsError('resource-exhausted', 'Too many tries. Start again from ChatGPT or Claude.') }
-  await ref.update({ reviewerTries: tries + 1 })
+  const allowed = await db.runTransaction(async tx => {   // counted in a transaction, so parallel tries can't go past 5
+    const cur = (await tx.get(ref)).data()
+    const tries = Number(cur?.reviewerTries ?? 0)
+    if (!cur || tries >= 5) { if (cur) tx.delete(ref); return false }
+    tx.update(ref, { reviewerTries: tries + 1 })
+    return true
+  })
+  if (!allowed) throw new HttpsError('resource-exhausted', 'Too many tries. Start again from ChatGPT or Claude.')
   const acc = (await db.doc('mcp_settings/reviewer').get()).data()
   const email = String(req.data?.email ?? '').trim().toLowerCase(), password = String(req.data?.password ?? '').slice(0, 200)
   const good = !!acc?.enabled && email === acc.email && password.length > 0 &&
@@ -175,7 +199,7 @@ export const approveConnectorReviewer = onCall(CALLABLE, async req => {
   if (!good) throw new HttpsError('permission-denied', 'That email and password don\'t match the demo account.')
   const code = randomToken(32)
   await db.doc(`mcp_codes/${hashToken(code)}`).set({ clientId: r.clientId, redirect: r.redirect, challenge: r.challenge, email: REVIEWER_EMAIL,
-    name: 'App Reviewer', assistant: r.assistant, reviewer: true, expiresAt: later(CODE_TTL_SECONDS) })
+    name: 'App Reviewer', assistant: r.assistant, reviewer: true, expiresAt: later(CODE_TTL_SECONDS), ttl: ttlIn(CODE_TTL_SECONDS + 3600) })
   await ref.delete()
   const u = new URL(r.redirect); u.searchParams.set('code', code); if (r.state) u.searchParams.set('state', r.state)
   return { redirect: u.toString() }
@@ -195,8 +219,8 @@ async function issueTokens(email: string, name: string, clientId: string, assist
   const now = new Date().toISOString()
   const batch = db.batch()
   const extra = reviewer ? { reviewer: true } : {}
-  batch.set(db.doc(`mcp_tokens/${hashToken(access)}`), { kind: 'access', email, name, clientId, assistant, ...extra, expiresAt: later(ACCESS_TTL_SECONDS), createdAt: now })
-  batch.set(db.doc(`mcp_tokens/${hashToken(refresh)}`), { kind: 'refresh', email, name, clientId, assistant, ...extra, expiresAt: later(REFRESH_TTL_DAYS * 86400), createdAt: now })
+  batch.set(db.doc(`mcp_tokens/${hashToken(access)}`), { kind: 'access', email, name, clientId, assistant, ...extra, expiresAt: later(ACCESS_TTL_SECONDS), ttl: ttlIn(ACCESS_TTL_SECONDS + 3600), createdAt: now })
+  batch.set(db.doc(`mcp_tokens/${hashToken(refresh)}`), { kind: 'refresh', email, name, clientId, assistant, ...extra, expiresAt: later(REFRESH_TTL_DAYS * 86400), ttl: ttlIn(REFRESH_TTL_DAYS * 86400 + 3600), createdAt: now })
   batch.set(db.doc(`mcp_connections/${email}__${clientId}`), { email, clientId, assistant, lastUsed: now, connectedAt: now }, { merge: true })
   await batch.commit()
   return { access_token: access, token_type: 'Bearer', expires_in: ACCESS_TTL_SECONDS, refresh_token: refresh, scope: 'primecapitol' }
@@ -208,9 +232,9 @@ async function token(req: Request, res: import('express').Response) {
   if (b.grant_type === 'authorization_code') {
     const ref = db.doc(`mcp_codes/${hashToken(String(b.code ?? ''))}`)
     const c = await db.runTransaction(async tx => { const s = await tx.get(ref); if (s.exists) tx.delete(ref); return s.data() })   // one use only
-    if (!c || expired(c.expiresAt) || c.clientId !== b.client_id || (b.redirect_uri && b.redirect_uri !== c.redirect)) { bad('invalid_grant'); return }
+    if (!c || expired(c.expiresAt) || c.clientId !== b.client_id || b.redirect_uri !== c.redirect) { bad('invalid_grant'); return }
     if (!pkceOk(b.code_verifier, c.challenge)) { bad('invalid_grant', 'PKCE check failed'); return }
-    if (c.reviewer) await resetSandbox()   // every new reviewer connection starts from the same practice data
+    if (c.reviewer) await resetSandbox(c.clientId)   // each reviewer connection gets its own practice data, fresh
     res.json(await issueTokens(c.email, c.name, c.clientId, c.assistant, c.reviewer === true)); return
   }
   if (b.grant_type === 'refresh_token') {
@@ -243,10 +267,13 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
   if (!t || t.kind !== 'access' || expired(t.expiresAt) || !(t.reviewer ? await reviewerEnabled() : await stillAllowed(t.email))) {
     res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`).json({ error: 'invalid_token' }); return
   }
-  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true } : {}) }
+  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true, sandboxKey: String(t.clientId) } : {}) }
+  const raw = req.body
+  if (raw === undefined || raw === null || raw === '' || (typeof raw === 'object' && !Array.isArray(raw) && !Buffer.isBuffer(raw) && !Object.keys(raw).length)) { res.status(400).json(rpcError(null, -32700, 'Parse error')); return }
   const msg = bodyOf(req) as { jsonrpc?: string; id?: string | number; method?: string; params?: Record<string, unknown> }
   if (Array.isArray(msg)) { res.status(400).json(rpcError(null, -32600, 'Batches are not supported')); return }
   const id = msg.id ?? null
+  if (msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') { res.status(400).json(rpcError(msg.id ?? null, -32600, 'Invalid request')); return }
   if (msg.id === undefined) { res.status(202).end(); return }   // a notification (e.g. notifications/initialized)
   switch (msg.method) {
     case 'initialize': {
@@ -262,7 +289,9 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
     case 'ping': res.json(ok(id, {})); return
     case 'tools/list': {
       const c = user.reviewer ? null : await getCaller({ data: {}, auth: { uid: 'mcp', token: { email: user.email, email_verified: true } }, rawRequest: {}, acceptsStreaming: false } as never)
-      res.json(ok(id, { tools: toolsFor(!!c?.demo).map(tl => describeTool(tl)) })); return
+      // Only what this person can actually use: Props-only creators and the team (arts, equipment, admins) get the look tools.
+      const lookOnly = !user.reviewer && (!!c?.demo || !(c?.role === 'creator' || c?.role === 'owner'))
+      res.json(ok(id, { tools: toolsFor(lookOnly).map(tl => describeTool(tl)) })); return
     }
     case 'resources/list':
       res.json(ok(id, { resources: [
@@ -325,7 +354,7 @@ async function underLimit(email: string) {
   return db.runTransaction(async tx => {
     const n = Number((await tx.get(ref)).get('n') ?? 0)
     if (n >= RATE_PER_HOUR) return false
-    tx.set(ref, { n: n + 1, email }, { merge: true })
+    tx.set(ref, { n: n + 1, email, ttl: ttlIn(7200) }, { merge: true })
     return true
   })
 }
