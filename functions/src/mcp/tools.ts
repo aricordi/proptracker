@@ -11,10 +11,11 @@ import { collectionOf } from '../collections.js'
 import { freeForRange, todayInStudio, addDays, isDay, weekday, isOpen, type BookingEntry } from '../booking.js'
 import { fmtTime, nowStamp } from '../gearBooking.js'
 import {
-  HOUSES, entryHours, hardBlocks, headsUps, priorityLocked, isPriorityDay, needsGuideline, isNoCrewDay,
-  type House, type ScheduleDay, type SlotEntry,
+  HOUSES, hardBlocks, headsUps, priorityLocked, isPriorityDay, needsGuideline, isNoCrewDay, freeGaps, houseOpen, houseClose,
+  houseBookings as dayBookings, maxMinutesFor, isLongBooker, TIME_STEP, MIN_BOOKING_MINUTES,
+  type House, type ScheduleDay, type ScheduleSettings,
 } from '../schedule.js'
-import { loadScheduleSettings, filmingPeople, bookWithFriends, bookShoot, cancelShoot, moveShoot } from '../scheduling.js'
+import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot } from '../scheduling.js'
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
@@ -107,18 +108,29 @@ function wordScore(p: Prop, words: string[]) {
   return score
 }
 
-// ─── The schedule as raw data ───────────────────────────────────────────────────────────────────────────────────────
-function houseBookings(day: ScheduleDay | undefined, house: House, slotMinutes: number, me: string) {
-  const seen = new Set<string>(), out: Json[] = []
-  for (const [k, e] of Object.entries((day?.[house] ?? {}) as Record<string, SlotEntry>)) {
-    if (!e) continue
-    const key = e.shootId || `hold:${k}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    const h = entryHours(e, Number(k), slotMinutes)
-    out.push({ start: hm(h.start), end: hm(h.end), who: e.email === me ? 'you' : firstName(e.name), status: e.hold ? 'held' : e.pending ? (e.move ? 'move waiting for approval' : 'waiting for approval') : 'booked' })
+// Words first (names, tags, descriptions, hidden search words), then meaning ("president" → a Lincoln mask).
+async function findProps(query: string, cat: string, limit: number, u: McpUser): Promise<{ found: Prop[]; byWords: Prop[] }> {
+  const props = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat))
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1)
+  const byWords = props.map(p => ({ p, score: wordScore(p, words) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score).map(x => x.p)
+  let similar: Prop[] = []
+  if (query.length >= 3) {
+    try {
+      const r = await searchSimilar.run(asUser(u, { query })) as { results: { id: string; score: number }[] }
+      const map = new Map(props.map(p => [p.id, p]))
+      similar = r.results.filter(x => x.score >= 0.55).map(x => map.get(x.id)).filter((p): p is Prop => !!p && !byWords.includes(p))
+    } catch { /* meaning search is a bonus; words still work */ }
   }
-  return out.sort((a, b) => String(a.start).localeCompare(String(b.start)))
+  return { found: [...byWords.slice(0, limit), ...similar].slice(0, limit), byWords }
+}
+
+// ─── The schedule as raw data ───────────────────────────────────────────────────────────────────────────────────────
+function houseBookings(day: ScheduleDay | undefined, house: House, sch: ScheduleSettings, me: string, now: string) {
+  return dayBookings(day, house, sch, now).map(b => {
+    const e = b.entry, mine = e.email === me || (e.people ?? []).includes(me)
+    return { start: hm(b.start), end: hm(b.end), who: e.email === me ? 'you' : firstName(e.name), with: (e.withNames ?? []).map(firstName), ...(mine && e.email !== me ? { you_are_collaborator: true } : {}),
+      status: e.hold ? 'held' : e.pending ? (e.move ? 'move waiting for approval' : 'waiting for approval') : 'booked' }
+  })
 }
 
 // ─── Tool definitions (shown to the assistant) ──────────────────────────────────────────────────────────────────────
@@ -140,6 +152,11 @@ export const TOOLS = [
       category: { type: 'string', description: 'Optional category name to narrow it, e.g. "Costumes"' },
       day: { type: 'string', description: 'Optional shoot day YYYY-MM-DD for availability' },
       limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 20' } }, ['query']) },
+  { name: 'props_for_idea', title: 'Check the closet for a video idea', annotations: READ,
+    description: 'Use this proactively while the person is brainstorming or writing a video idea or script: as soon as scenes, characters or locations take shape, break the idea into concrete needs (props, costumes, set dressing per scene) and check what Prime Capitol already has for each. Returns the best matches per need (id, name, how many, photo, free on the day if given) and the needs with nothing in the closet (those can be asked for as custom props). Then offer to show_props, adjust the idea to what exists, or request them for a shoot. Props, costumes and set dressing only (no cameras, lights or batteries).',
+    inputSchema: obj({ idea: { type: 'string', description: 'One line about the video' },
+      needs: { type: 'array', maxItems: 15, items: obj({ need: { type: 'string', description: 'A concrete thing, e.g. "police uniform" or "old rotary phone"' }, scene: { type: 'string', description: 'Optional scene or character it is for' } }, ['need']) },
+      day: { type: 'string', description: 'Optional shoot day YYYY-MM-DD for availability' } }, ['needs']) },
   { name: 'browse_props', title: 'List the whole closet', annotations: READ,
     description: 'The raw props list, page by page (names, categories, tags, how many; no photos), so you can scan it yourself for ideas. Optional category. 150 per page.',
     inputSchema: obj({ category: { type: 'string' }, page: { type: 'integer', minimum: 1, description: 'Page number, from 1' } }) },
@@ -152,13 +169,13 @@ export const TOOLS = [
     description: 'Everything about one prop: all photos, description, tags, how many, and free count on a day.',
     inputSchema: obj({ id: { type: 'string' }, day: { type: 'string' } }, ['id']) },
   { name: 'get_schedule', title: 'The schedule, raw', annotations: READ,
-    description: 'Who has each house when, day by day (up to 21 days): bookings with start/end and first names (status booked / waiting for approval), blocked times, heads-ups, offsite shoots, priority days locked for this person, and house opening hours. Work out free gaps yourself from this, then book with book_shoot.',
+    description: 'Who has each house when, day by day (up to 21 days): bookings with start/end, first names and collaborators (status booked / waiting for approval), blocked times, heads-ups, offsite shoots, priority days locked for this person, house opening hours, and the FREE stretches at each house (already worked out, from now on). Bookings are free-form: any start/end on the quarter hour (e.g. 13:15–15:15) inside a free stretch, at least 30 minutes, up to 2 h per person on the booking. Use your own judgement to suggest good times (e.g. next to a collaborator\'s shoot, the person\'s usual time of day), then book with book_shoot.',
     inputSchema: obj({ from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' } }) },
   { name: 'list_people', title: 'People who film', annotations: READ,
     description: 'Names of everyone who films (to add collaborators). First names may repeat; use the email shown to pick the right one.',
     inputSchema: obj({ search: { type: 'string', description: 'Optional part of a name' } }) },
   { name: 'my_shoots', title: 'My shoots', annotations: READ,
-    description: 'This person\'s upcoming and recent shoots: id, place, day, hours, status (booked / waiting for approval / not approved), who is with them, and props requests on each.',
+    description: 'This person\'s upcoming and recent shoots, including ones a friend booked with them on it: id, place, day, hours, status (booked / waiting for approval / not approved), who booked it, collaborators, and props requests on each.',
     inputSchema: obj({}) },
   { name: 'my_props_requests', title: 'My props requests', annotations: READ,
     description: 'This person\'s props requests with status (requested, being prepared, packed & ready, picked up, returned) and items.',
@@ -171,7 +188,8 @@ export const TOOLS = [
       where: { type: 'string', description: 'Offsite only: address or place' } }, ['place', 'day', 'start', 'end']) },
   { name: 'move_shoot', title: 'Move a shoot', annotations: WRITE,
     description: 'Move one of this person\'s shoots to another time (same rules as the app: notice period, approval). Confirm first.',
-    inputSchema: obj({ shoot_id: { type: 'string' }, place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string' }, start: { type: 'string' } }, ['shoot_id', 'day', 'start']) },
+    inputSchema: obj({ shoot_id: { type: 'string' }, place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string' }, start: { type: 'string', description: 'HH:MM' },
+      end: { type: 'string', description: 'Optional HH:MM; leave out to keep the same length' } }, ['shoot_id', 'day', 'start']) },
   { name: 'cancel_shoot', title: 'Cancel a shoot', annotations: DESTRUCTIVE,
     description: 'Cancel one of this person\'s shoots. If it\'s inside the notice period it counts as a no-show: the tool refuses and explains; only retry with accept_no_show true after the person clearly agrees. Always confirm first.',
     inputSchema: obj({ shoot_id: { type: 'string' }, accept_no_show: { type: 'boolean' } }, ['shoot_id']) },
@@ -197,7 +215,7 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
       const [b, sch] = await Promise.all([loadSettings(), loadScheduleSettings()])
       const today = todayInStudio()
       return { text: `Today is ${today} (${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekday(today)]}), studio time America/Toronto. Houses: Cliff 1 = ${sch.houses.cliff1.address}, Cliff 2 = ${sch.houses.cliff2.address}. Rules: ${rulesText(b, sch)}`,
-        structured: { today, houses: sch.houses, house_hours: { from: hm(sch.slots[0]), until: hm((sch.slots[sch.slots.length - 1] + sch.slotMinutes)) }, max_hours_per_person: sch.slotMinutes / 60,
+        structured: { today, houses: sch.houses, house_hours: { from: hm(houseOpen(sch)), until: hm(houseClose(sch)) }, booking_step_minutes: TIME_STEP, max_hours_per_person: sch.slotMinutes / 60, can_book_long_alone: isLongBooker(u.email, sch),
           props_notice_hours: b.leadTimeHours ?? 48, custom_props_notice_days: b.buildLeadDays ?? 4, priority_weekdays: sch.priorityWeekdays, closed_weekdays: b.closedWeekdays, closed_dates: b.closedDates } }
     }
     case 'whoami':
@@ -223,22 +241,27 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
       const cat = s(args.category, 60).toLowerCase()
       const limit = Math.min(50, Number.isInteger(args.limit) ? args.limit as number : 20)
       const day = isDay(args.day) ? args.day as string : ''
-      const props = (await loadCloset()).filter(p => !cat || p.category.toLowerCase().includes(cat))
-      const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1)
-      const byWords = props.map(p => ({ p, score: wordScore(p, words) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score).map(x => x.p)
-      let similar: Prop[] = []
-      if (query.length >= 3) {
-        try {
-          const r = await searchSimilar.run(asUser(u, { query })) as { results: { id: string; score: number }[] }
-          const map = new Map(props.map(p => [p.id, p]))
-          similar = r.results.filter(x => x.score >= 0.55).map(x => map.get(x.id)).filter((p): p is Prop => !!p && !byWords.includes(p))
-        } catch { /* meaning search is a bonus; words still work */ }
-      }
-      const found = [...byWords.slice(0, limit), ...similar].slice(0, limit)
+      const { found, byWords } = await findProps(query, cat, limit, u)
       const free = day ? await freeOn(day, found.map(p => p.id)) : {}
       const rows = found.map(p => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 160), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: byWords.includes(p) ? 'words' : 'similar meaning' }))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}`).join('\n') : `Nothing in the closet matches "${query}". Try other words, or ask for it as a custom prop.`,
         structured: { query, day: day || null, results: rows } }
+    }
+    case 'props_for_idea': {
+      const needs = (Array.isArray(args.needs) ? args.needs : []).map(x => ({ need: s((x as Json).need, 120), scene: s((x as Json).scene, 80) })).filter(x => x.need.length >= 2).slice(0, 15)
+      if (!needs.length) return { text: 'List the concrete things the idea needs (one per item), e.g. "police uniform", "old rotary phone".' }
+      const day = isDay(args.day) ? args.day as string : ''
+      const per = await Promise.all(needs.map(async n => ({ ...n, found: (await findProps(n.need, '', 4, u)).found })))
+      const ids = [...new Set(per.flatMap(x => x.found.map(p => p.id)))]
+      const free = day ? await freeOn(day, ids) : {}
+      const groups = per.map(x => ({ scene: x.scene || undefined, need: x.need,
+        matches: x.found.map(p => ({ ...short(p), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined })) }))
+      const missing = groups.filter(g => !g.matches.length).map(g => g.need)
+      const top = per.flatMap(x => x.found.slice(0, 2)).filter((p, i, a) => a.findIndex(q => q.id === p.id) === i).slice(0, 12)
+      const text = groups.map(g => `${g.scene ? `[${g.scene}] ` : ''}${g.need}: ${g.matches.length ? g.matches.map(m => `${m.name} (${m.id}, x${m.how_many}${day ? `, ${m.free_that_day} free` : ''})`).join('; ') : 'nothing in the closet (could be a custom prop)'}`).join('\n')
+      return { text: `${text}\n\nOffer to show these with show_props, tweak the idea around what exists, or request them for one of their shoots.`,
+        structured: { idea: s(args.idea, 300) || null, day: day || null, groups, missing, props: top.map(p => ({ ...short(p), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}) })) },
+        images: top.filter(p => p.photo).slice(0, 6).map(p => ({ url: p.photo, caption: p.name })), widget: true }
     }
     case 'show_props': {
       const ids = (Array.isArray(args.ids) ? args.ids : []).map(x => s(x, 128)).filter(Boolean).slice(0, 12)
@@ -275,7 +298,8 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
           date, weekday: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][weekday(date)],
           crew_off: isNoCrewDay(date) || undefined, studio_closed_for_props: !isOpen(date, b) || undefined,
           houses: Object.fromEntries(HOUSES.map(h => [h, {
-            bookings: houseBookings(day, h, sch.slotMinutes, u.email),
+            bookings: houseBookings(day, h, sch, u.email, now),
+            free: priorityLocked(date, h, sch, u.email, now) ? [] : freeGaps(day, date, h, sch, now).map(g => ({ start: hm(g.start), end: hm(g.end), hours: (g.end - g.start) / 60 })),
             blocked: hardBlocks(day).filter(x => x.house === h).map(x => ({ start: hm(x.start), end: hm(x.end), why: x.note || x.type })),
             heads_ups: headsUps(day, h).map(x => ({ start: hm(x.start), end: hm(x.end), note: x.note || x.type })),
             priority_day_locked_for_you: priorityLocked(date, h, sch, u.email, now) || undefined,
@@ -285,11 +309,11 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
         }
       })
       const lines = days.map(d => `${d.date} ${d.weekday}: ` + HOUSES.map(h => {
-        const x = d.houses[h] as { bookings: Json[]; blocked: Json[]; priority_day_locked_for_you?: boolean }
-        return `${sch.houses[h].name} [${x.bookings.map(e => `${e.start}-${e.end} ${e.who}${e.status !== 'booked' ? ` (${e.status})` : ''}`).join(', ') || 'nothing booked'}${x.blocked.length ? `; blocked ${x.blocked.map(e => `${e.start}-${e.end}`).join(', ')}` : ''}${x.priority_day_locked_for_you ? '; priority day, locked for you' : ''}]`
+        const x = d.houses[h] as { bookings: Json[]; blocked: Json[]; free: Json[]; priority_day_locked_for_you?: boolean }
+        return `${sch.houses[h].name} [${x.bookings.map(e => `${e.start}-${e.end} ${e.who}${(e.with as string[]).length ? `+${(e.with as string[]).join('+')}` : ''}${e.status !== 'booked' ? ` (${e.status})` : ''}`).join(', ') || 'nothing booked'}${x.blocked.length ? `; blocked ${x.blocked.map(e => `${e.start}-${e.end}`).join(', ')}` : ''}${x.priority_day_locked_for_you ? '; priority day, locked for you' : `; FREE ${x.free.map(e => `${e.start}-${e.end}`).join(', ') || 'none'}`}]`
       }).join(' · '))
-      return { text: `House hours ${hm(sch.slots[0])}–${hm(sch.slots[sch.slots.length - 1] + sch.slotMinutes)} (times past 24:00 are after midnight).\n` + lines.join('\n'),
-        structured: { house_hours: { from: hm(sch.slots[0]), until: hm(sch.slots[sch.slots.length - 1] + sch.slotMinutes) }, days } }
+      return { text: `House hours ${hm(houseOpen(sch))}–${hm(houseClose(sch))} (times past 24:00 are after midnight).\n` + lines.join('\n'),
+        structured: { house_hours: { from: hm(houseOpen(sch)), until: hm(houseClose(sch)) }, step_minutes: TIME_STEP, min_minutes: MIN_BOOKING_MINUTES, max_hours_per_person: sch.slotMinutes / 60, days } }
     }
     case 'list_people': {
       const q = s(args.search, 60).toLowerCase()
@@ -299,10 +323,12 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
     }
     case 'my_shoots': {
       const since = addDays(todayInStudio(), -14)
-      const [own, withMe] = await Promise.all([
+      const [ownSnap, collab, withMe] = await Promise.all([
         db.collection('shoots').where('creatorEmail', '==', u.email).where('date', '>=', since).get(),
+        db.collection('shoots').where('people', 'array-contains', u.email).get(),
         db.collection('reservations').where('creatorEmail', '==', u.email).get(),
       ])
+      const own = { docs: [...ownSnap.docs, ...collab.docs.filter(d => String(d.get('date')) >= since && d.get('creatorEmail') !== u.email)] }
       const reqByShoot = new Map<string, Json[]>()
       for (const r of withMe.docs) {
         const sid = String(r.get('scheduleShootId') ?? r.get('shootId') ?? '')
@@ -311,6 +337,7 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
       }
       const label = { booked: 'booked', requested: 'waiting for approval', denied: 'not approved', expired: 'ran out (not approved in time)', cancelled: 'cancelled' } as Record<string, string>
       const rows = own.docs.map(d => d.data()).map((x, i) => ({ id: own.docs[i].id, place: x.place, day: x.date, start: hm(x.start), end: hm(x.end), status: label[x.status] ?? x.status,
+        booked_by: x.creatorEmail === u.email ? 'you' : firstName(x.creatorName), with: ((x.with ?? []) as { name: string }[]).map(w => firstName(w.name)),
         denied_reason: x.deniedReason || undefined, where: x.where || undefined, props_requests: reqByShoot.get(own.docs[i].id) ?? [] }))
         .filter(r => r.status !== 'cancelled').sort((a, b) => `${a.day}${a.start}`.localeCompare(`${b.day}${b.start}`))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.day} ${r.start}-${r.end} | ${r.place} | ${r.status}${r.props_requests.length ? ` | props: ${r.props_requests.map(p => p.status).join(', ')}` : ''}`).join('\n') : 'No shoots booked.', structured: { shoots: rows } }
@@ -329,9 +356,11 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
       const start = parseClock(args.start)
       if (start == null || !isDay(args.day)) return { text: 'Give the new day (YYYY-MM-DD) and start time (HH:MM).' }
       const sh = (await db.doc(`shoots/${s(args.shoot_id, 100)}`).get()).data()
-      if (!sh || sh.creatorEmail !== u.email) return { text: 'That isn\'t one of your shoots. Check my_shoots for the id.' }
-      await moveShoot.run(asUser(u, { id: s(args.shoot_id, 100), place: args.place ?? sh.place, date: args.day, start, where: sh.where ?? '' }))
-      return { text: `Moved to ${args.day} at ${fmtTime(start)}.${sh.status === 'requested' || sh.status === 'booked' ? ' The schedule team will approve the new time if needed.' : ''}` }
+      if (!sh || sh.creatorEmail !== u.email) return { text: (sh?.people ?? []).includes(u.email) ? `${firstName(sh!.creatorName)} booked that one; only they (or the schedule team) can move it.` : 'That isn\'t one of your shoots. Check my_shoots for the id.' }
+      const endRaw = args.end != null ? parseClock(args.end) : null
+      const end = endRaw == null ? undefined : endRaw <= start ? endRaw + 1440 : endRaw
+      await moveShoot.run(asUser(u, { id: s(args.shoot_id, 100), place: args.place ?? sh.place, date: args.day, start, ...(end ? { end } : {}), where: sh.where ?? '' }))
+      return { text: `Moved to ${args.day} at ${fmtTime(start)}${end ? `–${fmtTime(end % 1440)}` : ''}.${sh.status === 'requested' || sh.status === 'booked' ? ' The schedule team will approve the new time if needed.' : ''}` }
     }
     case 'cancel_shoot': {
       const id = s(args.shoot_id, 100)
@@ -374,14 +403,15 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
     if (!where) return { text: 'Where is the offsite shoot? Pass `where`.' }
     res = await bookShoot.run(asUser(u, { place, date: day, start, end: realEnd, where })) as Json
   } else {
-    // Until free-time booking is live the houses still use the 2-hour grid: each person = one 2-hour turn from `start`.
-    const turns = (realEnd - start) / sch.slotMinutes
-    if (!sch.slots.includes(start) || !Number.isInteger(turns) || turns < 1) {
-      return { text: `House bookings currently start at ${sch.slots.map(hm).join(', ')} and run ${sch.slotMinutes / 60} hours per person. Pick one of those start times.` }
+    // Free time (Nov 24): any start/end on the quarter hour; 2 h per person on ONE booking listing everyone.
+    if (start % TIME_STEP || realEnd % TIME_STEP) return { text: `Times go in ${TIME_STEP}-minute steps (e.g. 13:15, 13:30).` }
+    if (realEnd - start < MIN_BOOKING_MINUTES) return { text: `A booking is at least ${MIN_BOOKING_MINUTES} minutes.` }
+    const max = maxMinutesFor(1 + friends.length, sch)
+    if (realEnd - start > max && !isLongBooker(u.email, sch)) {
+      const need = Math.ceil((realEnd - start) / sch.slotMinutes) - 1 - friends.length
+      return { text: `That's ${(realEnd - start) / 60} hours: each person on a booking gets up to ${sch.slotMinutes / 60} hours, so add ${need} more collaborator${need === 1 ? '' : 's'} in \`with\` (who films with them?), or shorten it to end by ${hm(start + max)}.` }
     }
-    if (turns > 1 + friends.length) return { text: `That's ${turns * sch.slotMinutes / 60} hours: each person gets up to ${sch.slotMinutes / 60} hours, so add ${turns - 1 - friends.length} more collaborator(s) in \`with\`, or shorten it.` }
-    if (turns < 1 + friends.length) return { text: `With ${friends.length} collaborator(s) the booking should run ${(1 + friends.length) * sch.slotMinutes / 60} hours (until ${hm(start + (1 + friends.length) * sch.slotMinutes)}).` }
-    res = await bookWithFriends.run(asUser(u, { place, date: day, start, lineup: ['me', ...friends] })) as Json
+    res = await bookShoot.run(asUser(u, { place, date: day, start, end: realEnd, ...(friends.length ? { with: friends } : {}) })) as Json
   }
   const requested = JSON.stringify(res).includes('"requested"') || res?.pending === true
   return { text: `${requested ? 'Requested' : 'Booked'}: ${place === 'offsite' ? 'offsite' : sch.houses[place as House].name}, ${day} ${hm(start)}–${hm(realEnd)}${friends.length ? ` with ${names.join(', ')}` : ''}.${requested ? ' The schedule team approves it; the time is held for them meanwhile.' : ''}`, structured: { result: res } }

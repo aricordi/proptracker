@@ -39,6 +39,16 @@ const later = (seconds: number) => new Date(Date.now() + seconds * 1000).toISOSt
 const expired = (at: unknown) => typeof at !== 'string' || at < new Date().toISOString()
 
 // ─── HTTP entry point ───────────────────────────────────────────────────────────────────────────────────────────────
+// What the assistant is told about Prime Capitol (owner, Nov 24: "be part of their writing and brainstorming").
+const INSTRUCTIONS = [
+  'Prime Capitol is a film studio for YouTube creators: two houses to film at (Cliff 1, Cliff 2), a company props closet (props, costumes, set dressing) and a schedule team that approves bookings. You act as the signed-in creator, with exactly their permissions.',
+  'Start with get_rules (today\'s date, studio time, the live rules).',
+  'BRAINSTORMING: when the person is coming up with or writing a video idea, sketch or script, be a creative partner AND keep the closet in mind. As soon as scenes, characters or locations take shape, offer to check the props closet (props_for_idea with concrete needs per scene), show matches with show_props, and suggest ways to use what already exists. Mention the custom-prop option for things the closet lacks. Do this naturally, without derailing their writing.',
+  'TIMES: get_schedule gives the raw schedule with free stretches. Bookings are free-form (any quarter hour, e.g. 13:15–15:15), up to 2 hours per person; longer needs collaborators on the same booking. Use judgement: suggest times next to a collaborator\'s shoot, at the time of day they asked for, on non-priority days if a day is locked for them.',
+  'CHANGES: always confirm details with the person before book_shoot, move_shoot, cancel_shoot or request_props. Creator bookings are requests the schedule team approves; never say a booking is confirmed until the tool says "Booked". Props from the closet need about 48 hours notice; custom props 4+ days with no guaranteed date.',
+  'Never invent props, times or rules: use the tools. People\'s emails, internal notes and costs are not available.',
+].join(' ')
+
 export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, memory: '512MiB', cors: true, invoker: 'public' }, async (req, res) => {
   const base = baseOf(req)
   const path = req.path.replace(/^\/mcp(?=\/(oauth|\.well-known|mcp)\b)/, '') || '/'   // emulator URLs keep the function name in front
@@ -183,7 +193,7 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: { name: 'prime-capitol', title: 'Prime Capitol', version: '1.0.0' },
-        instructions: 'Prime Capitol is a film studio app: book filming time at Cliff 1 and Cliff 2, and request props from the company closet. Start with get_rules for today\'s date and the rules. Use search_props / browse_props and show_props to find and show props with photos; get_schedule gives the raw schedule so you can find free times yourself. Always confirm with the person before book_shoot, move_shoot, cancel_shoot or request_props. Creator bookings are requests the schedule team approves.',
+        instructions: INSTRUCTIONS,
       })); return
     }
     case 'ping': res.json(ok(id, {})); return

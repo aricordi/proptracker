@@ -107,6 +107,24 @@ describe('connector tools', () => {
     expect(again.structuredContent.requests[0].items).toEqual(['Red rotary phone x2'])
   })
 
+  it('books free time with a collaborator on ONE booking, and checks a video idea against the closet', async () => {
+    const t = await connect(ANA)
+    await put(`users/${'kyle@example.com'}`, { email: 'kyle@example.com', role: 'creator', active: true, name: 'Kyle Reed', access: 'full' })
+    const sch = await tool(t.access_token, 'get_schedule', { from: FRI, days: 1 })
+    expect(sch.structuredContent.days[0].houses.cliff2.free.length).toBeGreaterThan(0)
+    const odd = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:10', end: '15:10' })
+    expect(odd.content[0].text).toMatch(/15-minute/)
+    const ok = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:15', end: '17:15', with: ['Kyle'] })
+    expect(ok.content[0].text).toMatch(/^Requested/)
+    const mine = await tool(t.access_token, 'my_shoots')
+    expect(mine.structuredContent.shoots[0]).toMatchObject({ start: '13:15', end: '17:15', with: ['Kyle'] })
+    const after = await tool(t.access_token, 'get_schedule', { from: FRI, days: 1 })
+    expect(after.structuredContent.days[0].houses.cliff2.bookings[0]).toMatchObject({ start: '13:15', end: '17:15', who: 'you', with: ['Kyle'] })
+    const idea = await tool(t.access_token, 'props_for_idea', { idea: 'Prank call', needs: [{ need: 'rotary phone', scene: 'Office' }, { need: 'pirate ship' }], day: FRI })
+    expect(idea.structuredContent.groups[0].matches[0].id).toBe('phone')
+    expect(idea.structuredContent.missing).toEqual(['pirate ship'])
+  })
+
   it('cannot touch someone else\'s shoot', async () => {
     const t = await connect(ANA)
     await put('shoots/other', { creatorEmail: MAANIK, status: 'booked', date: FRI, place: 'cliff2', start: 780, end: 900 })
