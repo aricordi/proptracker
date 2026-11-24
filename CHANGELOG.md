@@ -12,6 +12,11 @@ Each manual says which version it was written for.
 
 
 
+## 1.3.1 · Nov 24, 2026
+
+- **The Update button always works now.** It says "Updating…", waits for the new version to finish downloading, and if
+  the phone is stuck on an old saved copy it clears it, so one tap is enough. It also sits above any open sheet.
+
 ## 1.3.0 · Nov 24, 2026
 
 - **The day view looks like a Google Calendar day.** Tap a day: hours down the side, Cliff 1 and Cliff 2 side by side,
