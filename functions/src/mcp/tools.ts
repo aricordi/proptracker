@@ -91,8 +91,9 @@ export const TOOLS = [
     description: 'The signed-in person: name, role and whether they can book (some creators can only browse props for now).',
     inputSchema: obj({}) },
   { name: 'search_props', title: 'Search the props closet', annotations: READ,
-    description: 'Find props, costumes and set dressing in the company closet. Matches words in names, tags, descriptions and hidden search words, plus a meaning-based match (e.g. "president" finds a Lincoln mask). Give a `day` (YYYY-MM-DD) to get how many are free that day. Returns ids, names, how many, and a photo link. Then call show_props to show pictures.',
-    inputSchema: obj({ query: { type: 'string', description: 'What to look for, e.g. "vintage phone" or "something for a seance"' },
+    description: 'Find props, costumes and set dressing in the company closet. Matches words in names, tags, descriptions and hidden search words, plus a meaning-based match (e.g. "president" finds a Lincoln mask). Several terms can be searched at once with `also`; results come with descriptions and tags so you can judge which fit. Give a `day` (YYYY-MM-DD) to get how many are free that day. Returns ids, names, how many, and a photo link. Then call show_props to show pictures.',
+    inputSchema: obj({ query: { type: 'string', description: 'What to look for, e.g. "vintage phone"' },
+      also: { type: 'array', items: { type: 'string' }, maxItems: 5, description: 'Other terms to search at the same time (related items or other words for it), e.g. ["police badge", "handcuffs"]' },
       category: { type: 'string', description: 'Optional category name to narrow it, e.g. "Costumes"' },
       day: { type: 'string', description: 'Optional shoot day for availability: '+'YYYY-MM-DD (resolve it yourself with get_context; plain words are also understood)' },
       limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 20' } }, ['query']) },
@@ -255,16 +256,21 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
         structured: { total: all.length, page, props: rows.map(p => ({ id: p.id, name: p.name, category: p.category, tags: p.tags, how_many: Math.max(0, p.quantity - p.missing) })) } }
     }
     case 'search_props': {
-      const query = s(args.query, 200)
-      if (query.length < 2) return { text: 'Say what you are looking for.' }
+      // Several search terms in one go (owner OK, Nov 24): the assistant works out what to look for ("cop stuff" → police uniform,
+      // badge, handcuffs), our closet search finds the matches, and the descriptions + tags let it judge what fits.
+      const terms = [...new Set([s(args.query, 200), ...(Array.isArray(args.also) ? args.also : []).map(x => s(x, 120))].filter(x => x.length >= 2))].slice(0, 6)
+      if (!terms.length) return { text: 'Say what you are looking for.' }
       const cat = s(args.category, 60).toLowerCase()
       const limit = clampInt(args.limit, 1, 50, 20)
       const day = isDay(args.day) ? args.day as string : ''
-      const { found, byWords } = await findProps(query, cat, limit, u)
-      const free = day ? await freeOn(day, found.map(p => p.id)) : {}
-      const rows = found.map(p => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 160), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: byWords.includes(p) ? 'words' : 'similar meaning' }))
-      return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}`).join('\n') : `Nothing in the closet matches "${query}". Try other words, or ask for it as a custom prop.`,
-        structured: { query, day: day || null, results: rows } }
+      const per = await Promise.all(terms.map(q => findProps(q, cat, terms.length > 1 ? Math.max(6, Math.ceil(limit / terms.length) + 2) : limit, u)))
+      const seen = new Map<string, { p: Prop; term: string; words: boolean }>()
+      per.forEach((r, i) => r.found.forEach(p => { if (!seen.has(p.id)) seen.set(p.id, { p, term: terms[i], words: r.byWords.includes(p) }) }))
+      const found = [...seen.values()].slice(0, limit)
+      const free = day ? await freeOn(day, found.map(x => x.p.id)) : {}
+      const rows = found.map(({ p, term, words }) => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 200), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: words ? 'words' : 'similar meaning', ...(terms.length > 1 ? { for: term } : {}) }))
+      return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}${r.for ? ` | for "${r.for}"` : ''} | ${r.description.slice(0, 90)}`).join('\n') : `Nothing in the closet matches ${terms.map(x => `"${x}"`).join(', ')}. Try other words, or ask for it as a custom prop.`,
+        structured: { query: terms[0], ...(terms.length > 1 ? { also: terms.slice(1) } : {}), day: day || null, results: rows } }
     }
     case 'props_for_idea': {
       const needs = objs(args.needs).map(x => ({ need: s((x as Json).need, 120), scene: s((x as Json).scene, 80) })).filter(x => x.need.length >= 2).slice(0, 15)

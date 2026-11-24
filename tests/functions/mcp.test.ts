@@ -82,6 +82,11 @@ describe('connector tools', () => {
     expect(JSON.stringify(lamp)).not.toContain('mine')
     const shown = await tool(t.access_token, 'show_props', { ids: ['phone', 'mine'] })
     expect(shown.structuredContent.props.map((p: { id: string }) => p.id)).toEqual(['phone'])
+    // Several terms at once; each result says which term found it, with its description.
+    const multi = await tool(t.access_token, 'search_props', { query: 'grandma lamp', also: ['vintage phone'] })
+    expect(multi.structuredContent.also).toEqual(['vintage phone'])
+    expect(multi.structuredContent.results.find((r: { id: string }) => r.id === 'phone')).toMatchObject({ for: 'vintage phone', description: 'Vintage desk phone' })
+    expect(JSON.stringify(multi)).not.toContain('"mine"')
   })
 
   it('books through the same rules (a request), lists it, and sends props for it', async () => {
