@@ -2932,6 +2932,18 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       (busy), soonest_after when nothing fits. book_shoot: unknown names need `not_on_app` (after the person confirms) → guest; typos →
       "did you mean". INSTRUCTIONS "READ BETWEEN THE LINES". Check-in removed app-wide (schedule.ts CHECKIN_ON = false; team "Did they
       film?" on started shoots via decideShoot). Reviewer demo account (More → ChatGPT & Claude, owner) = practice copy mcp_sandbox/{clientId}.
+    - CASUAL WORDS IN EVERY CONNECTOR TOOL (owner, Nov 24: "build that out to maximum robustness… every single possible function"):
+      `functions/src/mcp/casual.ts` (pure, tests/unit/casual.test.ts): normPlace/normHouses ("c2", "2371", "on location"),
+      parseLooseClock/clockPair ("5" = 5 PM for 1–6, 7–11 = AM, noon, 5ish, half past, "11 to 1"), parseLength, resolveShootRef (day,
+      house, time, person, video title, next/second/last), resolveRequestRef (title, item, day, status), resolveNamedRef (invites,
+      swaps, waitlist, things out by person/day), resolvePropRef + qtyFrom ("2 cop hats"), suggestNext (situation → next steps).
+      `functions/src/mcp/lenient.ts` understandArgs(name, args, u) runs in runTool BEFORE every tool (after the role check, before the
+      reviewer sandbox; reviewer data via reviewer.ts sandboxContext): rewrites day/from/their_day, place/their_place, houses, times
+      (book_shoot without end = 2 h × people, `hours` optional), shoot_id/my_shoot_id, request_id, prop ids/names in items/ids/id,
+      invite_id/swap_id/waitlist_id, report_problem id/kind; unclear → { needs_clarifying, field, options } instead of running; an exact
+      id of someone else's shoot/request → "isn't one of your…". New READ tool `how_to` (appGuide searchGuide for the role, links).
+      my_status (and the reviewer's) returns `suggestions`; book_shoot results add the props deadline as the next step. Tests: mcp.test.ts
+      "understands casual words in every tool…" + reviewer casual checks.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
