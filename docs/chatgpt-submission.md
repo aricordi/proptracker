@@ -23,6 +23,8 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 3. "Book Cliff 2 Friday from 1:15 to 3:15." → book_shoot after confirming; answer says "Requested" (the schedule team approves).
 4. "Add the red rotary phone to my Friday shoot, video name Ring Ring." → request_props after confirming.
 5. "What do I have going on this week?" → my_status.
+6. "I want to film with Jordan and Kai tomorrow." → plan_shoot (works out who they are, 6 hours for the three of them,
+   times free for everyone), offers 2–3 times, books the chosen one with book_shoot after confirming.
 
 ## Test cases (3 negative: the app should not act)
 1. "Book Cliff 1 for 6 hours just for me." → explains 2 hours per person and asks who else is filming (no booking).
@@ -37,10 +39,20 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
   invite, swap and waitlist it makes follows the same rules but is saved only in the practice copy: nothing reaches the team, notifications or
   Google Calendar. Each new connection starts from the same sample data. Turn it off after the review (same screen).
 - Suggested note for reviewers: "Sign in with the demo account (link under the Google button). It is a practice copy: real props, sample people
-  and bookings. Try: 'What props do you have for a haunted diner sketch?', 'Find me 2 hours at Cliff 2 next week', 'Book it', 'What do I have going on?'"
+  and bookings. Try: 'What props do you have for a haunted diner sketch?', 'I want to film with Jordan and Kai tomorrow', 'Book the first one', 'What do I have going on?'"
 
 ## Before approval: how creators can use it now
 - **Claude** (any plan, including free): Settings → Connectors → Add custom connector → https://proptracker.arbcreative.co/mcp.
 - **ChatGPT Plus or Pro**: Settings → Apps & Connectors → Advanced → turn on Developer mode, then Create → paste the same link. Works in typed chat
   on the web; the phone app shows connectors once added. Voice may not use custom connectors until the app is approved and listed.
 - After approval: everyone finds "Prime Capitol" in ChatGPT's app directory and connects in one tap, including in voice.
+
+## Before submitting: owner decisions (from the compliance review, Nov 24)
+- **Publisher identity:** OpenAI rejects apps whose developer name, website and support contact don't match. Submit from an
+  OpenAI account verified as Prime Capitol, and ideally use a Prime Capitol support email (e.g. support@primecapitol.ca)
+  instead of a personal Gmail. The website is proptracker.arbcreative.co; a primecapitol domain would match even better.
+- **Invite-only:** every feature needs a Prime Capitol account. The demo account covers review, but OpenAI may still decide
+  a company-only app belongs in a private workspace rather than the public directory. Until approval, creators use it
+  through Claude (any plan) or ChatGPT Developer mode (Plus/Pro), see above.
+- **Times that need a guideline PDF** (Cliff 1 on priority days) aren't offered or booked from the chat: the assistant
+  sends the person to the app, because a PDF can't be attached from ChatGPT.
