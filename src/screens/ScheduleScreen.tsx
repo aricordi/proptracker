@@ -32,12 +32,13 @@ import { waitRefusal } from '../../functions/src/waitlistRules'
 import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, useScheduleDays, needsGuideline, houseFreeFrom, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
+  useScheduleSettings, useScheduleDays, needsGuideline, type Guideline, useMyShoots, useShoot, useMySwaps, useMyStatus, useMyInvites, bookShoot, cancelShoot, moveShoot, requestSwap,
   addScheduleBlock, removeScheduleBlock, redoCalendarImport, listSchedulePeople, listFilmingFriends, bookWithFriends, INVITE_HOLD_MINUTES, myCalendarLink, checkInShoot, wrapShoot, explainMissedCheckIn, decideShoot,
-  checkinWindow, isMissed, explainUntil, slotKey, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
+  checkinWindow, isMissed, explainUntil, errorText, slotState, findFree, fmtSlot, isNoCrewDay,
   monthOf, isShortNotice, withinUndo, bookedLate, cancelCountsAsNoShow, timeSetByTeam, LATE_BOOKING_FREE_HOURS, slotWindow, HOUSES, BLOCK_TYPES, MONTHLY_HOUSE, headsUps,
   type House, type Place, type ScheduleDay, type Block, type ShootKind, type BlockType, type Shoot,
   houseSlotsOn, slotsPerDayFor, isLongBooker, MONTHLY_SLOTS_ON, isLive, swapShootsAsTeam,
+  freeGaps, conflictAt, houseClose, houseOpen, houseBookings, maxMinutesFor, hardBlocks, priorityLocked,
 } from '../services/schedule'
 import { GiveSlotSheet, type GiveTarget } from '../components/GiveSlotSheet'
 
@@ -52,18 +53,18 @@ type Friend = { email: string; name: string }
 
 // Someone else's booked house slot (what a swap is asked for).
 // pending = someone's request the team hasn't approved yet; move = a slot someone asked to move into (also waiting).
-interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number; pending?: boolean; move?: boolean }
+interface TheirSlot { shootId: string; name: string; email?: string; date: string; house: House; start: number; end?: number; pending?: boolean; move?: boolean }
 // Only approved house shoots with no move waiting can be swapped (the server refuses the rest).
 const swappable = (x: Shoot, now: string) => x.place !== 'offsite' && x.from > now && x.status === 'booked' && !x.moveRequest
 
 type SheetState =
   | { kind: 'calendar' }
   | { kind: 'day'; date: string }
-  | { kind: 'book'; house: Place; date: string; start: number; slots?: number }
+  | { kind: 'book'; house: Place; date: string; start: number; end?: number; slots?: number }
   | { kind: 'offsite'; date: string; move?: Shoot }
   | { kind: 'shoot'; id: string }
   | { kind: 'taken'; slot: TheirSlot }
-  | { kind: 'block'; date: string; house: House; start: number }
+  | { kind: 'block'; date: string; house: House; start: number; end?: number }
   | { kind: 'unblock'; date: string; block: Block }
   | { kind: 'find'; house?: House; fromToday?: boolean }
   | { kind: 'group'; house: House; date: string; start: number; friends: Friend[] }
@@ -143,13 +144,13 @@ export default function ScheduleScreen() {
   const next = (mine ?? []).find(x => x.to > now)
 
   // One rule for tapping a slot, used by the day list and the month's day sheet.
-  const tapSlot = (st: ReturnType<typeof slotState>, d: string, h: House, start: number) => {
+  const tapSlot = (st: ReturnType<typeof slotState>, d: string, h: House, start: number, gapEnd?: number) => {
     // A priority-day slot the owner sees as locked is still the team's to block or book for someone (the server allows it;
     // only the owner's own booking follows the lock).
-    if (st.t === 'free' || (st.t === 'locked' && team)) { if (team) setSheet({ kind: 'block', date: d, house: h, start }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
+    if (st.t === 'free' || (st.t === 'locked' && team)) { if (team) setSheet({ kind: 'block', date: d, house: h, start, end: gapEnd }); else if (canBook) setSheet({ kind: 'book', house: h, date: d, start }) }
     else if (st.t === 'booked') {
       const isMine = st.entry.email === profile.email || (mine ?? []).some(x => x.id === st.entry.shootId)
-      setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start, pending: !!st.entry.pending, move: !!st.entry.move } })
+      setSheet(teamView || isMine ? { kind: 'shoot', id: st.entry.shootId } : { kind: 'taken', slot: { shootId: st.entry.shootId, name: st.entry.name, email: st.entry.email, date: d, house: h, start, end: st.entry.time?.end, pending: !!st.entry.pending, move: !!st.entry.move } })
     }
     else if (st.t === 'block' && team) setSheet({ kind: 'unblock', date: d, block: st.block })
   }
@@ -237,14 +238,14 @@ export default function ScheduleScreen() {
       {desk && (
         <div className="sticky top-4 pt-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
           <DayPickSheet inline date={date} day={days?.[date]} team={team} lockFree={role === 'equipment'} teamView={teamView} canBook={canBook} now={now}
-            onClose={() => {}} onTap={(st, h, start) => tapSlot(st, date, h, start)}
+            onClose={() => {}} onTap={(st, h, start, end) => tapSlot(st, date, h, start, end)}
             onShoot={id => setSheet({ kind: 'shoot', id })} onOffsite={() => setSheet({ kind: 'offsite', date })} />
         </div>
       )}
       </div>
 
       {sheet?.kind === 'day' && <DayPickSheet date={sheet.date} day={days?.[sheet.date]} team={team} lockFree={role === 'equipment'} teamView={teamView} canBook={canBook} now={now}
-        onClose={() => setSheet(null)} onTap={(st, h, start) => tapSlot(st, sheet.date, h, start)}
+        onClose={() => setSheet(null)} onTap={(st, h, start, end) => tapSlot(st, sheet.date, h, start, end)}
         onShoot={id => setSheet({ kind: 'shoot', id })}
         onOffsite={() => setSheet({ kind: 'offsite', date: sheet.date })} />}
       {sheet?.kind === 'calendar' && <CalendarSheet team={team} onClose={() => setSheet(null)} />}
@@ -252,7 +253,7 @@ export default function ScheduleScreen() {
         dayFull={!team && sheet.house !== 'offsite' && houseSlotsOn(days?.[sheet.date], profile.email, now) >= slotsPerDayFor(profile.email, s)} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'group' && <GroupBookSheet {...sheet} team={team} mine={mine ?? []} onClose={() => setSheet(null)} onBooked={booked} />}
       {sheet?.kind === 'offsite' && <OffsiteSheet date={sheet.date} move={sheet.move} team={team} onClose={() => setSheet(null)} onDone={booked} />}
-      {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start })} />}
+      {sheet?.kind === 'block' && <TeamSlotSheet {...sheet} onClose={() => setSheet(null)} onBook={() => setSheet({ kind: 'book', house: sheet.house, date: sheet.date, start: sheet.start, end: sheet.end })} />}
       {sheet?.kind === 'unblock' && <UnblockSheet {...sheet} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'shoot' && <ShootSheet id={sheet.id} team={team} sent={sent} castAsk={castAsk} onClose={() => { setSheet(null); setCastAsk(false) }}
         onMove={sh => setSheet(sh.place === 'offsite' ? { kind: 'offsite', date: sh.date, move: sh } : { kind: 'move', shoot: sh })}
@@ -266,12 +267,12 @@ export default function ScheduleScreen() {
             <Avatar email={sheet.slot.email} name={sheet.slot.name} size={48} />
             <div className="min-w-0">
               {profiles[sheet.slot.email ?? '']?.channel && <p className="text-pt-text text-sm truncate">{profiles[sheet.slot.email ?? '']!.channel}</p>}
-              <p className="text-pt-muted text-sm">{formatDay(sheet.slot.date)} · {s.houses[sheet.slot.house].name} · {fmtSlot(sheet.slot.start, s.slotMinutes)}</p>
+              <p className="text-pt-muted text-sm">{formatDay(sheet.slot.date)} · {s.houses[sheet.slot.house].name} · {fmtSlot(sheet.slot.start, (sheet.slot.end ?? sheet.slot.start + s.slotMinutes) - sheet.slot.start)}</p>
             </div>
           </div>
           <p className="text-pt-text text-sm mt-4">{sheet.slot.move ? 'Someone asked to move their shoot here. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
-            : sheet.slot.pending ? 'Someone asked for this slot. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
-            : 'This slot is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
+            : sheet.slot.pending ? 'Someone asked for this time. The team is deciding, so check back soon, or "Find a time" shows the next free one.'
+            : 'This time is booked. "Find a time" shows the next free one, or ask to swap one of your shoots for it.'}</p>
           <button onClick={() => setSheet({ kind: 'find' })} className={`mt-4 ${btnGold}`}>Find a time</button>
           {canBook && !team && <WaitButton slot={sheet.slot} email={profile.email} day={days?.[sheet.slot.date]} now={now} />}
           {!sheet.slot.pending && (mine ?? []).some(x => swappable(x, now)) && (
@@ -286,7 +287,7 @@ export default function ScheduleScreen() {
         <FindSheet days={days} from={sheet.fromToday || date < today ? today : date} house={sheet.house} team={team} email={profile.email} now={now}
           onOffsite={() => setSheet({ kind: 'offsite', date: sheet.fromToday ? today : date })}
           onClose={() => setSheet(null)} onPick={(d, h, st, slots) => { setDate(d)
-            setSheet(team ? { kind: 'block', date: d, house: h, start: st } : { kind: 'book', house: h, date: d, start: st, slots }) }} />
+            setSheet(team ? { kind: 'block', date: d, house: h, start: st, end: st + slots * s.slotMinutes } : { kind: 'book', house: h, date: d, start: st, end: st + slots * s.slotMinutes }) }} />
       )}
       {sheet?.kind === 'move' && days && (
         <MoveSheet shoot={sheet.shoot} days={days} team={team} now={now} onClose={() => setSheet(null)} onMoved={sh => { setDate(sh.date); setSheet({ kind: 'shoot', id: sh.id }) }} />
@@ -332,7 +333,7 @@ function useSkipsGuideline(team: boolean) {
 
 function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now, onClose, onTap, onShoot, onOffsite, inline = false }: {
   date: string; day?: ScheduleDay; team: boolean; lockFree?: boolean; teamView: boolean; canBook: boolean; now: string
-  onClose: () => void; onTap: (st: ReturnType<typeof slotState>, h: House, start: number) => void
+  onClose: () => void; onTap: (st: ReturnType<typeof slotState>, h: House, start: number, end?: number) => void
   onShoot: (id: string) => void; onOffsite: () => void; inline?: boolean
 }) {
   const s = useScheduleSettings()
@@ -348,49 +349,64 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
     setWaitBusy(k); setWaitErr('')
     try { if (w) await waits.leave(w); else await waits.join(date, h, start) } catch (e) { setWaitErr(errorText(e)) } finally { setWaitBusy('') }
   }
-  const cell = (h: House, start: number) => {
-    // The owner booking for themselves follows the priority lock like the server does (audit, Nov 5).
-    const st = slotState(day, date, h, start, s, email, now, lockFree)
-    let label: React.ReactNode, cls = 'bg-pt-surface text-pt-muted'
-    const early = houseFreeFrom(day, h, start, s)
-    // Cliff 1 priority days for people outside the priority group (owner, Nov 3): say it on the slot itself.
-    const guide = st.t === 'free' && !skipG && canBook && needsGuideline(date, h, email, s)
-    if (st.t === 'free') { label = <>Free{guide && <span className="block text-xs font-normal text-amber-200">Guideline required</span>}{early && <span className="block text-xs font-normal text-sky-300">from {fmtTime(early.at)}</span>}</>; cls = 'bg-pt-accent/[0.14] text-pt-accent font-semibold shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' }
-    else if (st.t === 'booked') {
-      const me = st.entry.email === email
-      label = me ? 'You' : st.entry.name
-      cls = st.entry.pending ? 'bg-amber-400/[0.07] text-amber-200 border border-dashed border-amber-400/50' : me ? 'bg-pt-accent/10 text-pt-text font-semibold' : 'bg-pt-surface text-pt-text'
-      if (st.entry.both && st.entry.time) label = <>{label}<span className="block text-xs font-normal text-pt-muted">{fmtTime(st.entry.time.start)}–{fmtTime(st.entry.time.end)} · both houses</span></>
-      if (st.entry.pending) label = <>{label}<span className="block text-xs text-amber-300/80">{st.entry.move ? 'move asked' : 'asked'}</span></>
+  // FREE TIME (owner, Nov 24): each house is a timeline: bookings and blocks in time order, and the free stretches between
+  // them in gold. Tap a free stretch to book any time inside it; tap a booking to open it (or wait for it, with the bell).
+  const tl = (h: House) => {
+    const locked = !lockFree && priorityLocked(date, h, s, email, now)
+    const rows: { start: number; end: number; el: React.ReactNode }[] = []
+    for (const b of houseBookings(day, h, s, now)) {
+      const e = b.entry, me = e.email === email || (e.people ?? []).includes(email)
+      const st = { t: e.hold ? 'held' : 'booked', entry: e, ...(e.hold ? { until: e.hold.until } : {}) } as ReturnType<typeof slotState>
+      const who = me ? 'You' : e.name
+      const names = e.withNames?.length ? ` + ${e.withNames.join(', ')}` : ''
+      const k = waitKey(date, h, b.start), w = waits.entries[k]
+      const why = !me && canBook && !team ? waitRefusal(day, date, h, b.start, s, email, now) : 'past'
+      const bellOk = !me && canBook && !team && why !== 'past' && (!!w || !why)
+      const past = slotWindow(date, b.start, b.end - b.start).to <= now
+      rows.push({ start: b.start, end: b.end, el: (
+        <div key={`b${b.key}`} className={`flex gap-1 ${past ? 'opacity-40' : ''}`}>
+          <button onClick={() => onTap(st, h, b.start)} className={`flex-1 min-w-0 flex items-center gap-3 rounded-xl px-3 min-h-[52px] text-left ${e.pending || e.hold ? 'bg-amber-400/[0.07] border border-dashed border-amber-400/50' : me ? 'bg-pt-accent/10' : 'bg-pt-surface'}`}>
+            <span className="w-[92px] shrink-0 text-[13px] tabular-nums text-pt-muted leading-tight">{fmtTime(b.start % 1440)}<br />{fmtTime(b.end % 1440)}</span>
+            {!e.hold && <Avatar email={e.email ?? ''} name={e.name} size={28} />}
+            <span className="flex-1 min-w-0"><span className={`block truncate text-[14px] ${me ? 'text-pt-text font-semibold' : 'text-pt-text'}`}>{e.hold ? `Held · ${e.name}` : `${who}${names}`}</span>
+              {(e.pending || e.both) && <span className="block text-xs text-amber-300/80 truncate">{e.pending ? (e.move ? 'move asked' : 'waiting for approval') : ''}{e.both ? `${e.pending ? ' · ' : ''}both houses` : ''}</span>}</span>
+          </button>
+          {bellOk && (
+            <button onClick={() => bell(h, b.start)} disabled={waitBusy === k || w?.status === 'offered'}
+              aria-label={w ? `On the list, number ${w.position}. Tap to leave the list` : 'Notify me if it opens'}
+              className={`shrink-0 w-11 min-h-[52px] rounded-xl grid place-items-center text-[12px] font-bold disabled:opacity-50 ${w ? 'bg-pt-accent/[0.16] text-pt-accent shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' : 'bg-pt-surface text-pt-muted'}`}>
+              {w ? <span className="flex flex-col items-center leading-none"><Icon name="bell" className="w-4 h-4" />{w.position > 0 && <span className="mt-0.5">#{w.position}</span>}</span> : <Icon name="bell" className="w-5 h-5" />}
+            </button>
+          )}
+        </div>) })
     }
-    else if (st.t === 'block') { label = <>{st.block.note || 'Blocked'}{st.block.end % 120 !== 0 || st.block.end - st.block.start < s.slotMinutes ? <span className="block text-xs">until {fmtTime(st.block.end)}</span> : null}</>; cls = 'bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted' }
-    else if (st.t === 'held') { label = `Held · ${st.entry.name}`; cls = 'bg-amber-400/[0.06] text-amber-300 border border-dashed border-amber-400/50' }
-    else if (st.t === 'locked') { label = <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority</span> }
-    else label = '—'
-    const tappable = (st.t === 'free' && (canBook || team)) || st.t === 'booked' || ((st.t === 'block' || st.t === 'locked') && team)
-    const cellBtn = (
-      <button key={h} disabled={!tappable} onClick={() => onTap(st, h, start)}
-        className={`flex-1 min-w-0 min-h-[48px] rounded-xl px-2 py-1.5 text-[14px] text-center truncate ${cls} ${st.t === 'past' ? 'opacity-40' : ''} ${tappable ? 'active:opacity-80' : ''}`}>
-        <span className="block truncate">{label}</span>
-      </button>
-    )
-    // Someone else's slot (booked, asked for, or held): creators can wait for it.
-    const theirs = (st.t === 'booked' || st.t === 'held') && st.entry.email?.toLowerCase() !== email.toLowerCase()
-    if (!(theirs && canBook && !team)) return cellBtn
-    const k = waitKey(date, h, start), w = waits.entries[k]
-    // No bell where the server would refuse: started already, you film that day, priority lock, guideline needed.
-    // Someone already on the list keeps it (to leave) until the time starts.
-    const why = waitRefusal(day, date, h, start, s, email, now)
-    if (why === 'past' || (!w && why)) return cellBtn
+    for (const bl of hardBlocks(day).filter(x => x.house === h)) rows.push({ start: bl.start, end: bl.end, el: (
+      <button key={`k${bl.id}`} disabled={!team} onClick={() => onTap({ t: 'block', block: bl } as ReturnType<typeof slotState>, h, bl.start)}
+        className="w-full flex items-center gap-3 rounded-xl px-3 min-h-[48px] text-left bg-[repeating-linear-gradient(135deg,#1C1C1E_0_8px,#232325_8px_16px)] text-pt-muted">
+        <span className="w-[92px] shrink-0 text-[13px] tabular-nums leading-tight">{fmtTime(bl.start % 1440)}<br />{fmtTime(bl.end % 1440)}</span>
+        <span className="flex-1 min-w-0 truncate text-[14px]">{bl.note || BLOCK_TYPES[bl.type]}</span>
+      </button>) })
+    for (const g of freeGaps(day, date, h, s, now)) {
+      const guide = !skipG && canBook && needsGuideline(date, h, email, s)
+      rows.push({ start: g.start, end: g.end, el: locked ? (
+        <div key={`f${g.start}`} className="flex items-center gap-3 rounded-xl px-3 min-h-[48px] bg-pt-surface text-pt-muted">
+          <span className="w-[92px] shrink-0 text-[13px] tabular-nums leading-tight">{fmtTime(g.start % 1440)}<br />{fmtTime(g.end % 1440)}</span>
+          <span className="inline-flex items-center gap-1 text-[14px]"><Icon name="lock" className="w-3.5 h-3.5" label="Locked" />Priority day</span>
+        </div>
+      ) : (
+        <button key={`f${g.start}`} disabled={!(canBook || team)} onClick={() => onTap({ t: 'free' }, h, g.start, g.end)} data-testid="free-gap"
+          className="w-full flex items-center gap-3 rounded-xl px-3 min-h-[52px] text-left bg-pt-accent/[0.12] shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)] active:opacity-80">
+          <span className="w-[92px] shrink-0 text-[13px] tabular-nums text-pt-accent leading-tight">{fmtTime(g.start % 1440)}<br />{fmtTime(g.end % 1440)}</span>
+          <span className="flex-1 min-w-0"><span className="block text-pt-accent font-semibold text-[14px]">Free · {hoursText(g.end - g.start)}</span>
+            {guide && <span className="block text-xs text-amber-200">Guideline required</span>}</span>
+          {(canBook || team) && <span className="text-pt-accent text-sm font-semibold">Book ›</span>}
+        </button>) })
+    }
+    rows.sort((a, b) => a.start - b.start)
     return (
-      <div key={h} className="flex-1 min-w-0 flex gap-1">
-        {cellBtn}
-        <button onClick={() => bell(h, start)} disabled={waitBusy === k || w?.status === 'offered'}
-          aria-label={w ? `On the list, number ${w.position}. Tap to leave the list` : 'Notify me if it opens'}
-          title={w ? 'On the list · tap to leave' : 'Notify me if it opens'}
-          className={`shrink-0 w-11 min-h-[48px] rounded-xl grid place-items-center text-[12px] font-bold disabled:opacity-50 ${w ? 'bg-pt-accent/[0.16] text-pt-accent shadow-[inset_0_0_0_1px_rgba(201,169,97,0.45)]' : 'bg-pt-surface text-pt-muted'}`}>
-          {w ? <span className="flex flex-col items-center leading-none"><Icon name="bell" className="w-4 h-4" />{w.position > 0 && <span className="mt-0.5">#{w.position}</span>}</span> : <Icon name="bell" className="w-5 h-5" />}
-        </button>
+      <div key={h} className="space-y-1.5">
+        <p className="text-pt-text text-[15px] font-semibold flex items-baseline justify-between"><span>{s.houses[h].name}</span><span className="text-pt-muted text-xs font-normal">{fmtTime(houseOpen(s))}–{fmtTime(houseClose(s) % 1440)}</span></p>
+        {rows.length ? rows.map(r => r.el) : <p className="text-pt-muted text-sm">Nothing free left today.</p>}
       </div>
     )
   }
@@ -424,19 +440,9 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
           ))}
         </div>
       )}
-      <div className="flex gap-2 pl-[78px] mb-1 text-xs text-pt-muted">
-        {HOUSES.map(h => <span key={h} className="flex-1 text-center">{s.houses[h].name}</span>)}
-      </div>
-      <div className="space-y-1.5">
-        {s.slots.map(start => (
-          <div key={start} className="flex items-center gap-2">
-            <span className="w-[70px] shrink-0 text-pt-muted text-[13px] tabular-nums">{fmtTime(start)}</span>
-            {HOUSES.map(h => cell(h, start))}
-          </div>
-        ))}
-      </div>
+      <div className="space-y-5">{HOUSES.map(h => tl(h))}</div>
       {waitErr && <p className="text-red-300 text-sm mt-3">{waitErr}</p>}
-      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold time to ask for it (you can add friends next). The equipment team approves it, and it's held for you while you wait.
+      {!team && canBook && <p className="text-pt-muted text-xs mt-3">Tap a gold free time and pick any start and end inside it (up to {s.slotMinutes / 60} hours each person; add the people filming with you for longer). The equipment team approves it, and it's held for you while you wait.
         {' '}Want a taken time? If it has a bell, tap it: if it opens up, it's held for you for {INVITE_HOLD_MINUTES} minutes{Object.keys(waits.entries).some(k => k.startsWith(date)) ? '. Tap a gold bell to leave the list.' : '.'}</p>}
       {offsite.length > 0 && (
         <div className="mt-4 space-y-1.5">
@@ -516,81 +522,69 @@ function OffsiteSheet({ date, move, team, onClose, onDone }: { date: string; mov
 
 // Tap a free time on the calendar (owner, Nov 3): ask straight away whether friends are filming too. With friends, you
 // get your slot and the next one(s) at the same house are booked for them at once (bookWithFriends; no confirming since Nov 14).
-function BookSheet({ house, date, start, slots, team, mine, day, now, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; slots?: number; team: boolean; mine: Shoot[]; day?: ScheduleDay; now: string; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
+// FREE-TIME BOOKING (owner, Nov 24): pick ANY start and end (15-minute steps) inside a free stretch, then who's filming.
+// Each person on the booking can have up to 2 hours: alone up to 2 h, with one collaborator up to 4 h, and so on.
+// Collaborators are on the SAME booking (no confirming); people not on the app yet are added by name.
+const STEP = 15
+const hoursText = (min: number) => { const h = Math.floor(min / 60), m = min % 60; return h && m ? `${h} h ${m} min` : h ? `${h} h` : `${m} min` }
+function BookSheet({ house, date, start, end: wantEnd, team, day, now, dayFull, onClose, onBooked }: { house: Place; date: string; start: number; end?: number; slots?: number; team: boolean; mine: Shoot[]; day?: ScheduleDay; now: string; dayFull: boolean; onClose: () => void; onBooked: (id: string) => void }) {
   const s = useScheduleSettings()
   const profiles = useProfiles()
-  const usedThatMonth = mine.filter(x => x.month === monthOf(date) && x.kind === 'monthly').length
-  const left = Math.max(0, s.monthlySlots - usedThatMonth)
-  const [kind, setKind] = useState<ShootKind>(MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (team || left > 0) ? 'monthly' : 'extra')
+  const { profile, role: myRole } = useSession()
   const [forEmail, setForEmail] = useState('')
   const [people, setPeople] = useState<{ email: string; name: string }[]>([])
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
   const [err, setErr] = useState('')
-  const { profile, role: myRole } = useSession()
   const pickFor = team && myRole !== 'owner'   // the equipment team doesn't film: pick who it's for
   const asks = !team && !s.instantBookers.some(p => p.email === profile.email)
   const [guide, setGuide] = useState<Guideline | null>(null)
   const skipG = useSkipsGuideline(team)
-  const needG = !skipG && house !== 'offsite' && needsGuideline(date, house, profile.email, s)
+  const h = house as House
+  const needG = !skipG && house !== 'offsite' && needsGuideline(date, h, profile.email, s)
   useEffect(() => { if (team) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [team])
-  // SLOTS FIRST (owner, Nov 23: "decide how many slots, then for each slot assign somebody"): pick 1, 2, 3… back-to-back
-  // slots, then say who films in each one. You're in one of them (long bookers like Danny can take several themselves);
-  // every other slot needs a friend (in the app, or just a typed name). The whole block is one request for the team.
-  type Seat = Friend | 'me' | null
-  const long = !team && house !== 'offsite' && isLongBooker(profile.email, s)
-  const [seats, setSeats] = useState<Seat[]>(() => ['me', ...Array.from({ length: Math.max(0, (slots ?? 1) - 1) }, () => (long ? 'me' : null) as Seat)])
-  const [editing, setEditing] = useState<number | null>(null)
+  // The free stretch this start sits in (bookings and hard blocks around it).
+  const gap = useMemo(() => freeGaps(day, date, h, s, now, STEP).find(g => g.start <= start && start < g.end) ?? { start, end: Math.min(houseClose(s), start + s.slotMinutes) }, [day, date, h, s, now, start])
+  const unlimited = team || isLongBooker(profile.email, s)
+  const [from, setFrom] = useState(Math.max(gap.start, start))
+  const [crew, setCrew] = useState<Friend[]>([])
+  const allowed = unlimited ? Infinity : maxMinutesFor(1 + crew.length, s)
+  const [to, setTo] = useState(() => Math.min(gap.end, wantEnd ?? Math.max(gap.start, start) + s.slotMinutes))
+  const len = to - from
+  const tooLong = len > allowed
+  const needMore = tooLong ? Math.ceil(len / s.slotMinutes) - 1 - crew.length : 0
+  const startOpts = useMemo(() => { const o: number[] = []; for (let m = gap.start; m + 30 <= gap.end; m += STEP) o.push(m); return o }, [gap])
+  const endOpts = useMemo(() => { const o: number[] = []; for (let m = from + 30; m <= gap.end; m += STEP) o.push(m); return o }, [from, gap])
+  const pickStart = (m: number) => { setFrom(m); setTo(t => Math.min(gap.end, Math.max(m + 30, t <= m ? m + Math.min(s.slotMinutes, gap.end - m) : t))) }
+  // Collaborators: search the people who film, usual partners first; anyone else by name.
+  const [adding, setAdding] = useState(false)
   const [everyone, setEveryone] = useState<Friend[] | null>(null)
   const [q, setQ] = useState('')
-  const count = seats.length
-  const chosen = seats.filter((x): x is Friend => !!x && x !== 'me')
-  useEffect(() => { if ((count > 1 || editing !== null) && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [count, editing, everyone])
-  const [castOff, setCastOff] = useState<string[]>([])   // friends NOT in each other's videos (on by default, owner Nov 21)
-  // "Usually films with" (owner, Nov 7): one-tap shortcut to the people they film back to back with most; never auto-added.
-  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !chosen.some(c => c.email === p.email))
-  const h = house as House
-  const freeRun = useMemo(() => {
-    let n = 1
-    while (s.slots.includes(start + n * s.slotMinutes) && slotState(day, date, h, start + n * s.slotMinutes, s, profile.email, now, false).t === 'free') n++
-    return n
-  }, [day, date, h, start, s, profile.email, now])
-  const maxCount = Math.min(freeRun, long ? s.slots.length : 5)
-  const meCount = seats.filter(x => x === 'me').length
-  const setCount = (n: number) => {
-    setSeats(x => n <= x.length ? (x.slice(0, n).includes('me') ? x.slice(0, n) : ['me' as Seat, ...x.slice(1, n)]) : [...x, ...Array.from({ length: n - x.length }, () => (long ? 'me' : null) as Seat)])
-    setEditing(null)
-  }
-  const put = (i: number, who: Seat) => { setSeats(x => x.map((y, k) => k === i ? who : y)); setEditing(null); setQ('') }
-  const filled = seats.every(Boolean) && meCount >= 1
-  const total = count
-  const withFriends = chosen.length > 0
-  // Both houses for one hour (owner, Nov 17: rare, e.g. late evening). A small link, never the default; always a request.
-  const [both, setBoth] = useState<null | 0 | 1>(null)
-  const other: House = h === 'cliff1' ? 'cliff2' : 'cliff1'
-  const otherFree = house !== 'offsite' && slotState(day, date, other, start, s, profile.email, now, false).t === 'free'
-  const canBoth = house !== 'offsite' && !forEmail && otherFree
+  useEffect(() => { if (adding && !everyone) listFilmingFriends({}).then(r => setEveryone(r.data.people)).catch(() => setEveryone([])) }, [adding, everyone])
+  const usualOnes = useUsualPartners(profile.email, s.slotMinutes, !team).filter(p => !crew.some(c => c.email === p.email))
   const term = q.trim().toLowerCase()
-  const matches = term ? (everyone ?? []).filter(p => !chosen.some(c => c.email === p.email)
+  const matches = term ? (everyone ?? []).filter(p => !crew.some(c => c.email === p.email)
     && (p.name.toLowerCase().includes(term) || (profiles[p.email]?.channel ?? '').toLowerCase().includes(term))) : []
+  const addPerson = (f: Friend) => { setCrew(c => c.length >= 4 ? c : [...c, f]); setAdding(false); setQ('') }
+  // Both houses at once for up to an hour (rare; always a request).
+  const [both, setBoth] = useState(false)
+  const other: House = h === 'cliff1' ? 'cliff2' : 'cliff1'
+  const otherFree = house !== 'offsite' && len <= 60 && !conflictAt(day, other, from, to, s, now)
   async function book() {
     setBusy(true); setErr('')
     try {
-      const id = both !== null
-        ? (await bookShoot({ place: house, date, start, kind: 'extra', bothHouses: true, half: both, ...(guide ? { guideline: guide } : {}) })).data.id
-        : count > 1
-        ? (await bookWithFriends({ place: h, date, start, friends: chosen.map(f => f.email), lineup: seats.map(x => x === 'me' ? 'me' : (x as Friend).email), castWith: chosen.map(f => f.email).filter(e => !castOff.includes(e)), kind, ...(guide ? { guideline: guide } : {}) })).data.shootIds[0]
-        : (await bookShoot({ place: house, date, start, kind, ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })).data.id
+      const r = await bookShoot({ place: house, date, start: from, end: to, kind: 'extra', ...(both ? { bothHouses: true } : {}),
+        ...(crew.length ? { with: crew.map(c => c.email) } : {}), ...(forEmail ? { forEmail } : {}), ...(guide ? { guideline: guide } : {}) })
       // A short "Booked ✓" moment (the button glows gold) before the shoot opens.
-      setDone(true); setTimeout(() => onBooked(id), 650)
-    }
-    catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
+      setDone(true); setTimeout(() => onBooked(r.data.id), 650)
+    } catch (e) { setErr(errorText(e)) } finally { setBusy(false) }
   }
-  const verb = asks ? 'Request' : 'Book'
+  const verb = asks || both ? 'Request' : 'Book'
+  const sel = `${field} tabular-nums`
   return (
-    <BottomSheet open onClose={onClose} title={total > 1 ? `${asks ? 'Ask for' : 'Book'} ${total} slots in a row` : asks ? "Ask for this slot" : "Book this slot"}>
-      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {s.houses[h].name} · {fmtSlot(start, s.slotMinutes * total)}{total > 1 ? ` · ${(s.slotMinutes * total) / 60} hours` : ''}</p>
-      <p className="text-pt-muted text-xs">{s.houses[h].address}</p>
+    <BottomSheet open onClose={onClose} title={asks ? 'Ask for this time' : 'Book this time'}>
+      <p className="text-pt-muted text-sm">{formatDay(date, { weekday: 'long', month: 'short', day: 'numeric' })} · {both ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name}` : s.houses[h].name}</p>
+      <p className="text-pt-muted text-xs">Free {fmtTime(gap.start % 1440)}–{fmtTime(gap.end % 1440)}</p>
       {team && (
         <label className="block mt-4"><span className="block text-pt-muted text-xs mb-2">Book for</span>
           <select value={forEmail} onChange={e => setForEmail(e.target.value)} className={field}>
@@ -598,112 +592,85 @@ function BookSheet({ house, date, start, slots, team, mine, day, now, dayFull, o
             {people.map(p => <option key={p.email} value={p.email}>{p.name}</option>)}
           </select></label>
       )}
-      {both !== null && (
-        <div className="mt-4 rounded-xl bg-pt-bg p-3 space-y-2">
-          <p className="text-pt-text text-sm font-semibold">Both houses · 1 hour</p>
-          <div className="flex gap-2">
-            {[0, 1].map(n => (
-              <button key={n} onClick={() => setBoth(n as 0 | 1)}
-                className={`flex-1 min-h-[40px] rounded-full text-sm ${both === n ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-surface text-pt-text'}`}>
-                {fmtTime(start + n * 60)}–{fmtTime(start + n * 60 + 60)}</button>
-            ))}
-          </div>
-          <p className="text-pt-muted text-xs">{s.houses.cliff1.name} and {s.houses.cliff2.name} together for one hour. It takes this {s.slotMinutes / 60}-hour time in both houses and the equipment team approves it.</p>
-          <button onClick={() => setBoth(null)} className="tap text-pt-muted text-xs underline">Just {s.houses[h].name}</button>
-        </div>
-      )}
-      {!team && both === null && (
-        <div className="mt-4" data-testid="slot-lineup">
-          <p className="text-pt-muted text-xs mb-2">How long do you need?</p>
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: maxCount }, (_, i) => i + 1).map(n => (
-              <button key={n} onClick={() => setCount(n)} aria-pressed={count === n}
-                className={`min-h-[40px] inline-flex items-center gap-1 rounded-full px-4 text-sm ${count === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'bg-pt-bg text-pt-text'}`}>
-                {(n * s.slotMinutes) / 60} h<span className={count === n ? 'text-stone-900/70' : 'text-pt-muted'}> · {n} {n === 1 ? 'slot' : 'slots'}</span></button>
-            ))}
-          </div>
-          {maxCount === 1 && <p className="text-pt-muted text-xs mt-2">The slot after this one is taken. Pick an earlier time for a longer shoot.</p>}
-          {count > 1 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-pt-muted text-xs">Who's filming in each slot? {long ? 'Keep yourself in as many as you need, or add' : 'You take one; add'} the people you're filming with. Not on the app yet? Type their name.</p>
-              {seats.map((who, i) => {
-                const st = start + i * s.slotMinutes
-                const open = editing === i
-                return (
-                  <div key={i} className={`rounded-2xl ${open ? 'bg-pt-bg p-2' : ''}`}>
-                    <button onClick={() => setEditing(open ? null : i)} aria-expanded={open}
-                      className={`w-full flex items-center gap-3 rounded-xl px-3 min-h-[56px] text-left ${who ? 'bg-pt-raised shadow-hairline' : 'border border-dashed border-pt-accent/60'}`}>
-                      <span className="w-20 shrink-0 text-pt-muted text-sm tabular-nums">{fmtTime(st % 1440)}</span>
-                      {who === 'me' ? <><Avatar email={profile.email} name={profile.name ?? ''} size={32} /><span className="flex-1 text-pt-text text-sm font-semibold">You</span></>
-                        : who ? <><Avatar email={who.email} name={who.name} size={32} /><span className="flex-1 min-w-0 text-pt-text text-sm truncate">{who.name}{who.email.startsWith('guest:') && <span className="text-pt-muted"> · not on the app</span>}</span></>
-                        : <span className="flex-1 text-pt-accent text-sm font-semibold">+ Add who's filming</span>}
-                      {who && <span className="text-pt-muted text-xs">Change</span>}
-                    </button>
-                    {open && (
-                      <div className="pt-2">
-                        <div className="flex flex-wrap gap-2 px-1 pb-2">
-                          {who !== 'me' && (long || meCount === 0) && (
-                            <button onClick={() => put(i, 'me')} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                              <Avatar email={profile.email} name={profile.name ?? ''} size={32} />Me</button>
-                          )}
-                          {who !== 'me' && !long && meCount === 1 && (
-                            <button onClick={() => { setSeats(x => x.map((y, k) => k === i ? 'me' : y === 'me' ? who : y)); setEditing(null) }} className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                              <Avatar email={profile.email} name={profile.name ?? ''} size={32} />Move me to this slot</button>
-                          )}
-                          {usualOnes.map(p => (
-                            <button key={p.email} onClick={() => put(i, { email: p.email, name: p.name })} aria-label={`Film with ${p.name}`}
-                              className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
-                              <Avatar email={p.email} name={p.name} size={32} />{p.label}<span className="text-pt-accent">+</span></button>
-                          ))}
-                        </div>
-                        <input type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or channel" className={field} />
-                        <div className="max-h-48 overflow-y-auto mt-1">
-                          {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
-                          {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
-                          <GuestRow q={q} chosen={chosen} onAdd={g => put(i, g)} />
-                          {matches.slice(0, 6).map(p => (
-                            <button key={p.email} onClick={() => put(i, p)} className="w-full flex items-center gap-3 p-2 rounded-lg text-left">
-                              <Avatar email={p.email} name={p.name} size={32} />
-                              <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
-                                {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-              <CastTicks friends={chosen} off={castOff} setOff={setCastOff} />
-              {filled && withFriends && <p className="text-pt-muted text-xs">Everyone's slot is {asks ? 'requested' : 'booked'} together and they're told. Only add people who will really be there.</p>}
+      <div className="mt-4 grid grid-cols-2 gap-3" data-testid="time-pick">
+        <label className="block"><span className="block text-pt-muted text-xs mb-1.5">Start</span>
+          <select value={from} onChange={e => pickStart(Number(e.target.value))} className={sel}>
+            {startOpts.map(m => <option key={m} value={m}>{fmtTime(m % 1440)}</option>)}
+          </select></label>
+        <label className="block"><span className="block text-pt-muted text-xs mb-1.5">End</span>
+          <select value={to} onChange={e => setTo(Number(e.target.value))} className={sel}>
+            {endOpts.map(m => <option key={m} value={m}>{fmtTime(m % 1440)}{m - from > (unlimited ? Infinity : maxMinutesFor(1 + crew.length, s)) ? ' · add people' : ''}</option>)}
+          </select></label>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <span className={`inline-flex items-center rounded-full px-3 min-h-[32px] text-sm font-semibold ${tooLong ? 'bg-amber-400/15 text-amber-200' : 'bg-pt-accent/15 text-pt-accent'}`}>{hoursText(len)}</span>
+        {!unlimited && <span className="text-pt-muted text-xs">Up to {hoursText(allowed)} with {1 + crew.length === 1 ? 'just you' : `${1 + crew.length} people`}</span>}
+      </div>
+      {!team && !both && (
+        <div className="mt-5" data-testid="who-films">
+          <p className="text-pt-text text-sm font-semibold">Who's filming?</p>
+          <p className="text-pt-muted text-xs mt-0.5">Each person adds up to {s.slotMinutes / 60} hours. They're on the same booking; nobody has to confirm.</p>
+          <div className="mt-2 space-y-2">
+            <div className="flex items-center gap-3 rounded-xl px-3 min-h-[52px] bg-pt-raised shadow-hairline">
+              <Avatar email={profile.email} name={profile.name ?? ''} size={32} /><span className="flex-1 text-pt-text text-sm font-semibold">You</span>
             </div>
-          )}
-        </div>
-      )}
-      {MONTHLY_SLOTS_ON && house === MONTHLY_HOUSE && (
-        <div className="mt-4"><span className="block text-pt-muted text-xs mb-2">Counts as</span>
-          <div className="flex bg-pt-bg rounded-xl p-0.5 gap-0.5">
-            <button disabled={!team && left === 0} onClick={() => setKind('monthly')} className={`flex-1 py-2 rounded-[10px] text-sm disabled:opacity-40 ${kind === 'monthly' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>
-              Monthly slot{team && forEmail ? '' : ` (${left} left)`}</button>
-            <button onClick={() => setKind('extra')} className={`flex-1 py-2 rounded-[10px] text-sm ${kind === 'extra' ? 'bg-pt-border text-pt-text font-semibold' : 'text-pt-muted'}`}>Extra slot</button>
+            {crew.map(c => (
+              <div key={c.email} className="flex items-center gap-3 rounded-xl px-3 min-h-[52px] bg-pt-raised shadow-hairline">
+                <Avatar email={c.email} name={c.name} size={32} />
+                <span className="flex-1 min-w-0 text-pt-text text-sm truncate">{c.name}{c.email.startsWith('guest:') && <span className="text-pt-muted"> · not on the app</span>}</span>
+                <button onClick={() => setCrew(x => x.filter(y => y.email !== c.email))} aria-label={`Remove ${c.name}`} className="w-11 h-11 grid place-items-center text-pt-muted">✕</button>
+              </div>
+            ))}
+            {crew.length < 4 && !adding && (
+              <button onClick={() => setAdding(true)} className={`w-full flex items-center gap-3 rounded-xl px-3 min-h-[52px] text-left border border-dashed ${needMore > 0 ? 'border-amber-400/70' : 'border-pt-accent/60'}`}>
+                <span className={`text-sm font-semibold ${needMore > 0 ? 'text-amber-200' : 'text-pt-accent'}`}>+ Add someone filming with you{needMore > 0 ? ` (${needMore} more needed)` : ''}</span>
+              </button>
+            )}
+            {adding && (
+              <div className="rounded-2xl bg-pt-bg p-2">
+                <div className="flex flex-wrap gap-2 px-1 pb-2">
+                  {usualOnes.map(p => (
+                    <button key={p.email} onClick={() => addPerson({ email: p.email, name: p.name })} aria-label={`Film with ${p.name}`}
+                      className="flex items-center gap-2 bg-pt-raised rounded-full pl-1 pr-3 min-h-[40px] text-sm text-pt-text shadow-hairline">
+                      <Avatar email={p.email} name={p.name} size={32} />{p.label}<span className="text-pt-accent">+</span></button>
+                  ))}
+                </div>
+                <input type="search" autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name or channel" className={field} />
+                <div className="max-h-48 overflow-y-auto mt-1">
+                  {term && everyone === null && <p className="text-pt-muted text-sm p-2">Loading…</p>}
+                  {term && everyone !== null && matches.length === 0 && <p className="text-pt-muted text-sm px-2 pt-2">No one in the app called "{q.trim()}".</p>}
+                  <GuestRow q={q} chosen={crew} onAdd={addPerson} />
+                  {matches.slice(0, 6).map(p => (
+                    <button key={p.email} onClick={() => addPerson(p)} className="w-full flex items-center gap-3 p-2 rounded-lg text-left min-h-[44px]">
+                      <Avatar email={p.email} name={p.name} size={32} />
+                      <span className="flex-1 min-w-0"><span className="block text-pt-text text-sm truncate">{p.name}</span>
+                        {profiles[p.email]?.channel && <span className="block text-pt-muted text-xs truncate">{profiles[p.email]!.channel}</span>}</span>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => { setAdding(false); setQ('') }} className="tap block mx-auto mt-1 text-pt-muted text-xs">Done</button>
+              </div>
+            )}
           </div>
         </div>
       )}
+      {tooLong && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
+        {hoursText(len)} needs {Math.ceil(len / s.slotMinutes)} people ({s.slotMinutes / 60} h each). Add {needMore} more, or end by {fmtTime((from + allowed) % 1440)}.</p>}
       {isNoCrewDay(date) && <p className="mt-3 rounded-xl px-3 py-3 text-sm border border-sky-400/40 bg-sky-400/10 text-pt-text">Sunday: no crew. You run the shoot yourself.</p>}
       {needG && <div className="mt-3"><GuidelinePicker value={guide} onChange={setGuide} /></div>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       {dayFull && !done && <p className="mt-3 rounded-xl px-3 py-3 text-sm bg-amber-400/10 text-pt-text shadow-[inset_0_0_0_0.5px_rgba(251,191,36,0.4)]">
-        You already have your house slot that day. Creators book one {s.slotMinutes / 60}-hour slot a day; ask the schedule team if you need more.</p>}
-      <button disabled={busy || done || dayFull || (needG && !guide) || (count > 1 && !filled) || (pickFor && !forEmail)} onClick={book}
+        You already have a house booking that day (one a day). Ask the schedule team if you need more.</p>}
+      <button disabled={busy || done || dayFull || tooLong || len < 30 || (needG && !guide) || (pickFor && !forEmail)} onClick={book}
         className={`mt-5 w-full bg-pt-accent text-stone-900 font-semibold rounded-[14px] py-3 min-h-[48px] shadow-gold disabled:opacity-40 ${done ? 'booked-flash !opacity-100' : ''}`}>
-        {done ? (asks || both !== null ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
-          : both !== null ? 'Ask for both houses'
-          : count > 1 && !filled ? (meCount === 0 ? 'Put yourself in one slot' : `Add who's filming in ${seats.filter(x => !x).length === 1 ? 'the empty slot' : `the ${seats.filter(x => !x).length} empty slots`}`)
-          : count > 1 ? `${verb} ${(count * s.slotMinutes) / 60} hours${withFriends ? ` · ${1 + chosen.length} people` : ''}` : asks ? 'Request this time' : 'Book it'}</button>
-      <p className="text-pt-muted text-xs text-center mt-2">{asks || both !== null ? 'The equipment team approves it. The slot is held for you meanwhile.' : 'Confirmed instantly.'}</p>
-      {both === null && canBoth && count === 1 && (
-        <button onClick={() => setBoth(0)} className="tap block mx-auto mt-3 text-pt-muted text-xs underline underline-offset-2">Need both houses at once? (1 hour)</button>
+        {done ? (asks || both ? 'Requested ✓' : 'Booked ✓') : busy ? 'Sending…' : needG && !guide ? 'Add your guideline first'
+          : tooLong ? `Add ${needMore} more ${needMore === 1 ? 'person' : 'people'} or shorten it`
+          : `${verb} ${fmtTime(from % 1440)}–${fmtTime(to % 1440)}${crew.length ? ` · ${1 + crew.length} people` : ''}`}</button>
+      <p className="text-pt-muted text-xs text-center mt-2">{asks || both ? 'The equipment team approves it. The time is held for you meanwhile.' : 'Confirmed instantly.'}</p>
+      {!team && !both && otherFree && crew.length === 0 && (
+        <button onClick={() => setBoth(true)} className="tap block mx-auto mt-3 text-pt-muted text-xs underline underline-offset-2">Need both houses at once? (up to 1 hour)</button>
       )}
+      {both && <button onClick={() => setBoth(false)} className="tap block mx-auto mt-3 text-pt-muted text-xs underline underline-offset-2">Just {s.houses[h].name}</button>}
     </BottomSheet>
   )
 }
@@ -787,6 +754,18 @@ function ShootSheet({ id, team, sent, castAsk, onClose, onMove, onSwap, onGive }
             </div>
           </div>
         </div>
+        {(shoot.with?.length ?? 0) > 0 && (
+          <div className="rounded-xl bg-pt-bg/60 px-3 py-2.5">
+            <p className="text-pt-muted text-xs mb-2">Filming on this booking · {shoot.with!.length + 1} people · up to {(shoot.with!.length + 1) * s.slotMinutes / 60} h</p>
+            <div className="flex flex-wrap gap-2">
+              {[{ email: shoot.creatorEmail, name: shoot.creatorName, guest: false }, ...shoot.with!].map(p => (
+                <span key={p.email} className="inline-flex items-center gap-2 rounded-full bg-pt-surface pl-1 pr-3 min-h-[36px] text-[14px] text-pt-text">
+                  <Avatar email={p.email} name={p.name} size={28} />{p.email === profile.email ? 'You' : p.name.split(' ')[0]}{p.guest ? <span className="text-pt-muted text-xs">not on the app</span> : null}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         {lineup && <DayLineup date={shoot.date} shootId={id} />}
         {sent && mine && (
           <div className="rounded-xl px-3 py-3 text-sm bg-green-500/10 border border-green-500/30 text-pt-text">
@@ -882,10 +861,10 @@ function TeamSwapSheet({ shoot, days, now, onClose, onDone }: { shoot: Shoot; da
     setBusy(true); setErr('')
     try { await swapShootsAsTeam({ a: shoot.id, b: pick.id }); onDone() } catch (e) { setErr(errorText(e)); setBusy(false) }
   }
-  const label = (date: string, h: House, start: number) => `${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtSlot(start, s.slotMinutes)}`
+  const label = (date: string, h: House, start: number, end = start + s.slotMinutes) => `${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtSlot(start, end - start)}`
   return (
     <BottomSheet open onClose={onClose} title={`Swap ${shoot.creatorName.split(' ')[0]}'s booking`}>
-      <p className="text-pt-muted text-sm">Now: {label(shoot.date, shoot.place as House, shoot.start)}</p>
+      <p className="text-pt-muted text-sm">Now: {label(shoot.date, shoot.place as House, shoot.start, shoot.end)}</p>
       {!pick ? <>
         <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search by name" className={`mt-3 ${field}`} />
         <div className="mt-2 max-h-[50vh] overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
@@ -931,7 +910,23 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
   // From a chosen day (Nov 23: the list used to show only the 10 soonest times, so a later date couldn't be reached).
   const [from, setFrom] = useState(today)
   const [limit, setLimit] = useState(10)
-  const results = findFree(days, from < today ? today : from, 60, 1, where === 'any' ? HOUSES : [where], s, shoot.creatorEmail, now, team && !(role === 'owner' && shoot.creatorEmail === profile.email), limit + 1, [shoot.id])
+  // Free time (Nov 24): free stretches long enough for this shoot's length; pick the exact start inside one.
+  const len = Math.max(30, shoot.end - shoot.start)
+  const lockFree = team && !(role === 'owner' && shoot.creatorEmail === profile.email)
+  const results = useMemo(() => {
+    const out: { date: string; house: House; start: number; end: number }[] = []
+    const start0 = from < today ? today : from
+    for (let k = 0; k < 60 && out.length <= limit; k++) {
+      const d = addDays(start0, k)
+      if (!team && houseSlotsOn(days[d], shoot.creatorEmail, now, [shoot.id]) >= slotsPerDayFor(shoot.creatorEmail, s)) continue
+      for (const h of where === 'any' ? HOUSES : [where]) {
+        if (!lockFree && priorityLocked(d, h, s, shoot.creatorEmail, now)) continue
+        for (const g of freeGaps(days[d], d, h, s, now, len, [shoot.id])) out.push({ date: d, house: h, start: g.start, end: g.end })
+      }
+    }
+    return out
+  }, [days, from, today, limit, team, shoot, now, s, where, len, lockFree])
+  const [startAt, setStartAt] = useState<Record<string, number>>({})
   // Moving onto a Cliff 1 Thursday/Saturday needs a guideline (owner, Nov 3), unless the shoot already has one.
   const [guide, setGuide] = useState<Guideline | null>(null)
   const [needFor, setNeedFor] = useState<{ date: string; house: House; start: number } | null>(null)
@@ -943,8 +938,8 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
       const r = await moveShoot({ id: shoot.id, place: house, date, start, ...(guide ? { guideline: guide } : {}) })
       // An approved shoot moved by a creator is a REQUEST: it stays where it is until the team approves the new time.
       if (r.data.status === 'requested' && shoot.status === 'booked') { onMoved(shoot); return }
-      const win = slotWindow(date, start, s.slotMinutes)
-      onMoved({ ...shoot, place: house, date, start, end: start + s.slotMinutes, from: win.from, to: win.to })
+      const win = slotWindow(date, start, len)
+      onMoved({ ...shoot, place: house, date, start, end: start + len, from: win.from, to: win.to })
     } catch (e) { setErr(errorText(e)); setBusy('') }
   }
   return (
@@ -959,17 +954,27 @@ function MoveSheet({ shoot, days, team, now, onClose, onMoved }: { shoot: Shoot;
         <input type="date" value={from} min={today} onChange={e => { if (e.target.value) { setFrom(e.target.value); setLimit(10) } }} className="flex-1 min-w-0 bg-pt-bg rounded-xl px-3 py-2.5 text-pt-text text-base" /></label>
       {MONTHLY_SLOTS_ON && shoot.kind === 'monthly' && <p className="text-pt-muted text-xs mt-2">Stays a monthly slot at {s.houses.cliff1.name}; at {s.houses.cliff2.name} it becomes an extra slot.</p>}
       {needFor && <div className="space-y-2"><GuidelinePicker value={guide} onChange={g => setGuide(g)} />
-        {guide && <button onClick={() => { const t = needFor; setNeedFor(null); void go(t.date, t.house, t.start) }} className={btnGold}>Continue: move to {s.houses[needFor.house].name} · {fmtSlot(needFor.start, s.slotMinutes)}</button>}</div>}
+        {guide && <button onClick={() => { const t = needFor; setNeedFor(null); void go(t.date, t.house, t.start) }} className={btnGold}>Continue: move to {s.houses[needFor.house].name} · {fmtSlot(needFor.start, len)}</button>}</div>}
       {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
       <div className="mt-3 space-y-2">
-        {results.length === 0 && <p className="text-pt-muted text-sm">No free slots in the 60 days from {formatDay(from)}.</p>}
-        {results.slice(0, limit).map(r => (
-          <div key={`${r.date}${r.house}${r.start}`} className="flex items-center gap-3 bg-pt-bg rounded-xl p-3">
-            <div className="flex-1 min-w-0"><p className="text-pt-text font-semibold">{formatDay(r.date)}</p>
-              <p className="text-pt-muted text-xs">{s.houses[r.house].name} · {fmtSlot(r.start, s.slotMinutes)}{isNoCrewDay(r.date) ? ' · no crew' : ''}</p></div>
-            <button disabled={!!busy} onClick={() => go(r.date, r.house, r.start)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 min-h-[44px] text-sm disabled:opacity-40">{busy === `${r.date}${r.house}${r.start}` ? 'Moving…' : asks ? 'Ask for this' : 'Move here'}</button>
-          </div>
-        ))}
+        {results.length === 0 && <p className="text-pt-muted text-sm">No free {hoursText(len)} in the 60 days from {formatDay(from)}.</p>}
+        {results.slice(0, limit).map(r => {
+          const key = `${r.date}${r.house}${r.start}`
+          const at = startAt[key] ?? r.start
+          const opts: number[] = []; for (let m = r.start; m + len <= r.end; m += 15) opts.push(m)
+          return (
+            <div key={key} className="bg-pt-bg rounded-xl p-3 space-y-2">
+              <div><p className="text-pt-text font-semibold">{formatDay(r.date)}</p>
+                <p className="text-pt-muted text-xs">{s.houses[r.house].name} · free {fmtTime(r.start % 1440)}–{fmtTime(r.end % 1440)}{isNoCrewDay(r.date) ? ' · no crew' : ''}</p></div>
+              <div className="flex items-center gap-2">
+                <select value={at} onChange={e => setStartAt(x => ({ ...x, [key]: Number(e.target.value) }))} aria-label="New start time" className={`flex-1 min-w-0 ${field} tabular-nums`}>
+                  {opts.map(m => <option key={m} value={m}>{fmtSlot(m, len)}</option>)}
+                </select>
+                <button disabled={!!busy} onClick={() => go(r.date, r.house, at)} className="bg-pt-accent text-stone-900 font-semibold rounded-lg px-3 min-h-[44px] text-sm disabled:opacity-40 shrink-0">{busy === `${r.date}${r.house}${at}` ? 'Moving…' : asks ? 'Ask for this' : 'Move here'}</button>
+              </div>
+            </div>
+          )
+        })}
         {results.length > limit && <button onClick={() => setLimit(l => l + 10)} className="w-full min-h-[44px] rounded-xl bg-pt-bg text-pt-accent text-sm font-semibold">Show more times</button>}
       </div>
     </BottomSheet>
@@ -988,18 +993,17 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
     const out: TheirSlot[] = []
     const seen = new Set<string>()
     for (const [date, d] of Object.entries(days).sort(([a], [b]) => a.localeCompare(b))) {
-      for (const house of HOUSES) for (const [k, e] of Object.entries(d[house] ?? {})) {
-        const start = Number(k)
-        // Only approved shoots: not a friend's held slot, someone's request or a move waiting for the team.
-        // An imported shoot can fill two slots: list it once.
+      for (const house of HOUSES) for (const b of houseBookings(d, house, s)) {
+        const e = b.entry
+        // Only approved shoots: not a held time, someone's request or a move waiting for the team.
         if (!e.shootId || e.hold || e.pending || e.move || seen.has(e.shootId)) continue
-        if (e.email === email || slotWindow(date, start, s.slotMinutes).from <= now) continue
+        if (e.email === email || slotWindow(date, b.start, b.end - b.start).from <= now) continue
         seen.add(e.shootId)
-        out.push({ shootId: e.shootId, name: e.name, email: e.email, date, house, start })
+        out.push({ shootId: e.shootId, name: e.name, email: e.email, date, house, start: b.start, end: b.end })
       }
     }
     return out.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start).slice(0, 60)
-  }, [days, email, now, s.slotMinutes])
+  }, [days, email, now, s])
   const mySlots = myShoots.filter(x => swappable(x, now))
   async function ask(myId: string, theirId: string, name: string) {
     setBusy(myId + theirId); setErr('')
@@ -1024,13 +1028,13 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
         <>
           <p className="text-pt-muted text-sm">
             {mine ? `Offer your ${formatDay(mine.date)} · ${fmtSlot(mine.start, mine.end - mine.start)} slot. Pick whose slot you'd like instead.`
-              : theirs ? `Ask ${theirs.name} for ${formatDay(theirs.date)} · ${fmtSlot(theirs.start, s.slotMinutes)}. Pick which of your shoots to offer.` : ''}
+              : theirs ? `Ask ${theirs.name} for ${formatDay(theirs.date)} · ${fmtSlot(theirs.start, (theirs.end ?? theirs.start + s.slotMinutes) - theirs.start)}. Pick which of your shoots to offer (same length).` : ''}
             {' '}A swap never counts as a no-show.
           </p>
           {err && <p className="text-red-300 text-sm mt-3">{err}</p>}
           <div className="mt-3 space-y-2">
             {mine && others.length === 0 && <p className="text-pt-muted text-sm">No one else has an upcoming house slot.</p>}
-            {mine && others.map(o => row(o.shootId, <Avatar email={o.email} name={o.name} />, `${o.name} · ${formatDay(o.date)} · ${s.houses[o.house].name} · ${fmtSlot(o.start, s.slotMinutes)}`, () => ask(mine.id, o.shootId, o.name)))}
+            {mine && others.map(o => row(o.shootId, <Avatar email={o.email} name={o.name} />, `${o.name} · ${formatDay(o.date)} · ${s.houses[o.house].name} · ${fmtSlot(o.start, (o.end ?? o.start + s.slotMinutes) - o.start)}`, () => ask(mine.id, o.shootId, o.name)))}
             {theirs && mySlots.length === 0 && <p className="text-pt-muted text-sm">You have no approved upcoming house shoots to offer.</p>}
             {theirs && mySlots.map(m => row(m.id, null, `Your ${formatDay(m.date)} · ${s.houses[m.place as House].name} · ${fmtSlot(m.start, m.end - m.start)}`, () => ask(m.id, theirs.shootId, theirs.name)))}
           </div>
@@ -1041,7 +1045,7 @@ function SwapSheet({ mine, theirs, days, myShoots, email, now, onClose }: {
 }
 
 // A pending swap: someone asking me (accept / decline), or me waiting on someone (withdraw).
-function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; house: House; start: number; onClose: () => void; onBook: () => void }) {
+function TeamSlotSheet({ date, house, start, end, onClose, onBook }: { date: string; house: House; start: number; end?: number; onClose: () => void; onBook: () => void }) {
   const s = useScheduleSettings()
   const [type, setType] = useState<BlockType>('cleaners')
   const [allDay, setAllDay] = useState(false)
@@ -1050,12 +1054,12 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
   const [err, setErr] = useState('')
   // Owner, Nov 3: blocks can be shorter than a slot (cleaners 1–2 PM), and can repeat weekly (the trainer every Thursday).
   const [from, setFrom] = useState(start)
-  const [until, setUntil] = useState(start + s.slotMinutes)
+  const [until, setUntil] = useState(Math.min(end ?? start + s.slotMinutes, 1440))
   const [weeks, setWeeks] = useState(1)
   const [msg, setMsg] = useState('')
   // Heads-up only (owner, Nov 4): shows on the calendar, never stops anyone booking.
   const [soft, setSoft] = useState(false)
-  const halfHours = Array.from({ length: 48 }, (_, i) => i * 30)
+  const halfHours = Array.from({ length: 96 }, (_, i) => i * 15)   // free time (Nov 24): 15-minute steps
   async function block() {
     setBusy(true); setErr('')
     try {
@@ -1067,8 +1071,8 @@ function TeamSlotSheet({ date, house, start, onClose, onBook }: { date: string; 
   }
   return (
     <BottomSheet open onClose={onClose} title="Book or block">
-      <p className="text-pt-muted text-sm">{formatDay(date)} · {s.houses[house].name} · {fmtSlot(start, s.slotMinutes)}</p>
-      <button onClick={onBook} className="mt-4 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Book this slot…</button>
+      <p className="text-pt-muted text-sm">{formatDay(date)} · {s.houses[house].name} · free {fmtTime(start % 1440)}{end ? `–${fmtTime(end % 1440)}` : ''}</p>
+      <button onClick={onBook} className="mt-4 w-full bg-pt-accent text-stone-900 font-semibold rounded-xl py-3 shadow-gold">Book a time here…</button>
       <div className="mt-5 border-t border-pt-border pt-4 space-y-3">
         <p className="text-pt-text font-semibold">Or put something on the calendar</p>
         <div className="flex bg-pt-bg rounded-full p-1 gap-1" role="radiogroup" aria-label="Does it stop filming?">
@@ -1175,10 +1179,10 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
         <span className="flex-1 rounded-full min-h-[36px] grid place-items-center bg-pt-border text-pt-text font-semibold">At the houses</span>
         <button onClick={onOffsite} className="flex-1 rounded-full min-h-[36px] text-pt-muted">Somewhere else ›</button>
       </div>
-      <p className="text-pt-muted text-xs mb-2">How long? Filming with friends? Add a slot for each of them; you'll say who's in each slot next.</p>
+      <p className="text-pt-muted text-xs mb-2">How long? Up to {s.slotMinutes / 60} hours each person: longer means adding the people filming with you on the next screen. You can fine-tune the exact start and end there too.</p>
       <div className="flex bg-pt-bg rounded-full p-1 gap-1">
         {[1, 2, 3].map(n => (
-          <button key={n} onClick={() => setCount(n)} aria-pressed={count === n} className={`flex-1 rounded-full min-h-[40px] text-sm ${count === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{(n * s.slotMinutes) / 60} h</button>
+          <button key={n} onClick={() => setCount(n)} aria-pressed={count === n} className={`flex-1 rounded-full min-h-[40px] text-sm ${count === n ? 'bg-pt-accent text-stone-900 font-semibold shadow-gold' : 'text-pt-text'}`}>{(n * s.slotMinutes) / 60} h<span className={count === n ? 'text-stone-900/70' : 'text-pt-muted'}>{n === 1 ? '' : ` · ${n} people`}</span></button>
         ))}
       </div>
       <div className="mt-5 -mx-6 px-6 flex gap-2 overflow-x-auto no-scrollbar">
@@ -1195,7 +1199,7 @@ function FindSheet({ days, from, house, team, email, now, onClose, onPick, onOff
         })}
       </div>
       <div className="mt-5 space-y-6">
-        {pickedEmpty && <p className="text-pt-muted text-sm">Nothing free on {formatDay(pick!, { weekday: 'long', month: 'short', day: 'numeric' })}{count > 1 ? ` for ${(count * s.slotMinutes) / 60} hours in a row` : ''}. The next free days are below.</p>}
+        {pickedEmpty && <p className="text-pt-muted text-sm">Nothing free on {formatDay(pick!, { weekday: 'long', month: 'short', day: 'numeric' })}{count > 1 ? ` for ${(count * s.slotMinutes) / 60} hours` : ''}. The next free days are below.</p>}
         {results.length === 0 && <p className="text-pt-muted text-sm">Nothing free in the next 60 days{where === 'any' ? '' : ` at ${s.houses[where].name}`}. Try {count > 1 ? 'a shorter time' : 'another house'}.</p>}
         {dayGroups.map(([d, list]) => (
           <div key={d}>
@@ -1329,7 +1333,8 @@ function OnTheDay({ shoot, mine, team }: { shoot: Shoot; mine: boolean; team: bo
   const [err, setErr] = useState('')
   const win = checkinWindow(shoot, now, s)
   const missed = isMissed(shoot, now)
-  const prev = shoot.place !== 'offsite' ? days?.[shoot.date]?.[shoot.place]?.[slotKey(shoot.start - s.slotMinutes)] : undefined
+  const before = shoot.place !== 'offsite' ? houseBookings(days?.[shoot.date], shoot.place as House, s).filter(b => b.shootId && b.shootId !== shoot.id && !b.entry.hold && b.end <= shoot.start && b.end >= shoot.start - 30) : []
+  const prev = before.length ? before[before.length - 1].entry : undefined
   const prevOther = prev && prev.shootId !== shoot.id ? prev : undefined
   async function run(f: () => Promise<unknown>) { setBusy(true); setErr(''); try { await f() } catch (e) { setErr(errorText(e)) } finally { setBusy(false) } }
   const stage = shoot.wrap ? 3 : shoot.checkin ? 2 : 1

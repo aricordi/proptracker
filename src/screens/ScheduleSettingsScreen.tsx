@@ -3,20 +3,28 @@ import { Link, useNavigate } from 'react-router-dom'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../firebase'
-import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, errorText, fmtSlot, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
+import { useScheduleSettings, saveScheduleSettings, listSchedulePeople, errorText, houseOpen, houseClose, HOUSES, type ScheduleSettings, type House } from '../services/schedule'
 import { PageHeader } from '../components/PageHeader'
 
 const field = 'w-full bg-pt-bg border border-pt-border rounded-xl px-3 py-2.5 text-pt-text text-[15px] focus:outline-none focus:border-pt-accent'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const HALF_HOURS = Array.from({ length: 48 }, (_, i) => i * 30)
+const CLOSE_TIMES = Array.from({ length: 56 }, (_, i) => i * 30)   // up to 3:30 AM the next day
+/** The stored grid from open/close: starts every `len` minutes, and the last one ends exactly at `close`. */
+function hoursGrid(open: number, close: number, len: number) {
+  const out: number[] = []
+  for (let t = open; t + len <= close && t < 1440; t += len) out.push(t)
+  const last = close - len
+  if (last >= open && last < 1440 && last % 30 === 0 && !out.includes(last)) out.push(last)
+  return out.length ? out.sort((a, b) => a - b) : [open]
+}
 
-// Schedule team (owner + equipment): houses, slot times, monthly slots, priority group.
+// Schedule team (owner + equipment): houses, house hours, monthly slots, priority group.
 export default function ScheduleSettingsScreen() {
   const navigate = useNavigate()
   const live = useScheduleSettings()
   const [s, setS] = useState<ScheduleSettings | null>(null)
   const [people, setPeople] = useState<{ email: string; name: string; role: string }[]>([])
-  const [addTime, setAddTime] = useState(480)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   useEffect(() => { if (!s) setS(live) }, [live, s])
@@ -57,22 +65,19 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
-          <h2 className="text-pt-text font-semibold">Slots ({s.slotMinutes / 60} hours each)</h2>
-          <div className="flex flex-wrap gap-2">
-            {s.slots.map(t => (
-              <span key={t} className="inline-flex items-center gap-1 bg-pt-bg rounded-full pl-3 pr-1 py-1 text-sm text-pt-text">
-                {fmtSlot(t, s.slotMinutes)}
-                <button onClick={() => set({ slots: s.slots.filter(x => x !== t) })} disabled={s.slots.length <= 1} className="w-6 h-6 rounded-full text-pt-muted" aria-label={`Remove ${fmtTime(t)}`}>×</button>
-              </span>
-            ))}
+          {/* Free time (Nov 24): creators pick any start/end, so the grid only says when the houses open and close. */}
+          <h2 className="text-pt-text font-semibold">House hours</h2>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block"><span className="block text-pt-muted text-xs mb-1">Open from</span>
+              <select value={houseOpen(s)} onChange={e => set({ slots: hoursGrid(Number(e.target.value), Math.max(houseClose(s), Number(e.target.value) + s.slotMinutes), s.slotMinutes) })} className={field}>
+                {HALF_HOURS.filter(t => t + s.slotMinutes <= 1440 + s.slotMinutes - 30).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
+              </select></label>
+            <label className="block"><span className="block text-pt-muted text-xs mb-1">Until</span>
+              <select value={houseClose(s)} onChange={e => set({ slots: hoursGrid(houseOpen(s), Number(e.target.value), s.slotMinutes) })} className={field}>
+                {CLOSE_TIMES.filter(t => t >= houseOpen(s) + s.slotMinutes && t - s.slotMinutes < 1440).map(t => <option key={t} value={t}>{fmtTime(t % 1440)}{t > 1440 ? ' (next day)' : ''}</option>)}
+              </select></label>
           </div>
-          <div className="flex gap-2">
-            <select value={addTime} onChange={e => setAddTime(Number(e.target.value))} className={field}>
-              {HALF_HOURS.filter(t => !s.slots.includes(t)).map(t => <option key={t} value={t}>{fmtTime(t)}</option>)}
-            </select>
-            <button onClick={() => set({ slots: [...s.slots, addTime].sort((a, b) => a - b) })} className="shrink-0 bg-pt-border text-pt-text rounded-xl px-4">Add</button>
-          </div>
-          <p className="text-pt-muted text-xs">Existing bookings keep their time even if you remove a slot.</p>
+          <p className="text-pt-muted text-xs">Creators book any start and end inside these hours, in 15-minute steps, up to {s.slotMinutes / 60} hours per person on the booking. Existing bookings keep their time.</p>
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
@@ -87,12 +92,12 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
-          <h2 className="text-pt-text font-semibold">House slots a day</h2>
+          <h2 className="text-pt-text font-semibold">House bookings a day</h2>
           <div className="flex items-center gap-3">
             <button onClick={() => set({ slotsPerDay: Math.max(1, s.slotsPerDay - 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">−</button>
             <span className="text-pt-text text-lg font-semibold tabular-nums w-8 text-center">{s.slotsPerDay}</span>
             <button onClick={() => set({ slotsPerDay: Math.min(9, s.slotsPerDay + 1) })} className="w-11 h-11 rounded-xl bg-pt-bg text-pt-text text-xl">+</button>
-            <span className="text-pt-muted text-sm">per creator ({s.slotsPerDay * s.slotMinutes / 60} h), both houses</span>
+            <span className="text-pt-muted text-sm">per creator, both houses (as booker or collaborator)</span>
           </div>
           <p className="text-pt-muted text-xs">Need more for someone? Book it for them yourself (Book for → their name). Offsite shoots don't count.</p>
         </section>
@@ -158,8 +163,8 @@ export default function ScheduleSettingsScreen() {
         </section>
 
         <section className="bg-pt-surface rounded-2xl p-4 space-y-3">
-          <h2 className="text-pt-text font-semibold">Can book several slots in a row ({(s.longBookers ?? []).length})</h2>
-          <p className="text-pt-muted text-xs">Everyone else gets {s.slotsPerDay === 1 ? 'one house slot' : `${s.slotsPerDay} house slots`} a day. People ticked here (e.g. Danny / Stromedy Studios) can book as many slots back to back as they need (2 h, 4 h, 6 h…). It's still asked for and approved, unless they're also ticked above.</p>
+          <h2 className="text-pt-text font-semibold">Can book long times alone ({(s.longBookers ?? []).length})</h2>
+          <p className="text-pt-muted text-xs">Everyone else gets up to {s.slotMinutes / 60} h per person on a booking (longer = add collaborators). People ticked here (e.g. Danny / Stromedy Studios) can book as long as they need on their own. It's still asked for and approved, unless they're also ticked above.</p>
           <div className="max-h-60 overflow-y-auto rounded-xl bg-pt-bg divide-y divide-white/[0.06]">
             {people.length === 0 && <p className="text-pt-muted text-sm p-3">Loading people…</p>}
             {[...people, ...(s.longBookers ?? []).filter(p => !people.some(x => x.email === p.email)).map(p => ({ ...p, role: '' }))].map(p => (

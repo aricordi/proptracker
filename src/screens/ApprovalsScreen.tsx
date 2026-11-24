@@ -7,13 +7,13 @@ import { useSession } from '../auth'
 import { friendlyError } from '../lib/errors'
 import { formatDay } from '../lib/dates'
 import { todayInStudio, addDays } from '../../functions/src/booking'
-import { nowStamp } from '../../functions/src/gearBooking'
+import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import Avatar from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import BottomSheet from '../components/BottomSheet'
 import MonthGrid, { monthAdd, monthTitle } from '../components/MonthGrid'
 import {
-  useScheduleSettings, useScheduleDays, useShootsSince, useAllStatuses, decideBooking, fmtSlot, slotState,
+  useScheduleSettings, useScheduleDays, useShootsSince, useAllStatuses, decideBooking, fmtSlot, houseBookings, hardBlocks, freeGaps, HOUSES,
   BLOCK_TYPES, headsUps, type House, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus,
 } from '../services/schedule'
 import { waitingRequests, sortReqs, factsFor, reqKey, placeName, reqHours, ago, partnerLine, REASONS, type Req } from '../desk/requestFacts'
@@ -192,28 +192,34 @@ function RequestCard({ r, s, days, shoots, pairs, status, today, now, onDay, onP
 }
 
 // One day, both houses side by side: who has each time, requests dashed. Offsite shoots and blocks underneath.
-function DaySheet({ date, day, s, email, now, reqs, onClose, onOpen, canBlock }: { canBlock: boolean; date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
+function DaySheet({ date, day, s, now, reqs, onClose, onOpen, canBlock }: { canBlock: boolean; date: string; day?: ScheduleDay; s: ScheduleSettings; email: string; now: string; reqs: Req[]; onClose: () => void
   onOpen: (shootId: string) => void }) {
-  const cell = (h: House, st: number) => {
-    const x = slotState(day, date, h, st, s, email, now, true)
-    if (x.t === 'booked') return <button onClick={() => onOpen(x.entry.shootId)} title="Open this booking" className={`block w-full text-left truncate rounded-lg px-2 py-1 text-[13px] ${x.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{x.entry.name}</button>
-    if (x.t === 'block') return <span className="block truncate text-pt-muted text-[13px] px-2">{x.block.note || BLOCK_TYPES[x.block.type]}</span>
-    if (x.t === 'held') return <span className="block truncate text-amber-300 text-[13px] px-2">Held · {x.entry.name}</span>
-    if (x.t === 'past') return <span className="block text-pt-muted text-[13px] px-2">—</span>
-    return <span className="block text-green-400 text-[13px] px-2">Free</span>
-  }
+  // Free time (Nov 24): each house as a list in time order: bookings at their real hours, blocks, free stretches.
+  const rows = (h: House) => [
+    ...houseBookings(day, h, s, now).map(b => ({ start: b.start, end: b.end, node: b.entry.hold
+      ? <span className="truncate text-amber-300">Held · {b.entry.name}</span>
+      : <button onClick={() => onOpen(b.entry.shootId)} title="Open this booking" className={`min-w-0 flex-1 text-left truncate rounded-lg px-2 py-1 ${b.entry.pending ? 'border border-dashed border-amber-400/60 text-amber-300' : 'bg-pt-accent/15 text-pt-accent'}`}>{b.entry.name}{b.entry.withNames?.length ? ` + ${b.entry.withNames.join(', ')}` : ''}</button> })),
+    ...hardBlocks(day).filter(b => b.house === h).map(b => ({ start: b.start, end: b.end, node: <span className="truncate text-pt-muted">{b.note || BLOCK_TYPES[b.type]}</span> })),
+    ...freeGaps(day, date, h, s, now).map(g => ({ start: g.start, end: g.end, node: <span className="text-green-400">Free</span> })),
+  ].sort((x, y) => x.start - y.start)
   return (
     <BottomSheet open onClose={onClose} title={formatDay(date, { weekday: 'long', month: 'long', day: 'numeric' })}>
       {reqs.length > 0 && <p className="text-amber-300 text-sm mb-2">{reqs.length} request{reqs.length === 1 ? '' : 's'} waiting this day (dashed).</p>}
       {headsUps(day).map(h => <p key={h.id} className="text-amber-200 text-sm mb-2 rounded-xl bg-amber-400/10 px-3 py-2">Heads-up · {s.houses[h.house as House]?.name ?? ''}: {h.note || BLOCK_TYPES[h.type]} ({fmtSlot(h.start, h.end - h.start)}). They can still film.</p>)}
       <p className="text-pt-muted text-xs mb-2">Tap a name to open that booking.{canBlock ? <> To book or block a free time, open this day on the <a href={`/schedule?day=${date}`} className="text-pt-accent underline">Schedule</a>.</> : null}</p>
-      <div className="grid grid-cols-[84px_1fr_1fr] gap-x-2 gap-y-1.5 items-center">
-        <span /><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff1.name}</span><span className="text-pt-muted text-xs font-semibold">{s.houses.cliff2.name}</span>
-        {s.slots.map(st => [
-          <span key={`t${st}`} className="text-pt-muted text-xs tabular-nums">{fmtSlot(st, s.slotMinutes)}</span>,
-          <span key={`a${st}`} className="min-w-0">{cell('cliff1', st)}</span>,
-          <span key={`b${st}`} className="min-w-0">{cell('cliff2', st)}</span>,
-        ])}
+      <div className="space-y-4">
+        {HOUSES.map(h => (
+          <div key={h} className="space-y-1">
+            <p className="text-pt-muted text-xs font-semibold">{s.houses[h].name}</p>
+            {rows(h).length === 0 && <p className="text-pt-muted text-[13px]">Nothing left this day</p>}
+            {rows(h).map((r, i) => (
+              <div key={i} className="flex items-center gap-2 text-[13px] min-h-[32px]">
+                <span className="w-[108px] shrink-0 text-pt-muted text-xs tabular-nums">{fmtTime(r.start)}–{fmtTime(r.end % 1440)}</span>
+                {r.node}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
       {(day?.offsite ?? []).length > 0 && (
         <div className="mt-4 space-y-1">

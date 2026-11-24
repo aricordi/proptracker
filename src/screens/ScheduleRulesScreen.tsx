@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { useBookingSettings } from '../hooks/useBookings'
-import { useScheduleSettings, fmtSlot, BOOK_AHEAD_DAYS, MONTHLY_SLOTS_ON } from '../services/schedule'
+import { useScheduleSettings, houseOpen, houseClose, BOOK_AHEAD_DAYS, MONTHLY_SLOTS_ON } from '../services/schedule'
 
 const WEEKDAY_NAMES = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays']
 const list = (xs: string[]) => xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
@@ -24,7 +24,7 @@ export default function ScheduleRulesScreen() {
 
         <H>Booking a house</H>
         <ul className="list-disc pl-5 space-y-2">
-          <Li>Houses are booked in <b>{s.slotMinutes / 60}-hour slots</b>:{' '}{s.slots.map((t, i) => <span key={t}><span className="whitespace-nowrap">{fmtSlot(t, s.slotMinutes)}</span>{i < s.slots.length - 1 ? ', ' : '.'}</span>)}</Li>
+          <Li>Book <b>any free time</b> at a house from {fmtTime(houseOpen(s))} to {fmtTime(houseClose(s) % 1440)}, starting and ending on the quarter hour (1:15, 1:30…), at least 30 minutes. Each person on a booking gets up to <b>{s.slotMinutes / 60} hours</b>: filming 4 hours means adding one collaborator to the booking, 6 hours two. Collaborators don't have to confirm.</Li>
           <Li>A booking takes the <b>whole house</b>. Nobody else films there during your slot.</Li>
           <Li>A booking is a <b>request</b>: the slot is held for you and the equipment team (or an admin) approves or declines it, up to {BOOK_AHEAD_DAYS} days ahead. A request nobody decides on by its start time is dropped. Withdrawing one is free.</Li>
           <Li>Filming with someone, or need longer? Tap a gold time on the <b>Calendar</b>, pick how long (2 h, 4 h, 6 h…), then say who films in each slot: you take one, a friend takes each other slot. It all goes in as one request (they don't need to confirm). Friend not on the app yet? Type their name and their slot is booked under it. Only book friends who will really be there.</Li>
@@ -37,7 +37,7 @@ export default function ScheduleRulesScreen() {
           <Li>Anything beyond that is an <b>extra slot</b>, booked the same way whenever it's free.</Li>
           </>}
           <Li>Every creator gets <b>{s.monthlySlots} guaranteed {c1} slots a month</b>. The equipment team schedules them for you each month; they show up on your calendar. Book extra slots any time they're free.</Li>
-          <Li><b>{s.slotsPerDay === 1 ? 'One house slot' : `${s.slotsPerDay} house slots`} a day</b> ({s.slotsPerDay * s.slotMinutes / 60} hours) per creator, across both houses. Need more? Ask the schedule team; they can book it for you. Offsite shoots don't count.</Li>
+          <Li><b>{s.slotsPerDay === 1 ? 'One house booking' : `${s.slotsPerDay} house bookings`} a day</b> per creator, across both houses (being someone's collaborator counts too). Need more? Ask the schedule team; they can book it for you. Offsite shoots don't count.</Li>
         </ul>
 
         {s.priorityWeekdays.length > 0 && <>

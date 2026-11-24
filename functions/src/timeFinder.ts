@@ -3,7 +3,7 @@
 // TimeAsk; the slots themselves always come from findOptions, so a time is never invented.
 import { addDays, weekday, isDay } from './booking.js'
 import { stamp, addMinutes } from './gearBooking.js'
-import { slotState, houseSlotsOn, slotsPerDayFor, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
+import { houseSlotsOn, slotsPerDayFor, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
 import { freeGaps, priorityLocked as lockedAt } from './schedule.js'
 
 export type TimeOfDay = 'any' | 'morning' | 'afternoon' | 'evening' | 'night' | 'late'   // night = 'tonight' (5 PM on)
@@ -20,6 +20,8 @@ export interface TimeAsk {
 export interface Person { email: string; name: string }
 export interface TimeOption {
   date: string; place: House; start: number
+  /** Free time (Nov 24): the end of the ONE booking everyone shares (start + 2 h per person). */
+  end: number
   slots: { email: string; name: string; start: number; me: boolean }[]
 }
 
@@ -316,7 +318,7 @@ export function findOptions(
         return (friendBusy[f.email] ?? []).some(b => b.from < to && from < b.to)
       })
       if (busy) continue
-      out.push({ date, place: c.house, start: c.start, slots: starts.map((st, j) => j < ask.mySlots
+      out.push({ date, place: c.house, start: c.start, end: c.start + need, slots: starts.map((st, j) => j < ask.mySlots
         ? { email: me.email, name: me.name, start: st, me: true }
         : { email: friends[j - ask.mySlots].email, name: friends[j - ask.mySlots].name, start: st, me: false }) })
       perDay++

@@ -1,5 +1,5 @@
 // Priority booking (owner, Nov 2; wording Nov 3: professional, about priority, never "winning"). The schedule team books a
-// slot someone holds for a person with priority: the holder is moved to another free time that day (props and gear follow) or cancelled (neutral notice,
+// time someone holds for a person with priority: the holder is moved to another free time that day (props and gear follow) or cancelled (neutral notice,
 // their next request goes first). ClashList shows events from Google Calendar that landed on someone else's slot.
 import { useEffect, useMemo, useState } from 'react'
 import { formatDay } from '../lib/dates'
@@ -11,7 +11,7 @@ import BottomSheet from './BottomSheet'
 import { useSession } from '../auth'
 import Avatar from './Avatar'
 import {
-  useScheduleSettings, useScheduleDays, giveSlot, listSchedulePeople, slotState, fmtSlot, HOUSES, googleDayLink,
+  useScheduleSettings, useScheduleDays, giveSlot, listSchedulePeople, freeGaps, conflictAt, houseBookings, fmtSlot, HOUSES, googleDayLink,
   type House, type ScheduleDay, type ScheduleSettings,
 } from '../services/schedule'
 
@@ -34,10 +34,21 @@ export function GiveSlotSheet({ t, onClose }: { t: GiveTarget; onClose: () => vo
   useEffect(() => { if (!t.clash) listSchedulePeople({}).then(r => setPeople(r.data.people)).catch(() => setPeople([])) }, [t.clash])
   useEffect(() => { if (!to && !t.clash && chips[0]) setTo(chips[0]) }, [chips, to, t.clash])
   const first = t.holder.name.split(' ')[0]
-  // Free times that day (both houses), soonest first, for moving the holder.
-  const free = useMemo(() => HOUSES.flatMap(h => s.slots.filter(st => !(h === t.house && st === t.start))
-    .filter(st => slotState(day, t.date, h, st, s, t.holder.email, now, true).t === 'free').map(st => ({ house: h, start: st }))
-  ).sort((a, b) => Math.abs(a.start - t.start) - Math.abs(b.start - t.start) || a.house.localeCompare(b.house)).slice(0, 6), [day, s, t, now])
+  // Free time (Nov 24): the holder keeps their length; offer times that day (both houses) where it fits, closest first.
+  const held = houseBookings(day, t.house, s, now).find(b => b.start === t.start && b.entry.shootId)
+  const len = held ? held.end - held.start : (t.holder.end ?? t.start + s.slotMinutes) - (t.holder.start ?? t.start)
+  const free = useMemo(() => {
+    const out: { house: House; start: number }[] = []
+    for (const h of HOUSES) for (const g of freeGaps(day, t.date, h, s, now, len, held ? [held.shootId] : [])) {
+      const near = Math.min(Math.max(t.start, g.start), g.end - len)
+      for (const st of new Set([g.start, near - near % 15, g.end - len])) {
+        if (st < g.start || st + len > g.end || (h === t.house && st === t.start)) continue
+        if (conflictAt(day, h, st, st + len, s, now, { except: held ? [held.shootId] : [] })) continue
+        out.push({ house: h, start: st })
+      }
+    }
+    return out.sort((a, b) => Math.abs(a.start - t.start) - Math.abs(b.start - t.start) || a.house.localeCompare(b.house)).slice(0, 6)
+  }, [day, s, t, now, len, held])
   const matches = q.trim().length < 2 ? [] : (people ?? []).filter(p => `${p.name} ${p.email}`.toLowerCase().includes(q.trim().toLowerCase()) && p.email !== t.holder.email).slice(0, 5)
 
   async function go() {
@@ -52,7 +63,7 @@ export function GiveSlotSheet({ t, onClose }: { t: GiveTarget; onClose: () => vo
   return (
     <BottomSheet open onClose={onClose} title="Priority booking">
       <div className="space-y-4">
-        <p className="text-pt-text text-[15px]">{s.houses[t.house].name} · {formatDay(t.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtSlot(t.start, s.slotMinutes)}
+        <p className="text-pt-text text-[15px]">{s.houses[t.house].name} · {formatDay(t.date, { weekday: 'short', month: 'short', day: 'numeric' })} · {fmtSlot(t.start, len)}
           <span className="block text-pt-muted text-[13px]">{t.holder.name} has it now.</span></p>
         {done ? <><p className="text-green-400 font-semibold">{done}</p><button onClick={onClose} className="w-full min-h-[44px] rounded-xl bg-pt-border">Close</button></> : <>
           {!t.clash && (
@@ -72,7 +83,7 @@ export function GiveSlotSheet({ t, onClose }: { t: GiveTarget; onClose: () => vo
             <p className="text-pt-muted text-xs font-semibold">What happens to {first}?</p>
             {free.map(f => (
               <button key={`${f.house}${f.start}`} onClick={() => setMove(f)} className={`w-full text-left px-3 min-h-[44px] rounded-xl ${move && move.house === f.house && move.start === f.start ? 'bg-pt-accent text-stone-900 font-semibold' : 'bg-pt-bg text-pt-text'}`}>
-                Move them to {s.houses[f.house].name} · {fmtSlot(f.start, s.slotMinutes)}</button>))}
+                Move them to {s.houses[f.house].name} · {fmtSlot(f.start, len)}</button>))}
             {!free.length && <p className="text-pt-muted text-[13px]">No other free time that day.</p>}
             <button onClick={() => setMove(null)} className={`w-full text-left px-3 min-h-[44px] rounded-xl ${move === null ? 'bg-red-500/20 text-red-200 font-semibold' : 'bg-pt-bg text-pt-text'}`}>
               Cancel their shoot (they're notified; their next request is first in line)</button>

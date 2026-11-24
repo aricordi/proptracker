@@ -2,8 +2,8 @@
 // who's asking (last 30 days, what's coming up, strikes, other requests), what's around that time, and who they usually film
 // with (owner, Nov 2: "establish a pattern of who they like to film with").
 import { addDays } from '../../functions/src/booking'
-import { addMinutes } from '../../functions/src/gearBooking'
-import { slotKey, blockAt, fmtSlot, isMissed, BLOCK_TYPES, HOUSES, type House, type Place, type Shoot, type ScheduleDay, type ScheduleSettings, type UserStatus } from '../services/schedule'
+import { addMinutes, fmtTime } from '../../functions/src/gearBooking'
+import { houseBookings, blockAt, fmtSlot, isMissed, BLOCK_TYPES, HOUSES, type House, type Place, type Shoot, type ScheduleDay, type DayBooking, type ScheduleSettings, type UserStatus } from '../services/schedule'
 import { collabPairs, partnersOf, neighboursOf, usual, type Partner, type Pair } from '../lib/collabs'
 
 export interface Req { shoot: Shoot; move: boolean; place: Place; date: string; start: number; end: number; from: string; where: string; since: string }
@@ -65,11 +65,17 @@ export function factsFor(r: Req, shoots: Shoot[], status: UserStatus | undefined
   const day = days?.[r.date]
   if (r.place !== 'offsite') {
     const h = r.place as House, other = HOUSES.find(x => x !== h)!
-    const who = (house: House, st: number) => { const e = day?.[house]?.[slotKey(st)]; return e && !e.hold && e.shootId !== sh.id ? `${e.name}${e.pending ? ' (requested)' : ''}` : '' }
-    if (blockAt(day, h, r.start, s.slotMinutes)) around.push({ label: '⚠ At that time', value: 'Blocked' })
-    around.push({ label: 'Before', value: who(h, r.start - s.slotMinutes) || 'Free' })
-    around.push({ label: 'After', value: who(h, r.start + s.slotMinutes) || 'Free' })
-    around.push({ label: `${s.houses[other].name} (other house)`, value: who(other, r.start) || 'Free' })
+    // Free time (Nov 24): the bookings right before / after this one at the same house, and anyone overlapping it at the other.
+    const others = (house: House) => houseBookings(day, house, s).filter(b => b.shootId && b.shootId !== sh.id && !b.entry.hold)
+    const name = (b: DayBooking) => `${b.entry.name} ${fmtTime(b.start)}–${fmtTime(b.end % 1440)}${b.entry.pending ? ' (requested)' : ''}`
+    const here = others(h)
+    const prev = here.filter(b => b.end <= r.start).pop(), next = here.find(b => b.start >= r.end)
+    const gap = (m: number) => m <= 0 ? 'back to back' : `${m} min gap`
+    if (blockAt(day, h, r.start, r.end - r.start)) around.push({ label: '⚠ At that time', value: 'Blocked' })
+    around.push({ label: 'Before', value: prev ? `${name(prev)} · ${gap(r.start - prev.end)}` : 'Free' })
+    around.push({ label: 'After', value: next ? `${name(next)} · ${gap(next.start - r.end)}` : 'Free' })
+    const same = others(other).filter(b => b.start < r.end && b.end > r.start)
+    around.push({ label: `${s.houses[other].name} (other house)`, value: same.map(name).join(', ') || 'Free' })
     const blocks = (day?.blocks ?? []).filter(b => b.house === h && !b.soft)
     if (blocks.length) around.push({ label: 'Blocked that day', value: blocks.map(b => `${b.note || BLOCK_TYPES[b.type]} ${fmtSlot(b.start, b.end - b.start)}`).join(', ') })
     const notes = (day?.blocks ?? []).filter(b => b.house === h && b.soft)

@@ -13,7 +13,7 @@ import { formatDay } from '../lib/dates'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 import { nowStamp, fmtTime } from '../../functions/src/gearBooking'
 import {
-  useScheduleSettings, decideBooking, fmtSlot, slotKey, blockAt, holdActive, slotWindow, BLOCK_TYPES, HOUSES,
+  useScheduleSettings, decideBooking, fmtSlot, houseBookings, hardBlocks, houseOpen, houseClose, BLOCK_TYPES, HOUSES,
   type House, type Shoot, type ScheduleDay, type UserStatus,
 } from '../services/schedule'
 import { factsFor, reqKey, placeName, reqHours, ago, hoursWaiting, REASONS, type Req } from './requestFacts'
@@ -100,8 +100,7 @@ export default function DeskApprovals({ reqs, shoots, days, statuses, pairs, cla
   const todayShoots = all.filter(x => live(x) && x.date === today).length
   const thisWeek = mondayOf(today)
   const weekBooked = all.filter(x => live(x) && x.date >= thisWeek && x.date <= addDays(thisWeek, 6))
-  const houseSlots = weekBooked.filter(x => x.place !== 'offsite').length
-  const use = Math.round(houseSlots / Math.max(1, 7 * HOUSES.length * s.slots.length) * 100)
+  const use = Math.round(weekBooked.filter(x => x.place !== 'offsite').reduce((n, x) => n + Math.max(0, x.end - x.start), 0) / Math.max(1, 7 * HOUSES.length * (houseClose(s) - houseOpen(s))) * 100)
   const old = queue.filter(r => hoursWaiting(r.since) > 12).length
   const kpis: { n: string; label: string; tone?: string }[] = [
     { n: String(queue.length), label: 'Requests waiting', tone: queue.length ? 'text-amber-300' : '' },
@@ -198,32 +197,48 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
   const s = useScheduleSettings()
   const reqAt = (date: string, h: House, st: number) => reqs.find(r => r.date === date && r.place === h && r.start === st)
   const cols = `56px repeat(${weekDays.length * HOUSES.length}, minmax(42px, 1fr))`
-  const cell = (date: string, h: House, st: number) => {
+  // Free time (Nov 24): each house-day is a timeline, bookings sit at their real hours (28 px an hour).
+  const PX = 28, open = houseOpen(s), close = houseClose(s), H = (close - open) / 60 * PX
+  const y = (m: number) => Math.max(0, Math.min(H, (m - open) / 60 * PX))
+  const hours: number[] = []; for (let m = Math.ceil(open / 60) * 60; m < close; m += 60) hours.push(m)
+  const nowMin = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+  const column = (date: string, h: House) => {
     const day = days[date]
-    const past = slotWindow(date, st, s.slotMinutes).to <= now
-    // A friend hold that ran out is a free slot (audit, Nov 5).
-    const e0 = day?.[h]?.[slotKey(st)], e = e0?.hold && !holdActive(e0, now) ? undefined : e0
-    const block = blockAt(day, h, st, s.slotMinutes)
-    const r = reqAt(date, h, st)
-    let cls = 'bg-white/[0.025]', who = '', sub = '', click: (() => void) | undefined, dot = false, title = 'Free'
-    if (e?.hold) { cls = 'bg-amber-400/[0.06] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.4)]'; who = e.name; sub = 'held · invite'; title = `Held for ${e.name}` }
-    else if (e) {
-      const sh = byId.get(e.shootId), first = e.name.split(' ')[0]
-      who = first; dot = !!e.email && flagged(e.email); title = e.name
-      if (e.pending && e.move) { cls = 'bg-sky-400/[0.08] shadow-[inset_0_0_0_1px_rgba(124,196,250,0.6)] text-sky-200'; sub = 'wants to move here'; if (r) click = () => onReq(r) }
-      else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'waiting'; if (r) click = () => onReq(r) }
-      else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; title = `${e.name} (priority)`; click = () => onShoot(e.shootId) }
-      else { cls = 'bg-pt-surface text-pt-text'; sub = sh?.moveRequest ? 'moving…' : sh?.checkin ? 'checked in' : ''; click = () => onShoot(e.shootId) }
-      if (sh?.moveRequest && !e.pending) cls += ' opacity-60'
-    } else if (block) { cls = 'bg-[repeating-linear-gradient(135deg,#161618_0_7px,#1F1F22_7px_14px)] text-pt-muted'; who = block.note || BLOCK_TYPES[block.type]; sub = 'blocked'; title = who }
-    const on = sel && r && reqKey(sel) === reqKey(r)
+    const pastTo = date < today ? H : date === today ? y(nowMin) : 0
+    const items = [
+      ...hardBlocks(day).filter(b => b.house === h).map(block => {
+        const who = block.note || BLOCK_TYPES[block.type]
+        return { key: `b${block.id}`, start: block.start, end: block.end, cls: 'bg-[repeating-linear-gradient(135deg,#161618_0_7px,#1F1F22_7px_14px)] text-pt-muted', who, sub: 'blocked', title: who, click: undefined as (() => void) | undefined, dot: false, on: false, faded: false }
+      }),
+      ...houseBookings(day, h, s, now).map(bk => {
+        const e = bk.entry, r = reqAt(date, h, bk.start)
+        let cls = 'bg-pt-surface text-pt-text', sub = '', click: (() => void) | undefined, title = e.name
+        const sh = e.shootId ? byId.get(e.shootId) : undefined
+        const who = `${e.name.split(' ')[0]}${e.withNames?.length ? ` +${e.withNames.length}` : ''}`
+        if (e.hold) { cls = 'bg-amber-400/[0.06] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.4)]'; sub = 'held'; title = `Held for ${e.name}` }
+        else if (e.pending && e.move) { cls = 'bg-sky-400/[0.08] shadow-[inset_0_0_0_1px_rgba(124,196,250,0.6)] text-sky-200'; sub = 'wants to move here'; if (r) click = () => onReq(r) }
+        else if (e.pending) { cls = 'bg-amber-400/[0.08] bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(245,184,61,0.07)_6px_12px)] shadow-[inset_0_0_0_1px_rgba(245,184,61,0.55)] text-amber-100'; sub = 'waiting'; if (r) click = () => onReq(r) }
+        else if (e.email && instant.has(e.email)) { cls = 'bg-pt-accent/15 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.6)] text-pt-accent'; title = `${e.name} (priority)`; click = () => onShoot(e.shootId) }
+        else { sub = sh?.moveRequest ? 'moving…' : sh?.checkin ? 'checked in' : ''; click = () => onShoot(e.shootId) }
+        if (e.withNames?.length) title += ` with ${e.withNames.join(', ')}`
+        return { key: bk.key, start: bk.start, end: bk.end, cls, who, sub, title, click, dot: !!e.email && flagged(e.email), on: !!(sel && r && reqKey(sel) === reqKey(r)), faded: !!(sh?.moveRequest && !e.pending) }
+      }),
+    ]
     return (
-      <button key={`${date}${h}${st}`} disabled={!click} onClick={click} title={`${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtSlot(st, s.slotMinutes)} · ${title}`}
-        className={`relative h-[52px] rounded-[7px] px-1.5 py-1 text-left text-[12px] leading-tight overflow-hidden ${cls} ${past ? 'opacity-35' : ''} ${on ? '!shadow-[inset_0_0_0_2px_#F5F5F7]' : ''} ${click ? 'hover:brightness-125' : ''} ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`}>
-        {who && <span className="block font-semibold truncate">{who}</span>}
-        {sub && <span className="block text-xs opacity-70 truncate">{sub}</span>}
-        {dot && <i className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-400" aria-label="Has flags" />}
-      </button>
+      <div key={`${date}${h}`} className={`relative rounded-[7px] bg-white/[0.025] ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`} style={{ height: H }}>
+        {hours.map(m => <i key={m} className="absolute left-0 right-0 border-t border-white/[0.04]" style={{ top: y(m) }} />)}
+        {pastTo > 0 && <i className="absolute left-0 right-0 top-0 bg-pt-bg/60 rounded-t-[7px] z-[1] pointer-events-none" style={{ height: pastTo }} />}
+        {items.map(it => (
+          <button key={it.key} disabled={!it.click} onClick={it.click}
+            title={`${formatDay(date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${s.houses[h].name} · ${fmtTime(it.start)}–${fmtTime(it.end % 1440)} · ${it.title}`}
+            className={`absolute left-[2px] right-[2px] rounded-[6px] px-1 py-0.5 text-left text-[12px] leading-tight overflow-hidden ${it.cls} ${it.faded ? 'opacity-60' : ''} ${it.on ? '!shadow-[inset_0_0_0_2px_#F5F5F7] z-[2]' : ''} ${it.click ? 'hover:brightness-125' : ''}`}
+            style={{ top: y(it.start) + 1, height: Math.max(14, y(it.end) - y(it.start) - 2) }}>
+            <span className="block font-semibold truncate">{it.who}</span>
+            {y(it.end) - y(it.start) > 30 && <span className="block text-xs opacity-70 truncate">{fmtTime(it.start)}{it.sub ? ` · ${it.sub}` : ''}</span>}
+            {it.dot && <i className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-400" aria-label="Has flags" />}
+          </button>
+        ))}
+      </div>
     )
   }
   return (
@@ -233,15 +248,15 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
         {weekDays.map(d => (
           <div key={d} className={`text-center pb-0.5 font-semibold text-[13px] ${d === today ? 'text-pt-accent' : 'text-pt-text'}`} style={{ gridColumn: `span ${HOUSES.length}` }}>
             {formatDay(d, { weekday: 'short' })} {Number(d.slice(8))}
-            <span className="block text-xs font-normal text-pt-muted">{d === today ? 'today' : weekday(d) === 0 ? 'no crew' : (s.priorityWeekdays.includes(weekday(d)) ? 'priority' : ' ')}</span>
+            <span className="block text-xs font-normal text-pt-muted">{d === today ? 'today' : weekday(d) === 0 ? 'no crew' : (s.priorityWeekdays.includes(weekday(d)) ? 'priority' : ' ')}</span>
           </div>
         ))}
         <span />
         {weekDays.map(d => HOUSES.map(h => <div key={`${d}${h}`} className={`text-center text-xs text-pt-muted pb-1 border-b border-white/[0.06] ${h === HOUSES[HOUSES.length - 1] ? 'mr-1' : ''}`}>{s.houses[h].name}</div>))}
-        {s.slots.map(st => [
-          <span key={`t${st}`} className="text-right pr-2 pt-1.5 text-pt-muted text-xs tabular-nums">{fmtTime(st)}</span>,
-          ...weekDays.flatMap(d => HOUSES.map(h => cell(d, h, st))),
-        ])}
+        <div className="relative" style={{ height: H }}>
+          {hours.map(m => <span key={m} className="absolute right-2 -translate-y-1/2 text-pt-muted text-xs tabular-nums" style={{ top: y(m) }}>{fmtTime(m % 1440)}</span>)}
+        </div>
+        {weekDays.flatMap(d => HOUSES.map(h => column(d, h)))}
       </div>
       <div className="mt-3 grid gap-[3px]" style={{ gridTemplateColumns: cols }}>
         <span className="text-right pr-2 text-pt-muted text-xs">Offsite</span>
@@ -258,7 +273,7 @@ function WeekBoard({ weekDays, days, today, now, sel, byId, instant, flagged, re
       <div className="flex flex-wrap gap-4 mt-4 text-pt-muted text-xs">
         <Key c="bg-pt-surface">Approved</Key>
         <Key c="bg-amber-400/20 shadow-[inset_0_0_0_1px_rgba(245,184,61,0.7)]">Request waiting</Key>
-        <Key c="bg-sky-400/20 shadow-[inset_0_0_0_1px_rgba(124,196,250,0.7)]">Wants to move (old slot faded)</Key>
+        <Key c="bg-sky-400/20 shadow-[inset_0_0_0_1px_rgba(124,196,250,0.7)]">Wants to move (old time faded)</Key>
         <Key c="bg-pt-accent/25 shadow-[inset_0_0_0_1px_rgba(201,169,97,0.7)]">Books without approval (Kyle)</Key>
         <Key c="bg-[repeating-linear-gradient(135deg,#161618_0_3px,#2a2a2e_3px_6px)]">Blocked</Key>
         <span className="flex items-center gap-1.5"><i className="w-2 h-2 rounded-full bg-red-400" />Strikes or a no-show (30 days)</span>

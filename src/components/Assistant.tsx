@@ -44,7 +44,7 @@ import { ideaToProps, askApp, askChat, photoSearch, type IdeaResult, type AppAns
 import { subscribeToGearBundles, subscribeToGearHolds, freeQty, byCount, type GearBundle, type GearHold } from '../services/gear'
 import { thumbOf } from '../services/itemShape'
 import {
-  askForTime, bookWithFriends, useMyInvites, useMyStatus, useMyShoots, useShoot, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
+  askForTime, bookShoot, useMyInvites, useMyStatus, useMyShoots, useShoot, useScheduleSettings, needsGuideline, type Guideline, fmtSlot, errorText, INVITE_HOLD_MINUTES, cancelShoot, cancelCountsAsNoShow,
   checkinWindow,
   type TimeAskResult, type House,
 } from '../services/schedule'
@@ -154,6 +154,9 @@ function useShootRequests(shootId: string | undefined, email: string) {
   return { props, gear }
 }
 
+// Free time (Nov 24): the end of the ONE booking a time option makes (2 h per person; older servers send no end).
+const optEnd = (o: TimeAskResult['options'][number]) => o.end ?? o.start + o.slots.length * 120
+
 export default function Assistant({ shown, ask, onClose, page = false }: { shown: boolean; ask: { mode?: AssistantMode; shootId?: string; text?: string; n: number }; onClose: () => void; page?: boolean }) {
   const navigate = useNavigate()
   const { profile, user, demo, canBook, role, realRole } = useSession()
@@ -235,9 +238,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         const text = [m.text, props, asked].filter(Boolean).join('\n')
         return text ? [{ who: 'bot', text }] : []
       }
-      if (m.who === 'options' && m.options.length) return [{ who: 'bot', text: summaryLine('Free times I found', m.options.map(o => `${formatDay(o.date, { weekday: 'short' })} ${house(o.place)} ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`), 4) }]
+      if (m.who === 'options' && m.options.length) return [{ who: 'bot', text: summaryLine('Free times I found', m.options.map(o => `${formatDay(o.date, { weekday: 'short' })} ${house(o.place)} ${fmtSlot(o.start, optEnd(o) - o.start)}`), 4) }]
       if (m.who === 'booked') return [{ who: 'bot', text: `${asks ? 'Asked for' : 'Booked'}: ${m.label}` }]
-      if (m.who === 'once') return [{ who: 'bot', text: `${m.stage === 'done' || m.stage === 'propsFailed' ? (m.requested ? 'Asked for' : 'Booked') : 'Free time I found'}: ${formatDay(m.o.date, { weekday: 'short' })} ${house(m.o.place)} ${fmtSlot(m.o.start, m.o.slots.length * s.slotMinutes)}${m.sent ? ` · ${m.sent} props sent` : ''}` }]
+      if (m.who === 'once') return [{ who: 'bot', text: `${m.stage === 'done' || m.stage === 'propsFailed' ? (m.requested ? 'Asked for' : 'Booked') : 'Free time I found'}: ${formatDay(m.o.date, { weekday: 'short' })} ${house(m.o.place)} ${fmtSlot(m.o.start, optEnd(m.o) - m.o.start)}${m.sent ? ` · ${m.sent} props sent` : ''}` }]
       return []
     })
     saveChat(store(), profile.email, [...old, ...now])
@@ -833,20 +836,21 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       if (guideFor !== optKey(o) || typed) setMsgs(x => [...x, { who: 'bot', text: `${formatDay(o.date, { weekday: 'long' })}s at ${house(o.place)} need your filming guideline (PDF). Nothing is sent yet: add it under the time above, then tap **${asks ? 'Request' : 'Book'}**.` }])
       setGuideFor(optKey(o)); return
     }
-    if (typed) setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}**…` }])
+    if (typed) setMsgs(x => [...x, { who: 'bot', text: `${asks ? 'Asking for' : 'Booking'} **${formatDay(o.date, { weekday: 'short' })} · ${house(o.place)} · ${fmtSlot(o.start, optEnd(o) - o.start)}**…` }])
     setBusy(true)
     try {
       const friends = o.slots.filter(x => !x.me).map(x => x.email)
-      const r = (await bookWithFriends({ place: o.place, date: o.date, start: o.start, friends, mySlots: o.slots.filter(x => x.me).length, ...(guide && guideFor === optKey(o) ? { guideline: guide } : {}) })).data
+      // Free time (Nov 24): ONE booking that lists everyone (2 h per person), not a slot each.
+      const r = (await bookShoot({ place: o.place, date: o.date, start: o.start, end: optEnd(o), ...(friends.length ? { with: friends } : {}), ...(guide && guideFor === optKey(o) ? { guideline: guide } : {}) })).data
       setPrevious(undefined)   // booked: the next time search starts from scratch (no friends or house carried over)
-      const where = `${formatDay(o.date)} · ${house(o.place)} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`
+      const where = `${formatDay(o.date)} · ${house(o.place)} · ${fmtSlot(o.start, optEnd(o) - o.start)}`
       // Every creator booking is a request the schedule team approves (owner, Nov 2); the slot is held meanwhile.
       const asked = r.status === 'requested'
       const mine = asked ? 'Requested ✓ It\'s held for you while the schedule team looks at it; you\'ll get a notification when it\'s approved.' : 'Booked ✓'
       setMsgs(x => [...x,
-        { who: 'bot', text: friends.length ? `${mine} ${o.slots.filter(y => !y.me).map(y => y.name.split(' ')[0]).join(' and ')} ${friends.length > 1 ? 'have their slots' : 'has their slot'} right after yours, ${asked ? 'requested' : 'booked'} at the same time (no need for them to confirm).` : mine },
-        { who: 'booked', inviteIds: r.inviteIds, shootId: r.shootIds[0], label: where }])
-      if (plan) planProps(r.shootIds[0], where)
+        { who: 'bot', text: friends.length ? `${mine} ${o.slots.filter(y => !y.me).map(y => y.name.split(' ')[0]).join(' and ')} ${friends.length > 1 ? 'are' : 'is'} on the same booking with you (no need for them to confirm).` : mine },
+        { who: 'booked', inviteIds: [], shootId: r.id, label: where }])
+      if (plan) planProps(r.id, where)
       else setChips([PROPS_CHIP])
     } catch (e) { setMsgs(x => [...x, { who: 'bot', text: errorText(e) }]) } finally { setBusy(false) }
   }
@@ -909,8 +913,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       updOnce(m.id, { stage: 'booking', error: undefined })
       try {
         const friends = m.o.slots.filter(x => !x.me)
-        const r = (await bookWithFriends({ place: m.o.place, date: m.o.date, start: m.o.start, friends: friends.map(x => x.email), mySlots: m.o.slots.filter(x => x.me).length })).data
-        shootId = r.shootIds[0]
+        const r = (await bookShoot({ place: m.o.place, date: m.o.date, start: m.o.start, end: optEnd(m.o), ...(friends.length ? { with: friends.map(x => x.email) } : {}) })).data
+        shootId = r.id
         setPrevious(undefined)
         updOnce(m.id, { shootId, requested: r.status === 'requested', invited: friends.map(x => x.name.split(' ')[0]) })
       } catch (e) { updOnce(m.id, { stage: 'failed', error: errorText(e) }); setBusy(false); return }
@@ -1121,8 +1125,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
 
   // The one-card plan (Say it once). Gold "act" card: the time as the title, the props as photo rows with ticks, one "Do it".
   const renderOnce = (m: OncePlan) => {
-    const o = m.o, when = `${formatDay(o.date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${fmtSlot(o.start, o.slots.length * s.slotMinutes)}`
-    const who = o.slots.length > 1 ? o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ') : ''
+    const o = m.o, when = `${formatDay(o.date, { weekday: 'short', month: 'short', day: 'numeric' })} · ${fmtSlot(o.start, optEnd(o) - o.start)}`
+    const who = o.slots.length > 1 ? [...new Set(o.slots.map(x => x.me ? 'You' : x.name.split(' ')[0]))].join(' + ') : ''
     const verb = asks ? 'request' : 'book'
     const n = m.ticks.length, props = `${n} prop${n === 1 ? '' : 's'}`
     if (m.stage === 'done') {
@@ -1326,15 +1330,15 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
               <div key={`${o.date}-${o.place}-${o.start}`} className="flex items-center gap-3 rounded-[18px] bg-pt-surface border border-pt-accent/40 px-4 py-3">
                 <span className="w-12 text-center shrink-0"><span className="block text-xs text-pt-muted">{formatDay(o.date, { weekday: 'short' })}</span><b className="block font-display text-[22px] leading-none font-extrabold">{Number(o.date.slice(8))}</b></span>
                 <span className="flex-1 min-w-0">
-                  <b className="block">{house(o.place)} · {fmtSlot(o.start, o.slots.length * s.slotMinutes)}</b>
-                  <span className="block text-pt-muted text-[14px]">{o.slots.map(x => `${x.me ? 'You' : x.name.split(' ')[0]} ${fmtTime(x.start)}`).join(' · ')}</span>
+                  <b className="block">{house(o.place)} · {fmtSlot(o.start, optEnd(o) - o.start)}</b>
+                  <span className="block text-pt-muted text-[14px]">{[...new Set(o.slots.map(x => x.me ? 'You' : x.name.split(' ')[0]))].join(' + ')}</span>
                 </span>
                 <button disabled={busy} onClick={() => book(o)} className="shrink-0 rounded-xl px-4 py-2 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'}</button>
               </div>
             ))}
             {guideFor && m.options.some(o => optKey(o) === guideFor) && (() => { const o = m.options.find(x => optKey(x) === guideFor)!; return (
               <div className="space-y-2"><GuidelinePicker value={guide} onChange={setGuide} />
-                {guide && <button disabled={busy} onClick={() => book(o)} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'} {formatDay(o.date, { weekday: 'short' })} · {fmtSlot(o.start, o.slots.length * s.slotMinutes)}</button>}
+                {guide && <button disabled={busy} onClick={() => book(o)} className="w-full rounded-xl py-3 font-bold text-stone-900 bg-pt-accent shadow-gold disabled:opacity-40">{asks ? 'Request' : 'Book'} {formatDay(o.date, { weekday: 'short' })} · {fmtSlot(o.start, optEnd(o) - o.start)}</button>}
               </div>) })()}
           </div>
         ) : m.who === 'shoots' ? (

@@ -4,7 +4,7 @@ import { functions, db } from '../firebase'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { formatDay } from '../lib/dates'
 import { fmtTime } from '../../functions/src/gearBooking'
-import { splitHours, splitOnGrid } from '../../functions/src/calendarText'
+import { splitHours } from '../../functions/src/calendarText'
 import { useScheduleSettings, errorText, BLOCK_TYPES, type BlockType } from '../services/schedule'
 import { PageHeader } from '../components/PageHeader'
 
@@ -167,7 +167,7 @@ export default function CalendarImportScreen() {
                     </div>
                     {r.emails.length > 1 && (
                       <p className="text-pt-muted text-xs">One booking, {r.emails.length} creators: each gets their own turn, back to back:{' '}
-                        <span className="text-pt-text">{(r.house === 'offsite' ? splitHours(e.startMin, e.endMin, r.emails.length) : splitOnGrid(e.startMin, e.endMin, r.emails.length, s.slots, s.slotMinutes)).map((h, i) => `${people.find(p => p.email === r.emails[i])?.name.split(' ')[0] ?? '?'} ${fmtTime(h.start)}–${fmtTime(h.end)}`).join(' · ')}</span></p>
+                        <span className="text-pt-text">{splitHours(e.startMin, e.endMin, r.emails.length).map((h, i) => `${people.find(p => p.email === r.emails[i])?.name.split(' ')[0] ?? '?'} ${fmtTime(h.start)}–${fmtTime(h.end)}`).join(' · ')}</span></p>
                     )}
                   </div>
                 )}

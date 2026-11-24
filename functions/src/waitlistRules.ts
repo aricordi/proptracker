@@ -1,6 +1,6 @@
 // "Notify me if it opens" (owner, Nov 7): the pure rules of the house-slot waitlist, shared by the server (waitlist.ts)
 // and the app. No database here, so every rule is unit-tested.
-import { conflictAt, houseSlotsOn, slotsPerDayFor, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
+import { conflictAt, houseSlotsOn, slotsPerDayFor, needsGuideline, priorityLocked, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
 
 export const MAX_WAITING = 5   // waiting entries per person at once
 export type WaitStatus = 'waiting' | 'offered' | 'done' | 'left' | 'expired'

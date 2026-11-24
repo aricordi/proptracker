@@ -26,7 +26,7 @@ import { todayInStudio, addDays } from '../../functions/src/booking'
 import { nowStamp, fmtTime, addMinutes } from '../../functions/src/gearBooking'
 import {
   useScheduleSettings, useScheduleDays, useMyShoots, useMySwaps, useMyInvites, useMyStatus, checkInShoot, wrapShoot,
-  checkinWindow, isMissed, explainUntil, slotKey, fmtSlot, houseFreeFrom, type Shoot,
+  checkinWindow, isMissed, explainUntil, houseBookings, fmtSlot, houseFreeFrom, type Shoot,
 } from '../services/schedule'
 
 const card = 'rise-in rounded-[20px] bg-pt-surface p-4 space-y-3'
@@ -228,7 +228,8 @@ export function ShootNow({ shoot }: { shoot: Shoot; label?: string }) {
   const s = useScheduleSettings()
   const shootPlace = shoot.place === 'offsite' ? (shoot.where || 'Offsite') : s.houses[shoot.place].name
   const days = useScheduleDays(shoot.date, shoot.date)
-  const prev = shoot.place !== 'offsite' ? days?.[shoot.date]?.[shoot.place]?.[slotKey(shoot.start - s.slotMinutes)] : undefined
+  const prevList = shoot.place !== 'offsite' ? houseBookings(days?.[shoot.date], shoot.place as "cliff1" | "cliff2", s).filter(b => b.shootId && b.shootId !== shoot.id && !b.entry.hold && b.end <= shoot.start && b.end >= shoot.start - 30) : []
+  const prev = prevList.length ? prevList[prevList.length - 1].entry : undefined
   const before = prev && prev.shootId && prev.shootId !== shoot.id ? prev : undefined
   const [photos, setPhotos] = useState<string[]>([])
   const [uploading, setUploading] = useState(false)

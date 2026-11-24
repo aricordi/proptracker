@@ -1,5 +1,5 @@
 // House schedule (Cliff 1 / Cliff 2 / offsite): live data + server calls.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { collection, doc, onSnapshot, query, where, orderBy, documentId } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../firebase'
@@ -36,6 +36,8 @@ export interface Shoot {
   teamMovedAt?: string   // the schedule team moved it (the creator didn't choose this time: moving/cancelling stays free)
   clash?: boolean; clashWith?: string[]
   guideline?: { url: string; name: string }   // filming guideline PDF (Cliff 1 Thu/Sat, owner Nov 3)
+  // Free-time booking (Nov 24): collaborators on ONE booking (each adds 2 hours). people = booker + collaborators' emails.
+  with?: { email: string; name: string; guest?: boolean }[]; people?: string[]; withNames?: string[]
 }
 
 // A shoot that's on the schedule: approved, or a request waiting for the equipment team (owner, Nov 2).
@@ -59,14 +61,24 @@ export function useScheduleDays(from: string, to: string): Record<string, Schedu
   return days
 }
 
-// One person's upcoming shoots (booked), live.
+// One person's upcoming shoots (booked or asked for), live: their own AND the ones they're a collaborator on (Nov 24).
 export function useMyShoots(email: string, fromDate: string): Shoot[] | null {
-  const [list, setList] = useState<Shoot[] | null>(null)
+  const [own, setOwn] = useState<Shoot[] | null>(null)
+  const [joined, setJoined] = useState<Shoot[]>([])
   useEffect(() => onSnapshot(
     query(collection(db, 'shoots'), where('creatorEmail', '==', email), where('date', '>=', fromDate), orderBy('date')),
-    snap => setList(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot)).filter(isLive).sort((a, b) => a.from.localeCompare(b.from))),
-    () => setList([])), [email, fromDate])
-  return list
+    snap => setOwn(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot))),
+    () => setOwn([])), [email, fromDate])
+  useEffect(() => onSnapshot(
+    query(collection(db, 'shoots'), where('people', 'array-contains', email.toLowerCase())),
+    snap => setJoined(snap.docs.map(d => ({ id: d.id, ...d.data() } as Shoot)).filter(x => x.date >= fromDate)),
+    () => setJoined([])), [email, fromDate])
+  return useMemo(() => {
+    if (own === null) return null
+    const all = new Map<string, Shoot>()
+    for (const x of [...own, ...joined]) all.set(x.id, x)
+    return [...all.values()].filter(isLive).sort((a, b) => a.from.localeCompare(b.from))
+  }, [own, joined])
 }
 
 export function useShoot(id: string | null): Shoot | null | undefined {
@@ -83,7 +95,7 @@ export type Guideline = { url: string; name: string }
 let asCreator = false
 export function setActingAsCreator(on: boolean) { asCreator = on }
 const asCreatorFlag = <T extends object>(d: T): T => (asCreator ? { ...d, asCreator: true } : d)
-const bookShootFn = httpsCallable<{ place: Place; date: string; start: number; end?: number; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline; bothHouses?: boolean; half?: 0 | 1; asCreator?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
+const bookShootFn = httpsCallable<{ place: Place; date: string; start: number; end?: number; with?: string[]; kind?: ShootKind; forEmail?: string; where?: string; take?: boolean; guideline?: Guideline; bothHouses?: boolean; half?: 0 | 1; asCreator?: boolean }, { id: string; kind: ShootKind; status: 'booked' | 'requested'; bumped?: string }>(functions, 'bookShoot')
 export const bookShoot = (d: NonNullable<Parameters<typeof bookShootFn>[0]>) => bookShootFn(asCreatorFlag(d))
 export const redoCalendarImport = httpsCallable<{ shootId: string }, { removed: number; eventId: string }>(functions, 'redoCalendarImport')
 // Requests → Calendar (owner, Nov 4): Google Calendar imports waiting for the equipment team to check.
@@ -171,7 +183,7 @@ export interface TimeAskResult {
   friends: { email: string; name: string }[]
   choices?: string[]   // a name two people share: "With Justin Figs" / "With Justin Show"
   notice?: string      // what still needs saying when the chat shows its own reaction instead of `reply` ("5 PM isn't free…")
-  options: { date: string; place: House; start: number; slots: { email: string; name: string; start: number; me: boolean }[] }[]
+  options: { date: string; place: House; start: number; end?: number; slots: { email: string; name: string; start: number; me: boolean }[] }[]
   waitlist?: { date: string; house: House; start: number }   // the exact time asked for is someone else's: offer the waitlist
 }
 export const askForTime = httpsCallable<{ text: string; previous?: Record<string, unknown> }, TimeAskResult>(functions, 'askForTime')

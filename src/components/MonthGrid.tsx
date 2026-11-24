@@ -1,9 +1,9 @@
 // The month calendar (owner, Nov 2: "creators book based on what's already available… a monthly view that's very visual").
-// ONE grid for both sides: creators see how many 2-hour spots are free each day; the equipment team (mode 'team') sees how
+// ONE grid for both sides: creators see how much free time each day has; the equipment team (mode 'team') sees how
 // many requests wait on each day and how full it is. Tapping a day calls onPick. Colours carry the meaning; words stay short.
 import { addDays, weekday } from '../../functions/src/booking'
 import { useState, type ReactNode } from 'react'
-import { slotState, headsUps, HOUSES, BOOK_AHEAD_DAYS, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
+import { freeGaps, houseBookings, houseOpen, houseClose, priorityLocked, headsUps, HOUSES, BOOK_AHEAD_DAYS, PRIORITY_HOUSE, type House, type ScheduleDay, type ScheduleSettings } from '../services/schedule'
 import { fmtTime } from '../../functions/src/gearBooking'
 import { Icon } from './Icon'
 
@@ -15,23 +15,41 @@ export const monthAdd = (month: string, n: number) => {
 export const monthTitle = (month: string) => new Date(`${month}-15T12:00:00Z`).toLocaleDateString('en-CA', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 export function daysOfMonth(month: string) { const out: string[] = []; for (let d = monthStart(month); d.startsWith(month); d = addDays(d, 1)) out.push(d); return out }
 
-// freeAt: one entry per slot of the day (morning → night): free at either house? null = already over.
-// locked: empty slots on a Cliff 1 priority day that only the priority group can book until the Sunday release.
+// Free time (owner, Nov 24): any start/end in 15-minute steps, so a day is counted in FREE MINUTES, not slots.
+// freeAt: one entry per hour of the day (morning → night): any free time then at the picked house(s)? null = already over.
+// locked: free minutes on a Cliff 1 priority day that only the priority group can book until the Sunday release.
 export interface DayCount { free: number; total: number; booked: number; requested: number; locked: number; mine: boolean; freeAt: (boolean | null)[] }
 export function countDay(day: ScheduleDay | undefined, date: string, houses: House[], s: ScheduleSettings, email: string, now: string, team: boolean): DayCount {
-  const c: DayCount = { free: 0, total: 0, booked: 0, requested: 0, locked: 0, mine: false, freeAt: s.slots.map(() => null) }
-  for (const h of houses) s.slots.forEach((st, i) => {
-    const x = slotState(day, date, h, st, s, email, now, team)
-    if (x.t === 'past') return
-    c.total++
-    c.freeAt[i] = c.freeAt[i] === true || x.t === 'free'
-    if (x.t === 'free') c.free++
-    else if (x.t === 'locked') c.locked++
-    else if (x.t === 'booked') { if (x.entry.pending) c.requested++; else c.booked++; if (x.entry.email === email) c.mine = true }
-  })
-  for (const o of day?.offsite ?? []) { if (o.pending) c.requested++; if (o.email === email) c.mine = true }
+  const open = houseOpen(s), close = houseClose(s), hours = Math.max(1, Math.ceil((close - open) / 60))
+  const c: DayCount = { free: 0, total: 0, booked: 0, requested: 0, locked: 0, mine: false, freeAt: Array.from({ length: hours }, () => null) }
+  const nowDay = now.slice(0, 10), nowMin = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+  const over = (end: number) => date < nowDay || (date === nowDay && end <= nowMin)
+  const me = email.toLowerCase()
+  for (const h of houses) {
+    const gaps = freeGaps(day, date, h, s, now)
+    const mins = gaps.reduce((n, g) => n + g.end - g.start, 0)
+    const locked = !team && priorityLocked(date, h, s, email, now)
+    if (locked) c.locked += mins; else c.free += mins
+    for (let i = 0; i < hours; i++) {
+      const a = open + i * 60, b = Math.min(close, a + 60)
+      if (over(b)) continue
+      c.total += b - a
+      const f = !locked && gaps.some(g => g.start < b && g.end > a)
+      c.freeAt[i] = c.freeAt[i] === true || f
+    }
+    for (const bk of houseBookings(day, h, s, now)) {
+      if (bk.entry.hold) continue
+      if (bk.entry.pending) c.requested++; else c.booked++
+      if (bk.entry.email?.toLowerCase() === me || (bk.entry.people ?? []).includes(me)) c.mine = true
+    }
+  }
+  for (const o of day?.offsite ?? []) { if (o.pending) c.requested++; if (o.email?.toLowerCase() === me) c.mine = true }
   return c
 }
+/** Free minutes as a short label for a calendar square: "5h", "1.5h" (rounded down to the half hour, never overstated). */
+export const freeLabel = (min: number) => `${Math.floor(min / 30) / 2}h`
+/** "A few left" = less than one 2-hour booking per house would still fit twice. */
+const FEW_MINUTES = 4 * 60
 
 // Which house the month shows (owner, Nov 4, option B: people prefer Cliff 1, so it opens on Cliff 1; remembered per phone).
 export type MonthHouse = House | 'all'
@@ -95,7 +113,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           // Owner, Nov 9: a locked priority day still says when the other house has room ("C2: 3" next to the lock), on the same line.
           const hint = alt > c.free ? alt : 0
           const n = Number(date.slice(8))
-          const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= 3 ? 'few' : 'lots'
+          const level = past ? 'past' : c.total === 0 ? 'full' : c.free === 0 ? 'full' : c.free <= FEW_MINUTES ? 'few' : 'lots'
           const tone = level === 'few' ? 'text-amber-300' : 'text-green-400'
           const bar = level === 'few' ? 'bg-amber-300' : 'bg-green-400'
           // Owner, Nov 4: your filming days stand out (gold tint + gold edge), and today is a white circle on the date.
@@ -103,7 +121,7 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
           const inVideo = !!castDates?.has(date) && !past
           const ring = date === selected ? 'shadow-[inset_0_0_0_2px_#F5F5F7]' : mine ? 'shadow-[inset_0_0_0_2px_#C9A961]' : inVideo ? 'shadow-[inset_0_0_0_2px_#7DD3FC]' : ''
           return (
-            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}${inVideo ? ", you're in someone's video" : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : `${x.free} free`}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${c.free} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${hint} free` : ''}`}
+            <button key={date} disabled={past} onClick={() => onPick(date)} aria-label={`${date}${date === today ? ' (today)' : ''}${mine ? ', you film this day' : ''}${inVideo ? ", you're in someone's video" : ''}: ${team ? `${c.requested} requests, ` : ''}${house === 'all' ? HOUSES.map(h => { const x = countDay(days?.[date], date, [h], s, email, now, lockFree); return `${HOUSE_NAME[h]} ${x.free === 0 && x.locked > 0 ? 'priority only' : `${freeLabel(x.free)} free`}` }).join(', ') : prio ? `priority day at ${HOUSE_NAME[house]}, opens to everyone Sunday ${fmtTime(s.releaseMinute)}` : `${freeLabel(c.free)} free at ${HOUSE_NAME[house]}`}${hint ? `, ${HOUSE_NAME[other!]} has ${freeLabel(hint)} free` : ''}`}
               className={`relative ${house === 'all' ? 'aspect-[0.7] lg:aspect-[0.95] pt-1 pb-1.5' : 'aspect-[0.82] pt-1.5 pb-2'} rounded-xl ${mine ? 'bg-pt-accent/20' : 'bg-pt-surface'} flex flex-col items-center justify-between lg:pt-3 lg:pb-3 px-0.5 tabular-nums ${past ? 'opacity-30' : 'active:opacity-80'} ${ring}`}>
               {/* Nov 13 polish: corner dots sit 7px in, clear of the rounded corner and the gold edge; the heads-up dot moves left when the request badge takes the right corner. */}
               {!past && headsUps(days?.[date]).length > 0 && <i className={`absolute top-[7px] lg:top-2.5 ${team && c.requested > 0 ? 'left-[7px] lg:left-2.5' : 'right-[7px] lg:right-2.5'} w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full ring-[1.5px] ring-amber-300 bg-transparent`} aria-label="Heads-up that day" />}
@@ -124,13 +142,13 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
                 <span className="flex flex-col items-center leading-none gap-0.5">
                   {prio
                     ? <span className={`inline-flex items-center ${hint > 0 ? 'gap-[3px]' : 'gap-1'} text-xs lg:text-[13px] font-semibold text-pt-text/80 whitespace-nowrap`}><Icon name="lock" className={hint > 0 ? 'w-3 h-3 lg:w-3.5 lg:h-3.5' : 'w-3.5 h-3.5'} />{hint > 0
-                        ? <span className="text-sky-300">{other === 'cliff2' ? 'C2' : 'C1'}<span className="hidden lg:inline">:</span> {hint}<span className="hidden lg:inline"> free</span></span>
+                        ? <span className="text-sky-300">{other === 'cliff2' ? 'C2' : 'C1'}<span className="hidden lg:inline">:</span> {freeLabel(hint)}<span className="hidden lg:inline"> free</span></span>
                         : <span className="hidden lg:inline">Priority</span>}</span>
                     : hint > 0
-                    ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'}: {hint}<span className="hidden lg:inline"> free</span></span>
+                    ? <span className="text-xs lg:text-[13px] font-semibold text-sky-300 whitespace-nowrap">{other === 'cliff2' ? 'C2' : 'C1'}: {freeLabel(hint)}<span className="hidden lg:inline"> free</span></span>
                     : c.free === 0
                     ? <span className="text-xs font-semibold text-pt-muted">Full</span>
-                    : <span className={`text-xs lg:text-[13px] font-semibold ${tone}`}>{c.free} free</span>}
+                    : <span className={`text-xs lg:text-[13px] font-semibold ${tone}`}>{freeLabel(c.free)} free</span>}
                 </span>
               )}
               {/* Owner, Nov 4: the bar shows WHICH times are free, morning (left) to night (right), not how many. */}
@@ -144,15 +162,15 @@ export default function MonthGrid({ month, days, s, email, now, today, team = fa
       </div>
       <MonthKey>
       <div className="flex flex-wrap gap-3 text-xs text-pt-muted">
-        {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">Each day shows the free spots per house:
-          <LegendChip tone="lots" house="C1" n="5" /><span>lots free</span>
-          <LegendChip tone="few" house="C2" n="2" /><span>a few left</span>
-          <LegendChip tone="full" house="C1" n="0" /><span>full</span></span>
-        : <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(s.slots[0])} on the left to ${fmtHour(s.slots[s.slots.length - 1])} on the right` : 'morning to night'}: lit = free then at {HOUSE_NAME[house as House]}</span>}
+        {house === 'all' ? <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 basis-full">Each day shows the free hours per house:
+          <LegendChip tone="lots" house="C1" n="9h" /><span>lots free</span>
+          <LegendChip tone="few" house="C2" n="2.5h" /><span>a few left</span>
+          <LegendChip tone="full" house="C1" n="0h" /><span>full</span></span>
+        : <span className="inline-flex items-center gap-1.5 basis-full"><span className="inline-flex gap-px w-12 h-1.5">{[1, 1, 0, 0, 0, 0, 1, 1, 0].map((f, i) => <i key={i} className={`flex-1 h-full first:rounded-l-full last:rounded-r-full ${f ? 'bg-green-400' : 'bg-pt-border'}`} />)}</span>The bar is the day, {s.slots.length ? `${fmtHour(houseOpen(s))} on the left to ${fmtHour(houseClose(s))} on the right` : 'morning to night'}: lit = free then at {HOUSE_NAME[house as House]}</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />Lots free</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-amber-300 mr-1" />A few left</span>}
         {house !== 'all' && <span><i className="inline-block w-2 h-2 rounded-full bg-pt-muted mr-1" />Full</span>}
-        {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3' : 'C1: 3'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free spots</span>}
+        {other && <span><b className="text-sky-300 font-semibold mr-1">{other === 'cliff2' ? 'C2: 3h' : 'C1: 3h'}</b>{HOUSE_NAME[house as House]} is full, {HOUSE_NAME[other]} has 3 free hours</span>}
         {(house === PRIORITY_HOUSE || house === 'all') && !lockFree && s.priorityWeekdays.length > 0 && <span className="inline-flex items-center gap-1"><Icon name="lock" className="w-3.5 h-3.5 text-pt-text/80" />Priority day: open to everyone from Sunday {fmtTime(s.releaseMinute)}</span>}
         <span><i className="inline-block w-2 h-2 rounded-full ring-[1.5px] ring-amber-300 mr-1 align-[2px]" />Heads-up (you can still film)</span>
         {team && <span><i className="inline-block w-3 h-3 rounded-full bg-amber-400 mr-1 align-[-2px]" />Requests waiting</span>}
@@ -182,11 +200,11 @@ function AllCell({ days, date, s, email, now, lockFree, past }: {
         const c = countDay(days, date, [h], s, email, now, lockFree)
         const short = h === 'cliff1' ? 'C1' : 'C2'
         const locked = c.free === 0 && c.locked > 0
-        const tone = locked ? CHIP_TONE.lock : c.free === 0 ? CHIP_TONE.full : c.free <= 3 ? CHIP_TONE.few : CHIP_TONE.lots
+        const tone = locked ? CHIP_TONE.lock : c.free === 0 ? CHIP_TONE.full : c.free <= FEW_MINUTES ? CHIP_TONE.few : CHIP_TONE.lots
         return (
           <span key={h} className={`${CHIP} ${tone}`}>
             <span className="font-medium text-pt-text/55">{short}</span>
-            {locked ? <Icon name="lock" className="w-3 h-3" /> : <span>{c.free}</span>}
+            {locked ? <Icon name="lock" className="w-3 h-3" /> : <span>{freeLabel(c.free)}</span>}
             <span className="hidden lg:inline font-semibold opacity-80">{locked ? '' : ' free'}</span>
           </span>
         )

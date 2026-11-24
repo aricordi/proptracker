@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSession } from '../auth'
 import { useBookingSettings } from '../hooks/useBookings'
 import { useCategories } from '../hooks/useCategories'
-import { useScheduleSettings, INVITE_HOLD_MINUTES, UNDO_MINUTES } from '../services/schedule'
+import { useScheduleSettings, houseOpen, houseClose, INVITE_HOLD_MINUTES, UNDO_MINUTES } from '../services/schedule'
 import { RETURN_DEADLINE_HOUR, todayInStudio } from '../../functions/src/booking'
 import { GEAR_LATE_MINUTES, PICKUP_OPENS_MINUTES, fmtTime } from '../../functions/src/gearBooking'
 import { OLD_PHOTO_MINUTES } from '../lib/photoTakenAt'
@@ -52,8 +52,8 @@ export default function RulesSheetScreen() {
       ['Books without approval', s.instantBookers.length ? list(s.instantBookers.map(p => p.name)) : 'Nobody', 'People whose bookings are approved at once (e.g. Kyle / Stromedy).', owner],
       ['Can book several slots in a row', (s.longBookers ?? []).length ? list(s.longBookers.map(p => p.name)) : 'Nobody', 'People who can book as many 2-hour slots back to back as they need (e.g. Danny / Stromedy Studios). Still approved unless they also book without approval.', owner],
       ['Both houses at once', '1 hour, always approved first', 'A creator can ask for one hour in both houses together; it takes that 2-hour time in both and counts as one booking that day.', owner],
-      ['Slots', `${s.slots.length} a day, ${s.slotMinutes / 60} h each (${fmtTime(s.slots[0])} to ${fmtTime((s.slots[s.slots.length - 1] + s.slotMinutes) % 1440)})`, 'The fixed grid creators book at the houses.', owner],
-      ['House slots a day', `${s.slotsPerDay} per creator`, 'How many house slots one creator can book on the same day (the team can book more for them).', owner],
+      ['Booking hours', `Any time ${fmtTime(houseOpen(s))} to ${fmtTime(houseClose(s) % 1440)}, in 15-minute steps, ${s.slotMinutes / 60} h per person`, 'Creators pick their own start and end. Longer bookings need one collaborator per extra ' + s.slotMinutes / 60 + ' h, all on the same booking.', owner],
+      ['House bookings a day', `${s.slotsPerDay} per creator`, 'How many house bookings one creator can be on the same day, as booker or collaborator (the team can book more for them).', owner],
       ['Moving or cancelling for free', `${s.noticeHours} h before`, 'Inside this, a creator cancel counts as a no-show (a strike); only a swap avoids it. Free anyway: shoots booked less than 24 h before they start, shoots the schedule team moved (those can still be moved too), and the 10-minute undo.', owner],
       ['Undo after booking', `${UNDO_MINUTES} min`, 'Cancelling within this many minutes of booking is always free.', owner],
       ['Friend invite hold', `${INVITE_HOLD_MINUTES} min`, 'How long a slot is held for an invited friend. If they let it run out, they get a "Didn\'t confirm" flag.', owner],

@@ -9,7 +9,7 @@ import { db, functions } from '../firebase'
 import { formatDay } from '../lib/dates'
 import { friendlyError } from '../lib/errors'
 import { fmtTime } from '../../functions/src/gearBooking'
-import { splitHours, splitOnGrid, queueReady } from '../../functions/src/calendarText'
+import { splitHours, queueReady } from '../../functions/src/calendarText'
 import BottomSheet from './BottomSheet'
 import { useScheduleSettings, reviewCalendarImport, ignoreCalendarEvents, confirmAllCalendar, BLOCK_TYPES, googleDayLink, type QueueItem, type QueueFix, type BlockType, type ScheduleSettings } from '../services/schedule'
 
@@ -21,8 +21,8 @@ const houseName = (h: string | undefined, s: ScheduleSettings) => h === 'cliff1'
 const firstName = (email: string, people: Person[]) => people.find(p => p.email === email)?.name.split(' ')[0] ?? email.split('@')[0]
 
 /** "Bryan 12–1 PM · Eduard 1–3 PM" — the same split the server makes. */
-function turns(q: { startMin: number; endMin: number }, emails: string[], house: string, s: ScheduleSettings, people: Person[]) {
-  const parts = house === 'offsite' ? splitHours(q.startMin, q.endMin, emails.length) : splitOnGrid(q.startMin, q.endMin, emails.length, s.slots, s.slotMinutes)
+function turns(q: { startMin: number; endMin: number }, emails: string[], _house: string, _s: ScheduleSettings, people: Person[]) {
+  const parts = splitHours(q.startMin, q.endMin, emails.length)
   return emails.map((m, i) => `${firstName(m, people)} ${fmtTime(parts[i]?.start ?? q.startMin)}–${fmtTime(parts[i]?.end ?? q.endMin)}`).join(' · ')
 }
 
