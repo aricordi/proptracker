@@ -2982,7 +2982,8 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       publisher account + support email, turn on the reviewer demo account (More → ChatGPT & Claude).
     - OPENAI SUBMISSION = ARB CREATIVE (owner, Nov 24): publisher = verified OpenAI organization "ARB Creative" (business), support
       support@arbcreative.co (alias made by the owner); privacy + terms name ARB Creative as operator; app name stays "Prime Capitol".
-      LIVE Nov 24 as version 1.2.1 (website run 45352878142). Next: owner verifies on platform.openai.com, submits, sends the domain
+      LIVE Nov 24 as version 1.2.1 (website run 45352878142). Support page public/support.html LIVE as 1.2.2 (website run 45356711726);
+      plugin ZIP via Codex Plugin Creator (docs/chatgpt-plugin-codex-prompt.md), demo video via local Claude Code (docs/chatgpt-demo-video-prompt.md). Next: owner verifies on platform.openai.com, submits, sends the domain
       token → admin task {"kind":"openaiChallenge","token":"…"}. Kit + reviewer note: docs/chatgpt-submission.md.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
