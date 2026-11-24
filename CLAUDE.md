@@ -18,6 +18,12 @@ creators reserve props, the arts department picks/packs them, everything is logg
   republish the live manual pages to their SAME URLs (listed under TRAINING MANUALS). The app shows its version (More, Help,
   problem reports), offers "Update" when /version.json on the server is newer, and saves each person's version on their profile
   (People & access shows "older version").
+- EVERY ROLE, EVERY CHANGE (owner, Nov 24, standing rule, "a mistake we shouldn't repeat"; the owner won't remember to ask):
+  before calling ANY change done, walk through how it lands for EACH kind of person and EACH layout: creator (Full app),
+  creator on Props only, arts, equipment, admin, owner, owner in creator mode, on a 390px phone AND the laptop view (desk ≥1100px),
+  plus the connector (ChatGPT/Claude) when the server changes. If a screen/flow exists in a role-specific copy (e.g. Requests vs
+  Schedule, DeskApprovals vs phone, arts Calendar), update ALL copies or share one component. Check with the all-screens robot +
+  screenshots per role, and END EVERY REPORT TO THE OWNER WITH A SHORT "Who this affects" LIST (role → what changes / nothing).
 - POLISH STANDARD (owner, Nov 23): every screen and sheet must look as finished as the chat and calendar (Black & Gold cards,
   type scale, 44px taps, nothing touching or running off the edge on a 390px phone or on the laptop). Check new screens with
   the all-screens robot (`npm run e2e -- --only shots --grep "all screens"` → .e2e/screens/<role>/).
