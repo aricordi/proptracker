@@ -7,6 +7,8 @@ import { useSession } from '../auth'
 import { connectorRequestInfo, approveConnector } from '../services/connector'
 import { friendlyError } from '../lib/errors'
 import { connectReq, clearConnectPending } from '../lib/connectPending'
+import { switchGoogleAccount } from '../lib/googleSignIn'
+import Avatar from '../components/Avatar'
 
 export default function ConnectScreen() {
   const { profile, demo, canBook } = useSession()
@@ -36,7 +38,12 @@ export default function ConnectScreen() {
         </>}
         {info?.ok && <>
           <h1 className="text-[22px] font-display leading-tight">Let {who} use Prime Capitol as you?</h1>
-          <p className="text-pt-muted">Signed in as <b className="text-pt-text">{profile.name}</b> ({profile.email}).</p>
+          {/* Owner, Nov 24: people have several Google accounts and may be signed in with the wrong one. Make it obvious. */}
+          <div className="flex items-center gap-3 rounded-2xl bg-pt-raised p-3">
+            <Avatar email={profile.email} name={profile.name ?? profile.email} size={40} />
+            <span className="flex-1 min-w-0"><span className="block text-pt-text font-semibold truncate">{profile.name}</span><span className="block text-pt-muted text-sm truncate">{profile.email}</span></span>
+            <button disabled={busy} onClick={() => switchGoogleAccount()} className="shrink-0 min-h-[40px] px-3 rounded-full bg-pt-surface text-[13px] text-pt-text">Not you?</button>
+          </div>
           <ul className="space-y-2 text-[15px]">
             <li>✓ Search the props closet and show photos</li>
             {!demo && canBook && <>

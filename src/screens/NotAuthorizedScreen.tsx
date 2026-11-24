@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { signOut, signInWithPopup, signInWithRedirect, User } from 'firebase/auth'
+import { signOut, User } from 'firebase/auth'
 import { auth } from '../firebase'
 import { Icon } from '../components/Icon'
-import { googleProvider } from '../lib/googleSignIn'
+import { switchGoogleAccount } from '../lib/googleSignIn'
+import { connectPending } from '../lib/connectPending'
 
 interface Props {
   user: User
@@ -13,22 +14,13 @@ export default function NotAuthorizedScreen({ user }: Props) {
   // Owner, Nov 4: wrong account? Open Google's account chooser straight away (signing in with another account
   // replaces this one), so they can pick (or add) the invited one without getting dropped back into the same account.
   // The pop-up opens first, before anything else is awaited, so phones don't block it.
-  const switchAccount = async () => {
-    setBusy(true)
-    try { await signInWithPopup(auth, googleProvider()) }
-    catch (err) {
-      const code = (err as { code?: string })?.code ?? ''
-      if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
-        try { await signInWithRedirect(auth, googleProvider()); return } catch { /* fall through */ }
-      }
-      // Closed the chooser or something failed: sign out → the sign-in page, which also asks which account every time.
-      if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') await signOut(auth)
-    } finally { setBusy(false) }
-  }
+  const switchAccount = async () => { setBusy(true); try { await switchGoogleAccount() } finally { setBusy(false) } }
+  const connecting = !!connectPending()
   return (
     <div className="min-h-screen bg-pt-bg flex flex-col items-center justify-center p-8 text-center pt-safe">
       <Icon name="lock" className="w-12 h-12 mb-4 text-pt-muted mx-auto" />
-      <h1 className="font-display text-2xl text-pt-text mb-2">You're not on the list yet</h1>
+      {connecting && <p className="text-pt-accent text-sm font-semibold mb-2">Connecting ChatGPT or Claude</p>}
+      <h1 className="font-display text-2xl text-pt-text mb-2">{connecting ? 'Wrong Google account?' : "You're not on the list yet"}</h1>
       <p className="text-pt-muted text-sm mb-6 max-w-sm">
         You're signed in as <span className="text-pt-text break-all">{user.email}</span>,
         but this email hasn't been invited to Prime Capitol, or its access was turned off.

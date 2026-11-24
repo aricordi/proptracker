@@ -4,6 +4,7 @@ import { signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCrede
 import { auth, USING_EMULATORS } from '../firebase'
 import BrandMark from '../components/BrandMark'
 import { inAppBrowser } from '../lib/inAppBrowser'
+import { connectPending } from '../lib/connectPending'
 import { IS_PRACTICE } from '../components/PracticeBar'
 import { googleProvider } from '../lib/googleSignIn'
 
@@ -43,6 +44,7 @@ function signInProblem(code: string) {
 }
 
 export default function LoginScreen({ children }: { children?: React.ReactNode } = {}) {
+  const connecting = !!connectPending()
   const [problem, setProblem] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const insideApp = USING_EMULATORS ? null : inAppBrowser(navigator.userAgent)
@@ -83,8 +85,8 @@ export default function LoginScreen({ children }: { children?: React.ReactNode }
       <div className="mb-10 text-center">
         <BrandMark className="w-40 mx-auto mb-8 text-pt-text" />
         {IS_PRACTICE && <p className="rounded-full bg-orange-500 text-stone-950 text-xs font-bold px-3 py-1">PRACTICE SITE · nothing here is real</p>}
-        <h1 className="text-3xl font-semibold tracking-tight text-pt-text">Welcome</h1>
-        <p className="text-pt-muted mt-2 text-sm">Shoots and props for Prime Capitol</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-pt-text">{connecting ? 'Connect Prime Capitol' : 'Welcome'}</h1>
+        <p className="text-pt-muted mt-2 text-sm">{connecting ? 'Sign in with the Google account Prime Capitol invited (the one you use for the app). You can pick it on the next screen.' : 'Shoots and props for Prime Capitol'}</p>
       </div>
 
       {insideApp && (

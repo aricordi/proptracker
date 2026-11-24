@@ -12,6 +12,13 @@ Each manual says which version it was written for.
 
 
 
+## 1.3.4 · Nov 24, 2026
+
+- **Connecting ChatGPT with the right Google account.** The sign-in screen says "Connect Prime Capitol" and asks for the
+  account Prime Capitol invited; the Allow page shows the signed-in account big, with a "Not you?" button that opens Google's
+  account chooser; a wrong account gets a "Wrong Google account?" screen with one tap to switch, then comes straight back
+  to Allow.
+
 ## 1.3.3 · Nov 24, 2026
 
 - **Connecting ChatGPT works even on phones holding an old copy of the app.** The sign-in step now opens on our second
