@@ -83,17 +83,17 @@ describe('booking requests', () => {
     const sh = (await getDoc(`shoots/${r.result.id}`))!
     expect(sh).toMatchObject({ bothHouses: true, place: 'cliff1', time: { start: 840, end: 900 } })
     let day = (await getDoc(`schedule_days/${FRI}`))!
-    expect(day.cliff1['780']).toMatchObject({ shootId: r.result.id, both: true, pending: true })
-    expect(day.cliff2['780']).toMatchObject({ shootId: r.result.id, both: true, pending: true })
+    expect(day.cliff1['840']).toMatchObject({ shootId: r.result.id, both: true, pending: true })
+    expect(day.cliff2['840']).toMatchObject({ shootId: r.result.id, both: true, pending: true })
     expect((await book(ANA, { place: 'cliff2' })).ok).toBe(false)
     expect((await decide(MAANIK, r.result.id, true)).ok).toBe(true)
     day = (await getDoc(`schedule_days/${FRI}`))!
-    expect(day.cliff2['780'].pending).toBeUndefined()
+    expect(day.cliff2['840'].pending).toBeUndefined()
     expect((await call('moveShoot', { id: r.result.id, place: 'cliff1', date: FRI, start: 1140 }, MAANIK)).ok).toBe(false)
     expect((await call('cancelShoot', { id: r.result.id }, MAANIK)).ok).toBe(true)
     day = (await getDoc(`schedule_days/${FRI}`))!
-    expect(day.cliff1?.['780']).toBeUndefined()
-    expect(day.cliff2?.['780']).toBeUndefined()
+    expect(day.cliff1?.['840']).toBeUndefined()
+    expect(day.cliff2?.['840']).toBeUndefined()
   })
 
   it('a both-houses booking counts as one booking for the day limit', async () => {
@@ -139,7 +139,7 @@ describe('booking requests', () => {
     expect(await getDoc(`shoots/${r.result.id}`)).toMatchObject({ date: MON, start: 900 })
     expect((await getDoc(`shoots/${r.result.id}`))!.moveRequest).toBeUndefined()
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff1?.['780']).toBeUndefined()
-    expect((await getDoc(`schedule_days/${MON}`))!.cliff1['900']).toEqual({ shootId: r.result.id, name: 'Ana', email: ANA, kind: 'extra' })
+    expect((await getDoc(`schedule_days/${MON}`))!.cliff1['900']).toEqual({ shootId: r.result.id, name: 'Ana', email: ANA, kind: 'extra', time: { start: 900, end: 1020 } })
   })
 
   it('a denied move keeps the original slot', async () => {

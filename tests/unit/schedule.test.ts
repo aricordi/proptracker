@@ -61,7 +61,8 @@ describe('find a time', () => {
   it('finds back-to-back free slots for two people filming together', () => {
     const days: Record<string, ScheduleDay> = { [FRI]: { date: FRI, cliff1: { 420: { shootId: 'a', name: 'A', kind: 'extra' }, 660: { shootId: 'b', name: 'B', kind: 'extra' } } } }
     const r = findFree(days, FRI, 1, 2, ['cliff1'], S, 'x@x.com', '2026-10-20T10:00', false, 3)
-    expect(r).toEqual([{ date: FRI, house: 'cliff1', start: 780 }, { date: FRI, house: 'cliff1', start: 1020 }, { date: FRI, house: 'cliff1', start: 1260 }])
+    // Free time (Nov 24): 4 hours for two; 9–11 is too short, then 1 PM onwards fits three 4-hour stretches.
+    expect(r).toEqual([{ date: FRI, house: 'cliff1', start: 780, end: 1020 }, { date: FRI, house: 'cliff1', start: 1020, end: 1260 }, { date: FRI, house: 'cliff1', start: 1260, end: 1500 }])
   })
 })
 

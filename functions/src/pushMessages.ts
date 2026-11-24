@@ -197,6 +197,8 @@ export function strikeCreated(id: string, st: Doc, s: ScheduleSettings): Push[] 
 }
 
 // The schedule team booked, moved or cancelled someone's shoot: tell that creator.
+// Everyone on a booking who can get a notification (the booker + collaborators on the app).
+const onIt = (a: Doc) => [...new Set([String(a!.creatorEmail), ...((a!.people ?? []) as string[])])].filter(e => e && !e.startsWith('guest:'))
 export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Push[] {
   if (!a) return []
   const hist = (a.history ?? []) as { by?: string; action?: string; note?: string }[]
@@ -207,19 +209,23 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   // Requests (owner, Nov 2): the creator asks, the equipment team decides.
   // A friend's slot booked in a group booking (Nov 14, no confirmation): the friend hears it was booked for them.
   const byFriend = !b && a.invitedBy && h.by === a.invitedBy && !a.guest
-    ? [{ to: [a.creatorEmail], url: url0, tag: tag0, title: h.action === 'requested' ? `${a.bookedByName ?? 'A friend'} asked for a slot for you` : `${a.bookedByName ?? 'A friend'} booked you a slot 🎬`,
+    ? [{ to: onIt(a), url: url0, tag: tag0, title: h.action === 'requested' ? `${a.bookedByName ?? 'A friend'} asked for a slot for you` : `${a.bookedByName ?? 'A friend'} booked you a slot 🎬`,
         body: `${placeName(a, s)} · ${when(a)}, back to back with them.${h.action === 'requested' ? ' Waiting for the schedule team to approve.' : ''}` }]
     : []
-  if (h.action === 'requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}${a.guest ? ' (not on the app)' : ''}: ${placeName(a, s)} · ${when(a)}${a.bookedByName && a.invitedBy ? ` · booked by ${a.bookedByName}` : ''}.` }, ...byFriend]
+  // Collaborators added to a booking (free-time booking, Nov 24): each hears they're on it.
+  const added = !b && Array.isArray(a.with) ? (a.with as { email: string; guest?: boolean }[]).filter(w => !w.guest && w.email !== h.by)
+    .map(w => ({ to: [w.email], url: url0, tag: tag0, title: `${a.creatorName} added you to their shoot 🎬`, body: `${placeName(a, s)} · ${when(a)}.${h.action === 'requested' ? ' Waiting for the schedule team to approve.' : ''}` })) : []
+  if (h.action === 'requested') return [...added, { to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'New booking request', body: `${a.creatorName}${a.guest ? ' (not on the app)' : ''}: ${placeName(a, s)} · ${when(a)}${a.bookedByName && a.invitedBy ? ` · booked by ${a.bookedByName}` : ''}.` }, ...byFriend]
   if (h.action === 'move-requested') return [{ to: ['approvers'], url: '/approvals', tag: `req-${id}`, title: 'Move request', body: `${a.creatorName} wants to move to ${placeName(a.moveRequest ?? a, s)} · ${when(a.moveRequest ?? a)}.` }]
-  if (h.action === 'approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking approved ✓', body: `${placeName(a, s)} · ${when(a)} is in the calendar.` }]
-  if (h.action === 'denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Booking not approved', body: `${placeName(a, s)} · ${when(a)}: ${h.note ?? ''}`.trim() }]
-  if (h.action === 'move-approved') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move approved ✓', body: `Your shoot is now ${placeName(a, s)} · ${when(a)}.` }]
-  if (h.action === 'move-denied') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move not approved', body: `You keep ${placeName(a, s)} · ${when(a)}. ${h.note ?? ''}`.trim() }]
-  if (h.action === 'move-expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Move not approved in time', body: `You keep ${placeName(a, s)} · ${when(a)}.` }]
-  if (h.action === 'expired') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Request ran out', body: `Nobody approved ${placeName(a, s)} · ${when(a)} in time. Request another time?` }]
+  if (added.length && h.action === 'booked') return added
+  if (h.action === 'approved') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Booking approved ✓', body: `${placeName(a, s)} · ${when(a)} is in the calendar.` }]
+  if (h.action === 'denied') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Booking not approved', body: `${placeName(a, s)} · ${when(a)}: ${h.note ?? ''}`.trim() }]
+  if (h.action === 'move-approved') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Move approved ✓', body: `Your shoot is now ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'move-denied') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Move not approved', body: `You keep ${placeName(a, s)} · ${when(a)}. ${h.note ?? ''}`.trim() }]
+  if (h.action === 'move-expired') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Move not approved in time', body: `You keep ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'expired') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Request ran out', body: `Nobody approved ${placeName(a, s)} · ${when(a)} in time. Request another time?` }]
   // A priority booking took the slot (owner, Nov 3: neutral, professional, no apology).
-  if (h.action === 'bumped') return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Schedule change',
+  if (h.action === 'bumped') return [{ to: onIt(a), url: url0, tag: tag0, title: 'Schedule change',
     body: a.status === 'cancelled'
       ? `${placeName(a, s)} · ${when(a)} is needed for a priority booking, so it was cancelled (no strike). Your next request is first in line. Tap to pick another time or move it offsite.`
       : `Your shoot moved to ${placeName(a, s)} · ${when(a)} for a priority booking. Props and gear moved with it.` }]
@@ -228,10 +234,10 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   if (h.action === 'import-confirmed') {
     if (h.note === 'past') return []   // a day already over: nobody needs a notification
     if ((h as { quiet?: boolean }).quiet) return []   // part of a batch: the calendar check sends that person one summary instead
-    if (a.status === 'booked') return [{ to: [a.creatorEmail], url: url0, tag: tag0, ...(b?.told === false || h.note === 'new'
+    if (a.status === 'booked') return [{ to: onIt(a), url: url0, tag: tag0, ...(b?.told === false || h.note === 'new'
       ? { title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }
       : { title: 'Your shoot changed', body: `Now ${placeName(a, s)} · ${when(a)}.` }) }]
-    if (a.status === 'cancelled' && b?.told !== false) return [{ to: [a.creatorEmail], url: url0, tag: tag0, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the schedule.` }]
+    if (a.status === 'cancelled' && b?.told !== false) return [{ to: onIt(a), url: url0, tag: tag0, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the schedule.` }]
     return []
   }
   if (a.toCheck) return []
@@ -246,15 +252,15 @@ export function shootChange(id: string, b: Doc, a: Doc, s: ScheduleSettings): Pu
   const url = `/?shoot=${id}`, tag = `shoot-${id}`
   if (byFriend.length) return byFriend
   if (a.guest) return []
-  if (h.action === 'cancelled' && a.invitedBy && h.by === a.invitedBy) return [{ to: [a.creatorEmail], url, tag, title: 'Slot cancelled', body: `${a.bookedByName ?? 'Your friend'} cancelled ${placeName(a, s)} · ${when(a)} they booked for you.` }]
-  if (h.action === 'booked' && !b) return [{ to: [a.creatorEmail], url, tag, title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }]
-  if (h.action === 'moved') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot moved', body: `Now ${placeName(a, s)} · ${when(a)}.` }]
-  if (h.action === 'swapped' && String(h.note ?? '').startsWith('by the schedule team')) return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot moved', body: `The schedule team swapped your time: now ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'cancelled' && a.invitedBy && h.by === a.invitedBy) return [{ to: onIt(a), url, tag, title: 'Slot cancelled', body: `${a.bookedByName ?? 'Your friend'} cancelled ${placeName(a, s)} · ${when(a)} they booked for you.` }]
+  if (h.action === 'booked' && !b) return [{ to: onIt(a), url, tag, title: 'You have a new shoot 🎬', body: `The schedule team booked you: ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'moved') return [{ to: onIt(a), url, tag, title: 'Your shoot moved', body: `Now ${placeName(a, s)} · ${when(a)}.` }]
+  if (h.action === 'swapped' && String(h.note ?? '').startsWith('by the schedule team')) return [{ to: onIt(a), url, tag, title: 'Your shoot moved', body: `The schedule team swapped your time: now ${placeName(a, s)} · ${when(a)}.` }]
   // Owner, Nov 16: the newest calendar entry for a day wins; the creator hears the old one gave way (not if they never heard of it).
   if (h.action === 'cancelled' && h.note === 'replaced by a newer calendar entry for the same day') return b?.told === false || (h as { quiet?: boolean }).quiet ? []
-    : [{ to: [a.creatorEmail], url, tag, title: 'Your shoot changed', body: `Your newer booking that day replaces ${placeName(a, s)} · ${when(a)}. Props moved with it.` }]
-  if (h.action === 'cancelled' && h.note === 'deleted in Google Calendar') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the calendar by the schedule team (no strike).` }]
-  if (h.action === 'cancelled') return [{ to: [a.creatorEmail], url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was cancelled by the schedule team.` }]
+    : [{ to: onIt(a), url, tag, title: 'Your shoot changed', body: `Your newer booking that day replaces ${placeName(a, s)} · ${when(a)}. Props moved with it.` }]
+  if (h.action === 'cancelled' && h.note === 'deleted in Google Calendar') return [{ to: onIt(a), url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was taken off the calendar by the schedule team (no strike).` }]
+  if (h.action === 'cancelled') return [{ to: onIt(a), url, tag, title: 'Your shoot was cancelled', body: `${placeName(a, s)} · ${when(a)} was cancelled by the schedule team.` }]
   return []
 }
 

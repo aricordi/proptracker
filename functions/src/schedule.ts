@@ -148,7 +148,7 @@ export function cleanScheduleSettings(d: Record<string, any> | undefined | null)
 // it then fills every slot it touches.
 // `pending` = a creator's REQUEST waiting for the equipment team (owner, Nov 2: no instant bookings): it holds the slot so nobody
 // else can request it. `move` = the NEW spot of an approved shoot whose move is waiting for approval (the old spot stays theirs).
-export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number }; both?: boolean; pending?: boolean; move?: boolean }
+export interface SlotEntry { shootId: string; name: string; kind: ShootKind; email?: string; people?: string[]; withNames?: string[]; hold?: { until: string; inviteId: string; fromName: string }; time?: { start: number; end: number }; both?: boolean; pending?: boolean; move?: boolean }
 // Old calendar events that overlap at the same house are imported anyway and listed here (owner, Oct 19: old events only).
 // shared = NOT a clash (owner, Nov 8: "they're all false alarms"): two old calendar events back to back that only share a 2-hour
 // slot without overlapping (e.g. 1:15–3:15 PM and 3:15–5:15 PM both touch the 3–5 slot). The one filling more of the slot
@@ -228,23 +228,125 @@ export function priorityLocked(date: string, house: Place, s: ScheduleSettings, 
   return isPriorityDay(date, house, s) && !inPriorityGroup(email, s) && now < releaseStamp(date, s)
 }
 
-// A block that ends part-way through the slot before (cleaners 1–2 PM inside the 1–3 PM slot) means the house is free
-// early for the next slot (owner, Nov 3: "people know they might have an extra hour before"). Returns when, and why.
-export function houseFreeFrom(day: ScheduleDay | undefined, house: House, start: number, s: ScheduleSettings): { at: number; what: string } | null {
-  const prev = start - s.slotMinutes
-  if (day?.[house]?.[slotKey(prev)]?.shootId) return null
-  const over = hardBlocks(day).filter(b => b.house === house && b.start < start && b.end > prev)
-  if (!over.length) return null
-  const end = Math.max(...over.map(b => b.end))
-  if (end >= start || end <= prev) return null
-  const b = over.find(x => x.end === end)!
-  return { at: end, what: b.note || BLOCK_TYPES[b.type] }
+// FREE-TIME BOOKING (owner, Nov 24): there are no fixed slots any more, so "the house is free early" is just a free gap.
+// Kept so older screens compile; always null.
+export function houseFreeFrom(_day: ScheduleDay | undefined, _house: House, _start: number, _s: ScheduleSettings): { at: number; what: string } | null {
+  return null
 }
 
 // A filming guideline (PDF) is needed to book a priority day at the priority house when you're not in the priority group
 // (owner, Nov 3: Cliff 1 Thursdays + Saturdays). People who book without approval (Kyle) don't need one.
 export function needsGuideline(date: string, house: Place, email: string, s: ScheduleSettings) {
   return isPriorityDay(date, house, s) && !inPriorityGroup(email, s) && !s.instantBookers.some(p => p.email === email.toLowerCase())
+}
+
+// ─── FREE-TIME BOOKING (owner, Nov 24) ──────────────────────────────────────────────────────────────────────────────
+// Any start and end in 15-minute steps, inside the house hours (first slot start → last slot end, e.g. 7 AM → 1 AM).
+// Up to `slotMinutes` (2 h) per person on a booking; longer needs one more person per extra 2 hours, all on ONE booking.
+// Day docs keep the same shape: house maps keyed by the booking's START minute; every new entry carries its real `time`.
+// Older entries without `time` fill their 2-hour grid slot; old imports that filled several grid slots are read once.
+export const TIME_STEP = 15
+export const MIN_BOOKING_MINUTES = 30
+export const houseOpen = (s: ScheduleSettings) => s.slots[0]
+export const houseClose = (s: ScheduleSettings) => s.slots[s.slots.length - 1] + s.slotMinutes
+export const personMinutes = (s: ScheduleSettings) => s.slotMinutes
+export const maxMinutesFor = (people: number, s: ScheduleSettings) => personMinutes(s) * Math.max(1, people)
+export interface DayBooking { key: string; shootId: string; start: number; end: number; entry: SlotEntry }
+// Every booking (and active hold) at a house that day, once each, in time order.
+export function houseBookings(day: ScheduleDay | undefined, house: House, s: ScheduleSettings, now?: string): DayBooking[] {
+  const seen = new Set<string>(), out: DayBooking[] = []
+  for (const [k, e] of Object.entries(day?.[house] ?? {})) {
+    if (!e) continue
+    if (e.hold) { if (now && !holdActive(e, now)) continue }
+    // A shoot with a move waiting holds two places (its time + the asked one): both count.
+    const id = e.shootId ? `${e.shootId}${e.move ? ':move' : ''}` : `hold:${k}`
+    if (seen.has(id)) continue
+    seen.add(id)
+    const h = entryHours(e, Number(k), s.slotMinutes)
+    out.push({ key: k, shootId: e.shootId, start: h.start, end: h.end, entry: e })
+  }
+  return out.sort((a, b) => a.start - b.start)
+}
+export type Conflict = { t: 'booking'; b: DayBooking } | { t: 'held'; b: DayBooking } | { t: 'block'; block: Block }
+// What (if anything) is in the way of [start, end) at a house. `except` = shoots being moved; `forEmail` may use their own hold.
+export function conflictAt(day: ScheduleDay | undefined, house: House, start: number, end: number, s: ScheduleSettings, now: string,
+  opts: { except?: string[]; forEmail?: string } = {}): Conflict | null {
+  const block = hardBlocks(day).find(b => b.house === house && b.start < end && start < b.end)
+  if (block) return { t: 'block', block }
+  for (const b of houseBookings(day, house, s, now)) {
+    if (b.start >= end || start >= b.end) continue
+    if (b.shootId && opts.except?.includes(b.shootId)) continue
+    if (b.entry.hold) { if (b.entry.email && b.entry.email === opts.forEmail) continue; return { t: 'held', b } }
+    return { t: 'booking', b }
+  }
+  return null
+}
+// Free stretches at a house that day (inside house hours, after now, around bookings and hard blocks), at least `min` long.
+export function freeGaps(day: ScheduleDay | undefined, date: string, house: House, s: ScheduleSettings, now: string, min = MIN_BOOKING_MINUTES, except: string[] = []) {
+  const busy = [
+    ...houseBookings(day, house, s, now).filter(b => !(b.shootId && except.includes(b.shootId))).map(b => ({ start: b.start, end: b.end })),
+    ...hardBlocks(day).filter(b => b.house === house).map(b => ({ start: b.start, end: b.end })),
+  ].sort((a, b) => a.start - b.start)
+  // Not before "now" (rounded up to the next step) on today's date.
+  const nowDay = now.slice(0, 10), nowMin = Number(now.slice(11, 13)) * 60 + Number(now.slice(14, 16))
+  let cur = houseOpen(s)
+  if (date === nowDay) cur = Math.max(cur, Math.ceil((nowMin + 1) / TIME_STEP) * TIME_STEP)
+  else if (date < nowDay) return []
+  const close = houseClose(s), out: { start: number; end: number }[] = []
+  for (const b of busy) {
+    if (b.end <= cur) continue
+    if (b.start - cur >= min) out.push({ start: cur, end: Math.min(b.start, close) })
+    cur = Math.max(cur, b.end)
+    if (cur >= close) break
+  }
+  if (close - cur >= min) out.push({ start: cur, end: close })
+  return out.filter(g => g.end - g.start >= min)
+}
+export const freeMinutesOn = (day: ScheduleDay | undefined, date: string, house: House, s: ScheduleSettings, now: string) =>
+  freeGaps(day, date, house, s, now).reduce((n, g) => n + g.end - g.start, 0)
+// One-time tidy of a day doc written under the 2-hour grid (done inside every booking transaction): an imported shoot that
+// filled several grid slots is kept ONCE, keyed by its real start; a "shared" back-to-back event that was waiting in
+// clashes (it didn't overlap) gets its own place. Real overlaps stay in clashes. Edits `day` in place.
+export function normalizeDay(day: ScheduleDay, s: ScheduleSettings) {
+  for (const h of ['cliff1', 'cliff2'] as const) {
+    const map = day[h]
+    if (!map) continue
+    const next: Record<string, SlotEntry> = {}
+    const seen = new Set<string>()
+    for (const [k, e] of Object.entries(map).sort((a, b) => Number(a[0]) - Number(b[0]))) {
+      if (!e) continue
+      if (!e.shootId) { next[k] = e; continue }   // a hold
+      const id = `${e.shootId}${e.move ? ':move' : ''}`   // a waiting move is its own place
+      if (seen.has(id)) continue
+      seen.add(id)
+      const hrs = entryHours(e, Number(k), s.slotMinutes)
+      const key = slotKey(hrs.start)
+      if (next[key] && next[key].shootId !== e.shootId) { next[k] = e; continue }   // never lose one; leave it where it was
+      next[key] = { ...e, time: hrs }
+    }
+    day[h] = next
+  }
+  const keep: ClashEntry[] = []
+  for (const c of day.clashes ?? []) {
+    if (!c.shared || !c.shootId || c.blockId) { keep.push(c); continue }
+    const busy = houseBookings(day, c.house, s).some(b => b.shootId !== c.shootId && b.start < c.end && c.start < b.end)
+    const key = slotKey(c.start)
+    if (busy || day[c.house]?.[key]) { keep.push({ ...c, shared: false }); continue }
+    day[c.house] = { ...(day[c.house] ?? {}), [key]: { shootId: c.shootId, name: c.name, email: c.email ?? '', kind: 'extra', time: { start: c.start, end: c.end } } }
+  }
+  if (day.clashes) day.clashes = keep
+}
+// Checks on the times alone (the rest happen in the transaction).
+export function checkTimes(place: unknown, date: unknown, start: unknown, end: unknown, s: ScheduleSettings, today: string, now: string): ScheduleProblem | null {
+  if (!isDay(date)) return 'bad-date'
+  if (place !== 'cliff1' && place !== 'cliff2' && place !== 'offsite') return 'bad-slot'
+  if (!Number.isInteger(start) || !Number.isInteger(end)) return 'bad-hours'
+  const a = start as number, b = end as number
+  if (place === 'offsite') { if (a < 0 || a >= 1440 || a % 15 || !offsiteHoursOk(a, b)) return 'bad-hours' }
+  else if (a % TIME_STEP || b % TIME_STEP || b - a < MIN_BOOKING_MINUTES || a < houseOpen(s) || b > houseClose(s)) return 'bad-hours'
+  if (stamp(date, a) <= now) return 'in-past'
+  if (date > addDays(today, BOOK_AHEAD_DAYS)) return 'too-far'
+  return null
 }
 
 // House slots someone has on a day (both houses, plus slots held for them by a friend's invite).
@@ -259,7 +361,8 @@ export function houseSlotsOn(day: ScheduleDay | undefined, email: string, now: s
   const seen = new Set<string>()   // a both-houses booking sits in both houses but counts once
   for (const house of ['cliff1', 'cliff2'] as const) {
     for (const entry of Object.values(day?.[house] ?? {})) {
-      if (entry.email?.toLowerCase() !== e) continue
+      const onIt = entry.email?.toLowerCase() === e || (entry.people ?? []).includes(e)
+      if (!onIt) continue
       if (entry.hold) { if (holdActive(entry, now)) n++; continue }
       if (entry.shootId && !except.includes(entry.shootId) && !seen.has(entry.shootId)) { seen.add(entry.shootId); n++ }
     }
@@ -278,59 +381,53 @@ export type SlotState =
   | { t: 'locked'; opens: string }
   | { t: 'held'; entry: SlotEntry; until: string }
 
-// What one slot looks like to this person right now. The schedule team (owner,
-// equipment) is never locked out of priority days.
-export function slotState(day: ScheduleDay | undefined, date: string, house: House, start: number, s: ScheduleSettings, email: string, now: string, isTeam: boolean): SlotState {
-  const block = blockAt(day, house, start, s.slotMinutes)
-  const entry = day?.[house]?.[slotKey(start)]
-  // A booked shoot under an imported block (an old-calendar clash) stays visible; the clash tag says what's on top.
-  if (block && !(entry && !entry.hold)) return { t: 'block', block }
-  if (entry?.hold) { if (entry.hold.until > now) return { t: 'held', entry, until: entry.hold.until } }   // an ended hold counts as free
-  else if (entry) return { t: 'booked', entry }
+// What a time at a house looks like to this person right now: [start, end) (default: one person's 2 hours).
+// The schedule team (owner, equipment) is never locked out of priority days.
+export function slotState(day: ScheduleDay | undefined, date: string, house: House, start: number, s: ScheduleSettings, email: string, now: string, isTeam: boolean, end = start + s.slotMinutes): SlotState {
+  const c = conflictAt(day, house, start, end, s, now, { forEmail: email })
+  const atKey = day?.[house]?.[slotKey(start)]
+  if (c?.t === 'block' && !(atKey && !atKey.hold)) return { t: 'block', block: c.block }
+  if (c?.t === 'held') return { t: 'held', entry: c.b.entry, until: c.b.entry.hold!.until }
+  if (c?.t === 'booking') return { t: 'booked', entry: c.b.entry }
+  if (atKey && !atKey.hold) return { t: 'booked', entry: atKey }
   if (stamp(date, start) <= now) return { t: 'past' }
   if (!isTeam && priorityLocked(date, house, s, email, now)) return { t: 'locked', opens: releaseStamp(date, s) }
   return { t: 'free' }
 }
 
-// The next free times that fit `count` back-to-back slots (e.g. 2 = 4 hours for two
-// creators filming together). Only slots that touch (one ends as the next starts) count.
-// except: shoots that don't count toward the one-slot-a-day limit (the one being moved can move within its own day).
+// The next free times for `count` people (count × 2 h): the start of each free stretch long enough (and, in a long stretch,
+// the following back-to-back starts too). Creators skip days where they already have their booking.
 export function findFree(days: Record<string, ScheduleDay>, fromDate: string, dayCount: number, count: number, houses: House[], s: ScheduleSettings, email: string, now: string, isTeam: boolean, max = 8, except: string[] = []) {
-  const out: { date: string; house: House; start: number }[] = []
+  const need = maxMinutesFor(count, s)
+  const out: { date: string; house: House; start: number; end: number }[] = []
   for (let k = 0; k < dayCount && out.length < max; k++) {
     const date = addDays(fromDate, k)
-    // Creators: skip days where they already have their house slot(s).
     if (!isTeam && houseSlotsOn(days[date], email, now, except) >= s.slotsPerDay) continue
     for (const house of houses) {
-      for (let i = 0; i + count <= s.slots.length && out.length < max; i++) {
-        let ok = true
-        for (let j = 0; j < count; j++) {
-          const st = s.slots[i + j]
-          if (j > 0 && st !== s.slots[i + j - 1] + s.slotMinutes) { ok = false; break }
-          if (slotState(days[date], date, house, st, s, email, now, isTeam).t !== 'free') { ok = false; break }
-        }
-        if (ok) { out.push({ date, house, start: s.slots[i] }); i += count - 1 }
+      if (!isTeam && priorityLocked(date, house, s, email, now)) continue
+      for (const g of freeGaps(days[date], date, house, s, now, need, except)) {
+        for (let st = g.start; st + need <= g.end && out.length < max; st += need) out.push({ date, house, start: st, end: st + need })
       }
     }
   }
-  return out
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.start - b.start).slice(0, max)
 }
 
 export type ScheduleProblem = 'bad-date' | 'bad-slot' | 'bad-hours' | 'in-past' | 'too-far' | 'locked' | 'no-monthly-left' | 'taken' | 'blocked' | 'no-where' | 'short-notice' | 'held' | 'day-limit'
 export const SCHEDULE_MESSAGES: Record<ScheduleProblem, string> = {
   'bad-date': 'Pick a day.',
   'bad-slot': 'Pick one of the 2-hour slots.',
-  'bad-hours': 'Pick a start and end time, in half hours, ending after it starts.',
+  'bad-hours': 'Pick a start and end time in 15-minute steps, at least 30 minutes long, inside the house hours.',
   'in-past': 'That slot has already started.',
   'too-far': `Bookings can be made up to ${BOOK_AHEAD_DAYS} days ahead.`,
   locked: 'This priority-day slot opens to everyone on the Sunday before, at the release time.',
   'no-monthly-left': 'You have used all your monthly slots for that month. Book it as an extra slot instead.',
-  taken: 'Someone just booked that slot. Pick another one.',
+  taken: 'Someone already has part of that time. Pick a free time.',
   blocked: 'That time is blocked at the house.',
   'no-where': 'Say where the offsite shoot is.',
   'short-notice': 'Less than 48 hours to go. Swap with someone instead, or cancel (it counts as a no-show).',
   held: `That slot is held for someone's collab (up to ${INVITE_HOLD_MINUTES} minutes). Check back soon.`,
-  'day-limit': "You already have your house slot that day. Creators can book one 2-hour slot a day; ask the schedule team if you need more time.",
+  'day-limit': "You already have a house booking that day. Creators can be on one house booking a day; ask the schedule team if you need more time.",
 }
 
 // Checks that don't need the database (the rest happen in the transaction).

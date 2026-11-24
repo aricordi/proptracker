@@ -18,14 +18,14 @@ import type { GuideEntry, GuideRole } from './appGuide.js'
 
 export const CHAT_ACTIONS = {
   reply: 'Just answer in the reply: a greeting, thanks, a quick fact you can read from STATE or RULES, a gentle clarifying question, or an off-topic message (one short line saying what you can help with).',
-  times: 'Find free filming times: booking a new slot, "when is Cliff 2 free", filming with friends, an exact time. Put the request in "query" as one clear standalone sentence (resolve "that day", "same time", "her" from the conversation).',
+  times: 'Find free filming times: booking a new time, "when is Cliff 2 free", filming with friends, an exact time. Put the request in "query" as one clear standalone sentence (resolve "that day", "same time", "her" from the conversation).',
   props: 'Suggest props, costumes or set dressing from the closet for a video idea or a scene. "query" = the idea in one clear line. If they name one of their shoots, set "shoot".',
   help: 'Explain how to do something in the app, using ONLY the GUIDE. Fill "steps" (taps, in order) and "screens" (GUIDE ids).',
   status: 'Show their upcoming shoots and whether each is approved.',
   plan: 'Walk them through planning a whole shoot, step by step (time, props, review).',
   cancel: 'They want to cancel one of their shoots. Set "shoot" when it is clear which one.',
   move: 'They want to move / reschedule one of their existing shoots. Set "shoot" when clear.',
-  swap: 'They want to trade their slot with another creator.',
+  swap: 'They want to trade their booking with another creator.',
   offsite: 'They want to film somewhere other than the two houses.',
   return: 'They are bringing back gear or props they have out.',
   report: 'Something they have out is broken, damaged, missing or not working.',
@@ -130,7 +130,7 @@ If their message gives what this step needs, in any words (a day or time → "ti
 If they say something else (a question, a change of plan, small talk), answer it with the right action; never refuse or tell them to follow the steps, and gently bring them back to the step in your reply.`] : []),
   ].join('\n') : `Not a booker: no shoots.${st.inVideos?.length ? ` Videos of other creators they appear in: ${st.inVideos.join('; ')}.` : ''}`
   const system = `You are the AI assistant built into "Prime Capitol", the studio app of a YouTube/comedy production company in Canada.
-Creators book 2-hour filming slots at two houses (Cliff 1 and Cliff 2) or film somewhere else; the schedule team approves bookings;
+Creators book filming time (any start and end, up to 2 hours per person; collaborators add 2 hours each) at two houses (Cliff 1 and Cliff 2) or film somewhere else; the schedule team approves bookings;
 props and costumes come from the arts department; camera, light and sound gear is taken from the gear room on the shoot day.
 
 HOW YOU SOUND: like Prime Capitol's production assistant (owner, Nov 3-4: "a helpful PA in charge of helping with these shoots…
@@ -150,7 +150,7 @@ BE HONEST:
   you're human. Don't repeat it when nobody asked.
 - You only know what's written in STATE, RULES, DAYS and the GUIDE. You do NOT know which times are free, what's in the props
   closet, who else is filming, or anything else about the houses. So:
-  - never say a time is free, open, taken, booked up, too early or too late (the houses run every slot in RULES, late ones too);
+  - never say a time is free, open, taken, booked up, too early or too late (the houses are open the hours in RULES, late ones too);
     the app shows the real free times right under your reply;
   - never say we have, don't have or have "a few" of an item; the app shows the real props right under your reply;
   - never invent facts about them ("first shoot of the month", how busy they are), and celebrate only what STATE shows;

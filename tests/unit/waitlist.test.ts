@@ -60,7 +60,7 @@ describe('the chat offers the waitlist', () => {
     expect(waitlistSpotFor(day, '2026-11-11', ['cliff1', 'cliff2'], 1020, s, 'me@x.com', NOW, [{ date: '2026-11-11', start: 1020 }])).toBeNull()
     expect(waitlistSpotFor(day, '2026-11-11', ['cliff2'], 1020, s, 'me@x.com', NOW, [])).toBeNull()   // Cliff 2 is just empty
     expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], 1020, s, 'a@x.com', NOW, [])).toBeNull()    // it's yours
-    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], 1050, s, 'me@x.com', NOW, [])).toBeNull()   // not a slot start
+    expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], 1051, s, 'me@x.com', NOW, [])).toBeNull()   // not a 15-minute step
     expect(waitlistSpotFor(day, '2026-11-11', ['cliff1'], undefined, s, 'me@x.com', NOW, [])).toBeNull()
   })
   it('never offers a spot the server would refuse (reviewer, Nov 7)', () => {

@@ -1,6 +1,6 @@
 // "Notify me if it opens" (owner, Nov 7): the pure rules of the house-slot waitlist, shared by the server (waitlist.ts)
 // and the app. No database here, so every rule is unit-tested.
-import { blockAt, holdActive, houseSlotsOn, slotsPerDayFor, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
+import { conflictAt, houseSlotsOn, slotsPerDayFor, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
 
 export const MAX_WAITING = 5   // waiting entries per person at once
 export type WaitStatus = 'waiting' | 'offered' | 'done' | 'left' | 'expired'
@@ -22,11 +22,12 @@ export function freedSlots(before: ScheduleDay | undefined, after: ScheduleDay |
 
 /** Who is on the slot right now, for joining the list: free, blocked, yours, or someone else's (booked, asked or held). */
 export function slotOccupant(day: ScheduleDay | undefined, house: House, start: number, s: ScheduleSettings, email: string, now: string): 'free' | 'blocked' | 'mine' | 'taken' {
-  const e = day?.[house]?.[slotKey(start)]
-  const active = !!e && (e.hold ? holdActive(e, now) : !!e.shootId)
-  if (!active && blockAt(day, house, start, s.slotMinutes)) return 'blocked'
-  if (!active) return 'free'
-  return e!.email?.toLowerCase() === email.toLowerCase() ? 'mine' : 'taken'
+  // Free time: whoever's booking covers that start time.
+  const c = conflictAt(day, house, start, start + 15, s, now)
+  if (!c) return 'free'
+  if (c.t === 'block') return 'blocked'
+  const e = c.b.entry
+  return e.email?.toLowerCase() === email.toLowerCase() || (e.people ?? []).includes(email.toLowerCase()) ? 'mine' : 'taken'
 }
 
 /** Why the server would refuse to put this person on the list, before they tap (the same checks as joinWaitlist, minus
@@ -55,7 +56,7 @@ export const nextInLine = <T extends Pick<WaitEntry, 'at' | 'email' | 'status'>>
 /** The chat (time finder): the exact time they asked for on that one day is someone else's, so offer the waitlist. */
 export function waitlistSpotFor(day: ScheduleDay | undefined, date: string, houses: House[], at: number | undefined, s: ScheduleSettings, email: string, now: string,
   options: { date: string; start: number }[]): { date: string; house: House; start: number } | null {
-  if (at === undefined || !s.slots.includes(at)) return null
+  if (at === undefined || at % 15) return null
   if (options.some(o => o.date === date && o.start === at)) return null   // that time is free somewhere: no need to wait
   for (const house of houses) {
     if (slotOccupant(day, house, at, s, email, now) === 'taken' && !waitRefusal(day, date, house, at, s, email, now)) return { date, house, start: at }

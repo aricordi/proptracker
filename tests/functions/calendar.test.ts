@@ -95,7 +95,7 @@ describe('importing the existing calendar', () => {
     expect((await call('checkCalendarNow', {}, MAANIK)).error).toBeUndefined()
   })
 
-  it('old events keep their real hours (fill every slot they touch) and overlapping ones are imported as a clash', async () => {
+  it('old events keep their real hours (one entry at their real start) and overlapping ones are imported as a clash', async () => {
     const day = FRI
     const r = await call('applyCalendarImport', { items: [
       { id: 'odd1', action: 'shoot', email: ANA, house: 'cliff2', date: day, start: 870, end: 1020 },   // 2:30–5 PM
@@ -104,18 +104,17 @@ describe('importing the existing calendar', () => {
     expect(r.result.results.every((x: { ok: boolean }) => x.ok)).toBe(true)
     expect(r.result.results[1].message).toMatch(/CLASH with Ana/)
     const d = (await getDoc(`schedule_days/${day}`))!
-    expect(d.cliff2['780'].email).toBe(ANA)            // 1–3 slot held: it overlaps 2:30–3
-    expect(d.cliff2['900'].email).toBe(ANA)
-    expect(d.cliff2['900'].time).toEqual({ start: 870, end: 1020 })
+    expect(d.cliff2['870'].email).toBe(ANA)            // free time (Nov 24): one entry at the real start
+    expect(d.cliff2['870'].time).toEqual({ start: 870, end: 1020 })
     expect(d.clashes).toHaveLength(1)
     expect(d.clashes[0]).toMatchObject({ house: 'cliff2', slot: '900', name: 'Ben' })
     // Nobody can book over the imported shoot.
     expect((await call('bookShoot', { place: 'cliff2', date: day, start: 780 }, BEN)).ok).toBe(false)
     // Cancelling it frees her slots, and Ben's shoot that was clashing underneath takes the 3–5 slot (audit, Nov 5).
-    const ana = (await getDoc(`schedule_days/${day}`))!.cliff2['900'].shootId
+    const ana = (await getDoc(`schedule_days/${day}`))!.cliff2['870'].shootId
     expect((await call('cancelShoot', { id: ana }, MAANIK)).ok).toBe(true)
     const after = (await getDoc(`schedule_days/${day}`))!
-    expect(after.cliff2['780']).toBeUndefined()
+    expect(after.cliff2['870']).toBeUndefined()
     expect(after.cliff2['900'].email).toBe(BEN)
     expect(after.clashes).toHaveLength(0)
     expect((await getDoc(`shoots/${ana}`))!.start).toBe(870)
@@ -130,17 +129,19 @@ describe('importing the existing calendar', () => {
     ] }, OWNER)
     expect(r.result.results.every((x: { ok: boolean; message?: string }) => x.ok && !/CLASH/.test(x.message ?? ''))).toBe(true)
     const d = (await getDoc(`schedule_days/${day}`))!
-    // Each slot shows whoever fills most of it; the other waits underneath as "shared", never as a clash.
-    expect(d.cliff1['780'].email).toBe(ANA)
-    expect(d.cliff1['900'].email).toBe(BEN)      // Ben has 90 minutes of 3–5, Ana 15
-    expect(d.cliff1['1020'].email).toBe(OWNER)   // 105 minutes of 5–7 vs Ben's 30
-    expect(d.cliff1['1140'].email).toBe(OWNER)
-    expect(d.clashes.length).toBeGreaterThan(0)
-    expect(d.clashes.every((c: { shared?: boolean }) => c.shared)).toBe(true)
-    for (const id of [d.cliff1['780'].shootId, d.cliff1['900'].shootId, d.cliff1['1020'].shootId]) expect((await getDoc(`shoots/${id}`))!.clash).toBeUndefined()
-    // If Ben's shoot goes, Ana's (which also touches 3–5) holds that slot again: nobody can book over her real hours.
-    expect((await call('cancelShoot', { id: d.cliff1['900'].shootId }, MAANIK)).ok).toBe(true)
-    expect((await getDoc(`schedule_days/${day}`))!.cliff1['900'].email).toBe(ANA)
+    // Free time (Nov 24): each at its own real start, no clash at all.
+    expect(d.cliff1['795'].email).toBe(ANA)
+    expect(d.cliff1['930'].email).toBe(BEN)
+    expect(d.cliff1['1065'].email).toBe(OWNER)
+    expect(d.clashes ?? []).toHaveLength(0)
+    for (const id of [d.cliff1['795'].shootId, d.cliff1['930'].shootId, d.cliff1['1065'].shootId]) expect((await getDoc(`shoots/${id}`))!.clash).toBeUndefined()
+    // Ben's time can't be booked over; once his shoot goes, exactly 3:30–5:30 is free (and Ana's 1:15–3:15 still isn't).
+    const CARA = 'cara@example.com'
+    await put(`users/${CARA}`, { email: CARA, role: 'creator', active: true, name: 'Cara' })
+    expect((await call('bookShoot', { place: 'cliff1', date: day, start: 930, end: 1050 }, CARA)).ok).toBe(false)
+    expect((await call('cancelShoot', { id: d.cliff1['930'].shootId }, MAANIK)).ok).toBe(true)
+    expect((await call('bookShoot', { place: 'cliff1', date: day, start: 900, end: 960 }, CARA)).ok).toBe(false)
+    expect((await call('bookShoot', { place: 'cliff1', date: day, start: 930, end: 1050 }, CARA)).ok).toBe(true)
   })
 
   it('repairs false clashes saved before the rule, once, and fixes the shoot and its waiting card', async () => {
@@ -205,8 +206,7 @@ describe('importing again', () => {
     await call('applyCalendarImport', { items: [{ id: 'man1', action: 'shoot', email: ANA, house: 'cliff2', date: FRI, start: 930, end: 1050, title: 'Ana - Cliff 2' }] }, OWNER)
     const d = (await getDoc(`schedule_days/${FRI}`))!
     expect(d.cliff2['780']).toBeUndefined()
-    const id = d.cliff2['900'].shootId
-    expect(d.cliff2['1020'].shootId).toBe(id)
+    const id = d.cliff2['930'].shootId
     expect((await getDoc(`shoots/${id}`))!.start).toBe(930)
     // Deleted in Google Calendar.
     await put('test_calendar/events', { items: [] })
@@ -354,7 +354,9 @@ describe('one booking, several creators (owner, Nov 4)', () => {
     // Taken back to one person later: the extra turns come off.
     await call('applyCalendarImport', { items: [{ id: 'grp1', action: 'shoot', email: BEN, house: 'cliff1', date: FRI, start: 780, end: 1140 }] }, OWNER)
     const d2 = (await getDoc(`schedule_days/${FRI}`))!
-    expect([d2.cliff1['780'].email, d2.cliff1['900'].email, d2.cliff1['1020'].email]).toEqual([BEN, BEN, BEN])
+    expect(d2.cliff1['780'].email).toBe(BEN)
+    expect(d2.cliff1['780'].time).toEqual({ start: 780, end: 1140 })
+    expect([d2.cliff1['900'], d2.cliff1['1020']]).toEqual([undefined, undefined])
     expect((await getDoc(`shoots/${imp.shootIds[1]}`))!.status).toBe('cancelled')
     // Ben keeps his own shoot (audit, Nov 7: every turn was cancelled and made again).
     expect(d2.cliff1['780'].shootId).toBe(imp.shootIds[0])

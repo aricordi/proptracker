@@ -4,6 +4,7 @@
 import { addDays, weekday, isDay } from './booking.js'
 import { stamp, addMinutes } from './gearBooking.js'
 import { slotState, houseSlotsOn, slotsPerDayFor, type ScheduleDay, type ScheduleSettings, type House } from './schedule.js'
+import { freeGaps, priorityLocked as lockedAt } from './schedule.js'
 
 export type TimeOfDay = 'any' | 'morning' | 'afternoon' | 'evening' | 'night' | 'late'   // night = 'tonight' (5 PM on)
 export interface TimeAsk {
@@ -283,37 +284,42 @@ export function findOptions(
 ): TimeOption[] {
   const out: TimeOption[] = []
   const k = ask.mySlots + friends.length
+  const need = k * s.slotMinutes   // free time (Nov 24): one booking, 2 hours per person on it
   for (let date = ask.from; date <= ask.to && out.length < max; date = addDays(date, 1)) {
-    // One house slot a day each (settings.slotsPerDay): skip days you or a friend already have theirs. The team isn't limited.
-    if (!isTeam && (houseSlotsOn(days[date], me.email, now) + ask.mySlots > slotsPerDayFor(me.email, s)
+    // One house booking a day each (settings.slotsPerDay): skip days you or a friend already have one. The team isn't limited.
+    if (!isTeam && (houseSlotsOn(days[date], me.email, now) + 1 > slotsPerDayFor(me.email, s)
       || friends.some(f => houseSlotsOn(days[date], f.email, now) >= slotsPerDayFor(f.email, s)))) continue
-    let perDay = 0
-    // Asked for a time ("at 5pm"): try the grid slots closest to it first (both houses), so the exact time leads.
-    const order = s.slots.map((_, i) => i)
-    if (ask.at !== undefined) order.sort((a, b) => Math.abs(s.slots[a] - ask.at!) - Math.abs(s.slots[b] - ask.at!) || a - b)
-    const tries = ask.at !== undefined
-      ? order.flatMap(i => ask.houses.map(house => ({ house, i })))
-      : ask.houses.flatMap(house => order.map(i => ({ house, i })))
-    const used = new Set<string>()
-    for (const { house, i } of tries) {
-      {
-        if (out.length >= max || perDay >= 2 || i + k > s.slots.length) continue
-        if ([...Array(k).keys()].some(j => used.has(`${house}${i + j}`))) continue
-        const starts = s.slots.slice(i, i + k)
-        if (!inTime(starts[0], ask.timeOfDay)) continue
-        if (starts.some((st, j) => j > 0 && st !== starts[j - 1] + s.slotMinutes)) continue
-        if (starts.some(st => slotState(days[date], date, house, st, s, me.email, now, skipLock).t !== 'free')) continue
-        const busy = friends.some((f, j) => {
-          const from = stamp(date, starts[ask.mySlots + j]), to = addMinutes(from, s.slotMinutes)
-          return (friendBusy[f.email] ?? []).some(b => b.from < to && from < b.to)
-        })
-        if (busy) continue
-        out.push({ date, place: house, start: starts[0], slots: starts.map((st, j) => j < ask.mySlots
-          ? { email: me.email, name: me.name, start: st, me: true }
-          : { email: friends[j - ask.mySlots].email, name: friends[j - ask.mySlots].name, start: st, me: false }) })
-        perDay++
-        for (let j = 0; j < k; j++) used.add(`${house}${i + j}`)
+    const cands: { house: House; start: number }[] = []
+    for (const house of ask.houses) {
+      if (!skipLock && lockedAt(date, house, s, me.email, now)) continue
+      for (const g of freeGaps(days[date], date, house, s, now, need)) {
+        // Asked for a time ("at 5pm"): that exact time if it fits, else the nearest start that does.
+        if (ask.at !== undefined) cands.push({ house, start: Math.min(Math.max(ask.at, g.start), g.end - need) })
+        cands.push({ house, start: g.start })
+        if (g.end - g.start >= need * 2) cands.push({ house, start: g.end - need })
+        // The start of each part of the day inside a long free stretch (so "evenings" finds 5 PM, not only the morning).
+        for (const at of [720, 1020, 1260]) if (at > g.start && at + need <= g.end) cands.push({ house, start: at })
       }
+    }
+    const seen = new Set<string>()
+    const ordered = cands.filter(c => c.start % 15 === 0 && inTime(c.start, ask.timeOfDay))
+      .sort((a, b) => ask.at !== undefined ? Math.abs(a.start - ask.at) - Math.abs(b.start - ask.at) || a.start - b.start : a.start - b.start)
+    let perDay = 0
+    for (const c of ordered) {
+      if (out.length >= max || perDay >= 2) break
+      const key = `${c.house}${c.start}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const starts = Array.from({ length: k }, (_, j) => c.start + j * s.slotMinutes)
+      const busy = friends.some((f, j) => {
+        const from = stamp(date, starts[ask.mySlots + j]), to = addMinutes(from, s.slotMinutes)
+        return (friendBusy[f.email] ?? []).some(b => b.from < to && from < b.to)
+      })
+      if (busy) continue
+      out.push({ date, place: c.house, start: c.start, slots: starts.map((st, j) => j < ask.mySlots
+        ? { email: me.email, name: me.name, start: st, me: true }
+        : { email: friends[j - ask.mySlots].email, name: friends[j - ask.mySlots].name, start: st, me: false }) })
+      perDay++
     }
   }
   return out

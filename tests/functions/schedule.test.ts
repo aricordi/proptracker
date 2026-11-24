@@ -28,14 +28,14 @@ describe('booking a house', () => {
     expect(r.result.kind).toBe('monthly')
     const shoot = (await getDoc(`shoots/${r.result.id}`))!
     expect(shoot).toMatchObject({ creatorEmail: ANA, creatorName: 'Ana', place: 'cliff1', date: FRI, start: 780, end: 900, kind: 'monthly', status: 'booked', from: `${FRI}T13:00`, to: `${FRI}T15:00` })
-    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780']).toEqual({ shootId: r.result.id, name: 'Ana', email: ANA, kind: 'monthly' })
+    expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780']).toEqual({ shootId: r.result.id, name: 'Ana', email: ANA, kind: 'monthly', time: { start: 780, end: 900 } })
   })
 
   it('no double-booking, even when two people tap at the same moment', async () => {
     const [a, b] = await Promise.all([book(ANA, {}), book(BEN, {})])
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1)
     const loser = a.ok ? b : a
-    expect(loser.message).toMatch(/just booked/)
+    expect(loser.message).toMatch(/Pick a free time/)
     expect((await book(BEN, { start: 900 })).ok).toBe(true)   // the next slot is fine (back to back)
   })
 
@@ -62,8 +62,8 @@ describe('booking a house', () => {
     expect((await book(ANA, { date: days[4], start: 1380, kind: 'extra' })).ok).toBe(true)
   })
 
-  it('refuses slots that are not on the grid, in the past, or blocked', async () => {
-    expect((await book(ANA, { start: 600 })).error).toBe('FAILED_PRECONDITION')
+  it('refuses times off the 15-minute steps, in the past, or blocked', async () => {
+    expect((await book(ANA, { start: 605 })).error).toBe('FAILED_PRECONDITION')
     expect((await book(ANA, { date: addDays(today, -1) })).message).toMatch(/already started/)
     await call('addScheduleBlock', { date: FRI, house: 'cliff1', start: 780, end: 900, type: 'cleaners' }, MAANIK)
     expect((await book(ANA, {})).message).toMatch(/blocked/)
@@ -181,7 +181,7 @@ describe('moving and the 48-hour notice', () => {
   it('a move to a taken slot changes nothing', async () => {
     const r = await book(ANA, {})
     await book(BEN, { start: 900 })
-    expect((await call('moveShoot', { id: r.result.id, place: 'cliff1', date: FRI, start: 900 }, ANA)).message).toMatch(/just booked/)
+    expect((await call('moveShoot', { id: r.result.id, place: 'cliff1', date: FRI, start: 900 }, ANA)).message).toMatch(/Pick a free time/)
     expect((await getDoc(`schedule_days/${FRI}`))!.cliff1['780'].shootId).toBe(r.result.id)
   })
 

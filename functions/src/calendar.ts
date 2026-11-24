@@ -14,7 +14,7 @@ import { FieldValue, FieldPath } from 'firebase-admin/firestore'
 import { randomBytes, createHash } from 'node:crypto'
 import { db, requireRole, CALLABLE, OWNER_EMAIL } from './auth.js'
 import { addDays, todayInStudio } from './booking.js'
-import { cleanScheduleSettings, cleanIgnoreList, oldCalendarFor, oldTitle, BLOCK_TYPES, monthOf, slotWindow, entryHours, overlapMinutes, holdActive, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
+import { houseBookings as houseBookingsOf, cleanScheduleSettings, cleanIgnoreList, oldCalendarFor, oldTitle, BLOCK_TYPES, monthOf, slotWindow, entryHours, overlapMinutes, holdActive, type ScheduleDay, type Block, type BlockType, type House, type Place } from './schedule.js'
 import { importShootAsTeam, removeImportedShoot, releaseCancelledImport, filmingPeople, repairSharedClashes, followShoot,
   cancelFromCalendar, retireOlderShoot, handOverToNewer, reviveRetired, sameDayShoots, enteredAt, startedShoot, REPLACED_NOTE } from './scheduling.js'
 import { openLinks } from './shootLinks.js'
@@ -900,7 +900,8 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; 
         const place = it.house as Place
         // The real hours from the calendar (owner, Oct 19: never moved to the grid, never changed in Google).
         const start = Number(it.start), end = Number(it.end) > start ? Number(it.end) : start + s.slotMinutes
-        const parts = place === 'offsite' ? splitHours(start, end, users.length) : splitOnGrid(start, end, users.length, s.slots, s.slotMinutes)
+        // Free time (Nov 24): a group's turns share the real hours equally, back to back (no 2-hour grid any more).
+        const parts = splitHours(start, end, users.length)
         // A shoot the creator cancelled (or that gave way to a priority booking) stays cancelled when the event changes in
         // Google (audit: a change there brought it back as booked). In a group, only that person's turn stays cancelled.
         const staysCancelled = (sid: string | undefined) => {
@@ -977,10 +978,10 @@ async function applyImports(list: any[], by: string, opts: { toCheck?: boolean; 
         const hit: { name: string; email?: string }[] = []
         await db.runTransaction(async tx => {
           const day = ((await tx.get(ref)).data() ?? {}) as ScheduleDay
-          const under = soft ? [] : Object.entries(day[house] ?? {}).filter(([k, e]) => e.shootId && !e.hold && Number(k) < end && start < Number(k) + s.slotMinutes)
-          hit.splice(0, hit.length, ...under.map(([, e]) => ({ name: e.name, email: e.email })))
+          const under = soft ? [] : houseBookingsOf(day, house, s).filter(b => b.shootId && !b.entry.hold && b.start < end && start < b.end)
+          hit.splice(0, hit.length, ...under.map(b => ({ name: b.entry.name, email: b.entry.email })))
           const clashes = [...(day.clashes ?? []).filter(c => c.blockId !== blockId),
-            ...under.map(([k, e]) => ({ house, slot: k, shootId: e.shootId, name: note || BLOCK_TYPES[type], email: e.email ?? '', start, end, blockId }))]
+            ...under.map(b => ({ house, slot: b.key, shootId: b.shootId, name: note || BLOCK_TYPES[type], email: b.entry.email ?? '', start, end, blockId }))]
           tx.set(ref, { date: it.date, clashes, blocks: [...(day.blocks ?? []).filter(b => b.id !== blockId), { id: blockId, house, start, end, type, note, by: caller.email, imported: true, calendarFeed: snapshot.feedId, ...(soft ? { soft: true } : {}), ...check }] }, { merge: true })
         })
         if (hit.length) {

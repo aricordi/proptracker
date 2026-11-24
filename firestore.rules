@@ -244,7 +244,9 @@ service cloud.firestore {
     }
     // Shoots: the creator sees their own; the owner and schedule team (equipment) see all.
     match /shoots/{id} {
-      allow read: if canSeeGear() || (isMember() && resource.data.creatorEmail == myEmail());
+      // Collaborators on a booking (free-time booking, Nov 24) see it too: `people` lists everyone on it.
+      allow read: if canSeeGear() || (isMember() && (resource.data.creatorEmail == myEmail()
+        || ('people' in resource.data && resource.data.people is list && myEmail() in resource.data.people)));
       allow write: if false;
     }
     // Swap requests between two creators: only those two (and the schedule team) see them; server writes.

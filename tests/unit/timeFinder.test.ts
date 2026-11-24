@@ -76,9 +76,11 @@ describe('finding real open slots', () => {
     const busy = { 'kyle@x.com': [{ from: '2026-10-22T09:00', to: '2026-10-22T11:00' }] }
     const o = findOptions(ask, me, friends, days, busy, s, '2026-10-21T09:00', false)
     expect(o.every(x => x.slots[1].start !== 540 && x.slots[1].start !== 660)).toBe(true)
-    // After the hold ends, that slot counts as free again.
-    const later = findOptions(ask, me, friends, days, {}, s, '2026-10-21T09:30', false)
-    expect(later.some(x => x.slots.some(y => y.start === 660))).toBe(true)
+    // While held, Cliff 2 only has time around the hold; after the hold ends it's one free stretch from the morning.
+    const held = findOptions({ ...ask, houses: ['cliff2'] }, me, friends, days, {}, s, '2026-10-21T09:00', false)
+    expect(held.every(x => x.start + 240 <= 660 || x.start >= 780)).toBe(true)
+    const later = findOptions({ ...ask, houses: ['cliff2'], at: 660 }, me, friends, days, {}, s, '2026-10-21T09:30', false)
+    expect(later[0].start).toBe(660)
   })
   it('one house slot a day: skips days you or your friend already film (not for the team)', () => {
     const two = { ...ask, to: '2026-10-23' }

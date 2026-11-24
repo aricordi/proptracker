@@ -13,7 +13,7 @@ import { db, requireRole, CALLABLE, OWNER_EMAIL, isDemoCreator } from './auth.js
 import { isDay } from './booking.js'
 import { nowStamp, addMinutes } from './gearBooking.js'
 import { loadScheduleSettings } from './scheduling.js'
-import { blockAt, houseSlotsOn, slotsPerDayFor, INVITE_HOLD_MINUTES, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
+import { blockAt, conflictAt, houseSlotsOn, slotsPerDayFor, INVITE_HOLD_MINUTES, needsGuideline, priorityLocked, slotKey, slotWindow, type House, type ScheduleDay, type ScheduleSettings } from './schedule.js'
 import { freedSlots, MAX_WAITING, nextInLine, positionOf, slotOccupant, waitId, type WaitEntry } from './waitlistRules.js'
 
 const emailKey = (email: string) => createHash('sha1').update(email.toLowerCase()).digest('hex').slice(0, 16)
@@ -31,7 +31,7 @@ export const joinWaitlist = onCall(CALLABLE, async req => {
   const d = req.data ?? {}
   const s = await loadScheduleSettings()
   const date = d.date, house = d.house, start = d.start
-  if (!isDay(date) || !isHouse(house) || !Number.isInteger(start) || !s.slots.includes(start)) throw new HttpsError('invalid-argument', 'Pick a time on the schedule.')
+  if (!isDay(date) || !isHouse(house) || !Number.isInteger(start) || start % 15) throw new HttpsError('invalid-argument', 'Pick a time on the schedule.')
   const now = nowStamp()
   if (slotWindow(date, start, s.slotMinutes).from <= now) throw fail('past', 'That time has already started.')
   const day = (await dayRef(date).get()).data() as ScheduleDay | undefined
@@ -39,7 +39,7 @@ export const joinWaitlist = onCall(CALLABLE, async req => {
   if (who === 'free') throw fail('free', "That time is free right now: book it instead.")
   if (who === 'mine') throw fail('mine', "That one's already yours.")
   if (who === 'blocked') throw fail('blocked', "That time is blocked by the team, so it won't open up.")
-  if (houseSlotsOn(day, caller.email, now) >= slotsPerDayFor(caller.email, s)) throw fail('day-limit', 'You already have a house slot that day (one 2-hour slot a day each).')
+  if (houseSlotsOn(day, caller.email, now) >= slotsPerDayFor(caller.email, s)) throw fail('day-limit', 'You already have a house booking that day (one a day each).')
   if (priorityLocked(date, house, s, caller.email, now)) throw fail('locked', "That's a priority-day slot that hasn't opened to everyone yet.")
   // A priority-day slot at Cliff 1 needs a filming guideline (PDF), which a one-tap waitlist can't ask for.
   if (needsGuideline(date, house, caller.email, s)) throw fail('guideline', 'Thursdays and Saturdays at Cliff 1 need a filming guideline, so the waitlist doesn\'t cover them. Ask for another time.')
@@ -49,7 +49,10 @@ export const joinWaitlist = onCall(CALLABLE, async req => {
   const already = (await ref.get()).data()
   if (!(already && ['waiting', 'offered'].includes(already.status))) {
     if (mine.filter(x => x.id !== id).length >= MAX_WAITING) throw fail('too-many', `You're already waiting for ${MAX_WAITING} times. Leave one of them first.`)
-    await ref.set({ date, house, start, email: caller.email, name: caller.name, at: new Date().toISOString(), status: 'waiting' })
+    // Free time: wait for that booking's exact time (start → its end).
+    const taken = conflictAt(day, house, start, start + 15, s, now)
+    const end = taken && taken.t !== 'block' ? taken.b.end : start + s.slotMinutes
+    await ref.set({ date, house, start, end, email: caller.email, name: caller.name, at: new Date().toISOString(), status: 'waiting' })
   }
   const all = await slotEntries(date, house, start)
   return { id, status: already?.status === 'offered' ? 'offered' : 'waiting', position: positionOf(all, caller.email) }
@@ -91,7 +94,7 @@ async function stillEligible(w: WaitEntry, day: ScheduleDay | undefined, s: Sche
 /** A slot just freed: hold it for the first person still waiting (skipping anyone who can't take it any more). */
 export async function offerNext(date: string, house: House, start: number, now = nowStamp()): Promise<string | null> {
   const s = await loadScheduleSettings()
-  if (!s.slots.includes(start) || slotWindow(date, start, s.slotMinutes).from <= now) return null
+  if (slotWindow(date, start, s.slotMinutes).from <= now) return null
   for (const cand of nextInLine(await slotEntries(date, house, start))) {
     const ref = db.doc(`waitlist/${cand.id}`), inviteRef = db.collection('schedule_invites').doc()
     const result = await db.runTransaction(async tx => {
@@ -99,13 +102,14 @@ export async function offerNext(date: string, house: House, start: number, now =
       const day = (await tx.get(dayRef(date))).data() as ScheduleDay | undefined
       if (!w || w.status !== 'waiting') return 'next'
       // Someone else got there first (or the team blocked it): nothing to offer.
-      if (day?.[house]?.[slotKey(start)] || blockAt(day, house, start, s.slotMinutes)) return 'stop'
+      const end = Number((w as WaitEntry & { end?: number }).end) || start + s.slotMinutes
+      if (day?.[house]?.[slotKey(start)] || conflictAt(day, house, start, end, s, now)) return 'stop'
       const why = await stillEligible(w, day, s, now)
       if (why) { tx.update(ref, { status: 'expired', reason: why, endedAt: new Date().toISOString() }); return 'next' }
       const until = addMinutes(now, INVITE_HOLD_MINUTES), at = new Date().toISOString()
       tx.set(dayRef(date), { ...(day ?? {}), date, [house]: { ...(day?.[house] ?? {}),
-        [slotKey(start)]: { shootId: '', name: w.name, email: w.email, kind: 'extra', hold: { until, inviteId: inviteRef.id, fromName: 'Waitlist' } } } })
-      tx.set(inviteRef, { fromEmail: 'waitlist', fromName: 'Waitlist', toEmail: w.email, toName: w.name, place: house, date, start, end: start + s.slotMinutes,
+        [slotKey(start)]: { shootId: '', name: w.name, email: w.email, kind: 'extra', time: { start, end }, hold: { until, inviteId: inviteRef.id, fromName: 'Waitlist' } } } })
+      tx.set(inviteRef, { fromEmail: 'waitlist', fromName: 'Waitlist', toEmail: w.email, toName: w.name, place: house, date, start, end,
         until, status: 'pending', createdAt: at, waitlist: true, waitlistId: cand.id })
       tx.update(ref, { status: 'offered', inviteId: inviteRef.id, offeredAt: at })
       return 'offered'

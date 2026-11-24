@@ -16,7 +16,7 @@ import { openLinks, assertNoLinksForDayChange } from './shootLinks.js'
 import { cancelForShoot, moveReservationToShoot, markShootGone } from './reservations.js'
 import { cancelGearForShoot, leaveCrew } from './gearBookings.js'
 import { houseSlotsOn, needsGuideline, isLongBooker, slotsPerDayFor,
-  cleanScheduleSettings, checkSlot, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
+  cleanScheduleSettings, checkSlot, checkTimes, houseBookings as houseBookingsOf, conflictAt, normalizeDay, maxMinutesFor, DEFAULT_SCHEDULE, holdActive, entryHours, overlapMinutes, isRealClash, sortSharedClashes, INVITE_HOLD_MINUTES, priorityLocked, blockAt, slotKey, slotWindow, monthOf, offsiteHoursOk, isShortNotice, cancelCountsAsNoShow, timeSetByTeam,
   SCHEDULE_MESSAGES, MONTHLY_HOUSE, BLOCK_TYPES, type Block, type ScheduleSettings, type ScheduleDay, type SlotEntry, type OffsiteEntry, type Place, type House,
   type ShootKind, type BlockType, type ScheduleProblem,
 } from './schedule.js'
@@ -83,35 +83,37 @@ const spotLabel = (p: Spot, s: ScheduleSettings) => `${placeLabel(p, s)} · ${da
 // Read and check where a shoot is going (book or move). Throws a plain-words problem.
 function readSpot(d: Record<string, any>, s: ScheduleSettings): Spot {
   const today = todayInStudio(), now = nowStamp()
-  const problem = checkSlot(d.place, d.date, d.start, s, today, now)
+  // FREE-TIME BOOKING (owner, Nov 24): any start/end in 15-minute steps. Without `end` (older apps) a house booking is 2 hours.
+  const start = d.start as number
+  const end = Number.isInteger(d.end) ? d.end as number : Number.isInteger(start) && d.place !== 'offsite' ? start + s.slotMinutes : d.end
+  const problem = checkTimes(d.place, d.date, start, end, s, today, now)
   if (problem) throw fail(problem)
-  const place = d.place as Place, start = d.start as number
-  let end = start + s.slotMinutes, where = ''
+  const place = d.place as Place
+  let where = ''
   if (place === 'offsite') {
-    if (!offsiteHoursOk(start, d.end)) throw fail('bad-hours')
-    end = d.end
     where = str(d.where, 200)
     if (!where) throw fail('no-where')
   }
-  return { place, date: d.date, start, end, where }
+  return { place, date: d.date, start, end: end as number, where }
 }
 
 const dayRefOf = (date: string) => db.doc(`schedule_days/${date}`)
 
 // Put a shoot into / take it out of its day's document (in memory; written by the caller).
-type Entry = { shootId: string; name: string; email: string; kind: ShootKind; pending?: boolean; move?: boolean }
-const flags = (e: Entry) => ({ ...(e.pending ? { pending: true } : {}), ...(e.move ? { move: true } : {}) })
+type Entry = { shootId: string; name: string; email: string; kind: ShootKind; pending?: boolean; move?: boolean; people?: string[]; withNames?: string[] }
+const flags = (e: Entry) => ({ ...(e.pending ? { pending: true } : {}), ...(e.move ? { move: true } : {}),
+  ...(e.people?.length ? { people: e.people } : {}), ...(e.withNames?.length ? { withNames: e.withNames } : {}) })
 function placeIn(day: ScheduleDay, spot: Spot, entry: Entry, s: ScheduleSettings) {
   if (spot.place === 'offsite') {
     day.offsite = [...(day.offsite ?? []), { shootId: entry.shootId, name: entry.name, email: entry.email, start: spot.start, end: spot.end, where: spot.where, ...flags(entry) }]
     return
   }
-  if (blockAt(day, spot.place, spot.start, s.slotMinutes)) throw fail('blocked')
-  const taken = day[spot.place]?.[slotKey(spot.start)]
-  // A held slot is only free again once the hold has ended, or for the person it's held for.
-  if (taken?.hold) { if (holdActive(taken, nowStamp()) && taken.email !== entry.email) throw fail('held') }
-  else if (taken && taken.shootId !== entry.shootId) throw fail('taken')
-  day[spot.place] = { ...(day[spot.place] ?? {}), [slotKey(spot.start)]: { shootId: entry.shootId, name: entry.name, email: entry.email, kind: entry.kind, ...flags(entry) } }
+  // Free time: nothing else may overlap [start, end) at that house (a hold only for the person it's held for).
+  const c = conflictAt(day, spot.place, spot.start, spot.end, s, nowStamp(), { except: [entry.shootId], forEmail: entry.email })
+  if (c?.t === 'block') throw fail('blocked')
+  if (c?.t === 'held') throw fail('held')
+  if (c?.t === 'booking') throw new HttpsError('failed-precondition', `${c.b.entry.name || 'Someone'} has ${fmtTime(c.b.start)}–${fmtTime(c.b.end)} there. Pick a free time.`, { problem: 'taken' })
+  day[spot.place] = { ...(day[spot.place] ?? {}), [slotKey(spot.start)]: { shootId: entry.shootId, name: entry.name, email: entry.email, kind: entry.kind, time: { start: spot.start, end: spot.end }, ...flags(entry) } }
 }
 // Approval helpers on a day doc: clear the "requested" mark, drop a waiting move, or finish an approved move.
 const strip = <T extends { pending?: boolean; move?: boolean }>(e: T): T => { const { pending: _p, move: _m, ...rest } = e; return rest as T }
@@ -142,12 +144,13 @@ function takeOut(day: ScheduleDay, spot: { place: Place; start: number }, shootI
 // A shoot that was waiting underneath as a clash (an imported event on the same slot) takes the slot it was clashing on
 // (audit: the slot showed Free and could be booked twice, and the clash never cleared). Only into slots that are empty now.
 function promoteClashes(day: ScheduleDay, house: House, freed: string[], shootId: string) {
-  for (const k of freed) {
-    if (day[house]?.[k]) continue
-    const c = (day.clashes ?? []).find(x => x.house === house && x.slot === k && !x.blockId && x.shootId && x.shootId !== shootId)
-    if (!c) continue
-    day[house] = { ...(day[house] ?? {}), [k]: { shootId: c.shootId, name: c.name, email: c.email ?? '', kind: 'extra',
-      ...(c.start === Number(k) && c.end === Number(k) + 120 ? {} : { time: { start: c.start, end: c.end } }) } }
+  // Free time (Nov 24): any calendar shoot waiting as a clash at this house whose real hours are now clear takes its place.
+  if (!freed.length) return
+  for (const c of [...(day.clashes ?? [])]) {
+    if (c.house !== house || c.blockId || !c.shootId || c.shootId === shootId) continue
+    const key = slotKey(c.start)
+    if (day[house]?.[key] || conflictAt(day, house, c.start, c.end, DEFAULT_SCHEDULE, nowStamp(), { except: [c.shootId] })) continue
+    day[house] = { ...(day[house] ?? {}), [key]: { shootId: c.shootId, name: c.name, email: c.email ?? '', kind: 'extra', time: { start: c.start, end: c.end } } }
     day.clashes = (day.clashes ?? []).filter(x => x !== c)
   }
 }
@@ -160,7 +163,7 @@ async function editDays(tx: Transaction, dates: string[], change: (days: Record<
   const unique = [...new Set(dates)]
   const snaps = await Promise.all(unique.map(d => tx.get(dayRefOf(d))))
   const days: Record<string, ScheduleDay> = {}
-  unique.forEach((d, i) => { days[d] = (snaps[i].data() ?? { date: d }) as ScheduleDay })
+  unique.forEach((d, i) => { days[d] = (snaps[i].data() ?? { date: d }) as ScheduleDay; normalizeDay(days[d], DEFAULT_SCHEDULE) })
   return () => {
     change(days)
     for (const d of unique) tx.set(dayRefOf(d), { ...days[d], date: d })
@@ -190,13 +193,44 @@ const withdrawInvites = (tx: Transaction, invs: HeldInvite[], at: string) =>
 // "manually allowed" = the team books the extra slot for them. Checked on the day doc inside the transaction.
 function assertDayLimit(day: ScheduleDay, email: string, adding: number, s: ScheduleSettings, except: string[] = [], who?: string) {
   if (houseSlotsOn(day, email, nowStamp(), except) + adding <= slotsPerDayFor(email, s)) return
-  if (who) throw new HttpsError('failed-precondition', `${who} already has a house slot that day (one 2-hour slot a day each).`, { problem: 'day-limit' })
+  if (who) throw new HttpsError('failed-precondition', `${who} already has a house booking that day (one a day each).`, { problem: 'day-limit' })
   throw fail('day-limit')
 }
 
 async function monthlyUsed(email: string, month: string, exceptId?: string) {
   const mine = await db.collection('shoots').where('creatorEmail', '==', email).where('month', '==', month).get()
   return mine.docs.filter(x => x.id !== exceptId && ['booked', 'requested'].includes(x.get('status')) && x.get('kind') === 'monthly').length
+}
+
+// COLLABORATORS (owner, Nov 24: "one booking, everyone listed"): people on the booking, each adding 2 hours it may last.
+// An email of someone who films (active creator or the owner), or "guest:<Name>" for someone not on the app yet. Up to 4.
+async function readCollaborators(raw: unknown, bookerEmail: string) {
+  const out: { email: string; name: string; guest?: boolean }[] = []
+  for (const r of (Array.isArray(raw) ? raw : []).map(e => str(e, 200).trim()).filter(Boolean)) {
+    if (out.length >= 4) throw new HttpsError('invalid-argument', 'Up to 4 people with you on one booking.')
+    if (isGuestEmail(r)) {
+      const known = (await db.doc(`users/${r.toLowerCase()}`).get()).data()
+      const name = known?.offApp === true ? String(known.name) : r.slice(6).replace(/\s+/g, ' ').trim().slice(0, 60)
+      const email = known?.offApp === true ? r.toLowerCase() : guestKey(name)
+      if (name.length < 2 || email === 'guest:' || out.some(f => f.email === email)) continue
+      out.push({ email, name, guest: true }); continue
+    }
+    const email = r.toLowerCase()
+    if (email === bookerEmail || out.some(f => f.email === email)) continue
+    const u = email === OWNER_EMAIL ? { active: true, name: 'Alex', role: 'owner' } : (await db.doc(`users/${email}`).get()).data()
+    if (!u || u.active !== true) throw new HttpsError('not-found', `${email} has no active account. Add them by name instead.`)
+    if (email !== OWNER_EMAIL && (u as { role?: string }).role !== 'creator') throw new HttpsError('failed-precondition', `${u.name || email} doesn't film, so they can't be on a booking.`, { problem: 'not-filming' })
+    out.push({ email, name: String(u.name || email) })
+  }
+  return out
+}
+// The 2-hours-per-person rule: up to 2 h alone, 4 h with one collaborator, and so on. The team and long bookers aren't limited.
+function assertLength(spot: Spot, people: number, caller: Caller, email: string, s: ScheduleSettings) {
+  if (spot.place === 'offsite' || isTeam(caller) || isLongBooker(email, s)) return
+  const max = maxMinutesFor(people, s)
+  if (spot.end - spot.start <= max) return
+  const need = Math.ceil((spot.end - spot.start) / s.slotMinutes) - people
+  throw new HttpsError('failed-precondition', `Each person can book up to ${s.slotMinutes / 60} hours. For ${fmtTime(spot.start)}–${fmtTime(spot.end)} add ${need} more ${need === 1 ? 'person' : 'people'} filming with you, or make it shorter.`, { problem: 'too-long', need })
 }
 
 export const bookShoot = onCall(CALLABLE, async req => {
@@ -209,8 +243,14 @@ export const bookShoot = onCall(CALLABLE, async req => {
   // 2-hour slot (half 0 = its first hour, 1 = its second). Takes that slot in both houses. Always a request the team approves
   // (even for people who book without approval), unless the team books it for someone. Counts as one booking for the day.
   const both = d.bothHouses === true && spot.place !== 'offsite'
-  const half = d.half === 1 ? 1 : 0
-  const time = both ? { start: spot.start + half * 60, end: spot.start + half * 60 + 60 } : null
+  // Both houses = the same time in each, up to an hour (older apps sent a 2-hour slot + which half).
+  if (both && !Number.isInteger(d.end)) { const h = d.half === 1 ? 60 : 0; spot.start += h; spot.end = spot.start + 60 }
+  if (both && spot.end - spot.start > 60) throw new HttpsError('invalid-argument', 'Both houses at once is for up to an hour.')
+  const time = both ? { start: spot.start, end: spot.end } : null
+  const collab = await readCollaborators(d.with, who.email)
+  assertLength(spot, 1 + collab.length, caller, who.email, s)
+  const people = collab.length ? [who.email, ...collab.map(c => c.email)] : []
+  const withNames = collab.map(c => c.name)
   if (spot.place !== 'offsite' && !skipsLock(caller, who.email)
     && (both ? (['cliff1', 'cliff2'] as const) : [spot.place]).some(h => priorityLocked(spot.date, h, s, who.email, nowStamp()))) throw fail('locked')
 
@@ -229,27 +269,31 @@ export const bookShoot = onCall(CALLABLE, async req => {
     }
   }
   const guideline = guidelineFor(caller, who.email, both ? { ...spot, place: 'cliff1' } : spot, s, d.guideline)
-  const win = time ? slotWindow(spot.date, time.start, 60) : slotWindow(spot.date, spot.start, spot.end - spot.start)
+  const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   const ref = db.collection('shoots').doc()
   const pending = needsApproval(caller, who.email, s, d.asCreator === true) || (both && (!isTeam(caller) || d.asCreator === true))
   const label = time ? `${s.houses.cliff1.name} + ${s.houses.cliff2.name} · ${dayLabel(spot.date)} · ${fmtTime(time.start)}–${fmtTime(time.end)}` : spotLabel(spot, s)
   await db.runTransaction(async tx => {
     const write = await editDays(tx, [spot.date], days => {
-      if (spot.place !== 'offsite' && !isTeam(caller)) assertDayLimit(days[spot.date], who.email, 1, s)
-      const entry = { shootId: ref.id, name: who.name, email: who.email, kind, pending }
+      if (spot.place !== 'offsite' && !isTeam(caller)) {
+        assertDayLimit(days[spot.date], who.email, 1, s)
+        collab.filter(c => !c.guest).forEach(c => assertDayLimit(days[spot.date], c.email, 1, s, [], c.name))
+      }
+      const entry = { shootId: ref.id, name: who.name, email: who.email, kind, pending, people, withNames }
       if (!both) { placeIn(days[spot.date], spot, entry, s); return }
       for (const h of ['cliff1', 'cliff2'] as const) {
         placeIn(days[spot.date], { ...spot, place: h }, entry, s)
-        days[spot.date][h]![slotKey(spot.start)] = { ...days[spot.date][h]![slotKey(spot.start)], time: time!, both: true }
+        days[spot.date][h]![slotKey(spot.start)] = { ...days[spot.date][h]![slotKey(spot.start)], both: true }
       }
     })
     write()
     tx.set(ref, {
       creatorEmail: who.email, creatorName: who.name, ...(isGuestEmail(who.email) ? { guest: true } : {}), ...spot, ...(both ? { place: 'cliff1', bothHouses: true, time } : {}), month: monthOf(spot.date),
+      ...(collab.length ? { with: collab, people, withNames } : {}),
       from: win.from, to: win.to, kind, status: pending ? 'requested' : 'booked', bookedBy: caller.email, createdAt: at, updatedAt: at,
       ...(pending ? { requestedAt: at } : {}), ...(guideline ? { guideline } : {}),
-      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${label}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
+      history: [{ at, by: caller.email, action: pending ? 'requested' : 'booked', note: `${label}${collab.length ? ` · with ${withNames.join(', ')}` : ''}${who.email !== caller.email ? ` · for ${who.name}` : ''}` }],
     })
   })
   if (who.email !== caller.email && isTeam(caller)) await teamLog(caller, { action: 'booked', label: `Booked ${who.name} · ${spotLabel(spot, s)}`, shootIds: [ref.id], date: spot.date, who: who.email, whoName: who.name })
@@ -344,7 +388,10 @@ export const moveShoot = onCall(CALLABLE, async req => {
   if (!pre) throw new HttpsError('not-found', 'Shoot not found.')
   if (pre.bothHouses) throw new HttpsError('failed-precondition', 'A both-houses booking can\'t be moved. Cancel it and ask for the new time.')
   // Offsite shoots move to other offsite hours; house shoots move between the houses.
-  const spot = readSpot({ ...d, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
+  // Free time: a move keeps the shoot's length unless a new end is given.
+  const keepLen = Number.isInteger(d.start) && !Number.isInteger(d.end) ? { end: (d.start as number) + (Number(pre.end) - Number(pre.start)) } : {}
+  const spot = readSpot({ ...d, ...keepLen, place: d.place ?? pre.place, where: d.where ?? pre.where }, s)
+  assertLength(spot, 1 + (Array.isArray(pre.with) ? pre.with.length : 0), caller, pre.creatorEmail, s)
   if ((pre.place === 'offsite') !== (spot.place === 'offsite')) throw new HttpsError('invalid-argument', 'Cancel and book again to switch between a house and an offsite shoot.')
   // The team moving a shoot to another day takes its props along (owner, Nov 15); creators still sort their props first
   // (otherwise a move could skip the props notice).
@@ -374,7 +421,7 @@ export const moveShoot = onCall(CALLABLE, async req => {
       if (old) dropMove(days[old.date], id)
       if (spot.place !== 'offsite' && !team) assertDayLimit(days[spot.date], b.creatorEmail, 1, s, [id])
       if (!asRequest) takeOut(days[b.date], b as Spot, id)
-      placeIn(days[spot.date], spot, { shootId: id, name: b.creatorName, email: b.creatorEmail, kind, pending: asRequest || stillRequest, move: asRequest }, s)
+      placeIn(days[spot.date], spot, { shootId: id, name: b.creatorName, email: b.creatorEmail, kind, pending: asRequest || stillRequest, move: asRequest, people: b.people, withNames: b.withNames }, s)
     })
     write()
     const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
@@ -533,6 +580,8 @@ export async function expireRequests(now = nowStamp()) {
 // A swap can't put someone on a priority-day slot before it opens to everyone, or on one that needs a filming guideline
 // they never gave (audit, Nov 5: swaps went round both rules).
 function assertSwapRules(a: FirebaseFirestore.DocumentData, b: FirebaseFirestore.DocumentData, s: ScheduleSettings, now: string) {
+  // Free time: creators can only swap bookings of the same length (each takes the other's exact time).
+  if (Number(a.end) - Number(a.start) !== Number(b.end) - Number(b.start)) throw new HttpsError('failed-precondition', 'You can only swap with a booking of the same length.', { problem: 'swap-length' })
   for (const [who, spot] of [[a, b], [b, a]] as const) {
     if (spot.place === 'offsite') continue
     if (priorityLocked(spot.date, spot.place, s, who.creatorEmail, now)) throw new HttpsError('failed-precondition', `${who.creatorName} isn't in the priority group, so they can't take that priority-day slot before it opens to everyone.`, { problem: 'locked' })
@@ -612,8 +661,8 @@ export const answerSwap = onCall(CALLABLE, async req => {
       // listed against the new holder (promoting it made the next placeIn fail 'taken', so the swap could never be accepted).
       takeOut(days[a!.date], a as Spot, aS.id, false); takeOut(days[b!.date], b as Spot, bS.id, false)
       const kindAt = (x: any, place: Place): ShootKind => place === MONTHLY_HOUSE ? x.kind : 'extra'
-      placeIn(days[b!.date], b as Spot, { shootId: aS.id, name: a!.creatorName, email: a!.creatorEmail, kind: kindAt(a, b!.place) }, s)
-      placeIn(days[a!.date], a as Spot, { shootId: bS.id, name: b!.creatorName, email: b!.creatorEmail, kind: kindAt(b, a!.place) }, s)
+      placeIn(days[b!.date], b as Spot, { shootId: aS.id, name: a!.creatorName, email: a!.creatorEmail, kind: kindAt(a, b!.place), people: a!.people, withNames: a!.withNames }, s)
+      placeIn(days[a!.date], a as Spot, { shootId: bS.id, name: b!.creatorName, email: b!.creatorEmail, kind: kindAt(b, a!.place), people: b!.people, withNames: b!.withNames }, s)
     })
     write()
     const moveTo = (x: any, other: any, name: string) => {
@@ -658,8 +707,8 @@ export const swapShootsAsTeam = onCall(CALLABLE, async req => {
     const write = await editDays(tx, [a.date, b.date], days => {
       takeOut(days[a.date], a as Spot, aId, false); takeOut(days[b.date], b as Spot, bId, false)
       const kindAt = (x: any, place: Place): ShootKind => place === MONTHLY_HOUSE ? x.kind : 'extra'
-      placeIn(days[b.date], b as Spot, { shootId: aId, name: a.creatorName, email: a.creatorEmail, kind: kindAt(a, b.place), pending: a.status === 'requested' }, s)
-      placeIn(days[a.date], a as Spot, { shootId: bId, name: b.creatorName, email: b.creatorEmail, kind: kindAt(b, a.place), pending: b.status === 'requested' }, s)
+      placeIn(days[b.date], b as Spot, { shootId: aId, name: a.creatorName, email: a.creatorEmail, kind: kindAt(a, b.place), pending: a.status === 'requested', people: a.people, withNames: a.withNames }, s)
+      placeIn(days[a.date], a as Spot, { shootId: bId, name: b.creatorName, email: b.creatorEmail, kind: kindAt(b, a.place), pending: b.status === 'requested', people: b.people, withNames: b.withNames }, s)
     })
     write()
     const moveTo = (x: any, other: any, name: string) => {
@@ -804,7 +853,6 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
     const touched = s.slots.filter(k => k < sp.end && k + s.slotMinutes > sp.start)
     return (touched.length ? touched : [s.slots.reduce((b, k) => Math.abs(k - sp.start) < Math.abs(b - sp.start) ? k : b, s.slots[0])]).map(slotKey)
   }
-  const onGrid = s.slots.includes(spot.start) && spot.end - spot.start === s.slotMinutes
   const win = slotWindow(spot.date, spot.start, spot.end - spot.start)
   const at = new Date().toISOString()
   // existingId: the same Google event was changed there (re-import) → move the app's copy, same shoot.
@@ -822,24 +870,18 @@ export async function importShootAsTeam(spot: Spot, who: { email: string; name: 
         return
       }
       const house = spot.place as House
+      // Free time (owner, Nov 24): one entry at its real start/end. Anything that really overlaps it is a clash; it's still
+      // imported and listed (old calendar events only), the booking already there keeps its place.
+      const now = nowStamp()
+      const over = houseBookingsOf(day, house, s, now).filter(x => x.shootId !== ref.id && x.start < spot.end && spot.start < x.end)
+      const key = slotKey(spot.start)
+      const mine: SlotEntry = { shootId: ref.id, name: who.name, email: who.email, kind: 'extra', time: { start: spot.start, end: spot.end }, ...(extra.people ? { people: extra.people as string[], withNames: extra.withNames as string[] } : {}) }
       const map = { ...(day[house] ?? {}) }
-      const mine: SlotEntry = { shootId: ref.id, name: who.name, email: who.email, kind: 'extra', ...(onGrid ? {} : { time: { start: spot.start, end: spot.end } }) }
-      for (const k of keysFor(spot)) {
-        const there = map[k]
-        if (there && !(there.hold && !holdActive(there, nowStamp())) && there.shootId !== ref.id) {
-          const slot = { start: Number(k), end: Number(k) + s.slotMinutes }
-          const theirs = entryHours(there, slot.start, s.slotMinutes)
-          if (overlapMinutes(theirs, spot) > 0) {
-            // A real clash: the two really overlap in time.
-            clashWith.push(there.name)
-            day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end }]
-          } else if (overlapMinutes(slot, spot) > overlapMinutes(slot, theirs)) {
-            // Back to back, only sharing the slot (owner, Nov 8): this one fills more of it, so it shows; the other waits underneath.
-            day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: there.shootId, name: there.name, email: there.email ?? '', start: theirs.start, end: theirs.end, shared: true }]
-            map[k] = mine
-          } else day.clashes = [...(day.clashes ?? []), { house, slot: k, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end, shared: true }]
-        } else map[k] = mine
-      }
+      if (over.length || (map[key] && map[key].shootId !== ref.id && !(map[key].hold && !holdActive(map[key], now)))) {
+        clashWith.push(...over.map(x => x.entry.name || 'someone'))
+        if (!over.length) clashWith.push(map[key].name)
+        day.clashes = [...(day.clashes ?? []), { house, slot: key, shootId: ref.id, name: who.name, email: who.email, start: spot.start, end: spot.end }]
+      } else map[key] = mine
       day[house] = map
     })
     write()
@@ -1370,8 +1412,8 @@ export const answerInvite = onCall(CALLABLE, async req => {
 // with take: true); then the holder is cancelled the same way.
 export interface GiveArgs { date: string; house: House; start: number; toEmail?: string; clashShootId?: string; moveTo?: { house: House; start: number } | null; note?: string }
 export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSettings) {
-  if (!isDay(a.date) || !['cliff1', 'cliff2'].includes(a.house) || !s.slots.includes(a.start)) throw fail('bad-date', 'Pick a slot on the schedule.')
-  if (a.moveTo && (!['cliff1', 'cliff2'].includes(a.moveTo.house) || !s.slots.includes(a.moveTo.start))) throw new HttpsError('invalid-argument', 'Pick a free time to move them to.')
+  if (!isDay(a.date) || !['cliff1', 'cliff2'].includes(a.house) || !Number.isInteger(a.start)) throw fail('bad-date', 'Pick a booking on the schedule.')
+  if (a.moveTo && (!['cliff1', 'cliff2'].includes(a.moveTo.house) || !Number.isInteger(a.moveTo.start) || a.moveTo.start % 15)) throw new HttpsError('invalid-argument', 'Pick a free time to move them to.')
   const key = slotKey(a.start), now = nowStamp(), at = new Date().toISOString()
   const pre = (await dayRefOf(a.date).get()).data() as ScheduleDay | undefined
   const holderId = pre?.[a.house]?.[key]?.shootId
@@ -1400,8 +1442,10 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
     if (to.email === h.creatorEmail) throw new HttpsError('failed-precondition', `${h.creatorName} already has this slot.`)
     // Cancelled (not moved): a friend's slot held next to theirs goes too.
     const invs = a.moveTo ? [] : await pendingInvitesOf(tx, holderId)
-    const spot: Spot = { place: a.house, date: a.date, start: a.start, end: a.start + s.slotMinutes, where: '' }
-    const moveSpot: Spot | null = a.moveTo ? { place: a.moveTo.house, date: a.date, start: a.moveTo.start, end: a.moveTo.start + s.slotMinutes, where: '' } : null
+    // Free time: the new person gets the holder's exact time; a moved holder keeps their length.
+    const len = Number(h.end) - Number(h.start) > 0 ? Number(h.end) - Number(h.start) : s.slotMinutes
+    const spot: Spot = { place: a.house, date: a.date, start: a.start, end: a.start + len, where: '' }
+    const moveSpot: Spot | null = a.moveTo ? { place: a.moveTo.house, date: a.date, start: a.moveTo.start, end: a.moveTo.start + len, where: '' } : null
     const write = await editDays(tx, [a.date], days => {
       const day = days[a.date]
       if (day[a.house]?.[key]?.shootId !== holderId) throw new HttpsError('failed-precondition', 'That slot changed in the meantime. Look again.')
@@ -1415,16 +1459,15 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       clearHolds(days, invs)
       if (moveSpot) {
         if (moveSpot.place === a.house && moveSpot.start === a.start) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
-        if (moveSpot.start < a.start + s.slotMinutes && moveSpot.start + s.slotMinutes > a.start && moveSpot.place === a.house) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
-        placeIn(day, moveSpot, { shootId: holderId, name: h.creatorName, email: h.creatorEmail, kind: h.kind, pending: h.status === 'requested' }, s)
+        if (moveSpot.start < spot.end && moveSpot.end > spot.start && moveSpot.place === a.house) throw new HttpsError('invalid-argument', 'Pick a different time to move them to.')
+        placeIn(day, moveSpot, { shootId: holderId, name: h.creatorName, email: h.creatorEmail, kind: h.kind, pending: h.status === 'requested', people: h.people, withNames: h.withNames }, s)
       }
       if (c) {
         const mine = (day.clashes ?? []).filter(x => x.shootId === clashRef!.id && x.house === a.house && isRealClash(x))
         const map = { ...(day[a.house] ?? {}) }
-        const freed = mine.filter(x => !map[x.slot])
-        if (!freed.length) throw new HttpsError('failed-precondition', 'That calendar event doesn\'t clash with this slot.')
-        const onGrid = s.slots.includes(c.start) && c.end - c.start === s.slotMinutes
-        for (const x of freed) map[x.slot] = { shootId: clashRef!.id, name: to.name, email: to.email, kind: 'extra', ...(onGrid ? {} : { time: { start: c.start, end: c.end } }) }
+        const freed = mine
+        if (!freed.length) throw new HttpsError('failed-precondition', 'That calendar event doesn\'t clash with this booking.')
+        map[slotKey(c.start)] = { shootId: clashRef!.id, name: to.name, email: to.email, kind: 'extra', time: { start: c.start, end: c.end } }
         day[a.house] = map
         day.clashes = (day.clashes ?? []).filter(x => !freed.includes(x))
         clashLeft = day.clashes.some(x => x.shootId === clashRef!.id && isRealClash(x))
@@ -1434,7 +1477,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
     const why = `${to.name} needed it${a.note ? ` · ${str(a.note, 200)}` : ''}`
     const bumped = { for: to.email, forName: to.name, by: caller.email, at, ...(moveSpot ? { movedFrom: { place: a.house, start: a.start } } : {}) }
     if (moveSpot) {
-      const win = slotWindow(a.date, moveSpot.start, s.slotMinutes)
+      const win = slotWindow(a.date, moveSpot.start, len)
       tx.update(holderRef, { place: moveSpot.place, start: moveSpot.start, end: moveSpot.end, from: win.from, to: win.to, kind: moveSpot.place === MONTHLY_HOUSE ? h.kind : h.kind === 'monthly' ? 'extra' : h.kind,
         bumped, updatedAt: at, history: FieldValue.arrayUnion({ at, by: caller.email, action: 'bumped', note: `moved to ${spotLabel(moveSpot, s)} · ${why}` }) })
     } else {
@@ -1446,7 +1489,7 @@ export async function giveSlotTo(caller: Caller, a: GiveArgs, s: ScheduleSetting
       tx.update(clashRef!, { updatedAt: at, ...(clashLeft ? {} : { clash: FieldValue.delete(), clashWith: FieldValue.delete() }),
         history: FieldValue.arrayUnion({ at, by: caller.email, action: 'given', note: `${spotLabel(spot, s)} given to ${to.name} (was ${h.creatorName})` }) })
     } else {
-      const win = slotWindow(a.date, a.start, s.slotMinutes)
+      const win = slotWindow(a.date, a.start, len)
       tx.set(newRef, { creatorEmail: to.email, creatorName: to.name, ...spot, month: monthOf(a.date), from: win.from, to: win.to, kind: 'extra', status: 'booked',
         bookedBy: caller.email, createdAt: at, updatedAt: at, history: [{ at, by: caller.email, action: 'booked', note: `${spotLabel(spot, s)} · given by ${caller.name} (was ${h.creatorName})` }] })
     }

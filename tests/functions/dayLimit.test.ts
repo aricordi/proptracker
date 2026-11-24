@@ -23,8 +23,8 @@ describe('one house slot a day', () => {
     expect((await book(ANA, {})).ok).toBe(true)
     const again = await book(ANA, { start: 900 })
     expect(again.error).toBe('FAILED_PRECONDITION')
-    expect(again.message).toMatch(/one 2-hour slot a day/)
-    expect((await book(ANA, { place: 'cliff1', start: 1020 })).message).toMatch(/one 2-hour slot a day/)
+    expect(again.message).toMatch(/one a day|house booking that day/)
+    expect((await book(ANA, { place: 'cliff1', start: 1020 })).message).toMatch(/one a day|house booking that day/)
     expect((await book(ANA, { date: SAT })).ok).toBe(true)   // another day is fine
   })
 
@@ -45,7 +45,7 @@ describe('one house slot a day', () => {
 
   it('moving onto a day where you already film is refused; moving within the day is fine', async () => {
     const a = await book(ANA, {}), b = await book(ANA, { date: SAT })
-    expect((await call('moveShoot', { id: b.result.id, place: 'cliff2', date: FRI, start: 1140 }, ANA)).message).toMatch(/one 2-hour slot a day/)
+    expect((await call('moveShoot', { id: b.result.id, place: 'cliff2', date: FRI, start: 1140 }, ANA)).message).toMatch(/one a day|house booking that day/)
     expect((await call('moveShoot', { id: a.result.id, place: 'cliff1', date: FRI, start: 1140 }, ANA)).ok).toBe(true)
   })
 
@@ -59,14 +59,14 @@ describe('one house slot a day', () => {
   })
 
   it('booking with a friend: one slot each, and a friend who already films that day is refused', async () => {
-    expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 2 }, ANA)).message).toMatch(/one 2-hour slot a day/)
+    expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 2 }, ANA)).message).toMatch(/one a day|house booking that day/)
     expect((await book(BEN, { place: 'cliff1', start: 1260 })).ok).toBe(true)
     expect((await call('bookWithFriends', { place: 'cliff2', date: FRI, start: 780, friends: [BEN], mySlots: 1 }, ANA)).message).toMatch(/Ben already has a house slot/)
     const ok = await call('bookWithFriends', { place: 'cliff2', date: SAT, start: 780, friends: [BEN], mySlots: 1 }, ANA)
     expect(ok.ok, ok.message).toBe(true)
     expect((await getDoc(`schedule_days/${SAT}`))!.cliff2['900'].email).toBe(BEN)
     // Ben's slot is booked for him, so he can't book a different one that day either.
-    expect((await book(BEN, { date: SAT, start: 1260 })).message).toMatch(/one 2-hour slot a day/)
+    expect((await book(BEN, { date: SAT, start: 1260 })).message).toMatch(/one a day|house booking that day/)
   })
 
   it('the limit is a setting the team can change', async () => {

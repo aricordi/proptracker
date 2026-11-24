@@ -5,7 +5,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { OWNER_EMAIL, db, requireRole, CALLABLE } from './auth.js'
 import { teamLog } from './teamLog.js'
 import { nowStamp, fmtTime } from './gearBooking.js'
-import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, slotKey, type ScheduleDay, type House } from './schedule.js'
+import { cleanScheduleSettings, checkinWindow, isMissed, explainUntil, houseBookings, type ScheduleDay, type House } from './schedule.js'
 import { addStrike, removeStrikeById } from './strikes.js'
 import { addDays, todayInStudio } from './booking.js'
 
@@ -22,7 +22,7 @@ async function ownShoot(id: string, email: string) {
   const ref = db.doc(`shoots/${id}`)
   const sh = (await ref.get()).data()
   if (!sh) throw new HttpsError('not-found', 'Shoot not found.')
-  if (sh.creatorEmail !== email) throw new HttpsError('permission-denied', 'Only the person who booked can do this.')
+  if (sh.creatorEmail !== email && !(Array.isArray(sh.people) && sh.people.includes(email))) throw new HttpsError('permission-denied', 'Only the people on this booking can do this.')
   return { ref, sh }
 }
 
@@ -50,7 +50,9 @@ export const checkInShoot = onCall(CALLABLE, async req => {
   if ((over || mess) && sh.place !== 'offsite') {
     if (mess && !messPhotos.length) throw new HttpsError('invalid-argument', 'Add a photo of the mess.')
     const day = ((await db.doc(`schedule_days/${sh.date}`).get()).data() ?? {}) as ScheduleDay
-    const prev = day[sh.place as House]?.[slotKey(sh.start - s.slotMinutes)]
+    // Free time: the booking that ended right before this one (within half an hour) at the same house.
+    const before = houseBookings(day, sh.place as House, s).filter(b => b.shootId && b.shootId !== id && !b.entry.hold && b.end <= sh.start && b.end >= sh.start - 30)
+    const prev = before.length ? before[before.length - 1].entry : undefined
     if (prev && prev.shootId && prev.shootId !== id) {
       const what = [over ? `ran over ${over} min` : '', mess ? 'house left a mess' : ''].filter(Boolean).join(', ') + (note ? `: "${note.length > 80 ? note.slice(0, 79) + '…' : note}"` : '')
       const rep = await db.collection('schedule_reports').add({
