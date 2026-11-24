@@ -347,6 +347,7 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
   const [waitErr, setWaitErr] = useState('')
   const [waitBusy, setWaitBusy] = useState('')
   const [waitInfo, setWaitInfo] = useState('')
+  useEffect(() => { if (!waitInfo) return; const t = setTimeout(() => setWaitInfo(''), 6000); return () => clearTimeout(t) }, [waitInfo])
   async function bell(h: House, start: number) {
     const k = waitKey(date, h, start), w = waits.entries[k]
     setWaitBusy(k); setWaitErr('')
@@ -502,26 +503,26 @@ function DayPickSheet({ date, day, team, lockFree = team, teamView, canBook, now
         </div>
       )}
       {(canBook || team) && (
-        <button onClick={onOffsite} className="w-full mb-3 flex items-center gap-3 rounded-2xl bg-pt-raised shadow-hairline px-4 min-h-[48px] text-left">
-          <Icon name="pin" className="w-5 h-5 text-sky-300 shrink-0" />
-          <span className="flex-1 text-pt-text text-[15px] font-semibold">Shooting somewhere else? Book offsite</span>
-          <span className="text-pt-muted text-lg">›</span>
-        </button>
+        <div className="flex justify-end -mt-1 mb-2">
+          <button onClick={onOffsite} className="inline-flex items-center gap-1.5 min-h-[36px] px-3 rounded-full bg-pt-raised shadow-hairline text-[13px] text-pt-text">
+            <Icon name="pin" className="w-4 h-4 text-sky-300" />Somewhere else? Book offsite
+          </button>
+        </div>
       )}
-      <div className="flex flex-wrap gap-x-3 gap-y-1.5 mb-2 text-[12px] text-pt-muted">
+      {grid}
+      {waitInfo && <p role="status" onClick={() => setWaitInfo('')} className="fixed inset-x-4 bottom-6 z-[60] mx-auto max-w-md rounded-2xl bg-pt-raised shadow-float px-4 py-3 text-[14px] text-pt-text"><Icon name="bell" className="inline w-4 h-4 mr-1.5 text-pt-accent" />{waitInfo}</p>}
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5 mt-3 text-[12px] text-pt-muted">
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border-2 border-dashed border-pt-accent/80" />Free, tap to book</span>
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-[#3A4A63]" />Filming</span>
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded bg-pt-accent" />You</span>
         <span className="inline-flex items-center gap-1"><span className="w-3.5 h-3.5 rounded border border-dashed border-amber-400" />Waiting for OK</span>
       </div>
       {!team && canBook && (
-        <p className="flex items-start gap-2 mb-3 text-[12px] text-pt-muted">
+        <p className="flex items-start gap-2 mt-3 text-[12px] text-pt-muted">
           <span className="shrink-0 w-6 h-6 rounded-md grid place-items-center bg-black/30 text-white/80"><Icon name="bell" className="w-3.5 h-3.5" /></span>
           <span><b className="text-pt-text">Want a time someone has?</b> Tap the bell on their booking. If they cancel, it's held for you for {INVITE_HOLD_MINUTES} minutes and you get a notification. Tap it again (gold) to leave the list.</span>
         </p>
       )}
-      {grid}
-      {waitInfo && <p role="status" className="mt-2 text-[13px] text-pt-accent">{waitInfo}</p>}
       {waitErr && <p className="text-red-300 text-sm mt-3">{waitErr}</p>}
       {offsite.length > 0 && (
         <div className="mt-4 space-y-1.5">

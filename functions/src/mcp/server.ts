@@ -30,8 +30,13 @@ function baseOf(req: Request) {
   const host = String(req.headers['x-forwarded-host'] ?? '').split(',')[0].trim()
   return OUR_HOSTS.includes(host) ? `https://${host}` : CANONICAL
 }
-// The app page where people sign in and press Allow (same website).
-const appBase = (base: string) => emulator() ? 'http://localhost:5173' : base
+// The app page where people sign in and press Allow. Owner, Nov 24 (screen recording, iPhone ChatGPT app): Safari still had
+// an OLD saved copy of the app (from October) on proptracker.arbcreative.co, which answered /connect with the old home page,
+// and an old saved copy can't be fixed from our side. So the sign-in (authorize + Allow) happens on our Firebase address,
+// proptracker-9732e.firebaseapp.com: same app, same database, but no browser has ever kept a copy there.
+const CONNECT_BASE = 'https://proptracker-9732e.firebaseapp.com'
+const connectBase = (base: string) => emulator() ? base : CONNECT_BASE
+const appBase = (base: string) => emulator() ? 'http://localhost:5173' : CONNECT_BASE
 
 function bodyOf(req: Request): Record<string, unknown> {
   const b = req.body
@@ -84,7 +89,7 @@ export const mcp = onRequest({ secrets: [GEMINI_API_KEY], timeoutSeconds: 120, m
   res.set('Access-Control-Expose-Headers', 'WWW-Authenticate, Mcp-Session-Id')
   try {
     if (path.startsWith('/.well-known/oauth-protected-resource')) { res.json(resourceMetadata(base)); return }
-    if (path.startsWith('/.well-known/oauth-authorization-server') || path.startsWith('/.well-known/openid-configuration')) { res.json(metadata(base)); return }
+    if (path.startsWith('/.well-known/oauth-authorization-server') || path.startsWith('/.well-known/openid-configuration')) { res.json(metadata(base, connectBase(base))); return }
     if (path.startsWith('/.well-known/openai-apps-challenge')) {
       // OpenAI's domain check when submitting the app: the owner saves the token they're given (admin task openaiChallenge).
       const t = String((await db.doc('mcp_settings/openai').get()).get('challenge') ?? '')
@@ -297,7 +302,7 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
         protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: { listChanged: false }, resources: { listChanged: false } },
         serverInfo: { name: 'prime-capitol', title: 'Prime Capitol', version: '1.2.0', websiteUrl: CANONICAL,
-          icons: [{ src: `${CANONICAL}/icons/icon-512.png`, mimeType: 'image/png', sizes: ['512x512'] }] },
+          icons: [{ src: `${CANONICAL}/icons/icon-512.png`, mimeType: 'image/png', sizes: ['512x512'] }, { src: `${CANONICAL}/icons/icon-192.png`, mimeType: 'image/png', sizes: ['192x192'] }, { src: `${CANONICAL}/favicon.png`, mimeType: 'image/png', sizes: ['192x192'] }] },
         instructions: INSTRUCTIONS,
       })); return
     }

@@ -45,10 +45,11 @@ export function pkceOk(verifier: unknown, challenge: unknown): boolean {
   return createHash('sha256').update(verifier).digest('base64url') === challenge
 }
 
-export function metadata(base: string) {
+// The person's sign-in page (authorize → Allow) can live on another of our addresses (connectBase in server.ts).
+export function metadata(base: string, signInBase = base) {
   return {
     issuer: base,
-    authorization_endpoint: `${base}/oauth/authorize`,
+    authorization_endpoint: `${signInBase}/oauth/authorize`,
     token_endpoint: `${base}/oauth/token`,
     registration_endpoint: `${base}/oauth/register`,
     revocation_endpoint: `${base}/oauth/revoke`,

@@ -2994,6 +2994,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       the home page still shows the Allow page; Copy link copies the full connect URL; SW denylist /connect. Logs had shown authorize
       302s but connectorRequestInfo never called. UpdateBanner waits for controllerchange (else unregisters SW + clears caches),
       "Updating…", z-[90]. Versions 1.3.0 (website run 45361759441) / 1.3.1 / 1.3.2.
+      CONNECT ON FIREBASEAPP (1.3.3, owner screen recording: iPhone ChatGPT app's sign-in sheet showed the OCTOBER app home = an old
+      Safari service worker on arbcreative): authorization_endpoint + Allow page = https://proptracker-9732e.firebaseapp.com
+      (CONNECT_BASE in mcp/server.ts; metadata(base, signInBase)); signInDomain includes firebaseapp. favicon.ico/png + MCP icons.
+      Day: key + bell line moved under the grid, offsite = small pill top right, bell tap = toast.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

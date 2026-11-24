@@ -12,6 +12,14 @@ Each manual says which version it was written for.
 
 
 
+## 1.3.3 · Nov 24, 2026
+
+- **Connecting ChatGPT works even on phones holding an old copy of the app.** The sign-in step now opens on our second
+  address (proptracker-9732e.firebaseapp.com), which no phone has an old copy of. You sign in with Google there once.
+- **The connector shows the Prime Capitol eagle** (new site icon).
+- **Calendar day:** the colour key and the bell explanation moved under the day so the times come first; "Somewhere else?
+  Book offsite" is a small button at the top. Tapping a bell shows a short confirmation at the bottom of the screen.
+
 ## 1.3.2 · Nov 24, 2026
 
 - **Free time is easier to spot on a day.** Free stretches are now open spaces with a dashed gold outline ("+ Free 2 h")

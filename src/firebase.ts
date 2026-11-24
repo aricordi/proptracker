@@ -32,7 +32,7 @@ const firebaseConfig = USING_EMULATORS
 // addresses we use the address the app was opened on. Each one must be listed as an authorized
 // redirect URI (…/__/auth/handler) on the Google OAuth web client, or Google refuses.
 function signInDomain() {
-  const own = ['proptracker.arbcreative.co', 'proptracker-9732e.web.app', 'proptracker-9732e--preview-9kd7p2pf.web.app']
+  const own = ['proptracker.arbcreative.co', 'proptracker-9732e.web.app', 'proptracker-9732e--preview-9kd7p2pf.web.app', 'proptracker-9732e.firebaseapp.com']
   const here = typeof window !== 'undefined' ? window.location.hostname : ''
   if (own.includes(here)) return here
   // Practice site (its own Firebase project): same reason, its own <project>.web.app address.
