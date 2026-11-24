@@ -141,7 +141,7 @@ const NICKS: string[][] = [
   ['jennifer', 'jen', 'jenny'], ['elizabeth', 'liz', 'lizzie', 'beth'], ['katherine', 'katie', 'kate', 'kat'], ['kathryn', 'katie', 'kate'],
   ['jessica', 'jess'], ['rebecca', 'becca', 'becky'], ['victoria', 'vicky', 'tori'], ['valentyna', 'valentina', 'val'],
   ['dominic', 'dom'], ['zachary', 'zach', 'zack'], ['andrew', 'andy', 'drew'], ['jacob', 'jake'], ['joshua', 'josh'], ['timothy', 'tim'],
-  ['gabriel', 'gabe'], ['abigail', 'abby'], ['madison', 'maddie'], ['nathaniel', 'nathan', 'nate'], ['stephanie', 'steph'],
+  ['gabriel', 'gabe'], ['roland', 'rolly', 'rollie', 'roly', 'rolo'], ['abigail', 'abby'], ['madison', 'maddie'], ['nathaniel', 'nathan', 'nate'], ['stephanie', 'steph'],
 ]
 export function nicknamesOf(first: string): string[] {
   const out = new Set<string>()

@@ -94,6 +94,7 @@ export const obj = (properties: Json, required: string[] = []) => ({ type: 'obje
 
 // People are named to the assistant by an anonymous id, never by email (privacy policy: "never other people's emails").
 import { createHmac, randomBytes } from 'node:crypto'
+import { resolvePerson, type PersonMatch } from './understand.js'
 // A secret kept on the server (mcp_settings/people), so nobody can work out a person id from an email list.
 let PEOPLE_KEY = ''
 export async function ensurePeopleKey() {
@@ -108,14 +109,17 @@ export async function ensurePeopleKey() {
   })
 }
 export const personId = (email: string) => `p_${createHmac('sha256', PEOPLE_KEY || 'unset').update(email.toLowerCase()).digest('hex').slice(0, 12)}`
-/** A name or a person id → the people it could mean (excluding the asker). Email addresses are refused. */
-export function matchPerson<T extends { email: string; name: string }>(people: T[], said: string, me: string): T[] {
-  const n = said.trim().toLowerCase()
-  const others = people.filter(p => p.email !== me)
-  if (/^p_[0-9a-f]{12}$/.test(n)) return others.filter(p => personId(p.email) === n)
-  if (n.includes('@')) return []   // the assistant names people, never by email address
-  const full = others.filter(p => p.name.toLowerCase() === n)
-  return full.length ? full : others.filter(p => firstName(p.name).toLowerCase() === n)
+/** A name or a person id → who it is (one), several people (many), a likely typo/loose match to confirm (maybe), or nobody.
+ *  Nicknames, first/last names and the start of a first name count; email addresses never do. */
+export function matchPerson<T extends { email: string; name: string }>(people: T[], said: string, me: string): PersonMatch<T> {
+  return resolvePerson(people, said, me, (p, id) => personId(p.email) === id)
+}
+/** What to ask the person when a name didn't land on exactly one person (null = it did). */
+export function askWho(said: string, m: PersonMatch<{ email: string; name: string }>): string | null {
+  if (m.status === 'one') return null
+  if (m.status === 'many') return `More than one person could be "${said}": ${describePeople(m.hits)}. Ask which one, then pass their person id.`
+  if (m.status === 'maybe') return `Nobody is called exactly "${said}". Did they mean ${describePeople(m.hits)}? Ask, then pass the person id.`
+  return `Nobody called "${said}" uses the app.`
 }
 export const describePeople = (hits: { email: string; name: string }[]) => hits.map(h => `${h.name} (${personId(h.email)})`).join(', ')
 

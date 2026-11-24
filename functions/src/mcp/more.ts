@@ -16,9 +16,10 @@ import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
 import {
-  asUser, callerOf, docById, s, clampInt, firstName, hm, matchPerson, describePeople, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj,
+  asUser, callerOf, docById, s, clampInt, firstName, hm, matchPerson, askWho, personId, parseClock, loadCloset, short, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj,
   type Json, type McpUser, type ToolResult,
 } from './common.js'
+import { resolveWhen } from './understand.js'
 
 export const APP_URL = 'https://proptracker.arbcreative.co'
 const PLACE: Record<string, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2', offsite: 'Offsite' }
@@ -41,6 +42,13 @@ export const MORE_TOOLS = [
   { name: 'get_shoot', title: 'One shoot in detail', annotations: READ,
     description: 'Everything about one of the person\'s shoots (or one they are a collaborator on): place, day, hours, status, collaborators, who is in the video, its props requests with items and status, the exact deadline to add props from the closet and custom props, and an app link.',
     inputSchema: obj({ shoot_id: { type: 'string' } }, ['shoot_id']) },
+  { name: 'plan_shoot', title: 'Plan a shoot from a casual request', annotations: READ,
+    description: 'Start here when someone says something like "I want to film with Justin and Rolly tomorrow" or "shoot with Ari this weekend, evenings". Pass the names exactly as they said them (nicknames, short forms and typos are fine) and the day in their words or as a date. It works out who those people are (or asks which one / "did you mean"), the length (2 hours per person unless they said), the days, and returns times free for EVERYONE on the booking (skipping days a collaborator already films). Books nothing. Then ask only what is still unclear, offer 2–3 times, confirm one and call book_shoot.',
+    inputSchema: obj({ with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'People filming with them, as they said the names' },
+      when: { type: 'string', description: 'Their words: "tomorrow", "sat", "next friday", "this weekend", "next week", "nov 28"' },
+      day: { type: 'string', description: 'Or an exact day YYYY-MM-DD' }, hours: { type: 'number', minimum: 0.5, maximum: 12, description: 'Only if they said a length' },
+      at: { type: 'string', description: 'A start they asked for, e.g. "17:00" or "5pm"' }, time_of_day: { type: 'string', enum: ['any', 'morning', 'afternoon', 'evening', 'night'] },
+      houses: { type: 'array', items: { type: 'string', enum: ['cliff1', 'cliff2'] } }, limit: { type: 'integer', minimum: 1, maximum: 12, description: 'Default 6' } }) },
   { name: 'find_free_times', title: 'Find free filming times', annotations: READ,
     description: 'Search the schedule for times that fit: how long, how many people (2 h per person; longer needs collaborators), which houses, time of day or a preferred start. Returns ready-to-book options that respect this person\'s priority-day locks and one-booking-a-day limit, with notes like "needs a guideline PDF". Use your own judgement to pick or suggest between them; get_schedule has the full raw picture.',
     inputSchema: obj({ from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' },
@@ -87,6 +95,7 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
     case 'my_status': return myStatus(u)
     case 'get_shoot': return getShoot(args, u)
     case 'find_free_times': return findFreeTimes(args, u)
+    case 'plan_shoot': return planShoot(args, u)
     case 'prop_calendar': return propCalendar(args)
     case 'change_props_request': {
       const id = s(args.request_id, 100)
@@ -128,9 +137,10 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       const people = await filmingPeople({ includeDemo: true })
       const emails: string[] = []
       for (const n of (Array.isArray(args.people) ? args.people : []).map(x => s(x, 120)).filter(Boolean)) {
-        const hits = matchPerson(people, n, u.email)
-        if (hits.length !== 1) return { text: hits.length ? `More than one ${n}: ${describePeople(hits)}. Which one? Pass the person id.` : `${n} isn't on the app, so they can't get a video invite.` }
-        emails.push(hits[0].email)
+        const m = matchPerson(people, n, u.email)
+        const ask = askWho(n, m)
+        if (ask) return { text: m.status === 'none' ? `${ask} Only people on the app can get a video invite.` : ask }
+        emails.push(m.hits[0].email)
       }
       if (!emails.length) return { text: 'Who should be in the video?' }
       await inviteToVideo.run(asUser(u, { shootId: s(args.shoot_id, 100), emails }))
@@ -248,45 +258,115 @@ async function getShoot(args: Json, u: McpUser): Promise<ToolResult> {
   return { text, structured: data }
 }
 
-async function findFreeTimes(args: Json, u: McpUser): Promise<ToolResult> {
+interface FreeAsk { dates: string[]; need: number; houses: House[]; tod: string; around: number | null; limit: number; crew?: string[] }
+/** Ready-to-book times: this person's locks and one-booking-a-day limit, and (crew) days a collaborator already films are left out. */
+async function freeOptions(a: FreeAsk, u: McpUser) {
   const sch = await loadScheduleSettings()
-  const now = nowStamp(), today = todayInStudio()
-  const from = isDay(args.from) && String(args.from) >= today ? String(args.from) : today
-  const n = Math.min(21, Math.max(1, Number.isInteger(args.days) ? Number(args.days) : 7))
-  const people = Math.min(5, Math.max(1, Number.isInteger(args.people) ? Number(args.people) : 1))
-  const need = Math.round(Math.min(12, Math.max(0.5, Number(args.hours) || 2)) * 60 / TIME_STEP) * TIME_STEP
-  const longOk = isLongBooker(u.email, sch)
-  if (!longOk && need > maxMinutesFor(people, sch)) {
-    const more = Math.ceil(need / sch.slotMinutes) - people
-    return { text: `${need / 60} hours needs ${more} more ${more === 1 ? 'person' : 'people'} on the booking (2 hours each). Ask who's filming with them, then search with people: ${people + more}.` }
-  }
-  const houses = (Array.isArray(args.houses) && args.houses.length ? args.houses : HOUSES).filter((h): h is House => HOUSES.includes(h as House))
-  const tod = s(args.time_of_day, 10) || 'any', around = toMin(args.around)
-  const inTod = (m: number) => tod === 'any' || (tod === 'morning' ? m < 720 : tod === 'afternoon' ? m >= 720 && m < 1020 : tod === 'evening' ? m >= 1020 && m < 1260 : m >= 1260)
-  const limit = clampInt(args.limit, 1, 30, 12)
-  const dates = Array.from({ length: n }, (_, i) => addDays(from, i))
-  const snaps = await db.getAll(...dates.map(d => db.doc(`schedule_days/${d}`)))
-  const options: Json[] = []
-  dates.forEach((date, i) => {
+  const now = nowStamp()
+  const inTod = (m: number) => a.tod === 'any' || (a.tod === 'morning' ? m < 720 : a.tod === 'afternoon' ? m >= 720 && m < 1020 : a.tod === 'evening' ? m >= 1020 && m < 1260 : m >= 1260)
+  const snaps = a.dates.length ? await db.getAll(...a.dates.map(d => db.doc(`schedule_days/${d}`))) : []
+  const options: Json[] = [], busy: { day: string; who: string }[] = []
+  a.dates.forEach((date, i) => {
     const day = snaps[i].data() as ScheduleDay | undefined
-    if (houseSlotsOn(day, u.email, now) >= slotsPerDayFor(u.email, sch)) return
-    for (const h of houses) {
+    if (houseSlotsOn(day, u.email, now) >= slotsPerDayFor(u.email, sch)) { busy.push({ day: date, who: 'you' }); return }
+    const taken = (a.crew ?? []).filter(e => !e.startsWith('guest:') && houseSlotsOn(day, e, now) >= slotsPerDayFor(e, sch))
+    if (taken.length) { busy.push(...taken.map(e => ({ day: date, who: e }))); return }
+    for (const h of a.houses) {
       if (priorityLocked(date, h, sch, u.email, now)) continue
-      for (const g of freeGaps(day, date, h, sch, now, need)) {
-        const starts = new Set<number>([g.start, g.end - need])
-        if (around != null) starts.add(Math.min(Math.max(around, g.start), g.end - need))
-        for (const a of [720, 1020, 1260]) if (a > g.start && a + need <= g.end) starts.add(a)
+      for (const g of freeGaps(day, date, h, sch, now, a.need)) {
+        const starts = new Set<number>([g.start, g.end - a.need])
+        if (a.around != null) starts.add(Math.min(Math.max(a.around, g.start), g.end - a.need))
+        for (const x of [720, 1020, 1260]) if (x > g.start && x + a.need <= g.end) starts.add(x)
         for (const st of starts) {
-          if (st % TIME_STEP || st < g.start || st + need > g.end || !inTod(st)) continue
-          options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, needs_guideline_pdf: needsGuideline(date, h, u.email, sch) || undefined, _s: st })
+          if (st % TIME_STEP || st < g.start || st + a.need > g.end || !inTod(st)) continue
+          options.push({ day: date, place: h, house: PLACE[h], start: hm(st), end: hm(st + a.need), free_stretch: `${hm(g.start)}–${hm(g.end)}`, needs_guideline_pdf: needsGuideline(date, h, u.email, sch) || undefined, _s: st })
         }
       }
     }
   })
-  options.sort((a, c) => around != null ? Math.abs(Number(a._s) - around) - Math.abs(Number(c._s) - around) || String(a.day).localeCompare(String(c.day)) : String(a.day).localeCompare(String(c.day)) || Number(a._s) - Number(c._s))
-  const top = options.slice(0, limit).map(({ _s, ...o }) => o)   // eslint-disable-line @typescript-eslint/no-unused-vars
+  const around = a.around
+  options.sort((x, c) => around != null ? Math.abs(Number(x._s) - around) - Math.abs(Number(c._s) - around) || String(x.day).localeCompare(String(c.day)) : String(x.day).localeCompare(String(c.day)) || Number(x._s) - Number(c._s))
+  return { options: options.slice(0, a.limit).map(({ _s, ...o }) => o), busy }   // eslint-disable-line @typescript-eslint/no-unused-vars
+}
+const todOf = (v: unknown) => { const x = s(v, 10); return ['morning', 'afternoon', 'evening', 'night'].includes(x) ? x : 'any' }
+const housesOf = (v: unknown) => { const l = (Array.isArray(v) ? v : []).filter((h): h is House => HOUSES.includes(h as House)); return l.length ? l : [...HOUSES] }
+
+async function findFreeTimes(args: Json, u: McpUser): Promise<ToolResult> {
+  const sch = await loadScheduleSettings()
+  const today = todayInStudio()
+  const from = isDay(args.from) && String(args.from) >= today ? String(args.from) : today
+  const n = Math.min(21, Math.max(1, Number.isInteger(args.days) ? Number(args.days) : 7))
+  const people = Math.min(5, Math.max(1, Number.isInteger(args.people) ? Number(args.people) : 1))
+  const need = Math.round(Math.min(12, Math.max(0.5, Number(args.hours) || 2)) * 60 / TIME_STEP) * TIME_STEP
+  if (!isLongBooker(u.email, sch) && need > maxMinutesFor(people, sch)) {
+    const more = Math.ceil(need / sch.slotMinutes) - people
+    return { text: `${need / 60} hours needs ${more} more ${more === 1 ? 'person' : 'people'} on the booking (2 hours each). Ask who's filming with them, then use plan_shoot with their names.` }
+  }
+  const { options: top } = await freeOptions({ dates: Array.from({ length: n }, (_, i) => addDays(from, i)), need, houses: housesOf(args.houses), tod: todOf(args.time_of_day), around: toMin(args.around), limit: clampInt(args.limit, 1, 30, 12) }, u)
   return { text: top.length ? top.map(o => `${o.day} ${o.house} ${o.start}–${o.end}${o.needs_guideline_pdf ? ' (needs guideline PDF)' : ''}`).join('\n') + '\nBook one with book_shoot (add collaborators in `with` if more than 2 hours).' : 'Nothing free that fits. Try other days, a shorter time or the other house.',
     structured: { length_hours: need / 60, people, options: top } }
+}
+
+// PLAN A SHOOT from how people talk (owner, Nov 24): "film with Justin and Rolly tomorrow" → who Justin and Rolly are (nicknames,
+// typos asked about, never guessed), how long (2 h each unless they said), which days, and times that fit EVERYONE (nobody on the
+// booking already filming that day). Read only: it books nothing. Returns `questions` for whatever is genuinely unclear.
+async function planShoot(args: Json, u: McpUser): Promise<ToolResult> {
+  const sch = await loadScheduleSettings()
+  const today = todayInStudio()
+  const people = await filmingPeople({ includeDemo: true, offApp: true })
+  const said = (Array.isArray(args.with) ? args.with : []).map(x => s(x, 80)).filter(Boolean).slice(0, 4)
+  const questions: string[] = [], resolved: Json[] = [], crew: string[] = [], names: string[] = []
+  for (const n of said) {
+    if (n.includes('@')) { questions.push('Use names, not email addresses.'); continue }
+    const m = matchPerson(people, n, u.email)
+    if (m.status === 'one') {
+      const p = m.hits[0]
+      if (crew.includes(p.email)) continue
+      crew.push(p.email); names.push(p.name)
+      resolved.push({ said: n, status: 'found', name: p.name, person_id: personId(p.email), ...(p.email.startsWith('guest:') ? { on_app: false } : {}) })
+    } else {
+      resolved.push({ said: n, status: m.status === 'none' ? 'not_found' : m.status === 'many' ? 'which_one' : 'did_you_mean',
+        candidates: m.hits.map(h => ({ name: h.name, person_id: personId(h.email) })) })
+      questions.push(m.status === 'none' ? `Is "${n}" someone who isn't on the app yet? (Then book_shoot can add them by name with not_on_app.)` : askWho(n, m)!)
+    }
+  }
+  const total = 1 + said.length   // everyone they named is filming, even while a name is still being cleared up
+  // Length: what they said, else 2 h per person (the studio's rule, and what people almost always mean).
+  const saidHours = Number(args.hours)
+  let need = saidHours > 0 ? Math.round(Math.min(12, Math.max(0.5, saidHours)) * 60 / TIME_STEP) * TIME_STEP : Math.min(maxMinutesFor(total, sch), 5 * sch.slotMinutes)
+  const longOk = isLongBooker(u.email, sch)
+  if (!longOk && need > maxMinutesFor(total, sch)) {
+    questions.push(`${need / 60} hours is more than ${total} ${total === 1 ? 'person gets' : 'people get'} (2 hours each). Who else is filming, or shorter?`)
+    need = maxMinutesFor(total, sch)
+  }
+  // When: an exact day, or the words they used, else the next 7 days.
+  let dates: string[] = [], whenLabel = ''
+  if (isDay(args.day) && String(args.day) >= today) { dates = [String(args.day)]; whenLabel = String(args.day) }
+  else {
+    const w = resolveWhen(s(args.when, 80), today)
+    if (w) { dates = w.days.filter(d => d >= today); whenLabel = w.label }
+    else { dates = Array.from({ length: 7 }, (_, i) => addDays(today, i)); whenLabel = 'the next 7 days'; if (s(args.when, 80)) questions.push(`Couldn't tell which day "${s(args.when, 80)}" is: which date?`) }
+  }
+  const around = parseClock(args.at)
+  const plan = await freeOptions({ dates, need, houses: housesOf(args.houses), tod: around != null ? 'any' : todOf(args.time_of_day), around, limit: clampInt(args.limit, 1, 12, 6), crew }, u)
+  const busyText = plan.busy.map(b => `${b.day}: ${b.who === 'you' ? 'you already film that day' : `${names[crew.indexOf(b.who)] ?? 'a collaborator'} already films that day`}`)
+  let fallback: Json[] = []
+  if (!plan.options.length && dates.length <= 2) {
+    // Nothing that day: offer the soonest days after it, so the conversation keeps going.
+    const after = Array.from({ length: 7 }, (_, i) => addDays(dates[dates.length - 1] ?? today, i + 1))
+    fallback = (await freeOptions({ dates: after, need, houses: housesOf(args.houses), tod: around != null ? 'any' : todOf(args.time_of_day), around, limit: 4, crew }, u)).options
+  }
+  const who = names.length ? `you + ${names.join(' + ')}` : said.length ? `you + ${said.length} more` : 'just you'
+  const lines = plan.options.map(o => `${o.day} ${o.house} ${o.start}–${o.end}${o.needs_guideline_pdf ? ' (needs guideline PDF)' : ''}`)
+  const text = [
+    `Plan: ${who}, ${need / 60} h, ${whenLabel}.`,
+    ...resolved.filter(r => r.status === 'found').map(r => `"${r.said}" = ${r.name}${r.on_app === false ? ' (not on the app; booked by name)' : ''}`),
+    ...(questions.length ? ['Ask first:', ...questions.map(q => `- ${q}`)] : []),
+    ...(lines.length ? ['Times that fit everyone:', ...lines] : [`Nothing free ${whenLabel} for ${need / 60} h.${busyText.length ? ` (${busyText.join('; ')})` : ''}`]),
+    ...(fallback.length ? ['Soonest after that:', ...fallback.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`)] : []),
+    questions.length ? 'Clear up the questions, then confirm one time and book it with book_shoot.' : 'Offer 2–3 of these, confirm one, then book_shoot with these people in `with` (person ids).',
+  ].join('\n')
+  return { text, structured: { people: resolved, everyone: total, length_hours: need / 60, when: whenLabel, days: dates, questions, options: plan.options, ...(fallback.length ? { soonest_after: fallback } : {}), ...(busyText.length ? { busy: busyText } : {}) } }
 }
 
 async function propCalendar(args: Json): Promise<ToolResult> {

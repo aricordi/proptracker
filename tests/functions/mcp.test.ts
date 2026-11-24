@@ -125,6 +125,42 @@ describe('connector tools', () => {
     expect(idea.structuredContent.missing).toEqual(['pirate ship'])
   })
 
+  it('reads between the lines: "film with Justin and Rolly tomorrow" → who, how long, times free for everyone', async () => {
+    const t = await connect(ANA)
+    await put('users/j1@example.com', { email: 'j1@example.com', role: 'creator', active: true, name: 'Justin Figs', access: 'full' })
+    await put('users/j2@example.com', { email: 'j2@example.com', role: 'creator', active: true, name: 'Justin Moore', access: 'full' })
+    await put('users/ro@example.com', { email: 'ro@example.com', role: 'creator', active: true, name: 'Roland Price', access: 'props' })
+    const tools = (await rpc(t.access_token, 'tools/list')).result.tools.map((x: { name: string }) => x.name)
+    expect(tools).toContain('plan_shoot')
+    // Two Justins: asked, never guessed. "Rolly" = Roland. Length = 2 h each for the 3 of them.
+    const p1 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin', 'Rolly'], day: FRI })).structuredContent
+    expect(p1.people[0]).toMatchObject({ said: 'Justin', status: 'which_one' })
+    expect(p1.people[0].candidates.map((c: { name: string }) => c.name).sort()).toEqual(['Justin Figs', 'Justin Moore'])
+    expect(p1.people[1]).toMatchObject({ status: 'found', name: 'Roland Price' })
+    expect(p1.people[1].person_id).toMatch(/^p_[0-9a-f]{12}$/)
+    expect(JSON.stringify(p1)).not.toContain('@example.com')
+    expect(p1.length_hours).toBe(6)
+    expect(p1.questions[0]).toMatch(/Justin/)
+    // Casual days work ("tmrw").
+    const p2 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin F', 'Rolly'], when: 'tmrw' })).structuredContent
+    expect(p2.days).toEqual([addDays(today, 1)])
+    expect(p2.questions).toEqual([])
+    // A day Roland already films is skipped for the group, with the soonest days after it offered.
+    await put(`schedule_days/${FRI}`, { date: FRI, cliff1: { '600': { shootId: 'x', name: 'Roland Price', email: 'ro@example.com', kind: 'extra', time: { start: 600, end: 720 } } } })
+    const p3 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin Figs', 'Rolly'], day: FRI })).structuredContent
+    expect(p3.options).toEqual([])
+    expect(p3.busy[0]).toMatch(/Roland Price already films/)
+    expect(p3.soonest_after.length).toBeGreaterThan(0)
+    const p4 = (await tool(t.access_token, 'plan_shoot', { with: ['Justin Figs'], day: FRI, at: '5pm' })).structuredContent
+    expect(p4.length_hours).toBe(4)
+    expect(p4.options[0].start).toBe('17:00')
+    // Booking: a typo is a question, a stranger needs not_on_app (after the person confirms).
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Justn Figs'] })).content[0].text).toMatch(/Did they mean Justin Figs/)
+    expect((await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Bobby Tables'] })).content[0].text).toMatch(/not_on_app/)
+    const ok = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '17:00', with: ['Bobby Tables'], not_on_app: ['Bobby Tables'] })
+    expect(ok.content[0].text).toMatch(/^Requested/)
+  })
+
   it('cannot touch someone else\'s shoot', async () => {
     const t = await connect(ANA)
     await put('shoots/other', { creatorEmail: MAANIK, status: 'booked', date: FRI, place: 'cliff2', start: 780, end: 900 })

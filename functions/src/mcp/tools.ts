@@ -19,7 +19,7 @@ import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot 
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
-import { asUser, callerOf, docById, s, clampInt, firstName, hm, personId, ensurePeopleKey, matchPerson, describePeople, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
+import { asUser, callerOf, docById, s, clampInt, firstName, hm, personId, ensurePeopleKey, matchPerson, askWho, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, WRITE_OUT, DESTRUCTIVE_OUT, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { runReviewerTool } from './reviewer.js'
@@ -107,10 +107,11 @@ export const TOOLS = [
     description: 'This person\'s props requests with status (requested, being prepared, packed & ready, picked up, returned) and items.',
     inputSchema: obj({}) },
   { name: 'book_shoot', title: 'Book a shoot', annotations: WRITE_OUT,
-    description: 'Book time at Cliff 1 or Cliff 2 (or an offsite shoot). Confirm the details with the person first. A creator\'s booking is a REQUEST the schedule team approves; it holds the time meanwhile. Each person gets up to 2 hours; for longer, add one collaborator per extra 2 hours in `with` (names or person ids; people not on the app can be added by name). Times are HH:MM (24 h).',
+    description: 'Book time at Cliff 1 or Cliff 2 (or an offsite shoot). Confirm the details with the person first. A creator\'s booking is a REQUEST the schedule team approves; it holds the time meanwhile. Each person gets up to 2 hours; for longer, add one collaborator per extra 2 hours in `with` (names, nicknames or person ids; plan_shoot resolves them first). Someone who films with them but isn\'t on the app goes in `with` AND `not_on_app`, only after the person confirms that. Times are HH:MM (24 h).',
     inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string', description: 'YYYY-MM-DD' },
       start: { type: 'string', description: 'HH:MM' }, end: { type: 'string', description: 'HH:MM' },
-      with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Collaborators: names or person ids from list_people (people not on the app can be added by name)' },
+      with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Collaborators: names or person ids (from plan_shoot or list_people)' },
+      not_on_app: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Names in `with` the person confirmed are not on the app yet (booked under their name)' },
       where: { type: 'string', description: 'Offsite only: address or place' } }, ['place', 'day', 'start', 'end']) },
   { name: 'move_shoot', title: 'Move a shoot', annotations: DESTRUCTIVE_OUT,
     description: 'Move one of this person\'s shoots to another time (same rules as the app: notice period, approval). Confirm first.',
@@ -328,11 +329,15 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
   // Collaborators: an email, a name of someone who films, or a name of someone not on the app yet.
   const people = await filmingPeople({ includeDemo: true, offApp: true })
   const friends: string[] = []
+  // People not on the app are only booked under their name when the assistant says so (`not_on_app`), after asking:
+  // a typo ("Justn") must never quietly become a stranger on the booking.
+  const offApp = new Set((Array.isArray(args.not_on_app) ? args.not_on_app : []).map(x => s(x, 120).toLowerCase()).filter(Boolean))
   for (const n of names) {
-    const hits = matchPerson(people, n, u.email)
-    if (hits.length > 1) return { text: `More than one person is called ${n}: ${describePeople(hits)}. Ask which one and pass their person id.` }
-    if (!hits.length && (n.includes('@') || /^p_/.test(n))) return { text: `${n.includes('@') ? 'Use their name or person id (from list_people), not an email address.' : `${n} isn't someone who films on the app. Use a name from list_people.`}` }
-    friends.push(hits[0]?.email ?? `guest:${n}`)
+    if (n.includes('@')) return { text: 'Use their name or person id (from list_people), not an email address.' }
+    const m = matchPerson(people, n, u.email)
+    if (m.status === 'one') { friends.push(m.hits[0].email); continue }
+    if (m.status === 'none' && offApp.has(n.toLowerCase()) && !/^p_/i.test(n)) { friends.push(`guest:${n}`); continue }
+    return { text: `${askWho(n, m)}${m.status === 'none' ? ` If ${n} films with them but isn't on the app yet, confirm that and pass the name in \`not_on_app\` too.` : ''}` }
   }
   let res: Json
   if (place === 'offsite') {

@@ -15,7 +15,10 @@ import {
 } from '../schedule.js'
 import { loadScheduleSettings } from '../scheduling.js'
 import { loadSettings } from '../reservations.js'
-import { s, clampInt, hm, parseClock, loadCloset, freeOn, personId, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
+import { s, clampInt, hm, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
+import { resolvePerson, resolveWhen } from './understand.js'
+
+const demoMatch = (said: string) => resolvePerson(DEMO_PEOPLE, said, REVIEWER_EMAIL, (p, id) => personId(p.email) === id)
 
 // One practice copy per reviewer connection (two reviewers testing at once don't overwrite each other).
 const sandboxRef = (key: string) => db.doc(`mcp_sandbox/${String(key || 'default').replace(/[^\w-]/g, '').slice(0, 60) || 'default'}`)
@@ -75,7 +78,7 @@ const shootRow = (x: SShoot, sb: Sandbox) => ({ id: x.id, place: x.place, day: x
   status: x.status === 'booked' ? 'approved' : x.status === 'requested' ? 'waiting for approval' : x.status,
   props_requests: sb.requests.filter(r => r.shootId === x.id && r.status !== 'cancelled').map(r => ({ id: r.id, title: r.title, status: r.status })) })
 
-const REVIEWER_TOOLS = new Set(['whoami', 'get_schedule', 'find_free_times', 'list_people', 'my_shoots', 'my_props_requests', 'my_status', 'get_shoot',
+const REVIEWER_TOOLS = new Set(['whoami', 'get_schedule', 'find_free_times', 'plan_shoot', 'list_people', 'my_shoots', 'my_props_requests', 'my_status', 'get_shoot',
   'book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'change_props_request', 'cancel_props_request', 'join_waitlist', 'leave_waitlist',
   'invite_to_video', 'answer_video_invite', 'request_swap', 'answer_swap', 'report_problem'])
 
@@ -135,6 +138,31 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       const top = options.slice(0, clampInt(a.limit, 1, 30, 12)).map(({ _s, ...o }) => o)   // eslint-disable-line @typescript-eslint/no-unused-vars
       return { text: top.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`).join('\n') || 'Nothing free that fits.', structured: { length_hours: need / 60, people, options: top } }
     }
+    case 'plan_shoot': {
+      // Same reading as the real plan_shoot (names, nicknames, typos asked about; 2 h per person; "tomorrow" etc.), demo people.
+      const said = (Array.isArray(a.with) ? a.with : []).map(v => s(v, 80)).filter(Boolean).slice(0, 4)
+      const resolved: Json[] = [], questions: string[] = []
+      for (const n of said) {
+        const m = demoMatch(n)
+        if (m.status === 'one') resolved.push({ said: n, status: 'found', name: m.hits[0].name, person_id: personId(m.hits[0].email) })
+        else {
+          resolved.push({ said: n, status: m.status === 'none' ? 'not_found' : m.status === 'many' ? 'which_one' : 'did_you_mean', candidates: m.hits.map(h => ({ name: h.name, person_id: personId(h.email) })) })
+          questions.push(m.status === 'none' ? `Is "${n}" someone who isn't on the app yet? (Then book_shoot can add them by name with not_on_app.)` : askWho(n, m)!)
+        }
+      }
+      const total = 1 + said.length
+      const hrs = Number(a.hours) > 0 ? Math.min(Number(a.hours), maxMinutesFor(total, sch) / 60) : Math.min(maxMinutesFor(total, sch), 5 * sch.slotMinutes) / 60
+      let from = today, n = 7, label = 'the next 7 days'
+      if (isDay(a.day) && String(a.day) >= today) { from = String(a.day); n = 1; label = from }
+      else { const w = resolveWhen(s(a.when, 80), today); if (w) { from = w.days[0] < today ? today : w.days[0]; n = w.days.length; label = w.label } }
+      const at = parseClock(a.at)
+      const free = await runReviewerTool('find_free_times', { from, days: n, hours: hrs, people: total, houses: a.houses, time_of_day: at != null ? 'any' : a.time_of_day, ...(at != null ? { around: hm(at) } : {}), limit: clampInt(a.limit, 1, 12, 6) }, u)
+      const options = ((free?.structured?.options ?? []) as Json[])
+      const found = resolved.filter(r => r.status === 'found').map(r => r.name)
+      return { text: [`Plan: you${found.length ? ` + ${found.join(' + ')}` : ''}, ${hrs} h, ${label}.`, ...(questions.length ? ['Ask first:', ...questions.map(q => `- ${q}`)] : []),
+        options.length ? `Times that fit everyone:\n${options.map(o => `${o.day} ${o.house} ${o.start}–${o.end}`).join('\n')}` : `Nothing free ${label}.`].join('\n'),
+        structured: { people: resolved, everyone: total, length_hours: hrs, when: label, questions, options, demo_account: true } }
+    }
     case 'my_shoots': {
       const rows = sb.shoots.filter(x => x.status !== 'cancelled' && x.date >= addDays(today, -14)).sort((x, y) => `${x.date}${x.start}`.localeCompare(`${y.date}${y.start}`)).map(x => shootRow(x, sb))
       return { text: rows.map(r => `${r.id} | ${r.day} ${r.start}-${r.end} | ${r.place} | ${r.status}`).join('\n') || 'No shoots booked.', structured: { shoots: rows } }
@@ -167,7 +195,15 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       const start = parseClock(a.start), end0 = parseClock(a.end)
       if (start == null || end0 == null) return { text: 'Give the place, day (YYYY-MM-DD) and start/end (HH:MM).' }
       const end = end0 <= start ? end0 + 1440 : end0
-      const withNames = (Array.isArray(a.with) ? a.with : []).map(x => s(x, 80)).filter(Boolean).slice(0, 4)
+      const said = (Array.isArray(a.with) ? a.with : []).map(x => s(x, 80)).filter(Boolean).slice(0, 4)
+      const offApp = new Set((Array.isArray(a.not_on_app) ? a.not_on_app : []).map(x => s(x, 80).toLowerCase()))
+      const withNames: string[] = []
+      for (const n of said) {
+        const m = demoMatch(n)
+        if (m.status === 'one') withNames.push(m.hits[0].name)
+        else if (m.status === 'none' && offApp.has(n.toLowerCase()) && !n.includes('@')) withNames.push(n)
+        else return { text: `${askWho(n, m)}${m.status === 'none' ? ` If ${n} isn't on the app yet, confirm that and pass the name in \`not_on_app\` too.` : ''}` }
+      }
       const bad = checkTimes(place, date, start, end, sch, today, now)
       if (bad) return { text: SCHEDULE_MESSAGES[bad] }
       if (place !== 'offsite') {
