@@ -2922,6 +2922,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       Tests: tests/functions/mcp.test.ts, freeTime.test.ts, calendarWatch.test.ts, unit freeTime; e2e journey 01 rewritten (any
       start/end, 3 people on one booking), 10 laptop timeline. Manuals (creator + equipment booking cards), CHANGELOG, owner guide
       #freetime + #connector updated; manual SCREENSHOTS still show the old slot sheets (re-shoot before the website deploy).
+    - CONNECTOR READS BETWEEN THE LINES + NO CHECK-IN + DEMO ACCOUNT (owner, Nov 24; NOT deployed, part of 1.2.0): `functions/src/mcp/
+      understand.ts` (pure, tests/unit/understand.test.ts): resolvePerson = exact full/first/last name, "first + start of last",
+      nicknames (calendarText NICKS, + roland/rolly), the start of ONE first name (≥3 letters), else typo/loose = 'maybe' (never booked
+      silently); resolveWhen = tomorrow/tmrw/demain, weekdays, "next friday" (= next Mon–Sun week), this/next weekend, this/next week,
+      dates. common.ts matchPerson → {status one|many|maybe|none, hits} + askWho(). New READ tool `plan_shoot` (more.ts; sandboxed in
+      reviewer.ts with DEMO_PEOPLE): names as said + `when`/`day`/`at`/`hours` → people resolved (person ids, never emails), questions,
+      length 2 h × everyone unless said, `freeOptions` (shared with find_free_times) skips days the person OR a collaborator already films
+      (busy), soonest_after when nothing fits. book_shoot: unknown names need `not_on_app` (after the person confirms) → guest; typos →
+      "did you mean". INSTRUCTIONS "READ BETWEEN THE LINES". Check-in removed app-wide (schedule.ts CHECKIN_ON = false; team "Did they
+      film?" on started shoots via decideShoot). Reviewer demo account (More → ChatGPT & Claude, owner) = practice copy mcp_sandbox/{clientId}.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
