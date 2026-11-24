@@ -3097,6 +3097,9 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       return, shoot_done, pick-up/return, suggestions, custom pictures all short-circuit. Callable `connectorPractice` {on|reset}
       (owner + creator). App: AiConnectorScreen PracticeCard (amber when ON, Start over from my real shoots). Help Q, appGuide
       connector, creator manual, owner guide. Test mcp.test.ts "practice mode" (+ helpers listIds).
+    - LIVE Nov 24 (owner "put it live right now"): backend run 45480536560 + website run 45480541970 = VERSION 1.5.0 (one day view for
+      every role + connector practice mode); safety redeploy of mcp/connectorPractice/askApp/askChat run 45484206761. Manuals re-shot
+      (manual-shots only; the full shots run OOMs this machine), PDFs rebuilt, 4 manual pages republished.
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
