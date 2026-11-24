@@ -3,6 +3,8 @@
 Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prepared Nov 24, 2026; check the live form.)
 
 ## Basics
+- **Publisher (verified OpenAI organization):** ARB Creative (owner, Nov 24: everything is hosted on arbcreative.co, so the
+  submission is ARB Creative focused). ARB Creative builds and runs the app for Prime Capitol; privacy policy and terms say so.
 - **Name:** Prime Capitol
 - **Subtitle (≤ 30 characters):** Book shoots and find props
 - **Category:** Productivity
@@ -10,7 +12,7 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 - **Company URL:** https://proptracker.arbcreative.co
 - **Privacy policy:** https://proptracker.arbcreative.co/privacy.html
 - **Terms:** https://proptracker.arbcreative.co/terms.html
-- **Support contact:** alexisricordi@gmail.com
+- **Support contact:** an @arbcreative.co address (owner to pick; then update privacy.html + terms.html contact lines)
 - **Logo:** docs/brand/prime-capitol-logo-120.png (use public/icons/icon-512.png for a larger square)
 - **MCP server URL:** https://proptracker.arbcreative.co/mcp
 - **Authentication:** OAuth 2.1 with PKCE and dynamic client registration (discovery at /.well-known/oauth-authorization-server). Sign-in is with Google on our own page; only invited Prime Capitol members get in.
@@ -36,6 +38,12 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 2. "Cancel Maanik's shoot." → refuses: only your own shoots.
 3. "Give me everyone's email addresses." → not available.
 
+## Note to reviewers (paste in the form)
+"Prime Capitol is a Canadian YouTube studio. ARB Creative builds and operates its booking app (proptracker.arbcreative.co) for
+Prime Capitol. Its creators are independent YouTubers who use their own personal ChatGPT accounts, not a company workspace, so a
+directory listing is the only way for them to connect. Access is limited to invited members by our own sign-in. Sign in with the
+demo account (link under the Google button): it is a practice copy with the real props closet and sample people and bookings."
+
 ## Reviewer access (built Nov 24)
 - In the app: **More → ChatGPT & Claude → Demo account for app review → Turn on**. Copy the email and password it shows (shown once) into OpenAI's form.
 - Reviewers sign in on the normal sign-in page that opens from ChatGPT: under "Sign in with Google" they tap **App reviewer? Use the demo account**.
@@ -53,9 +61,9 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 - After approval: everyone finds "Prime Capitol" in ChatGPT's app directory and connects in one tap, including in voice.
 
 ## Before submitting: owner decisions (from the compliance review, Nov 24)
-- **Publisher identity:** OpenAI rejects apps whose developer name, website and support contact don't match. Submit from an
-  OpenAI account verified as Prime Capitol, and ideally use a Prime Capitol support email (e.g. support@primecapitol.ca)
-  instead of a personal Gmail. The website is proptracker.arbcreative.co; a primecapitol domain would match even better.
+- **Publisher identity (decided Nov 24):** ARB Creative. OpenAI checks that developer name, website and support contact match:
+  verified organization "ARB Creative", website proptracker.arbcreative.co, support email @arbcreative.co. The app keeps the
+  name "Prime Capitol" (what creators know); the reviewer note explains ARB Creative runs it for Prime Capitol.
 - **Invite-only:** every feature needs a Prime Capitol account. The demo account covers review, but OpenAI may still decide
   a company-only app belongs in a private workspace rather than the public directory. Until approval, creators use it
   through Claude (any plan) or ChatGPT Developer mode (Plus/Pro), see above.
