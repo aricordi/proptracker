@@ -101,7 +101,7 @@ jobs:
         run: |
           gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mcp" AND httpRequest.requestUrl:*' \
             --project proptracker-9732e --freshness 24h --limit 60 \
-            --format='table(timestamp, httpRequest.status, httpRequest.requestMethod, httpRequest.requestUrl.segment(3).sub("[?].*",""), httpRequest.userAgent.slice(0:40))' || true
+            --format='table(timestamp, httpRequest.status, httpRequest.requestMethod, httpRequest.requestUrl.slice(0:70), httpRequest.userAgent.slice(0:40))' || true
           echo "--- connector sign-in requests waiting / finished (no codes shown)"
           gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="mcp" AND textPayload:*' \
             --project proptracker-9732e --freshness 24h --limit 30 --format='table(timestamp, severity, textPayload.slice(0:160))' || true
