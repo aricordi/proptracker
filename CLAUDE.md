@@ -2997,7 +2997,10 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       CONNECT ON FIREBASEAPP (1.3.3, owner screen recording: iPhone ChatGPT app's sign-in sheet showed the OCTOBER app home = an old
       Safari service worker on arbcreative): authorization_endpoint + Allow page = https://proptracker-9732e.firebaseapp.com
       (CONNECT_BASE in mcp/server.ts; metadata(base, signInBase)); signInDomain includes firebaseapp. favicon.ico/png + MCP icons.
-      Day: key + bell line moved under the grid, offsite = small pill top right, bell tap = toast.
+      Day: key + bell line moved under the grid, offsite = small pill top right, bell tap = toast. 1.3.4 = connect page shows the
+      signed-in account big + "Not you?" (switchGoogleAccount in googleSignIn.ts), "Wrong Google account?" screen, connect wording on
+      sign-in (owner chose Google sign-in only, no pairing code). LIVE Nov 24: backend run 45365121241 (mcp/askApp/askChat) + website
+      run 45366282661 (1.3.4; runs 45363597635/45365126713 cancelled: tests froze / superseded).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
