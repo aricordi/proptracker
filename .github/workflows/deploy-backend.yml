@@ -82,6 +82,8 @@ jobs:
       # Google's build service occasionally fails a function build for no
       # reason of ours (especially on a new project), so try once more.
       - name: Deploy server functions, security rules and indexes
+        env:
+          ONLY: ${{ inputs.only }}
         run: |
           deploy() { npx firebase deploy --only "${ONLY:-functions,firestore,storage}" --project proptracker-9732e --non-interactive; }
           deploy || { echo "First attempt failed; waiting 60s and retrying once..."; sleep 60; deploy; }
