@@ -77,6 +77,7 @@ export function offerFor(said: unknown, list: { id: string; name: string; catego
 
 export async function runGearTool(name: string, a: Json, u: McpUser): Promise<ToolResult | null> {
   if (!GEAR_TOOL_NAMES.has(name)) return null
+  if (u.practice && name !== 'gear_available') return { text: 'Practice mode: gear would be taken or returned here (pieces ticked, one photo). Nothing was recorded and the equipment team wasn\'t told. Turn practice mode off in the app when you\'re done.', structured: { practice_mode: true } }
   if (u.reviewer) return { text: 'The demo account has no gear room: gear is taken and returned on the shoot day by real creators. (Demo account: nothing is sent to the studio team.)' }
   if (name === 'return_gear') return returnIt(a, u)
   const sh = await myShoot(u, s(a.shoot_id, 100))

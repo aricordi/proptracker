@@ -11,7 +11,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { scryptSync, timingSafeEqual, randomBytes } from 'node:crypto'
 import { REVIEWER_EMAIL, loadCloset } from './common.js'
 import { studioBasicsText } from '../studioBasics.js'
-import { resetSandbox } from './reviewer.js'
+import { resetSandbox, resetPractice, practiceKey } from './reviewer.js'
 import { GEMINI_API_KEY } from '../gemini.js'
 import {
   redirectAllowed, assistantName, randomToken, hashToken, pkceOk, metadata, resourceMetadata,
@@ -298,7 +298,10 @@ async function rpc(req: Request, res: import('express').Response, base: string) 
   if (!t || !allowed) {
     res.status(401).set('WWW-Authenticate', `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`).json({ error: 'invalid_token' }); return
   }
-  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant, ...(t.reviewer ? { reviewer: true, sandboxKey: String(t.sandbox ?? t.clientId) } : {}) }
+  // Practice mode (owner, Nov 24): the person's own connection, with their changes kept in a private practice copy.
+  const practice = !t.reviewer && (await db.doc(`mcp_practice/${t.email}`).get()).get('practice') === true
+  const user: McpUser = { email: t.email, name: t.name, assistant: t.assistant,
+    ...(t.reviewer ? { reviewer: true, sandboxKey: String(t.sandbox ?? t.clientId) } : practice ? { practice: true, sandboxKey: practiceKey(t.email) } : {}) }
   const raw = req.body
   if (raw === undefined || raw === null || raw === '' || (typeof raw === 'object' && !Array.isArray(raw) && !Buffer.isBuffer(raw) && !Object.keys(raw).length)) { res.status(400).json(rpcError(null, -32700, 'Parse error')); return }
   const msg = bodyOf(req) as { jsonrpc?: string; id?: string | number; method?: string; params?: Record<string, unknown> }
@@ -418,6 +421,21 @@ export const myConnectors = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'admin', 'arts', 'equipment', 'creator'], { demoOk: true })
   const snap = await db.collection('mcp_connections').where('email', '==', caller.email).get()
   return { connections: snap.docs.map(d => ({ id: d.id, assistant: d.get('assistant'), connectedAt: d.get('connectedAt'), lastUsed: d.get('lastUsed') })) }
+})
+/** Practice mode for your own ChatGPT/Claude connection (owner, Nov 24): {on} turns it on/off; turning it on (or {reset})
+ *  starts the practice copy from your real upcoming shoots and props requests. Nothing real is ever changed by practice. */
+export const connectorPractice = onCall(CALLABLE, async req => {
+  const caller = await requireRole(req, ['owner', 'creator'])
+  const ref = db.doc(`mcp_practice/${caller.email}`)
+  const d = req.data ?? {}
+  let copied: { shoots: number; requests: number } | undefined
+  if (typeof d.on === 'boolean') {
+    await ref.set({ practice: d.on, practiceAt: new Date().toISOString() }, { merge: true })
+    if (d.on) copied = await resetPractice(caller.email)
+  } else if (d.reset === true) copied = await resetPractice(caller.email)
+  const on = (await ref.get()).get('practice') === true
+  const sb = on ? (await db.doc(`mcp_sandbox/${practiceKey(caller.email)}`).get()).data() : undefined
+  return { on, copied, practice: sb ? { shoots: ((sb.shoots ?? []) as unknown[]).length, requests: ((sb.requests ?? []) as unknown[]).length, resetAt: sb.resetAt ?? null } : null }
 })
 export const disconnectConnector = onCall(CALLABLE, async req => {
   const caller = await requireRole(req, ['owner', 'admin', 'arts', 'equipment', 'creator'], { demoOk: true })

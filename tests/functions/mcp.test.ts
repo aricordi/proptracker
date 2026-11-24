@@ -2,7 +2,7 @@
 // signed-in person through the app's own server functions.
 import { beforeEach, describe, it, expect } from 'vitest'
 import { createHash, randomBytes } from 'node:crypto'
-import { put, call, getDoc, clearDatabase } from './helpers'
+import { put, call, getDoc, clearDatabase, listIds } from './helpers'
 import { todayInStudio, addDays, weekday } from '../../functions/src/booking'
 import { nowStamp } from '../../functions/src/gearBooking'
 
@@ -482,6 +482,50 @@ describe('connector tools', () => {
     const photo = 'http://127.0.0.1:9199/v0/b/demo/o/reservation-photos%2Fout1%2Freturn%2Fd.jpg?alt=media'
     expect((await tool(t.access_token, 'report_problem', { kind: 'props', id: 'out1', what: 'Lamp', note: 'shade torn', photo })).content[0].text).toMatch(/with the photo/)
     expect((await getDoc('reservations/out1'))!.issues[0].photos).toEqual([photo])
+  })
+
+  it('practice mode: real names and a copy of my real shoots, but nothing real is booked, sent or changed', async () => {
+    const KYLE = 'kyle@example.com'
+    await put(`users/${KYLE}`, { email: KYLE, role: 'creator', active: true, name: 'Kyle Stone', access: 'full' })
+    await put('app_settings/schedule', { instantBookers: [{ email: ANA, name: 'Ana Lopez' }, { email: KYLE, name: 'Kyle Stone' }] })
+    // Real shoots first (practice off): Ana at Cliff 1, Kyle at Cliff 2.
+    const real = (await call('bookShoot', { place: 'cliff1', date: FRI, start: 600, end: 720 }, ANA)).result
+    await call('bookShoot', { place: 'cliff2', date: FRI, start: 900, end: 1020 }, KYLE)
+    // Only people who book can switch it on.
+    expect((await call('connectorPractice', { on: true }, MAANIK)).ok).toBe(false)
+    const on = (await call('connectorPractice', { on: true }, ANA)).result
+    expect(on.on).toBe(true)
+    expect(on.copied.shoots).toBe(1)
+    const t = await connect(ANA)
+    expect((await tool(t.access_token, 'whoami')).content[0].text).toMatch(/PRACTICE MODE/)
+    // The schedule shows the real people by name, and my copied shoot once, as me.
+    const sch = await tool(t.access_token, 'get_schedule', { from: FRI, days: 1 })
+    const day = sch.structuredContent.days[0].houses
+    expect(day.cliff2.bookings.map((b: { who: string }) => b.who)).toContain('Kyle Stone')
+    expect(day.cliff1.bookings).toHaveLength(1)
+    expect(day.cliff1.bookings[0].who).toBe('you')
+    // Names resolve against the real people who film.
+    const plan = await tool(t.access_token, 'plan_shoot', { with: ['Kyle'], day: FRI })
+    expect(plan.structuredContent.people[0]).toMatchObject({ status: 'found', name: 'Kyle Stone' })
+    // Booking, props, gear, reports: answered, but nothing real is written.
+    const shootsBefore = (await listIds('shoots')).length, resBefore = (await listIds('reservations')).length
+    const mine = (await tool(t.access_token, 'my_shoots')).structuredContent.shoots
+    expect(mine[0].id).toBe(`p-${real.id}`)
+    const booked = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: addDays(FRI, 1), start: '13:00', end: '15:00' })
+    expect(booked.content[0].text).toMatch(/Practice mode: nothing was sent/)
+    const props = await tool(t.access_token, 'request_props', { shoot_id: mine[0].id, video_name: 'Test', items: [{ id: 'phone', qty: 1 }] })
+    expect(props.content[0].text).toMatch(/Practice mode/)
+    await tool(t.access_token, 'cancel_shoot', { shoot_id: mine[0].id })
+    expect((await tool(t.access_token, 'take_gear', { items: ['camera'] })).content[0].text).toMatch(/Practice mode/)
+    expect((await tool(t.access_token, 'shoot_done', { shoot_id: mine[0].id, filmed: true })).content[0].text).toMatch(/Practice mode/)
+    expect((await listIds('shoots')).length).toBe(shootsBefore)
+    expect((await listIds('reservations')).length).toBe(resBefore)
+    expect((await getDoc(`shoots/${real.id}`))!.status).toBe('booked')
+    // Off again: back to the real studio.
+    await call('connectorPractice', { on: false }, ANA)
+    const realBook = await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: addDays(FRI, 1), start: '13:00', end: '15:00' })
+    expect(realBook.content[0].text).not.toMatch(/Practice/)
+    expect((await listIds('shoots')).length).toBe(shootsBefore + 1)
   })
 
   it('answers OpenAI\'s domain check only once a token is saved', async () => {

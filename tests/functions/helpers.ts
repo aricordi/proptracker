@@ -113,3 +113,10 @@ export async function bookGear(data: Record<string, any>, email: string) {
   }
   return call('createGearBooking', data, email)
 }
+
+/** Ids of every doc in a top-level collection (admin read; for "nothing was written" checks). */
+export async function listIds(col: string): Promise<string[]> {
+  const res = await fetch(`${FS}/${col}?pageSize=300`, { headers: ADMIN })
+  if (!res.ok) return []
+  return ((await res.json()).documents ?? []).map((d: { name: string }) => d.name.split('/').pop()!)
+}

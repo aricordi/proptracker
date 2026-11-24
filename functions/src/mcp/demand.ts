@@ -40,7 +40,7 @@ export function cleanDemand(text: unknown, names: string[] = []): string {
 }
 
 async function sharing(u: McpUser) {
-  if (u.reviewer) return false
+  if (u.reviewer || u.practice) return false
   try { return (await db.doc(`connector_prefs/${u.email}`).get()).get('shareSuggestions') !== false } catch { return false }
 }
 

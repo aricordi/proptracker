@@ -3087,6 +3087,16 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       calendar" (DayLineup), swap preview, arts Calendar "Who's filming this day" (pc.artsDayGrid). Week board = same palette
       (#3A4A63 bookings, purple blocks, dashed amber requests, dashed gold free clickable by gear staff), 9 AM start + Show all times.
       Admins (can't book) see "Free" without "+". NEW DAY/CALENDAR VIEWS: build on DayGrid, never a new list style.
+    - CONNECTOR PRACTICE MODE (owner, Nov 24: "test the connector without notifications to arts or equipment… real names so it's
+      worth testing"; version 1.5.0; NOT deployed: backend (new callable connectorpractice in deploy/log lists, no rules change) +
+      website, ask). Server-only flag `mcp_practice/{email}.practice`; mcp/server.ts rpc sets McpUser.practice + sandboxKey
+      practiceKey(email) ('p_'+sha1). reviewer.ts engine serves BOTH the reviewer demo and practice: practice = real email/rules
+      (meOf), REAL names (peopleFor = filmingPeople incl. Props-only + off-app; maskDay keeps names), copy of the person's real
+      upcoming shoots ('p-'+id, real ones hidden via sb.hide) + props requests (resetPractice); PRACTICE_NOTE on every change.
+      Safety net in tools.ts runTool: any non-readOnly tool not handled by the sandbox is refused while practising. gear take/
+      return, shoot_done, pick-up/return, suggestions, custom pictures all short-circuit. Callable `connectorPractice` {on|reset}
+      (owner + creator). App: AiConnectorScreen PracticeCard (amber when ON, Start over from my real shoots). Help Q, appGuide
+      connector, creator manual, owner guide. Test mcp.test.ts "practice mode" (+ helpers listIds).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

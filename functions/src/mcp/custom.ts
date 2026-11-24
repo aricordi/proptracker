@@ -9,7 +9,7 @@ export const CUSTOM_NOTE = 'Custom props have no guaranteed date: the arts depar
 export async function attachRefImage(args: Json, builds: { description: string; qty: number; refPhoto?: string }[], u: McpUser): Promise<{ builds: typeof builds } | { problem: string }> {
   if (!args.reference_image) return { builds }
   if (!builds.length) return { problem: 'A reference picture goes with a custom prop: add the custom prop (what it is, how many) too.' }
-  if (u.reviewer) return { builds: builds.map((b, i) => i === 0 ? { ...b, refPhoto: 'demo' } : b) }
+  if (u.reviewer || u.practice) return { builds: builds.map((b, i) => i === 0 ? { ...b, refPhoto: 'demo' } : b) }
   const saved = await saveRefImage(args.reference_image, u.email)
   if ('problem' in saved) return { problem: `Couldn't attach the picture (${saved.problem}). Send the request without it, or attach the picture in the app: ${APP_LINK}/requests` }
   const want = s(args.reference_for, 200).toLowerCase()

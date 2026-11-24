@@ -271,7 +271,7 @@ async function pickUpProps(args: Json, u: McpUser): Promise<ToolResult> {
   if (!all && !missing.length && !issue) return { text: `Ask them to check the bag against the list first: ${lines.map(l => `${l.itemName} x${l.qty}`).join(', ')}. Then either everything is there (all_received) or say what's missing.` }
   const b = await loadSettings()
   const due = `${returnDueDay(String(r.endDate), b)} 10:00`
-  if (u.reviewer) return { text: `Practice account: "${r.title}" would now be signed for. Due back ${due}.` }
+  if (u.reviewer || u.practice) return { text: `Practice account: "${r.title}" would now be signed for. Due back ${due}.` }
   await confirmPickup.run(asUser(u, { id, allReceived: all, ...(missing.length ? { missing } : {}), ...(issue ? { issue } : {}) }))
   const names = new Map(lines.map(l => [l.itemId, l.itemName]))
   return { text: `Signed for "${r.title}" ✓${missing.length || issue ? ` The arts department is told${missing.length ? ` what's missing: ${missing.map(m => `${names.get(m.itemId)} x${m.qty}`).join(', ')}` : ''}${issue ? ` ("${issue}")` : ''}.` : ''} Bring everything back by ${due} (late returns can mean a strike); return it here with one photo (return_props) or in the app.`,
@@ -293,7 +293,7 @@ async function returnProps(args: Json, u: McpUser): Promise<ToolResult> {
   if (unclear.length) return { text: `Which prop is damaged? ${unclear.join('; ')}.`, structured: { needs_clarifying: true, field: 'damaged' } }
   if (!args.photo) return { text: `A return needs one photo of everything being dropped off (${lines.map(l => l.itemName).join(', ')}). Ask them to take it now and attach it here, or return it in the app: ${APP_URL}/requests` }
   const note = s(args.note, 1000)
-  if (u.reviewer) return { text: `Practice account: "${r.title}" would now be returned with the photo; the arts department checks each prop in.` }
+  if (u.reviewer || u.practice) return { text: `Practice account: "${r.title}" would now be returned with the photo; the arts department checks each prop in.` }
   const saved = await savePhoto(args.photo, `reservation-photos/${id}/return`, { keepDate: true, allowOwn: `reservation-photos/${id}/return/` })
   if ('problem' in saved) return { text: `Couldn't use that photo (${saved.problem}). Try attaching it again, or return it in the app: ${APP_URL}/requests` }
   await startReturn.run(asUser(u, { id, photos: [saved.url], ...(note ? { note } : {}), ...(damaged.length ? { damaged } : {}) }))
@@ -319,7 +319,7 @@ async function shootsToConfirm(u: McpUser): Promise<(Json & { id: string })[]> {
 
 async function shootDone(args: Json, u: McpUser): Promise<ToolResult> {
   if (typeof args.filmed !== 'boolean') return { text: 'Did they film or not? (filmed: true or false)' }
-  if (u.reviewer) return { text: `Noted: ${args.filmed ? 'filmed' : 'didn\'t film'}. (Demo account: this is a practice copy, so nothing is sent to the studio team.)` }
+  if (u.reviewer || u.practice) return { text: `Noted: ${args.filmed ? 'filmed' : 'didn\'t film'}. (${u.practice ? 'Practice mode' : 'Demo account'}: nothing is sent to the studio team.)` }
   let id = s(args.shoot_id, 100)
   if (!id) {
     const open = await shootsToConfirm(u)

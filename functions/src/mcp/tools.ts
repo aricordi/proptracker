@@ -174,9 +174,14 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
   if ('ask' in u2) return u2.ask
   args = u2.args
   // OpenAI's reviewers: their own things live in a practice copy (reviewer.ts); closet tools and rules run as normal.
-  if (u.reviewer) {
+  if (u.reviewer || u.practice) {
     const r = await runReviewerTool(name, args, u)
     if (r) return r
+    // Safety net: in a practice copy NOTHING that changes things may reach the real studio, even a tool added later.
+    const def = ALL_TOOLS.find(tl => tl.name === name)
+    if (def && (def.annotations as { readOnlyHint?: boolean }).readOnlyHint !== true) {
+      return { text: `${u.practice ? 'Practice mode' : 'Demo account'}: "${name}" would run now, but nothing was changed and nobody was told.`, structured: { practice_mode: !!u.practice, skipped: name } }
+    }
   }
   switch (name) {
     case 'get_rules': {
@@ -205,7 +210,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
     case 'note_feature_request': {
       const what = s(args.request, 200)
       if (what.length < 3) return { text: 'What should be passed on? A few words about what they wanted.' }
-      if (u.reviewer) return { text: 'Passed on to the Prime Capitol team as an anonymous suggestion. (Demo account: nothing is saved.)', structured: { saved: false, demo_account: true } }
+      if (u.reviewer || u.practice) return { text: `Passed on to the Prime Capitol team as an anonymous suggestion. (${u.practice ? 'Practice mode' : 'Demo account'}: nothing is saved.)`, structured: { saved: false, demo_account: true } }
       const kind = args.kind === 'prop_or_costume' ? 'prop_missing' : 'feature'
       const saved = await noteDemand(u, kind, `${args.kind === 'gear' ? 'gear: ' : ''}${what}`, 'note_feature_request')
       return { text: saved ? 'Passed on to the Prime Capitol team as an anonymous suggestion (no names attached).' : 'Not saved: they have turned off sharing suggestions in the app (More → ChatGPT & Claude), or it was too short.', structured: { saved } }
@@ -229,7 +234,8 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
         return { name: shortName(n), ...(p ? { person_id: personId(p.email) } : {}) }
       })
       const data = {
-        you: { name: firstName(caller.name), role: caller.role, can_book: canBook, ...(caller.demo ? { note: 'Props only for now: can search and look at props, not book' } : {}) },
+        you: { name: firstName(caller.name), role: caller.role, can_book: canBook, ...(caller.demo ? { note: 'Props only for now: can search and look at props, not book' } : {}),
+          ...(u.practice ? { practice_mode: 'ON: they are testing. Real props, people and free times, but bookings, requests, returns and reports stay in a private practice copy and nobody is told. Mention it once when something would change.' } : {}) },
         now: now.replace('T', ' '), today, days,
         upcoming_shoots: upcoming,
         props_ready_to_pick_up: known.requests.filter(r => r.status === 'packed').map(r => ({ id: r.id, video: r.title, day: r.date })),

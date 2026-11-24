@@ -1,7 +1,7 @@
 // Me → ChatGPT & Claude (owner, Nov 24): how to add Prime Capitol to your AI assistant, and the ones you've connected.
 import { useEffect, useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
-import { CONNECTOR_URL, myConnectors, disconnectConnector, reviewerAccount, type Connection } from '../services/connector'
+import { CONNECTOR_URL, myConnectors, disconnectConnector, reviewerAccount, connectorPractice, type Connection, type PracticeState } from '../services/connector'
 import { useSession } from '../auth'
 import { friendlyError } from '../lib/errors'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
@@ -60,10 +60,57 @@ export default function AiConnectorScreen() {
           ))}
           {error && <p className="text-amber-300 text-sm px-1">{error}</p>}
         </section>
+        <PracticeCard />
         <SuggestionsCard />
         <ReviewerCard />
       </div>
     </div>
+  )
+}
+
+// Practice mode (owner, Nov 24: "test the connector without notifications to arts or equipment… with real names"): your own
+// ChatGPT/Claude connection keeps working with real props, real people and real free times, but anything you book, request,
+// return or report stays in a private practice copy. Nobody is told. People who book only (creators + owner).
+function PracticeCard() {
+  const { canBook, demo } = useSession()
+  const [st, setSt] = useState<PracticeState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const [done, setDone] = useState('')
+  useEffect(() => { if (canBook && !demo) connectorPractice({}).then(r => setSt(r.data)).catch(e => setErr(friendlyError(e))) }, [canBook, demo])
+  if (!canBook || demo) return null
+  const run = async (data: { on?: boolean; reset?: boolean }) => {
+    setBusy(true); setErr(''); setDone('')
+    try {
+      const r = (await connectorPractice(data)).data
+      setSt(r)
+      if (r.copied) setDone(`Practice copy ready: ${r.copied.shoots} of your shoots and ${r.copied.requests} props request${r.copied.requests === 1 ? '' : 's'} copied in.`)
+      else if (data.on === false) setDone('Practice mode is off. Your AI is back on the real studio.')
+    } catch (e) { setErr(friendlyError(e)) } finally { setBusy(false) }
+  }
+  const on = !!st?.on
+  return (
+    <section data-testid="practice-card" className={`rounded-[20px] shadow-card p-5 space-y-3 ${on ? 'bg-amber-400/[0.10] shadow-[inset_0_0_0_1.5px_rgba(251,191,36,0.6)]' : 'bg-pt-surface'}`}>
+      <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[18px] font-semibold">Practice mode {on && <span className="ml-1 align-middle text-[12px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-stone-900">ON</span>}</h2>
+          <p className="text-pt-muted text-[14px] mt-1">Try anything in ChatGPT or Claude without it counting. Real props, real names and real free times, but whatever you book, request, return or report stays in a private practice copy. Nobody is notified, and the calendars aren't touched.</p>
+        </div>
+        <button role="switch" aria-checked={on} aria-label="Practice mode" disabled={busy || !st} onClick={() => run({ on: !on })}
+          className={`shrink-0 w-[52px] h-[32px] rounded-full relative transition-colors disabled:opacity-50 ${on ? 'bg-amber-400' : 'bg-white/15'}`}>
+          <span className={`absolute top-[3px] w-[26px] h-[26px] rounded-full bg-white shadow transition-[left] ${on ? 'left-[23px]' : 'left-[3px]'}`} />
+        </button>
+      </div>
+      {on && (
+        <div className="space-y-2">
+          <p className="text-amber-100 text-[14px]">Your AI is practising right now: every answer that would change something ends with "Practice mode: nothing was sent". Turn this off when you're done, or real requests won't go through.</p>
+          {st?.practice && <p className="text-pt-muted text-[13px]">In the practice copy: {st.practice.shoots} shoot{st.practice.shoots === 1 ? '' : 's'}, {st.practice.requests} props request{st.practice.requests === 1 ? '' : 's'}.</p>}
+          <button disabled={busy} onClick={() => run({ reset: true })} className="min-h-[44px] px-4 rounded-xl bg-white/10 font-semibold text-[15px] disabled:opacity-50">Start over from my real shoots</button>
+        </div>
+      )}
+      {done && <p role="status" className="text-green-300 text-sm">{done}</p>}
+      {err && <p className="text-amber-300 text-sm">{err}</p>}
+    </section>
   )
 }
 

@@ -22,7 +22,7 @@ const ask = (text: string, field: string, options: Json[] = []): { ask: ToolResu
 export interface Known { shoots: ShootRef[]; requests: RequestRef[]; invites: Named[]; swaps: Named[]; waitlist: Named[]; out: (Named & { kind: 'props' | 'gear' })[] }
 /** What the person has, to make sense of "my saturday shoot" (real data, or the reviewer's practice copy). */
 export async function knownFor(u: McpUser): Promise<Known> {
-  if (u.reviewer) return sandboxContext(u.sandboxKey ?? 'default')
+  if (u.reviewer || u.practice) return sandboxContext(u.sandboxKey ?? 'default', u)
   const since = addDays(todayInStudio(), -30)
   const [own, crew, res, casts, swaps, waits, gear] = await Promise.all([
     db.collection('shoots').where('creatorEmail', '==', u.email).where('date', '>=', since).get(),
@@ -56,7 +56,7 @@ export async function knownFor(u: McpUser): Promise<Known> {
 
 /** An exact id of something that exists but isn't theirs ("isn't one of your shoots", never a guess at another of theirs). */
 async function someoneElses(col: string, v: unknown, u: McpUser) {
-  if (u.reviewer || typeof v !== 'string' || !/^[\w-]{3,100}$/.test(v)) return false
+  if (u.reviewer || u.practice || typeof v !== 'string' || !/^[\w-]{3,100}$/.test(v)) return false
   return (await db.doc(`${col}/${v}`).get()).exists
 }
 const shootLine = (x: ShootRef) => ({ id: x.id, label: `${x.date} ${hm(x.start)}–${hm(x.end)} ${PLACE[x.place] ?? x.place}${x.with.length ? ` with ${x.with.map(firstName).join(', ')}` : ''}${x.titles[0] ? ` ("${x.titles[0]}")` : ''}${x.status === 'requested' ? ' (waiting for approval)' : ''}` })

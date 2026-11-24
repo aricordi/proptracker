@@ -12,6 +12,14 @@ Each manual says which version it was written for.
 
 
 
+## 1.5.0 · Nov 24, 2026
+
+- **Practice mode for ChatGPT and Claude.** More → ChatGPT & Claude → Practice mode. Your AI keeps using the real props, real
+  people and real free times, but anything you book, request, return or report stays in a private practice copy (it starts
+  from your real upcoming shoots and props requests). Nobody is notified, the arts and equipment teams see nothing, and the
+  calendars aren't touched. Every answer that would change something says "Practice mode: nothing was sent". Turn it off when
+  you're done.
+
 ## 1.4.1 · Nov 24, 2026
 
 - **Every team sees the new day view.** Tapping a day on **Requests** (equipment team, admins, owner) now opens the same
