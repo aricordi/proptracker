@@ -12,6 +12,13 @@ Each manual says which version it was written for.
 
 
 
+## 1.4.0 · Nov 24, 2026
+
+- **Pick up and return props from ChatGPT or Claude.** The assistant now follows up on props requests: it says what is
+  packed & ready and what is due back, and offers the next step. At the pick-up spot you can sign for the props in the chat
+  (or say what's missing, and the arts department is told). To return, take one photo of everything and attach it in the
+  chat, say if anything broke, and it's returned. The arts department still sees when the photo was taken. Gear stays in the app.
+
 ## 1.3.4 · Nov 24, 2026
 
 - **Connecting ChatGPT with the right Google account.** The sign-in screen says "Connect Prime Capitol" and asks for the

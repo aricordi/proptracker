@@ -44,7 +44,9 @@ export async function resetSandbox(key = 'default') {
     n: 10,
     shoots: [{ id: 'demo-shoot-1', place: 'cliff2', date: d1, start: 14 * 60, end: 16 * 60, status: 'booked', with: [] }],
     requests: props.length ? [{ id: 'demo-props-1', shootId: 'demo-shoot-1', title: 'Haunted diner sketch', status: 'requested', date: d1,
-      lines: props.map(p => ({ itemId: p.id, itemName: p.name, qty: 1 })), builds: [] }] : [],
+      lines: props.map(p => ({ itemId: p.id, itemName: p.name, qty: 1 })), builds: [] },
+      // A second one packed & ready, so reviewers can try signing for props and returning them with a photo.
+      { id: 'demo-props-2', shootId: 'demo-shoot-1', title: 'Ring Ring', status: 'packed', date: d1, lines: props.slice(0, 1).map(p => ({ itemId: p.id, itemName: p.name, qty: 1 })), builds: [] }] : [],
     invites: [{ id: 'demo-invite-1', host: 'Jordan', date: d2, start: 13 * 60, end: 15 * 60, place: 'Cliff 1', status: 'pending' }],
     swaps: [{ id: 'demo-swap-1', from: 'Sam', mine: 'demo-shoot-1', theirs: { date: d3, place: 'cliff2', start: 10 * 60, end: 12 * 60 }, status: 'pending' }],
     waitlist: [],
@@ -95,7 +97,7 @@ const shootRow = (x: SShoot, sb: Sandbox) => ({ id: x.id, place: x.place, day: x
 
 const REVIEWER_TOOLS = new Set(['whoami', 'get_schedule', 'find_free_times', 'plan_shoot', 'list_people', 'my_shoots', 'my_props_requests', 'my_status', 'get_shoot',
   'book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'change_props_request', 'cancel_props_request', 'join_waitlist', 'leave_waitlist',
-  'invite_to_video', 'answer_video_invite', 'request_swap', 'answer_swap', 'report_problem'])
+  'invite_to_video', 'answer_video_invite', 'request_swap', 'answer_swap', 'report_problem', 'pick_up_props', 'return_props'])
 
 /** null = not a sandbox tool (the closet tools, rules and app links run as normal: they only read company props and rules). */
 export async function runReviewerTool(name: string, a: Json, u: McpUser): Promise<ToolResult | null> {
@@ -266,6 +268,20 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       }
       Object.assign(x, { date, start, end, place, status: 'requested' }); await save(sb)
       return { text: `Moved to ${PLACE[place]} ${date} ${hm(start)}–${hm(end)}; the schedule team approves the new time.${NOTE}` }
+    }
+    case 'pick_up_props': case 'return_props': {
+      const r = sb.requests.find(y => y.id === s(a.request_id, 100)) ?? sb.requests.find(y => y.status === (name === 'pick_up_props' ? 'packed' : 'collected'))
+      if (!r) return { text: name === 'pick_up_props' ? 'Nothing is packed and ready to pick up.' : 'No props are out to bring back.' }
+      if (name === 'pick_up_props') {
+        if (r.status !== 'packed') return { text: `"${r.title}" is ${r.status}, so there's nothing to sign.` }
+        if (a.all_received !== true && !objs(a.missing).length && !s(a.issue, 300)) return { text: `Check the bag against the list first: ${r.lines.map(l => `${l.itemName} x${l.qty}`).join(', ')}. Then everything is there (all_received) or say what's missing.` }
+        r.status = 'collected'; await save(sb)
+        return { text: `Signed for "${r.title}" ✓ Bring everything back by ${addDays(r.date, 1)} 10:00; return it here with one photo (return_props).${NOTE}` }
+      }
+      if (r.status !== 'collected') return { text: r.status === 'packed' ? `"${r.title}" hasn't been picked up yet: sign for it first (pick_up_props).` : `"${r.title}" is ${r.status}, so there's nothing to return.` }
+      if (!a.photo) return { text: `A return needs one photo of everything being dropped off (${r.lines.map(l => l.itemName).join(', ')}). Ask them to attach it here.` }
+      r.status = 'return_pending'; await save(sb)
+      return { text: `Returned "${r.title}" ✓ The arts department checks each prop in next.${NOTE}` }
     }
     case 'request_props': case 'change_props_request': case 'cancel_props_request': {
       if (name === 'cancel_props_request') {

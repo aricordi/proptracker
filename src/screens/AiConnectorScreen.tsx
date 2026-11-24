@@ -32,8 +32,8 @@ export default function AiConnectorScreen() {
         <section className="bg-pt-surface rounded-[20px] shadow-card p-5 space-y-2">
           <h2 className="text-[18px] font-semibold">ChatGPT</h2>
           <ol className="list-decimal pl-5 space-y-1 text-[15px]">
-            <li>On chatgpt.com, open <b>Settings → Apps</b> (turn on <b>Developer mode</b> under Advanced if you don't see "Create").</li>
-            <li>Tap <b>Create</b>, name it <b>Prime Capitol</b>, paste the link, choose <b>OAuth</b>, and save.</li>
+            <li>On chatgpt.com, open <b>Plugins</b> in the sidebar, tap <b>+</b>, then <b>Add custom MCP server</b>.</li>
+            <li>Name it <b>Prime Capitol</b>, paste the link, choose <b>OAuth</b>, and save.</li>
             <li>Sign in with your Google account and tap <b>Allow</b>.</li>
             <li>In a chat, pick <b>Prime Capitol</b> from the + menu (or just ask).</li>
           </ol>

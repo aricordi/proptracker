@@ -226,6 +226,8 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
         you: { name: firstName(caller.name), role: caller.role, can_book: canBook, ...(caller.demo ? { note: 'Props only for now: can search and look at props, not book' } : {}) },
         now: now.replace('T', ' '), today, days,
         upcoming_shoots: upcoming,
+        props_ready_to_pick_up: known.requests.filter(r => r.status === 'packed').map(r => ({ id: r.id, video: r.title, day: r.date })),
+        props_to_bring_back: known.requests.filter(r => r.status === 'collected').map(r => ({ id: r.id, video: r.title, day: r.date })),
         props_requests_open: known.requests.filter(r => ['requested', 'preparing', 'packed', 'collected'].includes(r.status) && r.date >= addDays(today, -7)).map(r => ({ id: r.id, video: r.title, day: r.date, status: r.status, items: r.items.slice(0, 8) })),
         waiting_for_your_answer: [...known.invites.map(x => ({ kind: 'video invite', id: x.id, from: firstName(x.who), day: x.date })), ...known.swaps.map(x => ({ kind: 'swap request', id: x.id, from: firstName(x.who), day: x.date }))],
         filmed_with_lately: partners,

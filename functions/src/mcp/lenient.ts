@@ -134,9 +134,16 @@ export async function understandArgs(name: string, input: Json, u: McpUser): Pro
   }
 
   // ── Props requests ──
-  if (name === 'change_props_request' || name === 'cancel_props_request') {
-    const list = (await k()).requests
-    const r = resolveRequestRef(a.request_id, list, today)
+  if (name === 'change_props_request' || name === 'cancel_props_request' || name === 'pick_up_props' || name === 'return_props') {
+    // Pick-up only looks at packed requests, returns only at picked-up ones, so "my props" is usually clear on its own.
+    const want = name === 'pick_up_props' ? 'packed' : name === 'return_props' ? 'collected' : ''
+    const all = (await k()).requests
+    const list = want ? all.filter(x => x.status === want) : all
+    if (want && !String(a.request_id ?? '').trim() && list.length === 1) a.request_id = list[0].id
+    if (want && all.some(x => x.id === String(a.request_id ?? ''))) { /* an exact id of theirs: the tool says if its status doesn't fit */ }
+    else if (want && String(a.request_id ?? '').trim() && await someoneElses('reservations', a.request_id, u)) return ask('That isn\'t one of your props requests (my_props_requests has them).', 'request_id')
+    else if (want && !list.length) return ask(want === 'packed' ? 'Nothing is packed and ready to pick up right now (my_props_requests has the statuses).' : 'They have no props out to bring back.', 'request_id')
+    const r = want && all.some(x => x.id === String(a.request_id ?? '')) ? { status: 'one' as const, hits: all.filter(x => x.id === String(a.request_id)) } : resolveRequestRef(a.request_id, list, today)
     if (r.status === 'one') a.request_id = r.hits[0].id
     else if (await someoneElses('reservations', a.request_id, u)) return ask('That isn\'t one of your props requests (my_props_requests has them).', 'request_id')
     else return ask(r.status === 'none' && !list.length ? 'They have no props requests.' : 'Which props request?', 'request_id',

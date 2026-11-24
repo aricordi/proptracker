@@ -331,6 +331,39 @@ describe('connector tools', () => {
     expect((await tool(t.access_token, 'cancel_props_request', { request_id: 'theirs' })).content[0].text).toMatch(/isn't one of your/)
   })
 
+  it('follows up on props: pick-up (sign, or say what is missing) and return with a photo', async () => {
+    const t = await connect(ANA)
+    await put('reservations/rr', { creatorEmail: ANA, creatorName: 'Ana Lopez', status: 'packed', title: 'Ring ring', startDate: FRI, endDate: FRI, itemIds: ['phone'],
+      lines: [{ itemId: 'phone', itemName: 'Red rotary phone', qty: 2 }], history: [] })
+    await put('item_bookings/phone', { entries: [{ reservationId: 'rr', start: FRI, end: FRI, qty: 2 }] })
+    // It tells them what's ready and suggests the next step.
+    const st = await tool(t.access_token, 'my_status')
+    expect(st.content[0].text).toMatch(/Ready to pick up: "Ring ring"/)
+    expect(st.structuredContent.suggestions.some((x: { tool?: string }) => x.tool === 'pick_up_props')).toBe(true)
+    expect((await tool(t.access_token, 'get_context')).structuredContent.props_ready_to_pick_up[0].id).toBe('rr')
+    // Can't return before picking up; nothing said yet → asks them to check the bag.
+    expect((await tool(t.access_token, 'return_props', { request_id: 'rr', photo: 'x' })).content[0].text).toMatch(/sign for it first/)
+    expect((await tool(t.access_token, 'pick_up_props', {})).content[0].text).toMatch(/check the bag/)
+    // "my props" with one packed request = that one; a missing prop by name goes to the arts department.
+    const up = await tool(t.access_token, 'pick_up_props', { missing: [{ item: 'phone', qty: 1 }] })
+    expect(up.content[0].text).toMatch(/^Signed for "Ring ring".*missing: Red rotary phone x1.*Bring everything back by/)
+    const r1 = (await getDoc('reservations/rr'))!
+    expect(r1.status).toBe('collected')
+    expect(r1.pickup.missing[0]).toMatchObject({ itemId: 'phone', qty: 1 })
+    // Return: a photo from anywhere else is refused; their own return folder or ChatGPT's file servers only.
+    expect((await tool(t.access_token, 'return_props', { photo: { download_url: 'https://evil.example.com/a.jpg' } })).content[0].text).toMatch(/Couldn't use that photo/)
+    const photo = 'http://127.0.0.1:9199/v0/b/demo/o/reservation-photos%2Frr%2Freturn%2Fp.jpg?alt=media'
+    const back = await tool(t.access_token, 'return_props', { photo, damaged: [{ item: 'red rotary phone', note: 'cord frayed' }] })
+    expect(back.content[0].text).toMatch(/^Returned "Ring ring".*Damage noted: Red rotary phone/)
+    const r2 = (await getDoc('reservations/rr'))!
+    expect(r2.status).toBe('return_pending')
+    expect(r2.returnInfo.photos).toEqual([photo])
+    expect(r2.returnInfo.damaged[0]).toMatchObject({ itemId: 'phone', note: 'cord frayed' })
+    // Someone else's request is off limits.
+    await put('reservations/theirs2', { creatorEmail: MAANIK, status: 'packed', title: 'X', lines: [] })
+    expect((await tool(t.access_token, 'pick_up_props', { request_id: 'theirs2', all_received: true })).content[0].text).toMatch(/isn't one of your/)
+  })
+
   it('answers OpenAI\'s domain check only once a token is saved', async () => {
     expect((await fetch(`${BASE}/.well-known/openai-apps-challenge`)).status).toBe(404)
     await put('mcp_settings/openai', { challenge: 'tok_12345678' })
@@ -377,6 +410,8 @@ describe('connector tools', () => {
     expect(plan.length_hours).toBe(6)
     expect(plan.people.map((p: { status: string }) => p.status)).toEqual(['found', 'found'])
     expect((await tool(T, 'get_context')).structuredContent.upcoming_shoots.length).toBeGreaterThan(0)
+    expect((await tool(T, 'pick_up_props', { request_id: 'Ring Ring', all_received: true })).content[0].text).toMatch(/^Signed for "Ring Ring".*practice copy/)
+    expect((await tool(T, 'return_props', { photo: { download_url: 'https://files.oaiusercontent.com/x.jpg' } })).content[0].text).toMatch(/^Returned "Ring Ring".*practice copy/)
     // Turning it off cuts the reviewer off at once.
     await call('reviewerAccount', { action: 'disable' }, OWNER)
     expect((await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: `Bearer ${T}` })).status).toBe(401)

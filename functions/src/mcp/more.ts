@@ -11,7 +11,8 @@ import {
   TIME_STEP, type House, type ScheduleDay,
 } from '../schedule.js'
 import { loadScheduleSettings, filmingPeople, requestSwap, answerSwap } from '../scheduling.js'
-import { loadSettings, editReservation, cancelReservation } from '../reservations.js'
+import { loadSettings, editReservation, cancelReservation, confirmPickup, startReturn } from '../reservations.js'
+import { savePhoto } from './refImage.js'
 import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
@@ -70,6 +71,18 @@ export const MORE_TOOLS = [
   { name: 'cancel_props_request', title: 'Cancel a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Cancel one of the person\'s props requests (only before pick-up). Confirm first.',
     inputSchema: obj({ request_id: { type: 'string', description: 'Props request id from get_context or my_props_requests (the video name also works)' } }, ['request_id']) },
+  { name: 'pick_up_props', title: 'Sign for props at pick-up', annotations: WRITE_OUT,
+    description: 'When the person is at the pick-up spot with a props request that is "packed & ready": sign that they got everything, or say what is missing or wrong (the arts department is told). Only the person who booked can sign. Ask them to check the bag first, then confirm before calling. The reply says when the props are due back.',
+    inputSchema: obj({ request_id: { type: 'string', description: 'Props request id from get_context or my_props_requests (the video name also works; left out = their only packed request)' },
+      all_received: { type: 'boolean', description: 'true = everything is there' },
+      missing: { type: 'array', maxItems: 30, items: obj({ item: { type: 'string', description: 'Prop name as listed on the request (or its id)' }, qty: { type: 'integer', minimum: 1 } }, ['item']), description: 'Props that are missing' },
+      issue: { type: 'string', description: 'Anything else wrong, in their words' } }) },
+  { name: 'return_props', title: 'Return props (with a photo)', annotations: WRITE_OUT,
+    description: 'Return a props request that is "picked up": needs ONE photo of everything being dropped off (the person attaches or takes it in this chat; never an old photo, the arts department sees when it was taken), plus anything broken or damaged and an optional note. The arts department then checks each prop in. Confirm before calling.',
+    inputSchema: obj({ request_id: { type: 'string', description: 'Props request id from get_context or my_props_requests (the video name also works; left out = their only request that is out)' },
+      photo: { type: 'object', properties: { download_url: { type: 'string' }, file_id: { type: 'string' } }, description: 'The drop-off photo the person attached in this chat' },
+      damaged: { type: 'array', maxItems: 30, items: obj({ item: { type: 'string', description: 'Prop name as listed on the request (or its id)' }, note: { type: 'string', description: 'What is wrong' } }, ['item']) },
+      note: { type: 'string', description: 'Optional note for the arts department' } }, ['photo']) },
   { name: 'join_waitlist', title: 'Wait for a taken time', annotations: WRITE,
     description: 'Put the person on the waitlist for a booking someone else has (give the house, day and that booking\'s start time). If it opens up they get it held for 20 minutes and a notification. Up to 5 at once.',
     inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2'] }, day: { type: 'string', description: 'YYYY-MM-DD (resolve it yourself with get_context; plain words are also understood)' }, start: { type: 'string', description: 'Start of the taken booking, HH:MM' } }, ['place', 'day', 'start']) },
@@ -90,7 +103,7 @@ export const MORE_TOOLS = [
     description: 'Tell the arts department (props) or the equipment team (gear) that something the person has out is broken or missing. Ids from my_status.',
     inputSchema: obj({ kind: { type: 'string', enum: ['props', 'gear'] }, id: { type: 'string', description: 'Props request or gear booking id from my_status (can be left out when only one thing is out)' }, what: { type: 'string', description: 'Which item' }, note: { type: 'string', description: 'What happened' } }, ['note']) },
   { name: 'app_link', title: 'Open the right screen in the app', annotations: READ,
-    description: 'A link that opens the Prime Capitol app on the right screen for things that need the phone: picking up or returning props and gear (photos), taking gear on the shoot day, or the calendar. Give it to the person to tap.',
+    description: 'A link that opens the Prime Capitol app on the right screen: gear pick-up and returns, taking gear on the shoot day, the calendar, or props pick-up/returns when they prefer the app (pick_up_props and return_props do those here). Give it to the person to tap.',
     inputSchema: obj({ what: { type: 'string', enum: ['return', 'pickup', 'take_gear', 'shoot', 'calendar', 'props', 'requests', 'notifications'] }, shoot_id: { type: 'string', description: 'Shoot id from get_context or my_shoots (a short description also works)' } }, ['what']) },
 ]
 export const MORE_BOOKING = new Set(MORE_TOOLS.map(t => t.name).filter(n => n !== 'prop_calendar' && n !== 'app_link'))
@@ -121,6 +134,8 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       const names = new Map((await loadCloset()).map(p => [p.id, p.name]))
       return { text: `Changed "${r.title}": ${[...lines].map(([k, q]) => `${names.get(k) ?? k} x${q}`).join(', ')}${builds.length ? ` + ${builds.length} custom` : ''}.${pic.builds.length ? ` ${CUSTOM_NOTE}` : ''}` }
     }
+    case 'pick_up_props': return pickUpProps(args, u)
+    case 'return_props': return returnProps(args, u)
     case 'cancel_props_request': {
       const id = s(args.request_id, 100)
       const r = await docById('reservations', id)
@@ -194,6 +209,77 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
   return null
 }
 
+type Line = { itemId: string; itemName?: string; qty: number; pick?: { state?: string } }
+/** "the red phone", "phone", an id → that line on the request (or a list of choices when it's unclear). */
+export function lineFor(said: unknown, lines: Line[]): { line?: Line; options?: string[] } {
+  const raw = String(said ?? '').trim().toLowerCase()
+  if (!raw) return { options: lines.map(l => String(l.itemName)) }
+  const byId = lines.find(l => l.itemId === String(said).trim())
+  if (byId) return { line: byId }
+  const exact = lines.filter(l => String(l.itemName ?? '').toLowerCase() === raw)
+  if (exact.length === 1) return { line: exact[0] }
+  const words = raw.split(/[^a-z0-9]+/).filter(w => w.length > 1 && !['the', 'my', 'an', 'one', 'of', 'and', 'that', 'this'].includes(w))
+  const hits = lines.filter(l => { const n = String(l.itemName ?? '').toLowerCase(); return n.includes(raw) || raw.includes(n) || (words.length > 0 && words.every(w => n.includes(w.replace(/s$/, '')))) })
+  return hits.length === 1 ? { line: hits[0] } : { options: (hits.length ? hits : lines).map(l => String(l.itemName)) }
+}
+
+async function myRequest(args: Json, u: McpUser) {
+  const id = s(args.request_id, 100)
+  const r = id ? await docById('reservations', id) : null
+  return r && r.creatorEmail === u.email ? { id, r } : null
+}
+
+async function pickUpProps(args: Json, u: McpUser): Promise<ToolResult> {
+  const own = await myRequest(args, u)
+  if (!own) return { text: 'That isn\'t one of your props requests (my_props_requests has the ids).' }
+  const { id, r } = own
+  if (r.status !== 'packed') return { text: r.status === 'collected' ? `"${r.title}" is already signed for. When you're done, return it with return_props (one photo).` : `"${r.title}" is ${PROPS_STATUS[String(r.status)] ?? r.status}, so there's nothing to sign yet. You get a notification when it's packed & ready.` }
+  const lines = ((r.lines ?? []) as Line[]).filter(l => l.pick?.state !== 'unavailable')
+  const missing: { itemId: string; qty: number }[] = [], unclear: string[] = []
+  for (const m of objs(args.missing)) {
+    const f = lineFor(m.item, lines)
+    if (f.line) missing.push({ itemId: f.line.itemId, qty: Math.min(f.line.qty, Math.max(1, Number(m.qty) || 1)) })
+    else unclear.push(`"${s(m.item, 60)}" (on the request: ${(f.options ?? []).slice(0, 8).join(', ')})`)
+  }
+  if (unclear.length) return { text: `Which prop is missing? ${unclear.join('; ')}.`, structured: { needs_clarifying: true, field: 'missing' } }
+  const issue = s(args.issue, 1000)
+  const all = args.all_received === true && !missing.length && !issue
+  if (!all && !missing.length && !issue) return { text: `Ask them to check the bag against the list first: ${lines.map(l => `${l.itemName} x${l.qty}`).join(', ')}. Then either everything is there (all_received) or say what's missing.` }
+  const b = await loadSettings()
+  const due = `${returnDueDay(String(r.endDate), b)} 10:00`
+  if (u.reviewer) return { text: `Practice account: "${r.title}" would now be signed for. Due back ${due}.` }
+  await confirmPickup.run(asUser(u, { id, allReceived: all, ...(missing.length ? { missing } : {}), ...(issue ? { issue } : {}) }))
+  const names = new Map(lines.map(l => [l.itemId, l.itemName]))
+  return { text: `Signed for "${r.title}" ✓${missing.length || issue ? ` The arts department is told${missing.length ? ` what's missing: ${missing.map(m => `${names.get(m.itemId)} x${m.qty}`).join(', ')}` : ''}${issue ? ` ("${issue}")` : ''}.` : ''} Bring everything back by ${due} (late returns can mean a strike); return it here with one photo (return_props) or in the app.`,
+    structured: { request_id: id, status: 'picked up', due_back: due } }
+}
+
+async function returnProps(args: Json, u: McpUser): Promise<ToolResult> {
+  const own = await myRequest(args, u)
+  if (!own) return { text: 'That isn\'t one of your props requests (my_props_requests has the ids).' }
+  const { id, r } = own
+  if (r.status !== 'collected') return { text: r.status === 'packed' ? `"${r.title}" hasn't been picked up yet: sign for it first (pick_up_props).` : `"${r.title}" is ${PROPS_STATUS[String(r.status)] ?? r.status}, so there's nothing to return.` }
+  const lines = ((r.lines ?? []) as Line[]).filter(l => l.pick?.state !== 'unavailable')
+  const damaged: { itemId: string; note: string }[] = [], unclear: string[] = []
+  for (const m of objs(args.damaged)) {
+    const f = lineFor(m.item, lines)
+    if (f.line) damaged.push({ itemId: f.line.itemId, note: s(m.note, 200) })
+    else unclear.push(`"${s(m.item, 60)}" (on the request: ${(f.options ?? []).slice(0, 8).join(', ')})`)
+  }
+  if (unclear.length) return { text: `Which prop is damaged? ${unclear.join('; ')}.`, structured: { needs_clarifying: true, field: 'damaged' } }
+  if (!args.photo) return { text: `A return needs one photo of everything being dropped off (${lines.map(l => l.itemName).join(', ')}). Ask them to take it now and attach it here, or return it in the app: ${APP_URL}/requests` }
+  const note = s(args.note, 1000)
+  if (u.reviewer) return { text: `Practice account: "${r.title}" would now be returned with the photo; the arts department checks each prop in.` }
+  const saved = await savePhoto(args.photo, `reservation-photos/${id}/return`, { keepDate: true, allowOwn: `reservation-photos/${id}/return/` })
+  if ('problem' in saved) return { text: `Couldn't use that photo (${saved.problem}). Try attaching it again, or return it in the app: ${APP_URL}/requests` }
+  await startReturn.run(asUser(u, { id, photos: [saved.url], ...(note ? { note } : {}), ...(damaged.length ? { damaged } : {}) }))
+  const age = saved.takenAt ? (Date.now() - new Date(saved.takenAt).getTime()) / 60000 : null
+  const warn = age == null ? ' The photo has no date in it (screenshots and edited photos don\'t), so the arts department may ask about it.' : age > 60 ? ' Heads-up: that photo was taken more than an hour ago, and the arts department sees that.' : ''
+  const names = new Map(lines.map(l => [l.itemId, l.itemName]))
+  return { text: `Returned "${r.title}" ✓ The arts department checks each prop in next.${damaged.length ? ` Damage noted: ${damaged.map(d => names.get(d.itemId)).join(', ')}.` : ''}${warn}`,
+    structured: { request_id: id, status: 'returned, being checked', photo_taken_at: saved.takenAt ?? null } }
+}
+
 async function myStatus(u: McpUser): Promise<ToolResult> {
   const today = todayInStudio(), now = nowStamp()
   const [sch, b, shootsOwn, shootsCrew, res, gear, swaps, casts, waits, status] = await Promise.all([
@@ -232,6 +318,7 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
   }
   const lines = [
     next ? `Next shoot: ${data.next_shoot!.day} ${data.next_shoot!.start}–${data.next_shoot!.end} ${data.next_shoot!.place} (${data.next_shoot!.status}); props from the closet by ${data.next_shoot!.props_deadline}.` : 'No shoots coming up.',
+    open.some(r => r.status === PROPS_STATUS.packed) ? `Ready to pick up: ${out.filter(r => r.status === 'packed').map(r => `"${r.title}" (${r.startDate})`).join('; ')}.` : '',
     toReturn.length ? `Props to bring back: ${toReturn.map(r => `"${r.video}" by ${r.due}`).join('; ')}.` : '',
     gearOut.length ? `Gear out: ${gearOut.map(g => `${g.items.join(', ')} (due ${g.due})`).join('; ')}.` : '',
     data.swap_requests_for_you.length ? `${data.swap_requests_for_you.length} swap request(s) waiting for an answer.` : '',
@@ -244,6 +331,7 @@ async function myStatus(u: McpUser): Promise<ToolResult> {
     next: next ? { day: String(next.date), label: `${next.date} ${PLACE[String(next.place)] ?? next.place}`, status: String(next.status), hasProps: nextReqs.length > 0,
       propsOpen: now <= deadline, propsDeadline: clock(deadline), withPeople: ((next.with ?? []) as unknown[]).length } : null,
     invites: data.video_invites_waiting.map(v => v.host), swaps: data.swap_requests_for_you.map(v => v.from),
+    toPickUp: out.filter(r => r.status === 'packed').map(r => ({ what: String(r.title), day: String(r.startDate) })),
     toReturn: toReturn.map(r => ({ what: String(r.video), due: r.due })), gearOut: gearOut.map(g => ({ what: g.items.join(', '), due: g.due })),
     waitlistOffered: data.waitlist.filter(w => w.status === 'offered').length })
   return { text: [...lines, ...(suggestions.length ? ['Worth doing next:', ...suggestions.map(x => `- ${x.do} (${x.why})`)] : [])].join('\n'), structured: { ...data, suggestions } }

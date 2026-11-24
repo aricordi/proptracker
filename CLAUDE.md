@@ -3001,6 +3001,17 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       signed-in account big + "Not you?" (switchGoogleAccount in googleSignIn.ts), "Wrong Google account?" screen, connect wording on
       sign-in (owner chose Google sign-in only, no pairing code). LIVE Nov 24: backend run 45365121241 (mcp/askApp/askChat) + website
       run 45366282661 (1.3.4; runs 45363597635/45365126713 cancelled: tests froze / superseded).
+    - CONNECTOR PROPS PICK-UP + RETURN (owner, Nov 24: "check status of requests and help with checking in and checking out props,
+      and following up"; owner picked: return photo in ChatGPT, props only; version 1.4.0; NOT deployed: backend + website, ask).
+      New WRITE_OUT tools in mcp/more.ts: `pick_up_props` {request_id, all_received, missing [{item, qty}], issue} → confirmPickup
+      (packed only, booker only; reply gives due-back = returnDueDay 10:00) and `return_props` {request_id, photo (ChatGPT file via
+      openai/fileParams), damaged [{item, note}], note} → savePhoto (refImage.ts: ChatGPT file hosts or their own
+      reservation-photos/<id>/return/ only; reads the EXIF taken date BEFORE shrinking, studioWallToIso → customMetadata takenAt +
+      source 'chatgpt', so PhotoStamp flags old/undated photos) → startReturn. Items matched to the request's lines by casual words
+      (lineFor). exifDate moved to functions/src/photoDate.ts (app re-exports it). lenient: these two only look at packed / collected
+      requests (blank id = their only one). Follow-up: my_status "Ready to pick up", suggestNext pick_up_props / return_props,
+      get_context props_ready_to_pick_up + props_to_bring_back, INSTRUCTIONS. Reviewer sandbox has demo-props-2 (packed) for both.
+      Gear pick-up/returns stay in the app (app_link). ChatGPT setup text now = Plugins → + → Add custom MCP server (Developer mode gone).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable
