@@ -1,7 +1,7 @@
 // Screenshots of the real app for the training manuals (docs/manuals/img/*.png). Runs on the EMULATOR with test data:
 //   npm run e2e -- --only shots      (add --no-build to reuse the last build)
 // Each picture is taken on its own: one that fails is skipped and the rest still come out.
-import { test, reseed, signIn, openTab, sheet, slotRow, plainDayAhead, allowConsole, type Page } from '../helpers'
+import { test, reseed, signIn, openTab, sheet, plainDayAhead, allowConsole, type Page } from '../helpers'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -33,17 +33,25 @@ test('creator', async ({ page }) => {
     if (!(await btn.isVisible())) await page.getByRole('button', { name: 'Next month' }).click()
     await btn.click()
   })
-  await snap(page, 'c-book-1slot', async () => { await slotRow(sheet(page), '11 AM').getByRole('button').nth(1).click(); await sheet(page, /Ask for/).waitFor() })
+  // Free time (Nov 24): a free stretch → start/end → who's filming.
+  await snap(page, 'c-book-1slot', async () => {
+    await sheet(page).locator('[data-testid="free-gap"][data-house="cliff2"]').first().click()
+    const ask = sheet(page, /Ask for|Book this/)
+    await ask.waitFor()
+    await ask.getByTestId('time-pick').getByRole('combobox').first().selectOption('795')
+    await ask.getByTestId('time-pick').getByRole('combobox').nth(1).selectOption('915')
+  })
   await snap(page, 'c-book-3slots', async () => {
-    const ask = sheet(page, /Ask for/)
-    await ask.getByRole('button', { name: /6 h · 3 slots/ }).click()
-    const lineup = page.getByTestId('slot-lineup')
-    await lineup.getByRole('button', { name: /\+ Add who's filming/ }).first().click()
-    await lineup.getByPlaceholder('Search by name or channel').fill('Kyle')
-    await lineup.getByRole('button', { name: /^Kyle/ }).first().click()
-    await lineup.getByRole('button', { name: /\+ Add who's filming/ }).first().click()
-    await lineup.getByPlaceholder('Search by name or channel').fill('Sam Guest')
-    await lineup.getByRole('button', { name: /Add "Sam Guest"/ }).click()
+    const ask = sheet(page, /Ask for|Book this/)
+    await ask.getByTestId('time-pick').getByRole('combobox').first().selectOption('660')
+    await ask.getByTestId('time-pick').getByRole('combobox').nth(1).selectOption('1020')
+    const who = ask.getByTestId('who-films')
+    await who.getByRole('button', { name: /\+ Add someone filming with you/ }).click()
+    await who.getByPlaceholder('Search by name or channel').fill('Kyle')
+    await who.getByRole('button', { name: /^Kyle/ }).first().click()
+    await who.getByRole('button', { name: /\+ Add someone filming with you/ }).click()
+    await who.getByPlaceholder('Search by name or channel').fill('Sam Guest')
+    await who.getByRole('button', { name: /Add "Sam Guest"/ }).click()
   })
   await closeSheets(page)
   await snap(page, 'c-offsite', async () => {
