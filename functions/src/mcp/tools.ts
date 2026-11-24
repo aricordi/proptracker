@@ -19,7 +19,7 @@ import { loadScheduleSettings, filmingPeople, bookShoot, cancelShoot, moveShoot 
 import { loadSettings, createReservation, editReservation } from '../reservations.js'
 import { searchSimilar } from '../index.js'
 import { rulesText } from '../assistant.js'
-import { asUser, callerOf, s, firstName, hm, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
+import { asUser, callerOf, s, firstName, hm, personId, matchPerson, describePeople, parseClock, loadCloset, short, freeOn, READ, WRITE, DESTRUCTIVE, obj, type Prop, type Json, type McpUser, type ToolResult } from './common.js'
 export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { runReviewerTool } from './reviewer.js'
@@ -97,7 +97,7 @@ export const TOOLS = [
     description: 'Who has each house when, day by day (up to 21 days): bookings with start/end, first names and collaborators (status booked / waiting for approval), blocked times, heads-ups, offsite shoots, priority days locked for this person, house opening hours, and the FREE stretches at each house (already worked out, from now on). Bookings are free-form: any start/end on the quarter hour (e.g. 13:15–15:15) inside a free stretch, at least 30 minutes, up to 2 h per person on the booking. Use your own judgement to suggest good times (e.g. next to a collaborator\'s shoot, the person\'s usual time of day), then book with book_shoot.',
     inputSchema: obj({ from: { type: 'string', description: 'YYYY-MM-DD, default today' }, days: { type: 'integer', minimum: 1, maximum: 21, description: 'Default 7' } }) },
   { name: 'list_people', title: 'People who film', annotations: READ,
-    description: 'Names of everyone who films (to add collaborators). First names may repeat; use the email shown to pick the right one.',
+    description: 'Names of everyone who films (to add collaborators or invite into a video), each with a person id. First names may repeat; pass the person id to pick the right one. Never shows email addresses.',
     inputSchema: obj({ search: { type: 'string', description: 'Optional part of a name' } }) },
   { name: 'my_shoots', title: 'My shoots', annotations: READ,
     description: 'This person\'s upcoming and recent shoots, including ones a friend booked with them on it: id, place, day, hours, status (booked / waiting for approval / not approved), who booked it, collaborators, and props requests on each.',
@@ -106,10 +106,10 @@ export const TOOLS = [
     description: 'This person\'s props requests with status (requested, being prepared, packed & ready, picked up, returned) and items.',
     inputSchema: obj({}) },
   { name: 'book_shoot', title: 'Book a shoot', annotations: WRITE,
-    description: 'Book time at Cliff 1 or Cliff 2 (or an offsite shoot). Confirm the details with the person first. A creator\'s booking is a REQUEST the schedule team approves; it holds the time meanwhile. Each person gets up to 2 hours; for longer, add one collaborator per extra 2 hours in `with` (names or emails; people not on the app can be added by name). Times are HH:MM (24 h).',
+    description: 'Book time at Cliff 1 or Cliff 2 (or an offsite shoot). Confirm the details with the person first. A creator\'s booking is a REQUEST the schedule team approves; it holds the time meanwhile. Each person gets up to 2 hours; for longer, add one collaborator per extra 2 hours in `with` (names or person ids; people not on the app can be added by name). Times are HH:MM (24 h).',
     inputSchema: obj({ place: { type: 'string', enum: ['cliff1', 'cliff2', 'offsite'] }, day: { type: 'string', description: 'YYYY-MM-DD' },
       start: { type: 'string', description: 'HH:MM' }, end: { type: 'string', description: 'HH:MM' },
-      with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Collaborators (names or emails), in the order they film' },
+      with: { type: 'array', items: { type: 'string' }, maxItems: 4, description: 'Collaborators: names or person ids from list_people (people not on the app can be added by name)' },
       where: { type: 'string', description: 'Offsite only: address or place' } }, ['place', 'day', 'start', 'end']) },
   { name: 'move_shoot', title: 'Move a shoot', annotations: WRITE,
     description: 'Move one of this person\'s shoots to another time (same rules as the app: notice period, approval). Confirm first.',
@@ -249,8 +249,8 @@ export async function runTool(name: string, args: Json, u: McpUser): Promise<Too
     case 'list_people': {
       const q = s(args.search, 60).toLowerCase()
       const people = (await filmingPeople({ includeDemo: true, offApp: true })).filter(p => p.email !== u.email && (!q || p.name.toLowerCase().includes(q)))
-      return { text: people.slice(0, 40).map(p => `${p.name} <${p.email.startsWith('guest:') ? 'not on the app' : p.email}>`).join('\n') || 'Nobody by that name. You can still add them by name.',
-        structured: { people: people.slice(0, 40).map(p => ({ name: p.name, email: p.email.startsWith('guest:') ? null : p.email })) } }
+      return { text: people.slice(0, 40).map(p => `${p.name} (${personId(p.email)})${p.email.startsWith('guest:') ? ' · not on the app' : ''}`).join('\n') || 'Nobody by that name. You can still add them by name.',
+        structured: { people: people.slice(0, 40).map(p => ({ name: p.name, person_id: personId(p.email), on_app: !p.email.startsWith('guest:') })) } }
     }
     case 'my_shoots': {
       const since = addDays(todayInStudio(), -14)
@@ -325,9 +325,9 @@ async function bookTool(args: Json, u: McpUser): Promise<ToolResult> {
   const people = await filmingPeople({ includeDemo: true, offApp: true })
   const friends: string[] = []
   for (const n of names) {
-    if (n.includes('@')) { friends.push(n.toLowerCase()); continue }
-    const hits = people.filter(p => p.email !== u.email && (p.name.toLowerCase() === n.toLowerCase() || firstName(p.name).toLowerCase() === n.toLowerCase()))
-    if (hits.length > 1) return { text: `More than one person is called ${n}: ${hits.map(h => `${h.name} <${h.email}>`).join(', ')}. Ask which one and pass their email.` }
+    const hits = matchPerson(people, n, u.email)
+    if (hits.length > 1) return { text: `More than one person is called ${n}: ${describePeople(hits)}. Ask which one and pass their person id.` }
+    if (!hits.length && (n.includes('@') || /^p_/.test(n))) return { text: `${n} isn't someone who films on the app. Use a name from list_people.` }
     friends.push(hits[0]?.email ?? `guest:${n}`)
   }
   let res: Json

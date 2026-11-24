@@ -14,7 +14,7 @@ import {
 } from '../schedule.js'
 import { loadScheduleSettings } from '../scheduling.js'
 import { loadSettings } from '../reservations.js'
-import { s, hm, parseClock, loadCloset, freeOn, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
+import { s, hm, parseClock, loadCloset, freeOn, personId, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
 
 const SANDBOX = 'mcp_sandbox/reviewer'
 const APP_URL = 'https://proptracker.arbcreative.co'
@@ -89,7 +89,7 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
     case 'list_people': {
       const q = s(a.search, 60).toLowerCase()
       const people = DEMO_PEOPLE.filter(p => !q || p.name.toLowerCase().includes(q))
-      return { text: people.map(p => `${p.name} <${p.email}>`).join('\n') || 'Nobody by that name.', structured: { people } }
+      return { text: people.map(p => `${p.name} (${personId(p.email)})`).join('\n') || 'Nobody by that name.', structured: { people: people.map(p => ({ name: p.name, person_id: personId(p.email), on_app: true })) } }
     }
     case 'get_schedule': {
       const from = isDay(a.from) && String(a.from) >= today ? String(a.from) : today

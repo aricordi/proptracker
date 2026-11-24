@@ -86,3 +86,17 @@ export const READ = { readOnlyHint: true, openWorldHint: false, destructiveHint:
 export const WRITE = { readOnlyHint: false, openWorldHint: false, destructiveHint: false }
 export const DESTRUCTIVE = { readOnlyHint: false, openWorldHint: false, destructiveHint: true }
 export const obj = (properties: Json, required: string[] = []) => ({ type: 'object', properties, required, additionalProperties: false })
+
+// People are named to the assistant by an anonymous id, never by email (privacy policy: "never other people's emails").
+import { createHash } from 'node:crypto'
+export const personId = (email: string) => `p_${createHash('sha256').update(`pc-person|${email.toLowerCase()}`).digest('hex').slice(0, 10)}`
+/** A name, a person id, or (the person's own words) an email → the people it could mean (excluding the asker). */
+export function matchPerson<T extends { email: string; name: string }>(people: T[], said: string, me: string): T[] {
+  const n = said.trim().toLowerCase()
+  const others = people.filter(p => p.email !== me)
+  if (/^p_[0-9a-f]{10}$/.test(n)) return others.filter(p => personId(p.email) === n)
+  if (n.includes('@')) return others.filter(p => p.email.toLowerCase() === n)
+  const full = others.filter(p => p.name.toLowerCase() === n)
+  return full.length ? full : others.filter(p => firstName(p.name).toLowerCase() === n)
+}
+export const describePeople = (hits: { email: string; name: string }[]) => hits.map(h => `${h.name} (${personId(h.email)})`).join(', ')

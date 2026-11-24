@@ -16,7 +16,7 @@ import { joinWaitlist, leaveWaitlist } from '../waitlist.js'
 import { inviteToVideo, answerVideoInvite } from '../castInvites.js'
 import { reportProblem } from '../problemReports.js'
 import {
-  asUser, callerOf, s, firstName, hm, loadCloset, short, READ, WRITE, DESTRUCTIVE, obj,
+  asUser, callerOf, s, firstName, hm, matchPerson, describePeople, loadCloset, short, READ, WRITE, DESTRUCTIVE, obj,
   type Json, type McpUser, type ToolResult,
 } from './common.js'
 
@@ -63,7 +63,7 @@ export const MORE_TOOLS = [
   { name: 'leave_waitlist', title: 'Leave a waitlist', annotations: WRITE,
     description: 'Take the person off a waitlist (ids from my_status).', inputSchema: obj({ waitlist_id: { type: 'string' } }, ['waitlist_id']) },
   { name: 'invite_to_video', title: 'Invite people into my video', annotations: WRITE,
-    description: 'Tell people they are on camera in one of the person\'s shoots (names or emails of people on the app). Each gets a notification to say yes or no; once they accept, the shoot shows in their app with reminders. Different from collaborators on the booking. Confirm first.',
+    description: 'Tell people they are on camera in one of the person\'s shoots (names or person ids from list_people, people on the app). Each gets a notification to say yes or no; once they accept, the shoot shows in their app with reminders. Different from collaborators on the booking. Confirm first.',
     inputSchema: obj({ shoot_id: { type: 'string' }, people: { type: 'array', items: { type: 'string' }, maxItems: 12 } }, ['shoot_id', 'people']) },
   { name: 'answer_video_invite', title: 'Answer a video invite', annotations: WRITE,
     description: 'Say yes or no to being in someone\'s video (invite ids from my_status).', inputSchema: obj({ invite_id: { type: 'string' }, accept: { type: 'boolean' } }, ['invite_id', 'accept']) },
@@ -128,9 +128,8 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
       const people = await filmingPeople({ includeDemo: true })
       const emails: string[] = []
       for (const n of (Array.isArray(args.people) ? args.people : []).map(x => s(x, 120)).filter(Boolean)) {
-        if (n.includes('@')) { emails.push(n.toLowerCase()); continue }
-        const hits = people.filter(p => p.email !== u.email && (p.name.toLowerCase() === n.toLowerCase() || firstName(p.name).toLowerCase() === n.toLowerCase()))
-        if (hits.length !== 1) return { text: hits.length ? `More than one ${n}: ${hits.map(h => `${h.name} <${h.email}>`).join(', ')}. Which one?` : `${n} isn't on the app, so they can't get a video invite.` }
+        const hits = matchPerson(people, n, u.email)
+        if (hits.length !== 1) return { text: hits.length ? `More than one ${n}: ${describePeople(hits)}. Which one? Pass the person id.` : `${n} isn't on the app, so they can't get a video invite.` }
         emails.push(hits[0].email)
       }
       if (!emails.length) return { text: 'Who should be in the video?' }
