@@ -18,6 +18,7 @@ import { loadSettings } from '../reservations.js'
 import { s, objs, clampInt, hm, houseNight, parseClock, loadCloset, freeOn, personId, askWho, REVIEWER_EMAIL, type Json, type McpUser, type ToolResult } from './common.js'
 import { resolvePerson, resolveWhen } from './understand.js'
 import { suggestNext } from './casual.js'
+import { CUSTOM_NOTE } from './custom.js'
 
 const demoMatch = (said: string) => resolvePerson(DEMO_PEOPLE, said, REVIEWER_EMAIL, (p, id) => personId(p.email) === id)
 
@@ -296,7 +297,9 @@ export async function runReviewerTool(name: string, a: Json, u: McpUser): Promis
       r.lines = [...lines].map(([itemId, qty]) => ({ itemId, itemName: closet.get(itemId)?.name ?? itemId, qty }))
       r.builds = [...r.builds, ...builds]
       await save(sb)
-      return { text: `${name === 'request_props' ? 'Sent' : 'Changed'}: props request "${r.title}" for ${r.date}: ${r.lines.map(l => `${l.itemName} x${l.qty}`).join(', ')}${r.builds.length ? ` + ${r.builds.length} custom` : ''}.${NOTE}`, structured: { result: r } }
+      if (a.reference_image && !builds.length) return { text: 'A reference picture goes with a custom prop: add the custom prop (what it is, how many) too.' }
+      const pic = a.reference_image && builds.length ? ', with the reference picture' : ''
+      return { text: `${name === 'request_props' ? 'Sent' : 'Changed'}: props request "${r.title}" for ${r.date}: ${r.lines.map(l => `${l.itemName} x${l.qty}`).join(', ')}${r.builds.length ? ` + ${r.builds.length} custom` : ''}${pic}.${builds.length ? ` ${CUSTOM_NOTE}` : ''}${NOTE}`, structured: { result: r } }
     }
     case 'join_waitlist': case 'leave_waitlist': {
       if (name === 'leave_waitlist') { sb.waitlist = sb.waitlist.filter(w => w.id !== s(a.waitlist_id, 300)); await save(sb); return { text: `Taken off that waitlist.${NOTE}` } }

@@ -9,5 +9,6 @@ describe('anonymous suggestion text', () => {
     expect(cleanDemand('see https://x.com/y and @jordan, p_0123456789ab')).toBe('see and ,')
     expect(cleanDemand('x'.repeat(300))).toHaveLength(120)
     expect(cleanDemand(null)).toBe('')
+    expect(cleanDemand("Kyle's drone and Justin Figs' lights", ['Kyle Reed', 'Justin Figs'])).toBe("drone and ' lights")
   })
 })

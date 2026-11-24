@@ -10,13 +10,13 @@ import type { DocumentData } from 'firebase-admin/firestore'
 import { createHash, randomUUID } from 'node:crypto'
 // Loaded only when a photo is actually processed (efficiency pass, Nov 19): every server function shares this code,
 // and the image library added ~60 ms to each cold start.
-const loadSharp = async () => (await import('sharp')).default
+export const loadSharp = async () => (await import('sharp')).default
 import { db, requireRole, CALLABLE } from './auth.js'
 
 const THUMB_PX = 480
 const PER_CALL = 25   // props per "Speed up photos" call; the screen keeps calling
 
-function storageUrl(path: string, token: string, bucket: string) {
+export function storageUrl(path: string, token: string, bucket: string) {
   const host = process.env.FIREBASE_STORAGE_EMULATOR_HOST
   const base = host ? `http://${host}` : 'https://firebasestorage.googleapis.com'
   return `${base}/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${token}`

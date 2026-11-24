@@ -70,9 +70,10 @@ const INSTRUCTIONS = [
   'Filming with other people: plan_shoot matches the names they used to people on the app, sets the length and finds times free for everyone. Before booking, confirm any name it lists under questions; it never guesses a person and books nothing itself.',
   'my_status gives suggestions for what is worth doing next (things due back, answers people are waiting for, props not yet requested before the deadline). how_to answers how-do-I questions from the app\'s own guide, with a link.',
   'Times: find_free_times returns bookable options for this person; get_schedule is the raw schedule. Bookings take any quarter-hour start and end, up to 2 hours per person; longer bookings list everyone filming in book_shoot `with`. Times after midnight are written 24:xx/25:xx. Cliff 1 on priority days needs a filming guideline PDF, which can only be attached in the app. A taken time can be waited for with join_waitlist.',
-  'Props: search_props, browse_props and show_props find closet props (with photos); props_for_idea checks the closet against the props a video idea needs; prop_calendar shows which days a prop is free. request_props adds props to one of the person\'s shoots; change_props_request and cancel_props_request work while a request is still "requested". Closet props close about 48 hours before the shoot (get_shoot has the exact time); custom props need 4+ days and have no guaranteed date.',
+  'Props: search_props, browse_props and show_props find closet props (with photos); props_for_idea checks the closet against the props a video idea needs; prop_calendar shows which days a prop is free. request_props adds props to one of the person\'s shoots; change_props_request and cancel_props_request work while a request is still "requested". Closet props close about 48 hours before the shoot (get_shoot has the exact time). Custom props (things to make or find) need 4+ days\' notice and have no guaranteed date: if the person wants, help them describe it and, where the assistant can make images, create a reference picture with them and send it with the request (reference_image). Never give or suggest a date for a custom prop; the arts department contacts the person separately (e.g. on Slack) about details and timing.',
   'Picking up and returning props or gear (photos) and taking gear on the shoot day are done in the app: app_link gives the right screen. There is no check-in on the shoot day.',
   'Before any change (book, move, cancel, swap, props, invites, waitlist), summarise it and get the person\'s confirmation. A creator\'s booking is a request until the schedule team approves it: only say "booked" when the tool result says "Booked". When a tool refuses, pass on its reason.',
+  'When the person wants something Prime Capitol doesn\'t offer, say so plainly; you may offer to pass it on as an anonymous suggestion (note_feature_request) and call it only if they agree.',
   'Props, times, people and rules come only from these tools. Other people\'s email addresses, internal notes and costs are not available.',
 ].join(' ')
 
@@ -351,12 +352,15 @@ const WIDGET_RESOURCE_META = {
   'openai/widgetDescription': 'Prime Capitol cards: prop photos with availability, free filming times, and shoot details. Display only.',
   'openai/widgetPrefersBorder': false,
 }
+const FILE_PARAMS: Record<string, string[]> = { request_props: ['reference_image'], change_props_request: ['reference_image'] }
 function describeTool(tl: { name: string; annotations: Record<string, boolean> } & Record<string, unknown>) {
   const w = WIDGET_TOOLS[tl.name]
   return { ...tl,
     securitySchemes: [{ type: 'oauth2', scopes: ['primecapitol'] }],
     _meta: {
       securitySchemes: [{ type: 'oauth2', scopes: ['primecapitol'] }],
+      // ChatGPT passes these inputs as files it already has (e.g. a picture it just made), instead of text.
+      ...(FILE_PARAMS[tl.name] ? { 'openai/fileParams': FILE_PARAMS[tl.name] } : {}),
       ...(w ? { ui: { resourceUri: WIDGET_URI }, 'openai/outputTemplate': WIDGET_URI_SKYBRIDGE, 'openai/toolInvocation/invoking': w.invoking, 'openai/toolInvocation/invoked': w.invoked, 'openai/widgetAccessible': false } : {}),
     } }
 }

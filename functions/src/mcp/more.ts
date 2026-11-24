@@ -21,6 +21,7 @@ import {
 } from './common.js'
 import { resolveWhen } from './understand.js'
 import { suggestNext } from './casual.js'
+import { attachRefImage, CUSTOM_NOTE } from './custom.js'
 
 export const APP_URL = 'https://proptracker.arbcreative.co'
 const PLACE: Record<string, string> = { cliff1: 'Cliff 1', cliff2: 'Cliff 2', offsite: 'Offsite' }
@@ -63,7 +64,9 @@ export const MORE_TOOLS = [
   { name: 'change_props_request', title: 'Change a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Change one of the person\'s props requests while it is still "requested": set the quantity of props (0 removes one; new ids add them) and/or add custom props. Additions must still be within the props notice. Confirm the new list with the person first.',
     inputSchema: obj({ request_id: { type: 'string', description: 'Props request id from get_context or my_props_requests (the video name also works)' }, items: { type: 'array', maxItems: 60, items: obj({ id: { type: 'string', description: 'Prop id (an exact prop name also works)' }, qty: { type: 'integer', minimum: 0 } }, ['id', 'qty']) },
-      add_custom: { type: 'array', maxItems: 10, items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']) } }, ['request_id']) },
+      add_custom: { type: 'array', maxItems: 10, items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']) },
+      reference_image: { type: 'object', properties: { download_url: { type: 'string' }, file_id: { type: 'string' } }, description: 'Optional picture of what a new custom prop should look like; goes on the one named in reference_for, else the first added' },
+      reference_for: { type: 'string' } }, ['request_id']) },
   { name: 'cancel_props_request', title: 'Cancel a props request', annotations: DESTRUCTIVE_OUT,
     description: 'Cancel one of the person\'s props requests (only before pick-up). Confirm first.',
     inputSchema: obj({ request_id: { type: 'string', description: 'Props request id from get_context or my_props_requests (the video name also works)' } }, ['request_id']) },
@@ -110,11 +113,13 @@ export async function runMoreTool(name: string, args: Json, u: McpUser): Promise
         if (!pid) continue
         if (q === 0) lines.delete(pid); else lines.set(pid, q)
       }
-      const builds = [...((r.builds ?? []) as Json[]), ...(objs(args.add_custom)).map(b => ({ description: s(b.description, 200), qty: Number(b.qty) || 1 })).filter(b => b.description)]
+      const pic = await attachRefImage(args, objs(args.add_custom).map(b => ({ description: s(b.description, 200), qty: Math.min(99, Math.max(1, Number(b.qty) || 1)) })).filter(b => b.description), u)
+      if ('problem' in pic) return { text: pic.problem }
+      const builds = [...((r.builds ?? []) as Json[]), ...pic.builds]
       if (!lines.size && !builds.length) return { text: 'That would leave the request empty: cancel it instead (cancel_props_request).' }
       try { await editReservation.run(asUser(u, { id, lines: [...lines].map(([itemId, qty]) => ({ itemId, qty })), builds })) } catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
       const names = new Map((await loadCloset()).map(p => [p.id, p.name]))
-      return { text: `Changed "${r.title}": ${[...lines].map(([k, q]) => `${names.get(k) ?? k} x${q}`).join(', ')}${builds.length ? ` + ${builds.length} custom` : ''}.` }
+      return { text: `Changed "${r.title}": ${[...lines].map(([k, q]) => `${names.get(k) ?? k} x${q}`).join(', ')}${builds.length ? ` + ${builds.length} custom` : ''}.${pic.builds.length ? ` ${CUSTOM_NOTE}` : ''}` }
     }
     case 'cancel_props_request': {
       const id = s(args.request_id, 100)

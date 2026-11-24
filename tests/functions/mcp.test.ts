@@ -227,13 +227,38 @@ describe('connector tools', () => {
     const d2 = d ?? (await getDoc(key('feature', 'book a makeup artist')))
     expect(d2).toBeTruthy()
     expect(JSON.stringify(d2)).not.toMatch(/ana|example\.com|Lopez/i)
-    // A prop searched for by name that the closet doesn't have is counted too.
+    // Nothing is counted quietly: a search that finds nothing saves nothing.
     await tool(t.access_token, 'search_props', { query: 'pirate ship' })
-    expect((await getDoc(key('prop_missing', 'pirate ship')))?.count).toBe(1)
-    // Off switch: nothing more is saved.
-    await put(`profiles/${ANA}`, { shareSuggestions: false })
+    expect(await getDoc(key('prop_missing', 'pirate ship'))).toBeNull()
+    // Names of people who film never stay in the text; only the month is kept.
+    await put('users/kyle@example.com', { email: 'kyle@example.com', role: 'creator', active: true, name: 'Kyle Reed', access: 'full' })
+    await tool(t.access_token, 'note_feature_request', { request: "Kyle's drone for aerial shots", kind: 'gear' })
+    const g = await getDoc(key('feature', 'gear: drone for aerial shots'))
+    expect(g?.text).toBe('gear: drone for aerial shots')
+    expect(String(g?.last)).toMatch(/^\d{4}-\d{2}$/)
+    // Changes never pick a target by themselves.
+    expect((await tool(t.access_token, 'cancel_shoot', {})).structuredContent.needs_clarifying).toBe(true)
+    // Off switch (private to the person): nothing more is saved.
+    await put(`connector_prefs/${ANA}`, { shareSuggestions: false })
     expect((await tool(t.access_token, 'note_feature_request', { request: 'drone footage' })).structuredContent.saved).toBe(false)
     expect(await getDoc(key('feature', 'drone footage'))).toBeNull()
+  })
+
+  it('custom props can carry a reference picture, only from ChatGPT or their own folder, and never get a date', async () => {
+    const t = await connect(ANA)
+    await tool(t.access_token, 'book_shoot', { place: 'cliff2', day: FRI, start: '13:00', end: '15:00' })
+    const bad = await tool(t.access_token, 'request_props', { shoot_id: FRI, video_name: 'Doll House', custom: [{ description: 'creepy porcelain doll' }], reference_image: 'https://evil.example.com/x.png' })
+    expect(bad.content[0].text).toMatch(/Couldn't attach the picture/)
+    const mine = `http://127.0.0.1:9199/v0/b/demo-proptracker.appspot.com/o/${encodeURIComponent(`request-photos/${ANA}/ai-1.jpg`)}?alt=media&token=t1`
+    const okRes = await tool(t.access_token, 'request_props', { shoot_id: FRI, video_name: 'Doll House', custom: [{ description: 'fog machine' }, { description: 'creepy porcelain doll' }], reference_image: { download_url: mine, file_id: 'f1' }, reference_for: 'doll' })
+    expect(okRes.content[0].text).toMatch(/with the reference picture/)
+    expect(okRes.content[0].text).toMatch(/Don't promise a date/)
+    const res = (await getDoc(`reservations/${okRes.structuredContent.result.id}`))!
+    expect(res.builds.find((b: { description: string }) => b.description === 'creepy porcelain doll').refPhoto).toBe(mine)
+    expect(res.builds.find((b: { description: string }) => b.description === 'fog machine').refPhoto).toBeUndefined()
+    // ChatGPT is told its picture inputs are files.
+    const tools = (await rpc(t.access_token, 'tools/list')).result.tools
+    expect(tools.find((x: { name: string }) => x.name === 'request_props')._meta['openai/fileParams']).toEqual(['reference_image'])
   })
 
   it('cannot touch someone else\'s shoot', async () => {

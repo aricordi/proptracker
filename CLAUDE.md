@@ -2961,6 +2961,19 @@ comes from the schedule). Owner open to smarter rules than today's. Owner answer
       missing needs, unknown prop names in request_props/change, and every needs_clarifying (tool: field only). Awaited, never thrown
       (fire-and-forget after the response can be frozen by Cloud Run). Rules: mcp_demand owner read only. Owner screen /demand
       (DemandScreen, Team → Help & records). Privacy policy section "Anonymous suggestions". Tests unit demand, mcp, attack matrix.
+    - FINAL COMPLIANCE FIXES + CUSTOM-PROP PICTURES (owner, Nov 24): (1) BUG: /ai was defined twice (owner AI budget wins), so creators
+      never reached the connector screen: it's now /connector (AccountScreen, appGuide). (2) Suggestions are ONLY saved through
+      note_feature_request after the AI ASKS and the person says yes (no passive counting in search_props/props_for_idea/lenient:
+      that was "query patterns" + made readOnly labels untrue); names of everyone who films + the caller are stripped
+      (cleanDemand(text, names)), `last` = month; the switch lives in connector_prefs/{email} (rules: only that person reads/writes;
+      profiles no longer take shareSuggestions); mcp_demand ttl override added (firestore.indexes.json). DemandScreen = Features /
+      Props wanted. (3) Writes never pick a target from an empty reference (lenient MUST_NAME + named refs). (4) get_context partners
+      without counts; softer descriptions; INSTRUCTIONS line on suggestions; kit: per-tool safety-label table + data practices +
+      test cases 7–8. (5) CUSTOM-PROP PICTURES: request_props / change_props_request take `reference_image` (ChatGPT file object
+      {download_url, file_id} via _meta 'openai/fileParams', or a link) + `reference_for`; functions/src/mcp/refImage.ts fetches
+      ONLY from ChatGPT file hosts (*.oaiusercontent.com, *.openai.com, chatgpt.com) or the creator's own request-photos folder,
+      https, ≤12 MB, decodes with sharp, saves request-photos/{email}/ai-*.jpg → build.refPhoto (arts sees it on the request).
+      custom.ts CUSTOM_NOTE on every custom reply + INSTRUCTIONS: never give a date; the arts department follows up separately (Slack).
     - TRAINING MANUALS (owner, Nov 23: "nobody reads the tutorial… a manual for every user type… a 3-page quick guide with pictures and a
       presentation"): docs/manuals/ = creator.html (68 tasks), arts.html (61), equipment.html (64), admin.html (56), each built from
       _template.html (search box filters task cards, goal groups, steps with real button names, Quick answers), quickguide.html (3 printable

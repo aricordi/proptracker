@@ -48,9 +48,10 @@ const SEED: Record<string, Record<string, unknown>> = {
   calendar_tokens: { email: P.other }, push_log: {}, calendar_sent: {}, calendar_mirror: {}, dup_verdicts: {},
   import_lists: {}, admin_tasks: {}, email_moves: {}, calendar_imports: {}, calendar_removed: {}, push_sent: {}, cleanup: {},
   import_hashes: {}, users_extra: {}, mcp_demand: { kind: 'feature', text: 'drone shots', count: 3 },
+  connector_prefs: { shareSuggestions: false },
 }
 const docPath = (col: string) => col === 'personalitem' ? ['items', 'personal1']
-  : col === 'profiles' || col === 'user_status' ? [col, P.other] : [col, 'd1']
+  : col === 'profiles' || col === 'user_status' || col === 'connector_prefs' ? [col, P.other] : [col, 'd1']
 const SERVER_ONLY = ['bug_reports', 'import_jobs', 'import_items', 'activity_personal', 'activity', 'checkouts', 'gear_items',
   'gear_bundles', 'gear_holds', 'schedule_days', 'shoots', 'swap_requests', 'schedule_invites', 'cast_invites', 'waitlist', 'monthly_wishes',
   'monthly_draws', 'schedule_reports', 'strikes', 'flag_reviews', 'user_status', 'gear_bookings', 'item_vectors', 'prop_wants',
@@ -64,7 +65,7 @@ const NOBODY = ['item_vectors', 'private_google', 'private_google_states', 'push
   'calendar_sent', 'calendar_mirror', 'dup_verdicts', 'import_lists', 'admin_tasks', 'email_moves', 'push_sent', 'import_hashes']
 // Another creator's own records: a creator (or demo creator) must not read them.
 const OTHERS_PRIVATE = ['shoots', 'swap_requests', 'schedule_invites', 'cast_invites', 'waitlist', 'monthly_wishes', 'schedule_reports', 'strikes',
-  'flag_reviews', 'user_status', 'gear_bookings', 'reservations', 'suggestions', 'outbox', 'bug_reports']
+  'flag_reviews', 'user_status', 'gear_bookings', 'reservations', 'suggestions', 'outbox', 'bug_reports', 'connector_prefs']
 
 beforeAll(async () => {
   env = await initializeTestEnvironment({ projectId: PROJECT_ID, firestore: { rules: readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8080 } })

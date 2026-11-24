@@ -4,7 +4,8 @@ import { PageHeader } from '../components/PageHeader'
 import { CONNECTOR_URL, myConnectors, disconnectConnector, reviewerAccount, type Connection } from '../services/connector'
 import { useSession } from '../auth'
 import { friendlyError } from '../lib/errors'
-import { useProfiles, saveProfile } from '../services/profiles'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 
 const ago = (iso: string) => iso ? new Date(iso).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) : ''
 
@@ -92,21 +93,21 @@ function ReviewerCard() {
 // Anonymous suggestions (owner, Nov 24; OpenAI: disclosed + under the person's control). On by default; off = nothing is saved.
 function SuggestionsCard() {
   const { profile } = useSession()
-  const mine = useProfiles()[profile.email]
-  const [on, setOn] = useState<boolean | null>(null)
+  const [value, setValue] = useState(true)
   const [err, setErr] = useState('')
-  const value = on ?? (mine?.shareSuggestions !== false)
+  // Private to this person (connector_prefs/{email}); missing = on.
+  useEffect(() => { getDoc(doc(db, 'connector_prefs', profile.email)).then(s => setValue(s.get('shareSuggestions') !== false)).catch(() => 0) }, [profile.email])
   const flip = async () => {
     const next = !value
-    setOn(next); setErr('')
-    try { await saveProfile(profile.email, { shareSuggestions: next }) } catch (e) { setOn(!next); setErr(friendlyError(e)) }
+    setValue(next); setErr('')
+    try { await setDoc(doc(db, 'connector_prefs', profile.email), { shareSuggestions: next, updatedAt: new Date().toISOString() }) } catch (e) { setValue(!next); setErr(friendlyError(e)) }
   }
   return (
     <section className="bg-pt-surface rounded-[20px] shadow-card p-5 space-y-2">
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <h2 className="text-[18px] font-semibold">Share anonymous suggestions</h2>
-          <p className="text-pt-muted text-[14px] mt-1">When you ask your AI for something the app can't do yet (a feature, a prop we don't have), it can pass a few words on to the team so they know what to add. Your name is never attached. The AI tells you when it does.</p>
+          <p className="text-pt-muted text-[14px] mt-1">When you ask your AI for something the app can't do yet (a feature, a prop we don't have), it can offer to pass a few words on to the team so they know what to add. It only does it if you say yes, and your name is never attached.</p>
         </div>
         <button role="switch" aria-checked={value} aria-label="Share anonymous suggestions" onClick={flip}
           className={`shrink-0 w-[52px] h-[32px] rounded-full relative transition-colors ${value ? 'bg-pt-accent' : 'bg-white/15'}`}>

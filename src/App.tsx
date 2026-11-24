@@ -446,7 +446,7 @@ export default function App() {
           <Route path="/account" element={<AccountScreen />} />
           <Route path="/help" element={<HelpScreen />} />
           <Route path="/videos" element={<VideosScreen />} />
-          <Route path="/ai" element={<AiConnectorScreen />} />
+          <Route path="/connector" element={<AiConnectorScreen />} />
         </Route>
         <Route path="*" element={<Navigate to="/browse" replace />} />
       </Routes>
@@ -516,7 +516,7 @@ export default function App() {
           <Route path="/team-log" element={<SeeGear><TeamLogScreen /></SeeGear>} />
           <Route path="/costs" element={<OwnerOnly><CostsScreen /></OwnerOnly>} />
           <Route path="/help" element={<HelpScreen />} />
-          <Route path="/ai" element={<AiConnectorScreen />} />
+          <Route path="/connector" element={<AiConnectorScreen />} />
           <Route path="/activity" element={<SeeStaff><ActivityScreen /></SeeStaff>} />
           <Route path="/people/:email" element={<SeeStaff><PersonHistoryScreen /></SeeStaff>} />
           <Route path="/import" element={<OwnerOnly><ImportScreen /></OwnerOnly>} />

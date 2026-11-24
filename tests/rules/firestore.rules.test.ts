@@ -570,3 +570,17 @@ describe('problem reports (owner, Nov 5)', () => {
     await assertFails(setDoc(doc(as(CREATOR), 'bug_reports', 'b2'), { what: 'x' }))
   })
 })
+
+describe('connector suggestions setting (Nov 24)', () => {
+  it('only the person reads or changes their own; the team and the owner cannot; suggestions are owner-read, server-written', async () => {
+    await assertSucceeds(setDoc(doc(as(CREATOR), 'connector_prefs', CREATOR), { shareSuggestions: false, updatedAt: 'now' }))
+    await assertSucceeds(getDoc(doc(as(CREATOR), 'connector_prefs', CREATOR)))
+    for (const who of [GEAR, ADMIN, ARTS, OWNER]) {
+      await assertFails(getDoc(doc(as(who), 'connector_prefs', CREATOR)))
+      await assertFails(setDoc(doc(as(who), 'connector_prefs', CREATOR), { shareSuggestions: true, updatedAt: 'now' }))
+    }
+    await assertFails(setDoc(doc(as(CREATOR), 'connector_prefs', CREATOR), { shareSuggestions: 'yes' }))
+    await assertFails(setDoc(doc(as(CREATOR), 'connector_prefs', CREATOR), { shareSuggestions: true, extra: 1 }))
+    await assertFails(setDoc(doc(as(CREATOR), 'mcp_demand', 'x'), { text: 'hi' }))
+  })
+})

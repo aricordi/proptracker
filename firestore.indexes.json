@@ -300,6 +300,12 @@
       "fieldPath": "ttl",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "collectionGroup": "mcp_demand",
+      "fieldPath": "ttl",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }

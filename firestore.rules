@@ -134,6 +134,15 @@ service cloud.firestore {
     // "Report a problem" (owner, Nov 5): written only by the server (reportBug / updateBugReport); the owner reads.
     // What creators asked the AI connector for that the app can't do yet (owner, Nov 24): anonymous counts, no person in it.
     // Written only by the server; the owner reads them on "What creators ask for".
+    // Each person's own connector setting (Share anonymous suggestions): only they can read or change it.
+    match /connector_prefs/{email} {
+      allow read: if signedIn() && myEmail() == email;
+      allow create, update: if signedIn() && myEmail() == email
+        && request.resource.data.keys().hasOnly(['shareSuggestions', 'updatedAt'])
+        && request.resource.data.shareSuggestions is bool
+        && request.resource.data.get('updatedAt', '') is string;
+      allow delete: if false;
+    }
     match /mcp_demand/{id} {
       allow read: if isOwner();
       allow write: if false;
@@ -280,8 +289,7 @@ service cloud.firestore {
     // the owner and schedule team can tidy anyone's (e.g. remove a photo).
     function validProfile() {
       let d = request.resource.data;
-      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'tourDoneAt', 'updatedAt', 'birthday', 'name', 'appVersion', 'appVersionAt', 'shareSuggestions'])
-        && d.get('shareSuggestions', true) is bool
+      return d.keys().hasOnly(['photoURL', 'googlePhoto', 'channel', 'tourDoneAt', 'updatedAt', 'birthday', 'name', 'appVersion', 'appVersionAt'])
         && d.get('appVersion', '') is string && d.get('appVersion', '').size() <= 20
         && d.get('appVersionAt', '') is string && d.get('appVersionAt', '').size() <= 40
         && d.get('birthday', '') is string && (d.get('birthday', '') == '' || d.get('birthday', '').matches('^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'))

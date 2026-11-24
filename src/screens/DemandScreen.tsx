@@ -1,17 +1,15 @@
 // What creators ask for (owner, Nov 24): things people asked the AI connector (ChatGPT / Claude) for that the app can't do yet,
-// counted anonymously: features and services, props searched for that the closet doesn't have, and the questions the tools
-// couldn't make sense of. No names are kept (see functions/src/mcp/demand.ts); people can turn it off in More → ChatGPT & Claude.
+// passed on (with the person's yes) and counted anonymously: features and services, and props the studio doesn't have. No names are kept (see functions/src/mcp/demand.ts); people can turn it off in More → ChatGPT & Claude.
 import { useEffect, useMemo, useState } from 'react'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { PageHeader, EmptyState } from '../components/PageHeader'
 import { formatDay } from '../lib/dates'
 
-interface Row { id: string; kind: 'feature' | 'prop_missing' | 'unclear'; text: string; count: number; last: string; tool?: string }
+interface Row { id: string; kind: 'feature' | 'prop_missing'; text: string; count: number; last: string; tool?: string }
 const TABS: { k: Row['kind']; label: string; line: string }[] = [
-  { k: 'feature', label: 'Features', line: 'Things people wanted that the app doesn\'t do yet. The AI passes them on and tells the person.' },
-  { k: 'prop_missing', label: 'Props wanted', line: 'Props and costumes people looked for that the closet doesn\'t have (by name).' },
-  { k: 'unclear', label: 'Confusing', line: 'Where the AI had to ask what someone meant (which tool and which detail). High counts = something to make clearer.' },
+  { k: 'feature', label: 'Features', line: 'Things people wanted that the app doesn\'t do yet. The AI offers to pass them on and only does it when the person says yes.' },
+  { k: 'prop_missing', label: 'Props wanted', line: 'Props, costumes and gear people wanted that the studio doesn\'t have.' },
 ]
 
 export default function DemandScreen() {
@@ -48,7 +46,7 @@ export default function DemandScreen() {
                   <span className="text-pt-accent font-semibold tabular-nums shrink-0">{r.count}×</span>
                 </div>
                 <div className="mt-2 h-1.5 rounded-full bg-white/6 overflow-hidden"><div className="h-full rounded-full bg-pt-accent/70" style={{ width: `${Math.max(4, (r.count / max) * 100)}%` }} /></div>
-                <p className="text-pt-muted text-[13px] mt-1">Last asked {formatDay(r.last, { month: 'short', day: 'numeric' })}</p>
+                <p className="text-pt-muted text-[13px] mt-1">Last asked {formatDay(`${r.last.slice(0, 7)}-01`, { month: 'long', year: 'numeric' })}</p>
               </li>
             ))}
           </ul>

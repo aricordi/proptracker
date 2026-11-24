@@ -25,6 +25,7 @@ export type { McpUser, ToolResult, Json } from './common.js'
 import { MORE_TOOLS, MORE_BOOKING, runMoreTool } from './more.js'
 import { understandArgs, knownFor } from './lenient.js'
 import { noteDemand } from './demand.js'
+import { attachRefImage, CUSTOM_NOTE } from './custom.js'
 import { runReviewerTool } from './reviewer.js'
 
 // Words people add that say nothing about the prop ("cop stuff", "some kind of chair", "any props for a diner").
@@ -77,14 +78,14 @@ export const TOOLS = [
     description: 'The live Prime Capitol rules (houses, booking hours, notice for props, priority days, approval, cancelling) and today\'s date in studio time (America/Toronto). Use these to reason about times and props yourself.',
     inputSchema: obj({}) },
   { name: 'note_feature_request', title: 'Pass on a suggestion', annotations: WRITE,
-    description: 'When the person wants something Prime Capitol can\'t do through these tools or the app (a feature, a service, a kind of prop or gear the studio doesn\'t have), save it as a short anonymous suggestion for the studio team: a few words about WHAT was wanted, no names or personal details. Tell the person you\'ve passed it on. Don\'t use it for things the tools already do, or for complaints about a specific person. The person can turn this off in the app (More → ChatGPT & Claude).',
-    inputSchema: obj({ request: { type: 'string', description: 'A few words, e.g. "book makeup artists", "drone footage", "rent a car for shoots"' },
+    description: 'Saves an anonymous suggestion for the studio team when the person wants something Prime Capitol doesn\'t offer (a feature, a service, or a prop, costume or gear the studio doesn\'t have). Ask the person first whether they\'d like it passed on, and only call this after they agree. A few words about what was wanted; never names or personal details. Not for things the tools already do. The person can turn suggestions off in the app (More → ChatGPT & Claude).',
+    inputSchema: obj({ request: { type: 'string', description: 'A few words about what was wanted, e.g. "book makeup artists" (no names)' },
       kind: { type: 'string', enum: ['feature', 'prop_or_costume', 'gear', 'other'] } }, ['request']) },
   { name: 'get_context', title: 'My context', annotations: READ,
-    description: 'Everything needed to understand this person\'s requests in one call: who they are and whether they can book, today\'s date and time in studio time, the next 14 days with weekday names, their upcoming shoots (ids, labels, collaborators, video names, props deadline), their open props requests, invites and swap requests waiting for them, the people they filmed with lately (person ids), and short house and booking rules. Use it at the start of a conversation and whenever you need to work out which day, shoot or person the person means.',
+    description: 'Everything needed to understand this person\'s requests in one call: who they are and whether they can book, today\'s date and time in studio time, the next 14 days with weekday names, their upcoming shoots (ids, labels, collaborators, video names, props deadline), their open props requests, invites and swap requests waiting for them, the people they filmed with lately (person ids), and short house and booking rules. Useful for working out which day, shoot or person the person means.',
     inputSchema: obj({}) },
   { name: 'how_to', title: 'How the app works', annotations: READ,
-    description: 'Answers "how do I…" / "where do I…" / "what happens if…" questions about the Prime Capitol app and studio (returning props, taking gear, strikes, guidelines, swaps, notifications, what a status means…) from the app\'s own guide for this person\'s role, with a link to the right screen. Use it whenever the person asks how something works or seems unsure what to do.',
+    description: 'Answers "how do I…" / "where do I…" / "what happens if…" questions about the Prime Capitol app and studio (returning props, taking gear, strikes, guidelines, swaps, notifications, what a status means…) from the app\'s own guide for this person\'s role, with a link to the right screen.',
     inputSchema: obj({ question: { type: 'string', description: 'Their question, in their words' } }, ['question']) },
   { name: 'whoami', title: 'Who am I', annotations: READ,
     description: 'The signed-in person: name, role and whether they can book (some creators can only browse props for now).',
@@ -139,10 +140,12 @@ export const TOOLS = [
     description: 'Cancel one of this person\'s shoots. If it\'s inside the notice period it counts as a no-show: the tool refuses and explains; only retry with accept_no_show true after the person clearly agrees. Always confirm first.',
     inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id from get_context or my_shoots (a short description also works)' }, accept_no_show: { type: 'boolean' } }, ['shoot_id']) },
   { name: 'request_props', title: 'Request props for a shoot', annotations: WRITE_OUT,
-    description: 'Send a props request for one of this person\'s shoots (the arts department packs it). items = prop ids from search_props with how many; custom = things to make or find (no guaranteed date). If the shoot already has a request still waiting, the props are added to it. Confirm the list first.',
+    description: 'Send a props request for one of this person\'s shoots (the arts department packs it). items = prop ids from search_props with how many; custom = things to make or find, optionally with a reference picture (reference_image). Custom props have no guaranteed date: never tell the person when one will be ready; the arts department contacts them separately (e.g. on Slack) about details and timing. If the shoot already has a request still waiting, the props are added to it. Confirm the list first.',
     inputSchema: obj({ shoot_id: { type: 'string', description: 'Shoot id from get_context or my_shoots (a short description also works)' }, video_name: { type: 'string', description: 'Name of the video' },
       items: { type: 'array', items: obj({ id: { type: 'string', description: 'Prop id (an exact prop name also works)' }, qty: { type: 'integer', minimum: 1 } }, ['id']), maxItems: 60 },
       custom: { type: 'array', items: obj({ description: { type: 'string' }, qty: { type: 'integer', minimum: 1 } }, ['description']), maxItems: 10 },
+      reference_image: { type: 'object', properties: { download_url: { type: 'string' }, file_id: { type: 'string' } }, description: 'Optional picture of what a custom prop should look like (e.g. one you just made with the person); attached to the custom prop named in reference_for, else the first one' },
+      reference_for: { type: 'string', description: 'Which custom prop the picture is for (its description)' },
       notes: { type: 'string' } }, ['shoot_id']) },
 ]
 const BOOKING_TOOLS = new Set(['book_shoot', 'move_shoot', 'cancel_shoot', 'request_props', 'my_shoots', 'my_props_requests', 'get_schedule', 'list_people', ...MORE_BOOKING])
@@ -188,7 +191,7 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
         const hay = `${e.title} ${e.words ?? ''} ${e.about}`.toLowerCase()
         return words.length > 0 && words.filter(w => hay.includes(w)).length >= Math.ceil(words.length / 2)
       }).slice(0, 3)
-      if (!hits.length) return { text: 'The app guide has nothing on that, so it\'s probably not something Prime Capitol does yet. If they want it, note_feature_request can pass it on to the team (tell them).', structured: { entries: [], not_in_app: true } }
+      if (!hits.length) return { text: 'The app guide has nothing on that, so it\'s probably not something Prime Capitol does yet. You can offer to pass it on to the team as an anonymous suggestion (note_feature_request, only if they say yes).', structured: { entries: [], not_in_app: true } }
       const entries = hits.map(e => ({ title: e.title, about: e.about.replace(/\s*\((?:owner|admin)[^)]*\b(?:Oct|Nov|Dec)\b[^)]*\)/g, '').slice(0, 900), ...(e.path && !e.path.includes(':') ? { app_link: `${APP_LINK}${e.path}` } : {}) }))
       return { text: entries.map(e => `${e.title}: ${e.about}${e.app_link ? ` (Open: ${e.app_link})` : ''}`).join('\n\n'), structured: { entries } }
     }
@@ -214,9 +217,9 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const counts = new Map<string, number>()
       for (const x of known.shoots) for (const w of x.with) if (w) counts.set(w, (counts.get(w) ?? 0) + 1)
       const people = u.reviewer ? [] : await filmingPeople({ includeDemo: true, offApp: true })
-      const partners = [...counts].sort((x, y) => y[1] - x[1]).slice(0, 6).map(([n, c]) => {
+      const partners = [...counts].sort((x, y) => y[1] - x[1]).slice(0, 6).map(([n]) => {
         const p = people.find(q => q.name === n)
-        return { name: shortName(n), times: c, ...(p ? { person_id: personId(p.email) } : {}) }
+        return { name: shortName(n), ...(p ? { person_id: personId(p.email) } : {}) }
       })
       const data = {
         you: { name: firstName(caller.name), role: caller.role, can_book: canBook, ...(caller.demo ? { note: 'Props only for now: can search and look at props, not book' } : {}) },
@@ -259,7 +262,6 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const day = isDay(args.day) ? args.day as string : ''
       const { found, byWords } = await findProps(query, cat, limit, u)
       const free = day ? await freeOn(day, found.map(p => p.id)) : {}
-      if (!byWords.length) await noteDemand(u, 'prop_missing', query.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1 && !FILLER.has(w)).join(' '), 'search_props')   // nothing by name: an anonymous "wanted" count
       const rows = found.map(p => ({ ...short(p), tags: p.tags.slice(0, 6), description: p.description.slice(0, 160), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined, match: byWords.includes(p) ? 'words' : 'similar meaning' }))
       return { text: rows.length ? rows.map(r => `${r.id} | ${r.name} | ${r.category} | x${r.how_many}${day ? ` | free ${r.free_that_day}` : ''} | ${r.match}`).join('\n') : `Nothing in the closet matches "${query}". Try other words, or ask for it as a custom prop.`,
         structured: { query, day: day || null, results: rows } }
@@ -277,7 +279,6 @@ export async function runTool(name: string, input: Json, u: McpUser): Promise<To
       const groups = per.map(x => ({ scene: x.scene || undefined, need: x.need,
         matches: x.found.map(p => ({ ...short(p), ...(day ? { free_that_day: free[p.id] ?? 0 } : {}), damaged: p.damaged || undefined })) }))
       const missing = groups.filter(g => !g.matches.length).map(g => g.need)
-      for (const m of missing) await noteDemand(u, 'prop_missing', m, 'props_for_idea')
       const top = per.flatMap(x => x.found.slice(0, 2)).filter((p, i, a) => a.findIndex(q => q.id === p.id) === i).slice(0, 12)
       const text = groups.map(g => `${g.scene ? `[${g.scene}] ` : ''}${g.need}: ${g.matches.length ? g.matches.map(m => `${m.name} (${m.id}, x${m.how_many}${day ? `, ${m.free_that_day} free` : ''})`).join('; ') : 'nothing in the closet (could be a custom prop)'}`).join('\n')
       return { text: `${text}\n\nOffer to show these with show_props, tweak the idea around what exists, or request them for one of their shoots.`,
@@ -461,7 +462,10 @@ async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {
   const sh = await docById('shoots', id)
   if (!sh || sh.creatorEmail !== u.email || !['booked', 'requested'].includes(sh.status)) return { text: 'Pick one of your upcoming shoots (my_shoots) to add props to.' }
   const lines = objs(args.items).map(x => ({ itemId: s((x as Json).id, 128), qty: Math.min(99, Math.max(1, Math.floor(Number((x as Json).qty) || 1))) })).filter(l => l.itemId)
-  const builds = objs(args.custom).map(x => ({ description: s((x as Json).description, 200), qty: Math.min(99, Math.max(1, Math.floor(Number((x as Json).qty) || 1))) })).filter(b => b.description)
+  let builds: { description: string; qty: number; refPhoto?: string }[] = objs(args.custom).map(x => ({ description: s((x as Json).description, 200), qty: Math.min(99, Math.max(1, Math.floor(Number((x as Json).qty) || 1))) })).filter(b => b.description)
+  const pic = await attachRefImage(args, builds, u)
+  if ('problem' in pic) return { text: pic.problem }
+  builds = pic.builds
   if (!lines.length && !builds.length) return { text: 'Add at least one prop (ids from search_props) or a custom prop.' }
   // A request still waiting on this shoot gets the new props added; otherwise a new request.
   const open = (await db.collection('reservations').where('creatorEmail', '==', u.email).where('scheduleShootId', '==', id).get()).docs.find(d => d.get('status') === 'requested')
@@ -473,15 +477,16 @@ async function propsTool(args: Json, u: McpUser): Promise<ToolResult> {
       await editReservation.run(asUser(u, { id: open.id, lines: [...merged].map(([itemId, qty]) => ({ itemId, qty })),
         builds: [...((open.get('builds') ?? []) as Json[]), ...builds] }))
     } catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
-    return { text: `Added to your request "${open.get('title')}" for ${sh.date}. The arts department will see it.` }
+    return { text: `Added to your request "${open.get('title')}" for ${sh.date}. The arts department will see it.${builds.length ? ` ${CUSTOM_NOTE}` : ''}` }
   }
   const title = s(args.video_name, 120) || s(sh.title, 120) || 'Video'
   let r: Json
   try { r = await createReservation.run(asUser(u, { startDate: sh.date, endDate: sh.date, scheduleShootId: id, title, notes: s(args.notes, 500), lines, builds })) as Json }
   catch (e) { const why = propsProblem(e); if (why) return { text: why }; throw e }
-  return { text: `Sent: props request "${title}" for your ${sh.date} shoot (${lines.length} prop${lines.length === 1 ? '' : 's'}${builds.length ? `, ${builds.length} custom` : ''}). The arts department packs it; you'll get a notification when it's ready.${builds.length ? ' Custom props have no guaranteed date: sort details with the arts department on Slack.' : ''}`, structured: { result: r } }
+  return { text: `Sent: props request "${title}" for your ${sh.date} shoot (${lines.length} prop${lines.length === 1 ? '' : 's'}${builds.length ? `, ${builds.length} custom` : ''}${builds.some(b => b.refPhoto) ? ', with the reference picture' : ''}). The arts department packs it; you'll get a notification when it's ready.${builds.length ? ` ${CUSTOM_NOTE}` : ''}`, structured: { result: r } }
 }
 
 export const OWNER = OWNER_EMAIL
 const APP_LINK = 'https://proptracker.arbcreative.co'
+
 const HOW_STOP = new Set(['how', 'the', 'and', 'can', 'what', 'where', 'when', 'does', 'this', 'that', 'with', 'for', 'you', 'your', 'are', 'there', 'want', 'need', 'use', 'get', 'app', 'way', 'have', 'from', 'into', 'its', 'not', 'any', 'why', 'book', 'booking', 'make', 'happen', 'happens', 'work', 'works', 'doe', 'did', 'will', 'should', 'could', 'would', 'just', 'like', 'my', 'me'])

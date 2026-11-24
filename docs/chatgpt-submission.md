@@ -26,6 +26,11 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
 6. "I want to film with Jordan and Kai tomorrow." → plan_shoot (works out who they are, 6 hours for the three of them,
    times free for everyone), offers 2–3 times, books the chosen one with book_shoot after confirming.
 
+7. "Can you book me a makeup artist for Saturday?" → explains Prime Capitol doesn't offer that, asks whether to pass it on as an
+   anonymous suggestion, and calls note_feature_request only after a yes.
+8. "Make me a picture of a creepy porcelain doll and send it with my Saturday props request as a custom prop." → creates the image,
+   confirms, request_props with custom + reference_image; says the arts department will follow up (no date given).
+
 ## Test cases (3 negative: the app should not act)
 1. "Book Cliff 1 for 6 hours just for me." → explains 2 hours per person and asks who else is filming (no booking).
 2. "Cancel Maanik's shoot." → refuses: only your own shoots.
@@ -56,3 +61,20 @@ Everything the OpenAI plugin/app submission form asks for, ready to paste. (Prep
   through Claude (any plan) or ChatGPT Developer mode (Plus/Pro), see above.
 - **Times that need a guideline PDF** (Cliff 1 on priority days) aren't offered or booked from the chat: the assistant
   sends the person to the app, because a PDF can't be attached from ChatGPT.
+
+## Safety labels per tool (why each one is set the way it is)
+| Tool | Read only | Destructive | Reaches others / outside | Why |
+|---|---|---|---|---|
+| get_context, get_rules, whoami, how_to, search_props, props_for_idea, browse_props, list_categories, show_props, get_prop, get_schedule, list_people, my_shoots, my_props_requests, my_status, get_shoot, plan_shoot, find_free_times, prop_calendar, app_link | yes | no | no | Only read the person's own data, the closet and the schedule; nothing is saved. |
+| note_feature_request | no | no | no | Saves an anonymous suggestion (after the person agrees); nobody is notified. |
+| join_waitlist | no | no | no | Adds the person to a waitlist; nothing changes for anyone else until a time opens. |
+| leave_waitlist | no | yes | no | Removes their waitlist spot. |
+| book_shoot, request_props, invite_to_video, answer_video_invite, request_swap, report_problem | no | no | yes | Create something the studio team or other creators are notified about (and that reaches Google Calendar). |
+| move_shoot, cancel_shoot, change_props_request, cancel_props_request, answer_swap | no | yes | yes | Change or remove an existing booking or request; the team / the other creator is notified. |
+
+## Data practices (for the form)
+- Reads: the person's own shoots, requests, invites and status; the company props closet; the schedule (other people as first
+  name + last initial); studio rules. Never other people's emails, costs, internal notes or private props.
+- Saves: what the person asks it to do (bookings, requests…, exactly as in the app); anonymous suggestions only after the
+  person agrees (names stripped, month only, deleted after a year, can be turned off); connection and rate-limit records
+  (short-lived). No conversation content is kept.
