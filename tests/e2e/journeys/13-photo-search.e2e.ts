@@ -22,18 +22,12 @@ test('creator searches the closet with a photo, then clears it', async ({ page }
   await expect(page.getByTestId('photo-results')).toHaveCount(0)
 })
 
-// The same photo search from the Chat (Nov 7): the camera next to the mic, the answer shows like prop ideas (tick + Add).
-test('creator sends the chat a photo: "Looks like…" + props to tick', async ({ page }) => {
+// From the Chat (option A, Nov 24): a photo is handed to ChatGPT/Claude, which matches it to the closet.
+test('creator sends the chat a photo: handed to ChatGPT/Claude, with Search the closet', async ({ page }) => {
   await signIn(page, 'creator')
-  await openTab(page, 'Props')
-  await expect(page.locator('img').first()).toBeVisible({ timeout: 15_000 })   // the props list is loaded
   await openTab(page, 'Chat')
   await expect(page.getByRole('button', { name: 'Find props like a photo' })).toBeVisible()
   await page.getByTestId('chat-photo-input').setInputFiles(testPhoto())
-  await expect(page.getByText('Find props like this photo')).toBeVisible()
-  await expect(page.getByText(/Looks like a red rotary phone/)).toBeVisible({ timeout: 30_000 })
-  const tick = page.getByRole('button', { name: /^Tick .*Rotary phone/ }).first()
-  await expect(tick).toBeVisible({ timeout: 15_000 })
-  await tick.click()
-  await expect(page.getByRole('button', { name: /^Untick .*Rotary phone/ }).first()).toBeVisible()
+  await expect(page.getByText(/ChatGPT or Claude can match a photo/)).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'Search the closet' })).toBeVisible()
 })

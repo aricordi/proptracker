@@ -13,6 +13,7 @@
 // It stays in its box: each message goes to one of the two server helpers (ideaToProps / askForTime), which check
 // the budget, treat the words as data only, and return fixed answers the server has checked. The AI can't book,
 // read or change anything itself; every Book / Add button here is a normal tap by the person.
+import { goToAi, preferredAiApp, aiAppName, knownConnected, openAiLauncher, type AiApp } from './AiLauncher'
 import TypeOut from './TypeOut'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
@@ -74,6 +75,7 @@ type Msg =
   | { who: 'status' }   // chat: "is my shoot approved?" → your shoots with their status
   | { who: 'videos' }   // chat: "am I in any videos?" → invites to answer + the videos you said yes to (Nov 21)
   | { who: 'actions'; items: { label: string; to?: string; shootId?: string; ask?: string }[] }   // buttons that open the right screen
+  | { who: 'handoff'; prompt: string; kind: 'props' | 'time' | 'plan' | 'photo'; q: string }   // option A (Nov 24): ChatGPT/Claude does this
   | { who: 'return' } | { who: 'report'; text: string } | { who: 'pickup' }   // done right in the chat (Nov 3)
   | { who: 'now'; shootId: string }   // "im here" / "we're done": the check-in or wrap card, right in the chat (chat QA, Nov 6)
   | OncePlan   // Say it once, confirm once (owner, Nov 7): a time AND props in one message → one card, one "Do it"
@@ -118,8 +120,8 @@ const OPENERS: Record<Helper, string> = {
   help: 'Ask me how to do anything in the app.',
 }
 // No "props or time" switch (owner, Oct 20): src/lib/aiRoute.ts reads each message and runs one helper or both.
-const GREETING = 'Tell me your video idea, or when you want to film, or both. I\'ll find the props we have and the times that are free. Stuck somewhere? Ask me how anything in the app works.'
-const DEMO_OPENER = 'Tell me your video idea and I\'ll find props from our closet that fit, scene by scene. Then keep going: "make it spookier", "something for the ending"… Tap any prop to see it. You can also ask me how the app works.'
+const GREETING = 'Ask me how anything in the app works, or about your shoots and requests. For props ideas and finding times, your ChatGPT or Claude (with Prime Capitol) is much smarter: tap ✦ AI.'
+const DEMO_OPENER = 'Ask me how the app works. For props ideas for a video, your ChatGPT or Claude (with Prime Capitol) is much smarter: tap ✦ AI, or search the closet on Props.'
 const DEMO_NO_TIME = 'Booking isn\'t open for you yet, so I can\'t look at times. Tell me about the video and I\'ll find props for it.'
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -199,13 +201,13 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     : m ? [{ who: 'bot', text: `${hello} ${OPENERS[m]}` }] : page ? [{ who: 'bot', text: `${hello} What do you need?` }] : [{ who: 'bot', text: `${hello} ${GREETING}` }, { who: 'choose' }]
   // Examples of both kinds, plus your next booked shoot when you have one.
   // Chat first (owner, Nov 2: "clickable pre-populated prompts"): the things people actually say, booking first.
+  // Option A (Nov 24): this chat answers how-to and status; props and times are ChatGPT/Claude's job (the ✦ AI button).
   const mixed = () => [
-    `Book ${WEEKDAY[(new Date(today + 'T12:00:00').getDay() + 2) % 7]} at ${s.houses.cliff1.name} at 5pm`,
-    'Find me 2 hours this week with a friend',
-    ...(upcoming[0] ? [`Props for my ${WEEKDAY[new Date(upcoming[0].date + 'T12:00:00').getDay()]} shoot`] : [STARTERS.props[1]]),
     'Is my shoot approved?',
+    'How do I book a time?',
     ...(upcoming[0] ? ['Cancel my next shoot'] : []),
     STARTERS.help[0],
+    STARTERS.help[1],
   ]
   // `mode` = what the chat was last doing, so short follow-ups ("anything earlier?") keep going.
   const [mode, setMode] = useState<Helper | null>(helpOnly ? 'help' : demo ? 'props' : helper ?? null)
@@ -223,7 +225,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // Their last 3 video names (from their own props requests), so the chat's AI knows them a little.
   const [videos, setVideos] = useState<string[]>([])
   useEffect(() => { if (!remember || demo || helpOnly) return; return subscribeToReservations({ email: profile.email, all: false }, l => setVideos(lastVideoNames(l))) }, [remember, demo, helpOnly, profile.email])
-  const demoChips = helpOnly ? (STAFF_STARTERS[role] ?? STARTERS.help) : [...STARTERS.props.slice(0, 3), 'How do I search the props?']
+  const demoChips = helpOnly ? (STAFF_STARTERS[role] ?? STARTERS.help) : ['How do I search the props?', 'How do I see more photos of a prop?', 'What can I do on Props only?']
   const [chips, setChips] = useState<string[]>(() => demo || helpOnly ? demoChips : helper ? STARTERS[helper] : mixed())
   // Keep the words on the phone once something new was said (just opening the chat doesn't restart the 7 days).
   // Result cards become one line of text ("Props I suggested: …", "Free times I found: …"); the hello isn't kept.
@@ -321,10 +323,25 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   // ── Plan my shoot ──
   const bugReport = useBugReport()
   const bot = (text: string, ...extra: Msg[]) => setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'bot', text }, ...extra])
+  // OPTION A (owner, Nov 24): props ideas, finding times and planning go to the person's own ChatGPT/Claude (the Prime Capitol
+  // connector is far smarter); the message is typed in for them. This chat keeps how-to, status, returns, reports, pick-ups.
+  function handOff(q: string, kind: 'props' | 'time' | 'plan' | 'photo') {
+    const prompt = kind === 'photo' ? 'Using Prime Capitol: find props in the closet that look like the photo I\'m attaching.'
+      : q.trim() ? `Using Prime Capitol: ${q.trim()}`
+      : kind === 'time' ? 'Using Prime Capitol, help me find a time to film.' : kind === 'props' ? 'Using Prime Capitol, help me find props from the closet for my next video.'
+      : 'Using Prime Capitol, help me plan my next shoot: the time and the props.'
+    const say = kind === 'props' ? 'Your ChatGPT or Claude is much better at props ideas: it reads the whole closet and shows photos. Your message is ready for it.'
+      : kind === 'time' ? 'ChatGPT or Claude finds and requests a time much better than I can (your message is ready), or pick one yourself on the Calendar.'
+      : kind === 'photo' ? 'ChatGPT or Claude can match a photo to the closet: open it, attach the photo there, and send.'
+      : 'Planning a whole shoot is best in ChatGPT or Claude: it finds the time, the props and books with your OK. Your message is ready.'
+    setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'bot', text: say }, { who: 'handoff', prompt, kind, q }])
+    setChips([]); setBusy(false); setThinking(null)
+  }
   const planShoot = upcoming.find(x => x.id === plan?.shootId)
   const planLabel = planShoot ? label(planShoot) : plan?.label ?? 'your shoot'
   const late = (kind: 'props' | 'builds' | 'gear') => !!planShoot && nowStamp() > cutoffs(planShoot)[kind]
   function startPlan() {
+    if (!helpOnly) { handOff('', 'plan'); return }
     setPlan({ step: 'time' }); setChips([])
     if (upcoming.length) bot(`Let's plan your shoot, step by step: time, props${gearOn ? ', gear' : ''}, then you check it all and send. Is it one you've already booked, or a new time?`, { who: 'shoots' })
     else planTime()
@@ -547,7 +564,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   async function runTurn(turn: ChatTurn, q: string) {
     // A time AND props in one message: one card with one "Do it" (owner, Nov 7), instead of two separate answers.
     const pair = !plan && !demo && !helpOnly ? pairOf(turn) : null
-    if (pair) return planOnce(turn, pair)
+    if (pair) { handOff(q, 'plan'); return }
     await runOne(turn, q)
     // A second thing in the same message ("book friday 5pm and i need a cop costume"): done right after (chat QA, Nov 6).
     const also = turn.also
@@ -565,8 +582,9 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
         if (plan && plan.step === 'props') return confirmLeave(turn.reply, turn.query || q, 'time')
         // The AI's query is a whole new sentence ("Thursday at 5 at Cliff 1"): search it fresh, so an earlier search's
         // friend, house or time doesn't sneak in (audit, Nov 7: "book me Thursday at 5" re-invited Kyle).
-        if (turn.reply) say(turn.reply); return runHelpers(turn.query || q, false, 'time', undefined, !!turn.query)
+        return handOff(turn.query || q, 'time')
       case 'props':
+        if (!helpOnly) return handOff(turn.query || q, 'props')
         if (plan && plan.step === 'time') return confirmLeave(turn.reply, turn.query || q, 'props')
         if (turn.shoot) choose(turn.shoot)
         // "props", "i need props", "props for tomorrow": no idea yet, so ask for one instead of searching the closet for
@@ -581,7 +599,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       case 'help':
         markMe('help')
         setMsgs(x => [...x, { who: 'bot', text: turn.reply || 'Here\'s how.', guide: { steps: turn.steps, links: turn.links } }]); setChips(nextSteps(turn.chips)); return
-      case 'plan': if (turn.reply) say(turn.reply); if (!plan) startPlan(); return
+      case 'plan': return handOff(q, 'plan')
       case 'reply': say(turn.reply); setChips(nextSteps(turn.chips)); return
       default:
         // Shoots, returns, reports, gear…: the app's own facts decide the card (and win over the AI's words when they disagree).
@@ -749,6 +767,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
       : plan?.step === 'time' ? { helpers: ['time'] }
       : routeMessage(q, { last: mode, shoots: upcoming.map(x => ({ id: x.id, date: x.date })) })
     const hs = route.helpers, both = hs.length > 1
+    // Option A: anything but how-to goes to ChatGPT/Claude.
+    if (!helpOnly) { const work = hs.filter(h => h !== 'help'); if (work.length) { handOff(q, work.length > 1 ? 'plan' : work[0] as 'props' | 'time'); return } }
     const target = demo ? undefined : route.shootId ?? shoot?.id
     const named = route.shootId && route.shootId !== shoot?.id ? upcoming.find(x => x.id === route.shootId) : undefined
     if (route.shootId) choose(route.shootId)
@@ -880,6 +900,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
     if (!i || i.archived || i.condition === 'damaged') return 0
     return freeForRange({ quantity: i.quantity, missingQty: i.missingQty, legacyCheckedOut: i.status === 'checked-out' }, bookings[id] ?? [], date, date, today, turnaround(i), settings)
   }
+  // Say-it-once (Nov 7) is dormant since option A (Nov 24): times + props go to ChatGPT/Claude. Kept for the team's fallback.
+  void planOnce
   async function planOnce(turn: ChatTurn, pair: { time: string; props: string }) {
     markMe('time'); setChips([])
     if (turn.reply) setMsgs(x => [...x, { who: 'bot', text: turn.reply }])
@@ -1041,6 +1063,7 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const photoInput = useRef<HTMLInputElement>(null)
   async function sendPhoto(file: File | undefined) {
     if (!file || busy) return
+    if (!helpOnly) { setMsgs(x => [...x.filter(y => y.who !== 'choose'), { who: 'me', text: PHOTO_TEXT, mode: 'props' }]); handOff('', 'photo'); return }
     if (listening) stopTalk()
     hush(); lastVoice.current = false; saidAloud.current = false
     let url = ''
@@ -1240,11 +1263,10 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
   const sugg: (Sugg | false)[] = helpOnly || demo ? [] : [
     !!takeShoot && { icon: 'camera', title: 'Take gear', sub: 'Pick it, tick every piece, one photo', go: () => { choose(takeShoot.id); navigate('/gear') } },
     hasOut && { icon: 'box', title: 'Bring it back', sub: 'A few taps, one photo', go: () => { send('I\'m returning everything') } },
-    !!propsShoot && { icon: 'sparkle', ai: true, title: `Props for ${formatDay(propsShoot.date, { weekday: 'short' })}`, sub: `Ideas for that shoot · by ${formatDay(cutoffs(propsShoot).props)}`, go: () => { send(`Props for my ${wd(propsShoot.date)} shoot`) } },
-    { icon: 'calendar', title: 'Book a time', sub: mixed()[0].replace(/^Book /, ''), go: () => { send(mixed()[0]) } },
-    { icon: 'people', title: 'With a friend', sub: 'Back-to-back slots this week', go: () => { send('Find me 2 hours this week with a friend') } },
-    { icon: 'sparkle', ai: true, title: 'Props for an idea', sub: STARTERS.props[1], go: () => { send(STARTERS.props[1]) } },
-    { icon: 'list', ai: true, title: 'Plan my whole shoot', sub: 'Time and props', go: () => startPlan() },
+    // Props and times: the person's own ChatGPT/Claude, with the message ready (option A, Nov 24).
+    !!propsShoot && { icon: 'sparkle', ai: true, title: `Props for ${formatDay(propsShoot.date, { weekday: 'short' })}`, sub: `In ChatGPT or Claude · by ${formatDay(cutoffs(propsShoot).props)}`, go: () => { openAiLauncher(`Using Prime Capitol, help me find props for my ${wd(propsShoot.date)} ${formatDay(propsShoot.date, { month: 'short', day: 'numeric' })} shoot.`) } },
+    { icon: 'sparkle', ai: true, title: 'Find a time with AI', sub: 'Opens ChatGPT or Claude', go: () => { openAiLauncher('Using Prime Capitol, help me find a time to film.') } },
+    { icon: 'calendar', title: 'Book on the Calendar', sub: 'See every free time', go: () => { navigate('/schedule') } },
     nextShoot ? { icon: 'check', title: 'Is it approved?', sub: 'Where your shoots are at', go: () => { send('Is my shoot approved?') } }
       : { icon: 'help', title: 'How does it work?', sub: 'Booking and props', go: () => { send('How does booking work?') } },
   ]
@@ -1426,6 +1448,8 @@ export default function Assistant({ shown, ask, onClose, page = false }: { shown
           </div>
         ) : m.who === 'once' ? (
           <div key={i}>{renderOnce(m)}</div>
+        ) : m.who === 'handoff' ? (
+          <HandOffCard key={i} m={m} onCalendar={() => go('/schedule')} onCloset={() => go(`/browse${m.q && m.q.length <= 40 ? `?q=${encodeURIComponent(m.q)}` : ''}`)} />
         ) : m.who === 'actions' ? (
           <div key={i} className="rise-in flex flex-wrap gap-2">{m.items.map((a, k) => (
             <button key={a.label} onClick={() => { if (a.shootId) choose(a.shootId); if (a.ask) send(a.ask); else if (a.to === '#report') bugReport.start(); else if (a.to === '#report-now') void bugReport.now(); else if (a.to) go(a.to) }}
@@ -1636,3 +1660,20 @@ function BookedYou({ shootId }: { shootId: string }) {
   return <div className="flex items-center justify-between text-sm"><span>You</span><span className={`rounded-full px-3 py-1 text-xs font-semibold ${cls}`}>{txt}</span></div>
 }
 
+
+// The hand-off to ChatGPT/Claude (option A, Nov 24): one big button opens the one they use with the message typed in.
+function HandOffCard({ m, onCalendar, onCloset }: { m: { prompt: string; kind: 'props' | 'time' | 'plan' | 'photo' }; onCalendar: () => void; onCloset: () => void }) {
+  const pref = preferredAiApp(), other: AiApp = pref === 'chatgpt' ? 'claude' : 'chatgpt'
+  const connected = knownConnected()
+  return (
+    <div className="rise-in rounded-[22px] p-4 bg-[#BF9DFF]/[0.10] space-y-2">
+      <button onClick={() => goToAi(pref, m.prompt)} className="w-full min-h-[52px] rounded-2xl bg-[#BF9DFF] text-[#140f22] font-bold text-[16px]">✦ Open {aiAppName(pref)}</button>
+      <div className="flex gap-2">
+        <button onClick={() => goToAi(other, m.prompt)} className="flex-1 min-h-[44px] rounded-xl bg-pt-raised text-pt-text text-[14px] font-semibold">{aiAppName(other)} instead</button>
+        {(m.kind === 'time' || m.kind === 'plan') && <button onClick={onCalendar} className="flex-1 min-h-[44px] rounded-xl bg-pt-raised text-pt-text text-[14px] font-semibold">Open the Calendar</button>}
+        {(m.kind === 'props' || m.kind === 'photo') && <button onClick={onCloset} className="flex-1 min-h-[44px] rounded-xl bg-pt-raised text-pt-text text-[14px] font-semibold">Search the closet</button>}
+      </div>
+      {!connected.length && <button onClick={() => openAiLauncher(m.prompt)} className="w-full min-h-[40px] text-[13px] text-pt-muted">Not set up yet? <b className="text-[#BF9DFF]">2-minute setup</b></button>}
+    </div>
+  )
+}

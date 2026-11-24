@@ -12,8 +12,9 @@ import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useRef, 
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from './auth'
+import { AiLauncherHost, openAiLauncher } from './components/AiLauncher'
 
-export type AssistantMode = 'props' | 'time' | 'plan'
+export type AssistantMode = 'props' | 'time' | 'plan' | 'help'
 const Assistant = lazy(() => import('./components/Assistant'))
 
 interface Ask { mode?: AssistantMode; shootId?: string; text?: string; n: number }
@@ -46,7 +47,18 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (chatFirst) setStarted(true) }, [chatFirst])
   useEffect(() => { setShown(false) }, [session.profile.email])
   // shootId (with 'plan'): plan an already-booked shoot, starting at its props. text: send this message straight away.
+  // Option A (owner, Nov 24): finding props, times and planning happen in the person's own ChatGPT/Claude (the Prime Capitol
+  // connector), so those open the launcher with the message ready. The app's own chat is the "how do I…" helper.
+  const handsOff = canBook || demo
+  const promptFor = (mode: AssistantMode, shootId?: string, text?: string) => text?.trim()
+    ? `Using Prime Capitol: ${text.trim()}`
+    : mode === 'props' ? `Using Prime Capitol, help me find props from the closet for ${shootId ? `my shoot (id ${shootId})` : 'my next video'}.`
+    : mode === 'time' ? 'Using Prime Capitol, help me find a time to film.'
+    : `Using Prime Capitol, help me plan ${shootId ? `my shoot (id ${shootId})` : 'my next shoot'}: the time and the props.`
+  const helpChat = () => { setAsk(a => ({ mode: 'help', n: a.n + 1 })); setStarted(true); if (chatFirst) navigate('/'); else setShown(true) }
   const open = (mode?: AssistantMode, shootId?: string, text?: string) => {
+    if (handsOff && (mode === 'props' || mode === 'time' || mode === 'plan')) { openAiLauncher(promptFor(mode, shootId, text)); return }
+    if (mode === 'help') { helpChat(); return }
     const m = demo ? 'props' : mode, id = demo ? undefined : shootId
     setAsk(a => ({ mode: m, shootId: id, text, n: a.n + 1 })); setStarted(true)
     if (chatFirst) navigate('/')
@@ -55,6 +67,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ open, available: true, chatFirst, host }}>
       {children}
+      {handsOff && <AiLauncherHost onHelp={helpChat} />}
       {started && (chatFirst && host
         ? createPortal(<Suspense fallback={null}><Assistant key={chatKey} page shown={onChatTab} ask={ask} onClose={() => navigate('/')} /></Suspense>, host)
         : !chatFirst && <Suspense fallback={null}><Assistant key={chatKey} shown={shown} ask={ask} onClose={() => setShown(false)} /></Suspense>)}
