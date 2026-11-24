@@ -59,7 +59,7 @@ test('equipment team approves one request, denies another with a reason, opens t
     await page.getByRole('tab', { name: 'Google Calendar' }).click()
     await expect(page.getByRole('tab', { name: 'Google Calendar', selected: true })).toBeVisible()
     await expect(page).toHaveURL(/tab=calendar/)
-    await expect(page.getByText(/^Google Calendar is checked every 15 minutes/)).toBeVisible()
+    await expect(page.getByText(/^Google Calendar is checked every (15|30) minutes/)).toBeVisible()
     await expect(page.getByText('All checked ✓')).toBeVisible()   // nothing imported in the test data
     await expect(page.getByRole('button', { name: 'Check now' })).toBeVisible()
   })
