@@ -12,6 +12,11 @@ Each manual says which version it was written for.
 
 
 
+## 1.2.1 · Nov 24, 2026
+
+- The privacy policy and terms now say the app is built and run by ARB Creative for Prime Capitol, with
+  support@arbcreative.co as the contact. Nothing in the app itself changed.
+
 ## 1.2.0 · Nov 24, 2026
 
 - **Book any time, not slots.** Pick your own start and end at a house in quarter hours (e.g. 1:15 to 3:15). Each person on a booking gets up to 2 hours: for 4 hours add one person filming with you, for 6 hours two, all on **one booking** that lists everyone. Friends don't have to confirm; it shows in their app too. The calendar's bar under each day shows how free each house is (bright = free, faded = partly free); tapping a day shows each house as a timeline with the free stretches in gold.
